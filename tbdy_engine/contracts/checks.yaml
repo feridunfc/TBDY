@@ -162,9 +162,9 @@ checks:
   severity: HIGH
   category: DETAILING
   uses_combo: []
-  implementation_status: IMPLEMENTED
-  runner_enabled: true
-  experimental: false
+  implementation_status: MISSING_OUTPUT
+  runner_enabled: false
+  experimental: true
   required_datasets:
   - geometry
   - topology
@@ -187,9 +187,9 @@ checks:
   severity: HIGH
   category: SUMMARY
   uses_combo: []
-  implementation_status: IMPLEMENTED
-  runner_enabled: true
-  experimental: false
+  implementation_status: PLANNED
+  runner_enabled: false
+  experimental: true
   required_datasets:
   - geometry
   - topology
@@ -341,9 +341,9 @@ checks:
   severity: HIGH
   category: SUMMARY
   uses_combo: []
-  implementation_status: IMPLEMENTED
-  runner_enabled: true
-  experimental: false
+  implementation_status: PLANNED
+  runner_enabled: false
+  experimental: true
   required_datasets:
   - geometry
   - topology
