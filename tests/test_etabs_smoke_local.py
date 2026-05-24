@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from tbdy_engine.etabs.connection import check_etabs_connection, get_sap
@@ -46,6 +48,13 @@ def _available_table_names(sap) -> set[str]:
     return set()
 
 
+def _read_table(table_name: str, sap):
+    async def _run():
+        return await get_table_df(table_name, sap)
+
+    return asyncio.run(_run())
+
+
 def test_etabs_connection_and_model_loaded(request):
     _skip_unless_marker_selected(request)
     connected, message = check_etabs_connection()
@@ -69,12 +78,11 @@ def test_etabs_available_tables_include_required_smoke_tables(request):
         assert table_name in available_tables
 
 
-@pytest.mark.asyncio
-async def test_etabs_required_smoke_tables_have_data(request):
+def test_etabs_required_smoke_tables_have_data(request):
     sap = _connected_sap_or_skip(request)
 
     for table_name in REQUIRED_SMOKE_TABLES:
-        result = await get_table_df(table_name, sap)
+        result = _read_table(table_name, sap)
 
         assert result.ok is True, table_name
         assert result.error is None, table_name
@@ -83,12 +91,11 @@ async def test_etabs_required_smoke_tables_have_data(request):
         assert result.df.shape[1] > 0, table_name
 
 
-@pytest.mark.asyncio
-async def test_etabs_optional_envelope_tables_are_readable_or_empty_without_error(request):
+def test_etabs_optional_envelope_tables_are_readable_or_empty_without_error(request):
     sap = _connected_sap_or_skip(request)
 
     for table_name in OPTIONAL_EMPTY_TABLES:
-        result = await get_table_df(table_name, sap)
+        result = _read_table(table_name, sap)
 
         assert result.ok is True, table_name
         assert result.error is None, table_name
