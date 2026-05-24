@@ -51,8 +51,8 @@ def test_reporting_facade_returns_report_paths_and_action_summary(tmp_path, monk
             self.last_snapshot_path = "excel-snapshot"
             calls.append(("excel_init", write_history))
 
-        def generate(self, checks, eval_results, output_path):
-            calls.append(("excel_generate", output_path))
+        def generate(self, checks, eval_results, output_path, planned_report=None):
+            calls.append(("excel_generate", output_path, planned_report.report_id))
             return output_path
 
     class DummyActionSummaryBuilder:
@@ -80,7 +80,7 @@ def test_reporting_facade_returns_report_paths_and_action_summary(tmp_path, monk
     assert ("json_init", True) in calls
     assert ("excel_init", True) in calls
     assert ("json_generate", str(tmp_path / "engine_report.json"), runtime_catalog, "full_engine_report") in calls
-    assert ("excel_generate", str(tmp_path / "engine_report.xlsx")) in calls
+    assert ("excel_generate", str(tmp_path / "engine_report.xlsx"), "full_engine_report") in calls
     assert ("action_summary", 1) in calls
 
 
@@ -162,7 +162,7 @@ class _NoopExcelReporter:
     def __init__(self, write_history):
         self.last_snapshot_path = None
 
-    def generate(self, checks, eval_results, output_path):
+    def generate(self, checks, eval_results, output_path, planned_report=None):
         return output_path
 
 
