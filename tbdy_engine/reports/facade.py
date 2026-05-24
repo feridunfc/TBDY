@@ -49,6 +49,7 @@ class ReportingFacade:
             checks,
             eval_results,
             output_path=str(self.report_dir / "engine_report.xlsx"),
+            planned_report=full_engine_report,
         )
         actions = ActionSummaryBuilder().build(checks)
 
