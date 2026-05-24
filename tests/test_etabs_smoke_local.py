@@ -24,7 +24,14 @@ OPTIONAL_EMPTY_TABLES = [
 ]
 
 
-def _connected_sap_or_skip():
+def _skip_unless_marker_selected(request):
+    markexpr = str(getattr(request.config.option, "markexpr", "") or "")
+    if "etabs_smoke" not in markexpr:
+        pytest.skip("ETABS smoke tests are opt-in; run with: pytest -q tests -m etabs_smoke")
+
+
+def _connected_sap_or_skip(request):
+    _skip_unless_marker_selected(request)
     connected, message = check_etabs_connection()
     if not connected:
         pytest.skip(f"ETABS unavailable: {message}")
@@ -33,11 +40,14 @@ def _connected_sap_or_skip():
 
 def _available_table_names(sap) -> set[str]:
     result = sap.DatabaseTables.GetAvailableTables()
-    tables = result[1] if len(result) > 1 else []
-    return {str(table) for table in tables}
+    for item in result if isinstance(result, (list, tuple)) else []:
+        if isinstance(item, (list, tuple)) and item:
+            return {str(table) for table in item}
+    return set()
 
 
-def test_etabs_connection_and_model_loaded():
+def test_etabs_connection_and_model_loaded(request):
+    _skip_unless_marker_selected(request)
     connected, message = check_etabs_connection()
     if not connected:
         pytest.skip(f"ETABS unavailable: {message}")
@@ -50,8 +60,8 @@ def test_etabs_connection_and_model_loaded():
     assert model.lower().endswith(".edb")
 
 
-def test_etabs_available_tables_include_required_smoke_tables():
-    sap = _connected_sap_or_skip()
+def test_etabs_available_tables_include_required_smoke_tables(request):
+    sap = _connected_sap_or_skip(request)
     available_tables = _available_table_names(sap)
 
     assert len(available_tables) > 0
@@ -60,8 +70,8 @@ def test_etabs_available_tables_include_required_smoke_tables():
 
 
 @pytest.mark.asyncio
-async def test_etabs_required_smoke_tables_have_data():
-    sap = _connected_sap_or_skip()
+async def test_etabs_required_smoke_tables_have_data(request):
+    sap = _connected_sap_or_skip(request)
 
     for table_name in REQUIRED_SMOKE_TABLES:
         result = await get_table_df(table_name, sap)
@@ -74,8 +84,8 @@ async def test_etabs_required_smoke_tables_have_data():
 
 
 @pytest.mark.asyncio
-async def test_etabs_optional_envelope_tables_are_readable_or_empty_without_error():
-    sap = _connected_sap_or_skip()
+async def test_etabs_optional_envelope_tables_are_readable_or_empty_without_error(request):
+    sap = _connected_sap_or_skip(request)
 
     for table_name in OPTIONAL_EMPTY_TABLES:
         result = await get_table_df(table_name, sap)
