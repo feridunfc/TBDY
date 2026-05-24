@@ -1,0 +1,68 @@
+{
+  "$defs": {
+    "ReportSpec": {
+      "additionalProperties": true,
+      "properties": {
+        "formats": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Formats",
+          "type": "array"
+        },
+        "include": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Include",
+          "type": "array"
+        },
+        "sections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sections",
+          "type": "array"
+        },
+        "filters": {
+          "additionalProperties": true,
+          "title": "Filters",
+          "type": "object"
+        },
+        "include_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Include Fields",
+          "type": "array"
+        },
+        "metrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metrics",
+          "type": "array"
+        }
+      },
+      "title": "ReportSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "version": {
+      "default": "3.1-alpha",
+      "title": "Version",
+      "type": "string"
+    },
+    "reports": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ReportSpec"
+      },
+      "title": "Reports",
+      "type": "object"
+    }
+  },
+  "title": "ReportsContract",
+  "type": "object"
+}

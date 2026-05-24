@@ -1,0 +1,126 @@
+{
+  "$defs": {
+    "EvaluationDependsOn": {
+      "additionalProperties": true,
+      "properties": {
+        "datasets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Datasets",
+          "type": "array"
+        },
+        "optional": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Optional",
+          "type": "array"
+        },
+        "flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Flags",
+          "type": "array"
+        }
+      },
+      "title": "EvaluationDependsOn",
+      "type": "object"
+    },
+    "EvaluationSpec": {
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "experimental": {
+          "default": false,
+          "title": "Experimental",
+          "type": "boolean"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        },
+        "module": {
+          "title": "Module",
+          "type": "string"
+        },
+        "method": {
+          "default": "run",
+          "title": "Method",
+          "type": "string"
+        },
+        "cache_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Key"
+        },
+        "depends_on": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvaluationDependsOn"
+            },
+            {
+              "additionalProperties": true,
+              "type": "object"
+            }
+          ],
+          "title": "Depends On"
+        },
+        "depends_on_results": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On Results",
+          "type": "array"
+        },
+        "produces": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Produces",
+          "type": "array"
+        },
+        "output": {
+          "default": "EvaluationPackage",
+          "title": "Output",
+          "type": "string"
+        }
+      },
+      "required": [
+        "module"
+      ],
+      "title": "EvaluationSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "version": {
+      "default": "3.1-alpha",
+      "title": "Version",
+      "type": "string"
+    },
+    "evaluations": {
+      "additionalProperties": {
+        "$ref": "#/$defs/EvaluationSpec"
+      },
+      "title": "Evaluations",
+      "type": "object"
+    }
+  },
+  "title": "EvaluationsContract",
+  "type": "object"
+}

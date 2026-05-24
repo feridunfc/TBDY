@@ -1,0 +1,1135 @@
+# =============================================================================
+# tbdy_engine/checks/check_contract.yaml
+# TBDY 2018 HIGH-DUCTILITY BUILDING CHECK CONTRACT MATRIX (FULL)
+# =============================================================================
+# Canonical combo names aligned with combo_contract.yaml
+# Naming policy: English code/check IDs, Turkish labels only for UI display
+# =============================================================================
+
+metadata:
+  contract_id: TBDY_CHECK_CONTRACT_V1_CANONICAL_ENGLISH
+  compatible_combo_contract: TBDY_COMBO_CONTRACT_V2_CANONICAL_ENGLISH
+  code_basis:
+    - TBDY 2018
+    - TS500
+    - Project-specific ETABS canonical combo contract
+  language_policy:
+    code_terms: English
+    report_terms: English technical terms, Turkish UI text allowed only as display labels
+  canonical_combo_groups:
+    gravity: [GRAV_SERVICE, GRAV_STRENGTH, TEMP_POS, TEMP_NEG]
+    displacement: [DISP_X, DISP_Y, DISP_X_SOIL, DISP_Y_SOIL, DISP_X_UPLIFT, DISP_Y_UPLIFT, DISP_X_UPLIFT_SOIL, DISP_Y_UPLIFT_SOIL]
+    ductile: [DUCTILE_X, DUCTILE_Y, DUCTILE_X_SOIL, DUCTILE_Y_SOIL, DUCTILE_X_UPLIFT, DUCTILE_Y_UPLIFT, DUCTILE_X_UPLIFT_SOIL, DUCTILE_Y_UPLIFT_SOIL]
+    capacity: [CAPACITY_X, CAPACITY_Y, CAPACITY_X_SOIL, CAPACITY_Y_SOIL, CAPACITY_X_UPLIFT, CAPACITY_Y_UPLIFT, CAPACITY_X_UPLIFT_SOIL, CAPACITY_Y_UPLIFT_SOIL]
+    soil: [SOIL_STRENGTH, SOIL_UPLIFT]
+  status_policy:
+    REQUIRED_DATA_MISSING: NO_DATA or WARNING
+    DESIGN_SUMMARY_FAIL: FAIL
+    DESIGN_SUMMARY_WARNING: WARNING
+    CONTRACT_MISMATCH: WARNING
+    FULL_CODE_FORMULA: FAIL/WARNING based on code limit
+  engineering_levels:
+    CONTRACT: "Registry/constitution/matrix check"
+    DATA_QUALITY: "Model/table availability and consistency check"
+    VERIFICATION: "Source/units/material/design-basis verification"
+    DESIGN_TABLE: "ETABS design-summary/status/ratio screening"
+    DESIGN_LEVEL: "Independent engineering-level formula check"
+    DETAIL_LEVEL: "Detailed member-level code check (planned/future)"
+
+checks:
+
+  # ===========================================================================
+  # 0. CONTRACT / REGISTRY / SOURCE INVENTORY
+  # ===========================================================================
+  - check_id: C00_SOURCE_INVENTORY
+    canonical_check_name: source_inventory_screen
+    category: CONTRACT
+    tbdy_ref: "-"
+    engineering_level: CONTRACT
+    priority: P0
+    current_status: PLANNED
+    control_name: Source inventory and table availability
+    required:
+      - ctx.tables
+      - ctx.notes.tables_loaded
+    optional:
+      - output/context/model_context_summary.json
+    preferred_evidence:
+      combos: [DATA_LINE]
+      tables: [all]
+    acceptance:
+      - Required ETABS/context source tables are discoverable.
+      - Missing critical source tables are reported as NO_DATA/WARNING.
+    report_outputs:
+      - 04_Model_Data_Audit
+      - source_inventory_screen
+    notes: Tracks whether the system can read expected ETABS/context sources.
+
+  - check_id: C01_COMBO_CONTRACT
+    canonical_check_name: combo_contract_screen
+    category: CONTRACT
+    tbdy_ref: TBDY load-combination basis / project combo constitution
+    engineering_level: DATA_QUALITY
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Canonical combo contract matching
+    required:
+      - core_table:load_combos
+      - tbdy.core.combo_contract.COMBO_CONTRACT
+    optional:
+      - core_table:conc_design_combos
+    preferred_evidence:
+      combos: [GRAV_SERVICE, GRAV_STRENGTH, DISP_*, DUCTILE_*, CAPACITY_*, SOIL_*]
+    acceptance:
+      - ETABS combo names should match canonical names or registered aliases.
+      - Missing/equivalent unknown combo names are WARNING, not FAIL.
+    report_outputs:
+      - combo_contract_screen
+    notes: Uses canonical English combo names and legacy aliases.
+
+  - check_id: C02_COMBO_USAGE_MATRIX
+    canonical_check_name: combo_usage_matrix_screen
+    category: CONTRACT
+    tbdy_ref: Project combo usage matrix
+    engineering_level: CONTRACT
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Combo usage matrix registry validation
+    required:
+      - tbdy.core.combo_contract.COMBO_CONTRACT
+    optional: []
+    preferred_evidence:
+      combos: [GRAV_SERVICE, DISP_*, DUCTILE_*, CAPACITY_*, SOIL_*]
+    acceptance:
+      - Each combo has formula, purpose, and intended usage.
+      - Analysis-only combos may have displacement-only usage.
+    report_outputs:
+      - combo_usage_matrix_screen
+    notes: This is the combo constitution registry self-check.
+
+  - check_id: C03_COMBO_NAME_MIGRATION
+    canonical_check_name: combo_name_migration_screen
+    category: CONTRACT
+    tbdy_ref: Project combo naming constitution
+    engineering_level: CONTRACT
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: ETABS combo name migration to canonical English names
+    required:
+      - core_table:load_combos
+      - tbdy.core.combo_contract.COMBO_CONTRACT
+    optional: []
+    preferred_evidence:
+      combos: [GRAV_SERVICE, GRAV_STRENGTH, DISP_*, DUCTILE_*, CAPACITY_*, SOIL_*]
+    acceptance:
+      - Canonical names are OK.
+      - Legacy/alias matches require RENAME_TO_CANONICAL.
+      - Missing equivalent requires CREATE_CANONICAL_OR_ADD_ALIAS.
+    report_outputs:
+      - combo_name_migration_screen
+      - output/reports/combo_migration_plan.csv
+    notes: Keeps migration actionable without failing the engineering model.
+
+  - check_id: C04_LOAD_CASE_COVERAGE
+    canonical_check_name: load_case_coverage_screen
+    category: CONTRACT
+    tbdy_ref: Load case prerequisites for combo contract
+    engineering_level: DATA_QUALITY
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Load-case token coverage
+    required:
+      - core_table:rs_cases
+      - core_table:linear_static_cases
+      - core_table:auto_seismic
+    optional:
+      - core_table:load_cases
+    preferred_evidence:
+      combos: [RSX, RSY, LC_EQX, LC_EQY, EDZ, H, HE, T]
+    acceptance:
+      - Expected load-case tokens are present or documented.
+      - Missing tokens are WARNING because some may be embedded in combos.
+    report_outputs:
+      - load_case_coverage_screen
+    notes: Confirms prerequisites for canonical combo construction.
+
+  # ===========================================================================
+  # 1. GLOBAL ANALYSIS CHECKS
+  # ===========================================================================
+  - check_id: A01_MODAL_MASS_PARTICIPATION
+    canonical_check_name: modal_mass
+    category: ANALYSIS
+    tbdy_ref: TBDY 2018 modal effective mass participation
+    engineering_level: DESIGN_LEVEL
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Modal mass participation
+    required:
+      - ctx.modal
+    optional:
+      - core_table:modal_participation
+    preferred_evidence:
+      combos: [ANALYSIS]
+    acceptance:
+      - Sum UX and Sum UY participation should satisfy project/TBDY threshold.
+    report_outputs:
+      - modal_mass
+    notes: Global dynamic-analysis adequacy check.
+
+  - check_id: A02_BASE_SHEAR_SCALING
+    canonical_check_name: base_shear_scale
+    category: ANALYSIS
+    tbdy_ref: TBDY 2018 response spectrum base shear scaling
+    engineering_level: DESIGN_LEVEL
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Response-spectrum base shear scale check
+    required:
+      - ctx.base
+      - core_table:base_reactions
+    optional:
+      - core_table:auto_seismic
+    preferred_evidence:
+      combos: [RSX, RSY, LC_EQX, LC_EQY]
+    acceptance:
+      - beta_x and beta_y should be greater than or equal to beta_min.
+      - Required scale factor is reported when beta is low.
+    report_outputs:
+      - base_shear_scale
+      - 05_Scale_Factor_Recommendations
+    notes: Produces ETABS RS scale recommendations.
+
+  - check_id: A03_STORY_DRIFT
+    canonical_check_name: story_drift
+    category: ANALYSIS
+    tbdy_ref: TBDY 2018 §4.9
+    engineering_level: DESIGN_LEVEL
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Story drift limit check
+    required:
+      - core_table:story_drifts
+    optional:
+      - core_table:story_max_over_avg_disp
+    preferred_evidence:
+      combos: [DISP_X, DISP_Y, DISP_X_SOIL, DISP_Y_SOIL]
+    acceptance:
+      - drift_demand = drift_raw * drift_multiplier <= drift_limit.
+    report_outputs:
+      - story_drift
+    notes: Uses canonical displacement combo family.
+
+  - check_id: A04_A1_TORSIONAL_IRREGULARITY
+    canonical_check_name: a1_torsion
+    category: IRREGULARITY
+    tbdy_ref: TBDY Table 3.6 / A1
+    engineering_level: DESIGN_LEVEL
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: A1 torsional irregularity
+    required:
+      - core_table:story_max_over_avg_drifts
+    optional:
+      - core_table:story_drifts
+    preferred_evidence:
+      combos: [DISP_X, DISP_Y]
+    acceptance:
+      - eta_bi and Dbi should satisfy TBDY/project thresholds.
+    report_outputs:
+      - a1_torsion
+    notes: Tracks max/avg drift irregularity by story and direction.
+
+  - check_id: A05_B1_B2_SOFT_WEAK_STORY
+    canonical_check_name: soft_weak_story_screen
+    category: IRREGULARITY
+    tbdy_ref: TBDY Table 3.6 / B1-B2
+    engineering_level: DESIGN_LEVEL
+    priority: P1
+    current_status: PLANNED
+    control_name: Soft and weak story screening
+    required:
+      - core_table:story_drifts
+      - core_table:story_forces
+    optional:
+      - core_table:story_stiffness
+      - core_table:story_masses
+    preferred_evidence:
+      combos: [DISP_X, DISP_Y, DISP_X_SOIL, DISP_Y_SOIL]
+    acceptance:
+      - Interstory stiffness/strength ratios should satisfy TBDY thresholds.
+    report_outputs:
+      - soft_weak_story_screen
+    notes: Future independent irregularity check.
+
+  - check_id: A06_P_DELTA_STABILITY
+    canonical_check_name: p_delta_stability_screen
+    category: ANALYSIS
+    tbdy_ref: TBDY second-order effects / stability
+    engineering_level: DESIGN_LEVEL
+    priority: P1
+    current_status: PLANNED
+    control_name: P-Delta stability screening
+    required:
+      - core_table:story_drifts
+      - core_table:story_forces
+      - core_table:story_masses
+    optional:
+      - core_table:p_delta_results
+    preferred_evidence:
+      combos: [DISP_X, DISP_Y, DUCTILE_X, DUCTILE_Y]
+    acceptance:
+      - Story stability index should satisfy project/TBDY limits.
+    report_outputs:
+      - p_delta_stability_screen
+    notes: Future stability / second-order effect check.
+
+  # ===========================================================================
+  # 2. GRAVITY / SERVICEABILITY
+  # ===========================================================================
+  - check_id: G01_GRAVITY_SERVICE
+    canonical_check_name: gravity_service_screen
+    category: GRAVITY
+    tbdy_ref: General serviceability / TS500
+    engineering_level: DESIGN_LEVEL
+    priority: P1
+    current_status: PLANNED
+    control_name: Gravity serviceability / deflection check
+    required:
+      - core_table:load_combos
+    optional:
+      - core_table:beam_deflections
+      - core_table:slab_deflections
+      - core_table:story_drifts
+    preferred_evidence:
+      combos: [GRAV_SERVICE]
+    acceptance:
+      - Service deflection values should satisfy project limits where available.
+    report_outputs:
+      - gravity_service_screen
+    notes: Uses GRAV_SERVICE = G + Q.
+
+  - check_id: G02_GRAVITY_STRENGTH
+    canonical_check_name: gravity_strength_screen
+    category: GRAVITY
+    tbdy_ref: TS500 strength design
+    engineering_level: DESIGN_TABLE
+    priority: P1
+    current_status: PLANNED
+    control_name: Gravity strength design screening
+    required:
+      - core_table:beam_design_summary
+      - core_table:column_design_summary
+    optional:
+      - core_table:wall_design_summary
+    preferred_evidence:
+      combos: [GRAV_STRENGTH]
+    acceptance:
+      - ETABS design summary status/ratio should be OK for gravity strength design.
+    report_outputs:
+      - gravity_strength_screen
+    notes: Uses GRAV_STRENGTH = 1.4G + 1.6Q.
+
+  - check_id: G03_TEMPERATURE_POS
+    canonical_check_name: temperature_positive_screen
+    category: GRAVITY
+    tbdy_ref: Project temperature design basis
+    engineering_level: DESIGN_TABLE
+    priority: P2
+    current_status: PLANNED
+    control_name: Positive temperature combo screening
+    required:
+      - core_table:load_combos
+    optional:
+      - core_table:slab_design_summary
+      - core_table:area_shell_forces
+    preferred_evidence:
+      combos: [TEMP_POS]
+    acceptance:
+      - TEMP_POS should exist where temperature effects are required.
+    report_outputs:
+      - temperature_positive_screen
+    notes: Uses TEMP_POS = G + 1.2Q + 1.2T.
+
+  - check_id: G04_TEMPERATURE_NEG
+    canonical_check_name: temperature_negative_screen
+    category: GRAVITY
+    tbdy_ref: Project temperature design basis
+    engineering_level: DESIGN_TABLE
+    priority: P2
+    current_status: PLANNED
+    control_name: Negative temperature combo screening
+    required:
+      - core_table:load_combos
+    optional:
+      - core_table:slab_design_summary
+      - core_table:area_shell_forces
+    preferred_evidence:
+      combos: [TEMP_NEG]
+    acceptance:
+      - TEMP_NEG should exist where temperature effects are required.
+    report_outputs:
+      - temperature_negative_screen
+    notes: Uses TEMP_NEG = G + 1.2Q - 1.2T.
+
+  # ===========================================================================
+  # 3. MATERIAL / DESIGN BASIS / UNITS
+  # ===========================================================================
+  - check_id: M01_MATERIAL_STRENGTH
+    canonical_check_name: material_strength_screen
+    category: MATERIAL
+    tbdy_ref: TBDY §7.2 / TS500 material basis
+    engineering_level: VERIFICATION
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Material strength verification
+    required:
+      - ctx.design_basis
+    optional:
+      - core_table:material_concrete
+      - core_table:material_general
+      - core_table:conc_design_prefs
+    preferred_evidence:
+      combos: [GRAV_STRENGTH, DUCTILE_*]
+    acceptance:
+      - fck/fcd/fyk/fyd/gamma values should be present and verified where possible.
+    report_outputs:
+      - material_strength_screen
+      - 03_Design_Basis_Audit
+    notes: Tracks source, confidence, and verified flags.
+
+  - check_id: M02_REBAR_MATERIAL
+    canonical_check_name: rebar_material_screen
+    category: MATERIAL
+    tbdy_ref: TBDY §7.2 / TS500 rebar basis
+    engineering_level: VERIFICATION
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Rebar material verification
+    required:
+      - ctx.design_basis
+    optional:
+      - core_table:column_rebar_defs
+      - core_table:beam_rebar_defs
+    preferred_evidence:
+      combos: [GRAV_STRENGTH, DUCTILE_*]
+    acceptance:
+      - Rebar class and fyk/fyd/fywd/es values should be present and verified.
+    report_outputs:
+      - rebar_material_screen
+    notes: Checks both design basis and ETABS rebar definition tables.
+
+  - check_id: M03_DESIGN_BASIS_VERIFICATION
+    canonical_check_name: design_basis_verification_screen
+    category: MATERIAL
+    tbdy_ref: TBDY 2018 design basis
+    engineering_level: VERIFICATION
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Design basis verification
+    required:
+      - ctx.design_basis
+    optional:
+      - core_table:auto_seismic
+      - core_table:conc_design_prefs
+    preferred_evidence:
+      combos: [DATA_LINE]
+    acceptance:
+      - Key design-basis values should be present and verified or explicitly marked as template fallback.
+    report_outputs:
+      - design_basis_verification_screen
+      - 03_Design_Basis_Audit
+    notes: Captures low-confidence/template design-basis values.
+
+  - check_id: M04_COVER_DATA
+    canonical_check_name: cover_data_screen
+    category: MATERIAL
+    tbdy_ref: TS500 concrete cover
+    engineering_level: VERIFICATION
+    priority: P1
+    current_status: IMPLEMENTED
+    control_name: Concrete cover data verification
+    required:
+      - ctx.design_basis
+    optional:
+      - core_table:column_rebar_defs
+      - core_table:beam_rebar_defs
+      - core_table:wall_rebar_defs
+    preferred_evidence:
+      combos: [DATA_LINE]
+    acceptance:
+      - Cover values should be present and verified against ETABS/user inputs.
+    report_outputs:
+      - cover_data_screen
+    notes: Intended to flag template cover values.
+
+  - check_id: M05_CONCRETE_DESIGN_PREFERENCES
+    canonical_check_name: concrete_design_preference_screen
+    category: MATERIAL
+    tbdy_ref: ETABS concrete design preferences / TS500
+    engineering_level: VERIFICATION
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Concrete design preference verification
+    required:
+      - core_table:conc_design_prefs
+    optional:
+      - ctx.design_basis
+    preferred_evidence:
+      combos: [DATA_LINE]
+    acceptance:
+      - gamma_c/gamma_s should come from ETABS preferences where possible.
+      - fcd/fyd/fywd may be derived from verified values.
+    report_outputs:
+      - concrete_design_preference_screen
+    notes: Links ETABS design preferences to design-basis values.
+
+  - check_id: M06_UNIT_CONTEXT
+    canonical_check_name: unit_context_screen
+    category: MATERIAL
+    tbdy_ref: Unit consistency
+    engineering_level: VERIFICATION
+    priority: P0
+    current_status: PLANNED
+    control_name: Unit context verification
+    required:
+      - ctx.units
+      - ctx.notes.unit_context
+    optional:
+      - 00_Units_Context
+    preferred_evidence:
+      combos: [DATA_LINE]
+    acceptance:
+      - Force, length, moment, and stress units should be explicit and consistent.
+    report_outputs:
+      - unit_context_screen
+      - 00_Units_Context
+    notes: Project standard currently kN, m, kN*m, MPa.
+
+  # ===========================================================================
+  # 4. DATA QUALITY / GEOMETRY / TOPOLOGY
+  # ===========================================================================
+  - check_id: DQ01_STORY_HEIGHT
+    canonical_check_name: story_height_screen
+    category: DATA_QUALITY
+    tbdy_ref: Model geometry data quality
+    engineering_level: DATA_QUALITY
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Story height/elevation screening
+    required:
+      - core_table:story_definitions
+    optional: []
+    preferred_evidence:
+      combos: [DATA_LINE]
+    acceptance:
+      - Story names and height/elevation data should be present and positive where applicable.
+    report_outputs:
+      - story_height_screen
+    notes: Geometry completeness check.
+
+  - check_id: DQ02_FRAME_SECTION_MATERIAL
+    canonical_check_name: frame_section_material_screen
+    category: DATA_QUALITY
+    tbdy_ref: Model section data quality
+    engineering_level: DATA_QUALITY
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Frame section material and dimensions
+    required:
+      - core_table:frame_rect_sections
+    optional:
+      - core_table:material_concrete
+    preferred_evidence:
+      combos: [DATA_LINE]
+    acceptance:
+      - Frame sections should have material and positive dimensions where applicable.
+    report_outputs:
+      - frame_section_material_screen
+    notes: Rectangular concrete section screening.
+
+  - check_id: DQ03_SECTION_ASSIGNMENT
+    canonical_check_name: section_assignment_screen
+    category: DATA_QUALITY
+    tbdy_ref: Model assignment data quality
+    engineering_level: DATA_QUALITY
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Frame section assignment screening
+    required:
+      - core_table:frame_assigns_section
+    optional:
+      - core_table:frame_rect_sections
+      - core_table:frame_objects
+    preferred_evidence:
+      combos: [DATA_LINE]
+    acceptance:
+      - Assigned sections should be present.
+      - Non-rect/steel/pipe/null/dummy/load-transfer frames may be WARNING, not FAIL.
+    report_outputs:
+      - section_assignment_screen
+    notes: Avoids false FAIL for helper/null elements.
+
+  - check_id: DQ04_CONNECTIVITY
+    canonical_check_name: connectivity_screen
+    category: DATA_QUALITY
+    tbdy_ref: Model topology data quality
+    engineering_level: DATA_QUALITY
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Column/beam connectivity table screening
+    required:
+      - core_table:column_connectivity
+      - core_table:beam_connectivity
+    optional: []
+    preferred_evidence:
+      combos: [DATA_LINE]
+    acceptance:
+      - Connectivity tables should exist and contain rows.
+    report_outputs:
+      - connectivity_screen
+    notes: Foundation for joint/member checks.
+
+  - check_id: DQ05_GEOMETRY_DATA_QUALITY
+    canonical_check_name: geometry_data_quality_screen
+    category: DATA_QUALITY
+    tbdy_ref: Model geometry/topology coverage
+    engineering_level: DATA_QUALITY
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Geometry/topology required table coverage
+    required:
+      - core_table:story_definitions
+      - core_table:frame_objects
+      - core_table:joint_objects
+      - core_table:frame_assigns_section
+      - core_table:frame_rect_sections
+      - core_table:column_connectivity
+      - core_table:beam_connectivity
+    optional: []
+    preferred_evidence:
+      combos: [DATA_LINE]
+    acceptance:
+      - Required geometry/topology tables should be present and non-empty.
+    report_outputs:
+      - geometry_data_quality_screen
+    notes: Model data readiness gate.
+
+  # ===========================================================================
+  # 5. BEAM DESIGN CHECKS
+  # ===========================================================================
+  - check_id: B01_BEAM_DESIGN_SUMMARY
+    canonical_check_name: beam_design_summary_screen
+    category: DESIGN_BEAM
+    tbdy_ref: TBDY §7.4 / TS500 beam design
+    engineering_level: DESIGN_TABLE
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Beam design summary screening
+    required:
+      - core_table:beam_design_summary
+    optional:
+      - core_table:beam_forces
+    preferred_evidence:
+      combos: [GRAV_STRENGTH, DUCTILE_X, DUCTILE_Y, CAPACITY_X, CAPACITY_Y]
+    acceptance:
+      - ETABS beam design summary status/warning/error should be OK.
+      - Numeric ratio, if available, should be <= 1.0.
+    report_outputs:
+      - beam_design_summary_screen
+    notes: DESIGN_TABLE screening; not a replacement for independent detailed checks.
+
+  - check_id: B02_BEAM_FLEXURE_DUCTILE
+    canonical_check_name: beam_flexure_ductile_screen
+    category: DESIGN_BEAM
+    tbdy_ref: TBDY §7.4.2-7.4.3
+    engineering_level: DETAIL_LEVEL
+    priority: P1
+    current_status: PLANNED
+    control_name: Beam ductile flexure reinforcement
+    required:
+      - core_table:beam_design_summary
+    optional:
+      - core_table:beam_forces
+      - core_table:beam_rebar_defs
+    preferred_evidence:
+      combos: [DUCTILE_X, DUCTILE_Y, DUCTILE_X_UPLIFT, DUCTILE_Y_UPLIFT]
+    acceptance:
+      - Beam flexural reinforcement demand/capacity should satisfy code limits.
+    report_outputs:
+      - beam_flexure_ductile_screen
+    notes: Future detailed beam flexure check.
+
+  - check_id: B03_BEAM_SHEAR_CAPACITY
+    canonical_check_name: beam_shear_capacity_screen
+    category: DESIGN_BEAM
+    tbdy_ref: TBDY §7.4.4
+    engineering_level: DETAIL_LEVEL
+    priority: P1
+    current_status: PLANNED
+    control_name: Beam capacity shear design
+    required:
+      - core_table:beam_design_summary
+    optional:
+      - core_table:beam_forces
+      - core_table:beam_rebar_defs
+    preferred_evidence:
+      combos: [CAPACITY_X, CAPACITY_Y, CAPACITY_X_UPLIFT, CAPACITY_Y_UPLIFT]
+    acceptance:
+      - Capacity shear demand should be resisted by beam shear reinforcement.
+    report_outputs:
+      - beam_shear_capacity_screen
+    notes: Future independent shear capacity design check.
+
+  - check_id: B04_BEAM_MIN_MAX_REBAR
+    canonical_check_name: beam_min_max_rebar_screen
+    category: DESIGN_BEAM
+    tbdy_ref: TS500 / TBDY beam detailing
+    engineering_level: DETAIL_LEVEL
+    priority: P2
+    current_status: PLANNED
+    control_name: Beam minimum/maximum reinforcement
+    required:
+      - core_table:beam_rebar_defs
+    optional:
+      - core_table:beam_design_summary
+    preferred_evidence:
+      combos: [DUCTILE_X, DUCTILE_Y]
+    acceptance:
+      - Beam longitudinal and transverse reinforcement should satisfy min/max detailing limits.
+    report_outputs:
+      - beam_min_max_rebar_screen
+    notes: Future detailing compliance check.
+
+  # ===========================================================================
+  # 6. COLUMN DESIGN CHECKS
+  # ===========================================================================
+  - check_id: COLUMNS01_COLUMN_DESIGN_SUMMARY
+    canonical_check_name: column_design_summary_screen
+    category: DESIGN_COLUMN
+    tbdy_ref: TBDY §7.3 / TS500 column design
+    engineering_level: DESIGN_TABLE
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Column design summary screening
+    required:
+      - core_table:column_design_summary
+    optional:
+      - core_table:column_forces
+    preferred_evidence:
+      combos: [GRAV_STRENGTH, DUCTILE_X, DUCTILE_Y, CAPACITY_X, CAPACITY_Y]
+    acceptance:
+      - ETABS column design summary status/warning/error should be OK.
+      - Numeric ratio, if available, should be <= 1.0.
+    report_outputs:
+      - column_design_summary_screen
+    notes: DESIGN_TABLE screening based on pmmratio when available.
+
+  - check_id: COLUMNS02_COLUMN_AXIAL
+    canonical_check_name: column_axial_screen
+    category: DESIGN_COLUMN
+    tbdy_ref: TBDY §7.3 axial limitation
+    engineering_level: DESIGN_LEVEL
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Column axial load screening
+    required:
+      - core_table:column_design_summary
+    optional:
+      - core_table:column_forces
+    preferred_evidence:
+      combos: [DUCTILE_X, DUCTILE_Y, DUCTILE_X_UPLIFT, DUCTILE_Y_UPLIFT]
+    acceptance:
+      - Column axial ratio should satisfy project/TBDY threshold.
+    report_outputs:
+      - column_axial_screen
+    notes: Existing column axial screening.
+
+  - check_id: COLUMNS03_COLUMN_LONGITUDINAL_REBAR
+    canonical_check_name: column_longitudinal_rebar_screen
+    category: DESIGN_COLUMN
+    tbdy_ref: TBDY §7.3.2 / §7.3.4
+    engineering_level: DETAIL_LEVEL
+    priority: P1
+    current_status: PLANNED
+    control_name: Column longitudinal reinforcement
+    required:
+      - core_table:column_design_summary
+      - core_table:column_rebar_defs
+    optional:
+      - core_table:column_forces
+    preferred_evidence:
+      combos: [DUCTILE_X, DUCTILE_Y]
+    acceptance:
+      - Column longitudinal reinforcement should satisfy min/max and demand requirements.
+    report_outputs:
+      - column_longitudinal_rebar_screen
+    notes: Future detailing/design check.
+
+  - check_id: COLUMNS04_COLUMN_SHEAR_CAPACITY
+    canonical_check_name: column_shear_capacity_screen
+    category: DESIGN_COLUMN
+    tbdy_ref: TBDY §7.3.6
+    engineering_level: DETAIL_LEVEL
+    priority: P1
+    current_status: PLANNED
+    control_name: Column capacity shear design
+    required:
+      - core_table:column_design_summary
+    optional:
+      - core_table:column_forces
+      - core_table:column_rebar_defs
+    preferred_evidence:
+      combos: [CAPACITY_X, CAPACITY_Y, CAPACITY_X_UPLIFT, CAPACITY_Y_UPLIFT]
+    acceptance:
+      - Column capacity shear demand should be resisted by transverse reinforcement.
+    report_outputs:
+      - column_shear_capacity_screen
+    notes: Future independent column shear check.
+
+  - check_id: COLUMNS05_SCWB
+    canonical_check_name: strong_column_weak_beam_screen
+    category: DESIGN_SCWB
+    tbdy_ref: TBDY §7.3.3
+    engineering_level: DETAIL_LEVEL
+    priority: P1
+    current_status: PLANNED
+    control_name: Strong column - weak beam check
+    required:
+      - core_table:beam_column_capacity_ratio
+    optional:
+      - core_table:beam_design_summary
+      - core_table:column_design_summary
+      - core_table:beam_forces
+      - core_table:column_forces
+    preferred_evidence:
+      combos: [DUCTILE_X, DUCTILE_Y]
+    acceptance:
+      - Sum of column moment capacities should satisfy code ratio relative to beam capacities.
+    report_outputs:
+      - strong_column_weak_beam_screen
+    notes: Future SCWB check.
+
+  # ===========================================================================
+  # 7. JOINT DESIGN CHECKS
+  # ===========================================================================
+  - check_id: J01_JOINT_SHEAR_SUMMARY
+    canonical_check_name: joint_shear_summary_screen
+    category: DESIGN_JOINT
+    tbdy_ref: TBDY §7.5
+    engineering_level: DESIGN_TABLE
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Beam-column joint shear design summary
+    required:
+      - core_table:joint_shear_design
+    optional:
+      - core_table:joint_design_summary
+    preferred_evidence:
+      combos: [CAPACITY_*, DUCTILE_*]
+    acceptance:
+      - Joint shear ratio/status should be OK.
+      - Warning rows require engineering review.
+    report_outputs:
+      - joint_shear_summary_screen
+    notes: Existing DESIGN_TABLE screening using bcmajratio when available.
+
+  - check_id: J02_JOINT_SHEAR_DETAIL
+    canonical_check_name: joint_shear_detail_screen
+    category: DESIGN_JOINT
+    tbdy_ref: TBDY §7.5
+    engineering_level: DETAIL_LEVEL
+    priority: P1
+    current_status: PLANNED
+    control_name: Detailed beam-column joint shear check
+    required:
+      - core_table:joint_shear_design
+    optional:
+      - core_table:beam_forces
+      - core_table:column_forces
+      - core_table:joint_objects
+    preferred_evidence:
+      combos: [CAPACITY_X, CAPACITY_Y]
+    acceptance:
+      - Joint shear demand/capacity should satisfy TBDY high-ductility detailing limits.
+    report_outputs:
+      - joint_shear_detail_screen
+    notes: Future independent joint shear check.
+
+  # ===========================================================================
+  # 8. WALL DESIGN CHECKS
+  # ===========================================================================
+  - check_id: W01_WALL_DESIGN_SUMMARY
+    canonical_check_name: wall_design_summary_screen
+    category: DESIGN_WALL
+    tbdy_ref: TBDY §7.6 / TS500 wall design
+    engineering_level: DESIGN_TABLE
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Wall design summary screening
+    required:
+      - core_table:wall_design_summary
+    optional:
+      - core_table:pier_sections
+      - core_table:pier_forces
+    preferred_evidence:
+      combos: [DUCTILE_X, DUCTILE_Y, CAPACITY_X, CAPACITY_Y]
+    acceptance:
+      - ETABS wall design summary status/warning/error should be OK.
+    report_outputs:
+      - wall_design_summary_screen
+    notes: DESIGN_TABLE screening.
+
+  - check_id: W02_WALL_BOUNDARY_ZONE
+    canonical_check_name: wall_boundary_zone_screen
+    category: DESIGN_WALL
+    tbdy_ref: TBDY §7.6.3 / §7.6.4
+    engineering_level: DETAIL_LEVEL
+    priority: P1
+    current_status: PLANNED
+    control_name: Wall boundary zone design
+    required:
+      - core_table:wall_design_summary
+      - core_table:pier_sections
+    optional:
+      - core_table:pier_forces
+      - core_table:wall_rebar_defs
+    preferred_evidence:
+      combos: [DUCTILE_X, DUCTILE_Y, DUCTILE_X_UPLIFT, DUCTILE_Y_UPLIFT]
+    acceptance:
+      - Boundary zone requirements and reinforcement should satisfy TBDY high-ductility rules.
+    report_outputs:
+      - wall_boundary_zone_screen
+    notes: Future wall boundary detailing check.
+
+  - check_id: W03_WALL_SHEAR_CAPACITY
+    canonical_check_name: wall_shear_capacity_screen
+    category: DESIGN_WALL
+    tbdy_ref: TBDY §7.6.5
+    engineering_level: DETAIL_LEVEL
+    priority: P1
+    current_status: PLANNED
+    control_name: Wall capacity shear design
+    required:
+      - core_table:wall_design_summary
+    optional:
+      - core_table:pier_forces
+      - core_table:wall_rebar_defs
+    preferred_evidence:
+      combos: [CAPACITY_X, CAPACITY_Y, CAPACITY_X_SOIL, CAPACITY_Y_SOIL, CAPACITY_X_UPLIFT, CAPACITY_Y_UPLIFT]
+    acceptance:
+      - Wall capacity shear demand should be resisted by wall shear reinforcement.
+    report_outputs:
+      - wall_shear_capacity_screen
+    notes: Future wall shear capacity check.
+
+  - check_id: W04_WALL_MIN_REBAR
+    canonical_check_name: wall_min_rebar_screen
+    category: DESIGN_WALL
+    tbdy_ref: TBDY §7.6 / TS500 wall detailing
+    engineering_level: DETAIL_LEVEL
+    priority: P2
+    current_status: PLANNED
+    control_name: Wall minimum reinforcement detailing
+    required:
+      - core_table:wall_design_summary
+    optional:
+      - core_table:wall_rebar_defs
+      - core_table:pier_sections
+    preferred_evidence:
+      combos: [DUCTILE_X, DUCTILE_Y]
+    acceptance:
+      - Wall vertical/horizontal reinforcement should satisfy min detailing requirements.
+    report_outputs:
+      - wall_min_rebar_screen
+    notes: Future wall detailing check.
+
+  # ===========================================================================
+  # 9. DIAPHRAGM / SLAB / COLLECTOR
+  # ===========================================================================
+  - check_id: S01_DIAPHRAGM_IN_PLANE_SHEAR
+    canonical_check_name: diaphragm_in_plane_shear_screen
+    category: DIAPHRAGM
+    tbdy_ref: TBDY §4.5.7 / §7.6.6
+    engineering_level: DETAIL_LEVEL
+    priority: P2
+    current_status: PLANNED
+    control_name: Diaphragm in-plane shear and collector force check
+    required: []
+    optional:
+      - core_table:area_shell_forces
+      - core_table:diaphragm_forces
+      - core_table:collector_forces
+    preferred_evidence:
+      combos: [CAPACITY_X, CAPACITY_Y, CAPACITY_X_SOIL, CAPACITY_Y_SOIL]
+    acceptance:
+      - Diaphragm and collector forces should be checked under capacity combinations.
+    report_outputs:
+      - diaphragm_in_plane_shear_screen
+    notes: Future diaphragm/collector design check.
+
+  - check_id: S02_SLAB_GRAVITY_DESIGN
+    canonical_check_name: slab_gravity_design_screen
+    category: SLAB
+    tbdy_ref: TS500 slab design
+    engineering_level: DETAIL_LEVEL
+    priority: P2
+    current_status: PLANNED
+    control_name: Slab gravity reinforcement screening
+    required: []
+    optional:
+      - core_table:area_shell_forces
+      - core_table:slab_design_summary
+    preferred_evidence:
+      combos: [GRAV_STRENGTH, TEMP_POS, TEMP_NEG]
+    acceptance:
+      - Slab reinforcement and serviceability should satisfy project/TS500 criteria.
+    report_outputs:
+      - slab_gravity_design_screen
+    notes: Future slab check if data is available.
+
+  # ===========================================================================
+  # 10. FOUNDATION / SOIL / UPLIFT
+  # ===========================================================================
+  - check_id: F01_FOUNDATION_SOIL_STRENGTH
+    canonical_check_name: foundation_soil_strength_screen
+    category: FOUNDATION
+    tbdy_ref: TBDY Chapter 5 / geotechnical basis
+    engineering_level: DETAIL_LEVEL
+    priority: P2
+    current_status: PLANNED
+    control_name: Foundation soil bearing / strength design
+    required: []
+    optional:
+      - core_table:area_shell_forces
+      - core_table:soil_pressures
+      - core_table:base_reactions
+    preferred_evidence:
+      combos: [SOIL_STRENGTH]
+    acceptance:
+      - Soil bearing pressures should satisfy geotechnical allowable/strength limits.
+    report_outputs:
+      - foundation_soil_strength_screen
+    notes: Future foundation bearing check.
+
+  - check_id: F02_FOUNDATION_PUNCHING
+    canonical_check_name: foundation_punching_screen
+    category: FOUNDATION
+    tbdy_ref: TS500 punching shear + TBDY foundation design
+    engineering_level: DETAIL_LEVEL
+    priority: P2
+    current_status: PLANNED
+    control_name: Raft/foundation punching shear check
+    required: []
+    optional:
+      - core_table:punching_shear
+      - core_table:area_shell_forces
+      - core_table:column_reactions
+    preferred_evidence:
+      combos: [SOIL_STRENGTH, GRAV_STRENGTH]
+    acceptance:
+      - Punching shear demand/capacity should satisfy TS500/project criteria.
+    report_outputs:
+      - foundation_punching_screen
+    notes: Future punching shear check.
+
+  - check_id: F03_FOUNDATION_UPLIFT
+    canonical_check_name: foundation_uplift_screen
+    category: FOUNDATION
+    tbdy_ref: TBDY uplift / foundation stability
+    engineering_level: DESIGN_LEVEL
+    priority: P1
+    current_status: PLANNED
+    control_name: Foundation/member uplift check
+    required:
+      - core_table:base_reactions
+    optional:
+      - core_table:joint_reactions
+      - core_table:soil_pressures
+    preferred_evidence:
+      combos: [DISP_X_UPLIFT, DISP_Y_UPLIFT, DISP_X_UPLIFT_SOIL, DISP_Y_UPLIFT_SOIL, SOIL_UPLIFT]
+    acceptance:
+      - Net uplift/tension should be within acceptable limits or flagged for design review.
+    report_outputs:
+      - foundation_uplift_screen
+    notes: Future uplift/stability check.
+
+  - check_id: F04_RAFT_FLEXURE_SHEAR
+    canonical_check_name: raft_flexure_shear_screen
+    category: FOUNDATION
+    tbdy_ref: TS500 raft flexure/shear design
+    engineering_level: DETAIL_LEVEL
+    priority: P2
+    current_status: PLANNED
+    control_name: Raft flexure and shear design
+    required: []
+    optional:
+      - core_table:area_shell_forces
+      - core_table:slab_design_summary
+    preferred_evidence:
+      combos: [SOIL_STRENGTH, CAPACITY_X, CAPACITY_Y]
+    acceptance:
+      - Raft flexure and shear demand should be within design capacity.
+    report_outputs:
+      - raft_flexure_shear_screen
+    notes: Future raft design check.
+
+  # ===========================================================================
+  # 11. REPORT / AUDIT / ACTION MANAGEMENT
+  # ===========================================================================
+  - check_id: R01_ACTION_SUMMARY
+    canonical_check_name: action_summary_audit
+    category: REPORT
+    tbdy_ref: "-"
+    engineering_level: CONTRACT
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Action summary presence and prioritization
+    required:
+      - 01_Action_Summary
+    optional: []
+    preferred_evidence:
+      combos: [DATA_LINE]
+    acceptance:
+      - Non-OK checks should appear in Action Summary.
+      - FAIL and WARNING should have clear recommended actions.
+    report_outputs:
+      - 01_Action_Summary
+    notes: Final format script will polish this later.
+
+  - check_id: R02_CRITICAL_ITEMS
+    canonical_check_name: critical_items_audit
+    category: REPORT
+    tbdy_ref: "-"
+    engineering_level: CONTRACT
+    priority: P0
+    current_status: IMPLEMENTED
+    control_name: Critical items aggregation
+    required:
+      - 02_Critical_Items
+    optional: []
+    preferred_evidence:
+      combos: [DATA_LINE]
+    acceptance:
+      - Critical governing rows should be collected for non-OK checks.
+    report_outputs:
+      - 02_Critical_Items
+    notes: Final format script will polish this later.
+
+  - check_id: R03_FINAL_FORMAT_SCRIPT
+    canonical_check_name: final_format_script
+    category: REPORT
+    tbdy_ref: "-"
+    engineering_level: CONTRACT
+    priority: P3
+    current_status: BACKLOG
+    control_name: Final Excel formatting and presentation script
+    required:
+      - report_workbook
+    optional: []
+    preferred_evidence:
+      combos: [DATA_LINE]
+    acceptance:
+      - Standard precision, freeze panes, conditional formatting, print layout, and sheet order.
+    report_outputs:
+      - final_formatted_report
+    notes: Deferred intentionally until check coverage stabilizes.

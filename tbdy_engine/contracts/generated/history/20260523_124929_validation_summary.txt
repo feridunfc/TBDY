@@ -1,0 +1,56 @@
+timestamp: 20260523_124929
+runtime checks: 23
+evaluations: 6
+datasets: 7
+combo families: 5
+warnings: 45
+errors: 0
+
+warnings:
+- Legacy check_contract item 'C00_SOURCE_INVENTORY' mapped to 'C00_SOURCE_INVENTORY', but no runtime parent check exists.
+- Legacy check_contract item 'C01_COMBO_CONTRACT' mapped to 'C01_COMBO_CONTRACT', but no runtime parent check exists.
+- Legacy check_contract item 'C02_COMBO_USAGE_MATRIX' mapped to 'C02_COMBO_USAGE_MATRIX', but no runtime parent check exists.
+- Legacy check_contract item 'C03_COMBO_NAME_MIGRATION' mapped to 'C03_COMBO_NAME_MIGRATION', but no runtime parent check exists.
+- Legacy check_contract item 'C04_LOAD_CASE_COVERAGE' mapped to 'C04_LOAD_CASE_COVERAGE', but no runtime parent check exists.
+- Legacy check_contract item 'A02_BASE_SHEAR_SCALING' mapped to 'global_base_shear_scaling', but no runtime parent check exists.
+- Legacy check_contract item 'A04_A1_TORSIONAL_IRREGULARITY' mapped to 'global_a1_torsion', but no runtime parent check exists.
+- Legacy check_contract item 'A05_B1_B2_SOFT_WEAK_STORY' mapped to 'A05_B1_B2_SOFT_WEAK_STORY', but no runtime parent check exists.
+- Legacy check_contract item 'A06_P_DELTA_STABILITY' mapped to 'A06_P_DELTA_STABILITY', but no runtime parent check exists.
+- Legacy check_contract item 'G01_GRAVITY_SERVICE' mapped to 'G01_GRAVITY_SERVICE', but no runtime parent check exists.
+- Legacy check_contract item 'G02_GRAVITY_STRENGTH' mapped to 'G02_GRAVITY_STRENGTH', but no runtime parent check exists.
+- Legacy check_contract item 'G03_TEMPERATURE_POS' mapped to 'G03_TEMPERATURE_POS', but no runtime parent check exists.
+- Legacy check_contract item 'G04_TEMPERATURE_NEG' mapped to 'G04_TEMPERATURE_NEG', but no runtime parent check exists.
+- Legacy check_contract item 'M01_MATERIAL_STRENGTH' mapped to 'M01_MATERIAL_STRENGTH', but no runtime parent check exists.
+- Legacy check_contract item 'M02_REBAR_MATERIAL' mapped to 'M02_REBAR_MATERIAL', but no runtime parent check exists.
+- Legacy check_contract item 'M03_DESIGN_BASIS_VERIFICATION' mapped to 'M03_DESIGN_BASIS_VERIFICATION', but no runtime parent check exists.
+- Legacy check_contract item 'M04_COVER_DATA' mapped to 'M04_COVER_DATA', but no runtime parent check exists.
+- Legacy check_contract item 'M05_CONCRETE_DESIGN_PREFERENCES' mapped to 'M05_CONCRETE_DESIGN_PREFERENCES', but no runtime parent check exists.
+- Legacy check_contract item 'M06_UNIT_CONTEXT' mapped to 'M06_UNIT_CONTEXT', but no runtime parent check exists.
+- Legacy check_contract item 'DQ01_STORY_HEIGHT' mapped to 'DQ01_STORY_HEIGHT', but no runtime parent check exists.
+- Legacy check_contract item 'DQ02_FRAME_SECTION_MATERIAL' mapped to 'DQ02_FRAME_SECTION_MATERIAL', but no runtime parent check exists.
+- Legacy check_contract item 'DQ03_SECTION_ASSIGNMENT' mapped to 'DQ03_SECTION_ASSIGNMENT', but no runtime parent check exists.
+- Legacy check_contract item 'DQ04_CONNECTIVITY' mapped to 'DQ04_CONNECTIVITY', but no runtime parent check exists.
+- Legacy check_contract item 'DQ05_GEOMETRY_DATA_QUALITY' mapped to 'DQ05_GEOMETRY_DATA_QUALITY', but no runtime parent check exists.
+- Legacy check_contract item 'B04_BEAM_MIN_MAX_REBAR' mapped to 'B04_BEAM_MIN_MAX_REBAR', but no runtime parent check exists.
+- Legacy check_contract item 'J02_JOINT_SHEAR_DETAIL' mapped to 'J02_JOINT_SHEAR_DETAIL', but no runtime parent check exists.
+- Legacy check_contract item 'S01_DIAPHRAGM_IN_PLANE_SHEAR' mapped to 'S01_DIAPHRAGM_IN_PLANE_SHEAR', but no runtime parent check exists.
+- Legacy check_contract item 'S02_SLAB_GRAVITY_DESIGN' mapped to 'S02_SLAB_GRAVITY_DESIGN', but no runtime parent check exists.
+- Legacy check_contract item 'F01_FOUNDATION_SOIL_STRENGTH' mapped to 'F01_FOUNDATION_SOIL_STRENGTH', but no runtime parent check exists.
+- Legacy check_contract item 'F02_FOUNDATION_PUNCHING' mapped to 'F02_FOUNDATION_PUNCHING', but no runtime parent check exists.
+- Legacy check_contract item 'F03_FOUNDATION_UPLIFT' mapped to 'F03_FOUNDATION_UPLIFT', but no runtime parent check exists.
+- Legacy check_contract item 'F04_RAFT_FLEXURE_SHEAR' mapped to 'F04_RAFT_FLEXURE_SHEAR', but no runtime parent check exists.
+- Legacy check_contract item 'R01_ACTION_SUMMARY' mapped to 'R01_ACTION_SUMMARY', but no runtime parent check exists.
+- Legacy check_contract item 'R02_CRITICAL_ITEMS' mapped to 'R02_CRITICAL_ITEMS', but no runtime parent check exists.
+- Legacy check_contract item 'R03_FINAL_FORMAT_SCRIPT' mapped to 'R03_FINAL_FORMAT_SCRIPT', but no runtime parent check exists.
+- Detailed checklist item 'usage_matrix_summary' has no runtime parent check; not added blindly.
+- Combo usage item 'column_capacity' mapped to 'column_capacity', but no runtime check exists.
+- Combo usage item 'beam_deflection' mapped to 'beam_deflection', but no runtime check exists.
+- Combo usage item 'wall_axial' mapped to 'wall_axial', but no runtime check exists.
+- Combo usage item 'wall_boundary' mapped to 'wall_boundary', but no runtime check exists.
+- Combo usage item 'slab_design' mapped to 'slab_design', but no runtime check exists.
+- Combo usage item 'slab_diaphragm' mapped to 'slab_diaphragm', but no runtime check exists.
+- Combo usage item 'raft_design' mapped to 'raft_design', but no runtime check exists.
+- Combo usage item 'raft_uplift' mapped to 'raft_uplift', but no runtime check exists.
+- Combo usage item 'raft_seismic' mapped to 'raft_seismic', but no runtime check exists.
+
+errors:

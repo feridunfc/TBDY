@@ -1,0 +1,152 @@
+# =============================================================================
+# TBDY 2018 KOMBİNASYON KULLANIM MATRİSİ
+# =============================================================================
+# Hangi kombinasyon hangi eleman tipinde hangi amaçla kullanılır?
+# =============================================================================
+
+version: "1.0.0"
+standard: "TBDY 2018"
+
+# =============================================================================
+# ELEMAN TİPİ BAZLI KULLANIM
+# =============================================================================
+usage_matrix:
+
+  # ---------------------------------------------------------------------------
+  # DÖŞEME (SLAB)
+  # ---------------------------------------------------------------------------
+  SLAB:
+    G_SERV:    [S]                    # Sehim kontrolü
+    G_ULT:     [D]                    # Donatı hesabı
+    G_TEMP_P:  [D]                    # Sıcaklık (+T) donatı
+    G_TEMP_N:  [D]                    # Sıcaklık (-T) donatı
+    K_E1:      [DİYAFRAM]            # Diyafram X
+    K_E2:      [DİYAFRAM]            # Diyafram Y
+    K_E1_S:    [DİYAFRAM]            # Diyafram X+Zemin
+    K_E2_S:    [DİYAFRAM]            # Diyafram Y+Zemin
+
+  # ---------------------------------------------------------------------------
+  # KİRİŞ (BEAM)
+  # ---------------------------------------------------------------------------
+  BEAM:
+    G_SERV:    [S]                    # Sehim kontrolü
+    G_ULT:     [EĞILME]              # Açıklık donatısı
+    S_E1:      [EĞILME]              # X sünek eğilme
+    S_E2:      [EĞILME]              # Y sünek eğilme
+    S_E1_U:    [EĞILME]              # X kalkma mesnet
+    S_E2_U:    [EĞILME]              # Y kalkma mesnet
+    K_E1:      [KESME]               # X kapasite kesme
+    K_E2:      [KESME]               # Y kapasite kesme
+    K_E1_U:    [KESME]               # X kalkma kapasite kesme
+    K_E2_U:    [KESME]               # Y kalkma kapasite kesme
+
+  # ---------------------------------------------------------------------------
+  # KOLON (COLUMN)
+  # ---------------------------------------------------------------------------
+  COLUMN:
+    G_ULT:     [min_N]               # Minimum eksenel
+    S_E1:      [N, M]                # X sünek N+M
+    S_E2:      [N, M]                # Y sünek N+M
+    S_E1_S:    [N, M, BODRUM]        # X+Zemin sünek bodrum
+    S_E2_S:    [N, M, BODRUM]        # Y+Zemin sünek bodrum
+    S_E1_U:    [N, M, ÇEKME]         # X kalkma çekme
+    S_E2_U:    [N, M, ÇEKME]         # Y kalkma çekme
+    S_E1_US:   [N, M, BODRUM]        # X+Zemin kalkma bodrum
+    S_E2_US:   [N, M, BODRUM]        # Y+Zemin kalkma bodrum
+    K_E1:      [KESME]               # X kapasite kesme
+    K_E2:      [KESME]               # Y kapasite kesme
+    K_E1_U:    [KESME]               # X kalkma kapasite kesme
+    K_E2_U:    [KESME]               # Y kalkma kapasite kesme
+
+  # ---------------------------------------------------------------------------
+  # PERDE (WALL)
+  # ---------------------------------------------------------------------------
+  WALL:
+    S_E1:      [N, M, UB]            # X sünek N+M+UB
+    S_E2:      [N, M, UB]            # Y sünek N+M+UB
+    S_E1_S:    [N, M, UB, BODRUM]   # X+Zemin sünek bodrum
+    S_E2_S:    [N, M, UB, BODRUM]   # Y+Zemin sünek bodrum
+    S_E1_U:    [N, M, UB, ÇEKME]    # X kalkma çekme+UB
+    S_E2_U:    [N, M, UB, ÇEKME]    # Y kalkma çekme+UB
+    S_E1_US:   [N, M, UB, BODRUM]   # X+Zemin kalkma bodrum
+    S_E2_US:   [N, M, UB, BODRUM]   # Y+Zemin kalkma bodrum
+    K_E1:      [KESME]               # X kapasite kesme
+    K_E2:      [KESME]               # Y kapasite kesme
+    K_E1_S:    [KESME]               # X+Zemin kapasite kesme
+    K_E2_S:    [KESME]               # Y+Zemin kapasite kesme
+    K_E1_U:    [KESME]               # X kalkma kapasite kesme
+    K_E2_U:    [KESME]               # Y kalkma kapasite kesme
+    K_E1_US:   [KESME]               # X+Zemin kalkma kapasite kesme
+    K_E2_US:   [KESME]               # Y+Zemin kalkma kapasite kesme
+
+  # ---------------------------------------------------------------------------
+  # RADYE TEMEL (RAFT)
+  # ---------------------------------------------------------------------------
+  RAFT:
+    G_SERV:    [S]                    # Sehim kontrolü
+    G_ULT:     [D]                    # Donatı hesabı
+    K_E1:      [EĞILME, KESME]       # X kapasite eğilme+kesme
+    K_E2:      [EĞILME, KESME]       # Y kapasite eğilme+kesme
+    K_E1_S:    [EĞILME, KESME]       # X+Zemin kapasite
+    K_E2_S:    [EĞILME, KESME]       # Y+Zemin kapasite
+    K_E1_US:   [EĞILME, KESME, ÇEKME]  # X+Zemin kalkma
+    K_E2_US:   [EĞILME, KESME, ÇEKME]  # Y+Zemin kalkma
+    Z_ULT:     [D, ZIMBALAMA]         # Donatı+Gerilme+Zımbalama
+    Z_UP:      [ÇEKME]                # Kalkma kontrolü
+
+# =============================================================================
+# CHECK BAZLI KOMBİNASYON GEREKSİNİMLERİ
+# =============================================================================
+check_combo_requirements:
+  column_geometry:    []                                  # Kombinasyon gerekmez
+  column_axial:       ["G_ULT", "S_E1", "S_E2"]          # min N + sünek N
+  column_pmm:         ["S_E1", "S_E2", "S_E1_U", "S_E2_U"]  # Sünek N+M
+  column_shear:       ["K_E1", "K_E2", "K_E1_U", "K_E2_U"]  # Kapasite kesme
+  column_confinement: ["S_E1", "S_E2"]                    # Sünek sargı
+  column_capacity:    ["K_E1", "K_E2"]                    # Kapasite hiyerarşisi
+
+  beam_flexure:       ["S_E1", "S_E2", "S_E1_U", "S_E2_U"]
+  beam_shear:         ["K_E1", "K_E2", "K_E1_U", "K_E2_U"]
+  beam_deflection:    ["G_SERV"]
+
+  wall_axial:         ["S_E1", "S_E2", "S_E1_U", "S_E2_U"]
+  wall_shear:         ["K_E1", "K_E2", "K_E1_U", "K_E2_U"]
+  wall_boundary:      ["S_E1", "S_E2"]
+
+  slab_design:        ["G_ULT", "G_TEMP_P", "G_TEMP_N"]
+  slab_diaphragm:     ["K_E1", "K_E2"]
+
+  raft_design:        ["Z_ULT"]
+  raft_uplift:        ["Z_UP"]
+  raft_seismic:       ["K_E1", "K_E2", "K_E1_US", "K_E2_US"]
+
+# =============================================================================
+# ETABS COMBO NAME → CANONICAL MAPPING (regex patterns)
+# =============================================================================
+etabs_combo_patterns:
+  G_SERV:
+    - "^(COMB_)?G[_ ]?SERV"
+    - "^(COMB_)?SERV(ICE)?"
+    - "^G\\+Q$"
+  G_ULT:
+    - "^(COMB_)?G[_ ]?ULT"
+    - "^1\\.4G\\+1\\.6Q"
+  S_E1:
+    - "^(COMB_)?S[_ ]?E1"
+    - "^(COMB_)?EQX[_ ]?U"
+    - ".*EDH1.*"
+  S_E2:
+    - "^(COMB_)?S[_ ]?E2"
+    - "^(COMB_)?EQY[_ ]?U"
+    - ".*EDH2.*"
+  K_E1:
+    - "^(COMB_)?K[_ ]?E1"
+    - "^(COMB_)?EQX[_ ]?C"
+    - ".*2\\.5.*EDH1.*"
+  K_E2:
+    - "^(COMB_)?K[_ ]?E2"
+    - "^(COMB_)?EQY[_ ]?C"
+    - ".*2\\.5.*EDH2.*"
+  Z_ULT:
+    - "^(COMB_)?Z[_ ]?ULT"
+    - ".*1\\.6H.*"
