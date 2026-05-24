@@ -122,7 +122,7 @@ class ColumnCheckResult:
     unit: str = ""
     message: str = ""
     tbdy_ref: str = ""
-
+    governing_combo: Optional[str] = None
 
 @dataclass
 class ColumnDesignOutput:
@@ -915,7 +915,7 @@ class ColumnDesignModule:
         if design_summary is not None and not getattr(design_summary, "empty", True):
             label_cols = ["label", "Label", "UniqueName", "Unique Name", "Frame", "Column", "Element"]
             ratio_cols = ["pm_ratio", "pmm_ratio", "PMM Ratio", "PMRatio", "Ratio", "DC Ratio"]
-            case_cols = ["case", "combo", "design_case", "DesignCase", "OutputCase"]
+            case_cols = ["case", "combo", "design_case", "DesignCase", "OutputCase", "PMMCombo"]
 
             col_rows = None
             for label_col in label_cols:
@@ -931,7 +931,7 @@ class ColumnDesignModule:
                 ratio = _safe_float(_row_get_any(row, ratio_cols, 0.0), 0.0)
                 if ratio > 0:
                     status = "OK" if ratio <= 1.0 else "FAIL"
-                    case = str(_row_get_any(row, case_cols, ""))
+                    case = str(_row_get_any(row, case_cols, "") or "").strip()
                     return ColumnCheckResult(
                         check_name="pmm",
                         status=status,
@@ -941,6 +941,7 @@ class ColumnDesignModule:
                         unit="ratio",
                         message=f"PMM ratio={ratio:.3f} (ETABS design summary, case={case})",
                         tbdy_ref="TBDY 2018 7.3.3",
+                        governing_combo=case or None,
                     )
 
         if mat is None:
@@ -1439,16 +1440,17 @@ class ColumnDesignModule:
                     "ratio": c.ratio,
                     "governing_combo": governing_combo or None,
                 }
-
             elif name == "pmm":
-                payload["governing_combo"] = None
+                governing_combo = getattr(c, "governing_combo", None)
+                payload["governing_combo"] = governing_combo or None
                 payload["combo_family"] = None
                 payload["evidence"] = {
                     "ratio": c.ratio,
                     "value": c.value,
                     "limit": c.limit,
                     "source": "column_pmm",
-                    "note": "PMM governing case not structured yet",
+                    "note": "PMM governing case preserved when explicitly provided",
+                    "governing_combo": governing_combo or None,
                 }
 
             elif name == "shear":
