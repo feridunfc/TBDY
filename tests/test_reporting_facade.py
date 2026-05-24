@@ -4,6 +4,7 @@ import pytest
 from types import SimpleNamespace
 
 from tbdy_engine.reports.facade import ReportingFacade, ReportingResult
+from tbdy_engine.reports.report_plan import ReportPlan
 
 
 def _runtime_catalog(reports=None):
@@ -89,7 +90,7 @@ def test_reporting_facade_uses_report_plan_from_runtime_catalog(tmp_path, monkey
             seen.append(reports)
 
         def plan(self):
-            return _runtime_catalog().reports
+            return ReportPlan(reports=_runtime_catalog().reports)
 
     monkeypatch.setattr("tbdy_engine.reports.facade.ReportPlanner", DummyReportPlanner)
     monkeypatch.setattr("tbdy_engine.reports.facade.JSONReporter", _NoopJSONReporter)
