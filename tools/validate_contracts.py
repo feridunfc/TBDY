@@ -29,16 +29,23 @@ def _to_dict(obj):
     return {}
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    argv = argv or sys.argv[1:]
+    include_legacy = "--include-legacy" in argv
+    mode = "LEGACY_DIAGNOSTIC" if include_legacy else "CONTRACT_FIRST"
     contracts_dir = PROJECT_ROOT / "tbdy_engine" / "contracts"
 
     loader = EngineContractLoader(contracts_dir, project_root=PROJECT_ROOT)
-    bundle = loader.load(include_legacy=True)
-    catalog = loader.build_runtime_catalog(include_legacy=True)
+    bundle = loader.load(include_legacy=include_legacy)
+    catalog = loader.build_runtime_catalog(include_legacy=include_legacy)
 
     validator = EngineContractValidator(bundle, catalog)
     errors = validator.validate()
     health = validator.health_report()
+    health["mode"] = mode
+    health["include_legacy"] = include_legacy
+    if include_legacy:
+        health["legacy_diagnostic"] = True
 
     generated_dir = contracts_dir / "generated"
     generated_dir.mkdir(parents=True, exist_ok=True)
@@ -69,8 +76,17 @@ def main() -> int:
 
     warnings = health.get("warnings", []) or []
 
-    summary_text = "\n".join([
+    summary_lines = [
         f"timestamp: {timestamp}",
+        f"mode: {mode}",
+        f"include_legacy: {include_legacy}",
+    ]
+    if include_legacy:
+        summary_lines.extend([
+            "legacy_diagnostic: true",
+            "legacy mode is diagnostic only; production defaults are contract-first",
+        ])
+    summary_lines.extend([
         f"runtime checks: {health.get('check_count')}",
         f"evaluations: {health.get('evaluation_count')}",
         f"datasets: {health.get('dataset_count')}",
@@ -84,8 +100,13 @@ def main() -> int:
         "errors:",
         *[f"- {e}" for e in errors],
     ])
-    validation_summary_path.write_text(summary_text, encoding="utf-8")
+    validation_summary_path.write_text("\n".join(summary_lines), encoding="utf-8")
 
+    print("mode:", mode)
+    print("include_legacy:", include_legacy)
+    if include_legacy:
+        print("legacy_diagnostic: true")
+        print("legacy mode is diagnostic only; production defaults are contract-first")
     print("runtime checks:", health.get("check_count"))
     print("evaluations:", health.get("evaluation_count"))
     print("datasets:", health.get("dataset_count"))
