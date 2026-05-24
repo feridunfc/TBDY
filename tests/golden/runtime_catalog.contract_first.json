@@ -1,0 +1,135 @@
+{
+  "version": "3.1-alpha",
+  "counts": {
+    "checks": 23,
+    "evaluations": 6,
+    "datasets": 7,
+    "combo_families": 5,
+    "reports": 3
+  },
+  "check_ids": [
+    "beam_capacity_hierarchy",
+    "beam_design_full",
+    "beam_ductility",
+    "beam_flexure",
+    "beam_geometry",
+    "beam_shear",
+    "column_axial",
+    "column_capacity_hierarchy",
+    "column_confinement",
+    "column_design_full",
+    "column_geometry",
+    "column_pmm",
+    "column_rebar_minimum",
+    "column_shear",
+    "global_modal_mass",
+    "global_story_drift",
+    "joint_shear",
+    "wall_axial_flexure",
+    "wall_boundary_zone",
+    "wall_design_full",
+    "wall_geometry",
+    "wall_shear",
+    "wall_web_reinforcement"
+  ],
+  "enabled_check_ids": [
+    "beam_capacity_hierarchy",
+    "beam_design_full",
+    "beam_ductility",
+    "beam_flexure",
+    "beam_geometry",
+    "beam_shear",
+    "column_axial",
+    "column_capacity_hierarchy",
+    "column_confinement",
+    "column_design_full",
+    "column_geometry",
+    "column_pmm",
+    "column_rebar_minimum",
+    "column_shear"
+  ],
+  "evaluations": {
+    "BEAM_DESIGN": {
+      "enabled": true,
+      "experimental": false,
+      "depends_on_results": []
+    },
+    "COLUMN_DESIGN": {
+      "enabled": true,
+      "experimental": false,
+      "depends_on_results": []
+    },
+    "GLOBAL_CHECKS": {
+      "enabled": false,
+      "experimental": true,
+      "depends_on_results": []
+    },
+    "JOINT_DESIGN": {
+      "enabled": false,
+      "experimental": true,
+      "depends_on_results": [
+        "COLUMN_DESIGN",
+        "BEAM_DESIGN"
+      ]
+    },
+    "SCWB_CHECK": {
+      "enabled": true,
+      "experimental": true,
+      "depends_on_results": [
+        "COLUMN_DESIGN",
+        "BEAM_DESIGN"
+      ]
+    },
+    "WALL_DESIGN": {
+      "enabled": true,
+      "experimental": true,
+      "depends_on_results": []
+    }
+  },
+  "datasets": [
+    "design_basis",
+    "design_metadata",
+    "envelopes",
+    "geometry",
+    "global_tables",
+    "modal",
+    "topology"
+  ],
+  "combo_families": [
+    "DRIFT",
+    "G",
+    "K_E",
+    "SOIL",
+    "S_E"
+  ],
+  "reports": [
+    "action_summary",
+    "coverage_report",
+    "full_engine_report"
+  ],
+  "source_files_by_check": {
+    "beam_capacity_hierarchy": ["checks.yaml"],
+    "beam_design_full": ["checks.yaml"],
+    "beam_ductility": ["checks.yaml"],
+    "beam_flexure": ["checks.yaml"],
+    "beam_geometry": ["checks.yaml"],
+    "beam_shear": ["checks.yaml"],
+    "column_axial": ["checks.yaml"],
+    "column_capacity_hierarchy": ["checks.yaml"],
+    "column_confinement": ["checks.yaml"],
+    "column_design_full": ["checks.yaml"],
+    "column_geometry": ["checks.yaml"],
+    "column_pmm": ["checks.yaml"],
+    "column_rebar_minimum": ["checks.yaml"],
+    "column_shear": ["checks.yaml"],
+    "global_modal_mass": ["checks.yaml"],
+    "global_story_drift": ["checks.yaml"],
+    "joint_shear": ["checks.yaml"],
+    "wall_axial_flexure": ["checks.yaml"],
+    "wall_boundary_zone": ["checks.yaml"],
+    "wall_design_full": ["checks.yaml"],
+    "wall_geometry": ["checks.yaml"],
+    "wall_shear": ["checks.yaml"],
+    "wall_web_reinforcement": ["checks.yaml"]
+  }
+}
