@@ -82,6 +82,11 @@ class ColumnForces:
     Vx_kn: float = 0.0  # major yon kesme
     Vy_kn: float = 0.0  # minor yon kesme
     governing_combo: str = ""
+    N_case: str = ""
+    Mx_case: str = ""
+    My_case: str = ""
+    Vx_case: str = ""
+    Vy_case: str = ""
 
     @property
     def N_kN(self) -> float:
@@ -453,7 +458,12 @@ class ColumnDesignModule:
                 My_knm=_safe_float(env_data.get("M2_max")),  # minor
                 Vx_kn=_safe_float(env_data.get("V2_max")),
                 Vy_kn=_safe_float(env_data.get("V3_max")),
-                governing_combo=str(env_data.get("P_case", "")),
+                governing_combo=str(env_data.get("P_case", "") or ""),
+                N_case=str(env_data.get("P_case", "") or ""),
+                Mx_case=str(env_data.get("M3_case", "") or ""),
+                My_case=str(env_data.get("M2_case", "") or ""),
+                Vx_case=str(env_data.get("V2_case", "") or ""),
+                Vy_case=str(env_data.get("V3_case", "") or ""),
             )
             self._forces[label] = cf
 
@@ -1429,8 +1439,14 @@ class ColumnDesignModule:
                 "tbdy_ref": c.tbdy_ref,
             }
 
+
             if name == "axial":
-                governing_combo = out.forces.governing_combo if out.forces else None
+                governing_combo = (
+                    getattr(out.forces, "N_case", None)
+                    or out.forces.governing_combo
+                    if out.forces
+                    else None
+                )
                 payload["governing_combo"] = governing_combo or None
                 payload["combo_family"] = None
                 payload["evidence"] = {
@@ -1439,7 +1455,10 @@ class ColumnDesignModule:
                     "limit": c.limit,
                     "ratio": c.ratio,
                     "governing_combo": governing_combo or None,
+                    "component_case": governing_combo or None,
                 }
+
+
             elif name == "pmm":
                 governing_combo = getattr(c, "governing_combo", None)
                 payload["governing_combo"] = governing_combo or None
@@ -1460,6 +1479,8 @@ class ColumnDesignModule:
                     "force": "max(abs(Vx_kn), abs(Vy_kn))",
                     "Vx_kn": out.forces.Vx_kn if out.forces else None,
                     "Vy_kn": out.forces.Vy_kn if out.forces else None,
+                    "Vx_case": getattr(out.forces, "Vx_case", None) if out.forces else None,
+                    "Vy_case": getattr(out.forces, "Vy_case", None) if out.forces else None,
                     "value": c.value,
                     "limit": c.limit,
                     "ratio": c.ratio,
