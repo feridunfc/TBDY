@@ -120,7 +120,7 @@ def _fake_output(*, forces: BeamForces, checks: dict[str, Any]):
     )()
 
 
-def test_build_simple_envelope_preserves_beam_component_and_end_station_cases():
+def test_build_simple_envelope_preserves_beam_component_and_station_case_fields():
     df_env, lookup = _build_simple_envelope(_beam_force_rows(), ["beam"])
 
     assert not df_env.empty
@@ -150,8 +150,8 @@ def test_build_simple_envelope_preserves_beam_component_and_end_station_cases():
     assert row["V2_j_case"] == "CASE_J_M3_V3"
     assert row["V3_j"] == -150.0
     assert row["V3_j_case"] == "CASE_J_M3_V3"
-    assert row["M2_j"] == 70.0
-    assert row["M2_j_case"] == "CASE_J_M3_V3"
+    assert row["M2_j"] == 160.0
+    assert row["M2_j_case"] == "CASE_GLOBAL_V3_M2"
     assert row["M3_j"] == -180.0
     assert row["M3_j_case"] == "CASE_J_M3_V3"
 
