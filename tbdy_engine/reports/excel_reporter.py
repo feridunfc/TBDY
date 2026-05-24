@@ -10,7 +10,7 @@ class ExcelReporter:
         self.write_history = write_history
         self.last_snapshot_path: str | None = None
 
-    def generate(self, checks, eval_results, output_path="engine_report.xlsx"):
+    def generate(self, checks, eval_results, output_path="engine_report.xlsx", planned_report=None):
         try:
             import openpyxl
         except Exception:
@@ -53,6 +53,9 @@ class ExcelReporter:
         for k, v in (eval_results.get("errors") or {}).items():
             errors.append([k, v])
 
+        if planned_report is not None:
+            self._add_report_contract_sheet(wb, planned_report)
+
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         wb.save(path)
@@ -67,3 +70,17 @@ class ExcelReporter:
             self.last_snapshot_path = str(snapshot)
 
         return str(path)
+
+    def _add_report_contract_sheet(self, workbook, planned_report) -> None:
+        sheet = workbook.create_sheet("Report_Contract")
+        sheet.append(["Field", "Value"])
+        for field_name in ["report_id", "formats", "sections", "include_fields", "metrics"]:
+            sheet.append([field_name, self._contract_value(planned_report, field_name)])
+
+    def _contract_value(self, planned_report, field_name: str) -> str:
+        value = getattr(planned_report, field_name, "")
+        if value is None:
+            return ""
+        if isinstance(value, (list, tuple)):
+            return ",".join(str(item) for item in value)
+        return str(value)
