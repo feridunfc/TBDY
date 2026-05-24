@@ -15,6 +15,24 @@ def test_runtime_catalog_builds():
     assert "beam_flexure" in c.checks
     assert "wall_shear" in c.checks
 
+def test_loader_default_does_not_load_legacy_raw():
+    b = EngineContractLoader.from_project_root(ROOT).load()
+    assert b.legacy_raw == {}
+
+def test_loader_explicit_include_legacy_loads_legacy_raw():
+    b = EngineContractLoader.from_project_root(ROOT).load(include_legacy=True)
+    assert b.legacy_raw
+    assert "combo_usage_matrix.yaml" in b.legacy_raw
+
+def test_default_runtime_catalog_excludes_legacy_source_files():
+    c = EngineContractLoader.from_project_root(ROOT).build_runtime_catalog()
+    source_files = {
+        source_file
+        for check in c.checks.values()
+        for source_file in (check.source_files or [])
+    }
+    assert "combo_usage_matrix.yaml" not in source_files
+
 def test_all_checks_have_valid_evaluation():
     loader = EngineContractLoader.from_project_root(ROOT)
     b = loader.load(include_legacy=True)
