@@ -49,7 +49,7 @@ def _beam_force_rows() -> pd.DataFrame:
                 "story": "S1",
                 "station_m": 5.0,
                 "output_case": "CASE_J_M3_V3",
-                "v2_kn": 35.0,
+                "v2_kn": 45.0,
                 "v3_kn": -150.0,
                 "m2_knm": 70.0,
                 "m3_knm": -180.0,
@@ -146,7 +146,7 @@ def test_build_simple_envelope_preserves_beam_component_and_end_station_cases():
     assert row["M3_i"] == 45.0
     assert row["M3_i_case"] == "CASE_I_M2_V2"
 
-    assert row["V2_j"] == 35.0
+    assert row["V2_j"] == 45.0
     assert row["V2_j_case"] == "CASE_J_M3_V3"
     assert row["V3_j"] == -150.0
     assert row["V3_j_case"] == "CASE_J_M3_V3"
