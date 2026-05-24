@@ -169,15 +169,13 @@ def test_beam_resolve_forces_consumes_semantic_beam_keys():
     assert force.T_max_knm == 12.0
     assert force.governing_combo == "GENERIC_BEAM_COMBO"
 
-    for attr in [
-        "M_pos_case",
-        "M_neg_left_case",
-        "M_neg_right_case",
-        "V_max_case",
-        "V_at_support_case",
-        "combo_family",
-    ]:
-        assert not hasattr(force, attr)
+    assert force.M_pos_case == ""
+    assert force.M_neg_left_case == ""
+    assert force.M_neg_right_case == ""
+    assert force.V_max_case == ""
+    assert force.V_at_support_case == ""
+    assert force.T_max_case == ""
+    assert not hasattr(force, "combo_family")
 
 
 def test_beam_resolve_forces_does_not_consume_component_case_provenance():
@@ -222,14 +220,13 @@ def test_beam_resolve_forces_does_not_consume_component_case_provenance():
     }
     assert force.governing_combo not in component_cases
 
-    for attr in [
-        "M_pos_case",
-        "M_neg_left_case",
-        "M_neg_right_case",
-        "V_max_case",
-        "V_at_support_case",
-    ]:
-        assert not hasattr(force, attr)
+    assert force.M_pos_case == ""
+    assert force.M_neg_left_case == ""
+    assert force.M_neg_right_case == ""
+    assert force.V_max_case == ""
+    assert force.V_at_support_case == ""
+    assert force.T_max_case == ""
+    assert not hasattr(force, "combo_family")
 
 
 def test_beam_resolve_forces_current_generic_combo_and_case_behavior():

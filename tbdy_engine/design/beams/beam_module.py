@@ -103,6 +103,12 @@ class BeamForces:
     V_at_support_kn: float = 0.0  # mesnet yuzunde kesme
     T_max_knm: float = 0.0  # maksimum burulma momenti
     governing_combo: str = ""
+    M_pos_case: str = ""
+    M_neg_left_case: str = ""
+    M_neg_right_case: str = ""
+    V_max_case: str = ""
+    V_at_support_case: str = ""
+    T_max_case: str = ""
 
     @property
     def M_max_neg_knm(self) -> float:
@@ -628,6 +634,12 @@ class BeamDesignModule:
                     V_at_support_kn=_safe_float(env_data.get("V_support") or env_data.get("V2_support")),
                     T_max_knm=_safe_float(env_data.get("T_max") or env_data.get("T")),
                     governing_combo=str(env_data.get("combo") or env_data.get("case") or ""),
+                    M_pos_case=str(env_data.get("M_pos_case") or ""),
+                    M_neg_left_case=str(env_data.get("M_neg_left_case") or ""),
+                    M_neg_right_case=str(env_data.get("M_neg_right_case") or ""),
+                    V_max_case=str(env_data.get("V_max_case") or ""),
+                    V_at_support_case=str(env_data.get("V_support_case") or ""),
+                    T_max_case=str(env_data.get("T_max_case") or ""),
                 )
                 self._forces[str(label)] = bf
 
@@ -1611,8 +1623,11 @@ class BeamDesignModule:
                 payload["evidence"] = {
                     "forces": {
                         "M_pos_knm": out.forces.M_pos_knm if out.forces else None,
+                        "M_pos_case": getattr(out.forces, "M_pos_case", None) if out.forces else None,
                         "M_neg_left_knm": out.forces.M_neg_left_knm if out.forces else None,
+                        "M_neg_left_case": getattr(out.forces, "M_neg_left_case", None) if out.forces else None,
                         "M_neg_right_knm": out.forces.M_neg_right_knm if out.forces else None,
+                        "M_neg_right_case": getattr(out.forces, "M_neg_right_case", None) if out.forces else None,
                     },
                     "ratio": c.ratio,
                     "value": c.value,
@@ -1627,7 +1642,9 @@ class BeamDesignModule:
                 payload["evidence"] = {
                     "forces": {
                         "V_max_kn": out.forces.V_max_kn if out.forces else None,
+                        "V_max_case": getattr(out.forces, "V_max_case", None) if out.forces else None,
                         "V_at_support_kn": getattr(out.forces, "V_at_support_kn", None) if out.forces else None,
+                        "V_at_support_case": getattr(out.forces, "V_at_support_case", None) if out.forces else None,
                     },
                     "ratio": c.ratio,
                     "value": c.value,

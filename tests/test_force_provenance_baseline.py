@@ -180,15 +180,13 @@ def test_beam_resolve_forces_does_not_consume_component_case_provenance():
     assert force.V_at_support_kn == 88.0
     assert force.governing_combo == ""
 
-    for attr in [
-        "M_pos_case",
-        "M_neg_left_case",
-        "M_neg_right_case",
-        "V_max_case",
-        "V_at_support_case",
-        "combo_family",
-    ]:
-        assert not hasattr(force, attr)
+    assert force.M_pos_case == ""
+    assert force.M_neg_left_case == ""
+    assert force.M_neg_right_case == ""
+    assert force.V_max_case == ""
+    assert force.V_at_support_case == ""
+    assert force.T_max_case == ""
+    assert not hasattr(force, "combo_family")
 
     for component_case in [
         "CASE_M2",
