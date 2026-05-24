@@ -1414,9 +1414,57 @@ class ColumnDesignModule:
             "summary": summary,
             "package_status": pkg_status,
         }
-
     def _output_to_dict(self, out: ColumnDesignOutput) -> Dict[str, Any]:
         """ColumnDesignOutput → dict"""
+
+        def _check_to_dict(name: str, c: Any) -> Dict[str, Any]:
+            payload: Dict[str, Any] = {
+                "status": c.status,
+                "ratio": c.ratio,
+                "value": c.value,
+                "limit": c.limit,
+                "unit": c.unit,
+                "message": c.message,
+                "tbdy_ref": c.tbdy_ref,
+            }
+
+            if name == "axial":
+                governing_combo = out.forces.governing_combo if out.forces else None
+                payload["governing_combo"] = governing_combo or None
+                payload["combo_family"] = None
+                payload["evidence"] = {
+                    "force": "N_kn",
+                    "N_kn": out.forces.N_kn if out.forces else None,
+                    "limit": c.limit,
+                    "ratio": c.ratio,
+                    "governing_combo": governing_combo or None,
+                }
+
+            elif name == "pmm":
+                payload["governing_combo"] = None
+                payload["combo_family"] = None
+                payload["evidence"] = {
+                    "ratio": c.ratio,
+                    "value": c.value,
+                    "limit": c.limit,
+                    "source": "column_pmm",
+                    "note": "PMM governing case not structured yet",
+                }
+
+            elif name == "shear":
+                payload["governing_combo"] = None
+                payload["combo_family"] = None
+                payload["evidence"] = {
+                    "force": "max(abs(Vx_kn), abs(Vy_kn))",
+                    "Vx_kn": out.forces.Vx_kn if out.forces else None,
+                    "Vy_kn": out.forces.Vy_kn if out.forces else None,
+                    "value": c.value,
+                    "limit": c.limit,
+                    "ratio": c.ratio,
+                }
+
+            return payload
+
         return {
             "label": out.label,
             "story": out.story,
@@ -1440,21 +1488,12 @@ class ColumnDesignModule:
                 "has_confinement_data": out.rebar.has_confinement_data if out.rebar else False,
             } if out.rebar else None,
             "checks": {
-                name: {
-                    "status": c.status,
-                    "ratio": c.ratio,
-                    "value": c.value,
-                    "limit": c.limit,
-                    "unit": c.unit,
-                    "message": c.message,
-                    "tbdy_ref": c.tbdy_ref,
-                }
+                name: _check_to_dict(name, c)
                 for name, c in out.checks.items()
             },
             "governing_check": out.governing_check,
             "governing_ratio": out.governing_ratio,
         }
-
 
 # =============================================================================
 # CONVENIENCE

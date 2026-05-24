@@ -1591,6 +1591,52 @@ class BeamDesignModule:
 
     def _output_to_dict(self, out: BeamDesignOutput) -> Dict[str, Any]:
         """BeamDesignOutput → dict (JSON serializable)"""
+
+        def _check_to_dict(name: str, c: Any) -> Dict[str, Any]:
+            payload: Dict[str, Any] = {
+                "status": c.status,
+                "ratio": c.ratio,
+                "value": c.value,
+                "limit": c.limit,
+                "unit": c.unit,
+                "message": c.message,
+                "tbdy_ref": c.tbdy_ref,
+                "evaluation_level": c.evaluation_level,
+            }
+
+            if name == "flexure":
+                governing_combo = out.forces.governing_combo if out.forces else None
+                payload["governing_combo"] = governing_combo or None
+                payload["combo_family"] = None
+                payload["evidence"] = {
+                    "forces": {
+                        "M_pos_knm": out.forces.M_pos_knm if out.forces else None,
+                        "M_neg_left_knm": out.forces.M_neg_left_knm if out.forces else None,
+                        "M_neg_right_knm": out.forces.M_neg_right_knm if out.forces else None,
+                    },
+                    "ratio": c.ratio,
+                    "value": c.value,
+                    "limit": c.limit,
+                    "governing_combo": governing_combo or None,
+                }
+
+            elif name == "shear":
+                governing_combo = out.forces.governing_combo if out.forces else None
+                payload["governing_combo"] = governing_combo or None
+                payload["combo_family"] = None
+                payload["evidence"] = {
+                    "forces": {
+                        "V_max_kn": out.forces.V_max_kn if out.forces else None,
+                        "V_at_support_kn": getattr(out.forces, "V_at_support_kn", None) if out.forces else None,
+                    },
+                    "ratio": c.ratio,
+                    "value": c.value,
+                    "limit": c.limit,
+                    "governing_combo": governing_combo or None,
+                }
+
+            return payload
+
         return {
             "label": out.label,
             "story": out.story,
@@ -1616,16 +1662,7 @@ class BeamDesignModule:
                 "source": getattr(out.rebar, "source", "unknown") if out.rebar else "none",
             } if out.rebar else None,
             "checks": {
-                name: {
-                    "status": c.status,
-                    "ratio": c.ratio,
-                    "value": c.value,
-                    "limit": c.limit,
-                    "unit": c.unit,
-                    "message": c.message,
-                    "tbdy_ref": c.tbdy_ref,
-                    "evaluation_level": c.evaluation_level,
-                }
+                name: _check_to_dict(name, c)
                 for name, c in out.checks.items()
             },
             "governing_check": out.governing_check,
