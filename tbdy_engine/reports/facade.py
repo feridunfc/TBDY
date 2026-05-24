@@ -7,6 +7,7 @@ from typing import Any, Sequence
 from tbdy_engine.reports.action_summary import ActionSummaryBuilder
 from tbdy_engine.reports.excel_reporter import ExcelReporter
 from tbdy_engine.reports.json_reporter import JSONReporter
+from tbdy_engine.reports.report_plan import ReportPlan, ReportPlanner
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,9 @@ class ReportingFacade:
         *,
         runtime_catalog: Any,
     ) -> ReportingResult:
+        report_plan = self._build_report_plan(runtime_catalog)
+        self._validate_report_plan(report_plan)
+
         json_reporter = JSONReporter(write_history=True)
         excel_reporter = ExcelReporter(write_history=True)
 
@@ -53,3 +57,24 @@ class ReportingFacade:
             excel_snapshot=excel_reporter.last_snapshot_path,
             action_summary=actions,
         )
+
+    def _build_report_plan(self, runtime_catalog: Any) -> ReportPlan:
+        reports = getattr(runtime_catalog, "reports", None)
+        if reports is None and isinstance(runtime_catalog, dict):
+            reports = runtime_catalog.get("reports")
+        if reports is None:
+            raise ValueError("Runtime catalog does not provide reports contract data")
+        return ReportPlanner(reports).plan()
+
+    def _validate_report_plan(self, report_plan: ReportPlan) -> None:
+        reports = report_plan.reports
+        if "full_engine_report" not in reports:
+            raise ValueError("reports.yaml must define full_engine_report")
+        if "action_summary" not in reports:
+            raise ValueError("reports.yaml must define action_summary")
+
+        full_engine_report = report_plan.get("full_engine_report")
+        if "json" not in full_engine_report.formats:
+            raise ValueError("full_engine_report must declare json format")
+        if "excel" not in full_engine_report.formats:
+            raise ValueError("full_engine_report must declare excel format")
