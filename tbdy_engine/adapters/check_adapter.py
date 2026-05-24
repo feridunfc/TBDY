@@ -32,6 +32,12 @@ def _model_to_dict(obj: Any) -> Dict[str, Any]:
     return {}
 
 
+def _optional_string(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    return str(value)
+
+
 @dataclass
 class CheckResult:
     check_id: str
@@ -56,6 +62,9 @@ class CheckResult:
     runner_enabled: bool = True
     legacy_contract_id: str = ""
     legacy_canonical_check_name: str = ""
+    governing_combo: str | None = None
+    combo_family: str | None = None
+    evidence: Any | None = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)
@@ -190,6 +199,9 @@ class CheckAdapter:
             runner_enabled=bool(check_def.get("runner_enabled", True)),
             legacy_contract_id=str(check_def.get("legacy_contract_id", "") or ""),
             legacy_canonical_check_name=str(check_def.get("legacy_canonical_check_name", "") or ""),
+            governing_combo=_optional_string(data.get("governing_combo")),
+            combo_family=_optional_string(data.get("combo_family")),
+            evidence=data.get("evidence") if data.get("evidence") not in (None, "") else None,
         )
 
     def _infer_source(self, data: Dict[str, Any], message: str) -> str:
