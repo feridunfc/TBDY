@@ -42,6 +42,23 @@ def _check_payload(
     }
 
 
+def _scwb_evidence(
+    *,
+    joint_id: str = "J1",
+    direction: str = "X",
+):
+    return {
+        "joint_id": joint_id,
+        "direction": direction,
+        "columns": ["C1", "C2"],
+        "beams": ["B1", "B2"],
+        "sum_mrc_knm": 950.0,
+        "sum_mrb_knm": 830.0,
+        "required_mrc_knm": 996.0,
+        "reason_code": "scwb_ratio_below_limit",
+    }
+
+
 def _scwb_payload(
     *,
     projection: str,
@@ -51,35 +68,34 @@ def _scwb_payload(
     story: str = "S1",
     direction: str = "X",
 ):
-    columns = ["C1", "C2"]
-    beams = ["B1", "B2"]
-    sum_mrc = 950.0
-    sum_mrb = 830.0
-    required = 996.0
+    evidence = _scwb_evidence(joint_id=joint_id, direction=direction)
     return {
         "element_label": joint_id,
         "story": story,
         "status": status,
         "ratio": ratio,
-        "value": sum_mrc,
-        "limit": required,
+        "value": evidence["sum_mrc_knm"],
+        "limit": evidence["required_mrc_knm"],
         "unit": "kNm",
         "message": (
             f"SCWB {projection} projection: joint={joint_id}; "
-            f"columns={','.join(columns)}; beams={','.join(beams)}; "
+            f"columns={','.join(evidence['columns'])}; beams={','.join(evidence['beams'])}; "
             f"dir={direction}; reason_code=scwb_ratio_below_limit; source=scwb_resolver"
         ),
         "action": "Verify connected member capacities.",
         "evaluation_level": "APPROXIMATE",
         "source": "scwb_resolver",
-        "reason_code": "scwb_ratio_below_limit",
-        "joint_id": joint_id,
-        "direction": direction,
-        "columns": columns,
-        "beams": beams,
-        "sum_mrc_knm": sum_mrc,
-        "sum_mrb_knm": sum_mrb,
-        "required_mrc_knm": required,
+        "reason_code": evidence["reason_code"],
+        "joint_id": evidence["joint_id"],
+        "direction": evidence["direction"],
+        "columns": evidence["columns"],
+        "beams": evidence["beams"],
+        "sum_mrc_knm": evidence["sum_mrc_knm"],
+        "sum_mrb_knm": evidence["sum_mrb_knm"],
+        "required_mrc_knm": evidence["required_mrc_knm"],
+        "governing_combo": None,
+        "combo_family": None,
+        "evidence": evidence,
     }
 
 
@@ -87,6 +103,22 @@ def _assert_no_structured_evidence(row):
     assert row.governing_combo is None
     assert row.combo_family is None
     assert row.evidence is None
+
+
+def _assert_scwb_evidence(row, *, joint_id: str = "J1", direction: str = "X"):
+    assert row.governing_combo is None
+    assert row.combo_family is None
+    assert row.evidence == _scwb_evidence(joint_id=joint_id, direction=direction)
+    assert set(row.evidence) == {
+        "joint_id",
+        "direction",
+        "columns",
+        "beams",
+        "sum_mrc_knm",
+        "sum_mrb_knm",
+        "required_mrc_knm",
+        "reason_code",
+    }
 
 
 def test_column_module_shaped_payload_without_explicit_evidence_leaves_fields_none():
@@ -181,7 +213,7 @@ def test_beam_module_shaped_payload_without_explicit_evidence_leaves_fields_none
         _assert_no_structured_evidence(rows[check_id])
 
 
-def test_scwb_projection_shaped_payload_without_explicit_evidence_leaves_fields_none():
+def test_scwb_projection_shaped_payload_preserves_explicit_evidence_dict():
     eval_results = {
         "results": {
             "SCWB_CHECK": {
@@ -204,10 +236,10 @@ def test_scwb_projection_shaped_payload_without_explicit_evidence_leaves_fields_
     for check_id in ["column_capacity_hierarchy", "beam_capacity_hierarchy"]:
         assert rows[check_id].status == "WARNING"
         assert rows[check_id].source == "scwb_resolver"
-        _assert_no_structured_evidence(rows[check_id])
+        _assert_scwb_evidence(rows[check_id], joint_id="J1", direction="X")
 
 
-def test_scwb_diagnostic_fields_are_not_automatically_promoted_to_evidence():
+def test_scwb_diagnostic_fields_are_serialized_as_explicit_evidence():
     eval_results = {
         "results": {
             "SCWB_CHECK": {
@@ -227,8 +259,8 @@ def test_scwb_diagnostic_fields_are_not_automatically_promoted_to_evidence():
 
     rows = _by_check_id(_adapter().adapt_all(eval_results))
 
-    assert rows["column_capacity_hierarchy"].evidence is None
-    assert rows["beam_capacity_hierarchy"].evidence is None
+    _assert_scwb_evidence(rows["column_capacity_hierarchy"], joint_id="J2", direction="Y")
+    _assert_scwb_evidence(rows["beam_capacity_hierarchy"], joint_id="J2", direction="Y")
 
 
 def test_explicit_evidence_still_survives_module_shaped_payload():
