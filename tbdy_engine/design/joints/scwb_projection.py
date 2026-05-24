@@ -82,6 +82,17 @@ def _project_scwb_result(raw: Dict[str, Any], *, projection: str) -> Dict[str, A
     if note:
         message += f"; note={note}"
 
+    evidence = {
+        "joint_id": joint_id,
+        "direction": direction,
+        "columns": columns,
+        "beams": beams,
+        "sum_mrc_knm": sum_mrc,
+        "sum_mrb_knm": sum_mrb,
+        "required_mrc_knm": required,
+        "reason_code": reason,
+    }
+
     return {
         "element_label": element_label,
         "story": story,
@@ -102,6 +113,9 @@ def _project_scwb_result(raw: Dict[str, Any], *, projection: str) -> Dict[str, A
         "sum_mrc_knm": sum_mrc,
         "sum_mrb_knm": sum_mrb,
         "required_mrc_knm": required,
+        "governing_combo": None,
+        "combo_family": None,
+        "evidence": evidence,
     }
 
 
