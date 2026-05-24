@@ -105,8 +105,7 @@ def test_build_simple_envelope_preserves_end_station_cases():
     assert row["V3_j"] == -140.0
     assert row["V3_j_case"] == "CASE_V3_M3_J"
 
-
-def test_column_resolve_forces_collapses_provenance_to_generic_governing_combo():
+def test_column_resolve_forces_preserves_component_case_provenance():
     ctx = FakeContext(
         envelopes={
             "column_forces_map": {
@@ -136,8 +135,12 @@ def test_column_resolve_forces_collapses_provenance_to_generic_governing_combo()
     assert force.Vx_kn == 90.0
     assert force.Vy_kn == 140.0
 
-    for attr in ["N_case", "Mx_case", "My_case", "Vx_case", "Vy_case", "combo_family"]:
-        assert not hasattr(force, attr)
+    assert force.N_case == "CASE_P"
+    assert force.Mx_case == "CASE_M3"
+    assert force.My_case == "CASE_M2"
+    assert force.Vx_case == "CASE_V2"
+    assert force.Vy_case == "CASE_V3"
+    assert not hasattr(force, "combo_family")
 
 
 def test_beam_resolve_forces_does_not_consume_component_case_provenance():
