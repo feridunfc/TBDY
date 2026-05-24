@@ -1,0 +1,1442 @@
+# =============================================================================
+# tbdy_engine/checks/detailed_checklist.yaml
+# TBDY 2018 HIGH-DUCTILITY DETAILED CHECKLIST (FULL)
+# =============================================================================
+# Purpose: Detailed checklist / future implementation backlog.
+# Uses English technical terminology for code/check IDs.
+# Keeps Turkish explanatory titles only where useful for report/UI reference.
+# This is not a runtime check module yet.
+# =============================================================================
+# Canonical combo families:
+#   GRAV_SERVICE, GRAV_STRENGTH, TEMP_POS, TEMP_NEG
+#   DISP_*, DUCTILE_*, CAPACITY_*, SOIL_STRENGTH, SOIL_UPLIFT
+# Important usage rule:
+#   DISP_* = displacement/drift reading only
+#   DUCTILE_* = ductile member strength/flexure/axial design
+#   CAPACITY_* = capacity shear/diaphragm/foundation force design
+#   SOIL_* = soil/foundation bearing/uplift checks
+# =============================================================================
+
+metadata:
+  checklist_id: TBDY_HIGH_DUCTILITY_DETAILED_CHECKLIST_V1
+  compatible_combo_contract: TBDY_COMBO_CONTRACT_V2_CANONICAL_ENGLISH
+  compatible_check_contract: TBDY_CHECK_CONTRACT_V1_CANONICAL_ENGLISH
+  code_basis:
+    - TBDY 2018
+    - TS500
+    - Project canonical combo constitution
+  language_policy:
+    check_id: English
+    canonical_name: English
+    code_terms: English
+    report_label_tr: Turkish labels allowed for display only
+  combo_definitions:
+    G: DL + SDL + WDL
+    Q: LL + DDL
+    EDH1: RSX + 0.3*RSY
+    EDH2: RSY + 0.3*RSX
+    EDZ: vertical seismic effect
+    H: soil / lateral earth pressure
+    HE: seismic soil increment
+  implementation_policy:
+    no_data: return NO_DATA, do not crash
+    proxy_screening: WARNING only until independent formula is implemented
+    design_summary_ratio: FAIL if explicit ETABS ratio/status fails
+    final_format: defer until check coverage stabilizes
+
+sections:
+
+  # =========================================================================
+  # MATERIAL AND GENERAL HIGH-DUCTILITY CONTROLS
+  # =========================================================================
+  - section_id: MAT
+    title_en: Material and general high-ductility controls
+    title_tr: Malzeme ve genel kontroller
+    category: MATERIAL
+    checks:
+      - item_no: "1.1"
+        check_id: MAT01_CONCRETE_CLASS_MIN_C25
+        canonical_check_name: concrete_class_minimum_screen
+        current_status: PLANNED
+        engineering_level: VERIFICATION
+        control_name_en: Concrete class minimum C25
+        control_name_tr: Beton sınıfı ≥ C25
+        tbdy_ref: TBDY §7.2.2
+        required: [ctx.design_basis.fck_mpa, ctx.design_basis.concrete_class]
+        optional: [core_table:material_concrete]
+        preferred_evidence:
+          combos: [GRAV_STRENGTH, DUCTILE_X, DUCTILE_Y]
+        acceptance: "fck_mpa >= 25, concrete class verified from ETABS/user source"
+        report_outputs: [material_strength_screen]
+        notes: High-ductility minimum concrete class requirement.
+
+      - item_no: "1.2"
+        check_id: MAT02_REBAR_CLASS_DUCTILE
+        canonical_check_name: rebar_class_ductility_screen
+        current_status: PLANNED
+        engineering_level: VERIFICATION
+        control_name_en: Rebar class B420C or B500C
+        control_name_tr: Donatı çeliği B420C veya B500C
+        tbdy_ref: TBDY §7.2.3
+        required: [ctx.design_basis.rebar_class, ctx.design_basis.fyk_mpa]
+        optional: [core_table:material_rebar, core_table:column_rebar_defs, core_table:beam_rebar_defs]
+        preferred_evidence:
+          combos: [GRAV_STRENGTH, DUCTILE_X, DUCTILE_Y]
+        acceptance: "rebar_class in [B420C, B500C], fyk/fyd consistent with selected class"
+        report_outputs: [rebar_material_screen]
+        notes: Only ductile reinforcement classes accepted for high-ductility system.
+
+      - item_no: "1.3"
+        check_id: MAT03_TIE_DIAMETER_MIN_8MM
+        canonical_check_name: tie_diameter_minimum_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Tie/stirrup diameter minimum 8 mm
+        control_name_tr: Etriye çapı ≥ 8 mm
+        tbdy_ref: TBDY §7.2.4
+        required: [core_table:column_rebar_defs, core_table:beam_rebar_defs]
+        optional: [core_table:wall_rebar_defs]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y, CAPACITY_X, CAPACITY_Y]
+        acceptance: "transverse_rebar_diameter_mm >= 8, hook detail 135 degree"
+        report_outputs: [tie_diameter_minimum_screen]
+        notes: Hook detail may need drawing/detailing data; otherwise WARNING/NO_DATA.
+
+      - item_no: "1.4"
+        check_id: MAT04_LONGITUDINAL_BAR_DIAMETER_MIN_12MM
+        canonical_check_name: longitudinal_bar_diameter_minimum_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Longitudinal bar diameter minimum 12 mm for columns/walls
+        control_name_tr: Boyuna donatı çapı ≥ 12 mm (kolon/perde)
+        tbdy_ref: TBDY §7.2.4
+        required: [core_table:column_rebar_defs, core_table:wall_rebar_defs]
+        optional: [core_table:column_design_summary, core_table:wall_design_summary]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "longitudinal_bar_diameter_mm >= 12 for columns/walls"
+        report_outputs: [longitudinal_bar_diameter_minimum_screen]
+        notes: Future detailing-level check.
+
+  # =========================================================================
+  # SLAB AND DIAPHRAGM CONTROLS
+  # =========================================================================
+  - section_id: SLAB
+    title_en: Slab and diaphragm controls
+    title_tr: Döşeme kontrolleri
+    category: SLAB
+    checks:
+      - item_no: "2.1"
+        check_id: SLAB01_FLEXURE_REINFORCEMENT
+        canonical_check_name: slab_flexure_reinforcement_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Slab flexural reinforcement
+        control_name_tr: Döşeme eğilme donatısı hesabı
+        tbdy_ref: TS500
+        required: []
+        optional: [core_table:area_shell_forces, core_table:slab_design_summary]
+        preferred_evidence:
+          combos: [GRAV_STRENGTH, TEMP_POS, TEMP_NEG]
+        acceptance: "slab flexural reinforcement demand/capacity satisfies TS500"
+        report_outputs: [slab_flexure_reinforcement_screen]
+        notes: Requires shell/slab design data.
+
+      - item_no: "2.2"
+        check_id: SLAB02_SERVICE_DEFLECTION
+        canonical_check_name: slab_service_deflection_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Slab service deflection
+        control_name_tr: Döşeme sehim kontrolü
+        tbdy_ref: TS500 §13.2
+        required: []
+        optional: [core_table:slab_deflections, core_table:area_shell_displacements]
+        preferred_evidence:
+          combos: [GRAV_SERVICE]
+        acceptance: "service deflection satisfies TS500/project limits"
+        report_outputs: [slab_service_deflection_screen]
+        notes: Uses GRAV_SERVICE only.
+
+      - item_no: "2.3"
+        check_id: SLAB03_DIAPHRAGM_IN_PLANE_FORCE
+        canonical_check_name: diaphragm_in_plane_shear_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Diaphragm in-plane forces
+        control_name_tr: Diyafram düzlem içi kuvvetler
+        tbdy_ref: TBDY §4.5.7
+        required: []
+        optional: [core_table:area_shell_forces, core_table:diaphragm_forces, core_table:collector_forces]
+        preferred_evidence:
+          combos: [CAPACITY_X, CAPACITY_Y, CAPACITY_X_SOIL, CAPACITY_Y_SOIL]
+        acceptance: "diaphragm/collector in-plane force checked under capacity combinations"
+        report_outputs: [diaphragm_in_plane_shear_screen]
+        notes: Capacity combinations only.
+
+      - item_no: "2.4"
+        check_id: SLAB04_IN_PLANE_STRESS
+        canonical_check_name: slab_in_plane_stress_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Slab in-plane stress verification
+        control_name_tr: Döşeme düzlem içi gerilme tahkiki
+        tbdy_ref: TBDY §7.11.3
+        required: []
+        optional: [core_table:area_shell_stresses, core_table:area_shell_forces]
+        preferred_evidence:
+          combos: [CAPACITY_X, CAPACITY_Y]
+        acceptance: "slab in-plane stress within project/code limits"
+        report_outputs: [slab_in_plane_stress_screen]
+        notes: Future shell stress check.
+
+      - item_no: "2.5"
+        check_id: SLAB05_TRANSFER_SLAB
+        canonical_check_name: transfer_slab_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Transfer slab check where applicable
+        control_name_tr: Aktarma katı döşemesi kontrolü
+        tbdy_ref: TBDY §7.11.3
+        required: []
+        optional: [core_table:area_shell_forces, core_table:transfer_slab_tags]
+        preferred_evidence:
+          combos: [CAPACITY_X, CAPACITY_Y, CAPACITY_X_SOIL, CAPACITY_Y_SOIL]
+        acceptance: "transfer slab force path and capacity reviewed"
+        report_outputs: [transfer_slab_screen]
+        notes: Requires model tags or engineering classification.
+
+      - item_no: "2.6"
+        check_id: SLAB06_MINIMUM_THICKNESS
+        canonical_check_name: slab_minimum_thickness_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Minimum slab thickness
+        control_name_tr: Minimum döşeme kalınlığı
+        tbdy_ref: TBDY §7.11.2
+        required: []
+        optional: [core_table:area_sections, core_table:slab_sections]
+        preferred_evidence:
+          combos: [DATA_LINE]
+        acceptance: "slab thickness satisfies project/code minimum"
+        report_outputs: [slab_minimum_thickness_screen]
+        notes: Data availability depends on area section exports.
+
+  # =========================================================================
+  # BEAM CONTROLS
+  # =========================================================================
+  - section_id: BEAM
+    title_en: Beam controls
+    title_tr: Kiriş kontrolleri
+    category: DESIGN_BEAM
+    checks:
+      - item_no: "3.1"
+        check_id: BEAM01_SPAN_BOTTOM_REBAR_GRAVITY
+        canonical_check_name: beam_span_bottom_rebar_gravity_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Beam span bottom reinforcement under gravity
+        control_name_tr: Açıklık alt donatısı
+        tbdy_ref: TS500
+        required: [core_table:beam_design_summary]
+        optional: [core_table:beam_forces, core_table:beam_rebar_defs]
+        preferred_evidence:
+          combos: [GRAV_STRENGTH]
+        acceptance: "span bottom reinforcement satisfies gravity strength design"
+        report_outputs: [beam_span_bottom_rebar_gravity_screen]
+        notes: May rely initially on ETABS design summary.
+
+      - item_no: "3.2"
+        check_id: BEAM02_SUPPORT_TOP_REBAR_COMPRESSION
+        canonical_check_name: beam_support_top_rebar_ductile_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Beam support top reinforcement under ductile compression
+        control_name_tr: Mesnet üst donatısı (basınç)
+        tbdy_ref: TBDY §7.4.2
+        required: [core_table:beam_design_summary]
+        optional: [core_table:beam_forces, core_table:beam_rebar_defs]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "support top reinforcement satisfies ductile flexure demand"
+        report_outputs: [beam_support_top_rebar_ductile_screen]
+        notes: DUCTILE_* only, not DISP_*.
+
+      - item_no: "3.3"
+        check_id: BEAM03_SUPPORT_TOP_REBAR_UPLIFT
+        canonical_check_name: beam_support_top_rebar_uplift_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Beam support top reinforcement under uplift case
+        control_name_tr: Mesnet üst donatısı (kalkma)
+        tbdy_ref: TBDY §7.4.2
+        required: [core_table:beam_design_summary]
+        optional: [core_table:beam_forces, core_table:beam_rebar_defs]
+        preferred_evidence:
+          combos: [DUCTILE_X_UPLIFT, DUCTILE_Y_UPLIFT]
+        acceptance: "support reinforcement satisfies uplift/tension ductile demand"
+        report_outputs: [beam_support_top_rebar_uplift_screen]
+        notes: Uplift ductile combos.
+
+      - item_no: "3.4"
+        check_id: BEAM04_SPAN_BOTTOM_REBAR_SEISMIC
+        canonical_check_name: beam_span_bottom_rebar_seismic_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Beam span bottom reinforcement under seismic ductile case
+        control_name_tr: Açıklık alt donatısı (deprem)
+        tbdy_ref: TBDY §7.4.2
+        required: [core_table:beam_design_summary]
+        optional: [core_table:beam_forces, core_table:beam_rebar_defs]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "span reinforcement satisfies ductile seismic flexure demand"
+        report_outputs: [beam_span_bottom_rebar_seismic_screen]
+        notes: Future detailed flexure check.
+
+      - item_no: "3.5"
+        check_id: BEAM05_SHEAR_CAPACITY_COMPRESSION
+        canonical_check_name: beam_shear_capacity_compression_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Beam capacity shear under compression case
+        control_name_tr: Kiriş kesme donatısı (basınç)
+        tbdy_ref: TBDY §7.4.5
+        required: [core_table:beam_design_summary]
+        optional: [core_table:beam_forces, core_table:beam_rebar_defs]
+        preferred_evidence:
+          combos: [CAPACITY_X, CAPACITY_Y]
+        acceptance: "beam capacity shear demand resisted by shear reinforcement"
+        report_outputs: [beam_shear_capacity_compression_screen]
+        notes: Capacity shear design.
+
+      - item_no: "3.6"
+        check_id: BEAM06_SHEAR_CAPACITY_UPLIFT
+        canonical_check_name: beam_shear_capacity_uplift_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Beam capacity shear under uplift case
+        control_name_tr: Kiriş kesme donatısı (kalkma)
+        tbdy_ref: TBDY §7.4.5
+        required: [core_table:beam_design_summary]
+        optional: [core_table:beam_forces, core_table:beam_rebar_defs]
+        preferred_evidence:
+          combos: [CAPACITY_X_UPLIFT, CAPACITY_Y_UPLIFT]
+        acceptance: "uplift capacity shear demand resisted by beam shear reinforcement"
+        report_outputs: [beam_shear_capacity_uplift_screen]
+        notes: Capacity uplift shear design.
+
+      - item_no: "3.7"
+        check_id: BEAM07_SHEAR_DEMAND_CAPACITY_INTERACTION
+        canonical_check_name: beam_shear_demand_capacity_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Beam Ve <= Vr shear safety
+        control_name_tr: Ve ≤ Vr etkileşim kontrolü
+        tbdy_ref: TBDY §7.4.5.2
+        required: [core_table:beam_design_summary]
+        optional: [core_table:beam_forces, core_table:beam_rebar_defs]
+        preferred_evidence:
+          combos: [CAPACITY_X, CAPACITY_Y, CAPACITY_X_UPLIFT, CAPACITY_Y_UPLIFT]
+        acceptance: "Ve <= Vr"
+        report_outputs: [beam_shear_demand_capacity_screen]
+        notes: Future independent shear capacity comparison.
+
+      - item_no: "3.8"
+        check_id: BEAM08_WEB_WIDTH_MIN_250MM
+        canonical_check_name: beam_web_width_minimum_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Beam web width minimum 250 mm
+        control_name_tr: Kiriş gövde genişliği ≥ 250 mm
+        tbdy_ref: TBDY §7.4.1.1
+        required: [core_table:frame_rect_sections, core_table:frame_assigns_section]
+        optional: []
+        preferred_evidence:
+          combos: [DATA_LINE]
+        acceptance: "beam_web_width_mm >= 250"
+        report_outputs: [beam_web_width_minimum_screen]
+        notes: Geometry/detailing check.
+
+      - item_no: "3.9"
+        check_id: BEAM09_WIDTH_DEPTH_RATIO
+        canonical_check_name: beam_width_depth_ratio_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Beam width/depth ratio bw/d <= 3.5
+        control_name_tr: bw/d ≤ 3.5
+        tbdy_ref: TBDY §7.4.1.1
+        required: [core_table:frame_rect_sections, core_table:frame_assigns_section]
+        optional: []
+        preferred_evidence:
+          combos: [DATA_LINE]
+        acceptance: "bw/d <= 3.5 for high-ductility beam geometry"
+        report_outputs: [beam_width_depth_ratio_screen]
+        notes: Verify orientation convention before implementing.
+
+      - item_no: "3.10"
+        check_id: BEAM10_SUPPORT_BOTTOM_TOP_REBAR_RATIO
+        canonical_check_name: beam_support_rebar_ratio_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Beam support bottom/top reinforcement ratio minimum 50 percent
+        control_name_tr: Mesnet alt-üst donatı oranı ≥ %50
+        tbdy_ref: TBDY §7.4.3.1
+        required: [core_table:beam_rebar_defs]
+        optional: [core_table:beam_design_summary]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "support bottom/top reinforcement ratio >= 0.50"
+        report_outputs: [beam_support_rebar_ratio_screen]
+        notes: Requires rebar layout detail.
+
+      - item_no: "3.11"
+        check_id: BEAM11_TENSION_REBAR_RATIO_MAX
+        canonical_check_name: beam_tension_rebar_ratio_max_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Beam tension reinforcement ratio rho <= 0.02
+        control_name_tr: Çekme donatısı oranı ρ ≤ 0.02
+        tbdy_ref: TBDY §7.4.3.2
+        required: [core_table:beam_rebar_defs, core_table:frame_rect_sections]
+        optional: [core_table:beam_design_summary]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "rho_tension <= 0.02"
+        report_outputs: [beam_tension_rebar_ratio_max_screen]
+        notes: Future detailing check.
+
+      - item_no: "3.12"
+        check_id: BEAM12_CONFINEMENT_ZONE_STIRRUP_SPACING
+        canonical_check_name: beam_confinement_stirrup_spacing_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Beam confinement-zone stirrup spacing
+        control_name_tr: Sarılma bölgesi etriye sıkılaştırması
+        tbdy_ref: TBDY §7.4.4
+        required: [core_table:beam_rebar_defs]
+        optional: [core_table:beam_design_summary]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y, CAPACITY_X, CAPACITY_Y]
+        acceptance: "confinement zone stirrup spacing satisfies TBDY limits"
+        report_outputs: [beam_confinement_stirrup_spacing_screen]
+        notes: Requires detailing data.
+
+      - item_no: "3.13"
+        check_id: BEAM13_SERVICE_DEFLECTION
+        canonical_check_name: beam_service_deflection_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Beam service deflection
+        control_name_tr: Kiriş sehim kontrolü
+        tbdy_ref: TS500 §13.2
+        required: []
+        optional: [core_table:beam_deflections, core_table:frame_displacements]
+        preferred_evidence:
+          combos: [GRAV_SERVICE]
+        acceptance: "service deflection satisfies TS500/project limits"
+        report_outputs: [beam_service_deflection_screen]
+        notes: Serviceability check.
+
+  # =========================================================================
+  # COLUMN CONTROLS
+  # =========================================================================
+  - section_id: COLUMN
+    title_en: Column controls
+    title_tr: Kolon kontrolleri
+    category: DESIGN_COLUMN
+    checks:
+      - item_no: "4.1"
+        check_id: COL01_MINIMUM_AXIAL_GRAVITY
+        canonical_check_name: column_minimum_axial_gravity_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Column minimum axial control under gravity
+        control_name_tr: Minimum eksenel kontrol
+        tbdy_ref: TS500
+        required: [core_table:column_design_summary]
+        optional: [core_table:column_forces]
+        preferred_evidence:
+          combos: [GRAV_STRENGTH]
+        acceptance: "column minimum axial design satisfied under gravity strength"
+        report_outputs: [column_minimum_axial_gravity_screen]
+        notes: May be ETABS design-summary based initially.
+
+      - item_no: "4.2"
+        check_id: COL02_AXIAL_LIMIT_NDM
+        canonical_check_name: column_axial_screen
+        current_status: IMPLEMENTED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: Column axial force upper limit Ndm
+        control_name_tr: Eksenel kuvvet üst sınırı Ndm kontrolü
+        tbdy_ref: TBDY §7.3.3
+        required: [core_table:column_design_summary]
+        optional: [core_table:column_forces]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "Ndm/(Ac*fck) satisfies TBDY/project axial limit"
+        report_outputs: [column_axial_screen]
+        notes: Existing column axial screening.
+
+      - item_no: "4.3"
+        check_id: COL03_TENSION_UPLIFT
+        canonical_check_name: column_tension_uplift_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Column tension/uplift control
+        control_name_tr: Çekme kontrolü (net kalkma)
+        tbdy_ref: TBDY §7.3.5
+        required: [core_table:column_design_summary]
+        optional: [core_table:column_forces, core_table:support_reactions]
+        preferred_evidence:
+          combos: [DUCTILE_X_UPLIFT, DUCTILE_Y_UPLIFT]
+        acceptance: "column net tension/uplift evaluated and reinforced where required"
+        report_outputs: [column_tension_uplift_screen]
+        notes: Future uplift/tension member check.
+
+      - item_no: "4.4"
+        check_id: COL04_LONGITUDINAL_REBAR
+        canonical_check_name: column_longitudinal_rebar_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Column longitudinal reinforcement
+        control_name_tr: Kolon boyuna donatısı
+        tbdy_ref: TBDY §7.3.4
+        required: [core_table:column_design_summary, core_table:column_rebar_defs]
+        optional: [core_table:column_forces]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "column longitudinal reinforcement satisfies N-M interaction and detailing limits"
+        report_outputs: [column_longitudinal_rebar_screen]
+        notes: Future detailed column design check.
+
+      - item_no: "4.5"
+        check_id: COL05_LONGITUDINAL_REBAR_SOIL
+        canonical_check_name: column_longitudinal_rebar_soil_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Column longitudinal reinforcement for soil/basement case
+        control_name_tr: Kolon boyuna donatısı (zemin kat)
+        tbdy_ref: TBDY §7.3.4
+        required: [core_table:column_design_summary]
+        optional: [core_table:column_forces, core_table:column_rebar_defs]
+        preferred_evidence:
+          combos: [DUCTILE_X_SOIL, DUCTILE_Y_SOIL]
+        acceptance: "basement/soil affected column reinforcement satisfies demand"
+        report_outputs: [column_longitudinal_rebar_soil_screen]
+        notes: Future basement-specific check.
+
+      - item_no: "4.6"
+        check_id: COL06_SHEAR_CAPACITY_COMPRESSION
+        canonical_check_name: column_shear_capacity_compression_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Column capacity shear under compression case
+        control_name_tr: Kolon kesme donatısı (basınç)
+        tbdy_ref: TBDY §7.3.7
+        required: [core_table:column_design_summary]
+        optional: [core_table:column_forces, core_table:column_rebar_defs]
+        preferred_evidence:
+          combos: [CAPACITY_X, CAPACITY_Y]
+        acceptance: "column capacity shear satisfies shear reinforcement capacity"
+        report_outputs: [column_shear_capacity_compression_screen]
+        notes: Future capacity shear check.
+
+      - item_no: "4.7"
+        check_id: COL07_SHEAR_CAPACITY_UPLIFT
+        canonical_check_name: column_shear_capacity_uplift_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Column capacity shear under uplift case
+        control_name_tr: Kolon kesme donatısı (kalkma)
+        tbdy_ref: TBDY §7.3.7
+        required: [core_table:column_design_summary]
+        optional: [core_table:column_forces, core_table:column_rebar_defs]
+        preferred_evidence:
+          combos: [CAPACITY_X_UPLIFT, CAPACITY_Y_UPLIFT]
+        acceptance: "column uplift capacity shear satisfies shear capacity"
+        report_outputs: [column_shear_capacity_uplift_screen]
+        notes: Future capacity uplift shear check.
+
+      - item_no: "4.8"
+        check_id: COL08_SHEAR_DEMAND_CAPACITY
+        canonical_check_name: column_shear_demand_capacity_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Column Ve <= Vr shear safety
+        control_name_tr: Ve ≤ Vr kesme güvenliği
+        tbdy_ref: TBDY §7.3.7.6
+        required: [core_table:column_design_summary]
+        optional: [core_table:column_forces, core_table:column_rebar_defs]
+        preferred_evidence:
+          combos: [CAPACITY_X, CAPACITY_Y, CAPACITY_X_UPLIFT, CAPACITY_Y_UPLIFT]
+        acceptance: "Ve <= Vr"
+        report_outputs: [column_shear_demand_capacity_screen]
+        notes: Future independent shear capacity check.
+
+      - item_no: "4.9"
+        check_id: COL09_MIN_DIMENSION_300MM
+        canonical_check_name: column_min_dimension_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Column minimum dimension 300 mm
+        control_name_tr: Minimum boyut ≥ 300 mm
+        tbdy_ref: TBDY §7.3.1.1
+        required: [core_table:frame_rect_sections, core_table:frame_assigns_section]
+        optional: []
+        preferred_evidence:
+          combos: [DATA_LINE]
+        acceptance: "min(column_section_dimension_mm) >= 300"
+        report_outputs: [column_min_dimension_screen]
+        notes: Geometry/detailing check.
+
+      - item_no: "4.10"
+        check_id: COL10_LONGITUDINAL_REBAR_RATIO
+        canonical_check_name: column_longitudinal_rebar_ratio_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Column longitudinal reinforcement ratio 1%-4%
+        control_name_tr: Boyuna donatı oranı %1 ≤ ρ ≤ %4
+        tbdy_ref: TBDY §7.3.4.1
+        required: [core_table:column_rebar_defs, core_table:frame_rect_sections]
+        optional: [core_table:column_design_summary]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "0.01 <= rho_longitudinal <= 0.04"
+        report_outputs: [column_longitudinal_rebar_ratio_screen]
+        notes: Future detailing-level check.
+
+      - item_no: "4.11"
+        check_id: COL11_LAP_SPLICE_CONFINEMENT
+        canonical_check_name: column_lap_splice_confinement_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Column lap splice zone confinement
+        control_name_tr: Bindirmeli ek bölgesi etriye sıkılaştırması
+        tbdy_ref: TBDY §7.3.5.4
+        required: [core_table:column_rebar_defs]
+        optional: [core_table:detailing_zones]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "lap splice confinement satisfies TBDY detailing requirements"
+        report_outputs: [column_lap_splice_confinement_screen]
+        notes: Requires detailing data.
+
+      - item_no: "4.12"
+        check_id: COL12_CONFINEMENT_ZONE_LENGTH_SPACING
+        canonical_check_name: column_confinement_zone_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Column confinement zone length and stirrup spacing
+        control_name_tr: Sarılma bölgesi uzunluğu ve etriye aralığı
+        tbdy_ref: TBDY §7.3.5.1
+        required: [core_table:column_rebar_defs]
+        optional: [core_table:detailing_zones]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "confinement zone length and stirrup spacing satisfies TBDY"
+        report_outputs: [column_confinement_zone_screen]
+        notes: Future detailing check.
+
+      - item_no: "4.13"
+        check_id: COL13_AXIAL_STRESS_LIMIT_04
+        canonical_check_name: column_axial_stress_limit_screen
+        current_status: PLANNED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: Column axial stress ratio N/(Ac*fck) <= 0.4
+        control_name_tr: N/(Ac×fck) ≤ 0.4
+        tbdy_ref: TBDY §7.3.3.1
+        required: [core_table:column_design_summary, core_table:frame_rect_sections]
+        optional: [core_table:column_forces]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "N/(Ac*fck) <= 0.4"
+        report_outputs: [column_axial_stress_limit_screen]
+        notes: Related to existing column_axial_screen.
+
+  # =========================================================================
+  # WALL CONTROLS
+  # =========================================================================
+  - section_id: WALL
+    title_en: Wall controls
+    title_tr: Perde kontrolleri
+    category: DESIGN_WALL
+    checks:
+      - item_no: "5.1"
+        check_id: WALL01_FLEXURE_COMPRESSION
+        canonical_check_name: wall_flexure_compression_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Wall flexural reinforcement under compression case
+        control_name_tr: Perde eğilme donatısı (basınç)
+        tbdy_ref: TBDY §7.6.2
+        required: [core_table:wall_design_summary]
+        optional: [core_table:pier_forces, core_table:wall_rebar_defs]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "wall flexure demand/capacity satisfies TBDY/TS500"
+        report_outputs: [wall_flexure_compression_screen]
+        notes: Future detailed wall flexure check.
+
+      - item_no: "5.2"
+        check_id: WALL02_FLEXURE_UPLIFT
+        canonical_check_name: wall_flexure_uplift_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Wall flexural reinforcement under uplift case
+        control_name_tr: Perde eğilme donatısı (kalkma)
+        tbdy_ref: TBDY §7.6.2
+        required: [core_table:wall_design_summary]
+        optional: [core_table:pier_forces, core_table:wall_rebar_defs]
+        preferred_evidence:
+          combos: [DUCTILE_X_UPLIFT, DUCTILE_Y_UPLIFT]
+        acceptance: "wall uplift/tension flexure demand resisted"
+        report_outputs: [wall_flexure_uplift_screen]
+        notes: Future wall uplift flexure check.
+
+      - item_no: "5.3"
+        check_id: WALL03_FLEXURE_SOIL
+        canonical_check_name: wall_flexure_soil_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Wall flexural reinforcement under soil/basement cases
+        control_name_tr: Perde eğilme donatısı (zemin kat)
+        tbdy_ref: TBDY §7.6.2
+        required: [core_table:wall_design_summary]
+        optional: [core_table:pier_forces, core_table:wall_rebar_defs]
+        preferred_evidence:
+          combos: [DUCTILE_X_SOIL, DUCTILE_Y_SOIL, DUCTILE_X_UPLIFT_SOIL, DUCTILE_Y_UPLIFT_SOIL]
+        acceptance: "wall soil/basement flexure demand checked"
+        report_outputs: [wall_flexure_soil_screen]
+        notes: Future basement/soil wall design check.
+
+      - item_no: "5.4"
+        check_id: WALL04_BOUNDARY_ZONE_REQUIREMENT
+        canonical_check_name: wall_boundary_zone_requirement_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Wall boundary zone requirement
+        control_name_tr: Uç bölgesi gerekliliği
+        tbdy_ref: TBDY §7.6.2.3
+        required: [core_table:wall_design_summary, core_table:pier_sections]
+        optional: [core_table:pier_forces]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y, DUCTILE_X_UPLIFT, DUCTILE_Y_UPLIFT]
+        acceptance: "boundary zone requirement identified and satisfied"
+        report_outputs: [wall_boundary_zone_requirement_screen]
+        notes: Future boundary-zone requirement check.
+
+      - item_no: "5.5"
+        check_id: WALL05_BOUNDARY_ZONE_REBAR_CONFINEMENT
+        canonical_check_name: wall_boundary_zone_detailing_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Wall boundary zone reinforcement and confinement
+        control_name_tr: Uç bölgesi donatı ve sargılama detayı
+        tbdy_ref: TBDY §7.6.2.3
+        required: [core_table:wall_rebar_defs]
+        optional: [core_table:wall_design_summary, core_table:pier_sections]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "boundary-zone reinforcement/confinement satisfies TBDY"
+        report_outputs: [wall_boundary_zone_detailing_screen]
+        notes: Requires detailing data.
+
+      - item_no: "5.6"
+        check_id: WALL06_SHEAR_CAPACITY_COMPRESSION
+        canonical_check_name: wall_shear_capacity_compression_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Wall capacity shear under compression case
+        control_name_tr: Perde kesme donatısı (basınç)
+        tbdy_ref: TBDY §7.6.6
+        required: [core_table:wall_design_summary]
+        optional: [core_table:pier_forces, core_table:wall_rebar_defs]
+        preferred_evidence:
+          combos: [CAPACITY_X, CAPACITY_Y]
+        acceptance: "wall capacity shear demand resisted"
+        report_outputs: [wall_shear_capacity_compression_screen]
+        notes: Future wall shear capacity check.
+
+      - item_no: "5.7"
+        check_id: WALL07_SHEAR_CAPACITY_UPLIFT
+        canonical_check_name: wall_shear_capacity_uplift_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Wall capacity shear under uplift case
+        control_name_tr: Perde kesme donatısı (kalkma)
+        tbdy_ref: TBDY §7.6.6
+        required: [core_table:wall_design_summary]
+        optional: [core_table:pier_forces, core_table:wall_rebar_defs]
+        preferred_evidence:
+          combos: [CAPACITY_X_UPLIFT, CAPACITY_Y_UPLIFT]
+        acceptance: "wall uplift capacity shear demand resisted"
+        report_outputs: [wall_shear_capacity_uplift_screen]
+        notes: Future wall uplift shear check.
+
+      - item_no: "5.8"
+        check_id: WALL08_SHEAR_CAPACITY_SOIL
+        canonical_check_name: wall_shear_capacity_soil_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Wall capacity shear under soil/basement cases
+        control_name_tr: Perde kesme donatısı (zemin)
+        tbdy_ref: TBDY §7.6.6
+        required: [core_table:wall_design_summary]
+        optional: [core_table:pier_forces, core_table:wall_rebar_defs]
+        preferred_evidence:
+          combos: [CAPACITY_X_SOIL, CAPACITY_Y_SOIL, CAPACITY_X_UPLIFT_SOIL, CAPACITY_Y_UPLIFT_SOIL]
+        acceptance: "wall soil/basement capacity shear demand checked"
+        report_outputs: [wall_shear_capacity_soil_screen]
+        notes: Future basement wall shear check.
+
+      - item_no: "5.9"
+        check_id: WALL09_SHEAR_DEMAND_CAPACITY
+        canonical_check_name: wall_shear_demand_capacity_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Wall Ve <= Vr shear safety
+        control_name_tr: Ve ≤ Vr kesme güvenliği
+        tbdy_ref: TBDY §7.6.6.3
+        required: [core_table:wall_design_summary]
+        optional: [core_table:pier_forces, core_table:wall_rebar_defs]
+        preferred_evidence:
+          combos: [CAPACITY_X, CAPACITY_Y, CAPACITY_X_SOIL, CAPACITY_Y_SOIL, CAPACITY_X_UPLIFT, CAPACITY_Y_UPLIFT, CAPACITY_X_UPLIFT_SOIL, CAPACITY_Y_UPLIFT_SOIL]
+        acceptance: "Ve <= Vr"
+        report_outputs: [wall_shear_demand_capacity_screen]
+        notes: Future independent wall shear check.
+
+      - item_no: "5.10"
+        check_id: WALL10_THICKNESS_MIN_250MM
+        canonical_check_name: wall_thickness_minimum_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Wall thickness minimum 250 mm in critical height
+        control_name_tr: Perde kalınlığı ≥ 250 mm
+        tbdy_ref: TBDY §7.6.1.2
+        required: [core_table:pier_sections]
+        optional: [core_table:wall_design_summary]
+        preferred_evidence:
+          combos: [DATA_LINE]
+        acceptance: "wall_thickness_mm >= 250 in critical height region"
+        report_outputs: [wall_thickness_minimum_screen]
+        notes: Future wall geometry check.
+
+      - item_no: "5.11"
+        check_id: WALL11_THICKNESS_STORY_HEIGHT_RATIO
+        canonical_check_name: wall_thickness_story_height_ratio_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Wall thickness minimum story height / 16
+        control_name_tr: Perde kalınlığı ≥ kat yüksekliği/16
+        tbdy_ref: TBDY §7.6.1.2
+        required: [core_table:pier_sections, core_table:story_definitions]
+        optional: []
+        preferred_evidence:
+          combos: [DATA_LINE]
+        acceptance: "wall_thickness >= story_height / 16 where applicable"
+        report_outputs: [wall_thickness_story_height_ratio_screen]
+        notes: Future geometry check.
+
+      - item_no: "5.12"
+        check_id: WALL12_HORIZONTAL_WEB_REBAR_RATIO
+        canonical_check_name: wall_horizontal_web_rebar_ratio_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Wall horizontal web reinforcement ratio minimum 0.0025
+        control_name_tr: Gövde yatay donatı oranı ≥ 0.0025
+        tbdy_ref: TBDY §7.6.5.2
+        required: [core_table:wall_rebar_defs]
+        optional: [core_table:wall_design_summary]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "rho_horizontal_web >= 0.0025"
+        report_outputs: [wall_horizontal_web_rebar_ratio_screen]
+        notes: Future wall detailing check.
+
+      - item_no: "5.13"
+        check_id: WALL13_VERTICAL_WEB_REBAR_RATIO
+        canonical_check_name: wall_vertical_web_rebar_ratio_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Wall vertical web reinforcement ratio minimum 0.0025
+        control_name_tr: Gövde düşey donatı oranı ≥ 0.0025
+        tbdy_ref: TBDY §7.6.5.2
+        required: [core_table:wall_rebar_defs]
+        optional: [core_table:wall_design_summary]
+        preferred_evidence:
+          combos: [DUCTILE_X, DUCTILE_Y]
+        acceptance: "rho_vertical_web >= 0.0025"
+        report_outputs: [wall_vertical_web_rebar_ratio_screen]
+        notes: Future wall detailing check.
+
+      - item_no: "5.14"
+        check_id: WALL14_HW_LW_RATIO
+        canonical_check_name: wall_hw_lw_ratio_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Wall Hw/lw ratio minimum 2.0 for high-ductility wall
+        control_name_tr: Hw/lw ≥ 2.0
+        tbdy_ref: TBDY §7.6.2.1
+        required: [core_table:pier_sections, core_table:story_definitions]
+        optional: [core_table:wall_design_summary]
+        preferred_evidence:
+          combos: [DATA_LINE]
+        acceptance: "Hw/lw >= 2.0 for high-ductility wall classification"
+        report_outputs: [wall_hw_lw_ratio_screen]
+        notes: Future wall classification check.
+
+  # =========================================================================
+  # FOUNDATION CONTROLS
+  # =========================================================================
+  - section_id: FOUNDATION
+    title_en: Raft/foundation controls
+    title_tr: Radye temel kontrolleri
+    category: FOUNDATION
+    checks:
+      - item_no: "6.1"
+        check_id: FND01_RAFT_FLEXURE
+        canonical_check_name: raft_flexure_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Raft flexural reinforcement
+        control_name_tr: Radye eğilme donatısı
+        tbdy_ref: TBDY §4.5.7
+        required: []
+        optional: [core_table:area_shell_forces, core_table:slab_design_summary]
+        preferred_evidence:
+          combos: [CAPACITY_X, CAPACITY_Y]
+        acceptance: "raft flexure reinforcement satisfies demand"
+        report_outputs: [raft_flexure_screen]
+        notes: Future foundation flexure check.
+
+      - item_no: "6.2"
+        check_id: FND02_RAFT_SHEAR
+        canonical_check_name: raft_shear_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Raft shear reinforcement
+        control_name_tr: Radye kesme donatısı
+        tbdy_ref: TBDY §4.5.7
+        required: []
+        optional: [core_table:area_shell_forces, core_table:slab_design_summary]
+        preferred_evidence:
+          combos: [CAPACITY_X, CAPACITY_Y]
+        acceptance: "raft shear demand satisfies shear capacity"
+        report_outputs: [raft_shear_screen]
+        notes: Future foundation shear check.
+
+      - item_no: "6.3"
+        check_id: FND03_SOIL_BEARING
+        canonical_check_name: foundation_soil_strength_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Soil bearing pressure check
+        control_name_tr: Zemin gerilmesi kontrolü
+        tbdy_ref: TBDY §16.7
+        required: []
+        optional: [core_table:soil_pressures, core_table:area_shell_forces, core_table:base_reactions]
+        preferred_evidence:
+          combos: [SOIL_STRENGTH]
+        acceptance: "soil bearing pressure satisfies allowable/strength limit"
+        report_outputs: [foundation_soil_strength_screen]
+        notes: Future soil bearing check.
+
+      - item_no: "6.4"
+        check_id: FND04_PUNCHING_SHEAR
+        canonical_check_name: foundation_punching_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Raft punching shear
+        control_name_tr: Zımbalama kontrolü
+        tbdy_ref: TS500 §12
+        required: []
+        optional: [core_table:punching_shear, core_table:column_reactions, core_table:area_shell_forces]
+        preferred_evidence:
+          combos: [SOIL_STRENGTH]
+        acceptance: "punching demand/capacity satisfies TS500/project criteria"
+        report_outputs: [foundation_punching_screen]
+        notes: Future punching check.
+
+      - item_no: "6.5"
+        check_id: FND05_UPLIFT
+        canonical_check_name: foundation_uplift_screen
+        current_status: IMPLEMENTED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: Foundation uplift check
+        control_name_tr: Kalkma kontrolü
+        tbdy_ref: TBDY §16.7.3
+        required: [core_table:base_reactions]
+        optional: [core_table:joint_reactions, core_table:support_reactions]
+        preferred_evidence:
+          combos: [SOIL_UPLIFT]
+        acceptance: "negative vertical reactions or uplift candidates reviewed"
+        report_outputs: [foundation_uplift_screen]
+        notes: V34 screening check.
+
+      - item_no: "6.6"
+        check_id: FND06_SOIL_PRESSURE_WITH_BASEMENT
+        canonical_check_name: foundation_soil_pressure_basement_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Basement soil-pressure condition
+        control_name_tr: Zemin itkili durum
+        tbdy_ref: TBDY §4.5.7
+        required: []
+        optional: [core_table:soil_pressures, core_table:area_shell_forces]
+        preferred_evidence:
+          combos: [CAPACITY_X_SOIL, CAPACITY_Y_SOIL]
+        acceptance: "basement soil pressure conditions included in foundation design"
+        report_outputs: [foundation_soil_pressure_basement_screen]
+        notes: Future basement foundation check.
+
+      - item_no: "6.7"
+        check_id: FND07_UPLIFT_WITH_SOIL
+        canonical_check_name: foundation_uplift_soil_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Uplift plus soil-pressure condition
+        control_name_tr: Kalkma + zemin itkili durum
+        tbdy_ref: TBDY §4.5.7
+        required: [core_table:base_reactions]
+        optional: [core_table:soil_pressures]
+        preferred_evidence:
+          combos: [CAPACITY_X_UPLIFT_SOIL, CAPACITY_Y_UPLIFT_SOIL]
+        acceptance: "uplift plus soil pressure case checked"
+        report_outputs: [foundation_uplift_soil_screen]
+        notes: Future foundation stability check.
+
+      - item_no: "6.8"
+        check_id: FND08_SERVICE_SETTLEMENT_DEFLECTION
+        canonical_check_name: foundation_service_settlement_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Foundation service settlement/deflection
+        control_name_tr: Servis çökme/sehim kontrolü
+        tbdy_ref: TBDY §16.7.2
+        required: []
+        optional: [core_table:soil_settlements, core_table:area_shell_displacements]
+        preferred_evidence:
+          combos: [GRAV_SERVICE]
+        acceptance: "service settlement/deflection satisfies geotechnical/project limits"
+        report_outputs: [foundation_service_settlement_screen]
+        notes: Future serviceability check.
+
+      - item_no: "6.9"
+        check_id: FND09_RAFT_MIN_THICKNESS
+        canonical_check_name: raft_minimum_thickness_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: Minimum raft thickness
+        control_name_tr: Minimum radye kalınlığı
+        tbdy_ref: TBDY §16.7.2
+        required: []
+        optional: [core_table:area_sections, core_table:raft_sections]
+        preferred_evidence:
+          combos: [DATA_LINE]
+        acceptance: "raft thickness satisfies project/geotechnical minimum"
+        report_outputs: [raft_minimum_thickness_screen]
+        notes: Future foundation geometry check.
+
+  # =========================================================================
+  # DISPLACEMENT AND DRIFT CONTROLS
+  # =========================================================================
+  - section_id: DISPLACEMENT
+    title_en: Displacement and drift controls
+    title_tr: Deplasman / öteleme kontrolleri
+    category: ANALYSIS
+    checks:
+      - item_no: "7.1"
+        check_id: DISP01_STORY_DRIFT_X
+        canonical_check_name: story_drift_x_screen
+        current_status: PLANNED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: Relative story drift in X direction
+        control_name_tr: Göreli kat ötelemesi X yönü
+        tbdy_ref: TBDY §4.9.1.2
+        required: [core_table:story_drifts]
+        optional: []
+        preferred_evidence:
+          combos: [DISP_X]
+        acceptance: "X-direction relative story drift satisfies TBDY limit"
+        report_outputs: [story_drift]
+        notes: Existing story_drift check covers both directions.
+
+      - item_no: "7.2"
+        check_id: DISP02_STORY_DRIFT_Y
+        canonical_check_name: story_drift_y_screen
+        current_status: PLANNED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: Relative story drift in Y direction
+        control_name_tr: Göreli kat ötelemesi Y yönü
+        tbdy_ref: TBDY §4.9.1.2
+        required: [core_table:story_drifts]
+        optional: []
+        preferred_evidence:
+          combos: [DISP_Y]
+        acceptance: "Y-direction relative story drift satisfies TBDY limit"
+        report_outputs: [story_drift]
+        notes: Existing story_drift check covers both directions.
+
+      - item_no: "7.3"
+        check_id: DISP03_STORY_DRIFT_X_SOIL
+        canonical_check_name: story_drift_x_soil_screen
+        current_status: PLANNED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: X direction drift with soil effects
+        control_name_tr: Zemin itkili öteleme X
+        tbdy_ref: TBDY §4.9.1.2
+        required: [core_table:story_drifts]
+        optional: []
+        preferred_evidence:
+          combos: [DISP_X_SOIL]
+        acceptance: "X soil drift satisfies limit where soil combos used"
+        report_outputs: [story_drift_x_soil_screen]
+        notes: Future combo-specific drift check.
+
+      - item_no: "7.4"
+        check_id: DISP04_STORY_DRIFT_Y_SOIL
+        canonical_check_name: story_drift_y_soil_screen
+        current_status: PLANNED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: Y direction drift with soil effects
+        control_name_tr: Zemin itkili öteleme Y
+        tbdy_ref: TBDY §4.9.1.2
+        required: [core_table:story_drifts]
+        optional: []
+        preferred_evidence:
+          combos: [DISP_Y_SOIL]
+        acceptance: "Y soil drift satisfies limit where soil combos used"
+        report_outputs: [story_drift_y_soil_screen]
+        notes: Future combo-specific drift check.
+
+      - item_no: "7.5"
+        check_id: DISP05_STORY_DRIFT_X_UPLIFT
+        canonical_check_name: story_drift_x_uplift_screen
+        current_status: PLANNED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: X direction uplift drift
+        control_name_tr: Kalkma durumu öteleme X
+        tbdy_ref: TBDY §4.9.1.2
+        required: [core_table:story_drifts]
+        optional: []
+        preferred_evidence:
+          combos: [DISP_X_UPLIFT]
+        acceptance: "X uplift drift satisfies limit where uplift combos used"
+        report_outputs: [story_drift_x_uplift_screen]
+        notes: Future combo-specific drift check.
+
+      - item_no: "7.6"
+        check_id: DISP06_STORY_DRIFT_Y_UPLIFT
+        canonical_check_name: story_drift_y_uplift_screen
+        current_status: PLANNED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: Y direction uplift drift
+        control_name_tr: Kalkma durumu öteleme Y
+        tbdy_ref: TBDY §4.9.1.2
+        required: [core_table:story_drifts]
+        optional: []
+        preferred_evidence:
+          combos: [DISP_Y_UPLIFT]
+        acceptance: "Y uplift drift satisfies limit where uplift combos used"
+        report_outputs: [story_drift_y_uplift_screen]
+        notes: Future combo-specific drift check.
+
+      - item_no: "7.7"
+        check_id: DISP07_STORY_DRIFT_X_UPLIFT_SOIL
+        canonical_check_name: story_drift_x_uplift_soil_screen
+        current_status: PLANNED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: X direction uplift plus soil drift
+        control_name_tr: Kalkma + zemin öteleme X
+        tbdy_ref: TBDY §4.9.1.2
+        required: [core_table:story_drifts]
+        optional: []
+        preferred_evidence:
+          combos: [DISP_X_UPLIFT_SOIL]
+        acceptance: "X uplift+soil drift satisfies limit where applicable"
+        report_outputs: [story_drift_x_uplift_soil_screen]
+        notes: Future combo-specific drift check.
+
+      - item_no: "7.8"
+        check_id: DISP08_STORY_DRIFT_Y_UPLIFT_SOIL
+        canonical_check_name: story_drift_y_uplift_soil_screen
+        current_status: PLANNED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: Y direction uplift plus soil drift
+        control_name_tr: Kalkma + zemin öteleme Y
+        tbdy_ref: TBDY §4.9.1.2
+        required: [core_table:story_drifts]
+        optional: []
+        preferred_evidence:
+          combos: [DISP_Y_UPLIFT_SOIL]
+        acceptance: "Y uplift+soil drift satisfies limit where applicable"
+        report_outputs: [story_drift_y_uplift_soil_screen]
+        notes: Future combo-specific drift check.
+
+      - item_no: "7.9"
+        check_id: DISP09_RAW_DRIFT_LIMIT
+        canonical_check_name: raw_drift_limit_screen
+        current_status: PLANNED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: Raw story drift ratio limit delta_i/h_i <= 0.02
+        control_name_tr: δi/hi ≤ 0.02
+        tbdy_ref: TBDY §4.9.1.3
+        required: [core_table:story_drifts, core_table:story_definitions]
+        optional: []
+        preferred_evidence:
+          combos: [DISP_X, DISP_Y]
+        acceptance: "delta_i / h_i <= 0.02"
+        report_outputs: [raw_drift_limit_screen]
+        notes: Existing story_drift may already cover final demand ratio.
+
+      - item_no: "7.10"
+        check_id: DISP10_LAMBDA_DRIFT_LIMIT
+        canonical_check_name: lambda_drift_limit_screen
+        current_status: PLANNED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: Lambda-amplified story drift limit
+        control_name_tr: λ × δi/hi ≤ 0.02
+        tbdy_ref: TBDY §4.9.1.3
+        required: [core_table:story_drifts, ctx.design_basis.drift_multiplier]
+        optional: []
+        preferred_evidence:
+          combos: [DISP_X, DISP_Y]
+        acceptance: "lambda * delta_i / h_i <= 0.02"
+        report_outputs: [story_drift]
+        notes: Existing story_drift check uses drift_multiplier.
+
+  # =========================================================================
+  # SECOND-ORDER / P-DELTA CONTROLS
+  # =========================================================================
+  - section_id: PDELTA
+    title_en: Second-order / P-Delta controls
+    title_tr: İkinci mertebe / P-Delta kontrolleri
+    category: ANALYSIS
+    checks:
+      - item_no: "8.1"
+        check_id: PD01_THETA_LIMIT
+        canonical_check_name: p_delta_stability_screen
+        current_status: IMPLEMENTED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: P-Delta theta limit <= 0.12
+        control_name_tr: θII,i ≤ 0.12
+        tbdy_ref: TBDY §4.9.2.2
+        required: [core_table:story_drifts, core_table:story_forces, core_table:story_masses]
+        optional: [core_table:p_delta_results]
+        preferred_evidence:
+          combos: [DISP_X, DISP_Y, DISP_X_SOIL, DISP_Y_SOIL, DISP_X_UPLIFT, DISP_Y_UPLIFT]
+        acceptance: "theta_II_i <= 0.12"
+        report_outputs: [p_delta_stability_screen]
+        notes: V33 proxy implemented.
+
+      - item_no: "8.2"
+        check_id: PD02_STIFFNESS_INCREASE_REQUIRED
+        canonical_check_name: p_delta_stiffness_increase_action_screen
+        current_status: PLANNED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: Stiffness increase action when theta exceeds limit
+        control_name_tr: θII,i > 0.12 ise rijitlik artırımı
+        tbdy_ref: TBDY §4.9.2.2
+        required: [p_delta_stability_screen]
+        optional: []
+        preferred_evidence:
+          combos: [DISP_*]
+        acceptance: "if theta > 0.12, recommend stiffness increase/reanalysis"
+        report_outputs: [p_delta_stiffness_increase_action_screen, 01_Action_Summary]
+        notes: Future action-generation check.
+
+  # =========================================================================
+  # IRREGULARITY CONTROLS
+  # =========================================================================
+  - section_id: IRREGULARITY
+    title_en: Irregularity controls
+    title_tr: Düzensizlik kontrolleri
+    category: IRREGULARITY
+    checks:
+      - item_no: "9.1"
+        check_id: IRR01_A1_TORSIONAL_IRREGULARITY
+        canonical_check_name: a1_torsion
+        current_status: IMPLEMENTED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: A1 torsional irregularity eta_bi
+        control_name_tr: A1 - Burulma düzensizliği
+        tbdy_ref: TBDY §3.6.2.1
+        required: [core_table:story_max_over_avg_drifts]
+        optional: [core_table:story_drifts]
+        preferred_evidence:
+          combos: [DISP_X, DISP_Y]
+        acceptance: "eta_bi satisfies TBDY/project threshold"
+        report_outputs: [a1_torsion]
+        notes: Implemented.
+
+      - item_no: "9.2"
+        check_id: IRR02_A2_DIAPHRAGM_DISCONTINUITY
+        canonical_check_name: a2_diaphragm_discontinuity_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: A2 diaphragm discontinuity
+        control_name_tr: A2 - Döşeme süreksizliği
+        tbdy_ref: TBDY §3.6.2.2
+        required: []
+        optional: [core_table:diaphragm_assignments, core_table:area_objects, core_table:openings]
+        preferred_evidence:
+          combos: [DATA_LINE]
+        acceptance: "diaphragm discontinuity conditions identified and reviewed"
+        report_outputs: [a2_diaphragm_discontinuity_screen]
+        notes: Requires geometry/opening data.
+
+      - item_no: "9.3"
+        check_id: IRR03_A3_PLAN_PROJECTION
+        canonical_check_name: a3_plan_projection_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: A3 plan projection irregularity
+        control_name_tr: A3 - Planda çıkıntı
+        tbdy_ref: TBDY §3.6.2.3
+        required: []
+        optional: [core_table:plan_geometry, core_table:floor_outline]
+        preferred_evidence:
+          combos: [DATA_LINE]
+        acceptance: "plan projection dimensions satisfy TBDY limits"
+        report_outputs: [a3_plan_projection_screen]
+        notes: Requires plan geometry/outline data.
+
+      - item_no: "9.4"
+        check_id: IRR04_B1_WEAK_STORY
+        canonical_check_name: weak_story_screen
+        current_status: PLANNED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: B1 weak-story irregularity
+        control_name_tr: B1 - Zayıf kat
+        tbdy_ref: TBDY §3.6.3.1
+        required: [core_table:story_forces]
+        optional: [core_table:story_strength]
+        preferred_evidence:
+          combos: [DISP_X, DISP_Y, DUCTILE_X, DUCTILE_Y]
+        acceptance: "adjacent story strength ratios satisfy TBDY B1 limits"
+        report_outputs: [soft_weak_story_screen]
+        notes: V33 includes weak-story proxy.
+
+      - item_no: "9.5"
+        check_id: IRR05_B2_SOFT_STORY
+        canonical_check_name: soft_story_screen
+        current_status: PLANNED
+        engineering_level: DESIGN_LEVEL
+        control_name_en: B2 soft-story irregularity
+        control_name_tr: B2 - Yumuşak kat
+        tbdy_ref: TBDY §3.6.3.2
+        required: [core_table:story_drifts]
+        optional: [core_table:story_stiffness, core_table:story_forces]
+        preferred_evidence:
+          combos: [DISP_X, DISP_Y]
+        acceptance: "adjacent story stiffness ratios satisfy TBDY B2 limits"
+        report_outputs: [soft_weak_story_screen, story_stiffness_proxy_screen]
+        notes: V33 includes stiffness proxy.
+
+      - item_no: "9.6"
+        check_id: IRR06_B3_VERTICAL_DISCONTINUITY
+        canonical_check_name: b3_vertical_discontinuity_screen
+        current_status: PLANNED
+        engineering_level: DETAIL_LEVEL
+        control_name_en: B3 vertical structural element discontinuity
+        control_name_tr: B3 - Taşıyıcı sistem düşey eleman süreksizliği
+        tbdy_ref: TBDY §3.6.3.3
+        required: [core_table:column_connectivity, core_table:wall_connectivity]
+        optional: [core_table:frame_objects, core_table:pier_sections]
+        preferred_evidence:
+          combos: [DATA_LINE]
+        acceptance: "vertical structural discontinuities identified and reviewed"
+        report_outputs: [b3_vertical_discontinuity_screen]
+        notes: Future topology/continuity check.
+
+# =============================================================================
+# USAGE MATRIX SUMMARY
+# =============================================================================
+usage_matrix_summary:
+  note: DISP_* combinations are for displacement reading only, not reinforcement design.
+  rows:
+    - control: Serviceability / deflection
+      slab: GRAV_SERVICE
+      beam: GRAV_SERVICE
+      column: "-"
+      wall: "-"
+      raft: GRAV_SERVICE
+    - control: Flexural reinforcement
+      slab: GRAV_STRENGTH
+      beam: DUCTILE_X/Y
+      column: DUCTILE_X/Y
+      wall: DUCTILE_X/Y
+      raft: CAPACITY_X/Y
+    - control: Flexure under uplift
+      slab: "-"
+      beam: DUCTILE_X/Y_UPLIFT
+      column: "-"
+      wall: DUCTILE_X/Y_UPLIFT
+      raft: "-"
+    - control: Shear reinforcement
+      slab: "-"
+      beam: CAPACITY_X/Y
+      column: CAPACITY_X/Y
+      wall: CAPACITY_X/Y
+      raft: CAPACITY_X/Y
+    - control: Shear under uplift
+      slab: "-"
+      beam: CAPACITY_X/Y_UPLIFT
+      column: CAPACITY_X/Y_UPLIFT
+      wall: CAPACITY_X/Y_UPLIFT
+      raft: "-"
+    - control: Shear with soil pressure
+      slab: "-"
+      beam: "-"
+      column: "-"
+      wall: CAPACITY_X/Y_SOIL
+      raft: CAPACITY_X/Y_SOIL
+    - control: Shear with soil pressure and uplift
+      slab: "-"
+      beam: "-"
+      column: "-"
+      wall: CAPACITY_X/Y_UPLIFT_SOIL
+      raft: CAPACITY_X/Y_UPLIFT_SOIL
+    - control: Diaphragm
+      slab: CAPACITY_X/Y
+      beam: "-"
+      column: "-"
+      wall: "-"
+      raft: "-"
+    - control: Axial control
+      slab: "-"
+      beam: "-"
+      column: GRAV_STRENGTH
+      wall: "-"
+      raft: "-"
+    - control: Tension/uplift
+      slab: "-"
+      beam: "-"
+      column: DUCTILE_X/Y_UPLIFT
+      wall: DUCTILE_X/Y_UPLIFT
+      raft: "-"
+    - control: Boundary zone
+      slab: "-"
+      beam: "-"
+      column: "-"
+      wall: DUCTILE_X/Y
+      raft: "-"
+    - control: Soil bearing pressure
+      slab: "-"
+      beam: "-"
+      column: "-"
+      wall: "-"
+      raft: SOIL_STRENGTH
+    - control: Punching shear
+      slab: "-"
+      beam: "-"
+      column: "-"
+      wall: "-"
+      raft: SOIL_STRENGTH
+    - control: Soil uplift
+      slab: "-"
+      beam: "-"
+      column: "-"
+      wall: "-"
+      raft: SOIL_UPLIFT

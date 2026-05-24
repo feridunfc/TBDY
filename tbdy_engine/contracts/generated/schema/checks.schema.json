@@ -1,0 +1,256 @@
+{
+  "$defs": {
+    "CheckSpec": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "evaluation": {
+          "title": "Evaluation",
+          "type": "string"
+        },
+        "evaluation_field": {
+          "default": "",
+          "title": "Evaluation Field",
+          "type": "string"
+        },
+        "fallback_evaluation": {
+          "default": "",
+          "title": "Fallback Evaluation",
+          "type": "string"
+        },
+        "fallback_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fallback Fields",
+          "type": "array"
+        },
+        "tbdy_ref": {
+          "default": "N/A",
+          "title": "Tbdy Ref",
+          "type": "string"
+        },
+        "severity": {
+          "default": "MEDIUM",
+          "title": "Severity",
+          "type": "string"
+        },
+        "category": {
+          "default": "UNCATEGORIZED",
+          "title": "Category",
+          "type": "string"
+        },
+        "report_section": {
+          "default": "",
+          "title": "Report Section",
+          "type": "string"
+        },
+        "uses_combo": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Uses Combo",
+          "type": "array"
+        },
+        "combo_families": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Combo Families",
+          "type": "array"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "depends_on_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On Checks",
+          "type": "array"
+        },
+        "fail_blocks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fail Blocks",
+          "type": "array"
+        },
+        "experimental": {
+          "default": false,
+          "title": "Experimental",
+          "type": "boolean"
+        },
+        "implementation_status": {
+          "default": "",
+          "title": "Implementation Status",
+          "type": "string"
+        },
+        "runner_enabled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Runner Enabled"
+        },
+        "required_tables": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Tables",
+          "type": "array"
+        },
+        "required_context": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Context",
+          "type": "array"
+        },
+        "required_datasets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Datasets",
+          "type": "array"
+        },
+        "report_outputs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Report Outputs",
+          "type": "array"
+        },
+        "sub_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sub Checks",
+          "type": "array"
+        },
+        "legacy_contract_id": {
+          "default": "",
+          "title": "Legacy Contract Id",
+          "type": "string"
+        },
+        "legacy_canonical_check_name": {
+          "default": "",
+          "title": "Legacy Canonical Check Name",
+          "type": "string"
+        },
+        "legacy_matrix_key": {
+          "default": "",
+          "title": "Legacy Matrix Key",
+          "type": "string"
+        },
+        "formula": {
+          "default": "",
+          "title": "Formula",
+          "type": "string"
+        },
+        "formula_detail": {
+          "default": "",
+          "title": "Formula Detail",
+          "type": "string"
+        },
+        "etabs_canonical": {
+          "default": "",
+          "title": "Etabs Canonical",
+          "type": "string"
+        },
+        "cross_check": {
+          "default": false,
+          "title": "Cross Check",
+          "type": "boolean"
+        },
+        "tolerance": {
+          "additionalProperties": true,
+          "title": "Tolerance",
+          "type": "object"
+        },
+        "design_required": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Design Required",
+          "type": "array"
+        },
+        "screening_required": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Screening Required",
+          "type": "array"
+        },
+        "design_table_required": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Design Table Required",
+          "type": "array"
+        },
+        "manual_design_required": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Manual Design Required",
+          "type": "array"
+        },
+        "data_source_policy": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Data Source Policy",
+          "type": "array"
+        },
+        "legacy_notes": {
+          "default": "",
+          "title": "Legacy Notes",
+          "type": "string"
+        },
+        "source_files": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Files",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "evaluation"
+      ],
+      "title": "CheckSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "version": {
+      "default": "3.1-alpha",
+      "title": "Version",
+      "type": "string"
+    },
+    "checks": {
+      "items": {
+        "$ref": "#/$defs/CheckSpec"
+      },
+      "title": "Checks",
+      "type": "array"
+    }
+  },
+  "title": "ChecksContract",
+  "type": "object"
+}

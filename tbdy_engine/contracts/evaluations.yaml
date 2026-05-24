@@ -1,0 +1,158 @@
+version: 3.1-alpha
+evaluations:
+  COLUMN_DESIGN:
+    enabled: true
+    experimental: false
+    module: tbdy_engine.design.columns.module.ColumnDesignModule
+    method: run
+    cache_key: column_design
+    depends_on:
+      datasets:
+      - geometry
+      - topology
+      - envelopes
+      - design_basis
+      optional:
+      - design_metadata.column_design_summary
+      - design_metadata.column_rebar_defs
+      flags:
+      - flags.has_column_design_summary
+      - flags.materials_verified
+    produces:
+    - geometry
+    - axial
+    - pmm
+    - shear
+    - confinement
+    - rebar_minimum
+    - capacity_hierarchy
+    - full
+    output: ColumnEvaluationPackage
+  BEAM_DESIGN:
+    enabled: true
+    experimental: false
+    module: tbdy_engine.design.beams.beam_module.BeamDesignModule
+    method: run
+    cache_key: beam_design
+    depends_on:
+      datasets:
+      - geometry
+      - topology
+      - envelopes
+      - design_basis
+      optional:
+      - design_metadata.beam_design_summary
+      - design_metadata.beam_rebar_defs
+      flags:
+      - flags.has_beam_design_summary
+      - flags.materials_verified
+    produces:
+    - geometry
+    - flexure
+    - shear
+    - ductility
+    - capacity_hierarchy
+    - full
+    output: BeamEvaluationPackage
+  WALL_DESIGN:
+    enabled: true
+    experimental: true
+    module: tbdy_engine.design.walls.wall_module.WallDesignModule
+    method: run
+    cache_key: wall_design
+    depends_on:
+      datasets:
+      - geometry
+      - envelopes
+      - design_basis
+      optional:
+      - design_metadata.wall_design_summary
+      - design_metadata.wall_rebar_defs
+      - global_tables.story_drifts
+      flags:
+      - flags.has_wall_design_summary
+      - flags.materials_verified
+    produces:
+    - geometry
+    - axial_flexure
+    - shear
+    - boundary_zone
+    - web_reinforcement
+    - full
+    output: WallEvaluationPackage
+  JOINT_DESIGN:
+    enabled: false
+    experimental: true
+    reason: design/joints/module.py not present yet
+    module: tbdy_engine.design.joints.module.JointDesignModule
+    method: run
+    cache_key: joint_design
+    depends_on:
+      datasets:
+      - topology
+      - design_basis
+      optional:
+      - design_metadata.joint_shear_design
+      - design_metadata.scwb_design
+      flags:
+      - flags.has_joint_shear_design
+    depends_on_results:
+    - COLUMN_DESIGN
+    - BEAM_DESIGN
+    produces:
+    - geometry
+    - shear
+    - rebar
+    - full
+    output: JointEvaluationPackage
+  SCWB_CHECK:
+    enabled: true
+    experimental: true
+    reason: Enable after ScwbResolver is cache-aware in V2
+    module: tbdy_engine.design.joints.scwb_projection.ScwbProjectionModule
+    method: run
+    cache_key: scwb_check
+    depends_on:
+      datasets:
+      - topology
+      - design_basis
+      optional:
+      - design_metadata.scwb_design
+      flags: []
+    depends_on_results:
+    - COLUMN_DESIGN
+    - BEAM_DESIGN
+    produces:
+    - column_capacity_hierarchy
+    - beam_capacity_hierarchy
+    output: SCWBGlobalPackage
+    id: SCWB_CHECK
+    requires:
+    - topology
+    - column_forces
+    - beam_forces
+    - column_rebar
+    - beam_rebar
+  GLOBAL_CHECKS:
+    enabled: false
+    experimental: true
+    reason: GlobalChecksModule not present yet
+    module: tbdy_engine.design.global.module.GlobalChecksModule
+    method: run
+    cache_key: global_checks
+    depends_on:
+      datasets:
+      - global_tables
+      - modal
+      - design_basis
+      - topology
+      optional:
+      - global_tables.load_combos
+      flags: []
+    produces:
+    - story_drift
+    - torsion_a1
+    - p_delta
+    - modal_mass
+    - base_shear_scaling
+    output: GlobalChecksPackage

@@ -1,0 +1,67 @@
+{
+  "$defs": {
+    "DatasetSpec": {
+      "additionalProperties": true,
+      "properties": {
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "additionalProperties": true,
+              "type": "object"
+            }
+          ],
+          "title": "Source"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "used_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Used By",
+          "type": "array"
+        },
+        "key_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Key Fields",
+          "type": "array"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "DatasetSpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "version": {
+      "default": "3.1-alpha",
+      "title": "Version",
+      "type": "string"
+    },
+    "datasets": {
+      "additionalProperties": {
+        "$ref": "#/$defs/DatasetSpec"
+      },
+      "title": "Datasets",
+      "type": "object"
+    }
+  },
+  "title": "DatasetsContract",
+  "type": "object"
+}

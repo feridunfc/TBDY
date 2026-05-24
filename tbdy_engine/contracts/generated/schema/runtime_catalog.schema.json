@@ -1,0 +1,530 @@
+{
+  "$defs": {
+    "ComboFamilySpec": {
+      "additionalProperties": true,
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "combos": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Combos",
+          "type": "array"
+        },
+        "legacy_groups": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Legacy Groups",
+          "type": "array"
+        },
+        "aliases": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "object"
+        },
+        "cracked": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cracked"
+        },
+        "seismic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seismic"
+        },
+        "vertical_eq": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vertical Eq"
+        },
+        "serviceability": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Serviceability"
+        }
+      },
+      "title": "ComboFamilySpec",
+      "type": "object"
+    },
+    "DatasetSpec": {
+      "additionalProperties": true,
+      "properties": {
+        "source": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "additionalProperties": true,
+              "type": "object"
+            }
+          ],
+          "title": "Source"
+        },
+        "required": {
+          "default": false,
+          "title": "Required",
+          "type": "boolean"
+        },
+        "used_by": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Used By",
+          "type": "array"
+        },
+        "key_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Key Fields",
+          "type": "array"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source"
+      ],
+      "title": "DatasetSpec",
+      "type": "object"
+    },
+    "EvaluationDependsOn": {
+      "additionalProperties": true,
+      "properties": {
+        "datasets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Datasets",
+          "type": "array"
+        },
+        "optional": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Optional",
+          "type": "array"
+        },
+        "flags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Flags",
+          "type": "array"
+        }
+      },
+      "title": "EvaluationDependsOn",
+      "type": "object"
+    },
+    "EvaluationSpec": {
+      "additionalProperties": true,
+      "properties": {
+        "enabled": {
+          "default": true,
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "experimental": {
+          "default": false,
+          "title": "Experimental",
+          "type": "boolean"
+        },
+        "reason": {
+          "default": "",
+          "title": "Reason",
+          "type": "string"
+        },
+        "module": {
+          "title": "Module",
+          "type": "string"
+        },
+        "method": {
+          "default": "run",
+          "title": "Method",
+          "type": "string"
+        },
+        "cache_key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cache Key"
+        },
+        "depends_on": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/EvaluationDependsOn"
+            },
+            {
+              "additionalProperties": true,
+              "type": "object"
+            }
+          ],
+          "title": "Depends On"
+        },
+        "depends_on_results": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On Results",
+          "type": "array"
+        },
+        "produces": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Produces",
+          "type": "array"
+        },
+        "output": {
+          "default": "EvaluationPackage",
+          "title": "Output",
+          "type": "string"
+        }
+      },
+      "required": [
+        "module"
+      ],
+      "title": "EvaluationSpec",
+      "type": "object"
+    },
+    "ReportSpec": {
+      "additionalProperties": true,
+      "properties": {
+        "formats": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Formats",
+          "type": "array"
+        },
+        "include": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Include",
+          "type": "array"
+        },
+        "sections": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sections",
+          "type": "array"
+        },
+        "filters": {
+          "additionalProperties": true,
+          "title": "Filters",
+          "type": "object"
+        },
+        "include_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Include Fields",
+          "type": "array"
+        },
+        "metrics": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Metrics",
+          "type": "array"
+        }
+      },
+      "title": "ReportSpec",
+      "type": "object"
+    },
+    "RuntimeCheckCatalogItem": {
+      "additionalProperties": true,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "evaluation": {
+          "title": "Evaluation",
+          "type": "string"
+        },
+        "evaluation_field": {
+          "default": "",
+          "title": "Evaluation Field",
+          "type": "string"
+        },
+        "fallback_evaluation": {
+          "default": "",
+          "title": "Fallback Evaluation",
+          "type": "string"
+        },
+        "fallback_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Fallback Fields",
+          "type": "array"
+        },
+        "category": {
+          "default": "UNCATEGORIZED",
+          "title": "Category",
+          "type": "string"
+        },
+        "severity": {
+          "default": "MEDIUM",
+          "title": "Severity",
+          "type": "string"
+        },
+        "tbdy_ref": {
+          "default": "N/A",
+          "title": "Tbdy Ref",
+          "type": "string"
+        },
+        "implementation_status": {
+          "default": "",
+          "title": "Implementation Status",
+          "type": "string"
+        },
+        "runner_enabled": {
+          "default": true,
+          "title": "Runner Enabled",
+          "type": "boolean"
+        },
+        "experimental": {
+          "default": false,
+          "title": "Experimental",
+          "type": "boolean"
+        },
+        "required_datasets": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Datasets",
+          "type": "array"
+        },
+        "required_tables": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Tables",
+          "type": "array"
+        },
+        "required_context": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Required Context",
+          "type": "array"
+        },
+        "uses_combo": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Uses Combo",
+          "type": "array"
+        },
+        "report_outputs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Report Outputs",
+          "type": "array"
+        },
+        "sub_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Sub Checks",
+          "type": "array"
+        },
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "depends_on_checks": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Depends On Checks",
+          "type": "array"
+        },
+        "formula": {
+          "default": "",
+          "title": "Formula",
+          "type": "string"
+        },
+        "formula_detail": {
+          "default": "",
+          "title": "Formula Detail",
+          "type": "string"
+        },
+        "etabs_canonical": {
+          "default": "",
+          "title": "Etabs Canonical",
+          "type": "string"
+        },
+        "cross_check": {
+          "default": false,
+          "title": "Cross Check",
+          "type": "boolean"
+        },
+        "tolerance": {
+          "additionalProperties": true,
+          "title": "Tolerance",
+          "type": "object"
+        },
+        "data_source_policy": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Data Source Policy",
+          "type": "array"
+        },
+        "design_required": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Design Required",
+          "type": "array"
+        },
+        "screening_required": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Screening Required",
+          "type": "array"
+        },
+        "legacy_contract_id": {
+          "default": "",
+          "title": "Legacy Contract Id",
+          "type": "string"
+        },
+        "legacy_canonical_check_name": {
+          "default": "",
+          "title": "Legacy Canonical Check Name",
+          "type": "string"
+        },
+        "legacy_matrix_key": {
+          "default": "",
+          "title": "Legacy Matrix Key",
+          "type": "string"
+        },
+        "legacy_notes": {
+          "default": "",
+          "title": "Legacy Notes",
+          "type": "string"
+        },
+        "source_files": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Files",
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "evaluation"
+      ],
+      "title": "RuntimeCheckCatalogItem",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "version": {
+      "default": "3.1-alpha",
+      "title": "Version",
+      "type": "string"
+    },
+    "checks": {
+      "additionalProperties": {
+        "$ref": "#/$defs/RuntimeCheckCatalogItem"
+      },
+      "title": "Checks",
+      "type": "object"
+    },
+    "evaluations": {
+      "additionalProperties": {
+        "$ref": "#/$defs/EvaluationSpec"
+      },
+      "title": "Evaluations",
+      "type": "object"
+    },
+    "datasets": {
+      "additionalProperties": {
+        "$ref": "#/$defs/DatasetSpec"
+      },
+      "title": "Datasets",
+      "type": "object"
+    },
+    "combo_families": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ComboFamilySpec"
+      },
+      "title": "Combo Families",
+      "type": "object"
+    },
+    "reports": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ReportSpec"
+      },
+      "title": "Reports",
+      "type": "object"
+    },
+    "warnings": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+    }
+  },
+  "title": "RuntimeCatalog",
+  "type": "object"
+}

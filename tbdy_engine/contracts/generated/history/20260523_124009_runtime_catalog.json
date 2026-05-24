@@ -1,0 +1,1720 @@
+{
+  "version": "3.1-alpha",
+  "checks": {
+    "column_geometry": {
+      "id": "column_geometry",
+      "evaluation": "COLUMN_DESIGN",
+      "evaluation_field": "geometry",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "GEOMETRY",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY 2018 §7.3.1",
+      "implementation_status": "IMPLEMENTED",
+      "runner_enabled": true,
+      "experimental": false,
+      "required_datasets": [
+        "geometry",
+        "topology",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "",
+      "legacy_canonical_check_name": "",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "combo_usage_matrix.yaml"
+      ]
+    },
+    "column_axial": {
+      "id": "column_axial",
+      "evaluation": "COLUMN_DESIGN",
+      "evaluation_field": "axial",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "DESIGN_COLUMN",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY §7.3 axial limitation",
+      "implementation_status": "IMPLEMENTED",
+      "runner_enabled": true,
+      "experimental": false,
+      "required_datasets": [
+        "geometry",
+        "topology",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [
+        "S_E",
+        "G"
+      ],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "column_axial_screen"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "COLUMNS02_COLUMN_AXIAL",
+      "legacy_canonical_check_name": "column_axial_screen",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml",
+        "combo_usage_matrix.yaml"
+      ]
+    },
+    "column_pmm": {
+      "id": "column_pmm",
+      "evaluation": "COLUMN_DESIGN",
+      "evaluation_field": "pmm",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "DESIGN_COLUMN",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY §7.3 / TS500 column design",
+      "implementation_status": "IMPLEMENTED",
+      "runner_enabled": true,
+      "experimental": false,
+      "required_datasets": [
+        "geometry",
+        "topology",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [
+        "S_E"
+      ],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "column_design_summary_screen"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "COLUMNS01_COLUMN_DESIGN_SUMMARY",
+      "legacy_canonical_check_name": "column_design_summary_screen",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml",
+        "combo_usage_matrix.yaml"
+      ]
+    },
+    "column_shear": {
+      "id": "column_shear",
+      "evaluation": "COLUMN_DESIGN",
+      "evaluation_field": "shear",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "DESIGN_COLUMN",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY §7.3.6",
+      "implementation_status": "IMPLEMENTED",
+      "runner_enabled": true,
+      "experimental": false,
+      "required_datasets": [
+        "geometry",
+        "topology",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [
+        "K_E"
+      ],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "column_shear_capacity_screen"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "COLUMNS04_COLUMN_SHEAR_CAPACITY",
+      "legacy_canonical_check_name": "column_shear_capacity_screen",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml",
+        "combo_usage_matrix.yaml"
+      ]
+    },
+    "column_confinement": {
+      "id": "column_confinement",
+      "evaluation": "COLUMN_DESIGN",
+      "evaluation_field": "confinement",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "DETAILING",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY 2018 §7.3.4, §7.3.5",
+      "implementation_status": "IMPLEMENTED",
+      "runner_enabled": true,
+      "experimental": false,
+      "required_datasets": [
+        "geometry",
+        "topology",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [
+        "S_E"
+      ],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "",
+      "legacy_canonical_check_name": "",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "combo_usage_matrix.yaml"
+      ]
+    },
+    "column_capacity_hierarchy": {
+      "id": "column_capacity_hierarchy",
+      "evaluation": "SCWB_CHECK",
+      "evaluation_field": "capacity_hierarchy",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "DESIGN_SCWB",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY §7.3.3",
+      "implementation_status": "IMPLEMENTED",
+      "runner_enabled": true,
+      "experimental": true,
+      "required_datasets": [
+        "geometry",
+        "topology",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [
+        "S_E"
+      ],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "strong_column_weak_beam_screen"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "COLUMNS05_SCWB",
+      "legacy_canonical_check_name": "strong_column_weak_beam_screen",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml"
+      ]
+    },
+    "column_rebar_minimum": {
+      "id": "column_rebar_minimum",
+      "evaluation": "COLUMN_DESIGN",
+      "evaluation_field": "rebar_minimum",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "DESIGN_COLUMN",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY §7.3.2 / §7.3.4",
+      "implementation_status": "IMPLEMENTED",
+      "runner_enabled": true,
+      "experimental": false,
+      "required_datasets": [
+        "geometry",
+        "topology",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "column_longitudinal_rebar_screen"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "COLUMNS03_COLUMN_LONGITUDINAL_REBAR",
+      "legacy_canonical_check_name": "column_longitudinal_rebar_screen",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml"
+      ]
+    },
+    "column_design_full": {
+      "id": "column_design_full",
+      "evaluation": "COLUMN_DESIGN",
+      "evaluation_field": "full",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "SUMMARY",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY 2018 §7.3",
+      "implementation_status": "IMPLEMENTED",
+      "runner_enabled": true,
+      "experimental": false,
+      "required_datasets": [
+        "geometry",
+        "topology",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "",
+      "legacy_canonical_check_name": "",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml"
+      ]
+    },
+    "beam_geometry": {
+      "id": "beam_geometry",
+      "evaluation": "BEAM_DESIGN",
+      "evaluation_field": "geometry",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "GEOMETRY",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY 2018 §7.4.1",
+      "implementation_status": "IMPLEMENTED",
+      "runner_enabled": true,
+      "experimental": false,
+      "required_datasets": [
+        "geometry",
+        "topology",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "",
+      "legacy_canonical_check_name": "",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml"
+      ]
+    },
+    "beam_flexure": {
+      "id": "beam_flexure",
+      "evaluation": "BEAM_DESIGN",
+      "evaluation_field": "flexure",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "DESIGN_BEAM",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY §7.4 / TS500 beam design",
+      "implementation_status": "IMPLEMENTED",
+      "runner_enabled": true,
+      "experimental": false,
+      "required_datasets": [
+        "geometry",
+        "topology",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [
+        "S_E"
+      ],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "beam_design_summary_screen"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "B01_BEAM_DESIGN_SUMMARY",
+      "legacy_canonical_check_name": "beam_design_summary_screen",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml",
+        "combo_usage_matrix.yaml"
+      ]
+    },
+    "beam_shear": {
+      "id": "beam_shear",
+      "evaluation": "BEAM_DESIGN",
+      "evaluation_field": "shear",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "DESIGN_BEAM",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY §7.4.4",
+      "implementation_status": "IMPLEMENTED",
+      "runner_enabled": true,
+      "experimental": false,
+      "required_datasets": [
+        "geometry",
+        "topology",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [
+        "K_E"
+      ],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "beam_shear_capacity_screen"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "B03_BEAM_SHEAR_CAPACITY",
+      "legacy_canonical_check_name": "beam_shear_capacity_screen",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml",
+        "combo_usage_matrix.yaml"
+      ]
+    },
+    "beam_ductility": {
+      "id": "beam_ductility",
+      "evaluation": "BEAM_DESIGN",
+      "evaluation_field": "ductility",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "DESIGN_BEAM",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY §7.4.2-7.4.3",
+      "implementation_status": "IMPLEMENTED",
+      "runner_enabled": true,
+      "experimental": false,
+      "required_datasets": [
+        "geometry",
+        "topology",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "beam_flexure_ductile_screen"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "B02_BEAM_FLEXURE_DUCTILE",
+      "legacy_canonical_check_name": "beam_flexure_ductile_screen",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml"
+      ]
+    },
+    "beam_capacity_hierarchy": {
+      "id": "beam_capacity_hierarchy",
+      "evaluation": "SCWB_CHECK",
+      "evaluation_field": "capacity_hierarchy",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "HIERARCHY",
+      "severity": "MEDIUM",
+      "tbdy_ref": "TBDY 2018 §7.4.3",
+      "implementation_status": "IMPLEMENTED",
+      "runner_enabled": true,
+      "experimental": true,
+      "required_datasets": [
+        "geometry",
+        "topology",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [
+        "S_E"
+      ],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "",
+      "legacy_canonical_check_name": "",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml"
+      ]
+    },
+    "beam_design_full": {
+      "id": "beam_design_full",
+      "evaluation": "BEAM_DESIGN",
+      "evaluation_field": "full",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "SUMMARY",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY 2018 §7.4",
+      "implementation_status": "IMPLEMENTED",
+      "runner_enabled": true,
+      "experimental": false,
+      "required_datasets": [
+        "geometry",
+        "topology",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "",
+      "legacy_canonical_check_name": "",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml"
+      ]
+    },
+    "wall_geometry": {
+      "id": "wall_geometry",
+      "evaluation": "WALL_DESIGN",
+      "evaluation_field": "geometry",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "GEOMETRY",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY 2018 §7.6.1",
+      "implementation_status": "PLANNED",
+      "runner_enabled": false,
+      "experimental": true,
+      "required_datasets": [
+        "geometry",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "",
+      "legacy_canonical_check_name": "",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml"
+      ]
+    },
+    "wall_axial_flexure": {
+      "id": "wall_axial_flexure",
+      "evaluation": "WALL_DESIGN",
+      "evaluation_field": "axial_flexure",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "DESIGN_WALL",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY §7.6 / TS500 wall design",
+      "implementation_status": "PLANNED",
+      "runner_enabled": false,
+      "experimental": true,
+      "required_datasets": [
+        "geometry",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [
+        "S_E"
+      ],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "wall_design_summary_screen"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "W01_WALL_DESIGN_SUMMARY",
+      "legacy_canonical_check_name": "wall_design_summary_screen",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml"
+      ]
+    },
+    "wall_shear": {
+      "id": "wall_shear",
+      "evaluation": "WALL_DESIGN",
+      "evaluation_field": "shear",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "DESIGN_WALL",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY §7.6.5",
+      "implementation_status": "PLANNED",
+      "runner_enabled": false,
+      "experimental": true,
+      "required_datasets": [
+        "geometry",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [
+        "K_E"
+      ],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "wall_shear_capacity_screen"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "W03_WALL_SHEAR_CAPACITY",
+      "legacy_canonical_check_name": "wall_shear_capacity_screen",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml",
+        "combo_usage_matrix.yaml"
+      ]
+    },
+    "wall_boundary_zone": {
+      "id": "wall_boundary_zone",
+      "evaluation": "WALL_DESIGN",
+      "evaluation_field": "boundary_zone",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "DESIGN_WALL",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY §7.6.3 / §7.6.4",
+      "implementation_status": "PLANNED",
+      "runner_enabled": false,
+      "experimental": true,
+      "required_datasets": [
+        "geometry",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "wall_boundary_zone_screen"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "W02_WALL_BOUNDARY_ZONE",
+      "legacy_canonical_check_name": "wall_boundary_zone_screen",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml"
+      ]
+    },
+    "wall_web_reinforcement": {
+      "id": "wall_web_reinforcement",
+      "evaluation": "WALL_DESIGN",
+      "evaluation_field": "web_reinforcement",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "DESIGN_WALL",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY §7.6 / TS500 wall detailing",
+      "implementation_status": "PLANNED",
+      "runner_enabled": false,
+      "experimental": true,
+      "required_datasets": [
+        "geometry",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "wall_min_rebar_screen"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "W04_WALL_MIN_REBAR",
+      "legacy_canonical_check_name": "wall_min_rebar_screen",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml"
+      ]
+    },
+    "wall_design_full": {
+      "id": "wall_design_full",
+      "evaluation": "WALL_DESIGN",
+      "evaluation_field": "full",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "SUMMARY",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY 2018 §7.6",
+      "implementation_status": "PLANNED",
+      "runner_enabled": false,
+      "experimental": true,
+      "required_datasets": [
+        "geometry",
+        "envelopes",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "",
+      "legacy_canonical_check_name": "",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml"
+      ]
+    },
+    "joint_shear": {
+      "id": "joint_shear",
+      "evaluation": "JOINT_DESIGN",
+      "evaluation_field": "shear",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "DESIGN_JOINT",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY §7.5",
+      "implementation_status": "PLANNED",
+      "runner_enabled": false,
+      "experimental": true,
+      "required_datasets": [
+        "topology",
+        "design_basis"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "joint_shear_summary_screen"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "J01_JOINT_SHEAR_SUMMARY",
+      "legacy_canonical_check_name": "joint_shear_summary_screen",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml"
+      ]
+    },
+    "global_story_drift": {
+      "id": "global_story_drift",
+      "evaluation": "GLOBAL_CHECKS",
+      "evaluation_field": "story_drift",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "ANALYSIS",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY 2018 §4.9",
+      "implementation_status": "PLANNED",
+      "runner_enabled": false,
+      "experimental": true,
+      "required_datasets": [
+        "global_tables",
+        "modal",
+        "design_basis",
+        "topology"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [
+        "DRIFT"
+      ],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "story_drift"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "A03_STORY_DRIFT",
+      "legacy_canonical_check_name": "story_drift",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml"
+      ]
+    },
+    "global_modal_mass": {
+      "id": "global_modal_mass",
+      "evaluation": "GLOBAL_CHECKS",
+      "evaluation_field": "modal_mass",
+      "fallback_evaluation": "",
+      "fallback_fields": [],
+      "category": "ANALYSIS",
+      "severity": "HIGH",
+      "tbdy_ref": "TBDY 2018 modal effective mass participation",
+      "implementation_status": "PLANNED",
+      "runner_enabled": false,
+      "experimental": true,
+      "required_datasets": [
+        "global_tables",
+        "modal",
+        "design_basis",
+        "topology"
+      ],
+      "required_tables": [],
+      "required_context": [],
+      "uses_combo": [],
+      "report_outputs": [
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "evaluation_level",
+        "evidence",
+        "modal_mass"
+      ],
+      "sub_checks": [],
+      "aliases": [],
+      "depends_on_checks": [],
+      "formula": "",
+      "formula_detail": "",
+      "etabs_canonical": "",
+      "cross_check": false,
+      "tolerance": {},
+      "data_source_policy": [],
+      "design_required": [],
+      "screening_required": [],
+      "legacy_contract_id": "A01_MODAL_MASS_PARTICIPATION",
+      "legacy_canonical_check_name": "modal_mass",
+      "legacy_matrix_key": "",
+      "legacy_notes": "",
+      "source_files": [
+        "checks.yaml",
+        "check_contract.yaml"
+      ]
+    }
+  },
+  "evaluations": {
+    "COLUMN_DESIGN": {
+      "enabled": true,
+      "experimental": false,
+      "reason": "",
+      "module": "tbdy_engine.design.columns.module.ColumnDesignModule",
+      "method": "run",
+      "cache_key": "column_design",
+      "depends_on": {
+        "datasets": [
+          "geometry",
+          "topology",
+          "envelopes",
+          "design_basis"
+        ],
+        "optional": [
+          "design_metadata.column_design_summary",
+          "design_metadata.column_rebar_defs"
+        ],
+        "flags": [
+          "flags.has_column_design_summary",
+          "flags.materials_verified"
+        ]
+      },
+      "depends_on_results": [],
+      "produces": [
+        "geometry",
+        "axial",
+        "pmm",
+        "shear",
+        "confinement",
+        "rebar_minimum",
+        "capacity_hierarchy",
+        "full"
+      ],
+      "output": "ColumnEvaluationPackage"
+    },
+    "BEAM_DESIGN": {
+      "enabled": true,
+      "experimental": false,
+      "reason": "",
+      "module": "tbdy_engine.design.beams.beam_module.BeamDesignModule",
+      "method": "run",
+      "cache_key": "beam_design",
+      "depends_on": {
+        "datasets": [
+          "geometry",
+          "topology",
+          "envelopes",
+          "design_basis"
+        ],
+        "optional": [
+          "design_metadata.beam_design_summary",
+          "design_metadata.beam_rebar_defs"
+        ],
+        "flags": [
+          "flags.has_beam_design_summary",
+          "flags.materials_verified"
+        ]
+      },
+      "depends_on_results": [],
+      "produces": [
+        "geometry",
+        "flexure",
+        "shear",
+        "ductility",
+        "capacity_hierarchy",
+        "full"
+      ],
+      "output": "BeamEvaluationPackage"
+    },
+    "WALL_DESIGN": {
+      "enabled": true,
+      "experimental": true,
+      "reason": "",
+      "module": "tbdy_engine.design.walls.wall_module.WallDesignModule",
+      "method": "run",
+      "cache_key": "wall_design",
+      "depends_on": {
+        "datasets": [
+          "geometry",
+          "envelopes",
+          "design_basis"
+        ],
+        "optional": [
+          "design_metadata.wall_design_summary",
+          "design_metadata.wall_rebar_defs",
+          "global_tables.story_drifts"
+        ],
+        "flags": [
+          "flags.has_wall_design_summary",
+          "flags.materials_verified"
+        ]
+      },
+      "depends_on_results": [],
+      "produces": [
+        "geometry",
+        "axial_flexure",
+        "shear",
+        "boundary_zone",
+        "web_reinforcement",
+        "full"
+      ],
+      "output": "WallEvaluationPackage"
+    },
+    "JOINT_DESIGN": {
+      "enabled": false,
+      "experimental": true,
+      "reason": "design/joints/module.py not present yet",
+      "module": "tbdy_engine.design.joints.module.JointDesignModule",
+      "method": "run",
+      "cache_key": "joint_design",
+      "depends_on": {
+        "datasets": [
+          "topology",
+          "design_basis"
+        ],
+        "optional": [
+          "design_metadata.joint_shear_design",
+          "design_metadata.scwb_design"
+        ],
+        "flags": [
+          "flags.has_joint_shear_design"
+        ]
+      },
+      "depends_on_results": [
+        "COLUMN_DESIGN",
+        "BEAM_DESIGN"
+      ],
+      "produces": [
+        "geometry",
+        "shear",
+        "rebar",
+        "full"
+      ],
+      "output": "JointEvaluationPackage"
+    },
+    "SCWB_CHECK": {
+      "enabled": true,
+      "experimental": true,
+      "reason": "Enable after ScwbResolver is cache-aware in V2",
+      "module": "tbdy_engine.design.joints.scwb_projection.ScwbProjectionModule",
+      "method": "run",
+      "cache_key": "scwb_check",
+      "depends_on": {
+        "datasets": [
+          "topology",
+          "design_basis"
+        ],
+        "optional": [
+          "design_metadata.scwb_design"
+        ],
+        "flags": []
+      },
+      "depends_on_results": [
+        "COLUMN_DESIGN",
+        "BEAM_DESIGN"
+      ],
+      "produces": [
+        "column_capacity_hierarchy",
+        "beam_capacity_hierarchy"
+      ],
+      "output": "SCWBGlobalPackage",
+      "id": "SCWB_CHECK",
+      "requires": [
+        "topology",
+        "column_forces",
+        "beam_forces",
+        "column_rebar",
+        "beam_rebar"
+      ]
+    },
+    "GLOBAL_CHECKS": {
+      "enabled": false,
+      "experimental": true,
+      "reason": "GlobalChecksModule not present yet",
+      "module": "tbdy_engine.design.global.module.GlobalChecksModule",
+      "method": "run",
+      "cache_key": "global_checks",
+      "depends_on": {
+        "datasets": [
+          "global_tables",
+          "modal",
+          "design_basis",
+          "topology"
+        ],
+        "optional": [
+          "global_tables.load_combos"
+        ],
+        "flags": []
+      },
+      "depends_on_results": [],
+      "produces": [
+        "story_drift",
+        "torsion_a1",
+        "p_delta",
+        "modal_mass",
+        "base_shear_scaling"
+      ],
+      "output": "GlobalChecksPackage"
+    }
+  },
+  "datasets": {
+    "design_basis": {
+      "source": "ctx.design_basis",
+      "required": true,
+      "used_by": [
+        "COLUMN_DESIGN",
+        "BEAM_DESIGN",
+        "WALL_DESIGN",
+        "JOINT_DESIGN"
+      ],
+      "key_fields": [
+        "fck_mpa",
+        "fyk_mpa",
+        "fcd_mpa",
+        "fyd_mpa"
+      ],
+      "description": "Concrete/rebar design material values and seismic design basis."
+    },
+    "geometry": {
+      "source": "ctx.geometry",
+      "required": true,
+      "used_by": [
+        "COLUMN_DESIGN",
+        "BEAM_DESIGN",
+        "WALL_DESIGN",
+        "JOINT_DESIGN"
+      ],
+      "key_fields": [
+        "section_dims",
+        "column_sections",
+        "beam_sections",
+        "wall_sections"
+      ],
+      "description": "Normalized section dimensions and member section assignments."
+    },
+    "topology": {
+      "source": "ctx.topology",
+      "required": true,
+      "used_by": [
+        "COLUMN_DESIGN",
+        "BEAM_DESIGN",
+        "JOINT_DESIGN"
+      ],
+      "key_fields": [
+        "columns",
+        "beams",
+        "joints",
+        "column_beam_map"
+      ],
+      "description": "Member inventory, joints, and connectivity maps."
+    },
+    "envelopes": {
+      "source": "ctx.envelopes",
+      "required": true,
+      "used_by": [
+        "COLUMN_DESIGN",
+        "BEAM_DESIGN",
+        "WALL_DESIGN",
+        "JOINT_DESIGN"
+      ],
+      "key_fields": [
+        "column_forces_map",
+        "beam_forces_map",
+        "pier_forces_map"
+      ],
+      "description": "Force envelopes generated from canonical ETABS force tables."
+    },
+    "design_metadata": {
+      "source": "ctx.design_metadata",
+      "required": false,
+      "used_by": [
+        "COLUMN_DESIGN",
+        "BEAM_DESIGN",
+        "WALL_DESIGN",
+        "JOINT_DESIGN"
+      ],
+      "key_fields": [
+        "column_design_summary",
+        "beam_design_summary",
+        "wall_design_summary",
+        "column_rebar_defs",
+        "beam_rebar_defs"
+      ],
+      "description": "ETABS design summary and rebar metadata tables."
+    },
+    "global_tables": {
+      "source": "ctx.tables",
+      "required": false,
+      "used_by": [
+        "GLOBAL_CHECKS"
+      ],
+      "key_fields": [
+        "story_drifts",
+        "modal_mass",
+        "modal_periods",
+        "base_reactions",
+        "auto_seismic"
+      ],
+      "description": "Global analysis result tables."
+    },
+    "modal": {
+      "source": "ctx.modal",
+      "required": false,
+      "used_by": [
+        "GLOBAL_CHECKS"
+      ],
+      "key_fields": [
+        "sum_ux",
+        "sum_uy",
+        "T1_sec"
+      ],
+      "description": "Modal participation and period summary."
+    }
+  },
+  "combo_families": {
+    "G": {
+      "description": "Gravity/service/ultimate gravity combinations.",
+      "combos": [
+        "G_SERV",
+        "G_ULT"
+      ],
+      "legacy_groups": [
+        "G_SERV",
+        "G_ULT"
+      ],
+      "aliases": {},
+      "cracked": null,
+      "seismic": false,
+      "vertical_eq": null,
+      "serviceability": true
+    },
+    "S_E": {
+      "description": "Strength earthquake design combinations for flexure/PMM.",
+      "combos": [
+        "S_E1",
+        "S_E2",
+        "S_E1_U",
+        "S_E2_U"
+      ],
+      "legacy_groups": [
+        "S_E1",
+        "S_E2",
+        "S_E1_U",
+        "S_E2_U"
+      ],
+      "aliases": {},
+      "cracked": false,
+      "seismic": true,
+      "vertical_eq": null,
+      "serviceability": null
+    },
+    "K_E": {
+      "description": "Capacity design shear combinations.",
+      "combos": [
+        "K_E1",
+        "K_E2",
+        "K_E1_U",
+        "K_E2_U"
+      ],
+      "legacy_groups": [
+        "K_E1",
+        "K_E2",
+        "K_E1_U",
+        "K_E2_U"
+      ],
+      "aliases": {},
+      "cracked": true,
+      "seismic": true,
+      "vertical_eq": true,
+      "serviceability": null
+    },
+    "DRIFT": {
+      "description": "Story drift and displacement combinations.",
+      "combos": [
+        "D_E1",
+        "D_E2",
+        "DISP_X",
+        "DISP_Y"
+      ],
+      "legacy_groups": [
+        "D_E1",
+        "D_E2",
+        "DISP_X",
+        "DISP_Y"
+      ],
+      "aliases": {},
+      "cracked": null,
+      "seismic": true,
+      "vertical_eq": null,
+      "serviceability": true
+    },
+    "SOIL": {
+      "description": "Soil/foundation combinations.",
+      "combos": [
+        "Z_ULT",
+        "Z_UP"
+      ],
+      "legacy_groups": [
+        "Z_ULT",
+        "Z_UP"
+      ],
+      "aliases": {},
+      "cracked": null,
+      "seismic": null,
+      "vertical_eq": null,
+      "serviceability": false
+    }
+  },
+  "reports": {
+    "full_engine_report": {
+      "formats": [
+        "json",
+        "excel"
+      ],
+      "include": [
+        "all_checks",
+        "action_summary",
+        "coverage_report",
+        "material_summary",
+        "evaluation_levels_summary"
+      ],
+      "sections": [
+        "summary",
+        "data_quality",
+        "columns",
+        "beams",
+        "walls",
+        "joints",
+        "global",
+        "missing_data",
+        "actions",
+        "evidence"
+      ],
+      "filters": {},
+      "include_fields": [
+        "check_id",
+        "element_label",
+        "story",
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "tbdy_ref",
+        "evaluation_level"
+      ],
+      "metrics": [
+        "total_checks_possible",
+        "checks_executed",
+        "checks_no_data",
+        "checks_not_evaluated",
+        "coverage_pct"
+      ]
+    },
+    "action_summary": {
+      "formats": [
+        "json",
+        "excel"
+      ],
+      "include": [
+        "failures",
+        "warnings"
+      ],
+      "sections": [],
+      "filters": {
+        "status": [
+          "FAIL",
+          "WARNING"
+        ],
+        "severity": [
+          "HIGH",
+          "MEDIUM"
+        ]
+      },
+      "include_fields": [
+        "check_id",
+        "element_label",
+        "story",
+        "status",
+        "ratio",
+        "message",
+        "action",
+        "tbdy_ref",
+        "evaluation_level"
+      ],
+      "metrics": []
+    },
+    "coverage_report": {
+      "formats": [
+        "json"
+      ],
+      "include": [
+        "coverage_report"
+      ],
+      "sections": [
+        "by_evaluation_level",
+        "by_element_type",
+        "by_category"
+      ],
+      "filters": {},
+      "include_fields": [],
+      "metrics": [
+        "total_checks_possible",
+        "checks_executed",
+        "checks_no_data",
+        "checks_not_evaluated",
+        "coverage_pct"
+      ]
+    }
+  },
+  "warnings": [
+    "Legacy check_contract item 'C00_SOURCE_INVENTORY' mapped to 'C00_SOURCE_INVENTORY', but no runtime parent check exists.",
+    "Legacy check_contract item 'C01_COMBO_CONTRACT' mapped to 'C01_COMBO_CONTRACT', but no runtime parent check exists.",
+    "Legacy check_contract item 'C02_COMBO_USAGE_MATRIX' mapped to 'C02_COMBO_USAGE_MATRIX', but no runtime parent check exists.",
+    "Legacy check_contract item 'C03_COMBO_NAME_MIGRATION' mapped to 'C03_COMBO_NAME_MIGRATION', but no runtime parent check exists.",
+    "Legacy check_contract item 'C04_LOAD_CASE_COVERAGE' mapped to 'C04_LOAD_CASE_COVERAGE', but no runtime parent check exists.",
+    "Legacy check_contract item 'A02_BASE_SHEAR_SCALING' mapped to 'global_base_shear_scaling', but no runtime parent check exists.",
+    "Legacy check_contract item 'A04_A1_TORSIONAL_IRREGULARITY' mapped to 'global_a1_torsion', but no runtime parent check exists.",
+    "Legacy check_contract item 'A05_B1_B2_SOFT_WEAK_STORY' mapped to 'A05_B1_B2_SOFT_WEAK_STORY', but no runtime parent check exists.",
+    "Legacy check_contract item 'A06_P_DELTA_STABILITY' mapped to 'A06_P_DELTA_STABILITY', but no runtime parent check exists.",
+    "Legacy check_contract item 'G01_GRAVITY_SERVICE' mapped to 'G01_GRAVITY_SERVICE', but no runtime parent check exists.",
+    "Legacy check_contract item 'G02_GRAVITY_STRENGTH' mapped to 'G02_GRAVITY_STRENGTH', but no runtime parent check exists.",
+    "Legacy check_contract item 'G03_TEMPERATURE_POS' mapped to 'G03_TEMPERATURE_POS', but no runtime parent check exists.",
+    "Legacy check_contract item 'G04_TEMPERATURE_NEG' mapped to 'G04_TEMPERATURE_NEG', but no runtime parent check exists.",
+    "Legacy check_contract item 'M01_MATERIAL_STRENGTH' mapped to 'M01_MATERIAL_STRENGTH', but no runtime parent check exists.",
+    "Legacy check_contract item 'M02_REBAR_MATERIAL' mapped to 'M02_REBAR_MATERIAL', but no runtime parent check exists.",
+    "Legacy check_contract item 'M03_DESIGN_BASIS_VERIFICATION' mapped to 'M03_DESIGN_BASIS_VERIFICATION', but no runtime parent check exists.",
+    "Legacy check_contract item 'M04_COVER_DATA' mapped to 'M04_COVER_DATA', but no runtime parent check exists.",
+    "Legacy check_contract item 'M05_CONCRETE_DESIGN_PREFERENCES' mapped to 'M05_CONCRETE_DESIGN_PREFERENCES', but no runtime parent check exists.",
+    "Legacy check_contract item 'M06_UNIT_CONTEXT' mapped to 'M06_UNIT_CONTEXT', but no runtime parent check exists.",
+    "Legacy check_contract item 'DQ01_STORY_HEIGHT' mapped to 'DQ01_STORY_HEIGHT', but no runtime parent check exists.",
+    "Legacy check_contract item 'DQ02_FRAME_SECTION_MATERIAL' mapped to 'DQ02_FRAME_SECTION_MATERIAL', but no runtime parent check exists.",
+    "Legacy check_contract item 'DQ03_SECTION_ASSIGNMENT' mapped to 'DQ03_SECTION_ASSIGNMENT', but no runtime parent check exists.",
+    "Legacy check_contract item 'DQ04_CONNECTIVITY' mapped to 'DQ04_CONNECTIVITY', but no runtime parent check exists.",
+    "Legacy check_contract item 'DQ05_GEOMETRY_DATA_QUALITY' mapped to 'DQ05_GEOMETRY_DATA_QUALITY', but no runtime parent check exists.",
+    "Legacy check_contract item 'B04_BEAM_MIN_MAX_REBAR' mapped to 'B04_BEAM_MIN_MAX_REBAR', but no runtime parent check exists.",
+    "Legacy check_contract item 'J02_JOINT_SHEAR_DETAIL' mapped to 'J02_JOINT_SHEAR_DETAIL', but no runtime parent check exists.",
+    "Legacy check_contract item 'S01_DIAPHRAGM_IN_PLANE_SHEAR' mapped to 'S01_DIAPHRAGM_IN_PLANE_SHEAR', but no runtime parent check exists.",
+    "Legacy check_contract item 'S02_SLAB_GRAVITY_DESIGN' mapped to 'S02_SLAB_GRAVITY_DESIGN', but no runtime parent check exists.",
+    "Legacy check_contract item 'F01_FOUNDATION_SOIL_STRENGTH' mapped to 'F01_FOUNDATION_SOIL_STRENGTH', but no runtime parent check exists.",
+    "Legacy check_contract item 'F02_FOUNDATION_PUNCHING' mapped to 'F02_FOUNDATION_PUNCHING', but no runtime parent check exists.",
+    "Legacy check_contract item 'F03_FOUNDATION_UPLIFT' mapped to 'F03_FOUNDATION_UPLIFT', but no runtime parent check exists.",
+    "Legacy check_contract item 'F04_RAFT_FLEXURE_SHEAR' mapped to 'F04_RAFT_FLEXURE_SHEAR', but no runtime parent check exists.",
+    "Legacy check_contract item 'R01_ACTION_SUMMARY' mapped to 'R01_ACTION_SUMMARY', but no runtime parent check exists.",
+    "Legacy check_contract item 'R02_CRITICAL_ITEMS' mapped to 'R02_CRITICAL_ITEMS', but no runtime parent check exists.",
+    "Legacy check_contract item 'R03_FINAL_FORMAT_SCRIPT' mapped to 'R03_FINAL_FORMAT_SCRIPT', but no runtime parent check exists.",
+    "Detailed checklist item 'usage_matrix_summary' has no runtime parent check; not added blindly.",
+    "Combo usage item 'column_capacity' mapped to 'column_capacity', but no runtime check exists.",
+    "Combo usage item 'beam_deflection' mapped to 'beam_deflection', but no runtime check exists.",
+    "Combo usage item 'wall_axial' mapped to 'wall_axial', but no runtime check exists.",
+    "Combo usage item 'wall_boundary' mapped to 'wall_boundary', but no runtime check exists.",
+    "Combo usage item 'slab_design' mapped to 'slab_design', but no runtime check exists.",
+    "Combo usage item 'slab_diaphragm' mapped to 'slab_diaphragm', but no runtime check exists.",
+    "Combo usage item 'raft_design' mapped to 'raft_design', but no runtime check exists.",
+    "Combo usage item 'raft_uplift' mapped to 'raft_uplift', but no runtime check exists.",
+    "Combo usage item 'raft_seismic' mapped to 'raft_seismic', but no runtime check exists."
+  ]
+}

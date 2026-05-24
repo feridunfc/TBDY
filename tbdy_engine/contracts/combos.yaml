@@ -1,0 +1,33 @@
+version: "3.1-alpha"
+
+combo_families:
+  G:
+    description: "Gravity/service/ultimate gravity combinations."
+    combos: [G_SERV, G_ULT]
+    legacy_groups: [G_SERV, G_ULT]
+    seismic: false
+    serviceability: true
+  S_E:
+    description: "Strength earthquake design combinations for flexure/PMM."
+    combos: [S_E1, S_E2, S_E1_U, S_E2_U]
+    legacy_groups: [S_E1, S_E2, S_E1_U, S_E2_U]
+    seismic: true
+    cracked: false
+  K_E:
+    description: "Capacity design shear combinations."
+    combos: [K_E1, K_E2, K_E1_U, K_E2_U]
+    legacy_groups: [K_E1, K_E2, K_E1_U, K_E2_U]
+    seismic: true
+    cracked: true
+    vertical_eq: true
+  DRIFT:
+    description: "Story drift and displacement combinations."
+    combos: [D_E1, D_E2, DISP_X, DISP_Y]
+    legacy_groups: [D_E1, D_E2, DISP_X, DISP_Y]
+    serviceability: true
+    seismic: true
+  SOIL:
+    description: "Soil/foundation combinations."
+    combos: [Z_ULT, Z_UP]
+    legacy_groups: [Z_ULT, Z_UP]
+    serviceability: false

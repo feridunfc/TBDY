@@ -1,0 +1,102 @@
+{
+  "$defs": {
+    "ComboFamilySpec": {
+      "additionalProperties": true,
+      "properties": {
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "combos": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Combos",
+          "type": "array"
+        },
+        "legacy_groups": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Legacy Groups",
+          "type": "array"
+        },
+        "aliases": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "object"
+        },
+        "cracked": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cracked"
+        },
+        "seismic": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seismic"
+        },
+        "vertical_eq": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Vertical Eq"
+        },
+        "serviceability": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Serviceability"
+        }
+      },
+      "title": "ComboFamilySpec",
+      "type": "object"
+    }
+  },
+  "additionalProperties": true,
+  "properties": {
+    "version": {
+      "default": "3.1-alpha",
+      "title": "Version",
+      "type": "string"
+    },
+    "combo_families": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ComboFamilySpec"
+      },
+      "title": "Combo Families",
+      "type": "object"
+    }
+  },
+  "title": "CombosContract",
+  "type": "object"
+}

@@ -1,0 +1,51 @@
+version: "3.1-alpha"
+
+datasets:
+  design_basis:
+    source: ctx.design_basis
+    required: true
+    used_by: [COLUMN_DESIGN, BEAM_DESIGN, WALL_DESIGN, JOINT_DESIGN]
+    key_fields: [fck_mpa, fyk_mpa, fcd_mpa, fyd_mpa]
+    description: "Concrete/rebar design material values and seismic design basis."
+
+  geometry:
+    source: ctx.geometry
+    required: true
+    used_by: [COLUMN_DESIGN, BEAM_DESIGN, WALL_DESIGN, JOINT_DESIGN]
+    key_fields: [section_dims, column_sections, beam_sections, wall_sections]
+    description: "Normalized section dimensions and member section assignments."
+
+  topology:
+    source: ctx.topology
+    required: true
+    used_by: [COLUMN_DESIGN, BEAM_DESIGN, JOINT_DESIGN]
+    key_fields: [columns, beams, joints, column_beam_map]
+    description: "Member inventory, joints, and connectivity maps."
+
+  envelopes:
+    source: ctx.envelopes
+    required: true
+    used_by: [COLUMN_DESIGN, BEAM_DESIGN, WALL_DESIGN, JOINT_DESIGN]
+    key_fields: [column_forces_map, beam_forces_map, pier_forces_map]
+    description: "Force envelopes generated from canonical ETABS force tables."
+
+  design_metadata:
+    source: ctx.design_metadata
+    required: false
+    used_by: [COLUMN_DESIGN, BEAM_DESIGN, WALL_DESIGN, JOINT_DESIGN]
+    key_fields: [column_design_summary, beam_design_summary, wall_design_summary, column_rebar_defs, beam_rebar_defs]
+    description: "ETABS design summary and rebar metadata tables."
+
+  global_tables:
+    source: ctx.tables
+    required: false
+    used_by: [GLOBAL_CHECKS]
+    key_fields: [story_drifts, modal_mass, modal_periods, base_reactions, auto_seismic]
+    description: "Global analysis result tables."
+
+  modal:
+    source: ctx.modal
+    required: false
+    used_by: [GLOBAL_CHECKS]
+    key_fields: [sum_ux, sum_uy, T1_sec]
+    description: "Modal participation and period summary."

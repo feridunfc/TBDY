@@ -1,0 +1,353 @@
+# =============================================================================
+# TBDY 2018 TASARIM KOMBİNASYONLARI SÖZLEŞMESİ
+# =============================================================================
+# G  = DL + SDL + WDL (Sabit + Hareketli Sabit + Duvar)
+# Q  = LL + DDL (Hareketli + Dinamik Hareketli)
+# EDH1 = RSX + 0.3×RSY  (X yönü deprem + 0.3 Y)
+# EDH2 = RSY + 0.3×RSX  (Y yönü deprem + 0.3 X)
+# EDZ = Düşey deprem
+# H  = Zemin itkisi
+# HE = Zemin deprem etkisi
+# T  = Sıcaklık
+# =============================================================================
+
+version: "1.0.0"
+standard: "TBDY 2018"
+description: "Tasarım kombinasyonları ve kullanım matrisi"
+
+# =============================================================================
+# KOMBİNASYON GRUPLARI
+# =============================================================================
+groups:
+GRAVITY:
+name: "Düşey Yük (Gravite) - Brüt Kesit"
+description: "Servis sehim, düşey tasarım, sıcaklık etkileri"
+
+PERFORMANCE:
+name: "Performans / Deplasman - Brüt Kesit"
+description: "TBDY §4.9 deplasman ve ikinci mertebe kontrolleri"
+
+DUCTILE:
+name: "Sünek Tasarım - Çatlamış Kesit"
+description: "TBDY §7.3 / §7.4 / §7.6 sünek tasarım"
+
+CAPACITY:
+name: "Kapasite Tasarımı - Çatlamış Kesit (2.5x)"
+description: "TBDY §7.3.7 / §7.4.2 / §7.6.6 / §4.5.7"
+
+FOUNDATION:
+name: "Zemin / Radye Temel - Brüt Kesit"
+description: "Geoteknik tasarım ve zemin etkileşimi"
+
+# =============================================================================
+# KOMBİNASYON TANIMLARI
+# =============================================================================
+combos:
+# ---------------------------------------------------------------------------
+# DÜŞEY YÜK (GRAVITY)
+# ---------------------------------------------------------------------------
+G_SERV:
+group: GRAVITY
+formula: "G + Q"
+description: "Servis yükleri (sehim kontrolü)"
+section_type: GROSS
+etabs_aliases:
+- "COMB_G_SERV"
+- "G+Q"
+- "SERV"
+
+G_ULT:
+group: GRAVITY
+formula: "1.4G + 1.6Q"
+description: "Düşey tasarım (TS500)"
+section_type: GROSS
+etabs_aliases:
+- "COMB_G_ULT"
+- "1.4G+1.6Q"
+- "G_ULT"
+
+G_TEMP_P:
+group: GRAVITY
+formula: "G + 1.2Q + 1.2T"
+description: "Sıcaklık (+T)"
+section_type: GROSS
+etabs_aliases:
+- "COMB_G_TEMP_P"
+
+G_TEMP_N:
+group: GRAVITY
+formula: "G + 1.2Q - 1.2T"
+description: "Sıcaklık (-T)"
+section_type: GROSS
+etabs_aliases:
+- "COMB_G_TEMP_N"
+
+# ---------------------------------------------------------------------------
+# PERFORMANS / DEPLASMAN (BRÜT KESIT)
+# ---------------------------------------------------------------------------
+P_E1:
+group: PERFORMANCE
+formula: "G + Q + EDH1 + 0.3EDZ"
+description: "X Yönü Deplasman"
+section_type: GROSS
+etabs_aliases:
+- "COMB_P_E1"
+- "P_E1"
+
+P_E2:
+group: PERFORMANCE
+formula: "G + Q + EDH2 + 0.3EDZ"
+description: "Y Yönü Deplasman"
+section_type: GROSS
+etabs_aliases:
+- "COMB_P_E2"
+- "P_E2"
+
+P_E1_S:
+group: PERFORMANCE
+formula: "G + Q + H + HE + EDH1 + 0.3EDZ"
+description: "X + Zemin Deplasman"
+section_type: GROSS
+etabs_aliases:
+- "COMB_P_E1_S"
+
+P_E2_S:
+group: PERFORMANCE
+formula: "G + Q + H + HE + EDH2 + 0.3EDZ"
+description: "Y + Zemin Deplasman"
+section_type: GROSS
+etabs_aliases:
+- "COMB_P_E2_S"
+
+P_E1_U:
+group: PERFORMANCE
+formula: "0.9G + EDH1 - 0.3EDZ"
+description: "X Kalkma Deplasman"
+section_type: GROSS
+etabs_aliases:
+- "COMB_P_E1_U"
+
+P_E2_U:
+group: PERFORMANCE
+formula: "0.9G + EDH2 - 0.3EDZ"
+description: "Y Kalkma Deplasman"
+section_type: GROSS
+etabs_aliases:
+- "COMB_P_E2_U"
+
+P_E1_US:
+group: PERFORMANCE
+formula: "0.9G + H + HE + EDH1 - 0.3EDZ"
+description: "X + Zemin Kalkma Deplasman"
+section_type: GROSS
+etabs_aliases:
+- "COMB_P_E1_US"
+
+P_E2_US:
+group: PERFORMANCE
+formula: "0.9G + H + HE + EDH2 - 0.3EDZ"
+description: "Y + Zemin Kalkma Deplasman"
+section_type: GROSS
+etabs_aliases:
+- "COMB_P_E2_US"
+
+# ---------------------------------------------------------------------------
+# SÜNEK TASARIM (ÇATLAMIŞ KESIT)
+# ---------------------------------------------------------------------------
+S_E1:
+group: DUCTILE
+formula: "G + Q + EDH1 + 0.3EDZ"
+description: "X Yönü Sünek (Basınç)"
+section_type: CRACKED
+etabs_aliases:
+- "COMB_S_E1"
+- "S_E1"
+- "COMB_EQX_U"
+
+S_E2:
+group: DUCTILE
+formula: "G + Q + EDH2 + 0.3EDZ"
+description: "Y Yönü Sünek (Basınç)"
+section_type: CRACKED
+etabs_aliases:
+- "COMB_S_E2"
+- "S_E2"
+- "COMB_EQY_U"
+
+S_E1_S:
+group: DUCTILE
+formula: "G + Q + H + HE + EDH1 + 0.3EDZ"
+description: "X + Zemin Sünek"
+section_type: CRACKED
+etabs_aliases:
+- "COMB_S_E1_S"
+
+S_E2_S:
+group: DUCTILE
+formula: "G + Q + H + HE + EDH2 + 0.3EDZ"
+description: "Y + Zemin Sünek"
+section_type: CRACKED
+etabs_aliases:
+- "COMB_S_E2_S"
+
+S_E1_U:
+group: DUCTILE
+formula: "0.9G + EDH1 - 0.3EDZ"
+description: "X Yönü Sünek (Kalkma)"
+section_type: CRACKED
+etabs_aliases:
+- "COMB_S_E1_U"
+
+S_E2_U:
+group: DUCTILE
+formula: "0.9G + EDH2 - 0.3EDZ"
+description: "Y Yönü Sünek (Kalkma)"
+section_type: CRACKED
+etabs_aliases:
+- "COMB_S_E2_U"
+
+S_E1_US:
+group: DUCTILE
+formula: "0.9G + H + HE + EDH1 - 0.3EDZ"
+description: "X + Zemin Sünek Kalkma"
+section_type: CRACKED
+etabs_aliases:
+- "COMB_S_E1_US"
+
+S_E2_US:
+group: DUCTILE
+formula: "0.9G + H + HE + EDH2 - 0.3EDZ"
+description: "Y + Zemin Sünek Kalkma"
+section_type: CRACKED
+etabs_aliases:
+- "COMB_S_E2_US"
+
+# ---------------------------------------------------------------------------
+# KAPASİTE TASARIMI (ÇATLAMIŞ KESIT - 2.5x)
+# ---------------------------------------------------------------------------
+K_E1:
+group: CAPACITY
+formula: "G + Q + 2.5×EDH1 + 0.3EDZ"
+description: "X Yönü Kapasite"
+section_type: CRACKED
+capacity_factor: 2.5
+etabs_aliases:
+- "COMB_K_E1"
+- "K_E1"
+- "COMB_EQX_C"
+
+K_E2:
+group: CAPACITY
+formula: "G + Q + 2.5×EDH2 + 0.3EDZ"
+description: "Y Yönü Kapasite"
+section_type: CRACKED
+capacity_factor: 2.5
+etabs_aliases:
+- "COMB_K_E2"
+- "K_E2"
+- "COMB_EQY_C"
+
+K_E1_S:
+group: CAPACITY
+formula: "G + Q + H + HE + 2.5×EDH1 + 0.3EDZ"
+description: "X + Zemin Kapasite"
+section_type: CRACKED
+capacity_factor: 2.5
+etabs_aliases:
+- "COMB_K_E1_S"
+
+K_E2_S:
+group: CAPACITY
+formula: "G + Q + H + HE + 2.5×EDH2 + 0.3EDZ"
+description: "Y + Zemin Kapasite"
+section_type: CRACKED
+capacity_factor: 2.5
+etabs_aliases:
+- "COMB_K_E2_S"
+
+K_E1_U:
+group: CAPACITY
+formula: "0.9G + 2.5×EDH1 - 0.3EDZ"
+description: "X Kalkma Kapasite"
+section_type: CRACKED
+capacity_factor: 2.5
+etabs_aliases:
+- "COMB_K_E1_U"
+
+K_E2_U:
+group: CAPACITY
+formula: "0.9G + 2.5×EDH2 - 0.3EDZ"
+description: "Y Kalkma Kapasite"
+section_type: CRACKED
+capacity_factor: 2.5
+etabs_aliases:
+- "COMB_K_E2_U"
+
+K_E1_US:
+group: CAPACITY
+formula: "0.9G + H + HE + 2.5×EDH1 - 0.3EDZ"
+description: "X + Zemin Kalkma Kapasite"
+section_type: CRACKED
+capacity_factor: 2.5
+etabs_aliases:
+- "COMB_K_E1_US"
+
+K_E2_US:
+group: CAPACITY
+formula: "0.9G + H + HE + 2.5×EDH2 - 0.3EDZ"
+description: "Y + Zemin Kalkma Kapasite"
+section_type: CRACKED
+capacity_factor: 2.5
+etabs_aliases:
+- "COMB_K_E2_US"
+
+# ---------------------------------------------------------------------------
+# ZEMİN / RADYE TEMEL
+# ---------------------------------------------------------------------------
+Z_ULT:
+group: FOUNDATION
+formula: "1.4G + 1.6Q + 1.6H"
+description: "Zemin Tasarım"
+section_type: GROSS
+etabs_aliases:
+- "COMB_Z_ULT"
+- "Z_ULT"
+
+Z_UP:
+group: FOUNDATION
+formula: "0.9G + 1.6H"
+description: "Zemin Kalkma"
+section_type: GROSS
+etabs_aliases:
+- "COMB_Z_UP"
+- "Z_UP"
+
+# =============================================================================
+# SECTION TYPES
+# =============================================================================
+section_types:
+GROSS:
+name: "Brüt Kesit"
+stiffness_factor: 1.0
+description: "Çatlamamış kesit rijitliği"
+CRACKED:
+name: "Çatlamış Kesit"
+stiffness_factor: 0.5
+description: "TBDY §7.3 / §7.4 / §7.6 etkili kesit rijitliği"
+
+# =============================================================================
+# KISALTMA ANAHTARI
+# =============================================================================
+abbreviations:
+S: "Sehim kontrolü"
+D: "Donatı hesabı"
+N: "Eksenel kuvvet"
+M: "Eğilme momenti"
+UB: "Uç bölgesi (Boundary Zone)"
+min_N: "Minimum eksenel kontrol"
+EĞILME: "Eğilme donatısı"
+KESME: "Kesme donatısı (Kapasite tasarımı)"
+DİYAFRAM: "Döşeme düzlem içi kuvvetler"
+BODRUM: "Sadece bodrum kat elemanları"
+ÇEKME: "Çekme kontrolü (Net kalkma)"
+ZIMBALAMA: "Radye zımbalama kontrolü"

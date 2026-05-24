@@ -1,0 +1,21 @@
+version: "3.1-alpha"
+
+reports:
+  full_engine_report:
+    formats: [json, excel]
+    include: [all_checks, action_summary, coverage_report, material_summary, evaluation_levels_summary]
+    sections: [summary, data_quality, columns, beams, walls, joints, global, missing_data, actions, evidence]
+    include_fields: [check_id, element_label, story, status, ratio, message, action, tbdy_ref, evaluation_level]
+    metrics: [total_checks_possible, checks_executed, checks_no_data, checks_not_evaluated, coverage_pct]
+  action_summary:
+    formats: [json, excel]
+    include: [failures, warnings]
+    filters:
+      status: [FAIL, WARNING]
+      severity: [HIGH, MEDIUM]
+    include_fields: [check_id, element_label, story, status, ratio, message, action, tbdy_ref, evaluation_level]
+  coverage_report:
+    formats: [json]
+    include: [coverage_report]
+    metrics: [total_checks_possible, checks_executed, checks_no_data, checks_not_evaluated, coverage_pct]
+    sections: [by_evaluation_level, by_element_type, by_category]
