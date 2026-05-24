@@ -7,6 +7,11 @@ from tbdy_engine.contracts.loader import EngineContractLoader
 
 
 ROOT = Path(__file__).resolve().parents[1]
+DISABLED_KNOWN_MISSING_OUTPUT_CHECKS = {
+    "column_rebar_minimum",
+    "column_design_full",
+    "beam_design_full",
+}
 
 
 def _catalog():
@@ -105,16 +110,11 @@ def test_column_traceable_fields_normalize_from_outputs_checks():
         assert row.evaluation_level == "DESIGN_LEVEL"
 
 
-def test_column_known_missing_fields_normalize_as_no_data():
+def test_column_known_missing_output_checks_are_not_emitted_when_disabled():
     rows = _by_check_id(_adapter().adapt_all(_column_eval_results()))
 
-    assert rows["column_rebar_minimum"].status == "NO_DATA"
-    assert rows["column_rebar_minimum"].evaluation_level == "NO_DATA"
-    assert "rebar_minimum" in rows["column_rebar_minimum"].message
-
-    assert rows["column_design_full"].status == "NO_DATA"
-    assert rows["column_design_full"].evaluation_level == "NO_DATA"
-    assert "full" in rows["column_design_full"].message
+    assert "column_rebar_minimum" not in rows
+    assert "column_design_full" not in rows
 
 
 def test_beam_traceable_fields_normalize_from_outputs_checks():
@@ -135,12 +135,19 @@ def test_beam_traceable_fields_normalize_from_outputs_checks():
         assert row.evaluation_level == "DESIGN_LEVEL"
 
 
-def test_beam_known_missing_full_field_normalizes_as_no_data():
+def test_beam_known_missing_output_check_is_not_emitted_when_disabled():
     rows = _by_check_id(_adapter().adapt_all(_beam_eval_results()))
 
-    assert rows["beam_design_full"].status == "NO_DATA"
-    assert rows["beam_design_full"].evaluation_level == "NO_DATA"
-    assert "full" in rows["beam_design_full"].message
+    assert "beam_design_full" not in rows
+
+
+def test_known_missing_output_checks_are_not_emitted_by_contract_first_catalog():
+    rows = []
+    rows.extend(_adapter().adapt_all(_column_eval_results()))
+    rows.extend(_adapter().adapt_all(_beam_eval_results()))
+    emitted = {row.check_id for row in rows}
+
+    assert not (DISABLED_KNOWN_MISSING_OUTPUT_CHECKS & emitted)
 
 
 def test_scwb_direct_extraction_normalizes_capacity_hierarchy_checks():
@@ -196,8 +203,6 @@ def test_evaluation_error_creates_error_row_for_each_enabled_column_check():
         "column_pmm",
         "column_shear",
         "column_confinement",
-        "column_rebar_minimum",
-        "column_design_full",
     }
     assert all(row.status == "ERROR" for row in rows)
     assert all(row.evaluation_level == "ERROR" for row in rows)
@@ -234,3 +239,16 @@ def test_disabled_wall_checks_are_not_normalized_even_when_wall_output_exists():
 
     assert all(not row.check_id.startswith("wall_") for row in rows)
     assert rows == []
+
+
+def test_enabled_implemented_column_and_beam_fixture_rows_do_not_normalize_as_no_data():
+    column_rows = _adapter().adapt_all(_column_eval_results())
+    beam_rows = _adapter().adapt_all(_beam_eval_results())
+    implemented_rows = [
+        row
+        for row in [*column_rows, *beam_rows]
+        if row.check_id not in DISABLED_KNOWN_MISSING_OUTPUT_CHECKS
+    ]
+
+    assert implemented_rows
+    assert all(row.status != "NO_DATA" for row in implemented_rows)
