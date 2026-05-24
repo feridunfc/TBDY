@@ -233,8 +233,12 @@ def test_beam_design_module_consumes_semantic_values_after_map_population():
     assert force.V_at_support_kn == 129.1275
     assert force.T_max_knm == 0.0
 
-    assert not hasattr(force, "M_pos_case")
-    assert not hasattr(force, "V_max_case")
+    assert force.M_pos_case == "Crack_SeisX"
+    assert force.M_neg_left_case == "Crack_SeisX_Soil"
+    assert force.M_neg_right_case == "Crack_SeisX"
+    assert force.V_max_case == "Crack_SeisY_Soil"
+    assert force.V_at_support_case == "Crack_SeisY_Soil"
+    assert force.T_max_case == ""
     assert not hasattr(force, "combo_family")
 
 
