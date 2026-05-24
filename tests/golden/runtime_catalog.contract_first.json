@@ -34,7 +34,6 @@
   ],
   "enabled_check_ids": [
     "beam_capacity_hierarchy",
-    "beam_design_full",
     "beam_ductility",
     "beam_flexure",
     "beam_geometry",
@@ -42,10 +41,8 @@
     "column_axial",
     "column_capacity_hierarchy",
     "column_confinement",
-    "column_design_full",
     "column_geometry",
     "column_pmm",
-    "column_rebar_minimum",
     "column_shear"
   ],
   "evaluations": {
