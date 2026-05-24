@@ -32,7 +32,7 @@ class TBDYEngineV2:
     Receives an already-built ModelContext and runs enabled evaluations from RuntimeCatalog.
     """
 
-    def __init__(self, ctx: Any, contracts_dir: str | Path | None = None, report_dir: str | Path | None = None, include_legacy: bool = True) -> None:
+    def __init__(self, ctx: Any, contracts_dir: str | Path | None = None, report_dir: str | Path | None = None, include_legacy: bool = False) -> None:
         self.ctx = ctx
         self.contracts_dir = Path(contracts_dir or Path(__file__).parent / "contracts")
         self.report_dir = Path(report_dir or Path.cwd() / "reports_out")
@@ -104,5 +104,5 @@ class TBDYEngineV2:
         }
 
 
-def run_engine_v2(ctx, contracts_dir=None, report_dir=None, include_legacy=True):
+def run_engine_v2(ctx, contracts_dir=None, report_dir=None, include_legacy=False):
     return TBDYEngineV2(ctx=ctx, contracts_dir=contracts_dir, report_dir=report_dir, include_legacy=include_legacy).run()
