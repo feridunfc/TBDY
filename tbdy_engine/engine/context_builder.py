@@ -291,7 +291,16 @@ class EnvKeys:
     PIER_FORCES_MAP = "pier_forces_map"
     STORY_SHEAR_X = "story_shear_x"
     STORY_SHEAR_Y = "story_shear_y"
+    
+BEAM_FLEXURE_ENVELOPE_TABLE_CANDIDATES = [
+    "Concrete Beam Flexure Envelope -  TS 500-2000(R2018)",
+    "Concrete Beam Flexure Envelope - TS 500-2000(R2018)",
+]
 
+BEAM_SHEAR_ENVELOPE_TABLE_CANDIDATES = [
+    "Concrete Beam Shear Envelope -  TS 500-2000(R2018)",
+    "Concrete Beam Shear Envelope - TS 500-2000(R2018)",
+]
 
 def _as_float(value: Any, default: float = 0.0) -> float:
     if value is None or value == "":
@@ -309,6 +318,184 @@ def _as_str(value: Any) -> str:
         return ""
     return str(value).strip()
 
+def _get_first_nonempty_table(
+    tables: Dict[str, pd.DataFrame],
+    candidates: list[str],
+) -> pd.DataFrame | None:
+    for name in candidates:
+        df = tables.get(name)
+        if df is not None and not getattr(df, "empty", True):
+            return df
+    return None
+
+
+def _beam_label_from_row(row: pd.Series) -> str:
+    return _as_str(
+        row.get("Label")
+        or row.get("Beam")
+        or row.get("label")
+        or row.get("beam")
+    )
+
+
+def _beam_location_from_row(row: pd.Series) -> str:
+    return _as_str(row.get("Location") or row.get("location"))
+
+
+def _update_abs_winner(
+    target: Dict[str, Any],
+    value_key: str,
+    case_key: str,
+    value: Any,
+    case: Any,
+) -> None:
+    candidate = abs(_as_float(value, 0.0))
+    current = abs(_as_float(target.get(value_key), 0.0))
+    if candidate > current:
+        target[value_key] = candidate
+        target[case_key] = _as_str(case) or None
+
+
+def _empty_beam_design_envelope_semantics() -> Dict[str, Any]:
+    return {
+        "M_pos": 0.0,
+        "M_pos_case": None,
+        "M_neg_left": 0.0,
+        "M_neg_left_case": None,
+        "M_neg_right": 0.0,
+        "M_neg_right_case": None,
+        "V_max": 0.0,
+        "V_max_case": None,
+        "V_support": 0.0,
+        "V_support_case": None,
+        "T_max": 0.0,
+        "T_max_case": None,
+        "source": "beam_design_envelope",
+    }
+
+
+def _build_beam_design_envelope_semantic_map(
+    flexure_df: pd.DataFrame | None,
+    shear_df: pd.DataFrame | None,
+) -> Dict[str, Dict[str, Any]]:
+    semantic_map: Dict[str, Dict[str, Any]] = {}
+
+    if flexure_df is not None and not getattr(flexure_df, "empty", True):
+        for _, row in flexure_df.iterrows():
+            beam = _beam_label_from_row(row)
+            if not beam:
+                continue
+
+            target = semantic_map.setdefault(
+                beam,
+                _empty_beam_design_envelope_semantics(),
+            )
+            location = _beam_location_from_row(row)
+
+            if location == "End-I":
+                _update_abs_winner(
+                    target,
+                    "M_neg_left",
+                    "M_neg_left_case",
+                    row.get("MomentTop"),
+                    row.get("AsTopCombo"),
+                )
+            elif location == "Middle":
+                _update_abs_winner(
+                    target,
+                    "M_pos",
+                    "M_pos_case",
+                    row.get("MomentBot"),
+                    row.get("AsBotCombo"),
+                )
+            elif location == "End-J":
+                _update_abs_winner(
+                    target,
+                    "M_neg_right",
+                    "M_neg_right_case",
+                    row.get("MomentTop"),
+                    row.get("AsTopCombo"),
+                )
+
+    if shear_df is not None and not getattr(shear_df, "empty", True):
+        for _, row in shear_df.iterrows():
+            beam = _beam_label_from_row(row)
+            if not beam:
+                continue
+
+            target = semantic_map.setdefault(
+                beam,
+                _empty_beam_design_envelope_semantics(),
+            )
+            location = _beam_location_from_row(row)
+
+            _update_abs_winner(
+                target,
+                "V_max",
+                "V_max_case",
+                row.get("Shear"),
+                row.get("VCombo"),
+            )
+
+            if location in {"End-I", "End-J"}:
+                _update_abs_winner(
+                    target,
+                    "V_support",
+                    "V_support_case",
+                    row.get("Shear"),
+                    row.get("VCombo"),
+                )
+
+    return semantic_map
+
+
+def _merge_beam_design_envelope_semantics(ctx: ModelContext) -> None:
+    flexure_df = _get_first_nonempty_table(
+        ctx.tables,
+        BEAM_FLEXURE_ENVELOPE_TABLE_CANDIDATES,
+    )
+    shear_df = _get_first_nonempty_table(
+        ctx.tables,
+        BEAM_SHEAR_ENVELOPE_TABLE_CANDIDATES,
+    )
+
+    if flexure_df is None and shear_df is None:
+        ctx.notes.setdefault("data_gaps", []).append(
+            "Beam design envelope tables missing or empty; semantic beam envelope forces not populated."
+        )
+        return
+
+    semantic_map = _build_beam_design_envelope_semantic_map(flexure_df, shear_df)
+    if not semantic_map:
+        ctx.notes.setdefault("data_gaps", []).append(
+            "Beam design envelope semantic map is empty."
+        )
+        return
+
+    beam_forces_map = ctx.envelopes.setdefault(EnvKeys.BEAM_FORCES_MAP, {})
+
+    for label, semantic_entry in semantic_map.items():
+        target = beam_forces_map.setdefault(label, {})
+
+        for key, value in semantic_entry.items():
+            if key == "source":
+                target.setdefault(key, value)
+                continue
+
+            if key.endswith("_case"):
+                if value is not None:
+                    target[key] = value
+                else:
+                    target.setdefault(key, None)
+                continue
+
+            if isinstance(value, (int, float)):
+                if value != 0.0 or key not in target:
+                    target[key] = value
+                continue
+
+            if value is not None:
+                target[key] = value
 
 def _snake(s: str) -> str:
     return str(s).strip().lower().replace("\n", " ").replace("-", "_").replace("/", "_").replace(" ", "_")
@@ -1782,6 +1969,7 @@ async def build_model_context() -> ModelContext:
     await _load_topology(ctx)
     await _load_force_envelopes(ctx)
     await _load_rebar_metadata(ctx)
+    _merge_beam_design_envelope_semantics(ctx)
     await _load_design_basis_from_etabs(ctx)
     await _load_wall_data(ctx)
     await _read_canonical(ctx, "area_load_uniform")
