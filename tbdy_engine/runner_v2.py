@@ -7,9 +7,7 @@ from tbdy_engine.contracts.validator import EngineContractValidator
 from tbdy_engine.runtime.module_cache import ModuleExecutionCache
 from tbdy_engine.runtime.scheduler import RuntimeScheduler
 from tbdy_engine.adapters.check_adapter import CheckAdapter
-from tbdy_engine.reports.json_reporter import JSONReporter
-from tbdy_engine.reports.excel_reporter import ExcelReporter
-from tbdy_engine.reports.action_summary import ActionSummaryBuilder
+from tbdy_engine.reports.facade import ReportingFacade
 
 
 def _model_to_dict(obj: Any) -> Dict[str, Any]:
@@ -74,11 +72,11 @@ class TBDYEngineV2:
         eval_results = scheduler.run_all()
         checks = self.check_adapter.adapt_all(eval_results)
 
-        json_reporter = JSONReporter(write_history=True)
-        excel_reporter = ExcelReporter(write_history=True)
-        json_path = json_reporter.generate(checks, eval_results, runtime_catalog=self.runtime_catalog, output_path=str(self.report_dir / "engine_report.json"))
-        excel_path = excel_reporter.generate(checks, eval_results, output_path=str(self.report_dir / "engine_report.xlsx"))
-        actions = ActionSummaryBuilder().build(checks)
+        reporting = ReportingFacade(self.report_dir).generate(
+            checks,
+            eval_results,
+            runtime_catalog=self.runtime_catalog,
+        )
 
         return {
             "status": "OK" if not eval_results.get("errors") else "PARTIAL",
@@ -91,11 +89,11 @@ class TBDYEngineV2:
                 "error": sum(1 for c in checks if c.status == "ERROR"),
             },
             "reports": {
-                "json": json_path,
-                "json_snapshot": json_reporter.last_snapshot_path,
-                "excel": excel_path,
-                "excel_snapshot": excel_reporter.last_snapshot_path,
-                "action_summary": actions,
+                "json": reporting.json_report,
+                "json_snapshot": reporting.json_snapshot,
+                "excel": reporting.excel_report,
+                "excel_snapshot": reporting.excel_snapshot,
+                "action_summary": reporting.action_summary,
             },
             "evaluation_errors": eval_results.get("errors", {}),
             "evaluation_skipped": eval_results.get("skipped", {}),
