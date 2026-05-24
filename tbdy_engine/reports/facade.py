@@ -33,6 +33,7 @@ class ReportingFacade:
     ) -> ReportingResult:
         report_plan = self._build_report_plan(runtime_catalog)
         self._validate_report_plan(report_plan)
+        full_engine_report = report_plan.get("full_engine_report")
 
         json_reporter = JSONReporter(write_history=True)
         excel_reporter = ExcelReporter(write_history=True)
@@ -42,6 +43,7 @@ class ReportingFacade:
             eval_results,
             runtime_catalog=runtime_catalog,
             output_path=str(self.report_dir / "engine_report.json"),
+            planned_report=full_engine_report,
         )
         excel_path = excel_reporter.generate(
             checks,
