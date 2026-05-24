@@ -13,6 +13,7 @@ def _runtime_catalog(reports=None):
         if reports is not None
         else {
             "full_engine_report": SimpleNamespace(
+                report_id="full_engine_report",
                 formats=["json", "excel"],
                 include=[],
                 sections=[],
@@ -21,6 +22,7 @@ def _runtime_catalog(reports=None):
                 metrics=[],
             ),
             "action_summary": SimpleNamespace(
+                report_id="action_summary",
                 formats=["json", "excel"],
                 include=[],
                 sections=[],
@@ -40,8 +42,8 @@ def test_reporting_facade_returns_report_paths_and_action_summary(tmp_path, monk
             self.last_snapshot_path = "json-snapshot"
             calls.append(("json_init", write_history))
 
-        def generate(self, checks, eval_results, *, runtime_catalog, output_path):
-            calls.append(("json_generate", output_path, runtime_catalog))
+        def generate(self, checks, eval_results, *, runtime_catalog, output_path, planned_report=None):
+            calls.append(("json_generate", output_path, runtime_catalog, planned_report.report_id))
             return output_path
 
     class DummyExcelReporter:
@@ -77,7 +79,7 @@ def test_reporting_facade_returns_report_paths_and_action_summary(tmp_path, monk
     assert result.action_summary == [{"check_id": "c1"}]
     assert ("json_init", True) in calls
     assert ("excel_init", True) in calls
-    assert ("json_generate", str(tmp_path / "engine_report.json"), runtime_catalog) in calls
+    assert ("json_generate", str(tmp_path / "engine_report.json"), runtime_catalog, "full_engine_report") in calls
     assert ("excel_generate", str(tmp_path / "engine_report.xlsx")) in calls
     assert ("action_summary", 1) in calls
 
@@ -112,7 +114,7 @@ def test_reporting_facade_missing_json_format_raises_value_error(tmp_path):
     reports = _runtime_catalog().reports
     reports = dict(reports)
     reports["full_engine_report"] = SimpleNamespace(
-        formats=["excel"], include=[], sections=[], filters={}, include_fields=[], metrics=[]
+        report_id="full_engine_report", formats=["excel"], include=[], sections=[], filters={}, include_fields=[], metrics=[]
     )
 
     with pytest.raises(ValueError, match="json format"):
@@ -123,7 +125,7 @@ def test_reporting_facade_missing_excel_format_raises_value_error(tmp_path):
     reports = _runtime_catalog().reports
     reports = dict(reports)
     reports["full_engine_report"] = SimpleNamespace(
-        formats=["json"], include=[], sections=[], filters={}, include_fields=[], metrics=[]
+        report_id="full_engine_report", formats=["json"], include=[], sections=[], filters={}, include_fields=[], metrics=[]
     )
 
     with pytest.raises(ValueError, match="excel format"):
@@ -152,7 +154,7 @@ class _NoopJSONReporter:
     def __init__(self, write_history):
         self.last_snapshot_path = None
 
-    def generate(self, checks, eval_results, *, runtime_catalog, output_path):
+    def generate(self, checks, eval_results, *, runtime_catalog, output_path, planned_report=None):
         return output_path
 
 

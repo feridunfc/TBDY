@@ -13,8 +13,8 @@ class JSONReporter:
         self.write_history = write_history
         self.last_snapshot_path: str | None = None
 
-    def generate(self, checks, eval_results, runtime_catalog=None, output_path="engine_report.json") -> str:
-        payload = self.build_payload(checks, eval_results, runtime_catalog=runtime_catalog)
+    def generate(self, checks, eval_results, runtime_catalog=None, output_path="engine_report.json", planned_report=None) -> str:
+        payload = self.build_payload(checks, eval_results, runtime_catalog=runtime_catalog, planned_report=planned_report)
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
@@ -30,16 +30,20 @@ class JSONReporter:
 
         return str(path)
 
-    def build_payload(self, checks, eval_results, runtime_catalog=None) -> Dict[str, Any]:
+    def build_payload(self, checks, eval_results, runtime_catalog=None, planned_report=None) -> Dict[str, Any]:
         generated_at = datetime.now().isoformat(timespec="seconds")
         generated_at_compact = datetime.now().strftime("%Y%m%d_%H%M%S")
+        report_metadata = {
+            "schema": "engine_report.v1.1",
+            "generated_at": generated_at,
+            "generated_at_compact": generated_at_compact,
+            "runtime_bridge": "Genesis Runtime Bridge v1.1",
+        }
+        if planned_report is not None:
+            report_metadata["report_contract"] = self._report_contract_metadata(planned_report)
+
         return {
-            "report_metadata": {
-                "schema": "engine_report.v1.1",
-                "generated_at": generated_at,
-                "generated_at_compact": generated_at_compact,
-                "runtime_bridge": "Genesis Runtime Bridge v1.1",
-            },
+            "report_metadata": report_metadata,
             "summary": {
                 "total_checks": len(checks),
                 "ok": sum(1 for c in checks if c.status == "OK"),
@@ -55,6 +59,15 @@ class JSONReporter:
             "cache_stats": eval_results.get("cache_stats", {}),
             "coverage": self._coverage(checks, eval_results),
             "distributions": self._distributions(checks),
+        }
+
+    def _report_contract_metadata(self, planned_report) -> Dict[str, Any]:
+        return {
+            "report_id": getattr(planned_report, "report_id", ""),
+            "formats": list(getattr(planned_report, "formats", ())),
+            "sections": list(getattr(planned_report, "sections", ())),
+            "include_fields": list(getattr(planned_report, "include_fields", ())),
+            "metrics": list(getattr(planned_report, "metrics", ())),
         }
 
     def _coverage(self, checks, eval_results) -> Dict[str, Any]:
