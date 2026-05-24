@@ -81,6 +81,20 @@ def _combo_payload(*, status="OK", ratio=0.8, source="synthetic_combo_fixture", 
     }
 
 
+def _plain_payload(*, status="OK", ratio=0.8, source="synthetic_plain_fixture"):
+    return {
+        "status": status,
+        "ratio": ratio,
+        "value": ratio,
+        "limit": 1.0,
+        "unit": "ratio",
+        "message": "plain fixture without structured combo evidence",
+        "action": "",
+        "evaluation_level": "DESIGN_LEVEL",
+        "source": source,
+    }
+
+
 def test_runtime_catalog_preserves_uses_combo_for_enabled_combo_bearing_checks():
     checks = _checks_by_id()
 
@@ -90,7 +104,7 @@ def test_runtime_catalog_preserves_uses_combo_for_enabled_combo_bearing_checks()
         assert check["uses_combo"] == expected_combo
 
 
-def test_column_axial_combo_payload_normalizes_but_structured_combo_fields_are_not_preserved():
+def test_column_axial_combo_payload_preserves_explicit_structured_combo_fields():
     eval_results = {
         "results": {
             "COLUMN_DESIGN": {
@@ -116,11 +130,12 @@ def test_column_axial_combo_payload_normalizes_but_structured_combo_fields_are_n
     assert row.check_id == "column_axial"
     assert row.status == "OK"
     assert row.source == "synthetic_combo_fixture"
-    for field in STRUCTURED_COMBO_FIELDS:
-        assert not hasattr(row, field)
+    assert row.governing_combo == "S_E_1"
+    assert row.combo_family == "S_E"
+    assert row.evidence == {"case": "S_E_1", "family": "S_E"}
 
 
-def test_beam_shear_ke_combo_payload_normalizes_but_structured_combo_fields_are_not_preserved():
+def test_beam_shear_ke_combo_payload_preserves_explicit_structured_combo_fields():
     eval_results = {
         "results": {
             "BEAM_DESIGN": {
@@ -146,11 +161,12 @@ def test_beam_shear_ke_combo_payload_normalizes_but_structured_combo_fields_are_
     assert row.check_id == "beam_shear"
     assert row.status == "OK"
     assert row.source == "synthetic_combo_fixture"
-    for field in STRUCTURED_COMBO_FIELDS:
-        assert not hasattr(row, field)
+    assert row.governing_combo == "K_E_2"
+    assert row.combo_family == "K_E"
+    assert row.evidence == {"case": "K_E_2", "family": "K_E"}
 
 
-def test_scwb_direct_combo_payload_normalizes_but_structured_combo_fields_are_not_preserved():
+def test_scwb_direct_combo_payload_preserves_explicit_structured_combo_fields():
     eval_results = {
         "results": {
             "SCWB_CHECK": {
@@ -178,16 +194,21 @@ def test_scwb_direct_combo_payload_normalizes_but_structured_combo_fields_are_no
 
     rows = _by_check_id(_adapter().adapt_all(eval_results))
 
-    for check_id in ["column_capacity_hierarchy", "beam_capacity_hierarchy"]:
-        row = rows[check_id]
-        assert row.check_id == check_id
-        assert row.status == "OK"
-        assert row.source == "synthetic_combo_fixture"
-        for field in STRUCTURED_COMBO_FIELDS:
-            assert not hasattr(row, field)
+    assert rows["column_capacity_hierarchy"].governing_combo == "S_E_SCWB_COLUMN"
+    assert rows["column_capacity_hierarchy"].combo_family == "S_E"
+    assert rows["column_capacity_hierarchy"].evidence == {
+        "case": "S_E_SCWB_COLUMN",
+        "family": "S_E",
+    }
+    assert rows["beam_capacity_hierarchy"].governing_combo == "S_E_SCWB_BEAM"
+    assert rows["beam_capacity_hierarchy"].combo_family == "S_E"
+    assert rows["beam_capacity_hierarchy"].evidence == {
+        "case": "S_E_SCWB_BEAM",
+        "family": "S_E",
+    }
 
 
-def test_check_result_to_dict_does_not_include_combo_evidence_fields_yet():
+def test_check_result_to_dict_includes_explicit_combo_evidence_fields():
     eval_results = {
         "results": {
             "COLUMN_DESIGN": {
@@ -211,7 +232,37 @@ def test_check_result_to_dict_does_not_include_combo_evidence_fields_yet():
     row_dict = _by_check_id(_adapter().adapt_all(eval_results))["column_axial"].to_dict()
 
     assert row_dict["check_id"] == "column_axial"
-    assert not (STRUCTURED_COMBO_FIELDS & set(row_dict))
+    assert row_dict["governing_combo"] == "S_E_1"
+    assert row_dict["combo_family"] == "S_E"
+    assert row_dict["evidence"] == {"case": "S_E_1", "family": "S_E"}
+
+
+def test_missing_structured_combo_evidence_fields_remain_none():
+    eval_results = {
+        "results": {
+            "COLUMN_DESIGN": {
+                "outputs": [
+                    {
+                        "label": "C1",
+                        "story": "S1",
+                        "checks": {
+                            "axial": _plain_payload(),
+                        },
+                    }
+                ]
+            }
+        },
+        "errors": {},
+        "skipped": {},
+        "execution_order": ["COLUMN_DESIGN"],
+        "cache_stats": {},
+    }
+
+    row = _by_check_id(_adapter().adapt_all(eval_results))["column_axial"]
+
+    assert row.governing_combo is None
+    assert row.combo_family is None
+    assert row.evidence is None
 
 
 def test_combo_bearing_checks_remain_active_after_sprint_3d():
