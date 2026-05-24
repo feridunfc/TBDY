@@ -23,7 +23,7 @@ class EngineContractLoader:
     def from_project_root(cls, project_root: str | Path | None = None) -> "EngineContractLoader":
         root = Path(project_root or Path.cwd())
         return cls(root / "tbdy_engine" / "contracts", project_root=root)
-    def load(self, include_legacy: bool = True) -> ContractBundle:
+    def load(self, include_legacy: bool = False) -> ContractBundle:
         warnings: list[str] = []
         bundle = ContractBundle(
             datasets=DatasetsContract(**_read_yaml(self.contracts_dir / RUNTIME_FILES["datasets"])),
@@ -36,7 +36,7 @@ class EngineContractLoader:
         if include_legacy and bundle.legacy_raw:
             bundle = LegacyContractMigrator().enrich_bundle(bundle)
         return bundle
-    def build_runtime_catalog(self, include_legacy: bool = True):
+    def build_runtime_catalog(self, include_legacy: bool = False):
         return RuntimeCatalogBuilder(self.load(include_legacy=include_legacy)).build()
     def _load_legacy_raw(self, warnings: list[str]) -> Dict[str, Any]:
         raw: Dict[str, Any] = {}
