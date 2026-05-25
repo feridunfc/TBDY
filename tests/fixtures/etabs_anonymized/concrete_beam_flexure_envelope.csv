@@ -1,0 +1,4 @@
+Story,Label,UniqueName,DesignSect,Location,AsTopCombo,MomentTop,AsBotCombo,MomentBot,Status
+S_A,B_A,1001,B30x60,End-I,Crack_SeisX_Soil,-109.7213,Crack_SeisX,68.473,OK
+S_A,B_A,1001,B30x60,Middle,Crack_SeisX,-32.5942,Crack_SeisX,80.8195,OK
+S_A,B_A,1001,B30x60,End-J,Crack_SeisX,-130.3767,Crack_SeisX_Soil,65.1417,OK

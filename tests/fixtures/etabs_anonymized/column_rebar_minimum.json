@@ -1,0 +1,16 @@
+[
+  {
+    "element_label": "C_A",
+    "story": "S_A",
+    "As_total_mm2": 1200.0,
+    "As_min_mm2": 900.0,
+    "rho_pct": 1.3333333333,
+    "rho_min_pct": 1.0,
+    "n_bars_total": 6,
+    "n_bars_min": 6,
+    "bar_diameter_mm": 16.0,
+    "bar_diameter_min_mm": 14.0,
+    "source": "anonymized_export_shape",
+    "source_row": 2
+  }
+]
