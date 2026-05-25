@@ -1,0 +1,36 @@
+{
+  "excel_sheetnames": [
+    "Summary",
+    "Details",
+    "Eval_Skipped",
+    "Eval_Errors",
+    "Report_Contract"
+  ],
+  "excel_details_header": [
+    "check_id",
+    "element_label",
+    "story",
+    "status",
+    "ratio",
+    "value",
+    "limit",
+    "unit",
+    "message",
+    "action",
+    "tbdy_ref",
+    "evaluation_level",
+    "source",
+    "severity",
+    "category",
+    "report_section",
+    "legacy_contract_id",
+    "evidence"
+  ],
+  "report_contract_keys": [
+    "report_id",
+    "formats",
+    "sections",
+    "include_fields",
+    "metrics"
+  ]
+}
