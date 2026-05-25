@@ -7,6 +7,7 @@ from typing import Any, Dict, Set
 
 from tbdy_engine.contracts.loader import EngineContractLoader
 from tbdy_engine.contracts.validator import EngineContractValidator
+from tbdy_engine.runtime.dataset_validator import DatasetValidator
 from tbdy_engine.runtime.evaluation_dag import EvaluationDAG
 from tbdy_engine.runtime.scheduler import EvaluationCallable, RuntimeScheduler, SchedulerResult
 from tbdy_engine.adapters.check_adapter import CheckAdapter
@@ -25,6 +26,18 @@ def _model_to_dict(obj: Any) -> Dict[str, Any]:
     if hasattr(obj, "as_dict"):
         return obj.as_dict()
     return dict(vars(obj)) if hasattr(obj, "__dict__") else {}
+
+
+def _list_value(value: object) -> list[object]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    if isinstance(value, set):
+        return sorted(value)
+    return [value]
 
 
 class TBDYEngineV2:
@@ -59,6 +72,57 @@ class TBDYEngineV2:
             if ev:
                 enabled.add(ev)
         return enabled
+
+    def _planned_check_ids(self) -> list[str]:
+        checks = getattr(self.runtime_catalog, "checks", {}) or {}
+        return sorted(
+            check_id
+            for check_id, check in checks.items()
+            if getattr(check, "runner_enabled", True)
+        )
+
+    def _build_dry_run_report_contract(self) -> dict[str, object]:
+        reports = getattr(self.runtime_catalog, "reports", {}) or {}
+        report = reports.get("full_engine_report") if isinstance(reports, dict) else None
+        if report is None:
+            return {"report_id": "full_engine_report", "missing": True}
+        return {
+            "report_id": getattr(report, "report_id", "full_engine_report"),
+            "formats": _list_value(getattr(report, "formats", [])),
+            "sections": _list_value(getattr(report, "sections", [])),
+            "include_fields": _list_value(getattr(report, "include_fields", [])),
+            "metrics": _list_value(getattr(report, "metrics", [])),
+        }
+
+    def _runtime_warnings(self) -> list[str]:
+        warnings: list[str] = []
+        catalog_warnings = getattr(self.runtime_catalog, "warnings", [])
+        for warning in _list_value(catalog_warnings):
+            warnings.append(str(warning))
+        return warnings
+
+    def dry_run(self) -> dict[str, object]:
+        contract_errors = self.validate()
+        dataset_result = DatasetValidator.from_catalog(self.runtime_catalog).validate(self.ctx)
+        dataset_validation = dataset_result.to_dict()
+        dag = EvaluationDAG.from_catalog(self.runtime_catalog, enabled_only=True)
+        report_contract = self._build_dry_run_report_contract()
+        warnings = self._runtime_warnings()
+
+        for error in contract_errors:
+            warnings.append(f"Contract validation: {error}")
+        if report_contract.get("missing") is True:
+            warnings.append("Report contract 'full_engine_report' is missing.")
+
+        return {
+            "ok": not contract_errors and dataset_result.ok,
+            "dataset_validation": dataset_validation,
+            "evaluation_order": list(dag.topological_order(enabled_only=True)),
+            "enabled_evaluations": sorted(self.enabled_evaluation_ids()),
+            "planned_checks": self._planned_check_ids(),
+            "report_contract": report_contract,
+            "warnings": [str(warning) for warning in warnings],
+        }
 
     def _build_evaluators(self, catalog: object) -> dict[str, EvaluationCallable]:
         catalog_dict = _model_to_dict(catalog)
