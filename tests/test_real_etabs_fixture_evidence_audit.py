@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -28,9 +29,9 @@ FORBIDDEN_IDENTIFIERS = [
     "company",
     "email",
     "phone",
-    "tc",
     "vergi",
 ]
+TC_ID_PATTERN = re.compile(r"\b\d{11}\b")
 FORBIDDEN_SECOND_CONTRACT_FILES = [
     ROOT / "docs" / "workbook_manifest.yaml",
     ROOT / "docs" / "sheet_contracts.yaml",
@@ -56,8 +57,19 @@ def _csv_rows(path: Path) -> list[dict[str, str]]:
         return list(csv.DictReader(handle))
 
 
-def _json_rows(path: Path) -> list[dict[str, Any]]:
-    return json.loads(path.read_text(encoding="utf-8"))
+def _json_fixture_rows(path: Path) -> list[dict[str, Any]]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+
+    if isinstance(payload, list):
+        return payload
+
+    if isinstance(payload, dict):
+        if isinstance(payload.get("checks"), list):
+            return payload["checks"]
+        if isinstance(payload.get("rows"), list):
+            return payload["rows"]
+
+    raise AssertionError(f"Unsupported JSON fixture shape: {path}")
 
 
 def _as_float(value: Any) -> float:
@@ -126,7 +138,7 @@ def _check_payload(
 
 def _column_outputs() -> dict[str, Any]:
     force = _csv_rows(_fixture_path("column_forces.csv"))[0]
-    rebar = _json_rows(_fixture_path("column_rebar_minimum.json"))[0]
+    rebar = _json_fixture_rows(_fixture_path("column_rebar_minimum.json"))[0]
     label = force["element_label"]
     story = force["story"]
 
@@ -329,6 +341,7 @@ def test_committed_fixture_files_are_small_and_anonymized():
             text = path.read_text(encoding="utf-8").lower()
             for identifier in FORBIDDEN_IDENTIFIERS:
                 assert identifier not in text
+            assert TC_ID_PATTERN.search(text) is None
 
 
 def test_column_fixture_evidence_reaches_adapter_json_excel(tmp_path):
