@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -34,13 +35,13 @@ class ExcelReporter:
         detail.append([
             "check_id", "element_label", "story", "status", "ratio", "value", "limit", "unit",
             "message", "action", "tbdy_ref", "evaluation_level", "source", "severity", "category",
-            "report_section", "legacy_contract_id"
+            "report_section", "legacy_contract_id", "evidence"
         ])
         for c in checks:
             detail.append([
                 c.check_id, c.element_label, c.story, c.status, c.ratio, c.value, c.limit, c.unit,
                 c.message, c.action, c.tbdy_ref, c.evaluation_level, c.source, c.severity, c.category,
-                c.report_section, c.legacy_contract_id,
+                c.report_section, c.legacy_contract_id, self._evidence_value(c),
             ])
 
         skipped = wb.create_sheet("Eval_Skipped")
@@ -70,6 +71,12 @@ class ExcelReporter:
             self.last_snapshot_path = str(snapshot)
 
         return str(path)
+
+    def _evidence_value(self, check) -> str:
+        evidence = getattr(check, "evidence", None)
+        if evidence in (None, ""):
+            return ""
+        return json.dumps(evidence, ensure_ascii=False, sort_keys=True, default=str)
 
     def _add_report_contract_sheet(self, workbook, planned_report) -> None:
         sheet = workbook.create_sheet("Report_Contract")
