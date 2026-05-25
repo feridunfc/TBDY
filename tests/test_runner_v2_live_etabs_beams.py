@@ -241,18 +241,19 @@ def test_live_etabs_beam_table_attempts_are_narrow_and_structured(tmp_path):
         assert attempted_names == BEAM_TABLE_CANDIDATES[logical_name][: len(attempted_names)]
 
 
-def test_live_beam_smoke_source_is_contract_aligned_and_has_no_fake_evaluator():
+def test_live_beam_smoke_source_is_contract_aligned_and_has_no_direct_eval_shortcut():
     source = Path(__file__).read_text(encoding="utf-8")
     forbidden_raw_com_import = "win32com" + "." + "client"
     forbidden_raw_com_call = "Get" + "Active" + "Object"
     forbidden_module_name = "Beam" + "Design" + "Module"
+    forbidden_shortcut_name = "fake" + "_" + "evaluator"
 
     assert "TBDY_RUN_ETABS_LIVE_SMOKE" in source
     assert "read_etabs_table_on_demand" in source
     assert "CheckAdapter" in source
     assert "ReportingFacade" in source
     assert forbidden_module_name not in source
-    assert "fake_evaluator" not in source
+    assert forbidden_shortcut_name not in source
     assert forbidden_raw_com_import not in source
     assert forbidden_raw_com_call not in source
     assert "beam_capacity_hierarchy" in source
