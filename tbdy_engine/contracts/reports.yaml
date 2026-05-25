@@ -5,7 +5,24 @@ reports:
     formats: [json, excel]
     include: [all_checks, action_summary, coverage_report, material_summary, evaluation_levels_summary]
     sections: [summary, data_quality, columns, beams, walls, joints, global, missing_data, actions, evidence]
-    include_fields: [check_id, element_label, story, status, ratio, message, action, tbdy_ref, evaluation_level]
+    include_fields:
+      - check_id
+      - element_label
+      - story
+      - status
+      - ratio
+      - value
+      - limit
+      - unit
+      - message
+      - action
+      - tbdy_ref
+      - evaluation_level
+      - source
+      - severity
+      - category
+      - report_section
+      - evidence
     metrics: [total_checks_possible, checks_executed, checks_no_data, checks_not_evaluated, coverage_pct]
   action_summary:
     formats: [json, excel]
