@@ -142,11 +142,13 @@ def test_live_etabs_optional_design_tables_are_readable_if_present():
 def test_live_smoke_source_is_env_gated_and_uses_production_modules_only():
     source_path = __import__("pathlib").Path(__file__)
     source = source_path.read_text(encoding="utf-8")
+    forbidden_raw_com_import = "win32com" + "." + "client"
+    forbidden_raw_com_call = "Get" + "Active" + "Object"
 
     assert "TBDY_RUN_ETABS_LIVE_SMOKE" in source
     assert "check_etabs_connection" in source
     assert "get_sap" in source
     assert "get_table_df" in source
-    assert "win32com.client" not in source
-    assert "GetActiveObject" not in source
+    assert forbidden_raw_com_import not in source
+    assert forbidden_raw_com_call not in source
     assert "pytest.skip" in source
