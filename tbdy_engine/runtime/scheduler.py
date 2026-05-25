@@ -1,73 +1,127 @@
 from __future__ import annotations
-import importlib
-import time
-from typing import Any, Dict, Iterable, Optional
-from tbdy_engine.runtime.dag import EvaluationDAG
-from tbdy_engine.runtime.module_cache import ModuleExecutionCache
 
-class RuntimeScheduler:
-    """
-    Sync Runtime Scheduler.
-    Only evaluations referenced by enabled runtime checks are executed.
-    """
+from collections.abc import Mapping
+from dataclasses import dataclass
+from enum import Enum
+from typing import Protocol
 
-    def __init__(self, ctx: Any, evaluations_config: Dict[str, Any], cache: Optional[ModuleExecutionCache] = None, enabled_evaluation_ids: Optional[Iterable[str]] = None) -> None:
-        self.ctx = ctx
-        self.evaluations_config = evaluations_config or {}
-        self.evaluations = self.evaluations_config.get("evaluations", {}) or {}
-        self.enabled_evaluation_ids = set(enabled_evaluation_ids or [])
-        self.dag = EvaluationDAG(self.evaluations_config, enabled_evaluation_ids=self.enabled_evaluation_ids)
-        self.cache = cache or ModuleExecutionCache()
-        self.results: Dict[str, Any] = {}
-        self.errors: Dict[str, str] = {}
-        self.skipped: Dict[str, str] = {}
+from tbdy_engine.runtime.evaluation_dag import EvaluationDAG
 
-    def run_all(self) -> Dict[str, Any]:
-        start = time.time()
-        execution_order = self.dag.get_execution_order()
 
-        for eval_name in execution_order:
-            conf = self.evaluations.get(eval_name, {}) or {}
-            if not conf.get("enabled", True):
-                self.skipped[eval_name] = conf.get("reason", "disabled")
-                continue
-            if self.enabled_evaluation_ids and eval_name not in self.enabled_evaluation_ids:
-                self.skipped[eval_name] = "not referenced by enabled runtime checks"
-                continue
+class EvaluationCallable(Protocol):
+    def __call__(self, context: object) -> Mapping[str, object]: ...
 
-            cache_key = conf.get("cache_key", eval_name)
-            if self.cache.has(cache_key):
-                self.results[eval_name] = self.cache.get(cache_key)
-                continue
 
-            try:
-                result = self._run_evaluation(eval_name, conf)
-                self.cache.set(cache_key, result)
-                self.results[eval_name] = result
-            except Exception as exc:
-                self.errors[eval_name] = f"{type(exc).__name__}: {exc}"
-                self.results[eval_name] = {"status": "ERROR", "evaluation": eval_name, "error": str(exc), "exception_type": type(exc).__name__}
+class EvaluationRunStatus(str, Enum):
+    OK = "OK"
+    ERROR = "ERROR"
+    SKIPPED = "SKIPPED"
 
-        for eval_name, conf in self.evaluations.items():
-            if not conf.get("enabled", True):
-                self.skipped.setdefault(eval_name, conf.get("reason", "disabled"))
-            elif self.enabled_evaluation_ids and eval_name not in self.enabled_evaluation_ids:
-                self.skipped.setdefault(eval_name, "not referenced by enabled runtime checks")
 
+@dataclass(frozen=True)
+class EvaluationRunRecord:
+    evaluation: str
+    status: EvaluationRunStatus
+    result: Mapping[str, object] | None
+    error: str | None
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "evaluation": self.evaluation,
+            "status": self.status.value,
+            "result": self.result,
+            "error": self.error,
+        }
+
+
+@dataclass(frozen=True)
+class SchedulerResult:
+    records: tuple[EvaluationRunRecord, ...]
+
+    @property
+    def results(self) -> dict[str, Mapping[str, object]]:
+        return {
+            record.evaluation: record.result
+            for record in self.records
+            if record.status is EvaluationRunStatus.OK and record.result is not None
+        }
+
+    @property
+    def errors(self) -> dict[str, str]:
+        return {
+            record.evaluation: record.error or "ERROR"
+            for record in self.records
+            if record.status is EvaluationRunStatus.ERROR
+        }
+
+    @property
+    def skipped(self) -> dict[str, str]:
+        return {
+            record.evaluation: record.error or "SKIPPED"
+            for record in self.records
+            if record.status is EvaluationRunStatus.SKIPPED
+        }
+
+    @property
+    def execution_order(self) -> tuple[str, ...]:
+        return tuple(record.evaluation for record in self.records)
+
+    @property
+    def ok(self) -> bool:
+        return not self.errors
+
+    def to_eval_results(self) -> dict[str, object]:
         return {
             "results": self.results,
             "errors": self.errors,
             "skipped": self.skipped,
-            "execution_order": execution_order,
-            "cache_stats": self.cache.stats(),
-            "duration_sec": round(time.time() - start, 3),
+            "execution_order": list(self.execution_order),
+            "cache_stats": {},
         }
 
-    def _run_evaluation(self, eval_name: str, conf: Dict[str, Any]) -> Any:
-        module_path = conf["module"]
-        method_name = conf.get("method", "run")
-        module_name, class_name = module_path.rsplit(".", 1)
-        module = importlib.import_module(module_name)
-        cls = getattr(module, class_name)
-        instance = cls(self.ctx)
-        return getattr(instance, method_name)()
+
+@dataclass(frozen=True)
+class RuntimeScheduler:
+    dag: EvaluationDAG
+    evaluators: Mapping[str, EvaluationCallable]
+
+    def run(self, context: object, *, enabled_only: bool = True) -> SchedulerResult:
+        records: list[EvaluationRunRecord] = []
+
+        for evaluation in self.dag.topological_order(enabled_only=enabled_only):
+            evaluator = self.evaluators.get(evaluation)
+            if evaluator is None:
+                records.append(
+                    EvaluationRunRecord(
+                        evaluation=evaluation,
+                        status=EvaluationRunStatus.SKIPPED,
+                        result=None,
+                        error=f"No evaluator registered for '{evaluation}'.",
+                    )
+                )
+                continue
+
+            try:
+                result = evaluator(context)
+            except Exception as exc:
+                message = str(exc) or type(exc).__name__
+                records.append(
+                    EvaluationRunRecord(
+                        evaluation=evaluation,
+                        status=EvaluationRunStatus.ERROR,
+                        result=None,
+                        error=message,
+                    )
+                )
+                continue
+
+            records.append(
+                EvaluationRunRecord(
+                    evaluation=evaluation,
+                    status=EvaluationRunStatus.OK,
+                    result=result,
+                    error=None,
+                )
+            )
+
+        return SchedulerResult(records=tuple(records))
