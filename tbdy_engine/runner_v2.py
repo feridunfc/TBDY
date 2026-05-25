@@ -106,6 +106,13 @@ class TBDYEngineV2:
         dataset_result = DatasetValidator.from_catalog(self.runtime_catalog).validate(self.ctx)
         dataset_validation = dataset_result.to_dict()
         dag = EvaluationDAG.from_catalog(self.runtime_catalog, enabled_only=True)
+        enabled_evaluations = sorted(self.enabled_evaluation_ids())
+        enabled_evaluation_set = set(enabled_evaluations)
+        evaluation_order = [
+            evaluation
+            for evaluation in dag.topological_order(enabled_only=True)
+            if evaluation in enabled_evaluation_set
+        ]
         report_contract = self._build_dry_run_report_contract()
         warnings = self._runtime_warnings()
 
@@ -117,8 +124,8 @@ class TBDYEngineV2:
         return {
             "ok": not contract_errors and dataset_result.ok,
             "dataset_validation": dataset_validation,
-            "evaluation_order": list(dag.topological_order(enabled_only=True)),
-            "enabled_evaluations": sorted(self.enabled_evaluation_ids()),
+            "evaluation_order": evaluation_order,
+            "enabled_evaluations": enabled_evaluations,
             "planned_checks": self._planned_check_ids(),
             "report_contract": report_contract,
             "warnings": [str(warning) for warning in warnings],
