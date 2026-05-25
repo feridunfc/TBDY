@@ -162,24 +162,24 @@ checks:
   severity: HIGH
   category: DETAILING
   uses_combo: []
-  implementation_status: MISSING_OUTPUT
-  runner_enabled: false
-  experimental: true
+  implementation_status: IMPLEMENTED
+  runner_enabled: true
+  experimental: false
   required_datasets:
-  - geometry
-  - topology
-  - envelopes
-  - design_basis
+    - geometry
+    - topology
+    - envelopes
+    - design_basis
   report_section: columns
   report_outputs:
-  - status
-  - ratio
-  - message
-  - action
-  - evaluation_level
-  - evidence
+    - status
+    - ratio
+    - message
+    - action
+    - evaluation_level
+    - evidence
   source_files:
-  - checks.yaml
+    - checks.yaml
 - id: column_design_full
   evaluation: COLUMN_DESIGN
   evaluation_field: full

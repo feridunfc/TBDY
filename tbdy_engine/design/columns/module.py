@@ -1096,6 +1096,129 @@ class ColumnDesignModule:
             tbdy_ref="TBDY 2018 7.3.7",
         )
 
+    def check_rebar_minimum(
+            self,
+            col: ColumnGeometry,
+            rebar: Optional[ColumnRebar] = None,
+    ) -> ColumnCheckResult:
+        """
+        Column minimum longitudinal reinforcement check.
+
+        Existing module minimum rules:
+        - rho >= 1.0%
+        - n_bars >= 6
+        - bar diameter >= Phi14
+        - As_total >= 0.01 * Ac
+
+        Auto/default proposal is reported as WARNING because it is not real
+        ETABS/user reinforcement.
+        """
+        rho_min_pct = 1.0
+        n_bars_min = 6
+        bar_diameter_min_mm = 14.0
+
+        if col is None or col.area_mm2 <= 0:
+            return ColumnCheckResult(
+                check_name="rebar_minimum",
+                status="NO_DATA",
+                ratio=0.0,
+                value=0.0,
+                limit=rho_min_pct,
+                unit="%",
+                message="Minimum longitudinal rebar check requires valid column geometry",
+                tbdy_ref="TBDY 2018 7.3 / TS500 minimum boyuna donati",
+            )
+
+        if rebar is None:
+            if not self._rebar:
+                self.resolve_rebar()
+            rebar = self._rebar.get(col.label)
+
+        if rebar is None:
+            return ColumnCheckResult(
+                check_name="rebar_minimum",
+                status="NO_DATA",
+                ratio=0.0,
+                value=0.0,
+                limit=rho_min_pct,
+                unit="%",
+                message="Minimum longitudinal rebar check requires rebar data",
+                tbdy_ref="TBDY 2018 7.3 / TS500 minimum boyuna donati",
+            )
+
+        As_total_mm2 = _safe_float(getattr(rebar, "As_total_mm2", 0.0), 0.0)
+        rho_pct = _safe_float(getattr(rebar, "rho", 0.0), 0.0)
+        n_bars_total = int(_safe_float(getattr(rebar, "n_bars_total", 0), 0.0))
+        bar_diameter_mm = _safe_float(getattr(rebar, "bar_diameter_mm", 0.0), 0.0)
+        source = str(getattr(rebar, "source", "unknown") or "unknown")
+
+        As_min_mm2 = 0.01 * col.area_mm2
+
+        if (
+            As_total_mm2 <= 0
+            or rho_pct <= 0
+            or n_bars_total <= 0
+            or bar_diameter_mm <= 0
+        ):
+            return ColumnCheckResult(
+                check_name="rebar_minimum",
+                status="NO_DATA",
+                ratio=0.0,
+                value=rho_pct,
+                limit=rho_min_pct,
+                unit="%",
+                message=(
+                    "Minimum longitudinal rebar check requires positive "
+                    f"As/n_bars/bar diameter values. "
+                    f"As={As_total_mm2:.0f}mm2, n={n_bars_total}, "
+                    f"dia={bar_diameter_mm:.0f}mm, source={source}"
+                ),
+                tbdy_ref="TBDY 2018 7.3 / TS500 minimum boyuna donati",
+            )
+
+        ratio = max(
+            As_min_mm2 / As_total_mm2,
+            rho_min_pct / rho_pct,
+            n_bars_min / n_bars_total,
+            bar_diameter_min_mm / bar_diameter_mm,
+        )
+
+        issues = []
+        if As_total_mm2 < As_min_mm2:
+            issues.append(f"As={As_total_mm2:.0f}mm2 < As_min={As_min_mm2:.0f}mm2")
+        if rho_pct < rho_min_pct:
+            issues.append(f"rho={rho_pct:.2f}% < {rho_min_pct:.2f}%")
+        if n_bars_total < n_bars_min:
+            issues.append(f"n_bars={n_bars_total} < {n_bars_min}")
+        if bar_diameter_mm < bar_diameter_min_mm:
+            issues.append(f"dia={bar_diameter_mm:.0f}mm < {bar_diameter_min_mm:.0f}mm")
+
+        if issues:
+            status = "FAIL"
+            reason = "; ".join(issues)
+        elif source == "default":
+            status = "WARNING"
+            reason = "minimum longitudinal rebar satisfied by default/auto proposal"
+        else:
+            status = "OK"
+            reason = "minimum longitudinal rebar satisfied"
+
+        return ColumnCheckResult(
+            check_name="rebar_minimum",
+            status=status,
+            ratio=ratio,
+            value=rho_pct,
+            limit=rho_min_pct,
+            unit="%",
+            message=(
+                f"{reason}. rho={rho_pct:.2f}%, As={As_total_mm2:.0f}mm2, "
+                f"As_min={As_min_mm2:.0f}mm2, n_bars={n_bars_total}, "
+                f"dia={bar_diameter_mm:.0f}mm, source={source}"
+            ),
+            tbdy_ref="TBDY 2018 7.3 / TS500 minimum boyuna donati",
+        )
+
+
     def check_confinement(
             self,
             col: ColumnGeometry,
@@ -1346,7 +1469,7 @@ class ColumnDesignModule:
                     message="Kuvvet verisi yok",
                     tbdy_ref="TBDY 2018 7.3.2",
                 )
-
+            checks["rebar_minimum"] = self.check_rebar_minimum(col, out.rebar)
             checks["pmm"] = self.check_pmm(col, out.forces, out.rebar, self._materials)
 
             if out.forces and self._materials:
@@ -1439,7 +1562,6 @@ class ColumnDesignModule:
                 "tbdy_ref": c.tbdy_ref,
             }
 
-
             if name == "axial":
                 governing_combo = (
                     getattr(out.forces, "N_case", None)
@@ -1457,7 +1579,6 @@ class ColumnDesignModule:
                     "governing_combo": governing_combo or None,
                     "component_case": governing_combo or None,
                 }
-
 
             elif name == "pmm":
                 governing_combo = getattr(c, "governing_combo", None)
@@ -1484,6 +1605,25 @@ class ColumnDesignModule:
                     "value": c.value,
                     "limit": c.limit,
                     "ratio": c.ratio,
+                }
+
+            elif name == "rebar_minimum":
+                source = getattr(out.rebar, "source", "unknown") if out.rebar else "none"
+                area_mm2 = out.geometry.area_mm2 if out.geometry else 0.0
+                As_min_mm2 = 0.01 * area_mm2 if area_mm2 > 0 else 0.0
+
+                payload["governing_combo"] = None
+                payload["combo_family"] = None
+                payload["evidence"] = {
+                    "As_total_mm2": out.rebar.As_total_mm2 if out.rebar else None,
+                    "As_min_mm2": As_min_mm2,
+                    "rho_pct": out.rebar.rho if out.rebar else None,
+                    "rho_min_pct": 1.0,
+                    "n_bars_total": out.rebar.n_bars_total if out.rebar else None,
+                    "n_bars_min": 6,
+                    "bar_diameter_mm": out.rebar.bar_diameter_mm if out.rebar else None,
+                    "bar_diameter_min_mm": 14.0,
+                    "source": source,
                 }
 
             return payload

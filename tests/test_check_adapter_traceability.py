@@ -8,7 +8,6 @@ from tbdy_engine.contracts.loader import EngineContractLoader
 
 ROOT = Path(__file__).resolve().parents[1]
 DISABLED_KNOWN_MISSING_OUTPUT_CHECKS = {
-    "column_rebar_minimum",
     "column_design_full",
     "beam_design_full",
 }
@@ -54,6 +53,7 @@ def _column_eval_results():
                             "pmm": _check_payload(message="column pmm ok"),
                             "shear": _check_payload(message="column shear ok"),
                             "confinement": _check_payload(message="column confinement ok"),
+                            "rebar_minimum": _check_payload(message="column rebar minimum ok"),
                         },
                     }
                 ]
@@ -100,6 +100,7 @@ def test_column_traceable_fields_normalize_from_outputs_checks():
         "column_pmm",
         "column_shear",
         "column_confinement",
+        "column_rebar_minimum",
     ]:
         row = rows[check_id]
         assert row.status == "OK"
@@ -110,10 +111,12 @@ def test_column_traceable_fields_normalize_from_outputs_checks():
         assert row.evaluation_level == "DESIGN_LEVEL"
 
 
-def test_column_known_missing_output_checks_are_not_emitted_when_disabled():
+def test_column_rebar_minimum_is_emitted_when_enabled_and_output_exists():
     rows = _by_check_id(_adapter().adapt_all(_column_eval_results()))
 
-    assert "column_rebar_minimum" not in rows
+    assert "column_rebar_minimum" in rows
+    assert rows["column_rebar_minimum"].check_name == "rebar_minimum"
+    assert rows["column_rebar_minimum"].status == "OK"
     assert "column_design_full" not in rows
 
 
@@ -148,6 +151,7 @@ def test_known_missing_output_checks_are_not_emitted_by_contract_first_catalog()
     emitted = {row.check_id for row in rows}
 
     assert not (DISABLED_KNOWN_MISSING_OUTPUT_CHECKS & emitted)
+    assert "column_rebar_minimum" in emitted
 
 
 def test_scwb_direct_extraction_normalizes_capacity_hierarchy_checks():
@@ -203,6 +207,7 @@ def test_evaluation_error_creates_error_row_for_each_enabled_column_check():
         "column_pmm",
         "column_shear",
         "column_confinement",
+        "column_rebar_minimum",
     }
     assert all(row.status == "ERROR" for row in rows)
     assert all(row.evaluation_level == "ERROR" for row in rows)
