@@ -1,0 +1,4 @@
+Story,Label,UniqueName,DesignSect,Location,VCombo,Shear,VTorsion,VRebar,Status
+S_A,B_A,1001,B30x60,End-I,Crack_SeisY_Soil,129.1275,0.0,8.0,OK
+S_A,B_A,1001,B30x60,Middle,Crack_SeisY_Soil,92.187,0.0,6.0,OK
+S_A,B_A,1001,B30x60,End-J,Crack_SeisY_Soil,123.2144,0.0,7.0,OK
