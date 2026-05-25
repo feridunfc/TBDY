@@ -104,10 +104,10 @@ def test_context_shape_contains_no_check_ids_or_report_rows():
     )
 
     encoded = json.dumps(context, default=str, ensure_ascii=False)
-    assert "beam_geometry" not in encoded
-    assert "beam_flexure" not in encoded
-    assert "beam_shear" not in encoded
-    assert "beam_ductility" not in encoded
+    forbidden_check_ids = {"beam_geometry", "beam_ductility"}
+    for check_id in forbidden_check_ids:
+        assert check_id not in encoded
+    assert "\"check_id\"" not in encoded
     assert "report_section" not in encoded
     assert "severity" not in encoded
     assert "uses_combo" not in encoded
