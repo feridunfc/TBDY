@@ -88,7 +88,7 @@ def test_excel_reporter_keeps_existing_detail_columns_with_planned_report(tmp_pa
     assert [cell.value for cell in detail[1]] == [
         "check_id", "element_label", "story", "status", "ratio", "value", "limit", "unit",
         "message", "action", "tbdy_ref", "evaluation_level", "source", "severity", "category",
-        "report_section", "legacy_contract_id",
+        "report_section", "legacy_contract_id", "evidence",
     ]
 
 
