@@ -18,18 +18,28 @@ def normalize_beam_design_summary(df: Any, *, source_table: str) -> list[dict[st
         label = _string(_row_get(row, "label", "beam", "frame", "element", "objlabel", "unique name", "name"))
         if not label:
             continue
+        story = _string(_row_get(row, "story", "level"))
+        section = _string(_row_get(row, "designsect", "section", "section_name", "sectionname", "frame section"))
+        as_top = _number_or_none(_row_get(row, "tottoprebar", "astop", "asmintop", "top_area", "as_top"))
+        as_bottom = _number_or_none(_row_get(row, "totbotrebar", "asbot", "asminbot", "bottom_area", "as_bottom"))
+        asw_per_m = _number_or_none(_row_get(row, "tottrnrebar", "vrebar", "asw_per_m", "avs", "av/s"))
         source_columns = _source_columns(df)
         rows.append(
             {
                 "label": label,
                 "beam_label": label,
-                "story": _string(_row_get(row, "story", "level")),
-                "section": _string(_row_get(row, "designsect", "section", "section_name", "sectionname", "frame section")),
+                "frame": label,
+                "story": story,
+                "section": section,
+                "designsect": section,
                 "status": _string(_row_get(row, "status", "designstatus", "result")),
                 "ratio": _number_or_none(_row_get(row, "ratio", "dcratio", "pm ratio", "interaction ratio")),
-                "as_top": _number_or_none(_row_get(row, "tottoprebar", "astop", "asmintop", "top_area", "as_top")),
-                "as_bottom": _number_or_none(_row_get(row, "totbotrebar", "asbot", "asminbot", "bottom_area", "as_bottom")),
-                "asw_per_m": _number_or_none(_row_get(row, "tottrnrebar", "vrebar", "asw_per_m", "avs", "av/s")),
+                "as_top": as_top,
+                "astop": as_top,
+                "as_bottom": as_bottom,
+                "asbot": as_bottom,
+                "asw_per_m": asw_per_m,
+                "vrebar": asw_per_m,
                 "source_table": source_table,
                 "source_row": source_row,
                 "source_columns": source_columns,
@@ -106,14 +116,15 @@ def build_beam_context_from_tables(tables: Mapping[str, object]) -> dict[str, ob
         source_table=str(tables.get("beam_shear_envelope_source_table") or "beam_shear_envelope"),
     )
 
+    beam_design_summary_df = _records_to_dataframe(design_summary)
     return {
         "tables": {
-            "beam_design_summary": _records_to_dataframe(design_summary),
+            "beam_design_summary": beam_design_summary_df,
             "beam_flexure_envelope": _records_to_dataframe(flexure),
             "beam_shear_envelope": _records_to_dataframe(shear),
         },
         "design_metadata": {
-            "beam_design_summary": _records_to_dataframe(design_summary),
+            "beam_design_summary": beam_design_summary_df,
             "beam_design_summary_rows": design_summary,
             "beam_flexure_envelope_rows": flexure,
             "beam_shear_envelope_rows": shear,
