@@ -125,3 +125,4 @@ class RuntimeScheduler:
             )
 
         return SchedulerResult(records=tuple(records))
+Scheduler = RuntimeScheduler
