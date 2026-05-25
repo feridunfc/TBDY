@@ -23,7 +23,7 @@ class EvaluationDAG:
     @classmethod
     def from_catalog(cls, catalog: object, *, enabled_only: bool = False) -> "EvaluationDAG":
         evaluations_obj = _member(catalog, "evaluations")
-        raw_nodes = []
+        raw_nodes: list[EvaluationNode] = []
 
         for evaluation_name, evaluation_obj in _iter_named_objects(evaluations_obj):
             enabled = _bool_member(evaluation_obj, "enabled", default=True)
@@ -39,21 +39,18 @@ class EvaluationDAG:
             )
 
         included_names = {node.evaluation for node in raw_nodes}
-        nodes = tuple(
-            sorted(
-                (
-                    EvaluationNode(
-                        evaluation=node.evaluation,
-                        depends_on=tuple(dep for dep in node.depends_on if dep in included_names),
-                        enabled=node.enabled,
-                        experimental=node.experimental,
-                    )
-                    if enabled_only
-                    else node
-                )
-                for node in raw_nodes
-            , key=lambda node: node.evaluation)
+        projected_nodes = tuple(
+            EvaluationNode(
+                evaluation=node.evaluation,
+                depends_on=tuple(dep for dep in node.depends_on if dep in included_names),
+                enabled=node.enabled,
+                experimental=node.experimental,
+            )
+            if enabled_only
+            else node
+            for node in raw_nodes
         )
+        nodes = tuple(sorted(projected_nodes, key=lambda node: node.evaluation))
         return cls(nodes=nodes)
 
     @property
