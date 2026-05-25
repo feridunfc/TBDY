@@ -7,11 +7,8 @@ from tbdy_engine.runner_v2 import TBDYEngineV2
 
 
 def test_runner_v2_report_payload_keys_remain_backward_compatible(tmp_path, monkeypatch):
-    class DummyScheduler:
-        def __init__(self, **kwargs):
-            pass
-
-        def run_all(self):
+    class DummySchedulerResult:
+        def to_eval_results(self):
             return {
                 "results": {},
                 "errors": {},
@@ -19,6 +16,13 @@ def test_runner_v2_report_payload_keys_remain_backward_compatible(tmp_path, monk
                 "execution_order": ["COLUMN_DESIGN"],
                 "cache_stats": {"hits": 0, "misses": 1},
             }
+
+    class DummyScheduler:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+        def run(self, context):
+            return DummySchedulerResult()
 
     class DummyCheckAdapter:
         def __init__(self, runtime_catalog):

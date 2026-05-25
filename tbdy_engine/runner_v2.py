@@ -1,11 +1,14 @@
 from __future__ import annotations
+
+import importlib
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Dict, Set
 
 from tbdy_engine.contracts.loader import EngineContractLoader
 from tbdy_engine.contracts.validator import EngineContractValidator
-from tbdy_engine.runtime.module_cache import ModuleExecutionCache
-from tbdy_engine.runtime.scheduler import RuntimeScheduler
+from tbdy_engine.runtime.evaluation_dag import EvaluationDAG
+from tbdy_engine.runtime.scheduler import EvaluationCallable, RuntimeScheduler, SchedulerResult
 from tbdy_engine.adapters.check_adapter import CheckAdapter
 from tbdy_engine.reports.facade import ReportingFacade
 
@@ -41,7 +44,6 @@ class TBDYEngineV2:
         self.bundle = self.loader.load(include_legacy=include_legacy)
         self.runtime_catalog = self.loader.build_runtime_catalog(include_legacy=include_legacy)
         self.configs = self.bundle.as_runtime_configs()
-        self.cache = ModuleExecutionCache()
         self.check_adapter = CheckAdapter(self.runtime_catalog)
 
     def validate(self) -> list[str]:
@@ -58,18 +60,51 @@ class TBDYEngineV2:
                 enabled.add(ev)
         return enabled
 
+    def _build_evaluators(self, catalog: object) -> dict[str, EvaluationCallable]:
+        catalog_dict = _model_to_dict(catalog)
+        catalog_evaluations = catalog_dict.get("evaluations", {}) or {}
+        config_evaluations = (self.configs.get("evaluations", {}) or {}).get("evaluations", {}) or {}
+        enabled_evaluations = self.enabled_evaluation_ids()
+        evaluators: dict[str, EvaluationCallable] = {}
+
+        for evaluation_name in sorted(enabled_evaluations):
+            evaluation_config = _model_to_dict(catalog_evaluations.get(evaluation_name))
+            if not evaluation_config:
+                evaluation_config = _model_to_dict(config_evaluations.get(evaluation_name))
+            if not evaluation_config.get("module"):
+                continue
+            evaluators[evaluation_name] = self._make_evaluator(evaluation_name, evaluation_config)
+
+        return evaluators
+
+    def _make_evaluator(self, evaluation_name: str, evaluation_config: Mapping[str, object]) -> EvaluationCallable:
+        def evaluate(context: object) -> Mapping[str, object]:
+            module_path = str(evaluation_config.get("module", "") or "")
+            if not module_path:
+                raise RuntimeError(f"No module configured for evaluation '{evaluation_name}'.")
+            method_name = str(evaluation_config.get("method", "run") or "run")
+            module_name, class_name = module_path.rsplit(".", 1)
+            module = importlib.import_module(module_name)
+            cls = getattr(module, class_name)
+            instance = cls(context)
+            result = getattr(instance, method_name)()
+            return _model_to_dict(result)
+
+        return evaluate
+
+    def _run_scheduler(self) -> SchedulerResult:
+        dag = EvaluationDAG.from_catalog(self.runtime_catalog, enabled_only=True)
+        evaluators = self._build_evaluators(self.runtime_catalog)
+        scheduler = RuntimeScheduler(dag=dag, evaluators=evaluators)
+        return scheduler.run(self.ctx)
+
     def run(self) -> Dict[str, Any]:
         errors = self.validate()
         if errors:
             return {"status": "CONTRACT_ERROR", "errors": errors}
 
-        scheduler = RuntimeScheduler(
-            ctx=self.ctx,
-            evaluations_config=self.configs["evaluations"],
-            cache=self.cache,
-            enabled_evaluation_ids=self.enabled_evaluation_ids(),
-        )
-        eval_results = scheduler.run_all()
+        scheduler_result = self._run_scheduler()
+        eval_results = scheduler_result.to_eval_results()
         checks = self.check_adapter.adapt_all(eval_results)
 
         reporting = ReportingFacade(self.report_dir).generate(

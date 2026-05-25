@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Mapping
 
+import tbdy_engine.runner_v2 as runner_v2
 from tbdy_engine.adapters.check_adapter import CheckAdapter
 from tbdy_engine.contracts.loader import EngineContractLoader
+from tbdy_engine.runner_v2 import TBDYEngineV2
 from tbdy_engine.runtime.evaluation_dag import EvaluationDAG, EvaluationNode
 from tbdy_engine.runtime.scheduler import RuntimeScheduler, Scheduler
 
@@ -29,6 +32,10 @@ FORBIDDEN_IMPORT_PREFIXES = (
 
 def _runner_v2_source() -> str:
     return RUNNER_V2_PATH.read_text(encoding="utf-8")
+
+
+def _runner_v2_tree() -> ast.Module:
+    return ast.parse(_runner_v2_source())
 
 
 def _scheduler_source() -> str:
@@ -59,24 +66,74 @@ def _column_design_payload() -> Mapping[str, object]:
     }
 
 
-def test_runner_v2_source_documents_old_scheduler_api_dependency():
+def test_runner_v2_no_longer_uses_old_scheduler_constructor_or_run_all_active_path():
+    tree = _runner_v2_tree()
+    scheduler_calls = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "RuntimeScheduler"
+    ]
+    run_all_calls = [
+        node for node in ast.walk(tree)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "run_all"
+    ]
+
+    assert scheduler_calls
+    for call in scheduler_calls:
+        assert {keyword.arg for keyword in call.keywords} == {"dag", "evaluators"}
+    assert run_all_calls == []
+
+
+def test_runner_v2_imports_new_runtime_pieces():
     source = _runner_v2_source()
 
-    old_api_markers = {
-        "RuntimeScheduler(": "RuntimeScheduler(" in source,
-        "run_all(": "run_all(" in source,
-        "ctx=": "ctx=" in source,
-        "evaluations_config=": "evaluations_config=" in source,
-        "enabled_evaluation_ids=": "enabled_evaluation_ids=" in source,
-    }
+    assert "EvaluationDAG" in source
+    assert "RuntimeScheduler" in source
+    assert "SchedulerResult" in source
 
-    assert old_api_markers == {
-        "RuntimeScheduler(": True,
-        "run_all(": True,
-        "ctx=": True,
-        "evaluations_config=": True,
-        "enabled_evaluation_ids=": True,
-    }
+
+def test_runner_v2_can_build_evaluator_mapping_or_skip_missing_evaluators(tmp_path):
+    engine = TBDYEngineV2(object(), report_dir=tmp_path)
+
+    assert callable(engine._build_evaluators)
+
+    original_ids = engine.enabled_evaluation_ids
+    engine.enabled_evaluation_ids = lambda: {"MISSING_EVALUATION"}  # type: ignore[method-assign]
+    evaluators = engine._build_evaluators(engine.runtime_catalog)
+    engine.enabled_evaluation_ids = original_ids  # type: ignore[method-assign]
+
+    assert evaluators == {}
+
+
+def test_runner_v2_scheduler_path_produces_adapter_compatible_eval_results(tmp_path, monkeypatch):
+    class DummySchedulerResult:
+        def to_eval_results(self):
+            return {
+                "results": {
+                    "COLUMN_DESIGN": _column_design_payload(),
+                },
+                "errors": {},
+                "skipped": {},
+                "execution_order": ["COLUMN_DESIGN"],
+                "cache_stats": {},
+            }
+
+    monkeypatch.setattr(
+        runner_v2.TBDYEngineV2,
+        "_build_evaluators",
+        lambda self, catalog: {"COLUMN_DESIGN": lambda context: _column_design_payload()},
+    )
+    monkeypatch.setattr(
+        runner_v2.TBDYEngineV2,
+        "enabled_evaluation_ids",
+        lambda self: {"COLUMN_DESIGN"},
+    )
+
+    engine = TBDYEngineV2(object(), report_dir=tmp_path)
+    eval_results = engine._run_scheduler().to_eval_results()
+
+    assert list(eval_results) == ["results", "errors", "skipped", "execution_order", "cache_stats"]
+    rows = CheckAdapter(engine.runtime_catalog).adapt_all(eval_results)
+    assert any(row.check_id == "column_geometry" for row in rows)
 
 
 def test_runtime_scheduler_public_compatibility_surface_is_explicit():
@@ -87,16 +144,13 @@ def test_runtime_scheduler_public_compatibility_surface_is_explicit():
 
 
 def test_runner_v2_import_does_not_fail():
-    import tbdy_engine.runner_v2 as runner_v2
-
     assert hasattr(runner_v2, "TBDYEngineV2")
     assert hasattr(runner_v2, "run_engine_v2")
 
 
 def test_runner_v2_test_coverage_status_is_explicit():
-    assert RUNNER_V2_TEST_COVERAGE in {"PRESENT", "MISSING"}
-    if RUNNER_V2_TEST_COVERAGE == "MISSING":
-        assert not any(path.exists() for path in RUNNER_V2_TEST_FILES)
+    assert RUNNER_V2_TEST_COVERAGE == "PRESENT"
+    assert any(path.exists() for path in RUNNER_V2_TEST_FILES)
 
 
 def test_scheduler_output_remains_check_adapter_compatible():
@@ -144,8 +198,8 @@ def test_scheduler_source_has_no_forbidden_imports():
     assert forbidden_imports == []
 
 
-def test_new_audit_test_has_no_forbidden_imports():
-    tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+def test_runner_v2_does_not_add_forbidden_imports():
+    tree = _runner_v2_tree()
 
     imported_modules: list[str] = []
     for node in ast.walk(tree):
@@ -164,3 +218,12 @@ def test_new_audit_test_has_no_forbidden_imports():
     )
 
     assert forbidden_imports == []
+
+
+def test_no_combo_family_uses_combo_or_message_parsing_changes():
+    combined = _runner_v2_source() + "\n" + _scheduler_source()
+
+    assert "combo_family" not in combined
+    assert "uses_combo" not in combined
+    assert "message_text" not in combined
+    assert ".message" not in combined
