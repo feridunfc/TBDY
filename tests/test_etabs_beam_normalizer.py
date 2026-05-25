@@ -34,30 +34,32 @@ def test_beam_design_summary_normalizes_representative_rows():
     )
 
     rows = normalize_beam_design_summary(df, source_table=BEAM_SUMMARY_TABLE)
+    row = rows[0]
 
-    assert rows == [
-        {
-            "label": "B1",
-            "beam_label": "B1",
-            "story": "S1",
-            "section": "B30x60",
-            "status": "OK",
-            "ratio": None,
-            "as_top": 0.0012,
-            "as_bottom": 0.0010,
-            "asw_per_m": 0.0002,
-            "source_table": BEAM_SUMMARY_TABLE,
-            "source_row": 0,
-            "source_columns": [
-                "Story",
-                "Frame",
-                "DesignSect",
-                "Status",
-                "TotTopRebar",
-                "TotBotRebar",
-                "TotTrnRebar",
-            ],
-        }
+    assert row["label"] == "B1"
+    assert row["beam_label"] == "B1"
+    assert row["frame"] == "B1"
+    assert row["story"] == "S1"
+    assert row["section"] == "B30x60"
+    assert row["designsect"] == "B30x60"
+    assert row["status"] == "OK"
+    assert row["ratio"] is None
+    assert row["as_top"] == 0.0012
+    assert row["astop"] == 0.0012
+    assert row["as_bottom"] == 0.0010
+    assert row["asbot"] == 0.0010
+    assert row["asw_per_m"] == 0.0002
+    assert row["vrebar"] == 0.0002
+    assert row["source_table"] == BEAM_SUMMARY_TABLE
+    assert row["source_row"] == 0
+    assert row["source_columns"] == [
+        "Story",
+        "Frame",
+        "DesignSect",
+        "Status",
+        "TotTopRebar",
+        "TotBotRebar",
+        "TotTrnRebar",
     ]
 
 
@@ -129,6 +131,11 @@ def test_build_beam_context_targets_existing_beam_design_shape():
     assert set(context) == {"tables", "design_metadata", "envelopes", "geometry", "topology", "design_basis", "flags", "diagnostics"}
     assert not ctx.tables["beam_design_summary"].empty
     assert ctx.design_metadata["beam_design_summary"] is ctx.tables["beam_design_summary"]
+    assert "frame" in ctx.tables["beam_design_summary"].columns
+    assert "designsect" in ctx.tables["beam_design_summary"].columns
+    assert "astop" in ctx.tables["beam_design_summary"].columns
+    assert "asbot" in ctx.tables["beam_design_summary"].columns
+    assert "vrebar" in ctx.tables["beam_design_summary"].columns
     assert ctx.envelopes["beam_forces_map"]["B1"]["M_pos"] == 120.0
     assert ctx.envelopes["beam_forces_map"]["B1"]["V_max"] == 80.0
     assert ctx.geometry["beam_sections"]["B1"] == "B30x60"
