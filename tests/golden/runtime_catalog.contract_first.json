@@ -43,6 +43,7 @@
     "column_confinement",
     "column_geometry",
     "column_pmm",
+    "column_rebar_minimum",
     "column_shear"
   ],
   "evaluations": {
@@ -105,28 +106,74 @@
     "full_engine_report"
   ],
   "source_files_by_check": {
-    "beam_capacity_hierarchy": ["checks.yaml"],
-    "beam_design_full": ["checks.yaml"],
-    "beam_ductility": ["checks.yaml"],
-    "beam_flexure": ["checks.yaml"],
-    "beam_geometry": ["checks.yaml"],
-    "beam_shear": ["checks.yaml"],
-    "column_axial": ["checks.yaml"],
-    "column_capacity_hierarchy": ["checks.yaml"],
-    "column_confinement": ["checks.yaml"],
-    "column_design_full": ["checks.yaml"],
-    "column_geometry": ["checks.yaml"],
-    "column_pmm": ["checks.yaml"],
-    "column_rebar_minimum": ["checks.yaml"],
-    "column_shear": ["checks.yaml"],
-    "global_modal_mass": ["checks.yaml"],
-    "global_story_drift": ["checks.yaml"],
-    "joint_shear": ["checks.yaml"],
-    "wall_axial_flexure": ["checks.yaml"],
-    "wall_boundary_zone": ["checks.yaml"],
-    "wall_design_full": ["checks.yaml"],
-    "wall_geometry": ["checks.yaml"],
-    "wall_shear": ["checks.yaml"],
-    "wall_web_reinforcement": ["checks.yaml"]
+    "beam_capacity_hierarchy": [
+      "checks.yaml"
+    ],
+    "beam_design_full": [
+      "checks.yaml"
+    ],
+    "beam_ductility": [
+      "checks.yaml"
+    ],
+    "beam_flexure": [
+      "checks.yaml"
+    ],
+    "beam_geometry": [
+      "checks.yaml"
+    ],
+    "beam_shear": [
+      "checks.yaml"
+    ],
+    "column_axial": [
+      "checks.yaml"
+    ],
+    "column_capacity_hierarchy": [
+      "checks.yaml"
+    ],
+    "column_confinement": [
+      "checks.yaml"
+    ],
+    "column_design_full": [
+      "checks.yaml"
+    ],
+    "column_geometry": [
+      "checks.yaml"
+    ],
+    "column_pmm": [
+      "checks.yaml"
+    ],
+    "column_rebar_minimum": [
+      "checks.yaml"
+    ],
+    "column_shear": [
+      "checks.yaml"
+    ],
+    "global_modal_mass": [
+      "checks.yaml"
+    ],
+    "global_story_drift": [
+      "checks.yaml"
+    ],
+    "joint_shear": [
+      "checks.yaml"
+    ],
+    "wall_axial_flexure": [
+      "checks.yaml"
+    ],
+    "wall_boundary_zone": [
+      "checks.yaml"
+    ],
+    "wall_design_full": [
+      "checks.yaml"
+    ],
+    "wall_geometry": [
+      "checks.yaml"
+    ],
+    "wall_shear": [
+      "checks.yaml"
+    ],
+    "wall_web_reinforcement": [
+      "checks.yaml"
+    ]
   }
 }
