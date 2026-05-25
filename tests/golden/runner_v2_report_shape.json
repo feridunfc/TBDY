@@ -1,0 +1,56 @@
+{
+  "runner_return_keys": [
+    "status",
+    "summary",
+    "reports",
+    "evaluation_errors",
+    "evaluation_skipped",
+    "execution_order",
+    "cache_stats"
+  ],
+  "json_top_level_keys": [
+    "report_metadata",
+    "summary",
+    "checks",
+    "evaluation_errors",
+    "evaluation_skipped",
+    "execution_order",
+    "cache_stats",
+    "coverage",
+    "distributions"
+  ],
+  "json_check_row_keys": [
+    "check_id",
+    "check_name",
+    "evaluation",
+    "status",
+    "ratio",
+    "value",
+    "limit",
+    "unit",
+    "message",
+    "tbdy_ref",
+    "evaluation_level",
+    "action",
+    "source",
+    "element_label",
+    "story",
+    "severity",
+    "category",
+    "report_section",
+    "experimental",
+    "runner_enabled",
+    "legacy_contract_id",
+    "legacy_canonical_check_name",
+    "governing_combo",
+    "combo_family",
+    "evidence"
+  ],
+  "evidence_keys": [
+    "source",
+    "evidence_type",
+    "confidence",
+    "unit_conversion_status",
+    "combo_family_status"
+  ]
+}
