@@ -257,4 +257,10 @@ def test_live_beam_smoke_source_is_contract_aligned_and_has_no_direct_eval_short
     assert forbidden_raw_com_import not in source
     assert forbidden_raw_com_call not in source
     assert "beam_capacity_hierarchy" in source
-    assert "Concrete Joint" not in source
+    all_candidate_names = [
+        candidate
+        for candidates in BEAM_TABLE_CANDIDATES.values()
+        for candidate in candidates
+    ]
+    assert all("Concrete Joint" not in candidate for candidate in all_candidate_names)
+    assert all("Concrete Column" not in candidate for candidate in all_candidate_names)
