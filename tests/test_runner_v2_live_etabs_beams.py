@@ -9,7 +9,10 @@ from openpyxl import load_workbook
 
 from tbdy_engine.adapters.check_adapter import CheckAdapter
 from tbdy_engine.contracts.loader import EngineContractLoader
-from tbdy_engine.etabs.normalizers.beam_design import build_beam_context_from_tables
+from tbdy_engine.etabs.normalizers.beam_design import (
+    build_beam_context_from_tables,
+    make_beam_diagnostic_evidence,
+)
 from tbdy_engine.etabs.table_access import EtabsTableAccessStatus, read_etabs_table_on_demand
 from tbdy_engine.reports.facade import ReportingFacade
 
@@ -18,6 +21,19 @@ ROOT = Path(__file__).resolve().parents[1]
 EVALUATION_FIELDS = {"geometry", "flexure", "shear", "ductility"}
 INCLUDED_BEAM_CHECKS = {"beam_geometry", "beam_flexure", "beam_shear", "beam_ductility"}
 EXCLUDED_BEAM_CHECKS = {"beam_capacity_hierarchy", "beam_design_full"}
+REQUIRED_EVIDENCE_KEYS = {
+    "source_table",
+    "source_row",
+    "source_rows",
+    "source_columns",
+    "evidence_type",
+    "confidence",
+    "unit_conversion_status",
+    "combo_family_status",
+    "logical_table",
+    "attempted_candidates",
+    "notes",
+}
 BEAM_TABLE_CANDIDATES = {
     "beam_design_summary": [
         "Concrete Beam Design Summary - TS 500-2000(R2018)",
@@ -56,10 +72,12 @@ def _live_tables_or_skip() -> tuple[dict[str, object], dict[str, list[dict[str, 
     for logical_name in ("beam_design_summary", "beam_flexure_envelope", "beam_shear_envelope"):
         result, attempts = _read_first_ok(logical_name)
         diagnostics[logical_name] = attempts
+        attempted_names = [attempt["table_name"] for attempt in attempts]
         if result is None:
             pytest.skip(f"Required live ETABS beam table unavailable: {logical_name}; attempts={attempts}")
         tables[logical_name] = result.df
         tables[f"{logical_name}_source_table"] = result.table_name
+        tables[f"{logical_name}_attempted_candidates"] = attempted_names
 
     return tables, diagnostics
 
@@ -86,28 +104,25 @@ def _check_payload(*, status: str, evidence: dict[str, object], diagnostic: str 
     }
 
 
-def _source_evidence(row: dict[str, object] | None, *, fallback_reason: str | None = None) -> dict[str, object]:
+def _source_evidence(row: dict[str, object] | None, *, logical_table: str, fallback_reason: str | None = None) -> dict[str, object]:
     if not row:
-        return {
-            "source_table": None,
-            "source_row": None,
-            "source_rows": [],
-            "source_columns": [],
-            "evidence_type": "diagnostic",
-            "unit_conversion_status": "not_normalized",
-            "combo_status": "not_inferred",
-            "diagnostic": fallback_reason or "NO_DATA",
-        }
-    return {
-        "source_table": row.get("source_table"),
-        "source_row": row.get("source_row"),
-        "source_rows": row.get("source_rows") or [row.get("source_row")],
-        "source_columns": row.get("source_columns") or [],
-        "evidence_type": "live_etabs_table",
-        "unit_conversion_status": "not_normalized",
-        "combo_status": "not_inferred",
-        "diagnostic": row.get("diagnostic"),
-    }
+        return make_beam_diagnostic_evidence(
+            logical_table=logical_table,
+            reason=fallback_reason or "NO_DATA",
+            attempted_candidates=BEAM_TABLE_CANDIDATES.get(logical_table, []),
+        )
+    evidence = row.get("evidence")
+    if isinstance(evidence, dict):
+        return evidence
+    return make_beam_diagnostic_evidence(
+        logical_table=logical_table,
+        reason="TABLE_FIELD_MISSING: standardized evidence",
+        attempted_candidates=row.get("attempted_candidates") if isinstance(row.get("attempted_candidates"), list) else BEAM_TABLE_CANDIDATES.get(logical_table, []),
+        source_table=row.get("source_table"),
+        source_row=row.get("source_row"),
+        source_columns=row.get("source_columns") if isinstance(row.get("source_columns"), list) else [],
+        confidence="MEDIUM",
+    )
 
 
 def _beam_output_from_context(context: dict[str, object]) -> dict[str, object]:
@@ -131,22 +146,22 @@ def _beam_output_from_context(context: dict[str, object]) -> dict[str, object]:
                 "label": label,
                 "story": story,
                 "checks": {
-                    "geometry": _check_payload(status="OK", evidence=_source_evidence(design_row), value=1.0, limit=1.0),
+                    "geometry": _check_payload(status="OK", evidence=_source_evidence(design_row, logical_table="beam_design_summary"), value=1.0, limit=1.0),
                     "flexure": _check_payload(
                         status=_status_from_diagnostic(None if flexure_row else "TABLE_FIELD_MISSING: flexure governing row"),
-                        evidence=_source_evidence(flexure_row, fallback_reason="TABLE_FIELD_MISSING: flexure governing row"),
+                        evidence=_source_evidence(flexure_row, logical_table="beam_flexure_envelope", fallback_reason="TABLE_FIELD_MISSING: flexure governing row"),
                         diagnostic=None if flexure_row else "TABLE_FIELD_MISSING: flexure governing row",
                         ratio=float(flexure_row.get("ratio") or 0.0) if isinstance(flexure_row, dict) else 0.0,
                     ),
                     "shear": _check_payload(
                         status=_status_from_diagnostic(None if shear_row else "TABLE_FIELD_MISSING: shear governing row"),
-                        evidence=_source_evidence(shear_row, fallback_reason="TABLE_FIELD_MISSING: shear governing row"),
+                        evidence=_source_evidence(shear_row, logical_table="beam_shear_envelope", fallback_reason="TABLE_FIELD_MISSING: shear governing row"),
                         diagnostic=None if shear_row else "TABLE_FIELD_MISSING: shear governing row",
                         ratio=float(shear_row.get("ratio") or 0.0) if isinstance(shear_row, dict) else 0.0,
                     ),
                     "ductility": _check_payload(
                         status=_status_from_diagnostic(ductility_diag),
-                        evidence=_source_evidence(design_row),
+                        evidence=_source_evidence(design_row, logical_table="beam_design_summary"),
                         diagnostic=str(ductility_diag) if ductility_diag else None,
                     ),
                 },
@@ -183,6 +198,17 @@ def _excel_details_rows(report_dir: Path) -> tuple[list[str], list[list[object]]
     return list(rows[0]), [list(row) for row in rows[1:]]
 
 
+def _assert_standard_evidence(evidence: dict[str, object], check_id: str) -> None:
+    assert REQUIRED_EVIDENCE_KEYS.issubset(evidence), check_id
+    assert evidence["evidence_type"] in {"live_etabs_table", "diagnostic_helper"}
+    assert evidence["confidence"] in {"HIGH", "MEDIUM", "LOW"}
+    assert evidence["unit_conversion_status"] in {"not_required", "not_required_ratio", "not_normalized", "blocked_until_unit_contract", "unknown"}
+    assert evidence["combo_family_status"] in {"not_applicable", "not_classified", "combo_name_present_family_unclassified", "heuristic_deferred"}
+    assert isinstance(evidence["source_columns"], list)
+    assert isinstance(evidence["attempted_candidates"], list)
+    assert isinstance(evidence["notes"], list)
+
+
 @pytest.mark.etabs_smoke
 def test_live_etabs_beam_vertical_slice_reports_json_and_excel(tmp_path):
     _skip_unless_live_enabled()
@@ -212,11 +238,7 @@ def test_live_etabs_beam_report_evidence_contains_source_provenance(tmp_path):
     for row in beam_rows:
         evidence = row.get("evidence")
         assert isinstance(evidence, dict), row["check_id"]
-        assert "source_table" in evidence, row["check_id"]
-        assert "source_row" in evidence, row["check_id"]
-        assert isinstance(evidence.get("source_columns"), list), row["check_id"]
-        assert evidence.get("unit_conversion_status") == "not_normalized"
-        assert evidence.get("combo_status") == "not_inferred"
+        _assert_standard_evidence(evidence, row["check_id"])
 
     header, excel_rows = _excel_details_rows(tmp_path)
     check_id_index = header.index("check_id")
@@ -225,8 +247,7 @@ def test_live_etabs_beam_report_evidence_contains_source_provenance(tmp_path):
         if row[check_id_index] not in INCLUDED_BEAM_CHECKS:
             continue
         evidence = json.loads(row[evidence_index])
-        assert "source_table" in evidence
-        assert "source_columns" in evidence
+        _assert_standard_evidence(evidence, row[check_id_index])
 
 
 @pytest.mark.etabs_smoke
