@@ -40,7 +40,7 @@ def test_ok_300x500():
     assert result.check_id == "column_geometry"
     assert result.status == "OK"
     assert result.evaluation_level == "DESIGN_LEVEL"
-    assert result.ratio == min(300 / 300, (300 * 500) / 90000, 4 / (500 / 300))
+    assert result.ratio == min(300 / 300, (300 * 500) / 75000, (300 / 500) / 0.4)
     assert result.value is None
     assert result.limit is None
     assert _sub_statuses(result) == {
@@ -51,23 +51,12 @@ def test_ok_300x500():
     assert result.evidence.evidence_type == "canonical_model"
 
 
-def test_fail_min_edge_250x500():
-    result = evaluate_column_geometry(_snapshot(250, 500), "C101")
+def test_300x200_fails_min_edge_and_min_area():
+    result = evaluate_column_geometry(_snapshot(300, 200), "C101")
 
     assert result.status == "FAIL"
     assert result.value is None
     assert result.limit is None
-    assert _sub_statuses(result) == {
-        "column_min_edge": "FAIL",
-        "column_min_area": "OK",
-        "column_aspect_ratio": "OK",
-    }
-
-
-def test_fail_area_300x250():
-    result = evaluate_column_geometry(_snapshot(300, 250), "C101")
-
-    assert result.status == "FAIL"
     assert _sub_statuses(result) == {
         "column_min_edge": "FAIL",
         "column_min_area": "FAIL",
@@ -75,12 +64,23 @@ def test_fail_area_300x250():
     }
 
 
-def test_fail_aspect_ratio_300x1300():
-    result = evaluate_column_geometry(_snapshot(300, 1300), "C101")
+def test_300x1000_fails_aspect_ratio_only():
+    result = evaluate_column_geometry(_snapshot(300, 1000), "C101")
 
     assert result.status == "FAIL"
     assert _sub_statuses(result) == {
         "column_min_edge": "OK",
+        "column_min_area": "OK",
+        "column_aspect_ratio": "FAIL",
+    }
+
+
+def test_250x1000_fails_min_edge_and_aspect_ratio():
+    result = evaluate_column_geometry(_snapshot(250, 1000), "C101")
+
+    assert result.status == "FAIL"
+    assert _sub_statuses(result) == {
+        "column_min_edge": "FAIL",
         "column_min_area": "OK",
         "column_aspect_ratio": "FAIL",
     }
@@ -93,6 +93,17 @@ def test_boundary_300x300_ok():
     assert result.ratio == 1.0
     assert _sub_statuses(result) == {
         "column_min_edge": "OK",
+        "column_min_area": "OK",
+        "column_aspect_ratio": "OK",
+    }
+
+
+def test_300x250_fails_min_edge_but_passes_area():
+    result = evaluate_column_geometry(_snapshot(300, 250), "C101")
+
+    assert result.status == "FAIL"
+    assert _sub_statuses(result) == {
+        "column_min_edge": "FAIL",
         "column_min_area": "OK",
         "column_aspect_ratio": "OK",
     }
