@@ -45,17 +45,17 @@ COLUMN_GEOMETRY_RECIPE: dict[str, Any] = {
             "step_id": "column_min_area",
             "input": "section.area_mm2",
             "operation": "greater_equal",
-            "limit": 90000.0,
+            "limit": 75000.0,
             "unit": "mm2",
             "lhs_label": "A_c",
         },
         {
             "step_id": "column_aspect_ratio",
-            "input": "section.aspect_ratio",
-            "operation": "less_equal",
-            "limit": 4.0,
+            "input": "section.aspect_ratio_min_over_max",
+            "operation": "greater_equal",
+            "limit": 0.4,
             "unit": "",
-            "lhs_label": "max(b, h) / min(b, h)",
+            "lhs_label": "min(b, h) / max(b, h)",
         },
     ],
 }
@@ -162,7 +162,7 @@ def _resolve_inputs(snapshot: CanonicalSnapshot, column_id: str) -> _InputResolu
         "section.depth_mm": section.depth_mm,
         "section.min_edge_mm": min(width, depth),
         "section.area_mm2": width * depth,
-        "section.aspect_ratio": max(width, depth) / min(width, depth),
+        "section.aspect_ratio_min_over_max": min(width, depth) / max(width, depth),
     }
     return _InputResolution(
         resolved=_ResolvedInputs(column=column, section=section, source_values=source_values),
