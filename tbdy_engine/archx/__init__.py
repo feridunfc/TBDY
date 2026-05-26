@@ -16,9 +16,11 @@ from .models import (
     WorkbenchCell,
 )
 from .story_drift import STORY_DRIFT_RECIPE, build_story_workbench_cell, evaluate_story_drift
+from .workbench_bundle import BUNDLE_VERSION, build_workbench_bundle
 
 __all__ = [
     "BEAM_GEOMETRY_RECIPE",
+    "BUNDLE_VERSION",
     "COLUMN_GEOMETRY_RECIPE",
     "STORY_DRIFT_RECIPE",
     "Beam",
@@ -34,6 +36,7 @@ __all__ = [
     "WorkbenchCell",
     "build_column_workbench_cell",
     "build_story_workbench_cell",
+    "build_workbench_bundle",
     "build_workbench_cell",
     "evaluate_beam_geometry",
     "evaluate_column_geometry",
