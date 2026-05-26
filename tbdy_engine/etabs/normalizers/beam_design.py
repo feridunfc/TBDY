@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from types import SimpleNamespace
 from typing import Any
 
@@ -34,21 +34,63 @@ DIAGNOSTIC_REASON_MISSING_LABEL = "TABLE_FIELD_MISSING: beam_label"
 DIAGNOSTIC_REASON_NO_GOVERNING_VALUE = "TABLE_FIELD_MISSING: numeric governing value"
 DIAGNOSTIC_REASON_DUCTILITY_FIELDS_MISSING = "TABLE_FIELD_MISSING: beam design summary rebar/status fields"
 
+ALLOWED_EVIDENCE_TYPES = {"live_etabs_table", "diagnostic_helper"}
+ALLOWED_CONFIDENCE = {"HIGH", "MEDIUM", "LOW"}
+ALLOWED_UNIT_CONVERSION_STATUS = {
+    "not_required",
+    "not_required_ratio",
+    "not_normalized",
+    "blocked_until_unit_contract",
+    "unknown",
+}
+ALLOWED_COMBO_FAMILY_STATUS = {
+    "not_applicable",
+    "not_classified",
+    "combo_name_present_family_unclassified",
+    "heuristic_deferred",
+}
 
-def normalize_beam_design_summary(df: Any, *, source_table: str) -> list[dict[str, object]]:
+
+def normalize_beam_design_summary(
+    df: Any,
+    *,
+    source_table: str,
+    logical_table: str = "beam_design_summary",
+    attempted_candidates: Sequence[str] | None = None,
+) -> list[dict[str, object]]:
     rows = []
+    attempts = _attempted_candidates(attempted_candidates, source_table)
     for source_row, row in _iter_rows(df):
         source_columns = _source_columns(df)
         label = _string(_row_get(row, *COLUMN_ALIASES["beam_label"]))
         story = _string(_row_get(row, *COLUMN_ALIASES["story"]))
         if not label:
-            rows.append(_diagnostic_row(source_table, source_row, source_columns, DIAGNOSTIC_REASON_MISSING_LABEL, story=story))
+            rows.append(
+                _diagnostic_row(
+                    source_table,
+                    source_row,
+                    source_columns,
+                    DIAGNOSTIC_REASON_MISSING_LABEL,
+                    story=story,
+                    logical_table=logical_table,
+                    attempted_candidates=attempts,
+                )
+            )
             continue
         section = _string(_row_get(row, *COLUMN_ALIASES["section"]))
         as_top = _number_or_none(_row_get(row, *COLUMN_ALIASES["as_top"]))
         as_bottom = _number_or_none(_row_get(row, *COLUMN_ALIASES["as_bottom"]))
         asw_per_m = _number_or_none(_row_get(row, *COLUMN_ALIASES["asw_per_m"]))
         status = _string(_row_get(row, *COLUMN_ALIASES["status"]))
+        combo = _string(_row_get(row, *COLUMN_ALIASES["combo"]))
+        evidence = make_beam_evidence(
+            source_table=source_table,
+            source_row=source_row,
+            source_columns=source_columns,
+            logical_table=logical_table,
+            attempted_candidates=attempts,
+            combo=combo,
+        )
         rows.append(
             {
                 "key": _beam_key(story, label),
@@ -59,6 +101,7 @@ def normalize_beam_design_summary(df: Any, *, source_table: str) -> list[dict[st
                 "section": section,
                 "designsect": section,
                 "status": status,
+                "combo": combo,
                 "ratio": _number_or_none(_row_get(row, *COLUMN_ALIASES["ratio"])),
                 "as_top": as_top,
                 "astop": as_top,
@@ -71,24 +114,53 @@ def normalize_beam_design_summary(df: Any, *, source_table: str) -> list[dict[st
                 "source_table": source_table,
                 "source_row": source_row,
                 "source_columns": source_columns,
+                "logical_table": logical_table,
+                "attempted_candidates": attempts,
+                "evidence": evidence,
             }
         )
     return rows
 
 
-def normalize_beam_flexure_envelope(df: Any, *, source_table: str) -> list[dict[str, object]]:
+def normalize_beam_flexure_envelope(
+    df: Any,
+    *,
+    source_table: str,
+    logical_table: str = "beam_flexure_envelope",
+    attempted_candidates: Sequence[str] | None = None,
+) -> list[dict[str, object]]:
     rows = []
+    attempts = _attempted_candidates(attempted_candidates, source_table)
     for source_row, row in _iter_rows(df):
         source_columns = _source_columns(df)
         label = _string(_row_get(row, *COLUMN_ALIASES["beam_label"]))
         story = _string(_row_get(row, *COLUMN_ALIASES["story"]))
         if not label:
-            rows.append(_diagnostic_row(source_table, source_row, source_columns, DIAGNOSTIC_REASON_MISSING_LABEL, story=story))
+            rows.append(
+                _diagnostic_row(
+                    source_table,
+                    source_row,
+                    source_columns,
+                    DIAGNOSTIC_REASON_MISSING_LABEL,
+                    story=story,
+                    logical_table=logical_table,
+                    attempted_candidates=attempts,
+                )
+            )
             continue
         moment = _number_or_none(_row_get(row, *COLUMN_ALIASES["moment"]))
         m_pos = _number_or_none(_row_get(row, *COLUMN_ALIASES["moment_pos"]))
         m_neg = _number_or_none(_row_get(row, *COLUMN_ALIASES["moment_neg"]))
         ratio = _number_or_none(_row_get(row, *COLUMN_ALIASES["ratio"]))
+        combo = _string(_row_get(row, *COLUMN_ALIASES["combo"]))
+        evidence = make_beam_evidence(
+            source_table=source_table,
+            source_row=source_row,
+            source_columns=source_columns,
+            logical_table=logical_table,
+            attempted_candidates=attempts,
+            combo=combo,
+        )
         rows.append(
             {
                 "key": _beam_key(story, label),
@@ -96,7 +168,7 @@ def normalize_beam_flexure_envelope(df: Any, *, source_table: str) -> list[dict[
                 "beam_label": label,
                 "story": story,
                 "location": _string(_row_get(row, *COLUMN_ALIASES["location"])),
-                "combo": _string(_row_get(row, *COLUMN_ALIASES["combo"])),
+                "combo": combo,
                 "moment": moment,
                 "m_pos": m_pos,
                 "m_neg": m_neg,
@@ -106,23 +178,52 @@ def normalize_beam_flexure_envelope(df: Any, *, source_table: str) -> list[dict[
                 "source_table": source_table,
                 "source_row": source_row,
                 "source_columns": source_columns,
+                "logical_table": logical_table,
+                "attempted_candidates": attempts,
+                "evidence": evidence,
             }
         )
     return rows
 
 
-def normalize_beam_shear_envelope(df: Any, *, source_table: str) -> list[dict[str, object]]:
+def normalize_beam_shear_envelope(
+    df: Any,
+    *,
+    source_table: str,
+    logical_table: str = "beam_shear_envelope",
+    attempted_candidates: Sequence[str] | None = None,
+) -> list[dict[str, object]]:
     rows = []
+    attempts = _attempted_candidates(attempted_candidates, source_table)
     for source_row, row in _iter_rows(df):
         source_columns = _source_columns(df)
         label = _string(_row_get(row, *COLUMN_ALIASES["beam_label"]))
         story = _string(_row_get(row, *COLUMN_ALIASES["story"]))
         if not label:
-            rows.append(_diagnostic_row(source_table, source_row, source_columns, DIAGNOSTIC_REASON_MISSING_LABEL, story=story))
+            rows.append(
+                _diagnostic_row(
+                    source_table,
+                    source_row,
+                    source_columns,
+                    DIAGNOSTIC_REASON_MISSING_LABEL,
+                    story=story,
+                    logical_table=logical_table,
+                    attempted_candidates=attempts,
+                )
+            )
             continue
         shear = _number_or_none(_row_get(row, *COLUMN_ALIASES["shear"]))
         v_support = _number_or_none(_row_get(row, *COLUMN_ALIASES["shear_support"]))
         ratio = _number_or_none(_row_get(row, *COLUMN_ALIASES["ratio"]))
+        combo = _string(_row_get(row, *COLUMN_ALIASES["combo"]))
+        evidence = make_beam_evidence(
+            source_table=source_table,
+            source_row=source_row,
+            source_columns=source_columns,
+            logical_table=logical_table,
+            attempted_candidates=attempts,
+            combo=combo,
+        )
         rows.append(
             {
                 "key": _beam_key(story, label),
@@ -130,7 +231,7 @@ def normalize_beam_shear_envelope(df: Any, *, source_table: str) -> list[dict[st
                 "beam_label": label,
                 "story": story,
                 "location": _string(_row_get(row, *COLUMN_ALIASES["location"])),
-                "combo": _string(_row_get(row, *COLUMN_ALIASES["combo"])),
+                "combo": combo,
                 "shear": shear,
                 "v_support": v_support,
                 "status": _string(_row_get(row, *COLUMN_ALIASES["status"])),
@@ -139,26 +240,38 @@ def normalize_beam_shear_envelope(df: Any, *, source_table: str) -> list[dict[st
                 "source_table": source_table,
                 "source_row": source_row,
                 "source_columns": source_columns,
+                "logical_table": logical_table,
+                "attempted_candidates": attempts,
+                "evidence": evidence,
             }
         )
     return rows
 
 
 def build_beam_context_from_tables(tables: Mapping[str, object]) -> dict[str, object]:
+    design_summary_source = str(tables.get("beam_design_summary_source_table") or "beam_design_summary")
+    flexure_source = str(tables.get("beam_flexure_envelope_source_table") or "beam_flexure_envelope")
+    shear_source = str(tables.get("beam_shear_envelope_source_table") or "beam_shear_envelope")
     design_summary = _coerce_records(
         tables.get("beam_design_summary"),
         normalizer=normalize_beam_design_summary,
-        source_table=str(tables.get("beam_design_summary_source_table") or "beam_design_summary"),
+        source_table=design_summary_source,
+        logical_table="beam_design_summary",
+        attempted_candidates=_attempted_candidates(tables.get("beam_design_summary_attempted_candidates"), design_summary_source),
     )
     flexure = _coerce_records(
         tables.get("beam_flexure_envelope"),
         normalizer=normalize_beam_flexure_envelope,
-        source_table=str(tables.get("beam_flexure_envelope_source_table") or "beam_flexure_envelope"),
+        source_table=flexure_source,
+        logical_table="beam_flexure_envelope",
+        attempted_candidates=_attempted_candidates(tables.get("beam_flexure_envelope_attempted_candidates"), flexure_source),
     )
     shear = _coerce_records(
         tables.get("beam_shear_envelope"),
         normalizer=normalize_beam_shear_envelope,
-        source_table=str(tables.get("beam_shear_envelope_source_table") or "beam_shear_envelope"),
+        source_table=shear_source,
+        logical_table="beam_shear_envelope",
+        attempted_candidates=_attempted_candidates(tables.get("beam_shear_envelope_attempted_candidates"), shear_source),
     )
     flexure_grouped = group_beam_flexure_rows(flexure)
     shear_grouped = group_beam_shear_rows(shear)
@@ -251,6 +364,66 @@ def to_context_namespace(context: Mapping[str, object]) -> SimpleNamespace:
         topology=context.get("topology", {}),
         design_basis=context.get("design_basis", _default_design_basis()),
         flags=context.get("flags", {}),
+    )
+
+
+def make_beam_evidence(
+    *,
+    source_table: object,
+    source_row: object | None = None,
+    source_rows: Sequence[object] | None = None,
+    source_columns: Sequence[object] | None = None,
+    evidence_type: str = "live_etabs_table",
+    confidence: str = "HIGH",
+    unit_conversion_status: str = "not_normalized",
+    combo_family_status: str | None = None,
+    logical_table: str,
+    attempted_candidates: Sequence[str] | None = None,
+    combo: object | None = None,
+    notes: Sequence[object] | None = None,
+) -> dict[str, object]:
+    rows = list(source_rows) if source_rows is not None else ([source_row] if source_row is not None else [])
+    combo_status = combo_family_status or (
+        "combo_name_present_family_unclassified" if _string(combo) else "not_applicable"
+    )
+    evidence = {
+        "source_table": source_table,
+        "source_row": source_row,
+        "source_rows": rows,
+        "source_columns": [str(column) for column in (source_columns or [])],
+        "evidence_type": evidence_type,
+        "confidence": confidence,
+        "unit_conversion_status": unit_conversion_status,
+        "combo_family_status": combo_status,
+        "logical_table": logical_table,
+        "attempted_candidates": _attempted_candidates(attempted_candidates, str(source_table or logical_table)),
+        "notes": [str(note) for note in (notes or [])],
+    }
+    _validate_evidence(evidence)
+    return evidence
+
+
+def make_beam_diagnostic_evidence(
+    *,
+    logical_table: str,
+    reason: object,
+    attempted_candidates: Sequence[str] | None = None,
+    source_table: object | None = None,
+    source_row: object | None = None,
+    source_columns: Sequence[object] | None = None,
+    confidence: str = "LOW",
+) -> dict[str, object]:
+    return make_beam_evidence(
+        source_table=source_table,
+        source_row=source_row,
+        source_columns=source_columns,
+        evidence_type="diagnostic_helper",
+        confidence=confidence,
+        unit_conversion_status="unknown",
+        combo_family_status="not_applicable",
+        logical_table=logical_table,
+        attempted_candidates=attempted_candidates or ([str(source_table)] if source_table else []),
+        notes=[reason],
     )
 
 
@@ -355,16 +528,17 @@ def _parse_rect_section_dims(section: str) -> tuple[float, float]:
 
 
 def _source_evidence(row: Mapping[str, object], rows: object | None = None) -> dict[str, object]:
-    evidence = {
-        "source_table": row.get("source_table"),
-        "source_row": row.get("source_row"),
-        "source_columns": row.get("source_columns"),
-        "source_rows": [item.get("source_row") for item in rows if isinstance(item, Mapping)] if isinstance(rows, list) else [row.get("source_row")],
-        "evidence_type": "live_etabs_table",
-        "unit_conversion_status": "not_normalized",
-        "combo_family_status": "not_inferred",
-    }
-    return evidence
+    source_rows = [item.get("source_row") for item in rows if isinstance(item, Mapping)] if isinstance(rows, list) else [row.get("source_row")]
+    return make_beam_evidence(
+        source_table=row.get("source_table"),
+        source_row=row.get("source_row"),
+        source_rows=source_rows,
+        source_columns=row.get("source_columns") if isinstance(row.get("source_columns"), list) else [],
+        logical_table=str(row.get("logical_table") or "unknown"),
+        attempted_candidates=row.get("attempted_candidates") if isinstance(row.get("attempted_candidates"), list) else None,
+        combo=row.get("combo"),
+        notes=[],
+    )
 
 
 def _diagnostics(*row_groups: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -383,12 +557,29 @@ def _diagnostics(*row_groups: list[dict[str, object]]) -> list[dict[str, object]
                         "source_table": row.get("source_table"),
                         "source_row": row.get("source_row"),
                         "source_columns": row.get("source_columns"),
+                        "evidence": make_beam_diagnostic_evidence(
+                            logical_table=str(row.get("logical_table") or "unknown"),
+                            reason=diagnostic,
+                            attempted_candidates=row.get("attempted_candidates") if isinstance(row.get("attempted_candidates"), list) else None,
+                            source_table=row.get("source_table"),
+                            source_row=row.get("source_row"),
+                            source_columns=row.get("source_columns") if isinstance(row.get("source_columns"), list) else [],
+                        ),
                     }
                 )
     return out
 
 
-def _diagnostic_row(source_table: str, source_row: object, source_columns: list[str], reason: str, *, story: str = "") -> dict[str, object]:
+def _diagnostic_row(
+    source_table: str,
+    source_row: object,
+    source_columns: list[str],
+    reason: str,
+    *,
+    story: str = "",
+    logical_table: str,
+    attempted_candidates: Sequence[str] | None,
+) -> dict[str, object]:
     return {
         "key": _beam_key(story, ""),
         "label": "",
@@ -399,6 +590,16 @@ def _diagnostic_row(source_table: str, source_row: object, source_columns: list[
         "source_table": source_table,
         "source_row": source_row,
         "source_columns": source_columns,
+        "logical_table": logical_table,
+        "attempted_candidates": _attempted_candidates(attempted_candidates, source_table),
+        "evidence": make_beam_diagnostic_evidence(
+            logical_table=logical_table,
+            reason=reason,
+            attempted_candidates=attempted_candidates,
+            source_table=source_table,
+            source_row=source_row,
+            source_columns=source_columns,
+        ),
     }
 
 
@@ -450,12 +651,12 @@ def _default_design_basis() -> dict[str, object]:
     }
 
 
-def _coerce_records(value: object, *, normalizer, source_table: str) -> list[dict[str, object]]:
+def _coerce_records(value: object, *, normalizer, source_table: str, logical_table: str, attempted_candidates: Sequence[str]) -> list[dict[str, object]]:
     if value is None:
         return []
     if isinstance(value, list):
         return [dict(item) for item in value if isinstance(item, Mapping)]
-    return normalizer(value, source_table=source_table)
+    return normalizer(value, source_table=source_table, logical_table=logical_table, attempted_candidates=attempted_candidates)
 
 
 def _records_to_dataframe(records: list[dict[str, object]]):
@@ -551,3 +752,23 @@ def _first_number(*values: object) -> float | None:
         if number is not None:
             return number
     return None
+
+
+def _attempted_candidates(value: object, source_table: str) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, Sequence):
+        candidates = [str(item) for item in value if str(item)]
+        return candidates or [source_table]
+    return [source_table]
+
+
+def _validate_evidence(evidence: Mapping[str, object]) -> None:
+    if evidence.get("evidence_type") not in ALLOWED_EVIDENCE_TYPES:
+        raise ValueError(f"Invalid evidence_type: {evidence.get('evidence_type')}")
+    if evidence.get("confidence") not in ALLOWED_CONFIDENCE:
+        raise ValueError(f"Invalid confidence: {evidence.get('confidence')}")
+    if evidence.get("unit_conversion_status") not in ALLOWED_UNIT_CONVERSION_STATUS:
+        raise ValueError(f"Invalid unit_conversion_status: {evidence.get('unit_conversion_status')}")
+    if evidence.get("combo_family_status") not in ALLOWED_COMBO_FAMILY_STATUS:
+        raise ValueError(f"Invalid combo_family_status: {evidence.get('combo_family_status')}")
