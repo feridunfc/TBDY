@@ -19,6 +19,31 @@ from tbdy_engine.etabs.normalizers.beam_design import (
 BEAM_SUMMARY_TABLE = "Concrete Beam Design Summary - TS 500-2000(R2018)"
 BEAM_FLEXURE_TABLE = "Concrete Beam Flexure Envelope - TS 500-2000(R2018)"
 BEAM_SHEAR_TABLE = "Concrete Beam Shear Envelope - TS 500-2000(R2018)"
+REQUIRED_EVIDENCE_KEYS = {
+    "source_table",
+    "source_row",
+    "source_rows",
+    "source_columns",
+    "evidence_type",
+    "confidence",
+    "unit_conversion_status",
+    "combo_family_status",
+    "logical_table",
+    "attempted_candidates",
+    "notes",
+}
+
+
+def _assert_standard_evidence(evidence: dict[str, object], *, logical_table: str) -> None:
+    assert REQUIRED_EVIDENCE_KEYS.issubset(evidence)
+    assert evidence["logical_table"] == logical_table
+    assert evidence["evidence_type"] in {"live_etabs_table", "diagnostic_helper"}
+    assert evidence["confidence"] in {"HIGH", "MEDIUM", "LOW"}
+    assert evidence["unit_conversion_status"] in {"not_required", "not_required_ratio", "not_normalized", "blocked_until_unit_contract", "unknown"}
+    assert evidence["combo_family_status"] in {"not_applicable", "not_classified", "combo_name_present_family_unclassified", "heuristic_deferred"}
+    assert isinstance(evidence["source_columns"], list)
+    assert isinstance(evidence["attempted_candidates"], list)
+    assert isinstance(evidence["notes"], list)
 
 
 def test_identity_aliases_use_story_beam_key_and_preserve_sources():
@@ -38,6 +63,7 @@ def test_identity_aliases_use_story_beam_key_and_preserve_sources():
     assert row["source_table"] == BEAM_SUMMARY_TABLE
     assert row["source_row"] == 0
     assert row["source_columns"] == ["Story", "Frame", "DesignSect", "Status", "TotTopRebar"]
+    _assert_standard_evidence(row["evidence"], logical_table="beam_design_summary")
 
 
 def test_missing_identity_columns_emit_diagnostic_rows():
@@ -49,6 +75,9 @@ def test_missing_identity_columns_emit_diagnostic_rows():
     assert rows[0]["status"] == "NO_DATA"
     assert rows[0]["diagnostic"] == DIAGNOSTIC_REASON_MISSING_LABEL
     assert rows[0]["key"] == "S1|"
+    _assert_standard_evidence(rows[0]["evidence"], logical_table="beam_flexure_envelope")
+    assert rows[0]["evidence"]["evidence_type"] == "diagnostic_helper"
+    assert rows[0]["evidence"]["notes"] == [DIAGNOSTIC_REASON_MISSING_LABEL]
 
 
 def test_flexure_grouping_preserves_all_rows_and_selects_governing_rows():
@@ -65,6 +94,8 @@ def test_flexure_grouping_preserves_all_rows_and_selects_governing_rows():
     assert len(grouped["rows"]) == 3
     assert grouped["governing_positive"]["combo"] == "EQ2"
     assert grouped["governing_negative"]["combo"] == "EQ3"
+    _assert_standard_evidence(grouped["governing_positive"]["evidence"], logical_table="beam_flexure_envelope")
+    assert grouped["governing_positive"]["evidence"]["combo_family_status"] == "combo_name_present_family_unclassified"
 
 
 def test_shear_grouping_preserves_all_rows_and_selects_governing_rows():
@@ -79,6 +110,7 @@ def test_shear_grouping_preserves_all_rows_and_selects_governing_rows():
     grouped = group_beam_shear_rows(rows)["S1|B1"]
     assert len(grouped["rows"]) == 2
     assert grouped["governing_shear"]["combo"] == "EQ2"
+    _assert_standard_evidence(grouped["governing_shear"]["evidence"], logical_table="beam_shear_envelope")
 
 
 def test_ductility_missing_fields_emit_no_data_diagnostic():
@@ -89,6 +121,7 @@ def test_ductility_missing_fields_emit_no_data_diagnostic():
 
     assert rows[0]["ductility_status"] == "NO_DATA"
     assert rows[0]["diagnostic"] == DIAGNOSTIC_REASON_DUCTILITY_FIELDS_MISSING
+    assert rows[0]["evidence"]["evidence_type"] == "live_etabs_table"
 
 
 def test_context_shape_contains_no_check_ids_or_report_rows():
