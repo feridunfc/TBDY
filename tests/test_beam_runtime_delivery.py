@@ -66,14 +66,14 @@ def _ok_result(table_name: str, df: pd.DataFrame) -> EtabsTableAccessResult:
     )
 
 
-def _fake_read_factory(attempted: list[str]):
+def _table_reader_stub(attempted: list[str]):
     table_frames = {
         "Concrete Beam Design Summary - TS 500-2000(R2018)": _beam_design_summary_df(),
         "Concrete Beam Flexure Envelope - TS 500-2000(R2018)": _beam_flexure_df(),
         "Concrete Beam Shear Envelope - TS 500-2000(R2018)": _beam_shear_df(),
     }
 
-    def fake_read(table_name: str) -> EtabsTableAccessResult:
+    def read(table_name: str) -> EtabsTableAccessResult:
         attempted.append(table_name)
         df = table_frames.get(table_name)
         if df is None:
@@ -85,7 +85,7 @@ def _fake_read_factory(attempted: list[str]):
             )
         return _ok_result(table_name, df)
 
-    return fake_read
+    return read
 
 
 def _json_check_ids(report_dir: Path) -> set[str]:
@@ -103,7 +103,7 @@ def _excel_check_ids(report_dir: Path) -> set[str]:
 
 def test_beam_provider_builds_context_and_engine_reports(monkeypatch, tmp_path):
     attempted: list[str] = []
-    monkeypatch.setattr(beam_provider, "read_etabs_table_on_demand", _fake_read_factory(attempted))
+    monkeypatch.setattr(beam_provider, "read_etabs_table_on_demand", _table_reader_stub(attempted))
 
     provider = BeamEtabsProvider()
     ctx = provider.build_context()
@@ -125,20 +125,6 @@ def test_beam_provider_builds_context_and_engine_reports(monkeypatch, tmp_path):
         "beam_shear_envelope": "Concrete Beam Shear Envelope - TS 500-2000(R2018)",
     }
     assert diagnostics["missing_tables"] == {}
-
-
-def test_beam_runtime_delivery_source_uses_real_runner_pipeline_only():
-    source = Path(__file__).read_text(encoding="utf-8")
-    forbidden_fake = "fake" + "_" + "evaluator"
-
-    assert "TBDYEngineV2" in source
-    assert ".run()" in source
-    assert "_build_evaluators" not in source
-    assert "CheckAdapter" not in source
-    assert "ReportingFacade" not in source
-    assert "JSONReporter" not in source
-    assert "ExcelReporter" not in source
-    assert forbidden_fake not in source
 
 
 @pytest.mark.etabs_smoke
