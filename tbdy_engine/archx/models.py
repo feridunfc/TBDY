@@ -20,9 +20,18 @@ class Beam:
 
 
 @dataclass(frozen=True)
+class Column:
+    element_id: str
+    label: str
+    story_id: str
+    section_id: str
+
+
+@dataclass(frozen=True)
 class CanonicalSnapshot:
     sections: Mapping[str, Section]
     beams: Mapping[str, Beam]
+    columns: Mapping[str, Column] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
