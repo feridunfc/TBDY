@@ -28,10 +28,25 @@ class Column:
 
 
 @dataclass(frozen=True)
+class Story:
+    story_id: str
+    height_mm: float | None
+    drift_max_mm: float | None
+
+
+@dataclass(frozen=True)
+class DesignBasis:
+    code: str = "TBDY-2018"
+    drift_limit: float | None = None
+
+
+@dataclass(frozen=True)
 class CanonicalSnapshot:
     sections: Mapping[str, Section]
     beams: Mapping[str, Beam]
     columns: Mapping[str, Column] = field(default_factory=dict)
+    stories: Mapping[str, Story] = field(default_factory=dict)
+    design_basis: DesignBasis | None = None
 
 
 @dataclass(frozen=True)
