@@ -44,51 +44,17 @@ def run_archx_checks(
     check_results: list[CheckResult] = []
 
     if "beam_geometry" in selected_check_ids:
-        _run_for_ids(
-            sorted(snapshot.beams),
-            "beam_geometry",
-            evaluate_beam_geometry_package,
-            beam_geometry_package_to_check_results,
-            evaluation_packages,
-            check_results,
-            diagnostics,
-        )
+        _run_for_ids(snapshot, sorted(snapshot.beams), "beam_geometry", evaluate_beam_geometry_package, beam_geometry_package_to_check_results, evaluation_packages, check_results, diagnostics)
     if "column_geometry" in selected_check_ids:
-        _run_for_ids(
-            sorted(snapshot.columns),
-            "column_geometry",
-            evaluate_column_geometry_package,
-            column_geometry_package_to_check_results,
-            evaluation_packages,
-            check_results,
-            diagnostics,
-        )
+        _run_for_ids(snapshot, sorted(snapshot.columns), "column_geometry", evaluate_column_geometry_package, column_geometry_package_to_check_results, evaluation_packages, check_results, diagnostics)
     if "story_drift" in selected_check_ids:
-        _run_for_ids(
-            sorted(snapshot.stories),
-            "story_drift",
-            evaluate_story_drift_package,
-            story_drift_package_to_check_results,
-            evaluation_packages,
-            check_results,
-            diagnostics,
-        )
+        _run_for_ids(snapshot, sorted(snapshot.stories), "story_drift", evaluate_story_drift_package, story_drift_package_to_check_results, evaluation_packages, check_results, diagnostics)
 
     workbench_cells = [_workbench_cell_for_result(result) for result in check_results]
     workbench_bundle = build_workbench_bundle(check_results, workbench_cells, run_id=run_id)
     summary = _build_summary(check_results, workbench_cells, evaluation_packages)
     diagnostics.extend(_package_diagnostics(evaluation_packages))
-    return ArchxRunResult(
-        run_id=run_id,
-        supported_check_ids=list(SUPPORTED_CHECK_IDS),
-        requested_check_ids=requested_check_ids,
-        evaluation_packages=evaluation_packages,
-        check_results=check_results,
-        workbench_cells=workbench_cells,
-        workbench_bundle=workbench_bundle,
-        summary=summary,
-        diagnostics=diagnostics,
-    )
+    return ArchxRunResult(run_id, list(SUPPORTED_CHECK_IDS), requested_check_ids, evaluation_packages, check_results, workbench_cells, workbench_bundle, summary, diagnostics)
 
 
 def _selected_check_ids(requested_check_ids: list[str] | None) -> set[str]:
@@ -108,15 +74,11 @@ def _expand_check_ids(check_ids: list[str]) -> list[str]:
 def _unsupported_check_diagnostics(requested_check_ids: list[str] | None) -> list[str]:
     if requested_check_ids is None:
         return []
-    requested = _expand_check_ids(requested_check_ids)
-    return [
-        f"Unsupported ARCH-X check_id: {check_id}"
-        for check_id in requested
-        if check_id not in SUPPORTED_CHECK_IDS
-    ]
+    return [f"Unsupported ARCH-X check_id: {check_id}" for check_id in _expand_check_ids(requested_check_ids) if check_id not in SUPPORTED_CHECK_IDS]
 
 
 def _run_for_ids(
+    snapshot: CanonicalSnapshot,
     element_ids: list[str],
     check_id: str,
     package_builder: Callable[[CanonicalSnapshot, str], EvaluationPackage],
@@ -127,14 +89,11 @@ def _run_for_ids(
 ) -> None:
     for element_id in element_ids:
         try:
-            package = package_builder.__call__(_CURRENT_SNAPSHOT.get(), element_id)
+            package = package_builder(snapshot, element_id)
             evaluation_packages.append(package)
             check_results.extend(adapter(package))
         except Exception as exc:
-            diagnostics.append(
-                f"ARCH-X check execution error check_id={check_id} element_id={element_id} "
-                f"exception_type={type(exc).__name__} exception_message={exc}"
-            )
+            diagnostics.append(f"ARCH-X check execution error check_id={check_id} element_id={element_id} exception_type={type(exc).__name__} exception_message={exc}")
 
 
 def _workbench_cell_for_result(check_result: CheckResult) -> WorkbenchCell:
@@ -147,11 +106,7 @@ def _workbench_cell_for_result(check_result: CheckResult) -> WorkbenchCell:
     raise ValueError(f"Unsupported ARCH-X check_id for workbench cell: {check_result.check_id}")
 
 
-def _build_summary(
-    check_results: list[CheckResult],
-    workbench_cells: list[WorkbenchCell],
-    evaluation_packages: list[EvaluationPackage],
-) -> dict:
+def _build_summary(check_results: list[CheckResult], workbench_cells: list[WorkbenchCell], evaluation_packages: list[EvaluationPackage]) -> dict:
     by_status = {status: 0 for status in _STATUS_KEYS}
     by_check_id: dict[str, int] = {}
     by_report_section: dict[str, int] = {}
@@ -177,33 +132,3 @@ def _package_diagnostics(evaluation_packages: list[EvaluationPackage]) -> list[s
         if package.status == "NO_DATA" and not package.diagnostics:
             diagnostics.append(f"{package.evaluation_id}: NO_DATA")
     return diagnostics
-
-
-class _SnapshotContext:
-    def __init__(self) -> None:
-        self._snapshot: CanonicalSnapshot | None = None
-
-    def set(self, snapshot: CanonicalSnapshot) -> None:
-        self._snapshot = snapshot
-
-    def get(self) -> CanonicalSnapshot:
-        if self._snapshot is None:
-            raise RuntimeError("ARCH-X snapshot context is not set.")
-        return self._snapshot
-
-
-_CURRENT_SNAPSHOT = _SnapshotContext()
-
-
-def _run_for_ids_with_snapshot(
-    snapshot: CanonicalSnapshot,
-    element_ids: list[str],
-    check_id: str,
-    package_builder: Callable[[CanonicalSnapshot, str], EvaluationPackage],
-    adapter: Callable[[EvaluationPackage], list[CheckResult]],
-    evaluation_packages: list[EvaluationPackage],
-    check_results: list[CheckResult],
-    diagnostics: list[str],
-) -> None:
-    _CURRENT_SNAPSHOT.set(snapshot)
-    _run_for_ids(element_ids, check_id, package_builder, adapter, evaluation_packages, check_results, diagnostics)
