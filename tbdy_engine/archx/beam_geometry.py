@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from .evaluation import EvaluationEvidence, EvaluationOutput, EvaluationPackage, EvaluationStep
 from .models import (
     Beam,
     CanonicalSnapshot,
@@ -64,43 +65,52 @@ class _ResolvedInputs:
 class _InputResolution:
     resolved: _ResolvedInputs | None
     missing_inputs: list[str]
+    source_values: dict[str, object]
 
 
-def evaluate_beam_geometry(snapshot: CanonicalSnapshot, beam_id: str) -> CheckResult:
+def evaluate_beam_geometry_package(snapshot: CanonicalSnapshot, beam_id: str) -> EvaluationPackage:
     resolution = _resolve_inputs(snapshot, beam_id)
     if resolution.resolved is None:
-        return _no_data_result(beam_id, resolution.missing_inputs)
+        return _no_data_package(beam_id, resolution.missing_inputs, resolution.source_values)
 
-    sub_checks = [_run_step(step, resolution.resolved) for step in BEAM_GEOMETRY_RECIPE["steps"]]
-    status = "FAIL" if any(sub.status == "FAIL" for sub in sub_checks) else "OK"
-    ratio = min(sub.ratio for sub in sub_checks)
-    message = (
-        "Kiriş geometri minimum şartları sağlanıyor."
-        if status == "OK"
-        else "Kiriş geometri minimum şartları sağlanmıyor."
-    )
-    action = "No action required" if status == "OK" else "Kiriş kesit boyutlarını kontrol edin."
-    return CheckResult(
-        check_id=BEAM_GEOMETRY_RECIPE["check_id"],
-        check_family=BEAM_GEOMETRY_RECIPE["check_family"],
+    steps = [_run_evaluation_step(step, resolution.resolved) for step in BEAM_GEOMETRY_RECIPE["steps"]]
+    status = "FAIL" if any(step.status == "FAIL" for step in steps) else "OK"
+    governing_ratio = min(step.ratio for step in steps if step.ratio is not None)
+    measurements = _measurements(resolution.resolved, steps)
+    evidence = _evaluation_evidence(resolution.resolved.source_values)
+    output = EvaluationOutput(
+        output_id=f"{BEAM_GEOMETRY_RECIPE['check_id']}:{resolution.resolved.beam.label}:{resolution.resolved.beam.story_id}",
         element_type=BEAM_GEOMETRY_RECIPE["element_type"],
         element_label=resolution.resolved.beam.label,
         story=resolution.resolved.beam.story_id,
+        measurements=measurements,
         status=status,
-        ratio=ratio,
-        value=None,
-        limit=None,
-        unit="mm",
-        evaluation_level="DESIGN_LEVEL",
-        tbdy_ref=BEAM_GEOMETRY_RECIPE["tbdy_ref"],
-        message=message,
-        action=action,
-        category=BEAM_GEOMETRY_RECIPE["category"],
-        severity=BEAM_GEOMETRY_RECIPE["severity"],
-        report_section=BEAM_GEOMETRY_RECIPE["report_section"],
-        evidence=_canonical_evidence(resolution.resolved.source_values),
-        sub_checks=sub_checks,
+        governing_ratio=governing_ratio,
+        evidence=evidence,
+        steps=steps,
     )
+    return EvaluationPackage(
+        evaluation_id=BEAM_GEOMETRY_RECIPE["check_id"],
+        evaluation_type="BEAM_GEOMETRY",
+        check_family=BEAM_GEOMETRY_RECIPE["check_family"],
+        category=BEAM_GEOMETRY_RECIPE["category"],
+        source="canonical_model",
+        status=status,
+        outputs=[output],
+        summary={"total_outputs": 1, "by_status": {status: 1}},
+        evidence=evidence,
+        diagnostics=[],
+    )
+
+
+def beam_geometry_package_to_check_results(package: EvaluationPackage) -> list[CheckResult]:
+    return [_output_to_check_result(package, output) for output in package.outputs]
+
+
+def evaluate_beam_geometry(snapshot: CanonicalSnapshot, beam_id: str) -> CheckResult:
+    package = evaluate_beam_geometry_package(snapshot, beam_id)
+    results = beam_geometry_package_to_check_results(package)
+    return results[0]
 
 
 def build_workbench_cell(check_result: CheckResult) -> WorkbenchCell:
@@ -128,36 +138,49 @@ def build_workbench_cell(check_result: CheckResult) -> WorkbenchCell:
 def _resolve_inputs(snapshot: CanonicalSnapshot, beam_id: str) -> _InputResolution:
     beam = snapshot.beams.get(beam_id)
     if beam is None:
-        return _InputResolution(resolved=None, missing_inputs=["beam"])
+        return _InputResolution(
+            resolved=None,
+            missing_inputs=["beam"],
+            source_values={"requested_beam_id": beam_id},
+        )
 
+    source_values: dict[str, object] = {
+        "beam.element_id": beam.element_id,
+        "beam.label": beam.label,
+        "beam.story_id": beam.story_id,
+        "beam.section_id": beam.section_id,
+    }
     section = snapshot.sections.get(beam.section_id)
     if section is None:
-        return _InputResolution(resolved=None, missing_inputs=["section"])
+        return _InputResolution(
+            resolved=None,
+            missing_inputs=["section"],
+            source_values=source_values,
+        )
 
+    source_values.update(
+        {
+            "section.section_id": section.section_id,
+            "section.width_mm": section.width_mm,
+            "section.depth_mm": section.depth_mm,
+        }
+    )
     missing: list[str] = []
     if section.width_mm is None:
         missing.append("section.width_mm")
     if section.depth_mm is None:
         missing.append("section.depth_mm")
     if missing:
-        return _InputResolution(resolved=None, missing_inputs=missing)
+        return _InputResolution(resolved=None, missing_inputs=missing, source_values=source_values)
 
-    source_values = {
-        "beam.element_id": beam.element_id,
-        "beam.label": beam.label,
-        "beam.story_id": beam.story_id,
-        "beam.section_id": beam.section_id,
-        "section.section_id": section.section_id,
-        "section.width_mm": section.width_mm,
-        "section.depth_mm": section.depth_mm,
-    }
     return _InputResolution(
         resolved=_ResolvedInputs(beam=beam, section=section, source_values=source_values),
         missing_inputs=[],
+        source_values=source_values,
     )
 
 
-def _run_step(step: dict[str, Any], inputs: _ResolvedInputs) -> SubCheckResult:
+def _run_evaluation_step(step: dict[str, Any], inputs: _ResolvedInputs) -> EvaluationStep:
     value = _step_value(step["input"], inputs)
     limit = float(step["limit"])
     result = _greater_equal(value, limit)
@@ -171,7 +194,7 @@ def _run_step(step: dict[str, Any], inputs: _ResolvedInputs) -> SubCheckResult:
         rhs_value=limit,
         result=result,
     )
-    return SubCheckResult(
+    return EvaluationStep(
         step_id=str(step["step_id"]),
         status=status,
         value=value,
@@ -180,7 +203,7 @@ def _run_step(step: dict[str, Any], inputs: _ResolvedInputs) -> SubCheckResult:
         ratio=ratio,
         message="OK" if status == "OK" else "Minimum limit sağlanmıyor.",
         formula_trace=trace,
-        evidence=_canonical_evidence(inputs.source_values),
+        evidence=_evaluation_evidence(inputs.source_values),
     )
 
 
@@ -196,8 +219,18 @@ def _greater_equal(value: float, limit: float) -> bool:
     return value >= limit
 
 
-def _canonical_evidence(source_values: dict[str, object]) -> Evidence:
-    return Evidence(
+def _measurements(inputs: _ResolvedInputs, steps: list[EvaluationStep]) -> dict[str, object]:
+    ratios = {step.step_id: step.ratio for step in steps}
+    return {
+        "width_mm": inputs.section.width_mm,
+        "depth_mm": inputs.section.depth_mm,
+        "width_ratio": ratios["beam_width_min"],
+        "depth_ratio": ratios["beam_height_min"],
+    }
+
+
+def _evaluation_evidence(source_values: dict[str, object]) -> EvaluationEvidence:
+    return EvaluationEvidence(
         evidence_type="canonical_model",
         confidence="HIGH",
         source_fields=list(source_values.keys()),
@@ -206,12 +239,14 @@ def _canonical_evidence(source_values: dict[str, object]) -> Evidence:
         combo_family_status="not_applicable",
         notes=[],
         missing_inputs=[],
+        assumptions=[],
     )
 
 
-def _no_data_result(beam_id: str, missing_inputs: list[str]) -> CheckResult:
-    source_values = {"requested_beam_id": beam_id}
-    evidence = Evidence(
+def _missing_evaluation_evidence(
+    source_values: dict[str, object], missing_inputs: list[str]
+) -> EvaluationEvidence:
+    return EvaluationEvidence(
         evidence_type="missing_required_input",
         confidence="LOW",
         source_fields=list(source_values.keys()),
@@ -220,25 +255,105 @@ def _no_data_result(beam_id: str, missing_inputs: list[str]) -> CheckResult:
         combo_family_status="not_applicable",
         notes=[],
         missing_inputs=missing_inputs,
+        assumptions=[],
     )
-    return CheckResult(
-        check_id=BEAM_GEOMETRY_RECIPE["check_id"],
-        check_family=BEAM_GEOMETRY_RECIPE["check_family"],
+
+
+def _no_data_package(
+    beam_id: str, missing_inputs: list[str], source_values: dict[str, object]
+) -> EvaluationPackage:
+    evidence = _missing_evaluation_evidence(source_values, missing_inputs)
+    output = EvaluationOutput(
+        output_id=f"{BEAM_GEOMETRY_RECIPE['check_id']}:{beam_id}:",
         element_type=BEAM_GEOMETRY_RECIPE["element_type"],
-        element_label=beam_id,
-        story="",
+        element_label=str(source_values.get("beam.label", beam_id)),
+        story=str(source_values.get("beam.story_id", "")),
+        measurements={},
         status="NO_DATA",
-        ratio=None,
+        governing_ratio=None,
+        evidence=evidence,
+        steps=[],
+    )
+    return EvaluationPackage(
+        evaluation_id=BEAM_GEOMETRY_RECIPE["check_id"],
+        evaluation_type="BEAM_GEOMETRY",
+        check_family=BEAM_GEOMETRY_RECIPE["check_family"],
+        category=BEAM_GEOMETRY_RECIPE["category"],
+        source="canonical_model",
+        status="NO_DATA",
+        outputs=[output],
+        summary={"total_outputs": 1, "by_status": {"NO_DATA": 1}},
+        evidence=evidence,
+        diagnostics=["Missing required input for beam_geometry."],
+    )
+
+
+def _output_to_check_result(package: EvaluationPackage, output: EvaluationOutput) -> CheckResult:
+    status = output.status
+    message = _message_for_status(status)
+    action = _action_for_status(status)
+    evaluation_level = "NO_DATA" if status == "NO_DATA" else "DESIGN_LEVEL"
+    return CheckResult(
+        check_id=package.evaluation_id,
+        check_family=package.check_family,
+        element_type=output.element_type,
+        element_label=output.element_label,
+        story=output.story,
+        status=status,
+        ratio=output.governing_ratio,
         value=None,
         limit=None,
         unit="mm",
-        evaluation_level="NO_DATA",
+        evaluation_level=evaluation_level,
         tbdy_ref=BEAM_GEOMETRY_RECIPE["tbdy_ref"],
-        message="Kiriş geometri kontrolü için gerekli veri eksik.",
-        action="Eksik canonical inputları sağlayın.",
-        category=BEAM_GEOMETRY_RECIPE["category"],
+        message=message,
+        action=action,
+        category=package.category,
         severity=BEAM_GEOMETRY_RECIPE["severity"],
         report_section=BEAM_GEOMETRY_RECIPE["report_section"],
-        evidence=evidence,
-        sub_checks=[],
+        evidence=_check_evidence(output.evidence),
+        sub_checks=[_evaluation_step_to_sub_check(step) for step in output.steps],
     )
+
+
+def _evaluation_step_to_sub_check(step: EvaluationStep) -> SubCheckResult:
+    return SubCheckResult(
+        step_id=step.step_id,
+        status=step.status,
+        value=float(step.value),
+        limit=float(step.limit),
+        unit=step.unit,
+        ratio=float(step.ratio),
+        message=step.message,
+        formula_trace=step.formula_trace,
+        evidence=_check_evidence(step.evidence),
+    )
+
+
+def _check_evidence(evidence: EvaluationEvidence) -> Evidence:
+    return Evidence(
+        evidence_type=evidence.evidence_type,
+        confidence=evidence.confidence,
+        source_fields=evidence.source_fields,
+        source_values=evidence.source_values,
+        unit_conversion_status=evidence.unit_conversion_status,
+        combo_family_status=evidence.combo_family_status,
+        notes=evidence.notes,
+        missing_inputs=evidence.missing_inputs,
+    )
+
+
+def _message_for_status(status: str) -> str:
+    if status == "OK":
+        return "Kiriş geometri minimum şartları sağlanıyor."
+    if status == "FAIL":
+        return "Kiriş geometri minimum şartları sağlanmıyor."
+    return "Kiriş geometri kontrolü için gerekli veri eksik."
+
+
+def _action_for_status(status: str) -> str:
+    if status == "OK":
+        return "No action required"
+    if status == "FAIL":
+        return "Kiriş kesit boyutlarını kontrol edin."
+    return "Eksik canonical inputları sağlayın."
