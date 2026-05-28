@@ -14,18 +14,22 @@ from .column_geometry import (
     evaluate_column_geometry,
     evaluate_column_geometry_package,
 )
+from .demo import build_demo_snapshot
 from .evaluation import EvaluationEvidence, EvaluationOutput, EvaluationPackage, EvaluationStep
 from .models import Beam, CanonicalSnapshot, CheckResult, Column, DesignBasis, Evidence, FormulaTrace, Section, Story, SubCheckResult, WorkbenchCell
+from .runner import ArchxRunResult, run_archx_checks
+from .serialization import archx_run_result_to_dict, write_archx_run_json
 from .story_drift import STORY_DRIFT_RECIPE, build_story_workbench_cell, evaluate_story_drift, evaluate_story_drift_package, story_drift_package_to_check_results
 from .workbench_bundle import BUNDLE_VERSION, build_workbench_bundle
 
 __all__ = [
     "BEAM_GEOMETRY_RECIPE", "BUNDLE_VERSION", "COLUMN_GEOMETRY_RECIPE", "STORY_DRIFT_RECIPE",
-    "Beam", "CanonicalSnapshot", "CheckResult", "Column", "DesignBasis", "EvaluationEvidence",
-    "EvaluationOutput", "EvaluationPackage", "EvaluationStep", "Evidence", "FormulaTrace", "Section",
-    "Story", "SubCheckResult", "WorkbenchCell", "beam_geometry_package_to_check_results",
-    "build_column_workbench_cell", "build_story_workbench_cell", "build_workbench_bundle", "build_workbench_cell",
+    "ArchxRunResult", "Beam", "CanonicalSnapshot", "CheckResult", "Column", "DesignBasis",
+    "EvaluationEvidence", "EvaluationOutput", "EvaluationPackage", "EvaluationStep", "Evidence",
+    "FormulaTrace", "Section", "Story", "SubCheckResult", "WorkbenchCell",
+    "archx_run_result_to_dict", "beam_geometry_package_to_check_results", "build_column_workbench_cell",
+    "build_demo_snapshot", "build_story_workbench_cell", "build_workbench_bundle", "build_workbench_cell",
     "column_geometry_package_to_check_results", "evaluate_beam_geometry", "evaluate_beam_geometry_package",
     "evaluate_column_geometry", "evaluate_column_geometry_package", "evaluate_story_drift", "evaluate_story_drift_package",
-    "story_drift_package_to_check_results",
+    "run_archx_checks", "story_drift_package_to_check_results", "write_archx_run_json",
 ]
