@@ -1,7 +1,14 @@
 from __future__ import annotations
 
-from .beam_geometry import BEAM_GEOMETRY_RECIPE, build_workbench_cell, evaluate_beam_geometry
+from .beam_geometry import (
+    BEAM_GEOMETRY_RECIPE,
+    beam_geometry_package_to_check_results,
+    build_workbench_cell,
+    evaluate_beam_geometry,
+    evaluate_beam_geometry_package,
+)
 from .column_geometry import COLUMN_GEOMETRY_RECIPE, build_column_workbench_cell, evaluate_column_geometry
+from .evaluation import EvaluationEvidence, EvaluationOutput, EvaluationPackage, EvaluationStep
 from .models import (
     Beam,
     CanonicalSnapshot,
@@ -28,17 +35,23 @@ __all__ = [
     "CheckResult",
     "Column",
     "DesignBasis",
+    "EvaluationEvidence",
+    "EvaluationOutput",
+    "EvaluationPackage",
+    "EvaluationStep",
     "Evidence",
     "FormulaTrace",
     "Section",
     "Story",
     "SubCheckResult",
     "WorkbenchCell",
+    "beam_geometry_package_to_check_results",
     "build_column_workbench_cell",
     "build_story_workbench_cell",
     "build_workbench_bundle",
     "build_workbench_cell",
     "evaluate_beam_geometry",
+    "evaluate_beam_geometry_package",
     "evaluate_column_geometry",
     "evaluate_story_drift",
 ]
