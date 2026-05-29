@@ -178,11 +178,7 @@ class TBDYEngineV2:
         eval_results = scheduler_result.to_eval_results()
         checks = self.check_adapter.adapt_all(eval_results)
 
-        reporting = ReportingFacade(self.report_dir).generate(
-            checks,
-            eval_results,
-            runtime_catalog=self.runtime_catalog,
-        )
+        reporting = ReportingFacade(self.report_dir).generate(checks)
 
         return {
             "status": "OK" if not eval_results.get("errors") else "PARTIAL",
@@ -196,10 +192,7 @@ class TBDYEngineV2:
             },
             "reports": {
                 "json": reporting.json_report,
-                "json_snapshot": reporting.json_snapshot,
                 "excel": reporting.excel_report,
-                "excel_snapshot": reporting.excel_snapshot,
-                "action_summary": reporting.action_summary,
             },
             "evaluation_errors": eval_results.get("errors", {}),
             "evaluation_skipped": eval_results.get("skipped", {}),
