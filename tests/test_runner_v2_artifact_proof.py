@@ -79,7 +79,7 @@ def _minimal_context() -> dict[str, object]:
             "beam_flexure_grouped": {
                 "S1|B1": {
                     "governing_ratio": {
-                        "moment": 120.0,
+                        "required_area": 8.25,
                         "ratio": 0.84,
                         "status": "OK",
                     }
@@ -141,7 +141,7 @@ def test_runner_v2_produces_json_and_excel_artifacts_from_minimal_beam_context(m
     assert [check["check_type"] for check in payload["checks"]] == ["beam_geometry", "beam_flexure", "beam_shear"]
     assert [check["component"] for check in payload["checks"]] == ["B1", "B1", "B1"]
     assert [check["status"] for check in payload["checks"]] == ["OK", "OK", "OK"]
-    assert [check["demand"] for check in payload["checks"]] == [None, 120.0, 44.0]
+    assert [check["demand"] for check in payload["checks"]] == [None, 8.25, 44.0]
     assert [check["ratio"] for check in payload["checks"]] == [None, 0.84, 0.91]
     assert all(set(check) == CANONICAL_CHECK_FIELDS for check in payload["checks"])
     assert all(FORBIDDEN_REPORT_FIELDS.isdisjoint(check) for check in payload["checks"])
