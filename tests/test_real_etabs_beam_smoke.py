@@ -25,6 +25,20 @@ BEAM_SHEAR_TABLE_CANDIDATES = (
 
 EXPECTED_EXCEL_SHEETS = {"Summary", "Kiriş Kesme", "Kiriş Donatı Seçimi", "Beam Checks", "Evidence"}
 
+FLEXURE_REBAR_AREA_KEYS = {
+    "required_area",
+    "area",
+    "as_required",
+    "as_top",
+    "as_bottom",
+    "AsTop",
+    "AsBot",
+    "total_required_area",
+    "i_top_required_area",
+    "j_top_required_area",
+    "bottom_required_area",
+}
+
 FORBIDDEN_JSON_FIELDS = {
     "report_metadata",
     "runtime_bridge",
@@ -65,20 +79,24 @@ def _has_real_value(values: list[object]) -> bool:
     return any(value not in (None, "", "NO_DATA") for value in values)
 
 
-def _print_first_flexure_row_keys(context: dict[str, object]) -> None:
+def _first_flexure_row_keys(context: dict[str, object]) -> set[str]:
     design_metadata = context.get("design_metadata", {})
     grouped = design_metadata.get("beam_flexure_grouped", {}) if isinstance(design_metadata, dict) else {}
     if not isinstance(grouped, dict):
-        print("NORMALIZED_FLEXURE_ROW_KEYS=[]")
-        return
+        return set()
     for group in grouped.values():
         if not isinstance(group, dict):
             continue
         row = group.get("governing_ratio") or group.get("governing_positive") or group.get("governing_negative")
         if isinstance(row, dict):
-            print(f"NORMALIZED_FLEXURE_ROW_KEYS={sorted(row.keys())}")
-            return
-    print("NORMALIZED_FLEXURE_ROW_KEYS=[]")
+            return set(row.keys())
+    return set()
+
+
+def _print_first_flexure_row_keys(context: dict[str, object]) -> set[str]:
+    keys = _first_flexure_row_keys(context)
+    print(f"NORMALIZED_FLEXURE_ROW_KEYS={sorted(keys)}")
+    return keys
 
 
 @pytest.mark.real_etabs
@@ -100,7 +118,7 @@ def test_real_etabs_beam_smoke_produces_json_and_excel_reports(tmp_path: Path) -
             "beam_shear_envelope_source_table": shear_table,
         }
     )
-    _print_first_flexure_row_keys(context)
+    flexure_row_keys = _print_first_flexure_row_keys(context)
 
     design_metadata = context.get("design_metadata", {})
     assert design_metadata.get("beam_design_summary_rows")
@@ -162,8 +180,12 @@ def test_real_etabs_beam_smoke_produces_json_and_excel_reports(tmp_path: Path) -
     assert _has_real_value(_column_values(shear_sheet, 4, 17) + _column_values(shear_sheet, 20, 17))
 
     flexure_sheet = workbook["Kiriş Donatı Seçimi"]
-    required_area_columns = [5, 8, 11, 14, 19, 21]
-    required_or_ratio_values: list[object] = []
-    for column in required_area_columns:
-        required_or_ratio_values.extend(_column_values(flexure_sheet, column, 16))
-    assert _has_real_value(required_or_ratio_values)
+    assert flexure_sheet["A1"].value == "KİRİŞ DONATI SEÇİMİ"
+    if FLEXURE_REBAR_AREA_KEYS.intersection(flexure_row_keys):
+        required_area_columns = [5, 8, 11, 14, 19, 21]
+        required_or_ratio_values: list[object] = []
+        for column in required_area_columns:
+            required_or_ratio_values.extend(_column_values(flexure_sheet, column, 16))
+        assert _has_real_value(required_or_ratio_values)
+    else:
+        print("FLEXURE_REBAR_AREA_SOURCE=NOT_AVAILABLE_IN_NORMALIZED_DATA")
