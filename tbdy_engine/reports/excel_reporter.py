@@ -9,104 +9,37 @@ from typing import Any, Iterable, Mapping, Sequence
 
 NO_DATA = "NO_DATA"
 
-SHEETS = [
-    "Summary",
-    "Kiriş Kesme",
-    "Kiriş Donatı Seçimi",
-    "Beam Checks",
-    "Evidence",
-]
+SHEETS = ["Summary", "Kiriş Kesme", "Kiriş Donatı Seçimi", "Beam Checks", "Evidence"]
 
 SHEAR_COLUMNS = [
-    "Kat",
-    "Kiriş",
-    "Kesit",
-    "Tasarım Kuvveti Vd (kN)",
-    "Eksenel Kuvvet P (kN)",
-    "Minimum Kol Adedi",
-    "Seçilen Kol Adedi",
-    "Kesme Donatı Çapı (mm)",
-    "Kol Adet - Çap",
-    "B (m)",
-    "H (m)",
-    "d (m)",
-    "Asmin (cm²)",
-    "Asw (cm²)",
-    "Vmax (kN)",
-    "Kesit Kontrol (%)",
-    "Vc (kN)",
-    "Vw (kN)",
-    "Vr (kN)",
-    "Oran (%)",
-    "Durum",
-    "Check ID",
+    "Kat", "Kiriş", "Kesit", "Tasarım Kuvveti Vd (kN)", "Eksenel Kuvvet P (kN)",
+    "Minimum Kol Adedi", "Seçilen Kol Adedi", "Kesme Donatı Çapı (mm)", "Kol Adet - Çap",
+    "B (m)", "H (m)", "d (m)", "Asmin (cm²)", "Asw (cm²)", "Vmax (kN)",
+    "Kesit Kontrol (%)", "Vc (kN)", "Vw (kN)", "Vr (kN)", "Oran (%)", "Durum", "Check ID",
 ]
 
 FLEXURE_COLUMNS = [
-    "Kat",
-    "Kiriş",
-    "Kesit",
-    "I Üst - Seçilen Donatı",
-    "I Üst - Gerekli Alan (cm²)",
-    "I Üst - Seçilen Alan (cm²)",
-    "Üst Açıklık - Seçilen Donatı",
-    "Üst Açıklık - Gerekli Alan (cm²)",
-    "Üst Açıklık - Seçilen Alan (cm²)",
-    "J Üst - Seçilen Donatı",
-    "J Üst - Gerekli Alan (cm²)",
-    "J Üst - Seçilen Alan (cm²)",
-    "Alt - Seçilen Donatı",
-    "Alt - Gerekli Alan (cm²)",
-    "Alt - Seçilen Alan (cm²)",
-    "B (m)",
-    "H (m)",
-    "L (m)",
-    "Toplam Gerekli Alan (cm²)",
-    "Seçilen Toplam Alan (cm²)",
-    "Fark (%)",
-    "Durum",
-    "Check ID",
+    "Kat", "Kiriş", "Kesit", "I Üst - Seçilen Donatı", "I Üst - Gerekli Alan (cm²)",
+    "I Üst - Seçilen Alan (cm²)", "Üst Açıklık - Seçilen Donatı",
+    "Üst Açıklık - Gerekli Alan (cm²)", "Üst Açıklık - Seçilen Alan (cm²)",
+    "J Üst - Seçilen Donatı", "J Üst - Gerekli Alan (cm²)", "J Üst - Seçilen Alan (cm²)",
+    "Alt - Seçilen Donatı", "Alt - Gerekli Alan (cm²)", "Alt - Seçilen Alan (cm²)",
+    "B (m)", "H (m)", "L (m)", "Toplam Gerekli Alan (cm²)", "Seçilen Toplam Alan (cm²)",
+    "Fark (%)", "Durum", "Check ID",
 ]
 
 BEAM_CHECK_COLUMNS = [
-    "Component",
-    "Story",
-    "Section",
-    "Check Type",
-    "Status",
-    "Demand",
-    "Capacity",
-    "Ratio",
-    "Unit",
-    "Code Ref",
-    "Messages",
-    "Check ID",
+    "Component", "Story", "Section", "Check Type", "Status", "Demand", "Capacity",
+    "Ratio", "Unit", "Code Ref", "Messages", "Check ID",
 ]
 
 EVIDENCE_COLUMNS = [
-    "Check ID",
-    "Component",
-    "Check Type",
-    "Source Table",
-    "Source Row",
-    "Source Columns",
-    "Evidence Key",
-    "Raw Evidence JSON",
+    "Check ID", "Component", "Check Type", "Source Table", "Source Row", "Source Columns",
+    "Evidence Key", "Raw Evidence JSON",
 ]
 
-STATUS_DISPLAY = {
-    "OK": "✓",
-    "FAIL": "✗",
-    "WARNING": "!",
-    "NO_DATA": "NO_DATA",
-    "ERROR": "ERROR",
-}
-
-CHECK_TYPE_DISPLAY = {
-    "beam_geometry": "Geometry",
-    "beam_flexure": "Flexure",
-    "beam_shear": "Shear",
-}
+STATUS_DISPLAY = {"OK": "✓", "FAIL": "✗", "WARNING": "!", "NO_DATA": "NO_DATA", "ERROR": "ERROR"}
+CHECK_TYPE_DISPLAY = {"beam_geometry": "Geometry", "beam_flexure": "Flexure", "beam_shear": "Shear"}
 
 
 class ExcelReporter:
@@ -118,12 +51,11 @@ class ExcelReporter:
             return None
 
         checks = [_check_to_dict(check) for check in list(check_results)]
-        styles = _Styles(openpyxl, Alignment, Border, Font, PatternFill, Side)
+        styles = _Styles(Alignment, Border, Font, PatternFill, Side)
 
         wb = openpyxl.Workbook()
-        summary_ws = wb.active
-        summary_ws.title = "Summary"
-        _write_summary(summary_ws, checks, styles)
+        wb.active.title = "Summary"
+        _write_summary(wb["Summary"], checks, styles)
         _write_shear_sheet(wb.create_sheet("Kiriş Kesme"), checks, styles)
         _write_flexure_sheet(wb.create_sheet("Kiriş Donatı Seçimi"), checks, styles)
         _write_beam_checks_sheet(wb.create_sheet("Beam Checks"), checks, styles)
@@ -139,7 +71,7 @@ class ExcelReporter:
 
 
 class _Styles:
-    def __init__(self, openpyxl, Alignment, Border, Font, PatternFill, Side):
+    def __init__(self, Alignment, Border, Font, PatternFill, Side):
         self.alignment_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
         self.alignment_left = Alignment(horizontal="left", vertical="center", wrap_text=True)
         self.alignment_right = Alignment(horizontal="right", vertical="center", wrap_text=True)
@@ -166,7 +98,7 @@ def _write_summary(ws, checks: list[dict[str, Any]], styles: _Styles) -> None:
 
 def _write_shear_sheet(ws, checks: list[dict[str, Any]], styles: _Styles) -> None:
     _title(ws, "KİRİŞ KESME KAPASİTE HESABI", 1, 1, len(SHEAR_COLUMNS), styles)
-    summary_labels = [
+    _summary_block(ws, [
         ("Beton Sınıfı", _evidence_summary_value(checks, "beam_shear", "concrete_class")),
         ("Donatı Sınıfı", _evidence_summary_value(checks, "beam_shear", "rebar_class")),
         ("Paspayı (m)", _evidence_summary_value(checks, "beam_shear", "cover_m")),
@@ -178,15 +110,13 @@ def _write_shear_sheet(ws, checks: list[dict[str, Any]], styles: _Styles) -> Non
         ("TOPLAM", _count_type(checks, "beam_shear")),
         ("YETERLİ", _count_type_status(checks, "beam_shear", "OK")),
         ("YETERSİZ", _count_type_status(checks, "beam_shear", "FAIL")),
-    ]
-    _summary_block(ws, summary_labels, 3, styles)
-    header_row = 16
-    _write_table(ws, header_row, SHEAR_COLUMNS, [_shear_row(c) for c in checks if c.get("check_type") == "beam_shear"], styles)
+    ], 3, styles)
+    _write_table(ws, 16, SHEAR_COLUMNS, [_shear_row(c) for c in checks if c.get("check_type") == "beam_shear"], styles)
 
 
 def _write_flexure_sheet(ws, checks: list[dict[str, Any]], styles: _Styles) -> None:
     _title(ws, "KİRİŞ DONATI SEÇİMİ", 1, 1, len(FLEXURE_COLUMNS), styles)
-    summary_labels = [
+    _summary_block(ws, [
         ("Beton Sınıfı", _evidence_summary_value(checks, "beam_flexure", "concrete_class")),
         ("Donatı Sınıfı", _evidence_summary_value(checks, "beam_flexure", "rebar_class")),
         ("Seçim Fazlası Oranı", _evidence_summary_value(checks, "beam_flexure", "selection_excess_ratio")),
@@ -197,30 +127,18 @@ def _write_flexure_sheet(ws, checks: list[dict[str, Any]], styles: _Styles) -> N
         ("TOPLAM", _count_type(checks, "beam_flexure")),
         ("YETERLİ", _count_type_status(checks, "beam_flexure", "OK")),
         ("YETERSİZ", _count_type_status(checks, "beam_flexure", "FAIL")),
-    ]
-    _summary_block(ws, summary_labels, 3, styles)
-    header_row = 15
-    _write_table(ws, header_row, FLEXURE_COLUMNS, [_flexure_row(c) for c in checks if c.get("check_type") == "beam_flexure"], styles)
+    ], 3, styles)
+    _write_table(ws, 15, FLEXURE_COLUMNS, [_flexure_row(c) for c in checks if c.get("check_type") == "beam_flexure"], styles)
 
 
 def _write_beam_checks_sheet(ws, checks: list[dict[str, Any]], styles: _Styles) -> None:
     _title(ws, "BEAM CHECKS", 1, 1, len(BEAM_CHECK_COLUMNS), styles)
-    rows = []
-    for check in checks:
-        rows.append([
-            _value(check.get("component")),
-            _value(check.get("story")),
-            _value(check.get("section")),
-            CHECK_TYPE_DISPLAY.get(str(check.get("check_type") or ""), _value(check.get("check_type"))),
-            _status_display(check),
-            _value(check.get("demand")),
-            _value(check.get("capacity")),
-            _ratio_percent(check.get("ratio")),
-            _value(check.get("unit")),
-            _value(check.get("code_ref")),
-            _messages(check.get("messages")),
-            _value(check.get("id")),
-        ])
+    rows = [[
+        _value(c.get("component")), _value(c.get("story")), _value(c.get("section")),
+        CHECK_TYPE_DISPLAY.get(str(c.get("check_type") or ""), _value(c.get("check_type"))),
+        _status_display(c), _value(c.get("demand")), _value(c.get("capacity")), _ratio_percent(c.get("ratio")),
+        _value(c.get("unit")), _value(c.get("code_ref")), _messages(c.get("messages")), _value(c.get("id")),
+    ] for c in checks]
     _write_table(ws, 3, BEAM_CHECK_COLUMNS, rows, styles)
 
 
@@ -229,23 +147,17 @@ def _write_evidence_sheet(ws, checks: list[dict[str, Any]], styles: _Styles) -> 
     rows = []
     for check in checks:
         evidence = _evidence(check)
-        if not evidence:
-            source_table = source_row = source_columns = evidence_key = raw = NO_DATA
-        else:
+        if evidence:
             source_table = _value(_first(evidence, "source_table", "table_name"))
             source_row = _value(evidence.get("source_row"))
             source_columns = _json_or_no_data(evidence.get("source_columns"))
             evidence_key = _value(_first(evidence, "key", "evidence_key"))
             raw = json.dumps(evidence, ensure_ascii=False, sort_keys=True, default=str)
+        else:
+            source_table = source_row = source_columns = evidence_key = raw = NO_DATA
         rows.append([
-            _value(check.get("id")),
-            _value(check.get("component")),
-            _value(check.get("check_type")),
-            source_table,
-            source_row,
-            source_columns,
-            evidence_key,
-            raw,
+            _value(check.get("id")), _value(check.get("component")), _value(check.get("check_type")),
+            source_table, source_row, source_columns, evidence_key, raw,
         ])
     _write_table(ws, 3, EVIDENCE_COLUMNS, rows, styles)
 
@@ -271,57 +183,35 @@ def _summary_items(checks: list[dict[str, Any]]) -> list[tuple[str, Any]]:
 def _shear_row(check: dict[str, Any]) -> list[Any]:
     evidence = _evidence(check)
     return [
-        _value(check.get("story")),
-        _value(check.get("component")),
-        _value(check.get("section")),
+        _value(check.get("story")), _value(check.get("component")), _value(check.get("section")),
         _kN_value(_first(evidence, "Vd", "demand"), check.get("demand"), check.get("unit")),
-        _value(_first(evidence, "P", "axial_force")),
-        _value(evidence.get("min_leg_count")),
-        _value(evidence.get("selected_leg_count")),
-        _value(evidence.get("stirrup_diameter")),
-        _value(evidence.get("leg_diameter_label")),
-        _value(_first(evidence, "B", "b_m")),
-        _value(_first(evidence, "H", "h_m")),
-        _value(_first(evidence, "d", "d_m")),
-        _value(_first(evidence, "Asmin", "Asmin_cm2")),
-        _value(_first(evidence, "Asw", "Asw_cm2")),
-        _value(_first(evidence, "Vmax", "vmax")),
-        _ratio_percent(_first(evidence, "section_control_ratio", "section_control")),
-        _value(evidence.get("Vc")),
-        _value(evidence.get("Vw")),
+        _value(_first(evidence, "P", "axial_force")), _value(evidence.get("min_leg_count")),
+        _value(evidence.get("selected_leg_count")), _value(evidence.get("stirrup_diameter")),
+        _value(evidence.get("leg_diameter_label")), _value(_first(evidence, "B", "b_m")),
+        _value(_first(evidence, "H", "h_m")), _value(_first(evidence, "d", "d_m")),
+        _value(_first(evidence, "Asmin", "Asmin_cm2")), _value(_first(evidence, "Asw", "Asw_cm2")),
+        _value(_first(evidence, "Vmax", "vmax")), _ratio_percent(_first(evidence, "section_control_ratio", "section_control")),
+        _value(evidence.get("Vc")), _value(evidence.get("Vw")),
         _kN_value(_first(evidence, "Vr"), check.get("capacity"), check.get("unit")),
-        _ratio_percent(check.get("ratio")),
-        _status_display(check),
-        _value(check.get("id")),
+        _ratio_percent(check.get("ratio")), _status_display(check), _value(check.get("id")),
     ]
 
 
 def _flexure_row(check: dict[str, Any]) -> list[Any]:
     evidence = _evidence(check)
     return [
-        _value(check.get("story")),
-        _value(check.get("component")),
-        _value(check.get("section")),
-        _value(evidence.get("i_top_selected_rebar")),
-        _value(evidence.get("i_top_required_area")),
-        _value(evidence.get("i_top_selected_area")),
-        _value(evidence.get("span_top_selected_rebar")),
-        _value(evidence.get("span_top_required_area")),
-        _value(evidence.get("span_top_selected_area")),
-        _value(evidence.get("j_top_selected_rebar")),
-        _value(evidence.get("j_top_required_area")),
-        _value(evidence.get("j_top_selected_area")),
-        _value(evidence.get("bottom_selected_rebar")),
-        _value(evidence.get("bottom_required_area")),
-        _value(evidence.get("bottom_selected_area")),
-        _value(_first(evidence, "B", "b_m")),
-        _value(_first(evidence, "H", "h_m")),
-        _value(_first(evidence, "L", "l_m")),
-        _value(evidence.get("total_required_area")),
+        _value(check.get("story")), _value(check.get("component")), _value(check.get("section")),
+        _value(evidence.get("i_top_selected_rebar")), _value(evidence.get("i_top_required_area")),
+        _value(evidence.get("i_top_selected_area")), _value(evidence.get("span_top_selected_rebar")),
+        _value(evidence.get("span_top_required_area")), _value(evidence.get("span_top_selected_area")),
+        _value(evidence.get("j_top_selected_rebar")), _value(evidence.get("j_top_required_area")),
+        _value(evidence.get("j_top_selected_area")), _value(evidence.get("bottom_selected_rebar")),
+        _value(evidence.get("bottom_required_area")), _value(evidence.get("bottom_selected_area")),
+        _value(_first(evidence, "B", "b_m")), _value(_first(evidence, "H", "h_m")),
+        _value(_first(evidence, "L", "l_m")), _value(evidence.get("total_required_area")),
         _value(evidence.get("total_selected_area")),
         _ratio_percent(_first(evidence, "excess_ratio") if _first(evidence, "excess_ratio") is not None else check.get("ratio")),
-        _status_display(check),
-        _value(check.get("id")),
+        _status_display(check), _value(check.get("id")),
     ]
 
 
@@ -334,22 +224,23 @@ def _title(ws, title: str, row: int, start_col: int, end_col: int, styles: _Styl
 
 
 def _summary_block(ws, items: list[tuple[str, Any]], start_row: int, styles: _Styles) -> None:
-    row = start_row
-    for label, value in items:
+    for offset, (label, value) in enumerate(items):
+        row = start_row + offset
         ws.cell(row=row, column=1, value=label)
         ws.cell(row=row, column=2, value=_value(value))
         ws.cell(row=row, column=1).font = styles.bold_font
         ws.cell(row=row, column=1).fill = styles.block_fill
-        row += 1
 
 
 def _write_table(ws, header_row: int, headers: list[str], rows: Iterable[list[Any]], styles: _Styles) -> None:
     for col, header in enumerate(headers, start=1):
         ws.cell(row=header_row, column=col, value=header)
     _style_header_row(ws, header_row, 1, len(headers), styles)
+    wrote = False
     for row_values in rows:
         ws.append(row_values)
-    if ws.max_row == header_row:
+        wrote = True
+    if not wrote:
         ws.append([NO_DATA] + [None] * (len(headers) - 1))
     ws.auto_filter.ref = ws.dimensions
     ws.freeze_panes = ws.cell(row=header_row + 1, column=1).coordinate
@@ -365,6 +256,8 @@ def _style_header_row(ws, row: int, start_col: int, end_col: int, styles: _Style
 
 
 def _finish_sheet(ws, styles: _Styles) -> None:
+    from openpyxl.utils import get_column_letter
+
     for row in ws.iter_rows():
         for cell in row:
             cell.border = styles.border
@@ -380,10 +273,10 @@ def _finish_sheet(ws, styles: _Styles) -> None:
                 cell.fill = styles.fail_fill
             elif cell.value == "!":
                 cell.fill = styles.warning_fill
-    for column_cells in ws.columns:
+    for idx, column_cells in enumerate(ws.iter_cols(), start=1):
         values = [str(cell.value) for cell in column_cells if cell.value is not None]
         width = max([len(value) for value in values] + [10])
-        ws.column_dimensions[column_cells[0].column_letter].width = min(max(width + 2, 12), 38)
+        ws.column_dimensions[get_column_letter(idx)].width = min(max(width + 2, 12), 38)
 
 
 def _count_type(checks: list[dict[str, Any]], check_type: str) -> int:
@@ -396,11 +289,10 @@ def _count_type_status(checks: list[dict[str, Any]], check_type: str, status: st
 
 def _evidence_summary_value(checks: list[dict[str, Any]], check_type: str, key: str) -> Any:
     for check in checks:
-        if check.get("check_type") != check_type:
-            continue
-        evidence = _evidence(check)
-        if key in evidence and evidence[key] not in (None, ""):
-            return evidence[key]
+        if check.get("check_type") == check_type:
+            evidence = _evidence(check)
+            if key in evidence and evidence[key] not in (None, ""):
+                return evidence[key]
     return NO_DATA
 
 
