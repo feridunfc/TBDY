@@ -17,6 +17,7 @@ from .column_geometry import (
 from .demo import build_demo_snapshot
 from .evaluation import EvaluationEvidence, EvaluationOutput, EvaluationPackage, EvaluationStep
 from .models import Beam, CanonicalSnapshot, CheckResult, Column, DesignBasis, Evidence, FormulaTrace, Section, Story, SubCheckResult, WorkbenchCell
+from .providers import build_snapshot_from_etabs_workbook, inspect_etabs_workbook_tables
 from .report_markdown import load_archx_run_json, render_archx_markdown_report, write_archx_markdown_report
 from .runner import ArchxRunResult, run_archx_checks
 from .serialization import archx_run_result_to_dict, write_archx_run_json
@@ -29,9 +30,9 @@ __all__ = [
     "EvaluationEvidence", "EvaluationOutput", "EvaluationPackage", "EvaluationStep", "Evidence",
     "FormulaTrace", "Section", "Story", "SubCheckResult", "WorkbenchCell",
     "archx_run_result_to_dict", "beam_geometry_package_to_check_results", "build_column_workbench_cell",
-    "build_demo_snapshot", "build_story_workbench_cell", "build_workbench_bundle", "build_workbench_cell",
+    "build_demo_snapshot", "build_snapshot_from_etabs_workbook", "build_story_workbench_cell", "build_workbench_bundle", "build_workbench_cell",
     "column_geometry_package_to_check_results", "evaluate_beam_geometry", "evaluate_beam_geometry_package",
     "evaluate_column_geometry", "evaluate_column_geometry_package", "evaluate_story_drift", "evaluate_story_drift_package",
-    "load_archx_run_json", "render_archx_markdown_report", "run_archx_checks", "story_drift_package_to_check_results",
+    "inspect_etabs_workbook_tables", "load_archx_run_json", "render_archx_markdown_report", "run_archx_checks", "story_drift_package_to_check_results",
     "write_archx_markdown_report", "write_archx_run_json",
 ]
