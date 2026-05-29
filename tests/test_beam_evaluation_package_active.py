@@ -16,32 +16,34 @@ def _context() -> dict[str, object]:
         "key": "S1|B1",
         "label": "B1",
         "story": "S1",
-        "section": "B30x60",
+        "section": "B40x70",
         "source_table": "Concrete Beam Design Summary - TS 500-2000(R2018)",
         "source_row": 0,
-        "source_columns": ["Story", "Frame", "DesignSect", "Status"],
+        "source_columns": ["Story", "Label", "DesignSect"],
     }
     flexure_row = {
         "key": "S1|B1",
         "label": "B1",
         "story": "S1",
-        "moment": 125.0,
+        "required_area": 8.25,
         "ratio": 0.82,
         "status": "OK",
         "source_table": "Concrete Beam Flexure Envelope - TS 500-2000(R2018)",
-        "source_row": 1,
-        "source_columns": ["Story", "Frame", "M3", "Ratio"],
+        "source_row": 2,
+        "source_columns": ["AsTop", "AsBot", "Ratio"],
     }
     shear_row = {
         "key": "S1|B1",
         "label": "B1",
         "story": "S1",
-        "shear": 44.0,
-        "ratio": 0.91,
+        "shear": 145.0,
+        "Vd": 145.0,
+        "Vr": 220.0,
+        "ratio": 0.66,
         "status": "OK",
         "source_table": "Concrete Beam Shear Envelope - TS 500-2000(R2018)",
-        "source_row": 2,
-        "source_columns": ["Story", "Frame", "V2", "Ratio"],
+        "source_row": 4,
+        "source_columns": ["V", "Ratio"],
     }
     return {
         "design_metadata": {
@@ -64,15 +66,48 @@ def test_beam_evaluation_package_shape_is_active_and_minimal() -> None:
     package = packages[0]
     assert package.component == "B1"
     assert package.story == "S1"
-    assert package.section == "B30x60"
+    assert package.section == "B40x70"
     assert package.messages == ()
-    assert package.evidence == {
-        "key": "S1|B1",
-        "source_table": "Concrete Beam Design Summary - TS 500-2000(R2018)",
-        "source_row": 0,
-        "source_columns": ("Story", "Frame", "DesignSect", "Status"),
-    }
+    assert package.evidence["key"] == "S1|B1"
+    assert package.evidence["source_table"] == "Concrete Beam Design Summary - TS 500-2000(R2018)"
+    assert package.evidence["source_row"] == 0
+    assert package.evidence["source_columns"] == ("Story", "Label", "DesignSect")
     assert [check.check_type for check in package.checks] == ["beam_geometry", "beam_flexure", "beam_shear"]
+
+
+def test_beam_package_enriches_shear_evidence_from_normalized_rows() -> None:
+    package = build_beam_evaluation_packages(_context())[0]
+    evidence = package.evidence
+    shear = package.checks[2]
+
+    assert evidence["Vd"] == 145.0
+    assert evidence["Vr"] == 220.0
+    assert evidence["B"] == 0.40
+    assert evidence["H"] == 0.70
+    assert evidence["shear_source_table"] == "Concrete Beam Shear Envelope - TS 500-2000(R2018)"
+    assert evidence["shear_source_row"] == 4
+    assert evidence["shear_source_columns"] == ("V", "Ratio")
+    assert shear.demand == 145.0
+    assert shear.capacity == 220.0
+    assert shear.ratio == 0.66
+    assert shear.unit == "kN"
+
+
+def test_beam_package_enriches_flexure_evidence_from_normalized_rows() -> None:
+    package = build_beam_evaluation_packages(_context())[0]
+    evidence = package.evidence
+    flexure = package.checks[1]
+
+    assert evidence["total_required_area"] == 8.25
+    assert evidence["B"] == 0.40
+    assert evidence["H"] == 0.70
+    assert evidence["flexure_source_table"] == "Concrete Beam Flexure Envelope - TS 500-2000(R2018)"
+    assert evidence["flexure_source_row"] == 2
+    assert evidence["flexure_source_columns"] == ("AsTop", "AsBot", "Ratio")
+    assert flexure.demand == 8.25
+    assert flexure.capacity is None
+    assert flexure.ratio == 0.82
+    assert flexure.unit == "cm²"
 
 
 def test_beam_evaluation_package_adapts_to_canonical_check_results() -> None:
@@ -88,11 +123,13 @@ def test_beam_evaluation_package_adapts_to_canonical_check_results() -> None:
     assert [check.component for check in checks] == ["B1", "B1", "B1"]
     assert [check.check_type for check in checks] == ["beam_geometry", "beam_flexure", "beam_shear"]
     assert [check.status for check in checks] == ["OK", "OK", "OK"]
-    assert [check.demand for check in checks] == [None, 125.0, 44.0]
-    assert [check.capacity for check in checks] == [None, None, None]
-    assert [check.ratio for check in checks] == [None, 0.82, 0.91]
-    assert all(check.evidence["key"] == "S1|B1" for check in checks)
-    assert [check.unit for check in checks] == ["mm", "kNm", "kN"]
+    assert [check.demand for check in checks] == [None, 8.25, 145.0]
+    assert [check.capacity for check in checks] == [None, None, 220.0]
+    assert [check.ratio for check in checks] == [None, 0.82, 0.66]
+    assert all(check.evidence is packages[0].evidence for check in checks)
+    assert checks[1].evidence["total_required_area"] == 8.25
+    assert checks[2].evidence["Vd"] == 145.0
+    assert [check.unit for check in checks] == ["mm", "cm²", "kN"]
 
 
 def test_beam_design_module_returns_packages_not_check_results() -> None:
