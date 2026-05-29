@@ -23,16 +23,31 @@ def _context() -> dict[str, object]:
         "source_row": 0,
         "source_columns": ["Story", "Label", "DesignSect"],
     }
-    flexure_row = {
+    flexure_moment_row = {
         "key": "S1|B1",
         "label": "B1",
         "story": "S1",
-        "required_area": 8.25,
+        "moment": 125.0,
         "ratio": 0.82,
         "status": "OK",
         "source_table": "Concrete Beam Flexure Envelope - TS 500-2000(R2018)",
         "source_row": 2,
-        "source_columns": ["AsTop", "AsBot", "Ratio"],
+        "source_columns": ["M3", "Ratio"],
+    }
+    rebar_area_row = {
+        "key": "S1|B1",
+        "label": "B1",
+        "story": "S1",
+        "top_required_area": 8.25,
+        "bottom_required_area": 6.50,
+        "top_selected_area": 9.10,
+        "bottom_selected_area": 7.00,
+        "selected_rebar": "4Ø16",
+        "area_unit": "cm2",
+        "status": "OK",
+        "source_table": "Concrete Beam Longitudinal Reinforcing",
+        "source_row": 3,
+        "source_columns": ["Top Required Area cm2", "Bottom Required Area cm2"],
     }
     shear_row = {
         "key": "S1|B1",
@@ -50,7 +65,7 @@ def _context() -> dict[str, object]:
     return {
         "design_metadata": {
             "beam_design_summary_rows": [design_row],
-            "beam_flexure_grouped": {"S1|B1": {"governing_ratio": flexure_row}},
+            "beam_flexure_grouped": {"S1|B1": {"governing_ratio": flexure_moment_row, "governing_area": rebar_area_row}},
             "beam_shear_grouped": {"S1|B1": {"governing_ratio": shear_row}},
         }
     }
@@ -95,20 +110,28 @@ def test_beam_package_enriches_shear_evidence_from_normalized_rows() -> None:
     assert shear.unit == "kN"
 
 
-def test_beam_package_enriches_flexure_evidence_from_normalized_rows() -> None:
+def test_beam_package_enriches_flexure_evidence_from_rebar_area_rows() -> None:
     package = build_beam_evaluation_packages(_context())[0]
     evidence = package.evidence
     flexure = package.checks[1]
 
+    assert evidence["i_top_required_area"] == 8.25
+    assert evidence["j_top_required_area"] == 8.25
+    assert evidence["bottom_required_area"] == 6.50
+    assert evidence["i_top_selected_area"] == 9.10
+    assert evidence["j_top_selected_area"] == 9.10
+    assert evidence["bottom_selected_area"] == 7.00
     assert evidence["total_required_area"] == 8.25
+    assert evidence["total_selected_area"] == 9.10
+    assert evidence["span_top_selected_rebar"] == "4Ø16"
+    assert evidence["area_unit"] == "cm2"
     assert evidence["B"] == 0.40
     assert evidence["H"] == 0.70
-    assert evidence["flexure_source_table"] == "Concrete Beam Flexure Envelope - TS 500-2000(R2018)"
-    assert evidence["flexure_source_row"] == 2
-    assert evidence["flexure_source_columns"] == ("AsTop", "AsBot", "Ratio")
+    assert evidence["flexure_source_table"] == "Concrete Beam Longitudinal Reinforcing"
+    assert evidence["flexure_source_row"] == 3
     assert flexure.demand == 8.25
-    assert flexure.capacity is None
-    assert flexure.ratio == 0.82
+    assert flexure.capacity == 9.10
+    assert flexure.ratio == pytest.approx(8.25 / 9.10)
     assert flexure.unit == "cm²"
 
 
@@ -126,12 +149,13 @@ def test_beam_evaluation_package_adapts_to_canonical_check_results() -> None:
     assert [check.check_type for check in checks] == ["beam_geometry", "beam_flexure", "beam_shear"]
     assert [check.status for check in checks] == ["OK", "OK", "OK"]
     assert [check.demand for check in checks] == [None, 8.25, 145.0]
-    assert [check.capacity for check in checks] == [None, None, 220.0]
+    assert [check.capacity for check in checks] == [None, 9.10, 220.0]
     assert checks[0].ratio is None
-    assert checks[1].ratio == 0.82
+    assert checks[1].ratio == pytest.approx(8.25 / 9.10)
     assert checks[2].ratio == pytest.approx(145.0 / 220.0)
     assert all(check.evidence is packages[0].evidence for check in checks)
     assert checks[1].evidence["total_required_area"] == 8.25
+    assert checks[1].evidence["total_selected_area"] == 9.10
     assert checks[2].evidence["Vd"] == 145.0
     assert [check.unit for check in checks] == ["mm", "cm²", "kN"]
 
