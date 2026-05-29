@@ -118,6 +118,7 @@ def _build_snapshot_with_diagnostics(
 def _load_tables(path: Path, manifest_path: str | Path | None, diagnostics: list[str]) -> dict[str, pd.DataFrame]:
     excel = pd.ExcelFile(path)
     sheet_names = list(excel.sheet_names)
+    available_sheets = set(sheet_names)
     diagnostics.append(f"Workbook sheets found: {', '.join(sheet_names)}")
     manifest = _load_manifest(manifest_path) if manifest_path else {}
     tables: dict[str, pd.DataFrame] = {}
@@ -126,7 +127,10 @@ def _load_tables(path: Path, manifest_path: str | Path | None, diagnostics: list
         if sheet_name is None:
             diagnostics.append(f"Missing table for {canonical_name}: candidates={candidates}")
             continue
-        tables[canonical_name] = pd.read_excel(path, sheet_name=sheet_name)
+        if sheet_name not in available_sheets:
+            diagnostics.append(f"Mapped sheet not found for {canonical_name}: {sheet_name}")
+            continue
+        tables[canonical_name] = pd.read_excel(excel, sheet_name=sheet_name)
         diagnostics.append(f"Matched {canonical_name}: {sheet_name} rows={len(tables[canonical_name])}")
     return tables
 
