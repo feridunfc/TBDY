@@ -237,6 +237,25 @@ def test_missing_manifest_works_with_short_candidate_sheet_names(tmp_path):
     assert "5" in snapshot.stories
 
 
+def test_missing_mapped_optional_story_drifts_sheet_does_not_crash(tmp_path):
+    workbook = tmp_path / "minimal.xlsx"
+    manifest = tmp_path / "manifest.json"
+    _write_minimal_workbook(workbook, include_drifts=False)
+    _write_manifest(manifest)
+
+    snapshot = build_snapshot_from_etabs_workbook(workbook, manifest_path=manifest)
+    result = run_archx_checks(snapshot, run_id="missing-story-drifts")
+    diagnostics = get_last_provider_diagnostics()
+
+    assert "B101" in snapshot.beams
+    assert "C101" in snapshot.columns
+    assert "S_BEAM_OK" in snapshot.sections
+    assert "S_COLUMN_FAIL" in snapshot.sections
+    assert "5" in snapshot.stories
+    assert {check.check_id for check in result.check_results}.issuperset({"beam_geometry", "column_geometry"})
+    assert any("Mapped sheet not found for story_drifts: Story Drifts" in item for item in diagnostics)
+
+
 def test_no_forbidden_imports():
     source = "\n".join(
         (ARCHX_ROOT / filename).read_text(encoding="utf-8")
