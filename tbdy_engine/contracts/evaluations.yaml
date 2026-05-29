@@ -31,7 +31,7 @@ evaluations:
   BEAM_DESIGN:
     enabled: true
     experimental: false
-    module: tbdy_engine.design.beams.beam_module.BeamDesignModule
+    module: tbdy_engine.design.beams.evaluation_package.BeamDesignModule
     method: run
     cache_key: beam_design
     depends_on:
