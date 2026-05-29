@@ -11,9 +11,17 @@ from tbdy_engine.etabs.normalizers.beam_design import build_beam_context_from_ta
 from tbdy_engine.runner_v2 import run_engine_v2
 
 
-BEAM_DESIGN_SUMMARY_TABLE = "Concrete Beam Design Summary - TS 500-2000(R2018)"
-BEAM_FLEXURE_TABLE = "Concrete Beam Flexure Envelope - TS 500-2000(R2018)"
-BEAM_SHEAR_TABLE = "Concrete Beam Shear Envelope - TS 500-2000(R2018)"
+BEAM_DESIGN_SUMMARY_TABLE_CANDIDATES = (
+    "Concrete Beam Design Summary - TS 500-2000(R2018)",
+)
+BEAM_FLEXURE_TABLE_CANDIDATES = (
+    "Concrete Beam Flexure Envelope - TS 500-2000(R2018)",
+    "Concrete Beam Flexure Envelope -  TS 500-2000(R2018)",
+)
+BEAM_SHEAR_TABLE_CANDIDATES = (
+    "Concrete Beam Shear Envelope - TS 500-2000(R2018)",
+    "Concrete Beam Shear Envelope -  TS 500-2000(R2018)",
+)
 
 FORBIDDEN_JSON_FIELDS = {
     "report_metadata",
@@ -36,11 +44,15 @@ def _require_real_etabs_enabled() -> None:
         pytest.skip("Set RUN_REAL_ETABS_BEAM_SMOKE=1 on a Windows/ETABS machine to execute the live smoke.")
 
 
-def _read_required_table(table_name: str):
-    result = read_etabs_table_on_demand(table_name)
-    assert result.ok, f"{table_name} read failed: status={result.status} error={result.error}"
-    assert result.has_data, f"{table_name} returned no rows"
-    return result
+def _read_first_available_table(candidate_names: tuple[str, ...]):
+    attempts: list[str] = []
+    for table_name in candidate_names:
+        result = read_etabs_table_on_demand(table_name)
+        if result.ok:
+            assert result.has_data, f"{table_name} returned no rows"
+            return table_name, result
+        attempts.append(f"{table_name}: status={result.status} error={result.error}")
+    pytest.fail("No ETABS table candidate could be read. Attempts: " + " | ".join(attempts))
 
 
 @pytest.mark.real_etabs
@@ -48,18 +60,18 @@ def test_real_etabs_beam_smoke_produces_json_and_excel_reports(tmp_path: Path) -
     _require_real_etabs_enabled()
     pytest.importorskip("openpyxl")
 
-    design_summary = _read_required_table(BEAM_DESIGN_SUMMARY_TABLE)
-    flexure = _read_required_table(BEAM_FLEXURE_TABLE)
-    shear = _read_required_table(BEAM_SHEAR_TABLE)
+    design_summary_table, design_summary = _read_first_available_table(BEAM_DESIGN_SUMMARY_TABLE_CANDIDATES)
+    flexure_table, flexure = _read_first_available_table(BEAM_FLEXURE_TABLE_CANDIDATES)
+    shear_table, shear = _read_first_available_table(BEAM_SHEAR_TABLE_CANDIDATES)
 
     context = build_beam_context_from_tables(
         {
             "beam_design_summary": design_summary.df,
-            "beam_design_summary_source_table": BEAM_DESIGN_SUMMARY_TABLE,
+            "beam_design_summary_source_table": design_summary_table,
             "beam_flexure_envelope": flexure.df,
-            "beam_flexure_envelope_source_table": BEAM_FLEXURE_TABLE,
+            "beam_flexure_envelope_source_table": flexure_table,
             "beam_shear_envelope": shear.df,
-            "beam_shear_envelope_source_table": BEAM_SHEAR_TABLE,
+            "beam_shear_envelope_source_table": shear_table,
         }
     )
 
