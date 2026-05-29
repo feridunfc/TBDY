@@ -39,9 +39,21 @@ def _list_value(value: object) -> list[object]:
         return sorted(value)
     return [value]
 
-
 def _looks_like_package(value: object) -> bool:
     return hasattr(value, "component") and hasattr(value, "checks")
+
+def _packages_for_adapter(eval_results: dict[str, object]) -> dict[str, object]:
+    results = eval_results.get("results") or {}
+    packages: list[object] = []
+
+    values = results.values() if isinstance(results, Mapping) else [results]
+    for value in values:
+        candidates = value if isinstance(value, (list, tuple)) else [value]
+        for candidate in candidates:
+            if _looks_like_package(candidate):
+                packages.append(candidate)
+
+    return {"packages": packages}
 
 
 def _preserve_package_output(result: object) -> object:
@@ -54,19 +66,7 @@ def _preserve_package_output(result: object) -> object:
     return _model_to_dict(result)
 
 
-def _packages_for_adapter(eval_results: dict[str, object]) -> dict[str, object]:
-    results = eval_results.get("results") or {}
-    packages: list[object] = []
-    if isinstance(results, Mapping):
-        values = results.values()
-    else:
-        values = [results]
-    for value in values:
-        if isinstance(value, (list, tuple)):
-            packages.extend(value)
-        else:
-            packages.append(value)
-    return {"packages": packages}
+
 
 
 class TBDYEngineV2:
