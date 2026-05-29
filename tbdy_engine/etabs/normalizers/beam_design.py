@@ -9,6 +9,7 @@ BEAM_TABLE_KEYS = {
     "design_summary": "beam_design_summary",
     "flexure_envelope": "beam_flexure_envelope",
     "shear_envelope": "beam_shear_envelope",
+    "rebar_area": "beam_rebar_area",
 }
 
 COLUMN_ALIASES = {
@@ -27,12 +28,20 @@ COLUMN_ALIASES = {
     "as_top": ["tottoprebar", "astop", "asmintop", "top_area", "as_top"],
     "as_bottom": ["totbotrebar", "asbot", "asminbot", "bottom_area", "as_bottom"],
     "asw_per_m": ["tottrnrebar", "vrebar", "asw_per_m", "avs", "av/s"],
+    "top_required_area": ["top required area cm2", "top required as cm2", "required top area cm2", "required top as cm2"],
+    "bottom_required_area": ["bottom required area cm2", "bottom required as cm2", "required bottom area cm2", "required bottom as cm2"],
+    "required_area": ["required area cm2", "required as cm2", "as required cm2", "req area cm2"],
+    "top_selected_area": ["top provided area cm2", "top selected area cm2", "provided top area cm2", "selected top area cm2"],
+    "bottom_selected_area": ["bottom provided area cm2", "bottom selected area cm2", "provided bottom area cm2", "selected bottom area cm2"],
+    "selected_area": ["provided area cm2", "selected area cm2", "as provided cm2", "as selected cm2"],
+    "selected_rebar": ["selected rebar", "provided rebar", "rebar"],
 }
 
 DIAGNOSTIC_STATUS = "NO_DATA"
 DIAGNOSTIC_REASON_MISSING_LABEL = "TABLE_FIELD_MISSING: beam_label"
 DIAGNOSTIC_REASON_NO_GOVERNING_VALUE = "TABLE_FIELD_MISSING: numeric governing value"
 DIAGNOSTIC_REASON_DUCTILITY_FIELDS_MISSING = "TABLE_FIELD_MISSING: beam design summary rebar/status fields"
+DIAGNOSTIC_REASON_NO_REBAR_AREA = "TABLE_FIELD_MISSING: beam rebar area"
 
 
 def normalize_beam_design_summary(df: Any, *, source_table: str) -> list[dict[str, object]]:
@@ -49,30 +58,7 @@ def normalize_beam_design_summary(df: Any, *, source_table: str) -> list[dict[st
         as_bottom = _number_or_none(_row_get(row, *COLUMN_ALIASES["as_bottom"]))
         asw_per_m = _number_or_none(_row_get(row, *COLUMN_ALIASES["asw_per_m"]))
         status = _string(_row_get(row, *COLUMN_ALIASES["status"]))
-        rows.append(
-            {
-                "key": _beam_key(story, label),
-                "label": label,
-                "beam_label": label,
-                "frame": label,
-                "story": story,
-                "section": section,
-                "designsect": section,
-                "status": status,
-                "ratio": _number_or_none(_row_get(row, *COLUMN_ALIASES["ratio"])),
-                "as_top": as_top,
-                "astop": as_top,
-                "as_bottom": as_bottom,
-                "asbot": as_bottom,
-                "asw_per_m": asw_per_m,
-                "vrebar": asw_per_m,
-                "ductility_status": _ductility_status(status, as_top, as_bottom, asw_per_m),
-                "diagnostic": _ductility_diagnostic(status, as_top, as_bottom, asw_per_m),
-                "source_table": source_table,
-                "source_row": source_row,
-                "source_columns": source_columns,
-            }
-        )
+        rows.append({"key": _beam_key(story, label), "label": label, "beam_label": label, "frame": label, "story": story, "section": section, "designsect": section, "status": status, "ratio": _number_or_none(_row_get(row, *COLUMN_ALIASES["ratio"])), "as_top": as_top, "astop": as_top, "as_bottom": as_bottom, "asbot": as_bottom, "asw_per_m": asw_per_m, "vrebar": asw_per_m, "ductility_status": _ductility_status(status, as_top, as_bottom, asw_per_m), "diagnostic": _ductility_diagnostic(status, as_top, as_bottom, asw_per_m), "source_table": source_table, "source_row": source_row, "source_columns": source_columns})
     return rows
 
 
@@ -89,25 +75,7 @@ def normalize_beam_flexure_envelope(df: Any, *, source_table: str) -> list[dict[
         m_pos = _number_or_none(_row_get(row, *COLUMN_ALIASES["moment_pos"]))
         m_neg = _number_or_none(_row_get(row, *COLUMN_ALIASES["moment_neg"]))
         ratio = _number_or_none(_row_get(row, *COLUMN_ALIASES["ratio"]))
-        rows.append(
-            {
-                "key": _beam_key(story, label),
-                "label": label,
-                "beam_label": label,
-                "story": story,
-                "location": _string(_row_get(row, *COLUMN_ALIASES["location"])),
-                "combo": _string(_row_get(row, *COLUMN_ALIASES["combo"])),
-                "moment": moment,
-                "m_pos": m_pos,
-                "m_neg": m_neg,
-                "status": _string(_row_get(row, *COLUMN_ALIASES["status"])),
-                "ratio": ratio,
-                "diagnostic": None if _first_number(moment, m_pos, m_neg, ratio) is not None else DIAGNOSTIC_REASON_NO_GOVERNING_VALUE,
-                "source_table": source_table,
-                "source_row": source_row,
-                "source_columns": source_columns,
-            }
-        )
+        rows.append({"key": _beam_key(story, label), "label": label, "beam_label": label, "story": story, "location": _string(_row_get(row, *COLUMN_ALIASES["location"])), "combo": _string(_row_get(row, *COLUMN_ALIASES["combo"])), "moment": moment, "m_pos": m_pos, "m_neg": m_neg, "status": _string(_row_get(row, *COLUMN_ALIASES["status"])), "ratio": ratio, "diagnostic": None if _first_number(moment, m_pos, m_neg, ratio) is not None else DIAGNOSTIC_REASON_NO_GOVERNING_VALUE, "source_table": source_table, "source_row": source_row, "source_columns": source_columns})
     return rows
 
 
@@ -123,85 +91,44 @@ def normalize_beam_shear_envelope(df: Any, *, source_table: str) -> list[dict[st
         shear = _number_or_none(_row_get(row, *COLUMN_ALIASES["shear"]))
         v_support = _number_or_none(_row_get(row, *COLUMN_ALIASES["shear_support"]))
         ratio = _number_or_none(_row_get(row, *COLUMN_ALIASES["ratio"]))
-        rows.append(
-            {
-                "key": _beam_key(story, label),
-                "label": label,
-                "beam_label": label,
-                "story": story,
-                "location": _string(_row_get(row, *COLUMN_ALIASES["location"])),
-                "combo": _string(_row_get(row, *COLUMN_ALIASES["combo"])),
-                "shear": shear,
-                "v_support": v_support,
-                "status": _string(_row_get(row, *COLUMN_ALIASES["status"])),
-                "ratio": ratio,
-                "diagnostic": None if _first_number(shear, v_support, ratio) is not None else DIAGNOSTIC_REASON_NO_GOVERNING_VALUE,
-                "source_table": source_table,
-                "source_row": source_row,
-                "source_columns": source_columns,
-            }
-        )
+        rows.append({"key": _beam_key(story, label), "label": label, "beam_label": label, "story": story, "location": _string(_row_get(row, *COLUMN_ALIASES["location"])), "combo": _string(_row_get(row, *COLUMN_ALIASES["combo"])), "shear": shear, "v_support": v_support, "status": _string(_row_get(row, *COLUMN_ALIASES["status"])), "ratio": ratio, "diagnostic": None if _first_number(shear, v_support, ratio) is not None else DIAGNOSTIC_REASON_NO_GOVERNING_VALUE, "source_table": source_table, "source_row": source_row, "source_columns": source_columns})
+    return rows
+
+
+def normalize_beam_rebar_area(df: Any, *, source_table: str) -> list[dict[str, object]]:
+    rows = []
+    for source_row, row in _iter_rows(df):
+        source_columns = _source_columns(df)
+        label = _string(_row_get(row, *COLUMN_ALIASES["beam_label"]))
+        story = _string(_row_get(row, *COLUMN_ALIASES["story"]))
+        if not label:
+            rows.append(_diagnostic_row(source_table, source_row, source_columns, DIAGNOSTIC_REASON_MISSING_LABEL, story=story))
+            continue
+        values = {
+            "required_area": _cm2_number(row, COLUMN_ALIASES["required_area"]),
+            "selected_area": _cm2_number(row, COLUMN_ALIASES["selected_area"]),
+            "top_required_area": _cm2_number(row, COLUMN_ALIASES["top_required_area"]),
+            "bottom_required_area": _cm2_number(row, COLUMN_ALIASES["bottom_required_area"]),
+            "top_selected_area": _cm2_number(row, COLUMN_ALIASES["top_selected_area"]),
+            "bottom_selected_area": _cm2_number(row, COLUMN_ALIASES["bottom_selected_area"]),
+        }
+        diagnostic = None if _first_number(*values.values()) is not None else DIAGNOSTIC_REASON_NO_REBAR_AREA
+        rows.append({"key": _beam_key(story, label), "label": label, "beam_label": label, "story": story, "location": _string(_row_get(row, *COLUMN_ALIASES["location"])), "combo": _string(_row_get(row, *COLUMN_ALIASES["combo"])), **values, "selected_rebar": _string(_row_get(row, *COLUMN_ALIASES["selected_rebar"])), "area_unit": "cm2" if diagnostic is None else None, "status": _string(_row_get(row, *COLUMN_ALIASES["status"])), "diagnostic": diagnostic, "source_table": source_table, "source_row": source_row, "source_columns": source_columns})
     return rows
 
 
 def build_beam_context_from_tables(tables: Mapping[str, object]) -> dict[str, object]:
-    design_summary = _coerce_records(
-        tables.get("beam_design_summary"),
-        normalizer=normalize_beam_design_summary,
-        source_table=str(tables.get("beam_design_summary_source_table") or "beam_design_summary"),
-    )
-    flexure = _coerce_records(
-        tables.get("beam_flexure_envelope"),
-        normalizer=normalize_beam_flexure_envelope,
-        source_table=str(tables.get("beam_flexure_envelope_source_table") or "beam_flexure_envelope"),
-    )
-    shear = _coerce_records(
-        tables.get("beam_shear_envelope"),
-        normalizer=normalize_beam_shear_envelope,
-        source_table=str(tables.get("beam_shear_envelope_source_table") or "beam_shear_envelope"),
-    )
+    design_summary = _coerce_records(tables.get("beam_design_summary"), normalizer=normalize_beam_design_summary, source_table=str(tables.get("beam_design_summary_source_table") or "beam_design_summary"))
+    flexure = _coerce_records(tables.get("beam_flexure_envelope"), normalizer=normalize_beam_flexure_envelope, source_table=str(tables.get("beam_flexure_envelope_source_table") or "beam_flexure_envelope"))
+    shear = _coerce_records(tables.get("beam_shear_envelope"), normalizer=normalize_beam_shear_envelope, source_table=str(tables.get("beam_shear_envelope_source_table") or "beam_shear_envelope"))
+    rebar_area = _coerce_records(tables.get("beam_rebar_area"), normalizer=normalize_beam_rebar_area, source_table=str(tables.get("beam_rebar_area_source_table") or "beam_rebar_area"))
     flexure_grouped = group_beam_flexure_rows(flexure)
+    rebar_area_grouped = group_beam_rebar_area_rows(rebar_area)
+    _attach_rebar_area_to_flexure_groups(flexure_grouped, rebar_area_grouped)
     shear_grouped = group_beam_shear_rows(shear)
-
     beam_design_summary_df = _records_to_dataframe([row for row in design_summary if row.get("label")])
-    diagnostics = _diagnostics(design_summary, flexure, shear)
-    return {
-        "tables": {
-            "beam_design_summary": beam_design_summary_df,
-            "beam_flexure_envelope": _records_to_dataframe(flexure),
-            "beam_shear_envelope": _records_to_dataframe(shear),
-        },
-        "design_metadata": {
-            "beam_design_summary": beam_design_summary_df,
-            "beam_design_summary_rows": design_summary,
-            "beam_flexure_envelope_rows": flexure,
-            "beam_shear_envelope_rows": shear,
-            "beam_flexure_grouped": flexure_grouped,
-            "beam_shear_grouped": shear_grouped,
-            "beam_diagnostics": diagnostics,
-        },
-        "envelopes": {
-            "beam_forces_map": _build_beam_forces_map(flexure_grouped, shear_grouped),
-        },
-        "geometry": {
-            "beam_sections": _build_beam_sections(design_summary),
-            "section_dims": _build_section_dims(design_summary),
-        },
-        "topology": {},
-        "design_basis": _default_design_basis(),
-        "flags": {
-            "has_beam_design_summary": bool([row for row in design_summary if row.get("label")]),
-            "has_beam_flexure_envelope": bool([row for row in flexure if row.get("label")]),
-            "has_beam_shear_envelope": bool([row for row in shear if row.get("label")]),
-            "materials_verified": False,
-        },
-        "diagnostics": {
-            "beam_design_summary_row_count": len([row for row in design_summary if row.get("label")]),
-            "beam_flexure_row_count": len([row for row in flexure if row.get("label")]),
-            "beam_shear_row_count": len([row for row in shear if row.get("label")]),
-            "diagnostic_row_count": len(diagnostics),
-        },
-    }
+    diagnostics = _diagnostics(design_summary, flexure, shear, rebar_area)
+    return {"tables": {"beam_design_summary": beam_design_summary_df, "beam_flexure_envelope": _records_to_dataframe(flexure), "beam_shear_envelope": _records_to_dataframe(shear), "beam_rebar_area": _records_to_dataframe(rebar_area)}, "design_metadata": {"beam_design_summary": beam_design_summary_df, "beam_design_summary_rows": design_summary, "beam_flexure_envelope_rows": flexure, "beam_shear_envelope_rows": shear, "beam_rebar_area_rows": rebar_area, "beam_flexure_grouped": flexure_grouped, "beam_shear_grouped": shear_grouped, "beam_rebar_area_grouped": rebar_area_grouped, "beam_diagnostics": diagnostics}, "envelopes": {"beam_forces_map": _build_beam_forces_map(flexure_grouped, shear_grouped)}, "geometry": {"beam_sections": _build_beam_sections(design_summary), "section_dims": _build_section_dims(design_summary)}, "topology": {}, "design_basis": _default_design_basis(), "flags": {"has_beam_design_summary": bool([row for row in design_summary if row.get("label")]), "has_beam_flexure_envelope": bool([row for row in flexure if row.get("label")]), "has_beam_shear_envelope": bool([row for row in shear if row.get("label")]), "has_beam_rebar_area": bool([row for row in rebar_area if row.get("label") and not row.get("diagnostic")]), "materials_verified": False}, "diagnostics": {"beam_design_summary_row_count": len([row for row in design_summary if row.get("label")]), "beam_flexure_row_count": len([row for row in flexure if row.get("label")]), "beam_shear_row_count": len([row for row in shear if row.get("label")]), "beam_rebar_area_row_count": len([row for row in rebar_area if row.get("label") and not row.get("diagnostic")]), "diagnostic_row_count": len(diagnostics)}}
 
 
 def group_beam_flexure_rows(rows: list[dict[str, object]]) -> dict[str, dict[str, object]]:
@@ -210,7 +137,7 @@ def group_beam_flexure_rows(rows: list[dict[str, object]]) -> dict[str, dict[str
         key = str(row.get("key") or "")
         if not key:
             continue
-        item = grouped.setdefault(key, {"key": key, "rows": [], "governing_positive": None, "governing_negative": None, "governing_ratio": None})
+        item = grouped.setdefault(key, {"key": key, "rows": [], "governing_positive": None, "governing_negative": None, "governing_ratio": None, "governing_area": None})
         item["rows"].append(row)
         moment = _first_number(row.get("moment"), row.get("m_pos"), row.get("m_neg"))
         ratio = _number_or_none(row.get("ratio"))
@@ -223,6 +150,28 @@ def group_beam_flexure_rows(rows: list[dict[str, object]]) -> dict[str, dict[str
         if moment < 0 and _is_better_abs(row, item.get("governing_negative"), "moment"):
             item["governing_negative"] = row
     return grouped
+
+
+def group_beam_rebar_area_rows(rows: list[dict[str, object]]) -> dict[str, dict[str, object]]:
+    grouped: dict[str, dict[str, object]] = {}
+    for row in rows:
+        key = str(row.get("key") or "")
+        if not key:
+            continue
+        item = grouped.setdefault(key, {"key": key, "rows": [], "governing_area": None})
+        item["rows"].append(row)
+        if row.get("diagnostic"):
+            continue
+        if _area_score(row) > _area_score(item.get("governing_area")):
+            item["governing_area"] = row
+    return grouped
+
+
+def _attach_rebar_area_to_flexure_groups(flexure_grouped: dict[str, dict[str, object]], rebar_area_grouped: dict[str, dict[str, object]]) -> None:
+    for key, group in rebar_area_grouped.items():
+        item = flexure_grouped.setdefault(key, {"key": key, "rows": [], "governing_positive": None, "governing_negative": None, "governing_ratio": None, "governing_area": None})
+        item["governing_area"] = group.get("governing_area")
+        item["rebar_area_rows"] = tuple(group.get("rows") or ())
 
 
 def group_beam_shear_rows(rows: list[dict[str, object]]) -> dict[str, dict[str, object]]:
@@ -243,15 +192,7 @@ def group_beam_shear_rows(rows: list[dict[str, object]]) -> dict[str, dict[str, 
 
 
 def to_context_namespace(context: Mapping[str, object]) -> SimpleNamespace:
-    return SimpleNamespace(
-        tables=context.get("tables", {}),
-        design_metadata=context.get("design_metadata", {}),
-        envelopes=context.get("envelopes", {}),
-        geometry=context.get("geometry", {}),
-        topology=context.get("topology", {}),
-        design_basis=context.get("design_basis", _default_design_basis()),
-        flags=context.get("flags", {}),
-    )
+    return SimpleNamespace(tables=context.get("tables", {}), design_metadata=context.get("design_metadata", {}), envelopes=context.get("envelopes", {}), geometry=context.get("geometry", {}), topology=context.get("topology", {}), design_basis=context.get("design_basis", _default_design_basis()), flags=context.get("flags", {}))
 
 
 def _build_beam_forces_map(flexure_grouped: dict[str, dict[str, object]], shear_grouped: dict[str, dict[str, object]]) -> dict[str, dict[str, object]]:
@@ -280,7 +221,6 @@ def _build_beam_forces_map(flexure_grouped: dict[str, dict[str, object]], shear_
         chosen = pos if isinstance(pos, Mapping) else neg if isinstance(neg, Mapping) else grouped.get("governing_ratio")
         if isinstance(chosen, Mapping):
             force["combo"] = force.get("combo") or chosen.get("combo") or ""
-
     for key, grouped in shear_grouped.items():
         label = _label_from_key(key)
         if not label:
@@ -300,20 +240,11 @@ def _build_beam_forces_map(flexure_grouped: dict[str, dict[str, object]], shear_
         force["V_support_case"] = chosen.get("combo") or ""
         force["combo"] = force.get("combo") or chosen.get("combo") or ""
         force.setdefault("evidence", {})["shear"] = _source_evidence(chosen, grouped.get("rows"))
-
     return out
 
 
 def _empty_force_row() -> dict[str, object]:
-    return {
-        "M_pos": 0.0,
-        "M_neg_left": 0.0,
-        "M_neg_right": 0.0,
-        "V_max": 0.0,
-        "V_support": 0.0,
-        "T_max": 0.0,
-        "combo": "",
-    }
+    return {"M_pos": 0.0, "M_neg_left": 0.0, "M_neg_right": 0.0, "V_max": 0.0, "V_support": 0.0, "T_max": 0.0, "combo": ""}
 
 
 def _build_beam_sections(design_summary: list[dict[str, object]]) -> dict[str, str]:
@@ -341,7 +272,6 @@ def _build_section_dims(design_summary: list[dict[str, object]]) -> dict[str, di
 
 def _parse_rect_section_dims(section: str) -> tuple[float, float]:
     import re
-
     match = re.search(r"(\d+(?:\.\d+)?)\s*[Xx]\s*(\d+(?:\.\d+)?)", str(section or ""))
     if not match:
         return 300.0, 500.0
@@ -355,16 +285,7 @@ def _parse_rect_section_dims(section: str) -> tuple[float, float]:
 
 
 def _source_evidence(row: Mapping[str, object], rows: object | None = None) -> dict[str, object]:
-    evidence = {
-        "source_table": row.get("source_table"),
-        "source_row": row.get("source_row"),
-        "source_columns": row.get("source_columns"),
-        "source_rows": [item.get("source_row") for item in rows if isinstance(item, Mapping)] if isinstance(rows, list) else [row.get("source_row")],
-        "evidence_type": "live_etabs_table",
-        "unit_conversion_status": "not_normalized",
-        "combo_family_status": "not_inferred",
-    }
-    return evidence
+    return {"source_table": row.get("source_table"), "source_row": row.get("source_row"), "source_columns": row.get("source_columns"), "source_rows": [item.get("source_row") for item in rows if isinstance(item, Mapping)] if isinstance(rows, list) else [row.get("source_row")], "evidence_type": "live_etabs_table", "unit_conversion_status": "not_normalized", "combo_family_status": "not_inferred"}
 
 
 def _diagnostics(*row_groups: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -373,33 +294,12 @@ def _diagnostics(*row_groups: list[dict[str, object]]) -> list[dict[str, object]
         for row in rows:
             diagnostic = row.get("diagnostic")
             if diagnostic:
-                out.append(
-                    {
-                        "key": row.get("key") or "",
-                        "label": row.get("label") or "",
-                        "story": row.get("story") or "",
-                        "status": DIAGNOSTIC_STATUS,
-                        "reason": diagnostic,
-                        "source_table": row.get("source_table"),
-                        "source_row": row.get("source_row"),
-                        "source_columns": row.get("source_columns"),
-                    }
-                )
+                out.append({"key": row.get("key") or "", "label": row.get("label") or "", "story": row.get("story") or "", "status": DIAGNOSTIC_STATUS, "reason": diagnostic, "source_table": row.get("source_table"), "source_row": row.get("source_row"), "source_columns": row.get("source_columns")})
     return out
 
 
 def _diagnostic_row(source_table: str, source_row: object, source_columns: list[str], reason: str, *, story: str = "") -> dict[str, object]:
-    return {
-        "key": _beam_key(story, ""),
-        "label": "",
-        "beam_label": "",
-        "story": story,
-        "status": DIAGNOSTIC_STATUS,
-        "diagnostic": reason,
-        "source_table": source_table,
-        "source_row": source_row,
-        "source_columns": source_columns,
-    }
+    return {"key": _beam_key(story, ""), "label": "", "beam_label": "", "story": story, "status": DIAGNOSTIC_STATUS, "diagnostic": reason, "source_table": source_table, "source_row": source_row, "source_columns": source_columns}
 
 
 def _ductility_status(status: str, as_top: float | None, as_bottom: float | None, asw_per_m: float | None) -> str:
@@ -440,14 +340,48 @@ def _is_better_abs(row: Mapping[str, object], current: object, field: str) -> bo
     return abs(value) > abs(current_value or 0.0)
 
 
+def _area_score(value: object) -> float:
+    if not isinstance(value, Mapping):
+        return -1.0
+    return sum(abs(number) for number in [_number_or_none(value.get("required_area")), _number_or_none(value.get("selected_area")), _number_or_none(value.get("top_required_area")), _number_or_none(value.get("bottom_required_area")), _number_or_none(value.get("top_selected_area")), _number_or_none(value.get("bottom_selected_area"))] if number is not None)
+
+
+def _cm2_number(row: Any, aliases: list[str]) -> float | None:
+    value, source_key = _row_get_with_key(row, *aliases)
+    if not _is_cm2_column(source_key):
+        return None
+    return _number_or_none(value)
+
+
+def _row_get_with_key(row: Any, *names: str) -> tuple[Any, str | None]:
+    normalized = {_normalize_name(name): name for name in names}
+    keys = list(row.keys()) if hasattr(row, "keys") else []
+    for key in keys:
+        if _normalize_name(key) in normalized:
+            try:
+                value = row.get(key)
+            except Exception:
+                value = None
+            if _is_present(value):
+                return value, str(key)
+    for key in keys:
+        key_norm = _normalize_name(key)
+        if any(name_norm in key_norm or key_norm in name_norm for name_norm in normalized):
+            try:
+                value = row.get(key)
+            except Exception:
+                value = None
+            if _is_present(value):
+                return value, str(key)
+    return None, None
+
+
+def _is_cm2_column(column_name: str | None) -> bool:
+    return "cm2" in _normalize_name(column_name)
+
+
 def _default_design_basis() -> dict[str, object]:
-    return {
-        "fck_mpa": 30.0,
-        "fyk_mpa": 420.0,
-        "gamma_c": 1.5,
-        "gamma_s": 1.15,
-        "materials_verified": False,
-    }
+    return {"fck_mpa": 30.0, "fyk_mpa": 420.0, "gamma_c": 1.5, "gamma_s": 1.15, "materials_verified": False}
 
 
 def _coerce_records(value: object, *, normalizer, source_table: str) -> list[dict[str, object]]:
@@ -493,26 +427,8 @@ def _source_columns(df: Any) -> list[str]:
 
 
 def _row_get(row: Any, *names: str) -> Any:
-    normalized = {_normalize_name(name): name for name in names}
-    keys = list(row.keys()) if hasattr(row, "keys") else []
-    for key in keys:
-        if _normalize_name(key) in normalized:
-            try:
-                value = row.get(key)
-            except Exception:
-                value = None
-            if _is_present(value):
-                return value
-    for key in keys:
-        key_norm = _normalize_name(key)
-        if any(name_norm in key_norm or key_norm in name_norm for name_norm in normalized):
-            try:
-                value = row.get(key)
-            except Exception:
-                value = None
-            if _is_present(value):
-                return value
-    return None
+    value, _source_key = _row_get_with_key(row, *names)
+    return value
 
 
 def _normalize_name(value: object) -> str:
