@@ -40,6 +40,35 @@ def _list_value(value: object) -> list[object]:
     return [value]
 
 
+def _looks_like_package(value: object) -> bool:
+    return hasattr(value, "component") and hasattr(value, "checks")
+
+
+def _preserve_package_output(result: object) -> object:
+    if _looks_like_package(result):
+        return result
+    if isinstance(result, tuple) and all(_looks_like_package(item) for item in result):
+        return result
+    if isinstance(result, list) and all(_looks_like_package(item) for item in result):
+        return tuple(result)
+    return _model_to_dict(result)
+
+
+def _packages_for_adapter(eval_results: dict[str, object]) -> dict[str, object]:
+    results = eval_results.get("results") or {}
+    packages: list[object] = []
+    if isinstance(results, Mapping):
+        values = results.values()
+    else:
+        values = [results]
+    for value in values:
+        if isinstance(value, (list, tuple)):
+            packages.extend(value)
+        else:
+            packages.append(value)
+    return {"packages": packages}
+
+
 class TBDYEngineV2:
     """
     Genesis Runtime Bridge v1.1.
@@ -149,7 +178,7 @@ class TBDYEngineV2:
         return evaluators
 
     def _make_evaluator(self, evaluation_name: str, evaluation_config: Mapping[str, object]) -> EvaluationCallable:
-        def evaluate(context: object) -> Mapping[str, object]:
+        def evaluate(context: object) -> object:
             module_path = str(evaluation_config.get("module", "") or "")
             if not module_path:
                 raise RuntimeError(f"No module configured for evaluation '{evaluation_name}'.")
@@ -159,7 +188,7 @@ class TBDYEngineV2:
             cls = getattr(module, class_name)
             instance = cls(context)
             result = getattr(instance, method_name)()
-            return _model_to_dict(result)
+            return _preserve_package_output(result)
 
         return evaluate
 
@@ -176,7 +205,7 @@ class TBDYEngineV2:
 
         scheduler_result = self._run_scheduler()
         eval_results = scheduler_result.to_eval_results()
-        checks = self.check_adapter.adapt_all(eval_results)
+        checks = self.check_adapter.adapt_all(_packages_for_adapter(eval_results))
 
         reporting = ReportingFacade(self.report_dir).generate(checks)
 
