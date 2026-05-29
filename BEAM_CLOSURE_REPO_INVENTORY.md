@@ -7,8 +7,9 @@ Task history:
 - `SPRINT 1B — RUNNER / REPORT INTEGRATION SEAM`
 - `SPRINT 2A — CANONICAL IMMUTABLE CHECKRESULT`
 - `SPRINT 2B — ADAPTER DUMB-DOWN`
+- `SPRINT 3A — ACTIVE BEAM EVALUATION PACKAGE`
 
-Scope remains beam runtime closure preparation only. No beam checks implemented. No ARCH-X touched. No contracts expanded.
+Scope remains beam runtime closure preparation only. No real ETABS proof claimed. No ARCH-X touched. No contracts expanded.
 
 ## 1. Active files kept
 
@@ -24,6 +25,13 @@ Identified active/minimal beam closure candidates:
 - `tbdy_engine/etabs/normalizers/beam_design.py`
   - Active beam table normalizer candidate.
   - Contains beam design summary, flexure envelope, and shear envelope normalization.
+- `tbdy_engine/design/beams/evaluation_package.py`
+  - Sprint 3A active minimal `BeamEvaluationPackage` path.
+  - Defines frozen `BeamEvaluationPackage` and `BeamCheckEvaluation`.
+  - Defines `BeamDesignModule.run()` returning packages, not `CheckResult`.
+  - Produces package-like checks for beam geometry, flexure, and shear from normalized/context-shaped beam metadata.
+- `tbdy_engine/design/beams/__init__.py`
+  - Exports active beam package API.
 - `tbdy_engine/adapters/check_adapter.py`
   - Active CheckAdapter and canonical CheckResult definition path.
   - Sprint 2A converted `CheckResult` to `@dataclass(frozen=True)` with only canonical/allowed fields.
@@ -43,6 +51,8 @@ Identified active/minimal beam closure candidates:
 - `tbdy_engine/contracts/checks.yaml`
   - Current check mapping source for beam check ids.
   - Kept active only as a compatibility map until the minimal beam closure path is made explicit.
+- `tests/test_beam_evaluation_package_active.py`
+  - Sprint 3A active package and dumb adapter compatibility test.
 - `tests/test_check_adapter_dumb_mapping.py`
   - Sprint 2B dumb adapter mapping test and source guard.
 - `tests/test_checkresult_canonical.py`
@@ -97,6 +107,7 @@ Archive meaning: not imported by active runtime, not used by `runner_v2`, not us
   - Still imports `EngineContractLoader`, `EngineContractValidator`, `DatasetValidator`, `EvaluationDAG`, `RuntimeScheduler`.
   - Still returns `evaluation_errors`, `evaluation_skipped`, `execution_order`, `cache_stats` outside the report payload.
   - Report seam is fixed; scheduler/DAG cleanup remains out of scope.
+  - Scheduler output is not yet proven to feed package tuples into `CheckAdapter.adapt_all`.
 - `tbdy_engine/contracts/checks.yaml`
   - Contains columns, SCWB, planned/full checks, hierarchy checks, report outputs, source files, experimental flags, runner enabled flags.
   - Beam closure should only require beam geometry/flexure/shear mapping.
@@ -124,7 +135,7 @@ Sprint 1B status: report seam fixed. This is still a Genesis Runtime Bridge / sc
 
 ## 6. Current report entrypoints
 
-Sprint 1/1B/2A/2B status:
+Sprint 1/1B/2A/2B/3A status:
 
 - `tbdy_engine/reports/facade.py`
   - `ReportingFacade.generate(check_results)`
@@ -163,14 +174,33 @@ Status: canonical/frozen.
 
 ## 8. Current BeamEvaluationPackage definition path
 
-No active `BeamEvaluationPackage` definition was found in the minimal runtime path.
+- `tbdy_engine/design/beams/evaluation_package.py`
 
-Related but archived/drift path exists:
+Sprint 3A active package shape:
 
-- `tbdy_engine/archx/evaluation.py`
-  - Defines generic `EvaluationPackage`, `EvaluationOutput`, `EvaluationStep`, `EvaluationEvidence`.
+```python
+@dataclass(frozen=True)
+class BeamCheckEvaluation:
+    check_type: str
+    status: str
+    demand: float | None
+    capacity: float | None
+    ratio: float | None
+    unit: str | None = None
+    code_ref: str | None = None
+    messages: tuple[str, ...] = ()
 
-Status: `BeamEvaluationPackage` is missing from active beam runtime and must be created or carved out in a later sprint without importing ARCH-X.
+@dataclass(frozen=True)
+class BeamEvaluationPackage:
+    component: str
+    checks: tuple[BeamCheckEvaluation, ...]
+    evidence: Mapping[str, object]
+    messages: tuple[str, ...] = ()
+    story: str | None = None
+    section: str | None = None
+```
+
+Status: active/minimal/frozen.
 
 ## 9. Current adapter definition path
 
@@ -194,19 +224,19 @@ Identified functions:
 - `group_beam_shear_rows(rows)`
 - `to_context_namespace(context)`
 
-Status: active candidate. It still outputs context-shaped material rather than `BeamEvaluationPackage`.
+Status: active candidate. It still outputs context-shaped material. Sprint 3A adds a package builder that can consume the normalized/context-shaped metadata, but live ETABS proof is not claimed.
 
 ## 11. Next sprint recommendation
 
-Sprint 3A: active minimal `BeamEvaluationPackage` shape.
+Sprint 3B: runner/package seam.
 
 Mechanical target only:
 
-1. Do not import ARCH-X.
+1. Keep active `BeamEvaluationPackage` shape unchanged.
 2. Keep canonical `CheckResult` unchanged.
 3. Keep adapter dumb.
-4. Define or carve out the minimal active beam package shape needed for geometry/flexure/shear.
-5. Do not implement ETABS producer yet unless supervisor authorizes.
-6. Do not change report boundary; reports must remain CheckResult-only.
+4. Wire scheduler/eval output so `CheckAdapter.adapt_all` receives package tuples cleanly.
+5. Do not touch ARCH-X.
+6. Do not claim live ETABS proof yet unless explicitly validated.
 
 Production claim: `BEAM_RUNTIME_CLOSURE = NOT CLAIMED`.
