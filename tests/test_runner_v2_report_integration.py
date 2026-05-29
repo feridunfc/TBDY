@@ -3,14 +3,26 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Mapping
 
 from tbdy_engine.runner_v2 import TBDYEngineV2
 
 
 @dataclass(frozen=True)
 class FakeCheckResult:
-    check_id: str
+    id: str
+    component: str
+    check_type: str
     status: str
+    demand: float | None
+    capacity: float | None
+    ratio: float | None
+    evidence: Mapping[str, object]
+    messages: tuple[str, ...]
+    story: str | None = None
+    section: str | None = None
+    unit: str | None = None
+    code_ref: str | None = None
 
 
 class FakeSchedulerResult:
@@ -34,7 +46,10 @@ class FakeCheckAdapter:
 
 
 def test_runner_passes_only_check_results_to_reporting_facade(monkeypatch, tmp_path: Path) -> None:
-    checks = [FakeCheckResult("beam_geometry", "OK"), FakeCheckResult("beam_shear", "FAIL")]
+    checks = [
+        FakeCheckResult("beam_geometry:B1", "B1", "beam_geometry", "OK", 1.0, 1.0, 1.0, {}, ("ok",)),
+        FakeCheckResult("beam_shear:B2", "B2", "beam_shear", "FAIL", 2.0, 1.0, 2.0, {}, ("fail",)),
+    ]
     calls: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
     class FakeReportingFacade:
