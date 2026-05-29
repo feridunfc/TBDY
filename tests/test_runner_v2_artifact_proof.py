@@ -25,6 +25,8 @@ CANONICAL_CHECK_FIELDS = {
     "code_ref",
 }
 
+EXPECTED_EXCEL_SHEETS = {"Summary", "Kiriş Kesme", "Kiriş Donatı Seçimi", "Beam Checks", "Evidence"}
+
 FORBIDDEN_REPORT_FIELDS = {
     "report_metadata",
     "runtime_bridge",
@@ -131,6 +133,11 @@ def test_runner_v2_produces_json_and_excel_artifacts_from_minimal_beam_context(m
     assert set(payload) == {"summary", "checks"}
     assert FORBIDDEN_REPORT_FIELDS.isdisjoint(payload)
     assert payload["summary"]["total_checks"] == 3
+    assert payload["summary"]["unique_components"] == 1
+    assert payload["summary"]["duplicate_check_ids"] == 0
+    assert payload["summary"]["beam_geometry_checks"] == 1
+    assert payload["summary"]["beam_flexure_checks"] == 1
+    assert payload["summary"]["beam_shear_checks"] == 1
     assert [check["check_type"] for check in payload["checks"]] == ["beam_geometry", "beam_flexure", "beam_shear"]
     assert [check["component"] for check in payload["checks"]] == ["B1", "B1", "B1"]
     assert [check["status"] for check in payload["checks"]] == ["OK", "OK", "OK"]
@@ -149,7 +156,10 @@ def test_runner_v2_produces_json_and_excel_artifacts_from_minimal_beam_context(m
     assert excel_path.name == "engine_report.xlsx"
 
     workbook = openpyxl.load_workbook(excel_path)
-    assert set(workbook.sheetnames) == {"Summary", "Checks"}
+    assert set(workbook.sheetnames) == EXPECTED_EXCEL_SHEETS
     assert "Eval_Skipped" not in workbook.sheetnames
     assert "Eval_Errors" not in workbook.sheetnames
     assert "Report_Contract" not in workbook.sheetnames
+    assert "Details" not in workbook.sheetnames
+    assert workbook["Kiriş Kesme"]["A1"].value == "KİRİŞ KESME KAPASİTE HESABI"
+    assert workbook["Kiriş Donatı Seçimi"]["A1"].value == "KİRİŞ DONATI SEÇİMİ"
