@@ -5,6 +5,7 @@ Task history:
 - `REPO_RESET_FOR_BEAM_RUNTIME_CLOSURE`
 - `SPRINT 1 — REPORT AMPUTATION`
 - `SPRINT 1B — RUNNER / REPORT INTEGRATION SEAM`
+- `SPRINT 2A — CANONICAL IMMUTABLE CHECKRESULT`
 
 Scope remains beam runtime closure preparation only. No beam checks implemented. No ARCH-X touched. No contracts expanded.
 
@@ -23,8 +24,9 @@ Identified active/minimal beam closure candidates:
   - Active beam table normalizer candidate.
   - Contains beam design summary, flexure envelope, and shear envelope normalization.
 - `tbdy_engine/adapters/check_adapter.py`
-  - Current CheckAdapter and CheckResult definition path.
-  - Kept active for now, but suspicious because CheckResult is mutable and carries legacy/runtime/report fields.
+  - Active CheckAdapter and canonical CheckResult definition path.
+  - Sprint 2A converted `CheckResult` to `@dataclass(frozen=True)` with only canonical/allowed fields.
+  - Adapter inference remains intentionally not dumbed down until Sprint 2B.
 - `tbdy_engine/reports/json_reporter.py`
   - Sprint 1 amputated to `JSONReporter().generate(check_results, output_path="engine_report.json")`.
   - Emits only `summary` and `checks`.
@@ -40,10 +42,12 @@ Identified active/minimal beam closure candidates:
 - `tbdy_engine/contracts/checks.yaml`
   - Current check mapping source for beam check ids.
   - Kept active only as a compatibility map until the minimal beam closure path is made explicit.
+- `tests/test_checkresult_canonical.py`
+  - Sprint 2A canonical immutable CheckResult boundary test.
 - `tests/test_reports_checkresult_only.py`
-  - Sprint 1 report-only boundary test.
+  - Sprint 1 report-only boundary test, updated to canonical fields in Sprint 2A.
 - `tests/test_runner_v2_report_integration.py`
-  - Sprint 1B runner/report seam test.
+  - Sprint 1B runner/report seam test, updated to canonical fields in Sprint 2A.
 - `tests/test_etabs_beam_normalizer.py`
   - Minimal beam normalizer test candidate, identified from merged PR metadata.
 - `tests/test_runner_v2_live_etabs_beams.py`
@@ -91,8 +95,8 @@ Archive meaning: not imported by active runtime, not used by `runner_v2`, not us
   - Still returns `evaluation_errors`, `evaluation_skipped`, `execution_order`, `cache_stats` outside the report payload.
   - Report seam is fixed; scheduler/DAG cleanup remains out of scope.
 - `tbdy_engine/adapters/check_adapter.py`
-  - `CheckResult` is not frozen.
-  - Contains fields outside the target minimal shape: `evaluation`, `check_name`, `evaluation_level`, `source`, `experimental`, `runner_enabled`, `legacy_contract_id`, `legacy_canonical_check_name`, `combo_family`, `governing_combo`.
+  - `CheckResult` is canonical/frozen.
+  - Adapter itself is still not dumb; it still indexes runtime catalog, extracts fields, infers source/evaluation level internally, and maps legacy evaluation payloads into canonical fields.
 - `tbdy_engine/contracts/checks.yaml`
   - Contains columns, SCWB, planned/full checks, hierarchy checks, report outputs, source files, experimental flags, runner enabled flags.
   - Beam closure should only require beam geometry/flexure/shear mapping.
@@ -120,7 +124,7 @@ Sprint 1B status: report seam fixed. This is still a Genesis Runtime Bridge / sc
 
 ## 6. Current report entrypoints
 
-Sprint 1/1B status:
+Sprint 1/1B/2A status:
 
 - `tbdy_engine/reports/facade.py`
   - `ReportingFacade.generate(check_results)`
@@ -129,13 +133,33 @@ Sprint 1/1B status:
 - `tbdy_engine/reports/excel_reporter.py`
   - `ExcelReporter.generate(check_results, output_path="engine_report.xlsx")`
 
-Reports are now CheckResult-only and runner calls them with only `checks`.
+Reports are CheckResult-only and runner calls them with only `checks`.
 
 ## 7. Current CheckResult definition path
 
 - `tbdy_engine/adapters/check_adapter.py`
 
-Current shape is mutable and still not canonical for the final target. Do not fully refactor until the CheckResult sprint.
+Sprint 2A canonical shape:
+
+```python
+@dataclass(frozen=True)
+class CheckResult:
+    id: str
+    component: str
+    check_type: str
+    status: str
+    demand: float | None
+    capacity: float | None
+    ratio: float | None
+    evidence: Mapping[str, object]
+    messages: tuple[str, ...]
+    story: str | None = None
+    section: str | None = None
+    unit: str | None = None
+    code_ref: str | None = None
+```
+
+Status: canonical/frozen.
 
 ## 8. Current BeamEvaluationPackage definition path
 
@@ -174,13 +198,14 @@ Status: active candidate. It still outputs context-shaped material rather than `
 
 ## 11. Next sprint recommendation
 
-Sprint 2: active `BeamEvaluationPackage` introduction/carve-out.
+Sprint 2B: Dumb CheckAdapter mapping.
 
 Mechanical target only:
 
-1. Do not import ARCH-X.
-2. Keep scheduler/DAG frozen unless the supervisor explicitly authorizes removal.
-3. Introduce or carve out a minimal active beam package only for geometry/flexure/shear.
+1. Keep canonical `CheckResult` unchanged.
+2. Remove adapter inference and make it translation-only.
+3. Do not import ARCH-X.
 4. Do not change report boundary; reports must remain CheckResult-only.
+5. Do not implement beam checks until adapter mapping is predictable.
 
 Production claim: `BEAM_RUNTIME_CLOSURE = NOT CLAIMED`.
