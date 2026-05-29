@@ -41,7 +41,6 @@ def build_beam_evaluation_packages(context: Mapping[str, object]) -> tuple[BeamE
     design_rows = [row for row in _sequence(metadata.get("beam_design_summary_rows")) if _mapping(row).get("label")]
     flexure_grouped = _mapping(metadata.get("beam_flexure_grouped"))
     shear_grouped = _mapping(metadata.get("beam_shear_grouped"))
-
     packages: list[BeamEvaluationPackage] = []
     for raw_row in design_rows:
         row = _mapping(raw_row)
@@ -52,54 +51,22 @@ def build_beam_evaluation_packages(context: Mapping[str, object]) -> tuple[BeamE
         flexure_row = _flexure_row(_mapping(flexure_grouped.get(key)))
         shear_row = _shear_row(_mapping(shear_grouped.get(key)))
         evidence = _package_evidence(row, key, flexure_row=flexure_row, shear_row=shear_row)
-        checks = (
-            _geometry_check(row),
-            _flexure_check(flexure_row),
-            _shear_check(shear_row),
-        )
-        packages.append(
-            BeamEvaluationPackage(
-                component=component,
-                checks=checks,
-                evidence=evidence,
-                messages=(),
-                story=story,
-                section=section,
-            )
-        )
+        packages.append(BeamEvaluationPackage(component=component, checks=(_geometry_check(row), _flexure_check(flexure_row), _shear_check(shear_row)), evidence=evidence, messages=(), story=story, section=section))
     return tuple(packages)
 
 
 def _geometry_check(row: Mapping[str, object]) -> BeamCheckEvaluation:
-    return BeamCheckEvaluation(
-        check_type="beam_geometry",
-        status="OK",
-        demand=None,
-        capacity=None,
-        ratio=None,
-        unit="mm",
-        code_ref="TBDY 2018 §7.4.1",
-        messages=("geometry package emitted",),
-    )
+    return BeamCheckEvaluation(check_type="beam_geometry", status="OK", demand=None, capacity=None, ratio=None, unit="mm", code_ref="TBDY 2018 §7.4.1", messages=("geometry package emitted",))
 
 
 def _flexure_row(grouped: Mapping[str, object]) -> Mapping[str, object]:
-    return _first_mapping(grouped.get("governing_ratio"), grouped.get("governing_positive"), grouped.get("governing_negative"))
+    return _first_mapping(grouped.get("governing_area"), grouped.get("governing_ratio"), grouped.get("governing_positive"), grouped.get("governing_negative"))
 
 
 def _flexure_check(row: Mapping[str, object]) -> BeamCheckEvaluation:
     if not row:
-        return BeamCheckEvaluation(
-            check_type="beam_flexure",
-            status="NO_DATA",
-            demand=None,
-            capacity=None,
-            ratio=None,
-            unit="cm²",
-            code_ref="TBDY 2018 §7.4.2",
-            messages=("TABLE_FIELD_MISSING: flexure governing row",),
-        )
-    selected_area = _first_number(row.get("selected_area"), row.get("selected_rebar_area"), row.get("total_selected_area"))
+        return BeamCheckEvaluation(check_type="beam_flexure", status="NO_DATA", demand=None, capacity=None, ratio=None, unit="cm²", code_ref="TBDY 2018 §7.4.2", messages=("TABLE_FIELD_MISSING: flexure governing row",))
+    selected_area = _selected_area(row)
     required_area = _flexure_required_area(row)
     messages = _row_messages(row)
     selected_label = _optional_text(_first_value(row, "selected_rebar", "rebar", "rebar_label"))
@@ -107,16 +74,7 @@ def _flexure_check(row: Mapping[str, object]) -> BeamCheckEvaluation:
         messages = messages + (f"selected rebar: {selected_label}",)
     elif selected_area is None:
         messages = messages + ("selected rebar not available",)
-    return BeamCheckEvaluation(
-        check_type="beam_flexure",
-        status=_status(row),
-        demand=required_area,
-        capacity=selected_area,
-        ratio=_ratio_or_required_over_selected(row, required_area, selected_area),
-        unit="cm²" if required_area is not None or selected_area is not None else None,
-        code_ref="TBDY 2018 §7.4.2",
-        messages=messages,
-    )
+    return BeamCheckEvaluation(check_type="beam_flexure", status=_status(row), demand=required_area, capacity=selected_area, ratio=_ratio_or_required_over_selected(row, required_area, selected_area), unit="cm²" if required_area is not None or selected_area is not None else None, code_ref="TBDY 2018 §7.4.2", messages=messages)
 
 
 def _shear_row(grouped: Mapping[str, object]) -> Mapping[str, object]:
@@ -125,43 +83,14 @@ def _shear_row(grouped: Mapping[str, object]) -> Mapping[str, object]:
 
 def _shear_check(row: Mapping[str, object]) -> BeamCheckEvaluation:
     if not row:
-        return BeamCheckEvaluation(
-            check_type="beam_shear",
-            status="NO_DATA",
-            demand=None,
-            capacity=None,
-            ratio=None,
-            unit="kN",
-            code_ref="TBDY 2018 §7.4.5",
-            messages=("TABLE_FIELD_MISSING: shear governing row",),
-        )
+        return BeamCheckEvaluation(check_type="beam_shear", status="NO_DATA", demand=None, capacity=None, ratio=None, unit="kN", code_ref="TBDY 2018 §7.4.5", messages=("TABLE_FIELD_MISSING: shear governing row",))
     demand = _first_number(row.get("Vd"), row.get("demand"), row.get("shear"), row.get("v_support"))
     capacity = _first_number(row.get("Vr"), row.get("capacity"))
-    return BeamCheckEvaluation(
-        check_type="beam_shear",
-        status=_status(row),
-        demand=demand,
-        capacity=capacity,
-        ratio=_ratio_or_demand_over_capacity(row, demand, capacity),
-        unit="kN" if demand is not None or capacity is not None else None,
-        code_ref="TBDY 2018 §7.4.5",
-        messages=_row_messages(row) + _stirrup_messages(row),
-    )
+    return BeamCheckEvaluation(check_type="beam_shear", status=_status(row), demand=demand, capacity=capacity, ratio=_ratio_or_demand_over_capacity(row, demand, capacity), unit="kN" if demand is not None or capacity is not None else None, code_ref="TBDY 2018 §7.4.5", messages=_row_messages(row) + _stirrup_messages(row))
 
 
-def _package_evidence(
-    row: Mapping[str, object],
-    key: str,
-    *,
-    flexure_row: Mapping[str, object],
-    shear_row: Mapping[str, object],
-) -> Mapping[str, object]:
-    evidence: dict[str, object] = {
-        "key": key,
-        "source_table": row.get("source_table"),
-        "source_row": row.get("source_row"),
-        "source_columns": tuple(_sequence(row.get("source_columns"))),
-    }
+def _package_evidence(row: Mapping[str, object], key: str, *, flexure_row: Mapping[str, object], shear_row: Mapping[str, object]) -> Mapping[str, object]:
+    evidence: dict[str, object] = {"key": key, "source_table": row.get("source_table"), "source_row": row.get("source_row"), "source_columns": tuple(_sequence(row.get("source_columns")))}
     dimensions = _section_dimensions(row)
     evidence.update(dimensions)
     evidence.update(_flexure_evidence(flexure_row, dimensions))
@@ -173,12 +102,17 @@ def _flexure_evidence(row: Mapping[str, object], dimensions: Mapping[str, object
     if not row:
         return {}
     out: dict[str, object] = _prefixed_source(row, "flexure")
+    _put_if_number(out, "i_top_required_area", row.get("top_required_area"))
+    _put_if_number(out, "j_top_required_area", row.get("top_required_area"))
+    _put_if_number(out, "bottom_required_area", row.get("bottom_required_area"))
+    _put_if_number(out, "i_top_selected_area", row.get("top_selected_area"))
+    _put_if_number(out, "j_top_selected_area", row.get("top_selected_area"))
+    _put_if_number(out, "bottom_selected_area", row.get("bottom_selected_area"))
     required = _flexure_required_area(row)
-    selected = _first_number(row.get("selected_area"), row.get("selected_rebar_area"), row.get("total_selected_area"))
+    selected = _selected_area(row)
     if required is not None:
-        location = _optional_text(row.get("location")) or ""
-        target = _flexure_required_key(location)
-        out[target] = required
+        target = _flexure_required_key(_optional_text(row.get("location")) or "")
+        out.setdefault(target, required)
         out["total_required_area"] = required
     if selected is not None:
         out["total_selected_area"] = selected
@@ -188,6 +122,8 @@ def _flexure_evidence(row: Mapping[str, object], dimensions: Mapping[str, object
     ratio = _number_or_none(row.get("ratio"))
     if ratio is not None:
         out["excess_ratio"] = ratio
+    if row.get("area_unit"):
+        out["area_unit"] = row.get("area_unit")
     for key in ("B", "H"):
         if key in dimensions:
             out[key] = dimensions[key]
@@ -198,35 +134,7 @@ def _shear_evidence(row: Mapping[str, object], dimensions: Mapping[str, object])
     if not row:
         return {}
     out: dict[str, object] = _prefixed_source(row, "shear")
-    for source_key, target_key in (
-        ("Vd", "Vd"),
-        ("demand", "Vd"),
-        ("shear", "Vd"),
-        ("v_support", "Vd"),
-        ("Vr", "Vr"),
-        ("capacity", "Vr"),
-        ("P", "P"),
-        ("axial_force", "P"),
-        ("Asmin", "Asmin"),
-        ("Asmin_cm2", "Asmin"),
-        ("Asw", "Asw"),
-        ("Asw_cm2", "Asw"),
-        ("Vmax", "Vmax"),
-        ("vmax", "Vmax"),
-        ("Vc", "Vc"),
-        ("Vw", "Vw"),
-        ("section_control_ratio", "section_control_ratio"),
-        ("section_control", "section_control_ratio"),
-        ("min_leg_count", "min_leg_count"),
-        ("selected_leg_count", "selected_leg_count"),
-        ("stirrup_diameter", "stirrup_diameter"),
-        ("stirrup_spacing_m", "stirrup_spacing_m"),
-        ("leg_diameter_label", "leg_diameter_label"),
-        ("concrete_class", "concrete_class"),
-        ("rebar_class", "rebar_class"),
-        ("cover_m", "cover_m"),
-        ("earthquake_contribution_considered", "earthquake_contribution_considered"),
-    ):
+    for source_key, target_key in (("Vd", "Vd"), ("demand", "Vd"), ("shear", "Vd"), ("v_support", "Vd"), ("Vr", "Vr"), ("capacity", "Vr"), ("P", "P"), ("axial_force", "P"), ("Asmin", "Asmin"), ("Asmin_cm2", "Asmin"), ("Asw", "Asw"), ("Asw_cm2", "Asw"), ("Vmax", "Vmax"), ("vmax", "Vmax"), ("Vc", "Vc"), ("Vw", "Vw"), ("section_control_ratio", "section_control_ratio"), ("section_control", "section_control_ratio"), ("min_leg_count", "min_leg_count"), ("selected_leg_count", "selected_leg_count"), ("stirrup_diameter", "stirrup_diameter"), ("stirrup_spacing_m", "stirrup_spacing_m"), ("leg_diameter_label", "leg_diameter_label"), ("concrete_class", "concrete_class"), ("rebar_class", "rebar_class"), ("cover_m", "cover_m"), ("earthquake_contribution_considered", "earthquake_contribution_considered")):
         value = _first_value(row, source_key)
         if value not in (None, "") and target_key not in out:
             out[target_key] = value
@@ -275,11 +183,17 @@ def _parse_rect_section_m(section: str | None) -> dict[str, object] | None:
 
 
 def _flexure_required_area(row: Mapping[str, object]) -> float | None:
-    return _first_number(
-        row.get("required_area"), row.get("area"), row.get("as_required"), row.get("as_top"), row.get("as_bottom"),
-        row.get("AsTop"), row.get("AsBot"), row.get("i_top_required_area"), row.get("j_top_required_area"),
-        row.get("bottom_required_area"), row.get("total_required_area"),
-    )
+    return _first_number(row.get("required_area"), row.get("top_required_area"), row.get("bottom_required_area"), row.get("area"), row.get("as_required"), row.get("as_top"), row.get("as_bottom"), row.get("AsTop"), row.get("AsBot"), row.get("i_top_required_area"), row.get("j_top_required_area"), row.get("bottom_required_area"), row.get("total_required_area"))
+
+
+def _selected_area(row: Mapping[str, object]) -> float | None:
+    return _first_number(row.get("selected_area"), row.get("top_selected_area"), row.get("bottom_selected_area"), row.get("selected_rebar_area"), row.get("total_selected_area"))
+
+
+def _put_if_number(out: dict[str, object], key: str, value: object) -> None:
+    number = _number_or_none(value)
+    if number is not None:
+        out[key] = number
 
 
 def _flexure_required_key(location: str) -> str:
