@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections import Counter
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any, Dict, Sequence
@@ -17,22 +18,37 @@ class JSONReporter:
     def build_payload(self, check_results: Sequence[Any]) -> Dict[str, Any]:
         checks = list(check_results)
         return {
-            "summary": {
-                "total_checks": len(checks),
-                "ok": sum(1 for c in checks if _status(c) == "OK"),
-                "fail": sum(1 for c in checks if _status(c) == "FAIL"),
-                "warning": sum(1 for c in checks if _status(c) == "WARNING"),
-                "no_data": sum(1 for c in checks if _status(c) == "NO_DATA"),
-                "error": sum(1 for c in checks if _status(c) == "ERROR"),
-            },
+            "summary": _summary(checks),
             "checks": [_check_to_dict(c) for c in checks],
         }
 
 
+def _summary(checks: list[Any]) -> Dict[str, Any]:
+    ids = [_field(c, "id") for c in checks if _field(c, "id")]
+    counts = Counter(ids)
+    return {
+        "total_checks": len(checks),
+        "ok": sum(1 for c in checks if _status(c) == "OK"),
+        "fail": sum(1 for c in checks if _status(c) == "FAIL"),
+        "warning": sum(1 for c in checks if _status(c) == "WARNING"),
+        "no_data": sum(1 for c in checks if _status(c) == "NO_DATA"),
+        "error": sum(1 for c in checks if _status(c) == "ERROR"),
+        "unique_components": len({_field(c, "component") for c in checks if _field(c, "component")}),
+        "duplicate_check_ids": sum(count - 1 for count in counts.values() if count > 1),
+        "beam_shear_checks": sum(1 for c in checks if _field(c, "check_type") == "beam_shear"),
+        "beam_flexure_checks": sum(1 for c in checks if _field(c, "check_type") == "beam_flexure"),
+        "beam_geometry_checks": sum(1 for c in checks if _field(c, "check_type") == "beam_geometry"),
+    }
+
+
 def _status(check: Any) -> str:
+    return str(_field(check, "status") or "")
+
+
+def _field(check: Any, name: str) -> Any:
     if isinstance(check, dict):
-        return str(check.get("status", "") or "")
-    return str(getattr(check, "status", "") or "")
+        return check.get(name)
+    return getattr(check, name, None)
 
 
 def _check_to_dict(check: Any) -> Dict[str, Any]:
