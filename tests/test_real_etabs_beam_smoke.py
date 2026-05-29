@@ -57,6 +57,14 @@ def _read_first_available_table(candidate_names: tuple[str, ...]):
     pytest.fail("No ETABS table candidate could be read. Attempts: " + " | ".join(attempts))
 
 
+def _column_values(sheet, column: int, start_row: int) -> list[object]:
+    return [sheet.cell(row=row, column=column).value for row in range(start_row, sheet.max_row + 1)]
+
+
+def _has_real_value(values: list[object]) -> bool:
+    return any(value not in (None, "", "NO_DATA") for value in values)
+
+
 @pytest.mark.real_etabs
 def test_real_etabs_beam_smoke_produces_json_and_excel_reports(tmp_path: Path) -> None:
     _require_real_etabs_enabled()
@@ -132,3 +140,13 @@ def test_real_etabs_beam_smoke_produces_json_and_excel_reports(tmp_path: Path) -
     assert "Details" not in workbook.sheetnames
     assert workbook["Kiriş Kesme"]["A1"].value == "KİRİŞ KESME KAPASİTE HESABI"
     assert workbook["Kiriş Donatı Seçimi"]["A1"].value == "KİRİŞ DONATI SEÇİMİ"
+
+    shear_sheet = workbook["Kiriş Kesme"]
+    assert _has_real_value(_column_values(shear_sheet, 4, 17) + _column_values(shear_sheet, 20, 17))
+
+    flexure_sheet = workbook["Kiriş Donatı Seçimi"]
+    required_area_columns = [5, 8, 11, 14, 19, 21]
+    required_or_ratio_values: list[object] = []
+    for column in required_area_columns:
+        required_or_ratio_values.extend(_column_values(flexure_sheet, column, 16))
+    assert _has_real_value(required_or_ratio_values)
