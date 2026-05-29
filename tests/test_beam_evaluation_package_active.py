@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import is_dataclass
 
+import pytest
+
 from tbdy_engine.adapters.check_adapter import CheckAdapter, CheckResult
 from tbdy_engine.design.beams import (
     BeamCheckEvaluation,
@@ -89,7 +91,7 @@ def test_beam_package_enriches_shear_evidence_from_normalized_rows() -> None:
     assert evidence["shear_source_columns"] == ("V", "Ratio")
     assert shear.demand == 145.0
     assert shear.capacity == 220.0
-    assert shear.ratio == 0.66
+    assert shear.ratio == pytest.approx(145.0 / 220.0)
     assert shear.unit == "kN"
 
 
@@ -125,7 +127,9 @@ def test_beam_evaluation_package_adapts_to_canonical_check_results() -> None:
     assert [check.status for check in checks] == ["OK", "OK", "OK"]
     assert [check.demand for check in checks] == [None, 8.25, 145.0]
     assert [check.capacity for check in checks] == [None, None, 220.0]
-    assert [check.ratio for check in checks] == [None, 0.82, 0.66]
+    assert checks[0].ratio is None
+    assert checks[1].ratio == 0.82
+    assert checks[2].ratio == pytest.approx(145.0 / 220.0)
     assert all(check.evidence is packages[0].evidence for check in checks)
     assert checks[1].evidence["total_required_area"] == 8.25
     assert checks[2].evidence["Vd"] == 145.0
