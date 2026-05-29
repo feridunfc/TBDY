@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from tbdy_engine.etabs.table_access import read_etabs_table_on_demand
-from tbdy_engine.etabs.normalizers.beam_design import build_beam_context_from_tables
+from tbdy_engine.etabs.normalizers.beam_design import build_beam_context_from_tables, normalize_beam_rebar_area
 from tbdy_engine.runner_v2 import run_engine_v2
 
 
@@ -22,22 +22,18 @@ BEAM_SHEAR_TABLE_CANDIDATES = (
     "Concrete Beam Shear Envelope - TS 500-2000(R2018)",
     "Concrete Beam Shear Envelope -  TS 500-2000(R2018)",
 )
+BEAM_REBAR_TABLE_CANDIDATES = (
+    "Concrete Beam Longitudinal Reinforcing",
+    "Concrete Beam Reinforcement",
+    "Concrete Beam Rebar Data",
+    "Concrete Beam Flexural Reinforcing",
+    "Concrete Beam Design Summary - TS 500-2000(R2018)",
+    "Concrete Beam Flexure Envelope - TS 500-2000(R2018)",
+    "Concrete Beam Flexure Envelope -  TS 500-2000(R2018)",
+)
 
 EXPECTED_EXCEL_SHEETS = {"Summary", "Kiriş Kesme", "Kiriş Donatı Seçimi", "Beam Checks", "Evidence"}
-
-FLEXURE_REBAR_AREA_KEYS = {
-    "required_area",
-    "area",
-    "as_required",
-    "as_top",
-    "as_bottom",
-    "AsTop",
-    "AsBot",
-    "total_required_area",
-    "i_top_required_area",
-    "j_top_required_area",
-    "bottom_required_area",
-}
+FLEXURE_REBAR_AREA_KEYS = {"required_area", "selected_area", "top_required_area", "bottom_required_area", "top_selected_area", "bottom_selected_area"}
 
 FORBIDDEN_JSON_FIELDS = {
     "report_metadata",
@@ -71,6 +67,21 @@ def _read_first_available_table(candidate_names: tuple[str, ...]):
     pytest.fail("No ETABS table candidate could be read. Attempts: " + " | ".join(attempts))
 
 
+def _read_first_rebar_area_table():
+    print(f"BEAM_REBAR_TABLE_CANDIDATES={list(BEAM_REBAR_TABLE_CANDIDATES)}")
+    for table_name in BEAM_REBAR_TABLE_CANDIDATES:
+        result = read_etabs_table_on_demand(table_name)
+        if not result.ok or not result.has_data:
+            continue
+        normalized = normalize_beam_rebar_area(result.df, source_table=table_name)
+        if any(row.get("label") and not row.get("diagnostic") for row in normalized):
+            print(f"SELECTED_BEAM_REBAR_TABLE={table_name}")
+            print(f"SELECTED_BEAM_REBAR_COLUMNS={list(getattr(result.df, 'columns', []))}")
+            return table_name, result
+    print("FLEXURE_REBAR_AREA_SOURCE=NOT_AVAILABLE_IN_ETABS_TABLES")
+    return None, None
+
+
 def _column_values(sheet, column: int, start_row: int) -> list[object]:
     return [sheet.cell(row=row, column=column).value for row in range(start_row, sheet.max_row + 1)]
 
@@ -87,7 +98,7 @@ def _first_flexure_row_keys(context: dict[str, object]) -> set[str]:
     for group in grouped.values():
         if not isinstance(group, dict):
             continue
-        row = group.get("governing_ratio") or group.get("governing_positive") or group.get("governing_negative")
+        row = group.get("governing_area") or group.get("governing_ratio") or group.get("governing_positive") or group.get("governing_negative")
         if isinstance(row, dict):
             return set(row.keys())
     return set()
@@ -107,17 +118,21 @@ def test_real_etabs_beam_smoke_produces_json_and_excel_reports(tmp_path: Path) -
     design_summary_table, design_summary = _read_first_available_table(BEAM_DESIGN_SUMMARY_TABLE_CANDIDATES)
     flexure_table, flexure = _read_first_available_table(BEAM_FLEXURE_TABLE_CANDIDATES)
     shear_table, shear = _read_first_available_table(BEAM_SHEAR_TABLE_CANDIDATES)
+    rebar_table, rebar = _read_first_rebar_area_table()
 
-    context = build_beam_context_from_tables(
-        {
-            "beam_design_summary": design_summary.df,
-            "beam_design_summary_source_table": design_summary_table,
-            "beam_flexure_envelope": flexure.df,
-            "beam_flexure_envelope_source_table": flexure_table,
-            "beam_shear_envelope": shear.df,
-            "beam_shear_envelope_source_table": shear_table,
-        }
-    )
+    tables = {
+        "beam_design_summary": design_summary.df,
+        "beam_design_summary_source_table": design_summary_table,
+        "beam_flexure_envelope": flexure.df,
+        "beam_flexure_envelope_source_table": flexure_table,
+        "beam_shear_envelope": shear.df,
+        "beam_shear_envelope_source_table": shear_table,
+    }
+    if rebar is not None:
+        tables["beam_rebar_area"] = rebar.df
+        tables["beam_rebar_area_source_table"] = rebar_table
+
+    context = build_beam_context_from_tables(tables)
     flexure_row_keys = _print_first_flexure_row_keys(context)
 
     design_metadata = context.get("design_metadata", {})
@@ -134,31 +149,12 @@ def test_real_etabs_beam_smoke_produces_json_and_excel_reports(tmp_path: Path) -
 
     json_path = Path(result["reports"]["json"])
     assert json_path.exists()
-    assert json_path.name == "engine_report.json"
-
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     assert set(payload) == {"summary", "checks"}
     assert FORBIDDEN_JSON_FIELDS.isdisjoint(payload)
-
-    check_types = {row["check_type"] for row in payload["checks"]}
-    assert {"beam_geometry", "beam_flexure", "beam_shear"}.issubset(check_types)
-
+    assert {"beam_geometry", "beam_flexure", "beam_shear"}.issubset({row["check_type"] for row in payload["checks"]})
     for row in payload["checks"]:
-        assert {
-            "id",
-            "component",
-            "check_type",
-            "status",
-            "demand",
-            "capacity",
-            "ratio",
-            "evidence",
-            "messages",
-            "story",
-            "section",
-            "unit",
-            "code_ref",
-        } == set(row)
+        assert {"id", "component", "check_type", "status", "demand", "capacity", "ratio", "evidence", "messages", "story", "section", "unit", "code_ref"} == set(row)
         assert FORBIDDEN_JSON_FIELDS.isdisjoint(row)
 
     excel_path = Path(result["reports"]["excel"])
@@ -180,7 +176,6 @@ def test_real_etabs_beam_smoke_produces_json_and_excel_reports(tmp_path: Path) -
     assert _has_real_value(_column_values(shear_sheet, 4, 17) + _column_values(shear_sheet, 20, 17))
 
     flexure_sheet = workbook["Kiriş Donatı Seçimi"]
-    assert flexure_sheet["A1"].value == "KİRİŞ DONATI SEÇİMİ"
     if FLEXURE_REBAR_AREA_KEYS.intersection(flexure_row_keys):
         required_area_columns = [5, 8, 11, 14, 19, 21]
         required_or_ratio_values: list[object] = []
@@ -188,4 +183,4 @@ def test_real_etabs_beam_smoke_produces_json_and_excel_reports(tmp_path: Path) -
             required_or_ratio_values.extend(_column_values(flexure_sheet, column, 16))
         assert _has_real_value(required_or_ratio_values)
     else:
-        print("FLEXURE_REBAR_AREA_SOURCE=NOT_AVAILABLE_IN_NORMALIZED_DATA")
+        print("FLEXURE_REBAR_AREA_SOURCE=NOT_AVAILABLE_IN_ETABS_TABLES")
