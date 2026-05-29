@@ -11,6 +11,7 @@ Task history:
 - `SPRINT 3B — RUNNER TO PACKAGE SEAM`
 - `SPRINT 3C — CONTRACT / MODULE PATH ALIGNMENT`
 - `SPRINT 4A — TARGETED DRY RUN / REPORT ARTIFACT PROOF`
+- `SPRINT 4B — REAL ETABS SMOKE PREP / ENTRYPOINT PROOF`
 
 Scope remains beam runtime closure preparation only. No real ETABS proof claimed. No ARCH-X touched. No contracts expanded.
 
@@ -21,13 +22,17 @@ Identified active/minimal beam closure candidates:
 - `tbdy_engine/etabs/table_access.py`
   - Active ETABS table access boundary.
   - Reads one requested ETABS table through existing ETABS connection/table reader.
+  - Real smoke documented via `read_etabs_table_on_demand(table_name)`.
 - `tbdy_engine/etabs/connection.py`
   - Active ETABS COM connection dependency used by table access.
+  - Real smoke documented via `check_etabs_connection()` and `get_sap()`.
 - `tbdy_engine/etabs/table_reader.py`
   - Active low-level table DataFrame reader dependency used by table access.
+  - Real smoke documented via `get_table_df(table_name, ...)`.
 - `tbdy_engine/etabs/normalizers/beam_design.py`
   - Active beam table normalizer candidate.
   - Contains beam design summary, flexure envelope, and shear envelope normalization.
+  - Real smoke documented via `build_beam_context_from_tables(...)`.
 - `tbdy_engine/design/beams/evaluation_package.py`
   - Sprint 3A active minimal `BeamEvaluationPackage` path.
   - Defines frozen `BeamEvaluationPackage` and `BeamCheckEvaluation`.
@@ -52,12 +57,19 @@ Identified active/minimal beam closure candidates:
   - Sprint 1B updated the runner/report seam to call `ReportingFacade(self.report_dir).generate(checks)`.
   - Sprint 3B preserves package tuple outputs from evaluators and flattens `eval_results["results"]` into `{"packages": [...]}` for `CheckAdapter.adapt_all`.
   - Return `reports` payload contains only `json` and `excel`.
+  - Real smoke documented via `run_engine_v2(context, report_dir="reports_out")`.
 - `tbdy_engine/contracts/evaluations.yaml`
   - Sprint 3C aligned `BEAM_DESIGN.module` to `tbdy_engine.design.beams.evaluation_package.BeamDesignModule`.
   - `BEAM_DESIGN.method` remains `run`.
 - `tbdy_engine/contracts/checks.yaml`
   - Current check mapping source for beam check ids.
   - Kept active only as a compatibility map until the minimal beam closure path is made explicit.
+- `docs/BEAM_RUNTIME_SMOKE.md`
+  - Sprint 4B real ETABS smoke preparation document.
+  - Documents callable sequence, prerequisites, expected artifacts, runtime path, pass/fail criteria, and unproven items.
+- `tests/test_real_etabs_smoke_entrypoint.py`
+  - Sprint 4B smoke entrypoint proof test.
+  - Does not connect to ETABS or use COM automation.
 - `tests/test_runner_v2_artifact_proof.py`
   - Sprint 4A targeted dry-run artifact proof test.
 - `tests/test_runner_v2_beam_module_path.py`
@@ -119,7 +131,7 @@ Archive meaning: not imported by active runtime, not used by `runner_v2`, not us
 - `tbdy_engine/runner_v2.py`
   - Still imports `EngineContractLoader`, `EngineContractValidator`, `DatasetValidator`, `EvaluationDAG`, `RuntimeScheduler`.
   - Still returns `evaluation_errors`, `evaluation_skipped`, `execution_order`, `cache_stats` outside the report payload.
-  - Report seam, package seam, and targeted artifact proof are covered by unit tests; scheduler/DAG cleanup remains out of scope.
+  - Report seam, package seam, targeted artifact proof, and real-smoke prep imports are covered by tests; scheduler/DAG cleanup remains out of scope.
 - `tbdy_engine/contracts/checks.yaml`
   - Contains columns, SCWB, planned/full checks, hierarchy checks, report outputs, source files, experimental flags, runner enabled flags.
   - Beam closure should only require beam geometry/flexure/shear mapping.
@@ -143,18 +155,18 @@ Confirmed ARCH-X imports are self-contained under `tbdy_engine/archx/**`; they m
   - `TBDYEngineV2.run()`
   - `run_engine_v2(ctx, contracts_dir=None, report_dir=None, include_legacy=False)`
 
-Sprint 4A status: targeted dry-run artifact proof added using minimal beam context and fake scheduler result. No live ETABS validation claimed.
+Sprint 4B status: real ETABS smoke callable sequence documented. No live ETABS validation claimed.
 
 ## 6. Current report entrypoints
 
-Sprint 1/1B/2A/2B/3A/3B/3C/4A status:
+Sprint 1/1B/2A/2B/3A/3B/3C/4A/4B status:
 
 - `tbdy_engine/reports/facade.py`
   - `ReportingFacade.generate(check_results)`
 - `tbdy_engine/reports/json_reporter.py`
-  - `JSONReporter.generate(check_results, output_path="engine_report.json")`
+  - `JSONReporter.generate(check_results, output_path="engine_report.json")`.
 - `tbdy_engine/reports/excel_reporter.py`
-  - `ExcelReporter.generate(check_results, output_path="engine_report.xlsx")`
+  - `ExcelReporter.generate(check_results, output_path="engine_report.xlsx")`.
 
 Reports are CheckResult-only and runner calls them with only `checks`.
 
@@ -236,11 +248,11 @@ Identified functions:
 - `group_beam_shear_rows(rows)`
 - `to_context_namespace(context)`
 
-Status: active candidate. It still outputs context-shaped material. Sprint 3A adds a package builder that can consume the normalized/context-shaped metadata, but live ETABS proof is not claimed.
+Status: active candidate. It outputs context-shaped material consumed by the active beam package builder. Live ETABS proof is not claimed.
 
 ## 11. Next sprint recommendation
 
-Sprint 4B: supervisor-approved real ETABS proof prep, or contract/checks contraction before live proof.
+Sprint 4C or 5A: live ETABS smoke execution on a Windows/ETABS machine, or contract/checks contraction if live ETABS is not available.
 
 Mechanical targets only:
 
