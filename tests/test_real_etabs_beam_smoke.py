@@ -65,6 +65,22 @@ def _has_real_value(values: list[object]) -> bool:
     return any(value not in (None, "", "NO_DATA") for value in values)
 
 
+def _print_first_flexure_row_keys(context: dict[str, object]) -> None:
+    design_metadata = context.get("design_metadata", {})
+    grouped = design_metadata.get("beam_flexure_grouped", {}) if isinstance(design_metadata, dict) else {}
+    if not isinstance(grouped, dict):
+        print("NORMALIZED_FLEXURE_ROW_KEYS=[]")
+        return
+    for group in grouped.values():
+        if not isinstance(group, dict):
+            continue
+        row = group.get("governing_ratio") or group.get("governing_positive") or group.get("governing_negative")
+        if isinstance(row, dict):
+            print(f"NORMALIZED_FLEXURE_ROW_KEYS={sorted(row.keys())}")
+            return
+    print("NORMALIZED_FLEXURE_ROW_KEYS=[]")
+
+
 @pytest.mark.real_etabs
 def test_real_etabs_beam_smoke_produces_json_and_excel_reports(tmp_path: Path) -> None:
     _require_real_etabs_enabled()
@@ -84,6 +100,7 @@ def test_real_etabs_beam_smoke_produces_json_and_excel_reports(tmp_path: Path) -
             "beam_shear_envelope_source_table": shear_table,
         }
     )
+    _print_first_flexure_row_keys(context)
 
     design_metadata = context.get("design_metadata", {})
     assert design_metadata.get("beam_design_summary_rows")
