@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass, is_dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Mapping
 
 
 _SOURCE_RE = re.compile(r"(?:^|[|,;\s])source\s*=\s*([A-Za-z0-9_:\-./]+)")
@@ -32,41 +32,23 @@ def _model_to_dict(obj: Any) -> Dict[str, Any]:
     return {}
 
 
-def _optional_string(value: Any) -> str | None:
-    if value in (None, ""):
-        return None
-    return str(value)
-
-
-@dataclass
+@dataclass(frozen=True)
 class CheckResult:
-    check_id: str
-    check_name: str
-    evaluation: str
+    id: str
+    component: str
+    check_type: str
     status: str
-    ratio: float = 0.0
-    value: float = 0.0
-    limit: float = 0.0
-    unit: str = ""
-    message: str = ""
-    tbdy_ref: str = "N/A"
-    evaluation_level: str = "NOT_EVALUATED"
-    action: str = ""
-    source: str = ""
-    element_label: str = ""
-    story: str = ""
-    severity: str = "MEDIUM"
-    category: str = "UNCATEGORIZED"
-    report_section: str = ""
-    experimental: bool = False
-    runner_enabled: bool = True
-    legacy_contract_id: str = ""
-    legacy_canonical_check_name: str = ""
-    governing_combo: str | None = None
-    combo_family: str | None = None
-    evidence: Any | None = None
+    demand: float | None
+    capacity: float | None
+    ratio: float | None
+    evidence: Mapping[str, object]
+    messages: tuple[str, ...]
+    story: str | None = None
+    section: str | None = None
+    unit: str | None = None
+    code_ref: str | None = None
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -176,32 +158,23 @@ class CheckAdapter:
             status = "WARNING"
             message = (message + " | Approximate/screening OK downgraded to WARNING.").strip()
 
+        check_type = str(check_def.get("id", "") or "")
+        component = str(data.get("element_label") or data.get("label") or data.get("member") or "")
+        story = _optional_string(data.get("story"))
         return CheckResult(
-            check_id=check_def.get("id", ""),
-            check_name=used_field,
-            evaluation=check_def.get("evaluation", ""),
+            id=self._result_id(check_type, component, story, used_field),
+            component=component,
+            check_type=check_type,
             status=status,
-            ratio=self._safe_float(data.get("ratio", 0.0)),
-            value=self._safe_float(data.get("value", 0.0)),
-            limit=self._safe_float(data.get("limit", 0.0)),
-            unit=str(data.get("unit", "") or ""),
-            message=message,
-            tbdy_ref=str(check_def.get("tbdy_ref", "N/A") or "N/A"),
-            evaluation_level=evaluation_level,
-            action=str(data.get("action", "") or ""),
-            source=source,
-            element_label=str(data.get("element_label") or data.get("label") or data.get("member") or ""),
-            story=str(data.get("story", "") or ""),
-            severity=str(check_def.get("severity", "MEDIUM") or "MEDIUM"),
-            category=str(check_def.get("category", "UNCATEGORIZED") or "UNCATEGORIZED"),
-            report_section=str(check_def.get("report_section", "") or ""),
-            experimental=bool(check_def.get("experimental", False)),
-            runner_enabled=bool(check_def.get("runner_enabled", True)),
-            legacy_contract_id=str(check_def.get("legacy_contract_id", "") or ""),
-            legacy_canonical_check_name=str(check_def.get("legacy_canonical_check_name", "") or ""),
-            governing_combo=_optional_string(data.get("governing_combo")),
-            combo_family=_optional_string(data.get("combo_family")),
-            evidence=data.get("evidence") if data.get("evidence") not in (None, "") else None,
+            demand=self._optional_float(data.get("value")),
+            capacity=self._optional_float(data.get("limit")),
+            ratio=self._optional_float(data.get("ratio")),
+            evidence=self._evidence_mapping(data),
+            messages=self._messages(message, data.get("action")),
+            story=story,
+            section=_optional_string(data.get("section")),
+            unit=_optional_string(data.get("unit")),
+            code_ref=str(check_def.get("tbdy_ref", "N/A") or "N/A"),
         )
 
     def _infer_source(self, data: Dict[str, Any], message: str) -> str:
@@ -259,45 +232,67 @@ class CheckAdapter:
         return "NOT_EVALUATED"
 
     def _no_data_result(self, check_def: Dict[str, Any], message: str) -> CheckResult:
+        check_type = str(check_def.get("id", "") or "")
+        field = str(check_def.get("evaluation_field", "") or "")
         return CheckResult(
-            check_id=check_def.get("id", ""),
-            check_name=check_def.get("evaluation_field", ""),
-            evaluation=check_def.get("evaluation", ""),
+            id=self._result_id(check_type, "", None, field),
+            component="",
+            check_type=check_type,
             status="NO_DATA",
-            message=message,
-            tbdy_ref=str(check_def.get("tbdy_ref", "N/A") or "N/A"),
-            evaluation_level="NO_DATA",
-            severity=str(check_def.get("severity", "MEDIUM") or "MEDIUM"),
-            category=str(check_def.get("category", "UNCATEGORIZED") or "UNCATEGORIZED"),
-            report_section=str(check_def.get("report_section", "") or ""),
-            experimental=bool(check_def.get("experimental", False)),
-            runner_enabled=bool(check_def.get("runner_enabled", True)),
-            legacy_contract_id=str(check_def.get("legacy_contract_id", "") or ""),
-            legacy_canonical_check_name=str(check_def.get("legacy_canonical_check_name", "") or ""),
+            demand=None,
+            capacity=None,
+            ratio=None,
+            evidence={},
+            messages=(message,),
+            story=None,
+            section=None,
+            unit=None,
+            code_ref=str(check_def.get("tbdy_ref", "N/A") or "N/A"),
         )
 
     def _error_result(self, check_def: Dict[str, Any], error: str) -> CheckResult:
+        check_type = str(check_def.get("id", "") or "")
+        field = str(check_def.get("evaluation_field", "") or "")
         return CheckResult(
-            check_id=check_def.get("id", ""),
-            check_name=check_def.get("evaluation_field", ""),
-            evaluation=check_def.get("evaluation", ""),
+            id=self._result_id(check_type, "", None, field),
+            component="",
+            check_type=check_type,
             status="ERROR",
-            message=str(error),
-            tbdy_ref=str(check_def.get("tbdy_ref", "N/A") or "N/A"),
-            evaluation_level="ERROR",
-            severity=str(check_def.get("severity", "HIGH") or "HIGH"),
-            category=str(check_def.get("category", "UNCATEGORIZED") or "UNCATEGORIZED"),
-            report_section=str(check_def.get("report_section", "") or ""),
-            experimental=bool(check_def.get("experimental", False)),
-            runner_enabled=bool(check_def.get("runner_enabled", True)),
-            legacy_contract_id=str(check_def.get("legacy_contract_id", "") or ""),
-            legacy_canonical_check_name=str(check_def.get("legacy_canonical_check_name", "") or ""),
+            demand=None,
+            capacity=None,
+            ratio=None,
+            evidence={},
+            messages=(str(error),),
+            story=None,
+            section=None,
+            unit=None,
+            code_ref=str(check_def.get("tbdy_ref", "N/A") or "N/A"),
         )
 
-    def _safe_float(self, value: Any) -> float:
+    def _optional_float(self, value: Any) -> float | None:
         try:
             if value in (None, ""):
-                return 0.0
+                return None
             return float(value)
         except Exception:
-            return 0.0
+            return None
+
+    def _messages(self, *values: Any) -> tuple[str, ...]:
+        messages = tuple(str(value).strip() for value in values if str(value or "").strip())
+        return messages
+
+    def _evidence_mapping(self, data: Dict[str, Any]) -> Mapping[str, object]:
+        evidence = data.get("evidence")
+        if isinstance(evidence, Mapping):
+            return evidence
+        return {}
+
+    def _result_id(self, check_type: str, component: str, story: str | None, field: str) -> str:
+        parts = [check_type, component, story or "", field]
+        return ":".join(part for part in parts if part)
+
+
+def _optional_string(value: Any) -> str | None:
+    if value in (None, ""):
+        return None
+    return str(value)
