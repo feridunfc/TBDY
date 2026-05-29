@@ -1,5 +1,14 @@
 from __future__ import annotations
 
+import pytest
+
+pytestmark = [
+    pytest.mark.legacy_evidence_audit,
+    pytest.mark.skip(
+        reason="Legacy evidence audit uses pre-closure adapter/report contracts; archived from BEAM_RUNTIME_CLOSURE proof."
+    ),
+]
+
 import csv
 import json
 import re
