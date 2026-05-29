@@ -1,92 +1,49 @@
 from __future__ import annotations
 
 import json
-import shutil
-from collections import Counter
-from datetime import datetime
+from dataclasses import asdict, is_dataclass
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Sequence
 
 
 class JSONReporter:
-    def __init__(self, write_history: bool = True) -> None:
-        self.write_history = write_history
-        self.last_snapshot_path: str | None = None
-
-    def generate(self, checks, eval_results, runtime_catalog=None, output_path="engine_report.json", planned_report=None) -> str:
-        payload = self.build_payload(checks, eval_results, runtime_catalog=runtime_catalog, planned_report=planned_report)
+    def generate(self, check_results: Sequence[Any], output_path="engine_report.json") -> str:
+        payload = self.build_payload(check_results)
         path = Path(output_path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
-
-        self.last_snapshot_path = None
-        if self.write_history:
-            history_dir = path.parent / "history"
-            history_dir.mkdir(parents=True, exist_ok=True)
-            timestamp = payload["report_metadata"]["generated_at_compact"]
-            snapshot = history_dir / f"{timestamp}_{path.name}"
-            shutil.copy2(path, snapshot)
-            self.last_snapshot_path = str(snapshot)
-
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True, default=str), encoding="utf-8")
         return str(path)
 
-    def build_payload(self, checks, eval_results, runtime_catalog=None, planned_report=None) -> Dict[str, Any]:
-        generated_at = datetime.now().isoformat(timespec="seconds")
-        generated_at_compact = datetime.now().strftime("%Y%m%d_%H%M%S")
-        report_metadata = {
-            "schema": "engine_report.v1.1",
-            "generated_at": generated_at,
-            "generated_at_compact": generated_at_compact,
-            "runtime_bridge": "Genesis Runtime Bridge v1.1",
-        }
-        if planned_report is not None:
-            report_metadata["report_contract"] = self._report_contract_metadata(planned_report)
-
+    def build_payload(self, check_results: Sequence[Any]) -> Dict[str, Any]:
+        checks = list(check_results)
         return {
-            "report_metadata": report_metadata,
             "summary": {
                 "total_checks": len(checks),
-                "ok": sum(1 for c in checks if c.status == "OK"),
-                "fail": sum(1 for c in checks if c.status == "FAIL"),
-                "warning": sum(1 for c in checks if c.status == "WARNING"),
-                "no_data": sum(1 for c in checks if c.status == "NO_DATA"),
-                "error": sum(1 for c in checks if c.status == "ERROR"),
+                "ok": sum(1 for c in checks if _status(c) == "OK"),
+                "fail": sum(1 for c in checks if _status(c) == "FAIL"),
+                "warning": sum(1 for c in checks if _status(c) == "WARNING"),
+                "no_data": sum(1 for c in checks if _status(c) == "NO_DATA"),
+                "error": sum(1 for c in checks if _status(c) == "ERROR"),
             },
-            "checks": [c.to_dict() for c in checks],
-            "evaluation_errors": eval_results.get("errors", {}),
-            "evaluation_skipped": eval_results.get("skipped", {}),
-            "execution_order": eval_results.get("execution_order", []),
-            "cache_stats": eval_results.get("cache_stats", {}),
-            "coverage": self._coverage(checks, eval_results),
-            "distributions": self._distributions(checks),
+            "checks": [_check_to_dict(c) for c in checks],
         }
 
-    def _report_contract_metadata(self, planned_report) -> Dict[str, Any]:
-        return {
-            "report_id": getattr(planned_report, "report_id", ""),
-            "formats": list(getattr(planned_report, "formats", ())),
-            "sections": list(getattr(planned_report, "sections", ())),
-            "include_fields": list(getattr(planned_report, "include_fields", ())),
-            "metrics": list(getattr(planned_report, "metrics", ())),
-        }
 
-    def _coverage(self, checks, eval_results) -> Dict[str, Any]:
-        ids = sorted(set(c.check_id for c in checks))
-        return {
-            "enabled_check_type_count": len(ids),
-            "enabled_check_types": ids,
-            "detail_result_count": len(checks),
-            "executed_evaluations": sorted((eval_results.get("results") or {}).keys()),
-            "skipped_evaluations": sorted((eval_results.get("skipped") or {}).keys()),
-            "no_data_count": sum(1 for c in checks if c.status == "NO_DATA"),
-            "error_count": sum(1 for c in checks if c.status == "ERROR"),
-        }
+def _status(check: Any) -> str:
+    if isinstance(check, dict):
+        return str(check.get("status", "") or "")
+    return str(getattr(check, "status", "") or "")
 
-    def _distributions(self, checks) -> Dict[str, Any]:
-        return {
-            "by_status": dict(Counter(c.status for c in checks)),
-            "by_check_id": dict(Counter(c.check_id for c in checks)),
-            "by_evaluation_level": dict(Counter(c.evaluation_level for c in checks)),
-            "by_source": dict(Counter((c.source or "<empty>") for c in checks)),
-            "by_category": dict(Counter(c.category for c in checks)),
-        }
+
+def _check_to_dict(check: Any) -> Dict[str, Any]:
+    if hasattr(check, "to_dict") and callable(check.to_dict):
+        value = check.to_dict()
+        if isinstance(value, dict):
+            return dict(value)
+    if is_dataclass(check):
+        return asdict(check)
+    if isinstance(check, dict):
+        return dict(check)
+    if hasattr(check, "__dict__"):
+        return dict(vars(check))
+    raise TypeError(f"Unsupported CheckResult object: {type(check).__name__}")
