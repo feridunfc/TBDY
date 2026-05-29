@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Mapping
 
 import pytest
 
@@ -11,16 +12,19 @@ from tbdy_engine.reports.facade import ReportingFacade
 
 @dataclass(frozen=True)
 class FakeCheckResult:
-    check_id: str
-    element_label: str
-    story: str
+    id: str
+    component: str
+    check_type: str
     status: str
+    demand: float | None
+    capacity: float | None
     ratio: float | None
-    value: float | None
-    limit: float | None
-    unit: str
-    message: str
-    evidence: dict[str, object]
+    evidence: Mapping[str, object]
+    messages: tuple[str, ...]
+    story: str | None = None
+    section: str | None = None
+    unit: str | None = None
+    code_ref: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -29,39 +33,42 @@ class FakeCheckResult:
 def test_reporting_facade_generates_checkresult_only_reports(tmp_path: Path) -> None:
     checks = [
         FakeCheckResult(
-            check_id="beam_geometry",
-            element_label="B1",
+            id="beam_geometry:B1:S1",
+            component="B1",
+            check_type="beam_geometry",
             story="S1",
             status="OK",
             ratio=0.75,
-            value=300.0,
-            limit=250.0,
+            demand=300.0,
+            capacity=250.0,
             unit="mm",
-            message="geometry ok",
+            messages=("geometry ok",),
             evidence={"source_table": "beam_design_summary", "source_row": 1},
         ),
         FakeCheckResult(
-            check_id="beam_flexure",
-            element_label="B1",
+            id="beam_flexure:B1:S1",
+            component="B1",
+            check_type="beam_flexure",
             story="S1",
             status="FAIL",
             ratio=1.2,
-            value=120.0,
-            limit=100.0,
+            demand=120.0,
+            capacity=100.0,
             unit="kNm",
-            message="flexure fail",
+            messages=("flexure fail",),
             evidence={"source_table": "beam_flexure_envelope", "source_row": 2},
         ),
         FakeCheckResult(
-            check_id="beam_shear",
-            element_label="B2",
+            id="beam_shear:B2:S1",
+            component="B2",
+            check_type="beam_shear",
             story="S1",
             status="NO_DATA",
             ratio=None,
-            value=None,
-            limit=None,
+            demand=None,
+            capacity=None,
             unit="kN",
-            message="missing shear",
+            messages=("missing shear",),
             evidence={"source_table": "beam_shear_envelope", "missing_inputs": ["shear"]},
         ),
     ]
@@ -80,7 +87,7 @@ def test_reporting_facade_generates_checkresult_only_reports(tmp_path: Path) -> 
         "no_data": 1,
         "error": 0,
     }
-    assert [row["check_id"] for row in payload["checks"]] == ["beam_geometry", "beam_flexure", "beam_shear"]
+    assert [row["check_type"] for row in payload["checks"]] == ["beam_geometry", "beam_flexure", "beam_shear"]
 
     forbidden_json_fields = {
         "report_metadata",
