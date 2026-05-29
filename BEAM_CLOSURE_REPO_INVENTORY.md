@@ -1,10 +1,11 @@
 # BEAM_CLOSURE_REPO_INVENTORY
 
-Task: `REPO_RESET_FOR_BEAM_RUNTIME_CLOSURE`
+Task history:
 
-Scope: repository preparation only. No beam checks implemented. No runtime behavior changed.
+- `REPO_RESET_FOR_BEAM_RUNTIME_CLOSURE`
+- `SPRINT 1 — REPORT AMPUTATION`
 
-Source instruction: preserve old repo, create a reduced active working area, quarantine drift/platform paths, and prepare the next sprint for report amputation.
+Scope remains beam runtime closure preparation only. No beam checks implemented. No ARCH-X touched. No contracts expanded.
 
 ## 1. Active files kept
 
@@ -24,20 +25,22 @@ Identified active/minimal beam closure candidates:
   - Current CheckAdapter and CheckResult definition path.
   - Kept active for now, but suspicious because CheckResult is mutable and carries legacy/runtime/report fields.
 - `tbdy_engine/reports/json_reporter.py`
-  - Current JSON reporter entrypoint.
-  - Kept active for next sprint report amputation.
+  - Sprint 1 amputated to `JSONReporter().generate(check_results, output_path="engine_report.json")`.
+  - Emits only `summary` and `checks`.
 - `tbdy_engine/reports/excel_reporter.py`
-  - Current Excel reporter entrypoint.
-  - Kept active for next sprint report amputation.
+  - Sprint 1 amputated to `ExcelReporter().generate(check_results, output_path="engine_report.xlsx")`.
+  - Emits only `Summary` and `Checks` sheets.
 - `tbdy_engine/reports/facade.py`
-  - Current ReportingFacade entrypoint.
-  - Kept active for next sprint report amputation.
+  - Sprint 1 amputated to `ReportingFacade(report_dir).generate(check_results)`.
+  - Does not read runtime catalog or report contracts.
 - `tbdy_engine/contracts/checks.yaml`
   - Current check mapping source for beam check ids.
   - Kept active only as a compatibility map until the minimal beam closure path is made explicit.
 - `tbdy_engine/runner_v2.py`
   - Current runner entrypoint/composition root candidate.
-  - Suspicious: currently imports contracts, dataset validator, EvaluationDAG, RuntimeScheduler, runtime catalog, and passes eval_results/runtime_catalog into reports.
+  - Still suspicious and expected to require integration after Sprint 1 because it still calls the old report API.
+- `tests/test_reports_checkresult_only.py`
+  - Sprint 1 report-only boundary test.
 - `tests/test_etabs_beam_normalizer.py`
   - Minimal beam normalizer test candidate, identified from merged PR metadata.
 - `tests/test_runner_v2_live_etabs_beams.py`
@@ -45,7 +48,7 @@ Identified active/minimal beam closure candidates:
 
 ## 2. Archived files moved/quarantined
 
-Physical source files were not moved in this preparation commit. Instead, branch-equivalent quarantine markers were created:
+Physical source files were not moved in the repo reset preparation. Branch-equivalent quarantine markers exist:
 
 - `_active/README.md`
 - `_archive/README.md`
@@ -76,25 +79,14 @@ Paths/concepts to treat as archived/inactive for `BEAM_RUNTIME_CLOSURE`:
 - audit persistence
 - generic governance/runtime platform layers
 
-Archive meaning for next sprint: not imported by active runtime, not used by `runner_v2`, not used by reports, and not used by minimal beam/report tests.
+Archive meaning: not imported by active runtime, not used by `runner_v2`, not used by reports, and not used by minimal beam/report tests.
 
 ## 3. Files still suspicious
 
 - `tbdy_engine/runner_v2.py`
   - Imports `EngineContractLoader`, `EngineContractValidator`, `DatasetValidator`, `EvaluationDAG`, `RuntimeScheduler`.
   - Returns `evaluation_errors`, `evaluation_skipped`, `execution_order`, `cache_stats`.
-  - Calls `ReportingFacade.generate(checks, eval_results, runtime_catalog=...)`.
-- `tbdy_engine/reports/json_reporter.py`
-  - Accepts `eval_results` and `runtime_catalog`.
-  - Emits `runtime_bridge`, `report_contract`, `evaluation_errors`, `evaluation_skipped`, `execution_order`, `cache_stats`, `coverage`, `distributions`.
-  - Writes history snapshots.
-- `tbdy_engine/reports/excel_reporter.py`
-  - Accepts `eval_results` and `planned_report`.
-  - Emits `Eval_Skipped`, `Eval_Errors`, and `Report_Contract` sheets.
-  - Writes history snapshots.
-- `tbdy_engine/reports/facade.py`
-  - Requires `runtime_catalog` and report planner/contract data.
-  - Imports `ActionSummaryBuilder`, `ReportPlan`, `ReportPlanner`.
+  - Still calls `ReportingFacade.generate(checks, eval_results, runtime_catalog=...)` and will need a later integration sprint.
 - `tbdy_engine/adapters/check_adapter.py`
   - `CheckResult` is not frozen.
   - Contains fields outside the target minimal shape: `evaluation`, `check_name`, `evaluation_level`, `source`, `experimental`, `runner_enabled`, `legacy_contract_id`, `legacy_canonical_check_name`, `combo_family`, `governing_combo`.
@@ -121,56 +113,26 @@ Confirmed ARCH-X imports are self-contained under `tbdy_engine/archx/**`; they m
   - `TBDYEngineV2.run()`
   - `run_engine_v2(ctx, contracts_dir=None, report_dir=None, include_legacy=False)`
 
-Current issue: this is still a Genesis Runtime Bridge / scheduler/DAG composition root, not the minimal boring beam runtime composition root.
+Current issue: this is still a Genesis Runtime Bridge / scheduler/DAG composition root, not the minimal boring beam runtime composition root. It also still expects the old report facade API.
 
 ## 6. Current report entrypoints
 
-- `tbdy_engine/reports/facade.py`
-  - `ReportingFacade.generate(checks, eval_results, *, runtime_catalog)`
-- `tbdy_engine/reports/json_reporter.py`
-  - `JSONReporter.generate(checks, eval_results, runtime_catalog=None, output_path="engine_report.json", planned_report=None)`
-- `tbdy_engine/reports/excel_reporter.py`
-  - `ExcelReporter.generate(checks, eval_results, output_path="engine_report.xlsx", planned_report=None)`
+Sprint 1 status:
 
-Current issue: reporters are not CheckResult-only.
+- `tbdy_engine/reports/facade.py`
+  - `ReportingFacade.generate(check_results)`
+- `tbdy_engine/reports/json_reporter.py`
+  - `JSONReporter.generate(check_results, output_path="engine_report.json")`
+- `tbdy_engine/reports/excel_reporter.py`
+  - `ExcelReporter.generate(check_results, output_path="engine_report.xlsx")`
+
+Reports are now prepared as CheckResult-only. Runner integration is not updated in this sprint by instruction.
 
 ## 7. Current CheckResult definition path
 
 - `tbdy_engine/adapters/check_adapter.py`
 
-Current shape is mutable:
-
-```python
-@dataclass
-class CheckResult:
-    check_id: str
-    check_name: str
-    evaluation: str
-    status: str
-    ratio: float = 0.0
-    value: float = 0.0
-    limit: float = 0.0
-    unit: str = ""
-    message: str = ""
-    tbdy_ref: str = "N/A"
-    evaluation_level: str = "NOT_EVALUATED"
-    action: str = ""
-    source: str = ""
-    element_label: str = ""
-    story: str = ""
-    severity: str = "MEDIUM"
-    category: str = "UNCATEGORIZED"
-    report_section: str = ""
-    experimental: bool = False
-    runner_enabled: bool = True
-    legacy_contract_id: str = ""
-    legacy_canonical_check_name: str = ""
-    governing_combo: str | None = None
-    combo_family: str | None = None
-    evidence: Any | None = None
-```
-
-Status: not canonical for target. Do not fully refactor in repo reset; prepare next sprint.
+Current shape is mutable and still not canonical for the final target. Do not fully refactor until the CheckResult sprint.
 
 ## 8. Current BeamEvaluationPackage definition path
 
@@ -209,30 +171,13 @@ Status: active candidate. It still outputs context-shaped material rather than `
 
 ## 11. Next sprint recommendation
 
-Sprint 1: Report Amputation.
+Sprint 2: Runner/report integration seam.
 
 Mechanical target only:
 
-1. Change `ReportingFacade.generate(...)` to accept only `check_results`.
-2. Change `JSONReporter.generate(...)` / `build_payload(...)` to accept only `check_results`.
-3. Remove JSON payload fields:
-   - `runtime_bridge`
-   - `report_contract`
-   - `evaluation_errors`
-   - `evaluation_skipped`
-   - `execution_order`
-   - `cache_stats`
-   - `coverage`
-   - `distributions`
-4. Change `ExcelReporter.generate(...)` to accept only `check_results`.
-5. Remove Excel sheets:
-   - `Eval_Skipped`
-   - `Eval_Errors`
-   - `Report_Contract`
-6. Keep output filenames:
-   - `engine_report.json`
-   - `engine_report.xlsx`
-7. Do not implement beam checks in Sprint 1.
-8. Do not redesign `CheckResult` yet unless required for report-only boundary.
+1. Update the current runner call site so it passes only `CheckResult[]` into `ReportingFacade.generate(check_results)`.
+2. Do not reintroduce `eval_results`, `runtime_catalog`, report contracts, coverage, distributions, cache stats, history, or execution order into reports.
+3. Keep scheduler/DAG frozen unless the supervisor explicitly authorizes removal.
+4. Do not implement beam checks until the report boundary stays green.
 
 Production claim: `BEAM_RUNTIME_CLOSURE = NOT CLAIMED`.
