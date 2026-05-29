@@ -23,6 +23,8 @@ BEAM_SHEAR_TABLE_CANDIDATES = (
     "Concrete Beam Shear Envelope -  TS 500-2000(R2018)",
 )
 
+EXPECTED_EXCEL_SHEETS = {"Summary", "Kiriş Kesme", "Kiriş Donatı Seçimi", "Beam Checks", "Evidence"}
+
 FORBIDDEN_JSON_FIELDS = {
     "report_metadata",
     "runtime_bridge",
@@ -123,8 +125,10 @@ def test_real_etabs_beam_smoke_produces_json_and_excel_reports(tmp_path: Path) -
     import openpyxl
 
     workbook = openpyxl.load_workbook(excel_path)
-    assert set(workbook.sheetnames) == {"Summary", "Checks"}
+    assert set(workbook.sheetnames) == EXPECTED_EXCEL_SHEETS
     assert "Eval_Skipped" not in workbook.sheetnames
     assert "Eval_Errors" not in workbook.sheetnames
     assert "Report_Contract" not in workbook.sheetnames
     assert "Details" not in workbook.sheetnames
+    assert workbook["Kiriş Kesme"]["A1"].value == "KİRİŞ KESME KAPASİTE HESABI"
+    assert workbook["Kiriş Donatı Seçimi"]["A1"].value == "KİRİŞ DONATI SEÇİMİ"
