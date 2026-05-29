@@ -17,15 +17,29 @@ _TABLE_CANDIDATES = {
         "Frame Section Properties - Concrete Rectangular",
         "Concrete Rectangular Frame Sections",
         "Frame Section Property Definitions - Summary",
+        "Frame Sec Rect",
     ],
     "assignments": [
         "Frame Assignments - Section Properties",
         "Frame Assignments - Section Property",
         "Frame Section Assignments",
         "Assignments - Frame Sections",
+        "Frame Assign Sections",
     ],
-    "beam_connectivity": ["Beam Object Connectivity", "Connectivity - Beam", "Object Connectivity - Beams", "Connectivity - Frame"],
-    "column_connectivity": ["Column Object Connectivity", "Connectivity - Column", "Object Connectivity - Columns", "Connectivity - Frame"],
+    "beam_connectivity": [
+        "Beam Object Connectivity",
+        "Connectivity - Beam",
+        "Object Connectivity - Beams",
+        "Connectivity - Frame",
+        "Beam Connectivity",
+    ],
+    "column_connectivity": [
+        "Column Object Connectivity",
+        "Connectivity - Column",
+        "Object Connectivity - Columns",
+        "Connectivity - Frame",
+        "Column Connectivity",
+    ],
     "story_drifts": ["Story Drifts", "Story Drift", "Story Max Over Avg Drifts"],
 }
 
