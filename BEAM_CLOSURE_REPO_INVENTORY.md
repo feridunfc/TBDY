@@ -10,6 +10,7 @@ Task history:
 - `SPRINT 3A — ACTIVE BEAM EVALUATION PACKAGE`
 - `SPRINT 3B — RUNNER TO PACKAGE SEAM`
 - `SPRINT 3C — CONTRACT / MODULE PATH ALIGNMENT`
+- `SPRINT 4A — TARGETED DRY RUN / REPORT ARTIFACT PROOF`
 
 Scope remains beam runtime closure preparation only. No real ETABS proof claimed. No ARCH-X touched. No contracts expanded.
 
@@ -57,6 +58,8 @@ Identified active/minimal beam closure candidates:
 - `tbdy_engine/contracts/checks.yaml`
   - Current check mapping source for beam check ids.
   - Kept active only as a compatibility map until the minimal beam closure path is made explicit.
+- `tests/test_runner_v2_artifact_proof.py`
+  - Sprint 4A targeted dry-run artifact proof test.
 - `tests/test_runner_v2_beam_module_path.py`
   - Sprint 3C module path alignment test.
 - `tests/test_runner_v2_beam_package_seam.py`
@@ -116,7 +119,7 @@ Archive meaning: not imported by active runtime, not used by `runner_v2`, not us
 - `tbdy_engine/runner_v2.py`
   - Still imports `EngineContractLoader`, `EngineContractValidator`, `DatasetValidator`, `EvaluationDAG`, `RuntimeScheduler`.
   - Still returns `evaluation_errors`, `evaluation_skipped`, `execution_order`, `cache_stats` outside the report payload.
-  - Report seam is fixed and package seam is proven by unit test; scheduler/DAG cleanup remains out of scope.
+  - Report seam, package seam, and targeted artifact proof are covered by unit tests; scheduler/DAG cleanup remains out of scope.
 - `tbdy_engine/contracts/checks.yaml`
   - Contains columns, SCWB, planned/full checks, hierarchy checks, report outputs, source files, experimental flags, runner enabled flags.
   - Beam closure should only require beam geometry/flexure/shear mapping.
@@ -140,11 +143,11 @@ Confirmed ARCH-X imports are self-contained under `tbdy_engine/archx/**`; they m
   - `TBDYEngineV2.run()`
   - `run_engine_v2(ctx, contracts_dir=None, report_dir=None, include_legacy=False)`
 
-Sprint 3B status: package tuple seam fixed/proven without removing scheduler/DAG.
+Sprint 4A status: targeted dry-run artifact proof added using minimal beam context and fake scheduler result. No live ETABS validation claimed.
 
 ## 6. Current report entrypoints
 
-Sprint 1/1B/2A/2B/3A/3B/3C status:
+Sprint 1/1B/2A/2B/3A/3B/3C/4A status:
 
 - `tbdy_engine/reports/facade.py`
   - `ReportingFacade.generate(check_results)`
@@ -237,7 +240,7 @@ Status: active candidate. It still outputs context-shaped material. Sprint 3A ad
 
 ## 11. Next sprint recommendation
 
-Sprint 4A: minimal runtime smoke with static normalized beam context, or supervisor-approved ETABS-to-package proof.
+Sprint 4B: supervisor-approved real ETABS proof prep, or contract/checks contraction before live proof.
 
 Mechanical targets only:
 
