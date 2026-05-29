@@ -8,6 +8,7 @@ Task history:
 - `SPRINT 2A — CANONICAL IMMUTABLE CHECKRESULT`
 - `SPRINT 2B — ADAPTER DUMB-DOWN`
 - `SPRINT 3A — ACTIVE BEAM EVALUATION PACKAGE`
+- `SPRINT 3B — RUNNER TO PACKAGE SEAM`
 
 Scope remains beam runtime closure preparation only. No real ETABS proof claimed. No ARCH-X touched. No contracts expanded.
 
@@ -47,10 +48,13 @@ Identified active/minimal beam closure candidates:
   - Does not read runtime catalog or report contracts.
 - `tbdy_engine/runner_v2.py`
   - Sprint 1B updated the runner/report seam to call `ReportingFacade(self.report_dir).generate(checks)`.
-  - Return `reports` payload now contains only `json` and `excel`.
+  - Sprint 3B preserves package tuple outputs from evaluators and flattens `eval_results["results"]` into `{"packages": [...]}` for `CheckAdapter.adapt_all`.
+  - Return `reports` payload contains only `json` and `excel`.
 - `tbdy_engine/contracts/checks.yaml`
   - Current check mapping source for beam check ids.
   - Kept active only as a compatibility map until the minimal beam closure path is made explicit.
+- `tests/test_runner_v2_beam_package_seam.py`
+  - Sprint 3B runner/package seam test.
 - `tests/test_beam_evaluation_package_active.py`
   - Sprint 3A active package and dumb adapter compatibility test.
 - `tests/test_check_adapter_dumb_mapping.py`
@@ -106,11 +110,13 @@ Archive meaning: not imported by active runtime, not used by `runner_v2`, not us
 - `tbdy_engine/runner_v2.py`
   - Still imports `EngineContractLoader`, `EngineContractValidator`, `DatasetValidator`, `EvaluationDAG`, `RuntimeScheduler`.
   - Still returns `evaluation_errors`, `evaluation_skipped`, `execution_order`, `cache_stats` outside the report payload.
-  - Report seam is fixed; scheduler/DAG cleanup remains out of scope.
-  - Scheduler output is not yet proven to feed package tuples into `CheckAdapter.adapt_all`.
+  - Report seam is fixed and package seam is now proven by unit test; scheduler/DAG cleanup remains out of scope.
 - `tbdy_engine/contracts/checks.yaml`
   - Contains columns, SCWB, planned/full checks, hierarchy checks, report outputs, source files, experimental flags, runner enabled flags.
   - Beam closure should only require beam geometry/flexure/shear mapping.
+- `tbdy_engine/contracts/evaluations.yaml`
+  - Still points `BEAM_DESIGN` at legacy module path `tbdy_engine.design.beams.beam_module.BeamDesignModule`.
+  - Not changed in Sprint 3B because contracts were forbidden.
 
 ## 4. Runtime imports still pointing to archived/drift paths
 
@@ -131,11 +137,11 @@ Confirmed ARCH-X imports are self-contained under `tbdy_engine/archx/**`; they m
   - `TBDYEngineV2.run()`
   - `run_engine_v2(ctx, contracts_dir=None, report_dir=None, include_legacy=False)`
 
-Sprint 1B status: report seam fixed. This is still a Genesis Runtime Bridge / scheduler/DAG composition root, not the final minimal boring beam runtime composition root.
+Sprint 3B status: package tuple seam fixed/proven without removing scheduler/DAG.
 
 ## 6. Current report entrypoints
 
-Sprint 1/1B/2A/2B/3A status:
+Sprint 1/1B/2A/2B/3A/3B status:
 
 - `tbdy_engine/reports/facade.py`
   - `ReportingFacade.generate(check_results)`
@@ -228,15 +234,15 @@ Status: active candidate. It still outputs context-shaped material. Sprint 3A ad
 
 ## 11. Next sprint recommendation
 
-Sprint 3B: runner/package seam.
+Sprint 3C: contract/module path alignment or ETABS-to-package producer seam, depending on supervisor order.
 
-Mechanical target only:
+Mechanical targets only:
 
 1. Keep active `BeamEvaluationPackage` shape unchanged.
 2. Keep canonical `CheckResult` unchanged.
 3. Keep adapter dumb.
-4. Wire scheduler/eval output so `CheckAdapter.adapt_all` receives package tuples cleanly.
+4. Keep reports CheckResult-only.
 5. Do not touch ARCH-X.
-6. Do not claim live ETABS proof yet unless explicitly validated.
+6. Do not claim live ETABS proof unless explicitly validated.
 
 Production claim: `BEAM_RUNTIME_CLOSURE = NOT CLAIMED`.
