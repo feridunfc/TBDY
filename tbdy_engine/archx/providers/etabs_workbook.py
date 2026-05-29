@@ -18,6 +18,7 @@ _TABLE_CANDIDATES = {
         "Concrete Rectangular Frame Sections",
         "Frame Section Property Definitions - Summary",
         "Frame Sec Rect",
+        "Frame Sec Def - Conc Rect",
     ],
     "assignments": [
         "Frame Assignments - Section Properties",
@@ -25,6 +26,7 @@ _TABLE_CANDIDATES = {
         "Frame Section Assignments",
         "Assignments - Frame Sections",
         "Frame Assign Sections",
+        "Frame Assigns - Sect Prop",
     ],
     "beam_connectivity": [
         "Beam Object Connectivity",
@@ -46,16 +48,19 @@ _TABLE_CANDIDATES = {
 _FIELD_ALIASES = {
     "story_id": ["Story", "StoryName", "Name"],
     "height_mm": ["Height", "StoryHeight", "Height_mm"],
-    "section_id": ["Name", "Section", "SectProp", "Property", "SectionName", "AnalysisSect", "DesignSect"],
-    "width_mm": ["t2", "Width", "B", "Width_mm"],
-    "depth_mm": ["t3", "Depth", "H", "Depth_mm"],
+    "section_id": ["Name", "Section", "SectProp", "Property", "SectionName", "AnalysisSect", "DesignSect", "Section Property"],
+    "width_mm": ["Width", "t2", "B", "Width_mm"],
+    "depth_mm": ["Depth", "t3", "H", "Depth_mm"],
+    "design_type": ["Design Type"],
     "element_id": ["UniqueName", "Unique Name", "ObjectUniqueName", "Element", "Frame", "Label"],
-    "label": ["Label", "ObjectLabel", "Frame", "Element"],
-    "assignment_section_id": ["AnalysisSect", "DesignSect", "Section", "SectProp", "Property"],
+    "label": ["Label", "ObjectLabel", "Frame", "Element", "BeamBay", "ColumnBay"],
+    "assignment_section_id": ["Section Property", "AnalysisSect", "DesignSect", "Section", "SectProp", "Property"],
     "assignment_story_id": ["Story", "StoryName"],
     "object_type": ["ObjectType", "Type", "FrameType"],
     "drift_story_id": ["Story", "StoryName"],
     "drift_ratio": ["Drift", "DriftRatio", "Max Drift", "MaxDrift"],
+    "drift_direction": ["Direction"],
+    "drift_output_case": ["Output Case"],
 }
 
 _LAST_DIAGNOSTICS: list[str] = []
@@ -84,6 +89,39 @@ def inspect_etabs_workbook_tables(workbook_path: str | Path) -> dict[str, Any]:
 
 def get_last_provider_diagnostics() -> list[str]:
     return list(_LAST_DIAGNOSTICS)
+
+
+def read_etabs_export_sheet(excel: Any, sheet_name: str) -> pd.DataFrame:
+    raw = pd.read_excel(excel, sheet_name=sheet_name, header=None)
+    if raw.empty:
+        df = pd.DataFrame()
+        df.attrs["sheet_name"] = sheet_name
+        df.attrs["units"] = {}
+        return df
+
+    first_cell = raw.iat[0, 0]
+    first_text = "" if pd.isna(first_cell) else str(first_cell).strip()
+    if first_text.startswith("TABLE:") and len(raw.index) >= 2:
+        headers = [_clean_header(value) for value in raw.iloc[1].tolist()]
+        units_row = raw.iloc[2].tolist() if len(raw.index) >= 3 else [None] * len(headers)
+        data = raw.iloc[3:].copy() if len(raw.index) >= 3 else raw.iloc[2:].copy()
+        data.columns = headers
+        df = data.reset_index(drop=True)
+        units = {
+            header: _clean_unit(unit)
+            for header, unit in zip(headers, units_row)
+            if header and _clean_unit(unit)
+        }
+    else:
+        df = pd.read_excel(excel, sheet_name=sheet_name)
+        df.columns = [_clean_header(col) for col in df.columns]
+        units = {}
+
+    df = _drop_empty_or_unnamed_columns(df)
+    df = df.dropna(how="all").reset_index(drop=True)
+    df.attrs["sheet_name"] = sheet_name
+    df.attrs["units"] = units
+    return df
 
 
 def _build_snapshot_with_diagnostics(
@@ -130,8 +168,11 @@ def _load_tables(path: Path, manifest_path: str | Path | None, diagnostics: list
         if sheet_name not in available_sheets:
             diagnostics.append(f"Mapped sheet not found for {canonical_name}: {sheet_name}")
             continue
-        tables[canonical_name] = pd.read_excel(excel, sheet_name=sheet_name)
-        diagnostics.append(f"Matched {canonical_name}: {sheet_name} rows={len(tables[canonical_name])}")
+        tables[canonical_name] = read_etabs_export_sheet(excel, sheet_name)
+        diagnostics.append(
+            f"Matched {canonical_name}: {sheet_name} rows={len(tables[canonical_name])} "
+            f"columns={list(tables[canonical_name].columns)}"
+        )
     return tables
 
 
@@ -166,11 +207,14 @@ def _build_stories(tables: dict[str, pd.DataFrame], diagnostics: list[str]) -> d
     if df is None:
         diagnostics.append("Stories table missing; story IDs may be inferred from connectivity.")
         return stories
+    story_col = _find_col(df, _FIELD_ALIASES["story_id"])
+    height_col = _find_col(df, _FIELD_ALIASES["height_mm"])
+    _diagnose_missing_columns("stories", df, {"story_id": _FIELD_ALIASES["story_id"], "height_mm": _FIELD_ALIASES["height_mm"]}, diagnostics)
     for _, row in df.iterrows():
-        story_id = _str_value(row, _find_col(df, _FIELD_ALIASES["story_id"]))
+        story_id = _str_value(row, story_col)
         if not story_id:
             continue
-        height = _float_value(row, _find_col(df, _FIELD_ALIASES["height_mm"]))
+        height = _length_mm_value(row, height_col, df)
         stories[story_id] = Story(story_id=story_id, height_mm=height, drift_max_mm=None)
     return stories
 
@@ -184,11 +228,21 @@ def _build_sections(tables: dict[str, pd.DataFrame], diagnostics: list[str]) -> 
     id_col = _find_col(df, _FIELD_ALIASES["section_id"])
     width_col = _find_col(df, _FIELD_ALIASES["width_mm"])
     depth_col = _find_col(df, _FIELD_ALIASES["depth_mm"])
+    _diagnose_missing_columns(
+        "sections",
+        df,
+        {"section_id": _FIELD_ALIASES["section_id"], "width_mm": _FIELD_ALIASES["width_mm"], "depth_mm": _FIELD_ALIASES["depth_mm"]},
+        diagnostics,
+    )
     for _, row in df.iterrows():
         section_id = _str_value(row, id_col)
         if not section_id:
             continue
-        sections[section_id] = Section(section_id=section_id, width_mm=_float_value(row, width_col), depth_mm=_float_value(row, depth_col))
+        sections[section_id] = Section(
+            section_id=section_id,
+            width_mm=_length_mm_value(row, width_col, df),
+            depth_mm=_length_mm_value(row, depth_col, df),
+        )
     return sections
 
 
@@ -202,6 +256,12 @@ def _build_assignments(tables: dict[str, pd.DataFrame], diagnostics: list[str]) 
     section_col = _find_col(df, _FIELD_ALIASES["assignment_section_id"])
     story_col = _find_col(df, _FIELD_ALIASES["assignment_story_id"])
     type_col = _find_col(df, _FIELD_ALIASES["object_type"])
+    _diagnose_missing_columns(
+        "assignments",
+        df,
+        {"element_id": _FIELD_ALIASES["element_id"], "section_id": _FIELD_ALIASES["assignment_section_id"], "story_id": _FIELD_ALIASES["assignment_story_id"]},
+        diagnostics,
+    )
     for _, row in df.iterrows():
         element_id = _str_value(row, id_col)
         if not element_id:
@@ -234,6 +294,12 @@ def _build_elements(
     id_col = _find_col(df, _FIELD_ALIASES["element_id"])
     label_col = _find_col(df, _FIELD_ALIASES["label"])
     story_col = _find_col(df, _FIELD_ALIASES["assignment_story_id"])
+    _diagnose_missing_columns(
+        table_key,
+        df,
+        {"element_id": _FIELD_ALIASES["element_id"], "label": _FIELD_ALIASES["label"], "story_id": _FIELD_ALIASES["assignment_story_id"]},
+        diagnostics,
+    )
     for _, row in df.iterrows():
         element_id = _str_value(row, id_col)
         if not element_id:
@@ -259,6 +325,7 @@ def _apply_story_drifts(stories: dict[str, Story], tables: dict[str, pd.DataFram
         return
     story_col = _find_col(df, _FIELD_ALIASES["drift_story_id"])
     drift_col = _find_col(df, _FIELD_ALIASES["drift_ratio"])
+    _diagnose_missing_columns("story_drifts", df, {"story_id": _FIELD_ALIASES["drift_story_id"], "drift": _FIELD_ALIASES["drift_ratio"]}, diagnostics)
     if story_col is None or drift_col is None:
         diagnostics.append("Story drift table missing required story/drift columns.")
         return
@@ -273,6 +340,19 @@ def _apply_story_drifts(stories: dict[str, Story], tables: dict[str, pd.DataFram
             stories[story_id] = Story(story_id=story.story_id, height_mm=story.height_mm, drift_max_mm=drift_ratio * story.height_mm)
         elif drift_ratio is not None:
             diagnostics.append(f"Story drift ratio found for {story_id}, but height is unavailable.")
+
+
+def _diagnose_missing_columns(canonical_name: str, df: pd.DataFrame, required_aliases: dict[str, list[str]], diagnostics: list[str]) -> None:
+    missing: dict[str, list[str]] = {}
+    for field_name, aliases in required_aliases.items():
+        if _find_col(df, aliases) is None:
+            missing[field_name] = aliases
+    if not missing:
+        return
+    diagnostics.append(
+        f"Required columns missing for {canonical_name} sheet={df.attrs.get('sheet_name', '-')}: "
+        f"columns={list(df.columns)} required_aliases={missing}"
+    )
 
 
 def _find_col(df: pd.DataFrame, aliases: list[str]) -> str | None:
@@ -305,6 +385,40 @@ def _float_value(row: Any, col: str | None) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _length_mm_value(row: Any, col: str | None, df: pd.DataFrame) -> float | None:
+    value = _float_value(row, col)
+    if value is None or col is None:
+        return value
+    unit = str(df.attrs.get("units", {}).get(col, "")).strip().lower()
+    if unit == "m":
+        return value * 1000.0
+    if unit == "mm":
+        return value
+    if col in {"Height", "Depth", "Width", "Length"} and 0 < abs(value) < 100:
+        return value * 1000.0
+    return value
+
+
+def _clean_header(value: Any) -> str:
+    if pd.isna(value):
+        return ""
+    text = str(value).strip()
+    if text.startswith("Unnamed:"):
+        return ""
+    return text
+
+
+def _clean_unit(value: Any) -> str:
+    if pd.isna(value):
+        return ""
+    return str(value).strip()
+
+
+def _drop_empty_or_unnamed_columns(df: pd.DataFrame) -> pd.DataFrame:
+    keep = [col for col in df.columns if str(col).strip() and not str(col).startswith("Unnamed")]
+    return df.loc[:, keep]
 
 
 def _norm(value: str) -> str:
