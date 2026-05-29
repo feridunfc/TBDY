@@ -4,6 +4,7 @@ Task history:
 
 - `REPO_RESET_FOR_BEAM_RUNTIME_CLOSURE`
 - `SPRINT 1 — REPORT AMPUTATION`
+- `SPRINT 1B — RUNNER / REPORT INTEGRATION SEAM`
 
 Scope remains beam runtime closure preparation only. No beam checks implemented. No ARCH-X touched. No contracts expanded.
 
@@ -33,14 +34,16 @@ Identified active/minimal beam closure candidates:
 - `tbdy_engine/reports/facade.py`
   - Sprint 1 amputated to `ReportingFacade(report_dir).generate(check_results)`.
   - Does not read runtime catalog or report contracts.
+- `tbdy_engine/runner_v2.py`
+  - Sprint 1B updated the runner/report seam to call `ReportingFacade(self.report_dir).generate(checks)`.
+  - Return `reports` payload now contains only `json` and `excel`.
 - `tbdy_engine/contracts/checks.yaml`
   - Current check mapping source for beam check ids.
   - Kept active only as a compatibility map until the minimal beam closure path is made explicit.
-- `tbdy_engine/runner_v2.py`
-  - Current runner entrypoint/composition root candidate.
-  - Still suspicious and expected to require integration after Sprint 1 because it still calls the old report API.
 - `tests/test_reports_checkresult_only.py`
   - Sprint 1 report-only boundary test.
+- `tests/test_runner_v2_report_integration.py`
+  - Sprint 1B runner/report seam test.
 - `tests/test_etabs_beam_normalizer.py`
   - Minimal beam normalizer test candidate, identified from merged PR metadata.
 - `tests/test_runner_v2_live_etabs_beams.py`
@@ -84,9 +87,9 @@ Archive meaning: not imported by active runtime, not used by `runner_v2`, not us
 ## 3. Files still suspicious
 
 - `tbdy_engine/runner_v2.py`
-  - Imports `EngineContractLoader`, `EngineContractValidator`, `DatasetValidator`, `EvaluationDAG`, `RuntimeScheduler`.
-  - Returns `evaluation_errors`, `evaluation_skipped`, `execution_order`, `cache_stats`.
-  - Still calls `ReportingFacade.generate(checks, eval_results, runtime_catalog=...)` and will need a later integration sprint.
+  - Still imports `EngineContractLoader`, `EngineContractValidator`, `DatasetValidator`, `EvaluationDAG`, `RuntimeScheduler`.
+  - Still returns `evaluation_errors`, `evaluation_skipped`, `execution_order`, `cache_stats` outside the report payload.
+  - Report seam is fixed; scheduler/DAG cleanup remains out of scope.
 - `tbdy_engine/adapters/check_adapter.py`
   - `CheckResult` is not frozen.
   - Contains fields outside the target minimal shape: `evaluation`, `check_name`, `evaluation_level`, `source`, `experimental`, `runner_enabled`, `legacy_contract_id`, `legacy_canonical_check_name`, `combo_family`, `governing_combo`.
@@ -96,7 +99,7 @@ Archive meaning: not imported by active runtime, not used by `runner_v2`, not us
 
 ## 4. Runtime imports still pointing to archived/drift paths
 
-Confirmed current `runner_v2` drift/platform imports:
+Confirmed current `runner_v2` drift/platform imports remain frozen:
 
 - `tbdy_engine.contracts.loader.EngineContractLoader`
 - `tbdy_engine.contracts.validator.EngineContractValidator`
@@ -113,11 +116,11 @@ Confirmed ARCH-X imports are self-contained under `tbdy_engine/archx/**`; they m
   - `TBDYEngineV2.run()`
   - `run_engine_v2(ctx, contracts_dir=None, report_dir=None, include_legacy=False)`
 
-Current issue: this is still a Genesis Runtime Bridge / scheduler/DAG composition root, not the minimal boring beam runtime composition root. It also still expects the old report facade API.
+Sprint 1B status: report seam fixed. This is still a Genesis Runtime Bridge / scheduler/DAG composition root, not the final minimal boring beam runtime composition root.
 
 ## 6. Current report entrypoints
 
-Sprint 1 status:
+Sprint 1/1B status:
 
 - `tbdy_engine/reports/facade.py`
   - `ReportingFacade.generate(check_results)`
@@ -126,7 +129,7 @@ Sprint 1 status:
 - `tbdy_engine/reports/excel_reporter.py`
   - `ExcelReporter.generate(check_results, output_path="engine_report.xlsx")`
 
-Reports are now prepared as CheckResult-only. Runner integration is not updated in this sprint by instruction.
+Reports are now CheckResult-only and runner calls them with only `checks`.
 
 ## 7. Current CheckResult definition path
 
@@ -171,13 +174,13 @@ Status: active candidate. It still outputs context-shaped material rather than `
 
 ## 11. Next sprint recommendation
 
-Sprint 2: Runner/report integration seam.
+Sprint 2: active `BeamEvaluationPackage` introduction/carve-out.
 
 Mechanical target only:
 
-1. Update the current runner call site so it passes only `CheckResult[]` into `ReportingFacade.generate(check_results)`.
-2. Do not reintroduce `eval_results`, `runtime_catalog`, report contracts, coverage, distributions, cache stats, history, or execution order into reports.
-3. Keep scheduler/DAG frozen unless the supervisor explicitly authorizes removal.
-4. Do not implement beam checks until the report boundary stays green.
+1. Do not import ARCH-X.
+2. Keep scheduler/DAG frozen unless the supervisor explicitly authorizes removal.
+3. Introduce or carve out a minimal active beam package only for geometry/flexure/shear.
+4. Do not change report boundary; reports must remain CheckResult-only.
 
 Production claim: `BEAM_RUNTIME_CLOSURE = NOT CLAIMED`.
