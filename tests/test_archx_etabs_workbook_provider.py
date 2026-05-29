@@ -8,7 +8,7 @@ from pathlib import Path
 import pandas as pd
 
 from tbdy_engine.archx import build_snapshot_from_etabs_workbook, run_archx_checks
-from tbdy_engine.archx.providers.etabs_workbook import get_last_provider_diagnostics
+from tbdy_engine.archx.providers.etabs_workbook import get_last_provider_diagnostics, read_etabs_export_sheet
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,6 +61,64 @@ def _write_short_candidate_workbook(path: Path) -> None:
         pd.DataFrame([{"Name": "S_BEAM_OK", "t2": 300, "t3": 500}]).to_excel(writer, sheet_name="Frame Sec Rect", index=False)
         pd.DataFrame([{"UniqueName": "B101", "Label": "B101", "Story": "5"}]).to_excel(writer, sheet_name="Beam Connectivity", index=False)
         pd.DataFrame([{"UniqueName": "B101", "AnalysisSect": "S_BEAM_OK", "Story": "5", "ObjectType": "Beam"}]).to_excel(writer, sheet_name="Frame Assign Sections", index=False)
+
+
+def _write_etabs_sheet(writer, sheet_name: str, table_name: str, headers: list[str], units: list[object], rows: list[list[object]]) -> None:
+    width = max(len(headers), 1)
+    table_row = [f"TABLE: {table_name}"] + [None] * (width - 1)
+    pd.DataFrame([table_row, headers, units, *rows]).to_excel(writer, sheet_name=sheet_name, index=False, header=False)
+
+
+def _write_etabs_style_workbook(path: Path) -> None:
+    with pd.ExcelWriter(path) as writer:
+        _write_etabs_sheet(
+            writer,
+            "Story Definitions",
+            "Story Definitions",
+            ["Tower", "Name", "Height", "Master Story"],
+            [None, None, "m", None],
+            [["Tower 1", 14.5, 5.5, "Yes"]],
+        )
+        _write_etabs_sheet(
+            writer,
+            "Frame Sec Def - Conc Rect",
+            SECTION_TABLE_NAME,
+            ["Name", "Material", "Depth", "Width", "Design Type"],
+            [None, None, "m", "m", None],
+            [["B30x60", "C35/45", 0.6, 0.3, "Beam"], ["C40x40", "C35/45", 0.4, 0.4, "Column"]],
+        )
+        _write_etabs_sheet(
+            writer,
+            "Frame Assigns - Sect Prop",
+            "Frame Assignments - Section Properties",
+            ["Story", "Label", "UniqueName", "Shape", "Section Property"],
+            [None, None, None, None, None],
+            [[14.5, "B1", 297, "Line", "B30x60"], [14.5, "C1", 36, "Line", "C40x40"]],
+        )
+        _write_etabs_sheet(
+            writer,
+            "Beam Object Connectivity",
+            "Beam Object Connectivity",
+            ["Unique Name", "Story", "BeamBay", "UniquePtI", "UniquePtJ", "Length"],
+            [None, None, None, None, None, "m"],
+            [[297, 14.5, "B1", 1001, 1002, 5.2]],
+        )
+        _write_etabs_sheet(
+            writer,
+            "Column Object Connectivity",
+            "Column Object Connectivity",
+            ["Unique Name", "Story", "ColumnBay", "UniquePtI", "UniquePtJ", "Length"],
+            [None, None, None, None, None, "m"],
+            [[36, 14.5, "C1", 2001, 2002, 5.5]],
+        )
+        _write_etabs_sheet(
+            writer,
+            "Story Drifts",
+            "Story Drifts",
+            ["Story", "Output Case", "Case Type", "Step Type", "Step Number", "Direction", "Drift", "Drift/", "Label"],
+            [None, None, None, None, None, None, None, None, None],
+            [[14.5, "EQX", "LinStatic", "Max", 1, "X", 0.00108, "1/926", "D1"]],
+        )
 
 
 def test_provider_builds_snapshot_from_minimal_workbook(tmp_path):
@@ -254,6 +312,60 @@ def test_missing_mapped_optional_story_drifts_sheet_does_not_crash(tmp_path):
     assert "5" in snapshot.stories
     assert {check.check_id for check in result.check_results}.issuperset({"beam_geometry", "column_geometry"})
     assert any("Mapped sheet not found for story_drifts: Story Drifts" in item for item in diagnostics)
+
+
+def test_read_etabs_export_sheet_normalizes_table_header(tmp_path):
+    workbook = tmp_path / "etabs_header.xlsx"
+    with pd.ExcelWriter(workbook) as writer:
+        _write_etabs_sheet(
+            writer,
+            "Frame Sec Def - Conc Rect",
+            SECTION_TABLE_NAME,
+            ["Name", "Depth", "Width", "Design Type"],
+            [None, "m", "m", None],
+            [["B30x60", 0.6, 0.3, "Beam"]],
+        )
+
+    excel = pd.ExcelFile(workbook)
+    df = read_etabs_export_sheet(excel, "Frame Sec Def - Conc Rect")
+
+    assert list(df.columns) == ["Name", "Depth", "Width", "Design Type"]
+    assert df.iloc[0]["Name"] == "B30x60"
+    assert df.iloc[0]["Depth"] == 0.6
+    assert df.iloc[0]["Width"] == 0.3
+
+
+def test_provider_builds_snapshot_from_etabs_style_workbook(tmp_path):
+    workbook = tmp_path / "etabs_style.xlsx"
+    _write_etabs_style_workbook(workbook)
+
+    snapshot = build_snapshot_from_etabs_workbook(workbook, drift_limit=0.02)
+
+    assert "B30x60" in snapshot.sections
+    assert snapshot.sections["B30x60"].depth_mm == 600
+    assert snapshot.sections["B30x60"].width_mm == 300
+    assert "297" in snapshot.beams
+    assert snapshot.beams["297"].label == "B1"
+    assert snapshot.beams["297"].story_id == "14.5"
+    assert snapshot.beams["297"].section_id == "B30x60"
+    assert "36" in snapshot.columns
+    assert snapshot.columns["36"].label == "C1"
+    assert snapshot.columns["36"].section_id == "C40x40"
+    assert "14.5" in snapshot.stories
+    assert snapshot.stories["14.5"].height_mm == 5500
+
+
+def test_realistic_etabs_workbook_runs_geometry_checks(tmp_path):
+    workbook = tmp_path / "etabs_style.xlsx"
+    _write_etabs_style_workbook(workbook)
+
+    snapshot = build_snapshot_from_etabs_workbook(workbook, drift_limit=0.02)
+    result = run_archx_checks(snapshot, run_id="etabs-style")
+    check_ids = {check.check_id for check in result.check_results}
+
+    assert "beam_geometry" in check_ids
+    assert "column_geometry" in check_ids
+    assert len(result.check_results) > 0
 
 
 def test_no_forbidden_imports():
