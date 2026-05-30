@@ -1,4 +1,9 @@
-from tbdy_engine.design.beams.context import BeamModelContext, validate_beam_model_context
+from tbdy_engine.design.beams.context import (
+    BeamModelContext,
+    CanonicalBeamInput,
+    build_beam_model_context,
+    validate_beam_model_context,
+)
 from tbdy_engine.design.beams.evaluation_package import (
     BeamCheckEvaluation,
     BeamDesignModule,
@@ -13,6 +18,8 @@ from tbdy_engine.design.beams.calculators import (
 
 __all__ = [
     "BeamModelContext",
+    "CanonicalBeamInput",
+    "build_beam_model_context",
     "validate_beam_model_context",
     "GeometryCheck",
     "GeometryResult",
