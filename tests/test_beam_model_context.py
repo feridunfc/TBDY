@@ -4,14 +4,14 @@ from dataclasses import FrozenInstanceError, fields, is_dataclass
 
 import pytest
 
-from tbdy_engine.design.beams import BeamModelContext, validate_beam_model_context
+from tbdy_engine.design.beams import BeamModelContext, build_beam_model_context, validate_beam_model_context
 
 
 OLD_AMBIGUOUS_FIELDS = {"bw", "h", "d", "Ln", "fck", "Vd", "Md", "axial"}
 
 
-def _valid_context(**overrides: object) -> BeamModelContext:
-    values = {
+def _canonical_input(**overrides: object) -> dict[str, object]:
+    values: dict[str, object] = {
         "beam_id": "B1",
         "story": "S1",
         "section_name": "B300x600",
@@ -41,7 +41,11 @@ def _valid_context(**overrides: object) -> BeamModelContext:
         "source": {"origin": "unit_test"},
     }
     values.update(overrides)
-    return BeamModelContext(**values)
+    return values
+
+
+def _valid_context(**overrides: object) -> BeamModelContext:
+    return BeamModelContext(**_canonical_input(**overrides))
 
 
 def test_beam_model_context_is_frozen_input_only_dataclass() -> None:
@@ -81,6 +85,12 @@ def test_beam_model_context_requires_unit_suffixed_fields_and_removes_old_names(
         "bottom_required_area_cm2",
         "top_selected_area_cm2",
         "bottom_selected_area_cm2",
+        "left_top_as_cm2",
+        "left_bottom_as_cm2",
+        "right_top_as_cm2",
+        "right_bottom_as_cm2",
+        "Md_mid_pos_kNm",
+        "Md_right_neg_kNm",
     }.issubset(names)
 
     with pytest.raises(TypeError):
@@ -154,6 +164,162 @@ def test_validate_beam_model_context_reports_invalid_unit_suffixed_inputs() -> N
         "stirrup_spacing_mm",
         "custom_missing",
     }.issubset(invalid)
+
+
+def test_build_beam_model_context_from_full_canonical_input() -> None:
+    ctx = build_beam_model_context(
+        _canonical_input(
+            left_top_as_cm2=7.5,
+            left_bottom_as_cm2=4.2,
+            right_top_as_cm2=7.1,
+            right_bottom_as_cm2=4.0,
+            Md_mid_pos_kNm=180.0,
+            Md_right_neg_kNm=210.0,
+            source={
+                "source_table": "canonical_beam_input",
+                "source_row": 4,
+                "source_columns": ("beam_id", "bw_mm"),
+                "origin": "unit_test",
+            },
+        )
+    )
+
+    assert isinstance(ctx, BeamModelContext)
+    assert ctx.beam_id == "B1"
+    assert ctx.section_name == "B300x600"
+    assert ctx.bw_mm == 300.0
+    assert ctx.fcd_mpa == 20.0
+    assert ctx.Vd_left_kN == 120.0
+    assert ctx.Md_mid_pos_kNm == 180.0
+    assert ctx.right_bottom_as_cm2 == 4.0
+    assert ctx.source == {
+        "source_table": "canonical_beam_input",
+        "source_row": 4,
+        "source_columns": ("beam_id", "bw_mm"),
+        "origin": "unit_test",
+    }
+    assert validate_beam_model_context(ctx) == ()
+
+
+def test_build_beam_model_context_accepts_numeric_strings_and_converts() -> None:
+    ctx = build_beam_model_context(
+        _canonical_input(
+            bw_mm="300",
+            h_mm="600.0",
+            stirrup_legs="4",
+            Vd_left_kN="120.5",
+            top_required_area_cm2="8.25",
+        )
+    )
+
+    assert ctx.bw_mm == 300.0
+    assert ctx.h_mm == 600.0
+    assert ctx.stirrup_legs == 4
+    assert ctx.Vd_left_kN == 120.5
+    assert ctx.top_required_area_cm2 == 8.25
+    assert validate_beam_model_context(ctx) == ()
+
+
+def test_build_beam_model_context_tracks_missing_required_inputs_without_guessing() -> None:
+    data = _canonical_input()
+    for key in ("bw_mm", "fcd_mpa", "Vd_left_kN", "stirrup_legs"):
+        data.pop(key)
+    ctx = build_beam_model_context(data)
+
+    assert ctx.bw_mm == 0.0
+    assert ctx.fcd_mpa == 0.0
+    assert ctx.Vd_left_kN == 0.0
+    assert ctx.stirrup_legs == 0
+    assert {"bw_mm", "fcd_mpa", "Vd_left_kN", "stirrup_legs"}.issubset(set(ctx.missing_inputs))
+    assert {"bw_mm", "fcd_mpa", "stirrup_legs"}.issubset(set(validate_beam_model_context(ctx)))
+
+
+def test_build_beam_model_context_allows_optional_reinforcement_absent() -> None:
+    data = _canonical_input()
+    for key in (
+        "top_required_area_cm2",
+        "bottom_required_area_cm2",
+        "top_selected_area_cm2",
+        "bottom_selected_area_cm2",
+    ):
+        data.pop(key)
+    ctx = build_beam_model_context(data)
+
+    assert ctx.top_required_area_cm2 is None
+    assert ctx.bottom_required_area_cm2 is None
+    assert ctx.top_selected_area_cm2 is None
+    assert ctx.bottom_selected_area_cm2 is None
+    assert validate_beam_model_context(ctx) == ()
+
+
+def test_build_beam_model_context_sanitizes_source() -> None:
+    ctx = build_beam_model_context(
+        _canonical_input(
+            source={
+                "source_table": "canonical",
+                "source_row": 2,
+                "source_columns": ["beam_id"],
+                "origin": "unit_test",
+                "raw_row": {"too": "large"},
+                "runtime_catalog": "forbidden",
+                "diagnostic_trace": "forbidden",
+            }
+        )
+    )
+
+    assert ctx.source == {
+        "source_table": "canonical",
+        "source_row": 2,
+        "source_columns": ["beam_id"],
+        "origin": "unit_test",
+    }
+
+
+def test_build_beam_model_context_does_not_compute_derived_values() -> None:
+    ctx = build_beam_model_context(
+        _canonical_input(
+            fck_mpa=30.0,
+            fcd_mpa=None,
+            h_mm=600.0,
+            cover_mm=40.0,
+            d_mm=None,
+            Ln_mm=None,
+        )
+    )
+
+    assert ctx.fcd_mpa == 0.0
+    assert ctx.d_mm == 0.0
+    assert ctx.Ln_mm == 0.0
+    assert {"fcd_mpa", "d_mm", "Ln_mm"}.issubset(set(ctx.missing_inputs))
+    assert {"fcd_mpa", "d_mm", "Ln_mm"}.issubset(set(validate_beam_model_context(ctx)))
+
+
+def test_build_beam_model_context_ignores_old_ambiguous_input_keys() -> None:
+    ctx = build_beam_model_context(
+        {
+            "beam_id": "B1",
+            "story": "S1",
+            "section_name": "B300x600",
+            "bw": 300.0,
+            "h": 600.0,
+            "Ln": 3000.0,
+            "fck": 30.0,
+            "Vd": 120.0,
+            "Md": 240.0,
+            "stirrup_legs": 2,
+            "stirrup_diameter_mm": 10.0,
+            "stirrup_spacing_mm": 100.0,
+        }
+    )
+
+    assert ctx.bw_mm == 0.0
+    assert ctx.h_mm == 0.0
+    assert ctx.Ln_mm == 0.0
+    assert ctx.fck_mpa == 0.0
+    assert ctx.Vd_left_kN == 0.0
+    assert ctx.Md_left_neg_kNm == 0.0
+    assert OLD_AMBIGUOUS_FIELDS.isdisjoint(set(ctx.missing_inputs))
+    assert {"bw_mm", "h_mm", "Ln_mm", "fck_mpa", "Vd_left_kN", "Md_left_neg_kNm"}.issubset(set(ctx.missing_inputs))
 
 
 def test_beam_model_context_source_guard_has_no_runtime_imports() -> None:
