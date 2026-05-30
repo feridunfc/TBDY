@@ -50,3 +50,30 @@ def geometry_check_to_core_check(
         evidence=evidence,
         message=check.message,
     )
+
+
+def shear_check_to_core_check(
+    *,
+    beam_id: str,
+    story: str,
+    section_name: str,
+    check: object,
+) -> CoreCheck:
+    status = check.status if check.status in _ALLOWED_STATUSES else "ERROR"
+    evidence = dict(check.evidence)
+    evidence["story"] = story
+    evidence["section_name"] = section_name
+    return CoreCheck(
+        id=f"{beam_id}:shear:{check.name}",
+        component=beam_id,
+        check_type="shear",
+        name=check.name,
+        status=status,
+        demand=check.demand,
+        capacity=check.capacity,
+        ratio=check.ratio,
+        unit=check.unit,
+        code_ref=check.code_ref,
+        evidence=evidence,
+        message=check.message,
+    )
