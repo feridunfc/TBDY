@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Mapping
@@ -35,6 +35,7 @@ _OPTIONAL_FLOAT_FIELDS = (
     "left_bottom_as_cm2",
     "right_top_as_cm2",
     "right_bottom_as_cm2",
+    "longitudinal_bar_diameter_mm",
     "Md_mid_pos_kNm",
     "Md_right_neg_kNm",
 )
@@ -72,6 +73,7 @@ class BeamModelContext:
     left_bottom_as_cm2: float | None = None
     right_top_as_cm2: float | None = None
     right_bottom_as_cm2: float | None = None
+    longitudinal_bar_diameter_mm: float | None = None
     Md_mid_pos_kNm: float | None = None
     Md_right_neg_kNm: float | None = None
     missing_inputs: tuple[str, ...] = ()
@@ -114,6 +116,7 @@ def build_beam_model_context(data: CanonicalBeamInput) -> BeamModelContext:
         left_bottom_as_cm2=optional_values["left_bottom_as_cm2"],
         right_top_as_cm2=optional_values["right_top_as_cm2"],
         right_bottom_as_cm2=optional_values["right_bottom_as_cm2"],
+        longitudinal_bar_diameter_mm=optional_values["longitudinal_bar_diameter_mm"],
         Md_mid_pos_kNm=optional_values["Md_mid_pos_kNm"],
         Md_right_neg_kNm=optional_values["Md_right_neg_kNm"],
         missing_inputs=tuple(dict.fromkeys(missing_inputs)),
@@ -141,6 +144,8 @@ def validate_beam_model_context(ctx: BeamModelContext) -> tuple[str, ...]:
     for name in ("Vd_left_kN", "Ve_left_kN", "Md_left_neg_kNm", "axial_kN"):
         if _is_missing(getattr(ctx, name)):
             invalid.append(name)
+    if _not_positive(ctx.longitudinal_bar_diameter_mm):
+        invalid.append("longitudinal_bar_diameter_mm")
     if ctx.stirrup_legs < 2:
         invalid.append("stirrup_legs")
     if _not_positive(ctx.stirrup_diameter_mm):

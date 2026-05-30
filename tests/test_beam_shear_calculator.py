@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 import pathlib
@@ -40,6 +40,7 @@ def _ctx(**overrides: object) -> BeamModelContext:
         "stirrup_legs": 2,
         "stirrup_diameter_mm": 10.0,
         "stirrup_spacing_mm": 100.0,
+        "longitudinal_bar_diameter_mm": 16.0,
         "missing_inputs": (),
         "source": {"origin": "unit_test"},
     }
@@ -70,7 +71,7 @@ def test_shear_calculator_returns_deterministic_result() -> None:
     assert result.status == "OK"
 
 
-def test_shear_result_has_exactly_six_checks() -> None:
+def test_shear_result_has_exactly_eight_checks() -> None:
     result = TBDYShearCalculator().calculate(_ctx())
 
     assert [check.name for check in result.checks] == [
@@ -78,10 +79,12 @@ def test_shear_result_has_exactly_six_checks() -> None:
         "beam_shear_ve_le_085_vmax",
         "beam_shear_spacing_le_d_over_4",
         "beam_shear_spacing_le_150",
+        "beam_shear_spacing_le_8_longitudinal_diameter",
         "beam_shear_stirrup_diameter_ge_8",
         "beam_shear_stirrup_legs_ge_2",
+        "beam_shear_asw_ge_asw_min",
     ]
-    assert len(result.checks) == 6
+    assert len(result.checks) == 8
     assert all(check.status == "OK" for check in result.checks)
 
 
@@ -146,3 +149,48 @@ def test_shear_source_guard_has_no_forbidden_imports() -> None:
     ]
     for text in forbidden:
         assert text not in source
+def test_spacing_le_8_longitudinal_diameter_passes_for_b175_like_context() -> None:
+    result = TBDYShearCalculator().calculate(_ctx())
+    checks = {check.name: check for check in result.checks}
+
+    check = checks["beam_shear_spacing_le_8_longitudinal_diameter"]
+
+    assert check.status == "OK"
+    assert check.demand == 100.0
+    assert check.capacity == 128.0
+    assert check.ratio == pytest.approx(100.0 / 128.0)
+    assert check.unit == "mm"
+    assert check.code_ref == "TBDY 2018 7.4.4.1"
+    assert check.evidence["stirrup_spacing_mm"] == 100.0
+    assert check.evidence["longitudinal_bar_diameter_mm"] == 16.0
+    assert check.evidence["limit_mm"] == 128.0
+    assert check.evidence["formula"] == "stirrup_spacing_mm <= 8 * longitudinal_bar_diameter_mm"
+
+
+def test_spacing_le_8_longitudinal_diameter_fails_when_spacing_exceeds_limit() -> None:
+    result = TBDYShearCalculator().calculate(
+        _ctx(stirrup_spacing_mm=150.0, longitudinal_bar_diameter_mm=14.0)
+    )
+    checks = {check.name: check for check in result.checks}
+
+    check = checks["beam_shear_spacing_le_8_longitudinal_diameter"]
+
+    assert check.status == "FAIL"
+    assert check.demand == 150.0
+    assert check.capacity == 112.0
+    assert check.ratio == pytest.approx(150.0 / 112.0)
+
+
+def test_spacing_le_8_longitudinal_diameter_returns_no_data_when_missing() -> None:
+    result = TBDYShearCalculator().calculate(_ctx(longitudinal_bar_diameter_mm=None))
+    checks = {check.name: check for check in result.checks}
+
+    check = checks["beam_shear_spacing_le_8_longitudinal_diameter"]
+
+    assert check.status == "NO_DATA"
+    assert check.demand == 100.0
+    assert check.capacity is None
+    assert check.ratio is None
+    assert check.unit == "mm"
+    assert check.evidence["longitudinal_bar_diameter_mm"] is None
+    assert check.evidence["limit_mm"] is None

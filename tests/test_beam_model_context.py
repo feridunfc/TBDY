@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import FrozenInstanceError, fields, is_dataclass
 
@@ -37,6 +37,7 @@ def _canonical_input(**overrides: object) -> dict[str, object]:
         "bottom_required_area_cm2": None,
         "top_selected_area_cm2": None,
         "bottom_selected_area_cm2": None,
+        "longitudinal_bar_diameter_mm": 16.0,
         "missing_inputs": (),
         "source": {"origin": "unit_test"},
     }
@@ -89,6 +90,7 @@ def test_beam_model_context_requires_unit_suffixed_fields_and_removes_old_names(
         "left_bottom_as_cm2",
         "right_top_as_cm2",
         "right_bottom_as_cm2",
+        "longitudinal_bar_diameter_mm",
         "Md_mid_pos_kNm",
         "Md_right_neg_kNm",
     }.issubset(names)
@@ -132,6 +134,7 @@ def test_validate_beam_model_context_reports_invalid_unit_suffixed_inputs() -> N
         fyk_mpa=0.0,
         fyd_mpa=0.0,
         fywd_mpa=0.0,
+        longitudinal_bar_diameter_mm=0.0,
         Vd_left_kN="",
         Ve_left_kN="",
         Md_left_neg_kNm="",
@@ -192,6 +195,7 @@ def test_build_beam_model_context_from_full_canonical_input() -> None:
     assert ctx.Vd_left_kN == 120.0
     assert ctx.Md_mid_pos_kNm == 180.0
     assert ctx.right_bottom_as_cm2 == 4.0
+    assert ctx.longitudinal_bar_diameter_mm == 16.0
     assert ctx.source == {
         "source_table": "canonical_beam_input",
         "source_row": 4,
@@ -320,6 +324,30 @@ def test_build_beam_model_context_ignores_old_ambiguous_input_keys() -> None:
     assert ctx.Md_left_neg_kNm == 0.0
     assert OLD_AMBIGUOUS_FIELDS.isdisjoint(set(ctx.missing_inputs))
     assert {"bw_mm", "h_mm", "Ln_mm", "fck_mpa", "Vd_left_kN", "Md_left_neg_kNm"}.issubset(set(ctx.missing_inputs))
+
+
+def test_build_beam_model_context_reports_missing_longitudinal_bar_diameter() -> None:
+    data = _canonical_input()
+    data.pop("longitudinal_bar_diameter_mm")
+
+    ctx = build_beam_model_context(data)
+
+    assert ctx.longitudinal_bar_diameter_mm is None
+    assert "longitudinal_bar_diameter_mm" in validate_beam_model_context(ctx)
+
+
+def test_build_beam_model_context_does_not_infer_longitudinal_bar_diameter() -> None:
+    ctx = build_beam_model_context(
+        _canonical_input(
+            section_name="B60x60",
+            top_selected_area_cm2=12.0,
+            bottom_selected_area_cm2=10.0,
+            longitudinal_bar_diameter_mm=None,
+        )
+    )
+
+    assert ctx.longitudinal_bar_diameter_mm is None
+    assert "longitudinal_bar_diameter_mm" in validate_beam_model_context(ctx)
 
 
 def test_beam_model_context_source_guard_has_no_runtime_imports() -> None:

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from dataclasses import is_dataclass
 
@@ -30,6 +30,7 @@ def _valid_input(**overrides: object) -> dict[str, object]:
         "stirrup_legs": 2,
         "stirrup_diameter_mm": 10.0,
         "stirrup_spacing_mm": 100.0,
+        "longitudinal_bar_diameter_mm": 16.0,
         "source": {
             "origin": "unit_test",
             "source_table": "canonical_fixture",

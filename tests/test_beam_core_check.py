@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import pathlib
 from dataclasses import FrozenInstanceError, is_dataclass
@@ -40,6 +40,7 @@ def _ctx() -> BeamModelContext:
         stirrup_legs=2,
         stirrup_diameter_mm=10.0,
         stirrup_spacing_mm=100.0,
+        longitudinal_bar_diameter_mm=16.0,
     )
 
 
@@ -119,6 +120,32 @@ def test_shear_check_to_core_check_maps_fields_and_preserves_evidence() -> None:
     assert core_check.message == shear_check.message
     assert core_check.evidence["story"] == "+14.50"
     assert core_check.evidence["section_name"] == "B60x60"
+    assert shear_check.evidence == original_evidence
+
+
+def test_shear_spacing_8_longitudinal_diameter_core_check_preserves_evidence() -> None:
+    ctx = _ctx()
+    shear_checks = TBDYShearCalculator().calculate(ctx).checks
+    shear_check = {
+        check.name: check for check in shear_checks
+    }["beam_shear_spacing_le_8_longitudinal_diameter"]
+    original_evidence = dict(shear_check.evidence)
+
+    core_check = shear_check_to_core_check(
+        beam_id=ctx.beam_id,
+        story=ctx.story,
+        section_name=ctx.section_name,
+        check=shear_check,
+    )
+
+    assert core_check.id == "B175:shear:beam_shear_spacing_le_8_longitudinal_diameter"
+    assert core_check.component == "B175"
+    assert core_check.check_type == "shear"
+    assert core_check.evidence["story"] == "+14.50"
+    assert core_check.evidence["section_name"] == "B60x60"
+    assert core_check.evidence["stirrup_spacing_mm"] == 100.0
+    assert core_check.evidence["longitudinal_bar_diameter_mm"] == 16.0
+    assert core_check.evidence["limit_mm"] == 128.0
     assert shear_check.evidence == original_evidence
 
 

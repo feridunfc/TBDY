@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import math
 from dataclasses import dataclass
@@ -29,6 +29,8 @@ class ShearResult:
     Vmax_kN: float
     Asw_mm2: float
     Asw_cm2: float
+    Asw_min_mm2: float
+    Asw_min_cm2: float
     checks: tuple[ShearCheck, ...]
     status: str
 
@@ -42,17 +44,22 @@ class TBDYShearCalculator:
         Asw_mm2 = ctx.stirrup_legs * single_bar_area_mm2
         Asw_cm2 = Asw_mm2 / 100.0
 
+        Asw_min_mm2 = 0.3 * ctx.fctd_mpa * ctx.bw_mm * ctx.stirrup_spacing_mm / ctx.fywd_mpa
+        Asw_min_cm2 = Asw_min_mm2 / 100.0
+
         Vw_kN = Asw_mm2 * ctx.fywd_mpa * ctx.d_mm / ctx.stirrup_spacing_mm / 1000.0
         Vr_kN = Vc_kN + Vw_kN
         Vmax_kN = 0.85 * 0.22 * ctx.fcd_mpa * ctx.bw_mm * ctx.d_mm / 1000.0
 
         checks = (
-            self._ve_le_vr(ctx, Ve_kN, Vc_kN, Vw_kN, Vr_kN, Vmax_kN, Asw_mm2, Asw_cm2),
-            self._ve_le_085_vmax(ctx, Ve_kN, Vc_kN, Vw_kN, Vr_kN, Vmax_kN, Asw_mm2, Asw_cm2),
-            self._spacing_le_d_over_4(ctx, Ve_kN, Vc_kN, Vw_kN, Vr_kN, Vmax_kN, Asw_mm2, Asw_cm2),
-            self._spacing_le_150(ctx, Ve_kN, Vc_kN, Vw_kN, Vr_kN, Vmax_kN, Asw_mm2, Asw_cm2),
-            self._stirrup_diameter_ge_8(ctx, Ve_kN, Vc_kN, Vw_kN, Vr_kN, Vmax_kN, Asw_mm2, Asw_cm2),
-            self._stirrup_legs_ge_2(ctx, Ve_kN, Vc_kN, Vw_kN, Vr_kN, Vmax_kN, Asw_mm2, Asw_cm2),
+            self._ve_le_vr(ctx, Ve_kN, Vc_kN, Vw_kN, Vr_kN, Vmax_kN, Asw_mm2, Asw_cm2, Asw_min_mm2, Asw_min_cm2),
+            self._ve_le_085_vmax(ctx, Ve_kN, Vc_kN, Vw_kN, Vr_kN, Vmax_kN, Asw_mm2, Asw_cm2, Asw_min_mm2, Asw_min_cm2),
+            self._spacing_le_d_over_4(ctx, Ve_kN, Vc_kN, Vw_kN, Vr_kN, Vmax_kN, Asw_mm2, Asw_cm2, Asw_min_mm2, Asw_min_cm2),
+            self._spacing_le_150(ctx, Ve_kN, Vc_kN, Vw_kN, Vr_kN, Vmax_kN, Asw_mm2, Asw_cm2, Asw_min_mm2, Asw_min_cm2),
+            self._spacing_le_8_longitudinal_diameter(ctx),
+            self._stirrup_diameter_ge_8(ctx, Ve_kN, Vc_kN, Vw_kN, Vr_kN, Vmax_kN, Asw_mm2, Asw_cm2, Asw_min_mm2, Asw_min_cm2),
+            self._stirrup_legs_ge_2(ctx, Ve_kN, Vc_kN, Vw_kN, Vr_kN, Vmax_kN, Asw_mm2, Asw_cm2, Asw_min_mm2, Asw_min_cm2),
+            self._asw_ge_asw_min(ctx, Asw_mm2, Asw_cm2, Asw_min_mm2, Asw_min_cm2),
         )
         status = "OK" if all(check.status == "OK" for check in checks) else "FAIL"
 
@@ -64,6 +71,8 @@ class TBDYShearCalculator:
             Vmax_kN=Vmax_kN,
             Asw_mm2=Asw_mm2,
             Asw_cm2=Asw_cm2,
+            Asw_min_mm2=Asw_min_mm2,
+            Asw_min_cm2=Asw_min_cm2,
             checks=checks,
             status=status,
         )
@@ -79,6 +88,8 @@ class TBDYShearCalculator:
         Vmax_kN: float,
         Asw_mm2: float,
         Asw_cm2: float,
+        Asw_min_mm2: float,
+        Asw_min_cm2: float,
         formula: str,
         limit_kN: float | None = None,
     ) -> dict[str, object]:
@@ -91,12 +102,15 @@ class TBDYShearCalculator:
             "bw_mm": ctx.bw_mm,
             "d_mm": ctx.d_mm,
             "fcd_mpa": ctx.fcd_mpa,
+            "fctd_mpa": ctx.fctd_mpa,
             "fywd_mpa": ctx.fywd_mpa,
             "stirrup_diameter_mm": ctx.stirrup_diameter_mm,
             "stirrup_legs": ctx.stirrup_legs,
             "stirrup_spacing_mm": ctx.stirrup_spacing_mm,
             "Asw_mm2": Asw_mm2,
             "Asw_cm2": Asw_cm2,
+            "Asw_min_mm2": Asw_min_mm2,
+            "Asw_min_cm2": Asw_min_cm2,
             "formula": formula,
         }
         if limit_kN is not None:
@@ -113,6 +127,8 @@ class TBDYShearCalculator:
         Vmax_kN: float,
         Asw_mm2: float,
         Asw_cm2: float,
+        Asw_min_mm2: float,
+        Asw_min_cm2: float,
     ) -> ShearCheck:
         ratio = Ve_kN / Vr_kN if Vr_kN > 0 else None
         return ShearCheck(
@@ -132,6 +148,8 @@ class TBDYShearCalculator:
                 Vmax_kN=Vmax_kN,
                 Asw_mm2=Asw_mm2,
                 Asw_cm2=Asw_cm2,
+                Asw_min_mm2=Asw_min_mm2,
+                Asw_min_cm2=Asw_min_cm2,
                 formula="Ve = abs(Ve_left_kN); Vr = Vc + Vw",
                 limit_kN=Vr_kN,
             ),
@@ -148,6 +166,8 @@ class TBDYShearCalculator:
         Vmax_kN: float,
         Asw_mm2: float,
         Asw_cm2: float,
+        Asw_min_mm2: float,
+        Asw_min_cm2: float,
     ) -> ShearCheck:
         capacity = 0.85 * Vmax_kN
         ratio = Ve_kN / capacity if Vmax_kN > 0 else None
@@ -168,6 +188,8 @@ class TBDYShearCalculator:
                 Vmax_kN=Vmax_kN,
                 Asw_mm2=Asw_mm2,
                 Asw_cm2=Asw_cm2,
+                Asw_min_mm2=Asw_min_mm2,
+                Asw_min_cm2=Asw_min_cm2,
                 formula="Ve <= 0.85 * Vmax",
                 limit_kN=capacity,
             ),
@@ -184,6 +206,8 @@ class TBDYShearCalculator:
         Vmax_kN: float,
         Asw_mm2: float,
         Asw_cm2: float,
+        Asw_min_mm2: float,
+        Asw_min_cm2: float,
     ) -> ShearCheck:
         capacity = ctx.d_mm / 4.0
         return ShearCheck(
@@ -203,6 +227,8 @@ class TBDYShearCalculator:
                 Vmax_kN=Vmax_kN,
                 Asw_mm2=Asw_mm2,
                 Asw_cm2=Asw_cm2,
+                Asw_min_mm2=Asw_min_mm2,
+                Asw_min_cm2=Asw_min_cm2,
                 formula="s <= d_mm / 4",
             ),
             message="s <= d/4" if ctx.stirrup_spacing_mm <= capacity else "s exceeds d/4",
@@ -218,6 +244,8 @@ class TBDYShearCalculator:
         Vmax_kN: float,
         Asw_mm2: float,
         Asw_cm2: float,
+        Asw_min_mm2: float,
+        Asw_min_cm2: float,
     ) -> ShearCheck:
         capacity = 150.0
         return ShearCheck(
@@ -237,9 +265,50 @@ class TBDYShearCalculator:
                 Vmax_kN=Vmax_kN,
                 Asw_mm2=Asw_mm2,
                 Asw_cm2=Asw_cm2,
+                Asw_min_mm2=Asw_min_mm2,
+                Asw_min_cm2=Asw_min_cm2,
                 formula="s <= 150 mm",
             ),
             message="s <= 150 mm" if ctx.stirrup_spacing_mm <= capacity else "s exceeds 150 mm",
+        )
+
+    def _spacing_le_8_longitudinal_diameter(self, ctx: BeamModelContext) -> ShearCheck:
+        diameter = ctx.longitudinal_bar_diameter_mm
+        if diameter is None or diameter <= 0:
+            return ShearCheck(
+                name="beam_shear_spacing_le_8_longitudinal_diameter",
+                status="NO_DATA",
+                demand=ctx.stirrup_spacing_mm,
+                capacity=None,
+                ratio=None,
+                unit="mm",
+                code_ref="TBDY 2018 7.4.4.1",
+                evidence={
+                    "stirrup_spacing_mm": ctx.stirrup_spacing_mm,
+                    "longitudinal_bar_diameter_mm": diameter,
+                    "limit_mm": None,
+                    "formula": "stirrup_spacing_mm <= 8 * longitudinal_bar_diameter_mm",
+                },
+                message="longitudinal bar diameter missing",
+            )
+
+        limit_mm = 8.0 * diameter
+        ratio = ctx.stirrup_spacing_mm / limit_mm
+        return ShearCheck(
+            name="beam_shear_spacing_le_8_longitudinal_diameter",
+            status="OK" if ctx.stirrup_spacing_mm <= limit_mm else "FAIL",
+            demand=ctx.stirrup_spacing_mm,
+            capacity=limit_mm,
+            ratio=ratio,
+            unit="mm",
+            code_ref="TBDY 2018 7.4.4.1",
+            evidence={
+                "stirrup_spacing_mm": ctx.stirrup_spacing_mm,
+                "longitudinal_bar_diameter_mm": diameter,
+                "limit_mm": limit_mm,
+                "formula": "stirrup_spacing_mm <= 8 * longitudinal_bar_diameter_mm",
+            },
+            message="s <= 8Øl" if ctx.stirrup_spacing_mm <= limit_mm else "s exceeds 8Øl",
         )
 
     def _stirrup_diameter_ge_8(
@@ -252,6 +321,8 @@ class TBDYShearCalculator:
         Vmax_kN: float,
         Asw_mm2: float,
         Asw_cm2: float,
+        Asw_min_mm2: float,
+        Asw_min_cm2: float,
     ) -> ShearCheck:
         capacity = 8.0
         return ShearCheck(
@@ -271,6 +342,8 @@ class TBDYShearCalculator:
                 Vmax_kN=Vmax_kN,
                 Asw_mm2=Asw_mm2,
                 Asw_cm2=Asw_cm2,
+                Asw_min_mm2=Asw_min_mm2,
+                Asw_min_cm2=Asw_min_cm2,
                 formula="stirrup_diameter_mm >= 8",
             ),
             message="stirrup diameter >= 8 mm" if ctx.stirrup_diameter_mm >= capacity else "stirrup diameter below 8 mm",
@@ -286,6 +359,8 @@ class TBDYShearCalculator:
         Vmax_kN: float,
         Asw_mm2: float,
         Asw_cm2: float,
+        Asw_min_mm2: float,
+        Asw_min_cm2: float,
     ) -> ShearCheck:
         capacity = 2.0
         return ShearCheck(
@@ -305,7 +380,40 @@ class TBDYShearCalculator:
                 Vmax_kN=Vmax_kN,
                 Asw_mm2=Asw_mm2,
                 Asw_cm2=Asw_cm2,
+                Asw_min_mm2=Asw_min_mm2,
+                Asw_min_cm2=Asw_min_cm2,
                 formula="stirrup_legs >= 2",
             ),
             message="stirrup legs >= 2" if ctx.stirrup_legs >= capacity else "stirrup legs below 2",
+        )
+
+    def _asw_ge_asw_min(
+        self,
+        ctx: BeamModelContext,
+        Asw_mm2: float,
+        Asw_cm2: float,
+        Asw_min_mm2: float,
+        Asw_min_cm2: float,
+    ) -> ShearCheck:
+        ratio = Asw_mm2 / Asw_min_mm2 if Asw_min_mm2 > 0 else None
+        return ShearCheck(
+            name="beam_shear_asw_ge_asw_min",
+            status="OK" if Asw_mm2 >= Asw_min_mm2 else "FAIL",
+            demand=Asw_mm2,
+            capacity=Asw_min_mm2,
+            ratio=ratio,
+            unit="mm²",
+            code_ref="TBDY 2018 7.4.5.6",
+            evidence={
+                "Asw_mm2": Asw_mm2,
+                "Asw_cm2": Asw_cm2,
+                "Asw_min_mm2": Asw_min_mm2,
+                "Asw_min_cm2": Asw_min_cm2,
+                "fctd_mpa": ctx.fctd_mpa,
+                "fywd_mpa": ctx.fywd_mpa,
+                "bw_mm": ctx.bw_mm,
+                "stirrup_spacing_mm": ctx.stirrup_spacing_mm,
+                "formula": "Asw_min_mm2 = 0.3 * fctd_mpa * bw_mm * stirrup_spacing_mm / fywd_mpa",
+            },
+            message="Asw >= Asw_min" if Asw_mm2 >= Asw_min_mm2 else "Asw below Asw_min",
         )
