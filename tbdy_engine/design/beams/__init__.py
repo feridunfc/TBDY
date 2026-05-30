@@ -15,6 +15,10 @@ from tbdy_engine.design.beams.calculators import (
     GeometryResult,
     TBDYGeometryCalculator,
 )
+from tbdy_engine.design.beams.geometry_core import (
+    GeometryCoreResult,
+    evaluate_beam_geometry_core,
+)
 
 __all__ = [
     "BeamModelContext",
@@ -24,6 +28,8 @@ __all__ = [
     "GeometryCheck",
     "GeometryResult",
     "TBDYGeometryCalculator",
+    "GeometryCoreResult",
+    "evaluate_beam_geometry_core",
     "BeamCheckEvaluation",
     "BeamDesignModule",
     "BeamEvaluationPackage",
