@@ -282,3 +282,37 @@ def test_o1_package_adapter_preserves_plastic_moment_evidence() -> None:
     top_id = "B175:flexure:beam_flexure_top_plastic_moment_available"
     assert evidence_by_id[top_id]["plastic_moment_kNm"] == result.flexure.top_plastic_moment_kNm
     assert evidence_by_id[top_id]["source_of_area"] == "top_selected_area_cm2"
+
+def test_o4_package_adapter_preserves_capacity_design_shear_check() -> None:
+    result = evaluate_beam_core(_canonical_input())
+    packages = beam_core_result_to_evaluation_packages(result)
+
+    assert len(packages) == 1
+    package = packages[0]
+
+    package_checks = {
+        check.check_type: check
+        for check in package.checks
+    }
+
+    assert "beam_shear_capacity_design_ve_le_vr" in package_checks
+    assert "beam_shear_ve_le_vr" in package_checks
+    assert "beam_flexure_top_plastic_moment_available" in package_checks
+    assert "beam_flexure_bottom_plastic_moment_available" in package_checks
+
+    core_check = next(
+        check for check in result.core_checks
+        if check.name == "beam_shear_capacity_design_ve_le_vr"
+    )
+    package_check = package_checks["beam_shear_capacity_design_ve_le_vr"]
+
+    assert package_check.status == core_check.status
+    assert package_check.demand == core_check.demand
+    assert package_check.capacity == core_check.capacity
+    assert package_check.ratio == core_check.ratio
+    assert package_check.unit == core_check.unit
+    assert package_check.code_ref == core_check.code_ref
+
+    evidence_by_id = package.evidence["core_check_evidence_by_id"]
+    assert evidence_by_id[core_check.id]["Ve_capacity_kN"] == core_check.evidence["Ve_capacity_kN"]
+    assert evidence_by_id[core_check.id]["formula_capacity_check"] == "Ve_capacity_kN <= Vr_kN"

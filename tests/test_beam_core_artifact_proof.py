@@ -385,15 +385,19 @@ def test_sprint_l_source_guard_has_no_runner_etabs_runtime_dependencies() -> Non
     for text in forbidden:
         assert text not in source
 
-EXPECTED_N6_FLEXURE_CHECK_NAMES = (
+EXPECTED_O1_FLEXURE_CHECK_NAMES = (
     "beam_flexure_top_area_provided_ge_required",
     "beam_flexure_bottom_area_provided_ge_required",
     "beam_flexure_top_rho_ge_rho_min",
     "beam_flexure_bottom_rho_ge_rho_min",
     "beam_flexure_top_rho_le_rho_max",
     "beam_flexure_bottom_rho_le_rho_max",
+    "beam_flexure_top_bar_selection",
+    "beam_flexure_bottom_bar_selection",
+    "beam_flexure_top_plastic_moment_available",
+    "beam_flexure_bottom_plastic_moment_available",
 )
-def test_n6_artifact_proof_path_preserves_all_six_flexure_checks(tmp_path: Path) -> None:
+def test_o1_artifact_proof_path_preserves_all_ten_flexure_checks(tmp_path: Path) -> None:
     result, check_results, _json_path, xlsx_path, payload = _produce_artifacts(
         _canonical_input(),
         tmp_path,
@@ -408,11 +412,36 @@ def test_n6_artifact_proof_path_preserves_all_six_flexure_checks(tmp_path: Path)
         for check in _json_checks(payload)
         if str(check.get("check_type")).startswith("beam_flexure_")
     )
-    assert json_flexure_names == EXPECTED_N6_FLEXURE_CHECK_NAMES
+    assert json_flexure_names == EXPECTED_O1_FLEXURE_CHECK_NAMES
 
     check_result_flexure_names = tuple(
         str(getattr(check, "check_type"))
         for check in check_results
         if str(getattr(check, "check_type")).startswith("beam_flexure_")
     )
-    assert check_result_flexure_names == EXPECTED_N6_FLEXURE_CHECK_NAMES
+    assert check_result_flexure_names == EXPECTED_O1_FLEXURE_CHECK_NAMES
+
+def test_o4_artifact_json_preserves_capacity_design_shear_check(tmp_path: Path) -> None:
+    result, check_results, json_path, xlsx_path, payload = _produce_artifacts(
+        _canonical_input(),
+        tmp_path,
+    )
+
+    assert result.status == "OK"
+    assert json_path.name == "engine_report.json"
+    assert xlsx_path is None or xlsx_path.name == "engine_report.xlsx"
+
+    _assert_json_contract(payload)
+    _assert_xlsx_contract(xlsx_path)
+
+    json_check_types = {
+        str(check.get("check_type"))
+        for check in _json_checks(payload)
+    }
+    adapter_check_types = {
+        str(getattr(check, "check_type"))
+        for check in check_results
+    }
+
+    assert "beam_shear_capacity_design_ve_le_vr" in adapter_check_types
+    assert "beam_shear_capacity_design_ve_le_vr" in json_check_types

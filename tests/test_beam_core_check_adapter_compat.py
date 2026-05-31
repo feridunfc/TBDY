@@ -344,3 +344,29 @@ def test_o1_check_adapter_outputs_plastic_moment_check_results() -> None:
     assert flexure_check_types == EXPECTED_O1_FLEXURE_CHECK_NAMES
     assert "beam_flexure_top_plastic_moment_available" in flexure_check_types
     assert "beam_flexure_bottom_plastic_moment_available" in flexure_check_types
+
+def test_o4_check_adapter_outputs_capacity_design_shear_check_result() -> None:
+    result = evaluate_beam_core(_canonical_input())
+    packages = beam_core_result_to_evaluation_packages(result)
+    check_results = _adapt_packages(packages)
+
+    check_types = tuple(
+        str(_check_field(check, "check_type"))
+        for check in check_results
+    )
+
+    assert "beam_shear_capacity_design_ve_le_vr" in check_types
+    assert "beam_shear_ve_le_vr" in check_types
+    assert "beam_shear_ve_le_085_vmax" in check_types
+    assert "beam_flexure_top_plastic_moment_available" in check_types
+    assert "beam_flexure_bottom_plastic_moment_available" in check_types
+
+    capacity_check = next(
+        check for check in check_results
+        if str(_check_field(check, "check_type")) == "beam_shear_capacity_design_ve_le_vr"
+    )
+
+    assert _check_field(capacity_check, "status") == "OK"
+    assert _check_field(capacity_check, "demand") is not None
+    assert _check_field(capacity_check, "capacity") is not None
+    assert _check_field(capacity_check, "ratio") is not None

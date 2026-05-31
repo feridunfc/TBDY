@@ -191,15 +191,19 @@ def test_beam_core_artifacts_source_guard_has_no_runner_or_etabs() -> None:
     for text in forbidden:
         assert text not in source
 
-EXPECTED_N6_FLEXURE_CHECK_NAMES = (
+EXPECTED_O1_FLEXURE_CHECK_NAMES = (
     "beam_flexure_top_area_provided_ge_required",
     "beam_flexure_bottom_area_provided_ge_required",
     "beam_flexure_top_rho_ge_rho_min",
     "beam_flexure_bottom_rho_ge_rho_min",
     "beam_flexure_top_rho_le_rho_max",
     "beam_flexure_bottom_rho_le_rho_max",
+    "beam_flexure_top_bar_selection",
+    "beam_flexure_bottom_bar_selection",
+    "beam_flexure_top_plastic_moment_available",
+    "beam_flexure_bottom_plastic_moment_available",
 )
-def test_n6_artifact_json_contains_all_six_flexure_checks(tmp_path: Path) -> None:
+def test_o1_artifact_json_contains_all_ten_flexure_checks(tmp_path: Path) -> None:
     result = generate_beam_core_artifacts(_canonical_input(), tmp_path)
 
     assert result.status == "OK"
@@ -211,5 +215,10 @@ def test_n6_artifact_json_contains_all_six_flexure_checks(tmp_path: Path) -> Non
         if str(check.get("check_type")).startswith("beam_flexure_")
     )
 
-    assert flexure_check_types == EXPECTED_N6_FLEXURE_CHECK_NAMES
-    assert len(result.checks) == 18
+    assert flexure_check_types == EXPECTED_O1_FLEXURE_CHECK_NAMES
+    check_types = {
+        str(check.get("check_type"))
+        for check in _checks(payload)
+    }
+    assert "beam_shear_capacity_design_ve_le_vr" in check_types
+    assert len(result.checks) == 23
