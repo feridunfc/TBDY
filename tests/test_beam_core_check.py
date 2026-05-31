@@ -5,7 +5,7 @@ from dataclasses import FrozenInstanceError, is_dataclass
 
 import pytest
 
-from tbdy_engine.design.beams import BeamModelContext
+from tbdy_engine.design.beams.context import BeamModelContext
 from tbdy_engine.design.beams.core_check import (
     CoreCheck,
     geometry_check_to_core_check,

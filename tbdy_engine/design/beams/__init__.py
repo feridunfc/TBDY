@@ -1,4 +1,4 @@
-from tbdy_engine.design.beams.context import (
+﻿from tbdy_engine.design.beams.context import (
     BeamModelContext,
     CanonicalBeamInput,
     build_beam_model_context,
@@ -49,3 +49,7 @@ __all__ = [
     "BeamEvaluationPackage",
     "build_beam_evaluation_packages",
 ]
+from tbdy_engine.design.beams.beam_core import (
+    BeamCoreResult,
+    evaluate_beam_core,
+)
