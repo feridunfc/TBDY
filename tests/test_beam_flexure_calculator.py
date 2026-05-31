@@ -1,18 +1,17 @@
 ﻿from __future__ import annotations
 
+import pathlib
 import sys
 import types
 from pathlib import Path
+from dataclasses import is_dataclass
+
+import pytest
 
 if "tbdy_engine" not in sys.modules:
     tbdy_pkg = types.ModuleType("tbdy_engine")
     tbdy_pkg.__path__ = [str(Path(__file__).resolve().parents[1] / "tbdy_engine")]
     sys.modules["tbdy_engine"] = tbdy_pkg
-
-import pathlib
-from dataclasses import is_dataclass
-
-import pytest
 
 from tbdy_engine.design.beams.context import BeamModelContext
 from tbdy_engine.design.beams.calculators.flexure import (
@@ -82,6 +81,68 @@ def test_flexure_calculator_returns_deterministic_ok_result() -> None:
     assert all(check.status == "OK" for check in result.checks)
 
 
+def test_stress_block_values_are_computed_for_top_and_bottom_rebar() -> None:
+    result = TBDYFlexureCalculator().calculate(_ctx())
+
+    assert result.beta1 == pytest.approx(0.85)
+
+    expected_top_a = 10.0 * 100.0 * 365.0 / (0.85 * 20.0 * 600.0)
+    expected_bottom_a = 8.0 * 100.0 * 365.0 / (0.85 * 20.0 * 600.0)
+
+    assert result.top_stress_block_a_mm == pytest.approx(expected_top_a)
+    assert result.top_neutral_axis_c_mm == pytest.approx(expected_top_a / 0.85)
+    assert result.top_compression_block_kN == pytest.approx(
+        0.85 * 20.0 * 600.0 * expected_top_a / 1000.0
+    )
+
+    assert result.bottom_stress_block_a_mm == pytest.approx(expected_bottom_a)
+    assert result.bottom_neutral_axis_c_mm == pytest.approx(expected_bottom_a / 0.85)
+    assert result.bottom_compression_block_kN == pytest.approx(
+        0.85 * 20.0 * 600.0 * expected_bottom_a / 1000.0
+    )
+
+
+def test_stress_block_evidence_is_available_on_flexure_checks() -> None:
+    result = TBDYFlexureCalculator().calculate(_ctx())
+    checks = {check.name: check for check in result.checks}
+
+    top = checks["beam_flexure_top_area_provided_ge_required"]
+    bottom = checks["beam_flexure_bottom_area_provided_ge_required"]
+
+    assert top.evidence["beta1"] == pytest.approx(0.85)
+    assert top.evidence["stress_block_a_mm"] == pytest.approx(result.top_stress_block_a_mm)
+    assert top.evidence["neutral_axis_c_mm"] == pytest.approx(result.top_neutral_axis_c_mm)
+    assert top.evidence["compression_block_kN"] == pytest.approx(result.top_compression_block_kN)
+
+    assert bottom.evidence["beta1"] == pytest.approx(0.85)
+    assert bottom.evidence["stress_block_a_mm"] == pytest.approx(result.bottom_stress_block_a_mm)
+    assert bottom.evidence["neutral_axis_c_mm"] == pytest.approx(result.bottom_neutral_axis_c_mm)
+    assert bottom.evidence["compression_block_kN"] == pytest.approx(result.bottom_compression_block_kN)
+
+
+def test_stress_block_is_deterministic_for_repeated_runs() -> None:
+    ctx = _ctx()
+    first = TBDYFlexureCalculator().calculate(ctx)
+
+    for _ in range(100):
+        current = TBDYFlexureCalculator().calculate(ctx)
+        assert current == first
+
+
+def test_stress_block_returns_no_data_values_when_selected_rebar_missing() -> None:
+    result = TBDYFlexureCalculator().calculate(
+        _ctx(top_selected_area_cm2=None, bottom_selected_area_cm2=None)
+    )
+
+    assert result.status == "NO_DATA"
+    assert result.top_stress_block_a_mm is None
+    assert result.top_neutral_axis_c_mm is None
+    assert result.top_compression_block_kN is None
+    assert result.bottom_stress_block_a_mm is None
+    assert result.bottom_neutral_axis_c_mm is None
+    assert result.bottom_compression_block_kN is None
+
+
 def test_failing_top_area() -> None:
     result = TBDYFlexureCalculator().calculate(
         _ctx(top_required_area_cm2=12.0, top_selected_area_cm2=10.0)
@@ -147,6 +208,9 @@ def test_flexure_check_to_core_check_conversion() -> None:
     assert core_check.check_type == "flexure"
     assert core_check.evidence["story"] == "+14.50"
     assert core_check.evidence["section_name"] == "B60x60"
+    assert core_check.evidence["stress_block_a_mm"] == pytest.approx(
+        original_evidence["stress_block_a_mm"]
+    )
     assert flexure_check.evidence == original_evidence
 
 
