@@ -97,7 +97,7 @@ def test_flexure_calculator_returns_deterministic_ok_result() -> None:
     )
 
     assert result.status == "OK"
-    assert len(result.checks) == 6
+    assert len(result.checks) == 8
     assert [check.name for check in result.checks] == [
         "beam_flexure_top_area_provided_ge_required",
         "beam_flexure_bottom_area_provided_ge_required",
@@ -105,6 +105,8 @@ def test_flexure_calculator_returns_deterministic_ok_result() -> None:
         "beam_flexure_bottom_rho_ge_rho_min",
         "beam_flexure_top_rho_le_rho_max",
         "beam_flexure_bottom_rho_le_rho_max",
+        "beam_flexure_top_bar_selection",
+        "beam_flexure_bottom_bar_selection",
     ]
     assert result.top_design_moment_kNm == 108.7
     assert result.bottom_design_moment_kNm == 84.8
@@ -501,6 +503,86 @@ def test_consolidated_flexure_hand_check_statuses_match_each_subcheck() -> None:
     assert bottom_area.status == "OK"
     assert bottom_rho_min.status == bottom_area.evidence["rho_min_status"]
     assert bottom_rho_max.status == bottom_area.evidence["rho_max_status"]
+
+def test_bar_selection_selects_top_and_bottom_bars_deterministically() -> None:
+    result = TBDYFlexureCalculator().calculate(_ctx())
+
+    assert len(result.selected_bars) == 2
+
+    top, bottom = result.selected_bars
+    assert top.designation == "top"
+    assert bottom.designation == "bottom"
+    assert top.status == "OK"
+    assert bottom.status == "OK"
+
+    assert result.top_selected_bar_diameter_mm == top.diameter_mm
+    assert result.top_selected_bar_legs == top.legs
+    assert result.top_selected_bar_area_cm2 == pytest.approx(top.area_cm2)
+
+    assert result.bottom_selected_bar_diameter_mm == bottom.diameter_mm
+    assert result.bottom_selected_bar_legs == bottom.legs
+    assert result.bottom_selected_bar_area_cm2 == pytest.approx(bottom.area_cm2)
+
+    assert top.area_cm2 >= result.required_top_area_cm2
+    assert bottom.area_cm2 >= result.required_bottom_area_cm2
+    assert top.rho >= result.rho_min
+    assert bottom.rho >= result.rho_min
+    assert top.rho <= result.rho_max
+    assert bottom.rho <= result.rho_max
+
+
+def test_bar_selection_checks_contain_selected_bar_evidence() -> None:
+    result = TBDYFlexureCalculator().calculate(_ctx())
+    checks = _checks(result)
+
+    top = checks["beam_flexure_top_bar_selection"]
+    bottom = checks["beam_flexure_bottom_bar_selection"]
+
+    assert top.status == "OK"
+    assert top.evidence["designation"] == "top"
+    assert top.evidence["selected_bar_diameter_mm"] == result.top_selected_bar_diameter_mm
+    assert top.evidence["selected_bar_legs"] == result.top_selected_bar_legs
+    assert top.evidence["selected_bar_area_cm2"] == pytest.approx(result.top_selected_bar_area_cm2)
+    assert top.evidence["required_area_cm2"] == pytest.approx(result.required_top_area_cm2)
+    assert top.evidence["rho_min"] == pytest.approx(result.rho_min)
+    assert top.evidence["rho_max"] == pytest.approx(result.rho_max)
+    assert top.evidence["prior_check_statuses"]["area_status"] == "OK"
+    assert top.evidence["prior_check_statuses"]["rho_min_status"] == "OK"
+    assert top.evidence["prior_check_statuses"]["rho_max_status"] == "OK"
+
+    assert bottom.status == "OK"
+    assert bottom.evidence["designation"] == "bottom"
+    assert bottom.evidence["selected_bar_area_cm2"] == pytest.approx(result.bottom_selected_bar_area_cm2)
+
+
+def test_bar_selection_is_deterministic_for_repeated_runs() -> None:
+    ctx = _ctx()
+    first = TBDYFlexureCalculator().calculate(ctx).selected_bars
+
+    for _ in range(100):
+        current = TBDYFlexureCalculator().calculate(ctx).selected_bars
+        assert current == first
+
+
+def test_bar_selection_returns_fail_when_required_area_exceeds_rho_max_capacity() -> None:
+    result = TBDYFlexureCalculator().calculate(
+        _ctx(
+            Md_left_neg_kNm=0.0,
+            Md_right_neg_kNm=0.0,
+            Md_mid_pos_kNm=0.0,
+            top_required_area_cm2=200.0,
+            bottom_required_area_cm2=200.0,
+        )
+    )
+    checks = _checks(result)
+
+    assert result.status == "FAIL"
+    assert result.required_top_area_cm2 == 200.0
+    assert result.required_bottom_area_cm2 == 200.0
+    assert result.top_required_area_source == "context_input"
+    assert result.bottom_required_area_source == "context_input"
+    assert checks["beam_flexure_top_bar_selection"].status == "FAIL"
+    assert checks["beam_flexure_bottom_bar_selection"].status == "FAIL"
 
 def test_flexure_source_guard_has_no_forbidden_imports() -> None:
     source = pathlib.Path("tbdy_engine/design/beams/calculators/flexure.py").read_text(encoding="utf-8")

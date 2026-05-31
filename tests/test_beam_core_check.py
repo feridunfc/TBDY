@@ -235,3 +235,60 @@ def test_n6_flexure_core_check_preserves_area_and_rho_evidence() -> None:
         assert "required_area_source" in core.evidence
         assert "rho" in core.evidence
         assert "formula" in core.evidence
+
+def test_n7_flexure_bar_selection_core_check_preserves_evidence() -> None:
+    from tbdy_engine.design.beams.context import BeamModelContext
+    from tbdy_engine.design.beams.calculators.flexure import TBDYFlexureCalculator
+    from tbdy_engine.design.beams.core_check import flexure_check_to_core_check
+
+    ctx = BeamModelContext(
+        beam_id="B175",
+        story="+14.50",
+        section_name="B60x60",
+        bw_mm=600.0,
+        h_mm=600.0,
+        d_mm=550.0,
+        cover_mm=40.0,
+        Ln_mm=4600.0,
+        fck_mpa=30.0,
+        fcd_mpa=20.0,
+        fctd_mpa=1.27,
+        fyk_mpa=420.0,
+        fyd_mpa=365.0,
+        fywd_mpa=365.0,
+        Vd_left_kN=90.0,
+        Ve_left_kN=107.2,
+        Md_left_neg_kNm=108.7,
+        Md_mid_pos_kNm=84.8,
+        Md_right_neg_kNm=92.4,
+        axial_kN=0.0,
+        stirrup_legs=2,
+        stirrup_diameter_mm=10.0,
+        stirrup_spacing_mm=100.0,
+        longitudinal_bar_diameter_mm=16.0,
+        top_required_area_cm2=8.0,
+        top_selected_area_cm2=10.0,
+        bottom_required_area_cm2=6.0,
+        bottom_selected_area_cm2=10.0,
+        missing_inputs=(),
+        source={"origin": "n7_unit_test"},
+    )
+
+    result = TBDYFlexureCalculator().calculate(ctx)
+    check = next(item for item in result.checks if item.name == "beam_flexure_top_bar_selection")
+
+    core = flexure_check_to_core_check(
+        beam_id=ctx.beam_id,
+        story=ctx.story,
+        section_name=ctx.section_name,
+        check=check,
+    )
+
+    assert core.name == "beam_flexure_top_bar_selection"
+    assert core.status == "OK"
+    assert core.evidence["selected_bar_diameter_mm"] == check.evidence["selected_bar_diameter_mm"]
+    assert core.evidence["selected_bar_legs"] == check.evidence["selected_bar_legs"]
+    assert core.evidence["selected_bar_area_cm2"] == check.evidence["selected_bar_area_cm2"]
+    assert core.evidence["prior_check_statuses"]["area_status"] == "OK"
+    assert core.evidence["story"] == "+14.50"
+    assert core.evidence["section_name"] == "B60x60"

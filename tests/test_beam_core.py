@@ -50,8 +50,7 @@ def _canonical_input(**overrides: object) -> dict[str, object]:
     }
     data.update(overrides)
     return data
-
-
+# tests/test_beam_core.py içinde
 def test_valid_complete_canonical_input_returns_ok_result() -> None:
     result = evaluate_beam_core(_canonical_input())
 
@@ -64,16 +63,24 @@ def test_valid_complete_canonical_input_returns_ok_result() -> None:
     assert result.flexure is not None
     assert len(result.geometry.checks) == 4
     assert len(result.shear.checks) == 8
-    assert len(result.flexure.checks) == 6
-    assert len(result.core_checks) == 18
+    assert len(result.flexure.checks) == 8
+    assert len(result.core_checks) == 20
 
+    core_flexure_names = [
+        check.name for check in result.core_checks if check.check_type == "flexure"
+    ]
+
+    assert "beam_flexure_top_bar_selection" in core_flexure_names
+    assert "beam_flexure_bottom_bar_selection" in core_flexure_names
+    assert result.flexure.top_selected_bar_area_cm2 is not None
+    assert result.flexure.bottom_selected_bar_area_cm2 is not None
 
 def test_core_check_ordering_is_deterministic() -> None:
     result = evaluate_beam_core(_canonical_input())
 
     assert [check.check_type for check in result.core_checks[:4]] == ["geometry"] * 4
     assert [check.check_type for check in result.core_checks[4:12]] == ["shear"] * 8
-    assert [check.check_type for check in result.core_checks[12:]] == ["flexure"] * 6
+    assert [check.check_type for check in result.core_checks[12:]] == ["flexure"] * 8
 
 
 def test_invalid_input_does_not_run_calculators() -> None:
@@ -108,10 +115,34 @@ def test_flexure_no_data_propagates_to_beam_core_result() -> None:
     assert result.shear is not None
     assert result.flexure is not None
     assert result.flexure.status == "NO_DATA"
-    assert len(result.core_checks) == 18
-    assert [check.status for check in result.core_checks[-6:]] == ["NO_DATA", "NO_DATA", "NO_DATA", "NO_DATA", "NO_DATA", "NO_DATA"]
+    assert len(result.core_checks) == 20
 
+    flexure_checks = [
+        check for check in result.core_checks if check.check_type == "flexure"
+    ]
+    flexure_names = [check.name for check in flexure_checks]
+    flexure_statuses = [check.status for check in flexure_checks]
 
+    assert flexure_names == [
+        "beam_flexure_top_area_provided_ge_required",
+        "beam_flexure_bottom_area_provided_ge_required",
+        "beam_flexure_top_rho_ge_rho_min",
+        "beam_flexure_bottom_rho_ge_rho_min",
+        "beam_flexure_top_rho_le_rho_max",
+        "beam_flexure_bottom_rho_le_rho_max",
+        "beam_flexure_top_bar_selection",
+        "beam_flexure_bottom_bar_selection",
+    ]
+
+    assert flexure_statuses[:6] == [
+        "NO_DATA",
+        "NO_DATA",
+        "NO_DATA",
+        "NO_DATA",
+        "NO_DATA",
+        "NO_DATA",
+    ]
+    assert flexure_statuses[6:] == ["OK", "OK"]
 def test_failing_shear_propagates_fail() -> None:
     result = evaluate_beam_core(_canonical_input(Ve_left_kN=1000.0))
 
@@ -158,24 +189,26 @@ EXPECTED_N6_FLEXURE_CHECK_NAMES = (
     "beam_flexure_top_rho_le_rho_max",
     "beam_flexure_bottom_rho_le_rho_max",
 )
-def test_n6_beam_core_aggregates_all_six_flexure_checks() -> None:
+def test_n7_beam_core_preserves_n1_to_n6_checks_and_adds_bar_selection_checks() -> None:
     result = evaluate_beam_core(_canonical_input())
-
+    core_flexure_names = [check.name for check in result.flexure.checks]
     assert result.status == "OK"
     assert result.flexure is not None
     assert result.flexure.status == "OK"
 
     flexure_names = tuple(check.name for check in result.flexure.checks)
-    assert flexure_names == EXPECTED_N6_FLEXURE_CHECK_NAMES
+    assert flexure_names[:6] == EXPECTED_N6_FLEXURE_CHECK_NAMES
 
     core_flexure_names = tuple(
         check.name for check in result.core_checks if check.check_type == "flexure"
     )
-    assert core_flexure_names == EXPECTED_N6_FLEXURE_CHECK_NAMES
+    assert core_flexure_names[:6] == EXPECTED_N6_FLEXURE_CHECK_NAMES
 
-    assert len(result.flexure.checks) == 6
-    assert len(core_flexure_names) == 6
-    assert len(result.core_checks) == 18
+    assert len(result.flexure.checks) == 8
+    assert len(core_flexure_names) == 8
+    assert len(result.core_checks) == 20
+    assert "beam_flexure_top_bar_selection" in core_flexure_names
+    assert "beam_flexure_bottom_bar_selection" in core_flexure_names
 
     area_check = next(
         check for check in result.core_checks
@@ -205,3 +238,43 @@ def test_n6_beam_core_aggregates_all_six_flexure_checks() -> None:
     assert rho_max_check.evidence["consolidated_flexure_evidence"] is True
     assert rho_max_check.evidence["rho_max"] == result.flexure.rho_max
     assert rho_max_check.evidence["formula"].startswith("rho = selected_area_mm2")
+
+EXPECTED_N7_FLEXURE_CHECK_NAMES = (
+    "beam_flexure_top_area_provided_ge_required",
+    "beam_flexure_bottom_area_provided_ge_required",
+    "beam_flexure_top_rho_ge_rho_min",
+    "beam_flexure_bottom_rho_ge_rho_min",
+    "beam_flexure_top_rho_le_rho_max",
+    "beam_flexure_bottom_rho_le_rho_max",
+    "beam_flexure_top_bar_selection",
+    "beam_flexure_bottom_bar_selection",
+)
+def test_n7_beam_core_aggregates_bar_selection_checks() -> None:
+    result = evaluate_beam_core(_canonical_input())
+
+    assert result.status == "OK"
+    assert result.flexure is not None
+    assert len(result.flexure.checks) == 8
+    assert len(result.core_checks) == 20
+
+    core_flexure_names = tuple(
+        check.name for check in result.core_checks if check.check_type == "flexure"
+    )
+
+    assert core_flexure_names == EXPECTED_N7_FLEXURE_CHECK_NAMES
+
+    top_bar = next(
+        check for check in result.core_checks
+        if check.name == "beam_flexure_top_bar_selection"
+    )
+    bottom_bar = next(
+        check for check in result.core_checks
+        if check.name == "beam_flexure_bottom_bar_selection"
+    )
+
+    assert top_bar.status == "OK"
+    assert bottom_bar.status == "OK"
+    assert top_bar.evidence["selected_bar_area_cm2"] == result.flexure.top_selected_bar_area_cm2
+    assert bottom_bar.evidence["selected_bar_area_cm2"] == result.flexure.bottom_selected_bar_area_cm2
+    assert top_bar.evidence["consolidated_flexure_evidence"] is True
+    assert bottom_bar.evidence["consolidated_flexure_evidence"] is True

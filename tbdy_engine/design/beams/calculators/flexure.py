@@ -21,6 +21,19 @@ class FlexureCheck:
 
 
 @dataclass(frozen=True)
+class SelectedFlexureBars:
+    designation: str
+    diameter_mm: float | None
+    legs: int | None
+    area_cm2: float | None
+    status: str
+    required_area_cm2: float | None
+    rho_min: float | None
+    rho_max: float | None
+    rho: float | None
+
+
+@dataclass(frozen=True)
 class FlexureResult:
     Md_left_neg_kNm: float
     Md_mid_pos_kNm: float | None
@@ -54,6 +67,14 @@ class FlexureResult:
     bottom_rho_min_ratio: float | None
     top_rho_max_ratio: float | None
     bottom_rho_max_ratio: float | None
+
+    selected_bars: tuple[SelectedFlexureBars, ...]
+    top_selected_bar_diameter_mm: float | None
+    top_selected_bar_legs: int | None
+    top_selected_bar_area_cm2: float | None
+    bottom_selected_bar_diameter_mm: float | None
+    bottom_selected_bar_legs: int | None
+    bottom_selected_bar_area_cm2: float | None
 
     checks: tuple[FlexureCheck, ...]
     status: str
@@ -139,6 +160,23 @@ class TBDYFlexureCalculator:
         top_rho_max_status = _rho_max_status(rho_max, top_rho, top_rho_max_ratio)
         bottom_rho_max_status = _rho_max_status(rho_max, bottom_rho, bottom_rho_max_ratio)
 
+        top_bar_selection = _select_bars(
+            designation="top",
+            required_area_cm2=top_required,
+            bw_mm=ctx.bw_mm,
+            d_mm=ctx.d_mm,
+            rho_min=rho_min,
+            rho_max=rho_max,
+        )
+        bottom_bar_selection = _select_bars(
+            designation="bottom",
+            required_area_cm2=bottom_required,
+            bw_mm=ctx.bw_mm,
+            d_mm=ctx.d_mm,
+            rho_min=rho_min,
+            rho_max=rho_max,
+        )
+
         top_consolidated = _consolidated_evidence(
             selected_area_cm2=ctx.top_selected_area_cm2,
             required_area_cm2=top_required,
@@ -221,6 +259,26 @@ class TBDYFlexureCalculator:
                 required_source=bottom_source,
                 consolidated=bottom_consolidated,
             ),
+            self._bar_selection_check(
+                selection=top_bar_selection,
+                required_source=top_source,
+                consolidated=top_consolidated,
+                prior_statuses={
+                    "area_status": _area_status(top_required, ctx.top_selected_area_cm2),
+                    "rho_min_status": top_rho_min_status,
+                    "rho_max_status": top_rho_max_status,
+                },
+            ),
+            self._bar_selection_check(
+                selection=bottom_bar_selection,
+                required_source=bottom_source,
+                consolidated=bottom_consolidated,
+                prior_statuses={
+                    "area_status": _area_status(bottom_required, ctx.bottom_selected_area_cm2),
+                    "rho_min_status": bottom_rho_min_status,
+                    "rho_max_status": bottom_rho_max_status,
+                },
+            ),
         )
 
         if any(check.status == "NO_DATA" for check in checks):
@@ -261,6 +319,13 @@ class TBDYFlexureCalculator:
             bottom_rho_min_ratio=bottom_rho_min_ratio,
             top_rho_max_ratio=top_rho_max_ratio,
             bottom_rho_max_ratio=bottom_rho_max_ratio,
+            selected_bars=(top_bar_selection, bottom_bar_selection),
+            top_selected_bar_diameter_mm=top_bar_selection.diameter_mm,
+            top_selected_bar_legs=top_bar_selection.legs,
+            top_selected_bar_area_cm2=top_bar_selection.area_cm2,
+            bottom_selected_bar_diameter_mm=bottom_bar_selection.diameter_mm,
+            bottom_selected_bar_legs=bottom_bar_selection.legs,
+            bottom_selected_bar_area_cm2=bottom_bar_selection.area_cm2,
             checks=checks,
             status=status,
         )
@@ -462,6 +527,166 @@ class TBDYFlexureCalculator:
             label="bottom reinforcement rho_max",
             consolidated=consolidated,
         )
+
+
+    def _bar_selection_check(
+        self,
+        *,
+        selection: SelectedFlexureBars,
+        required_source: str,
+        consolidated: Mapping[str, object],
+        prior_statuses: Mapping[str, str],
+    ) -> FlexureCheck:
+        return _bar_selection_check(
+            selection=selection,
+            required_source=required_source,
+            consolidated=consolidated,
+            prior_statuses=prior_statuses,
+        )
+AVAILABLE_FLEXURE_BAR_DIAMETERS_MM = (12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 25.0, 28.0, 32.0)
+AVAILABLE_FLEXURE_BAR_LEGS = tuple(range(2, 13))
+
+
+def _bar_selection_check(
+    *,
+    selection: SelectedFlexureBars,
+    required_source: str,
+    consolidated: Mapping[str, object],
+    prior_statuses: Mapping[str, str],
+) -> FlexureCheck:
+    name = f"beam_flexure_{selection.designation}_bar_selection"
+
+    evidence = {
+        **consolidated,
+        "designation": selection.designation,
+        "selected_bar_diameter_mm": selection.diameter_mm,
+        "selected_bar_legs": selection.legs,
+        "selected_bar_area_cm2": selection.area_cm2,
+        "required_area_cm2": selection.required_area_cm2,
+        "rho": selection.rho,
+        "rho_min": selection.rho_min,
+        "rho_max": selection.rho_max,
+        "required_area_source": required_source,
+        "prior_check_statuses": dict(prior_statuses),
+        "available_bar_diameters_mm": AVAILABLE_FLEXURE_BAR_DIAMETERS_MM,
+        "available_bar_legs": AVAILABLE_FLEXURE_BAR_LEGS,
+        "formula": "select first deterministic candidate where selected_bar_area_cm2 >= max(As_required_cm2, rho_min*bw*d/100) and rho <= rho_max",
+        "code_ref": "TBDY 2018 beam longitudinal reinforcement deterministic core bar selection",
+    }
+
+    return FlexureCheck(
+        name=name,
+        status=selection.status,
+        demand=selection.required_area_cm2,
+        capacity=selection.area_cm2,
+        ratio=_ratio(selection.required_area_cm2, selection.area_cm2),
+        unit="cm²",
+        code_ref="TBDY 2018 beam longitudinal reinforcement deterministic core bar selection",
+        evidence=evidence,
+        message=_message(selection.status, f"{selection.designation} reinforcement bar selection"),
+    )
+
+
+def _select_bars(
+    *,
+    designation: str,
+    required_area_cm2: float | None,
+    bw_mm: float,
+    d_mm: float,
+    rho_min: float | None,
+    rho_max: float | None,
+) -> SelectedFlexureBars:
+    if (
+        designation not in {"top", "bottom"}
+        or required_area_cm2 is None
+        or required_area_cm2 <= 0.0
+        or bw_mm <= 0.0
+        or d_mm <= 0.0
+        or rho_min is None
+        or rho_min <= 0.0
+        or rho_max is None
+        or rho_max <= 0.0
+    ):
+        return SelectedFlexureBars(
+            designation=designation,
+            diameter_mm=None,
+            legs=None,
+            area_cm2=None,
+            status="NO_DATA",
+            required_area_cm2=required_area_cm2,
+            rho_min=rho_min,
+            rho_max=rho_max,
+            rho=None,
+        )
+
+    min_area_from_rho_cm2 = rho_min * bw_mm * d_mm / 100.0
+    max_area_from_rho_cm2 = rho_max * bw_mm * d_mm / 100.0
+    target_area_cm2 = max(required_area_cm2, min_area_from_rho_cm2)
+
+    if target_area_cm2 > max_area_from_rho_cm2:
+        return SelectedFlexureBars(
+            designation=designation,
+            diameter_mm=None,
+            legs=None,
+            area_cm2=None,
+            status="FAIL",
+            required_area_cm2=required_area_cm2,
+            rho_min=rho_min,
+            rho_max=rho_max,
+            rho=None,
+        )
+
+    candidates = sorted(
+        _candidate_bars(),
+        key=lambda item: (item["area_cm2"], item["legs"], item["diameter_mm"]),
+    )
+
+    for candidate in candidates:
+        area_cm2 = candidate["area_cm2"]
+        rho = area_cm2 * 100.0 / (bw_mm * d_mm)
+        if area_cm2 >= target_area_cm2 and rho <= rho_max:
+            return SelectedFlexureBars(
+                designation=designation,
+                diameter_mm=candidate["diameter_mm"],
+                legs=int(candidate["legs"]),
+                area_cm2=area_cm2,
+                status="OK",
+                required_area_cm2=required_area_cm2,
+                rho_min=rho_min,
+                rho_max=rho_max,
+                rho=rho,
+            )
+
+    return SelectedFlexureBars(
+        designation=designation,
+        diameter_mm=None,
+        legs=None,
+        area_cm2=None,
+        status="FAIL",
+        required_area_cm2=required_area_cm2,
+        rho_min=rho_min,
+        rho_max=rho_max,
+        rho=None,
+    )
+
+
+def _candidate_bars() -> tuple[dict[str, float], ...]:
+    candidates: list[dict[str, float]] = []
+    for diameter_mm in AVAILABLE_FLEXURE_BAR_DIAMETERS_MM:
+        single_area_cm2 = _single_bar_area_cm2(diameter_mm)
+        for legs in AVAILABLE_FLEXURE_BAR_LEGS:
+            candidates.append(
+                {
+                    "diameter_mm": diameter_mm,
+                    "legs": float(legs),
+                    "area_cm2": single_area_cm2 * legs,
+                }
+            )
+    return tuple(candidates)
+
+
+def _single_bar_area_cm2(diameter_mm: float) -> float:
+    return math.pi * diameter_mm * diameter_mm / 4.0 / 100.0
 
 
 def _consolidated_evidence(
