@@ -46,7 +46,7 @@ def _canonical_input(**overrides: object) -> dict[str, object]:
         "top_required_area_cm2": 8.0,
         "top_selected_area_cm2": 10.0,
         "bottom_required_area_cm2": 6.0,
-        "bottom_selected_area_cm2": 8.0,
+        "bottom_selected_area_cm2": 10.0,
         "source": {"origin": "unit_test"},
     }
     data.update(overrides)

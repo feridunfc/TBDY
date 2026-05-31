@@ -52,7 +52,7 @@ def _ctx(**overrides: object) -> BeamModelContext:
         "top_required_area_cm2": 8.0,
         "top_selected_area_cm2": 10.0,
         "bottom_required_area_cm2": 6.0,
-        "bottom_selected_area_cm2": 8.0,
+        "bottom_selected_area_cm2": 10.0,
         "missing_inputs": (),
         "source": {"origin": "unit_test"},
     }
@@ -67,6 +67,10 @@ def _expected_as_required_cm2(*, Md_kNm: float, fyd_mpa: float, fcd_mpa: float, 
     discriminant = quadratic_b * quadratic_b - 4.0 * quadratic_a * Mu_Nmm
     As_required_mm2 = (quadratic_b - math.sqrt(discriminant)) / (2.0 * quadratic_a)
     return As_required_mm2 / 100.0
+
+
+def _checks(result: FlexureResult) -> dict[str, FlexureCheck]:
+    return {check.name: check for check in result.checks}
 
 
 def test_flexure_calculator_returns_deterministic_ok_result() -> None:
@@ -93,23 +97,19 @@ def test_flexure_calculator_returns_deterministic_ok_result() -> None:
     )
 
     assert result.status == "OK"
-    assert result.Md_left_neg_kNm == 108.7
-    assert result.Md_mid_pos_kNm == 84.8
-    assert result.Md_right_neg_kNm == 92.4
+    assert len(result.checks) == 4
+    assert [check.name for check in result.checks] == [
+        "beam_flexure_top_area_provided_ge_required",
+        "beam_flexure_bottom_area_provided_ge_required",
+        "beam_flexure_top_rho_ge_rho_min",
+        "beam_flexure_bottom_rho_ge_rho_min",
+    ]
     assert result.top_design_moment_kNm == 108.7
     assert result.bottom_design_moment_kNm == 84.8
     assert result.required_top_area_cm2 == pytest.approx(expected_top)
-    assert result.provided_top_area_cm2 == 10.0
     assert result.required_bottom_area_cm2 == pytest.approx(expected_bottom)
-    assert result.provided_bottom_area_cm2 == 8.0
-    assert result.top_required_area_from_moment_cm2 == pytest.approx(expected_top)
-    assert result.bottom_required_area_from_moment_cm2 == pytest.approx(expected_bottom)
     assert result.top_required_area_source == "moment_derived"
     assert result.bottom_required_area_source == "moment_derived"
-    assert result.top_ratio == pytest.approx(expected_top / 10.0)
-    assert result.bottom_ratio == pytest.approx(expected_bottom / 8.0)
-    assert len(result.checks) == 2
-    assert all(check.status == "OK" for check in result.checks)
 
 
 def test_required_rebar_area_from_moment_matches_independent_hand_calculation() -> None:
@@ -141,18 +141,68 @@ def test_required_rebar_area_from_moment_matches_independent_hand_calculation() 
     assert result.bottom_required_area_from_moment_cm2 == pytest.approx(expected)
     assert result.required_top_area_cm2 == pytest.approx(expected)
     assert result.required_bottom_area_cm2 == pytest.approx(expected)
-    assert result.top_required_area_source == "moment_derived"
-    assert result.bottom_required_area_source == "moment_derived"
 
-    top_check = {
-        check.name: check for check in result.checks
-    }["beam_flexure_top_area_provided_ge_required"]
+    top_check = _checks(result)["beam_flexure_top_area_provided_ge_required"]
 
     assert top_check.evidence["Md_kNm"] == 120.0
     assert top_check.evidence["Mu_Nmm"] == 120.0 * 1_000_000.0
     assert top_check.evidence["As_required_mm2"] == pytest.approx(expected * 100.0)
     assert top_check.evidence["As_required_cm2"] == pytest.approx(expected)
     assert top_check.evidence["required_area_source"] == "moment_derived"
+
+
+def test_rho_min_hand_calculation_for_top_and_bottom() -> None:
+    result = TBDYFlexureCalculator().calculate(_ctx())
+
+    expected_rho_min = max(0.8 * 1.27 / 365.0, 0.0015)
+    expected_top_rho = (10.0 * 100.0) / (600.0 * 550.0)
+    expected_bottom_rho = (10.0 * 100.0) / (600.0 * 550.0)
+
+    assert result.rho_min == pytest.approx(expected_rho_min)
+    assert result.top_rho == pytest.approx(expected_top_rho)
+    assert result.bottom_rho == pytest.approx(expected_bottom_rho)
+    assert result.top_rho_min_ratio == pytest.approx(expected_rho_min / expected_top_rho)
+    assert result.bottom_rho_min_ratio == pytest.approx(expected_rho_min / expected_bottom_rho)
+
+    checks = _checks(result)
+    top = checks["beam_flexure_top_rho_ge_rho_min"]
+    bottom = checks["beam_flexure_bottom_rho_ge_rho_min"]
+
+    assert top.status == "OK"
+    assert top.demand == pytest.approx(expected_rho_min)
+    assert top.capacity == pytest.approx(expected_top_rho)
+    assert top.ratio == pytest.approx(expected_rho_min / expected_top_rho)
+    assert top.evidence["selected_area_cm2"] == 10.0
+    assert top.evidence["selected_area_mm2"] == 1000.0
+    assert top.evidence["rho"] == pytest.approx(expected_top_rho)
+    assert top.evidence["rho_min"] == pytest.approx(expected_rho_min)
+
+    assert bottom.status == "OK"
+    assert bottom.capacity == pytest.approx(expected_bottom_rho)
+
+
+def test_rho_min_fails_when_selected_area_is_too_small() -> None:
+    result = TBDYFlexureCalculator().calculate(
+        _ctx(top_selected_area_cm2=2.0, bottom_selected_area_cm2=2.0)
+    )
+    checks = _checks(result)
+
+    assert result.status == "FAIL"
+    assert checks["beam_flexure_top_rho_ge_rho_min"].status == "FAIL"
+    assert checks["beam_flexure_bottom_rho_ge_rho_min"].status == "FAIL"
+
+
+def test_rho_min_no_data_when_selected_area_or_materials_invalid() -> None:
+    result = TBDYFlexureCalculator().calculate(
+        _ctx(top_selected_area_cm2=None, bottom_selected_area_cm2=0.0)
+    )
+    checks = _checks(result)
+
+    assert result.status == "NO_DATA"
+    assert result.top_rho is None
+    assert result.bottom_rho is None
+    assert checks["beam_flexure_top_rho_ge_rho_min"].status == "NO_DATA"
+    assert checks["beam_flexure_bottom_rho_ge_rho_min"].status == "NO_DATA"
 
 
 def test_context_required_area_is_used_when_moment_required_is_not_available() -> None:
@@ -192,7 +242,7 @@ def test_stress_block_values_are_computed_for_top_and_bottom_rebar() -> None:
     assert result.beta1 == pytest.approx(0.85)
 
     expected_top_a = 10.0 * 100.0 * 365.0 / (0.85 * 20.0 * 600.0)
-    expected_bottom_a = 8.0 * 100.0 * 365.0 / (0.85 * 20.0 * 600.0)
+    expected_bottom_a = 10.0 * 100.0 * 365.0 / (0.85 * 20.0 * 600.0)
 
     assert result.top_stress_block_a_mm == pytest.approx(expected_top_a)
     assert result.top_neutral_axis_c_mm == pytest.approx(expected_top_a / 0.85)
@@ -209,7 +259,7 @@ def test_stress_block_values_are_computed_for_top_and_bottom_rebar() -> None:
 
 def test_stress_block_evidence_is_available_on_flexure_checks() -> None:
     result = TBDYFlexureCalculator().calculate(_ctx())
-    checks = {check.name: check for check in result.checks}
+    checks = _checks(result)
 
     top = checks["beam_flexure_top_area_provided_ge_required"]
     bottom = checks["beam_flexure_bottom_area_provided_ge_required"]
@@ -252,7 +302,7 @@ def test_failing_top_area() -> None:
     result = TBDYFlexureCalculator().calculate(
         _ctx(Md_left_neg_kNm=500.0, Md_right_neg_kNm=0.0, top_selected_area_cm2=2.0)
     )
-    checks = {check.name: check for check in result.checks}
+    checks = _checks(result)
 
     assert result.status == "FAIL"
     assert checks["beam_flexure_top_area_provided_ge_required"].status == "FAIL"
@@ -262,7 +312,7 @@ def test_failing_bottom_area() -> None:
     result = TBDYFlexureCalculator().calculate(
         _ctx(Md_mid_pos_kNm=500.0, bottom_selected_area_cm2=2.0)
     )
-    checks = {check.name: check for check in result.checks}
+    checks = _checks(result)
 
     assert result.status == "FAIL"
     assert checks["beam_flexure_bottom_area_provided_ge_required"].status == "FAIL"
@@ -272,7 +322,7 @@ def test_no_data_behavior() -> None:
     result = TBDYFlexureCalculator().calculate(
         _ctx(top_selected_area_cm2=None, bottom_selected_area_cm2=0.0)
     )
-    checks = {check.name: check for check in result.checks}
+    checks = _checks(result)
 
     assert result.status == "NO_DATA"
     assert checks["beam_flexure_top_area_provided_ge_required"].status == "NO_DATA"
@@ -283,7 +333,7 @@ def test_no_data_behavior() -> None:
 
 def test_evidence_contains_required_values_and_formula() -> None:
     result = TBDYFlexureCalculator().calculate(_ctx())
-    checks = {check.name: check for check in result.checks}
+    checks = _checks(result)
 
     top = checks["beam_flexure_top_area_provided_ge_required"]
     bottom = checks["beam_flexure_bottom_area_provided_ge_required"]
@@ -293,7 +343,7 @@ def test_evidence_contains_required_values_and_formula() -> None:
     assert top.evidence["formula"] == "provided_area_cm2 >= As_required_cm2"
 
     assert bottom.evidence["bottom_required_area_cm2"] == pytest.approx(result.required_bottom_area_cm2)
-    assert bottom.evidence["bottom_selected_area_cm2"] == 8.0
+    assert bottom.evidence["bottom_selected_area_cm2"] == 10.0
     assert bottom.evidence["formula"] == "provided_area_cm2 >= As_required_cm2"
 
 

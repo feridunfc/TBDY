@@ -44,7 +44,7 @@ def _canonical_input(**overrides: object) -> dict[str, object]:
         "top_required_area_cm2": 8.0,
         "top_selected_area_cm2": 10.0,
         "bottom_required_area_cm2": 6.0,
-        "bottom_selected_area_cm2": 8.0,
+        "bottom_selected_area_cm2": 10.0,
         "missing_inputs": (),
         "source": {"origin": "unit_test"},
     }
@@ -64,8 +64,8 @@ def test_valid_complete_canonical_input_returns_ok_result() -> None:
     assert result.flexure is not None
     assert len(result.geometry.checks) == 4
     assert len(result.shear.checks) == 8
-    assert len(result.flexure.checks) == 2
-    assert len(result.core_checks) == 14
+    assert len(result.flexure.checks) == 4
+    assert len(result.core_checks) == 16
 
 
 def test_core_check_ordering_is_deterministic() -> None:
@@ -73,7 +73,7 @@ def test_core_check_ordering_is_deterministic() -> None:
 
     assert [check.check_type for check in result.core_checks[:4]] == ["geometry"] * 4
     assert [check.check_type for check in result.core_checks[4:12]] == ["shear"] * 8
-    assert [check.check_type for check in result.core_checks[12:]] == ["flexure"] * 2
+    assert [check.check_type for check in result.core_checks[12:]] == ["flexure"] * 4
 
 
 def test_invalid_input_does_not_run_calculators() -> None:
@@ -108,8 +108,8 @@ def test_flexure_no_data_propagates_to_beam_core_result() -> None:
     assert result.shear is not None
     assert result.flexure is not None
     assert result.flexure.status == "NO_DATA"
-    assert len(result.core_checks) == 14
-    assert [check.status for check in result.core_checks[-2:]] == ["NO_DATA", "NO_DATA"]
+    assert len(result.core_checks) == 16
+    assert [check.status for check in result.core_checks[-4:]] == ["NO_DATA", "NO_DATA", "NO_DATA", "NO_DATA"]
 
 
 def test_failing_shear_propagates_fail() -> None:
