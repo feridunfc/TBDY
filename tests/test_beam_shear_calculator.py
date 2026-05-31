@@ -13,6 +13,7 @@ from tbdy_engine.design.beams.calculators.shear import (
     ShearResult,
     TBDYShearCalculator,
     calculate_capacity_shear_demand,
+    capacity_design_ve_le_vr_check,
 )
 from tbdy_engine.design.beams.core_check import shear_check_to_core_check
 
@@ -273,6 +274,142 @@ def test_capacity_shear_demand_is_deterministic_for_repeated_runs() -> None:
             right_plastic_moment_kNm=160.0,
             Ln_mm=5000.0,
             gravity_shear_kN=90.0,
+        )
+        assert current == first
+
+def test_capacity_design_ve_le_vr_check_passes_hand_calculation() -> None:
+    demand = calculate_capacity_shear_demand(
+        left_plastic_moment_kNm=180.0,
+        right_plastic_moment_kNm=160.0,
+        Ln_mm=5000.0,
+        gravity_shear_kN=90.0,
+    )
+    check = capacity_design_ve_le_vr_check(
+        capacity_shear_demand=demand,
+        Vr_kN=200.0,
+        Vc_kN=80.0,
+        Vw_kN=120.0,
+        Asw_mm2=157.08,
+        fywd_mpa=365.0,
+        d_mm=550.0,
+        stirrup_spacing_mm=100.0,
+    )
+
+    assert check.name == "beam_shear_capacity_design_ve_le_vr"
+    assert check.status == "OK"
+    assert check.demand == pytest.approx(158.0)
+    assert check.capacity == pytest.approx(200.0)
+    assert check.ratio == pytest.approx(158.0 / 200.0)
+    assert check.unit == "kN"
+    assert check.evidence["Ve_capacity_kN"] == pytest.approx(158.0)
+    assert check.evidence["Vr_kN"] == pytest.approx(200.0)
+    assert check.evidence["formula_capacity_check"] == "Ve_capacity_kN <= Vr_kN"
+    assert check.evidence["ve_capacity_check_against_vr"] is True
+    assert check.evidence["capacity_design_shear_complete"] is False
+    assert check.evidence["capacity_design_vmax_check"] is False
+
+
+def test_capacity_design_ve_le_vr_check_fails_hand_calculation() -> None:
+    demand = calculate_capacity_shear_demand(
+        left_plastic_moment_kNm=180.0,
+        right_plastic_moment_kNm=160.0,
+        Ln_mm=5000.0,
+        gravity_shear_kN=90.0,
+    )
+    check = capacity_design_ve_le_vr_check(
+        capacity_shear_demand=demand,
+        Vr_kN=120.0,
+        Vc_kN=50.0,
+        Vw_kN=70.0,
+        Asw_mm2=157.08,
+        fywd_mpa=365.0,
+        d_mm=550.0,
+        stirrup_spacing_mm=100.0,
+    )
+
+    assert check.status == "FAIL"
+    assert check.demand == pytest.approx(158.0)
+    assert check.capacity == pytest.approx(120.0)
+    assert check.ratio == pytest.approx(158.0 / 120.0)
+    assert check.ratio > 1.0
+
+
+def test_capacity_design_ve_le_vr_check_returns_no_data_when_demand_missing() -> None:
+    demand = calculate_capacity_shear_demand(
+        left_plastic_moment_kNm=None,
+        right_plastic_moment_kNm=160.0,
+        Ln_mm=5000.0,
+        gravity_shear_kN=90.0,
+    )
+    check = capacity_design_ve_le_vr_check(
+        capacity_shear_demand=demand,
+        Vr_kN=200.0,
+        Vc_kN=80.0,
+        Vw_kN=120.0,
+        Asw_mm2=157.08,
+        fywd_mpa=365.0,
+        d_mm=550.0,
+        stirrup_spacing_mm=100.0,
+    )
+
+    assert check.status == "NO_DATA"
+    assert check.demand is None
+    assert check.capacity == pytest.approx(200.0)
+    assert check.ratio is None
+
+
+def test_capacity_design_ve_le_vr_check_returns_no_data_when_vr_missing() -> None:
+    demand = calculate_capacity_shear_demand(
+        left_plastic_moment_kNm=180.0,
+        right_plastic_moment_kNm=160.0,
+        Ln_mm=5000.0,
+        gravity_shear_kN=90.0,
+    )
+    check = capacity_design_ve_le_vr_check(
+        capacity_shear_demand=demand,
+        Vr_kN=None,
+        Vc_kN=None,
+        Vw_kN=None,
+        Asw_mm2=None,
+        fywd_mpa=365.0,
+        d_mm=550.0,
+        stirrup_spacing_mm=100.0,
+    )
+
+    assert check.status == "NO_DATA"
+    assert check.demand == pytest.approx(158.0)
+    assert check.capacity is None
+    assert check.ratio is None
+
+
+def test_capacity_design_ve_le_vr_check_is_deterministic_for_repeated_runs() -> None:
+    demand = calculate_capacity_shear_demand(
+        left_plastic_moment_kNm=180.0,
+        right_plastic_moment_kNm=160.0,
+        Ln_mm=5000.0,
+        gravity_shear_kN=90.0,
+    )
+    first = capacity_design_ve_le_vr_check(
+        capacity_shear_demand=demand,
+        Vr_kN=200.0,
+        Vc_kN=80.0,
+        Vw_kN=120.0,
+        Asw_mm2=157.08,
+        fywd_mpa=365.0,
+        d_mm=550.0,
+        stirrup_spacing_mm=100.0,
+    )
+
+    for _ in range(100):
+        current = capacity_design_ve_le_vr_check(
+            capacity_shear_demand=demand,
+            Vr_kN=200.0,
+            Vc_kN=80.0,
+            Vw_kN=120.0,
+            Asw_mm2=157.08,
+            fywd_mpa=365.0,
+            d_mm=550.0,
+            stirrup_spacing_mm=100.0,
         )
         assert current == first
 

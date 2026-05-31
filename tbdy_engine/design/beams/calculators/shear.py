@@ -497,3 +497,69 @@ def calculate_capacity_shear_demand(
         },
     )
 
+
+def _capacity_design_message(status: str, label: str) -> str:
+    if status == "OK":
+        return f"{label} satisfies requirement"
+    if status == "FAIL":
+        return f"{label} exceeds capacity"
+    return f"{label} data missing"
+def capacity_design_ve_le_vr_check(
+    *,
+    capacity_shear_demand: CapacityShearDemandResult,
+    Vr_kN: float | None,
+    Vc_kN: float | None,
+    Vw_kN: float | None,
+    Asw_mm2: float | None,
+    fywd_mpa: float,
+    d_mm: float,
+    stirrup_spacing_mm: float,
+) -> ShearCheck:
+    Ve_capacity_kN = capacity_shear_demand.Ve_capacity_kN
+
+    if Ve_capacity_kN is None or Ve_capacity_kN <= 0.0 or Vr_kN is None or Vr_kN <= 0.0:
+        status = "NO_DATA"
+        demand = Ve_capacity_kN if Ve_capacity_kN is not None and Ve_capacity_kN > 0.0 else None
+        capacity = Vr_kN if Vr_kN is not None and Vr_kN > 0.0 else None
+        ratio = None
+    else:
+        demand = Ve_capacity_kN
+        capacity = Vr_kN
+        ratio = Ve_capacity_kN / Vr_kN
+        status = "OK" if Ve_capacity_kN <= Vr_kN else "FAIL"
+
+    evidence = {
+        "Ve_capacity_kN": Ve_capacity_kN,
+        "Vr_kN": Vr_kN,
+        "Vc_kN": Vc_kN,
+        "Vw_kN": Vw_kN,
+        "Asw_mm2": Asw_mm2,
+        "fywd_mpa": fywd_mpa,
+        "d_mm": d_mm,
+        "stirrup_spacing_mm": stirrup_spacing_mm,
+        "left_plastic_moment_kNm": capacity_shear_demand.left_plastic_moment_kNm,
+        "right_plastic_moment_kNm": capacity_shear_demand.right_plastic_moment_kNm,
+        "Ln_mm": capacity_shear_demand.Ln_mm,
+        "Ln_m": capacity_shear_demand.Ln_m,
+        "gravity_shear_kN": capacity_shear_demand.gravity_shear_kN,
+        "formula_capacity_demand": "Ve_capacity_kN = (left_plastic_moment_kNm + right_plastic_moment_kNm) / (Ln_mm / 1000) + gravity_shear_kN",
+        "formula_capacity_check": "Ve_capacity_kN <= Vr_kN",
+        "source_of_plastic_moments": capacity_shear_demand.evidence.get("source_of_plastic_moments"),
+        "source_of_gravity_shear": capacity_shear_demand.evidence.get("source_of_gravity_shear"),
+        "capacity_design_shear_complete": False,
+        "capacity_design_vmax_check": False,
+        "ve_capacity_check_against_vr": True,
+    }
+
+    return ShearCheck(
+        name="beam_shear_capacity_design_ve_le_vr",
+        status=status,
+        demand=demand,
+        capacity=capacity,
+        ratio=ratio,
+        unit="kN",
+        code_ref="TBDY 2018 capacity-design shear Ve <= Vr deterministic core boundary",
+        evidence=evidence,
+        message=_capacity_design_message(status, "capacity design Ve <= Vr"),
+    )
+
