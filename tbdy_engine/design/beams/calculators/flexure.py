@@ -134,6 +134,40 @@ class TBDYFlexureCalculator:
         top_rho_max_ratio = _rho_max_ratio(top_rho, rho_max)
         bottom_rho_max_ratio = _rho_max_ratio(bottom_rho, rho_max)
 
+        top_rho_min_status = _rho_min_status(rho_min, top_rho, top_rho_min_ratio)
+        bottom_rho_min_status = _rho_min_status(rho_min, bottom_rho, bottom_rho_min_ratio)
+        top_rho_max_status = _rho_max_status(rho_max, top_rho, top_rho_max_ratio)
+        bottom_rho_max_status = _rho_max_status(rho_max, bottom_rho, bottom_rho_max_ratio)
+
+        top_consolidated = _consolidated_evidence(
+            selected_area_cm2=ctx.top_selected_area_cm2,
+            required_area_cm2=top_required,
+            required_area_source=top_source,
+            area_ratio=top_ratio,
+            stress_block=top_block,
+            rho=rho_min if False else top_rho,
+            rho_min=rho_min,
+            rho_max=rho_max,
+            rho_min_ratio=top_rho_min_ratio,
+            rho_max_ratio=top_rho_max_ratio,
+            rho_min_status=top_rho_min_status,
+            rho_max_status=top_rho_max_status,
+        )
+        bottom_consolidated = _consolidated_evidence(
+            selected_area_cm2=ctx.bottom_selected_area_cm2,
+            required_area_cm2=bottom_required,
+            required_area_source=bottom_source,
+            area_ratio=bottom_ratio,
+            stress_block=bottom_block,
+            rho=bottom_rho,
+            rho_min=rho_min,
+            rho_max=rho_max,
+            rho_min_ratio=bottom_rho_min_ratio,
+            rho_max_ratio=bottom_rho_max_ratio,
+            rho_min_status=bottom_rho_min_status,
+            rho_max_status=bottom_rho_max_status,
+        )
+
         checks = (
             self._top_area_check(
                 ctx=ctx,
@@ -143,6 +177,7 @@ class TBDYFlexureCalculator:
                 stress_block=top_block,
                 design_moment_kNm=top_design_moment_kNm,
                 required_calc=top_required_calc,
+                consolidated=top_consolidated,
             ),
             self._bottom_area_check(
                 ctx=ctx,
@@ -152,6 +187,7 @@ class TBDYFlexureCalculator:
                 stress_block=bottom_block,
                 design_moment_kNm=bottom_design_moment_kNm,
                 required_calc=bottom_required_calc,
+                consolidated=bottom_consolidated,
             ),
             self._top_rho_min_check(
                 ctx=ctx,
@@ -159,6 +195,7 @@ class TBDYFlexureCalculator:
                 rho=top_rho,
                 ratio=top_rho_min_ratio,
                 required_source=top_source,
+                consolidated=top_consolidated,
             ),
             self._bottom_rho_min_check(
                 ctx=ctx,
@@ -166,6 +203,7 @@ class TBDYFlexureCalculator:
                 rho=bottom_rho,
                 ratio=bottom_rho_min_ratio,
                 required_source=bottom_source,
+                consolidated=bottom_consolidated,
             ),
             self._top_rho_max_check(
                 ctx=ctx,
@@ -173,6 +211,7 @@ class TBDYFlexureCalculator:
                 rho=top_rho,
                 ratio=top_rho_max_ratio,
                 required_source=top_source,
+                consolidated=top_consolidated,
             ),
             self._bottom_rho_max_check(
                 ctx=ctx,
@@ -180,6 +219,7 @@ class TBDYFlexureCalculator:
                 rho=bottom_rho,
                 ratio=bottom_rho_max_ratio,
                 required_source=bottom_source,
+                consolidated=bottom_consolidated,
             ),
         )
 
@@ -235,6 +275,7 @@ class TBDYFlexureCalculator:
         stress_block: Mapping[str, float | None],
         design_moment_kNm: float | None,
         required_calc: Mapping[str, float | None],
+        consolidated: Mapping[str, object],
     ) -> FlexureCheck:
         provided = ctx.top_selected_area_cm2
         status = _area_status(required, provided)
@@ -249,6 +290,7 @@ class TBDYFlexureCalculator:
             unit="cm²",
             code_ref="TBDY 2018 beam flexure reinforcement area",
             evidence={
+                **consolidated,
                 "Md_kNm": design_moment_kNm,
                 "Mu_Nmm": required_calc["Mu_Nmm"],
                 "bw_mm": ctx.bw_mm,
@@ -282,6 +324,7 @@ class TBDYFlexureCalculator:
         stress_block: Mapping[str, float | None],
         design_moment_kNm: float | None,
         required_calc: Mapping[str, float | None],
+        consolidated: Mapping[str, object],
     ) -> FlexureCheck:
         provided = ctx.bottom_selected_area_cm2
         status = _area_status(required, provided)
@@ -296,6 +339,7 @@ class TBDYFlexureCalculator:
             unit="cm²",
             code_ref="TBDY 2018 beam flexure reinforcement area",
             evidence={
+                **consolidated,
                 "Md_kNm": design_moment_kNm,
                 "Mu_Nmm": required_calc["Mu_Nmm"],
                 "bw_mm": ctx.bw_mm,
@@ -327,6 +371,7 @@ class TBDYFlexureCalculator:
         rho: float | None,
         ratio: float | None,
         required_source: str,
+        consolidated: Mapping[str, object],
     ) -> FlexureCheck:
         return _rho_min_check(
             name="beam_flexure_top_rho_ge_rho_min",
@@ -340,6 +385,7 @@ class TBDYFlexureCalculator:
             ratio=ratio,
             required_source=required_source,
             label="top reinforcement rho_min",
+            consolidated=consolidated,
         )
 
     def _bottom_rho_min_check(
@@ -350,6 +396,7 @@ class TBDYFlexureCalculator:
         rho: float | None,
         ratio: float | None,
         required_source: str,
+        consolidated: Mapping[str, object],
     ) -> FlexureCheck:
         return _rho_min_check(
             name="beam_flexure_bottom_rho_ge_rho_min",
@@ -363,8 +410,8 @@ class TBDYFlexureCalculator:
             ratio=ratio,
             required_source=required_source,
             label="bottom reinforcement rho_min",
+            consolidated=consolidated,
         )
-
 
     def _top_rho_max_check(
         self,
@@ -374,6 +421,7 @@ class TBDYFlexureCalculator:
         rho: float | None,
         ratio: float | None,
         required_source: str,
+        consolidated: Mapping[str, object],
     ) -> FlexureCheck:
         return _rho_max_check(
             name="beam_flexure_top_rho_le_rho_max",
@@ -387,6 +435,7 @@ class TBDYFlexureCalculator:
             ratio=ratio,
             required_source=required_source,
             label="top reinforcement rho_max",
+            consolidated=consolidated,
         )
 
     def _bottom_rho_max_check(
@@ -397,6 +446,7 @@ class TBDYFlexureCalculator:
         rho: float | None,
         ratio: float | None,
         required_source: str,
+        consolidated: Mapping[str, object],
     ) -> FlexureCheck:
         return _rho_max_check(
             name="beam_flexure_bottom_rho_le_rho_max",
@@ -410,7 +460,46 @@ class TBDYFlexureCalculator:
             ratio=ratio,
             required_source=required_source,
             label="bottom reinforcement rho_max",
+            consolidated=consolidated,
         )
+
+
+def _consolidated_evidence(
+    *,
+    selected_area_cm2: float | None,
+    required_area_cm2: float | None,
+    required_area_source: str,
+    area_ratio: float | None,
+    stress_block: Mapping[str, float | None],
+    rho: float | None,
+    rho_min: float | None,
+    rho_max: float | None,
+    rho_min_ratio: float | None,
+    rho_max_ratio: float | None,
+    rho_min_status: str,
+    rho_max_status: str,
+) -> dict[str, object]:
+    return {
+        "consolidated_flexure_evidence": True,
+        "selected_area_cm2": selected_area_cm2,
+        "selected_area_mm2": None if selected_area_cm2 is None else selected_area_cm2 * 100.0,
+        "required_area_cm2": required_area_cm2,
+        "required_area_source": required_area_source,
+        "provided_to_required_ratio": area_ratio,
+        "stress_block_a_mm": stress_block["a_mm"],
+        "neutral_axis_c_mm": stress_block["c_mm"],
+        "compression_block_kN": stress_block["compression_block_kN"],
+        "rho": rho,
+        "rho_min": rho_min,
+        "rho_max": rho_max,
+        "rho_min_ratio": rho_min_ratio,
+        "rho_max_ratio": rho_max_ratio,
+        "rho_min_status": rho_min_status,
+        "rho_max_status": rho_max_status,
+        "rho_min_formula": "rho_min = max(0.8 * fctd_mpa / fyd_mpa, 0.0015)",
+        "rho_max_formula": "rho_max = 0.04",
+    }
+
 
 def _valid_area(value: float | None) -> bool:
     return value is not None and value > 0.0
@@ -441,15 +530,10 @@ def _rho_min_check(
     ratio: float | None,
     required_source: str,
     label: str,
+    consolidated: Mapping[str, object],
 ) -> FlexureCheck:
     selected_area_mm2 = None if selected_area_cm2 is None else selected_area_cm2 * 100.0
-
-    if rho_min is None or rho is None or ratio is None:
-        status = "NO_DATA"
-    elif rho >= rho_min:
-        status = "OK"
-    else:
-        status = "FAIL"
+    status = _rho_min_status(rho_min, rho, ratio)
 
     return FlexureCheck(
         name=name,
@@ -460,6 +544,7 @@ def _rho_min_check(
         unit="ratio",
         code_ref="TBDY 2018 minimum beam longitudinal reinforcement ratio",
         evidence={
+            **consolidated,
             "selected_area_cm2": selected_area_cm2,
             "selected_area_mm2": selected_area_mm2,
             "bw_mm": bw_mm,
@@ -489,15 +574,10 @@ def _rho_max_check(
     ratio: float | None,
     required_source: str,
     label: str,
+    consolidated: Mapping[str, object],
 ) -> FlexureCheck:
     selected_area_mm2 = None if selected_area_cm2 is None else selected_area_cm2 * 100.0
-
-    if rho_max is None or rho is None or ratio is None:
-        status = "NO_DATA"
-    elif rho <= rho_max:
-        status = "OK"
-    else:
-        status = "FAIL"
+    status = _rho_max_status(rho_max, rho, ratio)
 
     return FlexureCheck(
         name=name,
@@ -508,6 +588,7 @@ def _rho_max_check(
         unit="ratio",
         code_ref="TBDY 2018 maximum beam longitudinal reinforcement ratio",
         evidence={
+            **consolidated,
             "selected_area_cm2": selected_area_cm2,
             "selected_area_mm2": selected_area_mm2,
             "bw_mm": bw_mm,
@@ -650,6 +731,14 @@ def _rho_min_ratio(rho_min: float | None, rho: float | None) -> float | None:
     return rho_min / rho
 
 
+def _rho_min_status(rho_min: float | None, rho: float | None, ratio: float | None) -> str:
+    if rho_min is None or rho is None or ratio is None:
+        return "NO_DATA"
+    if rho >= rho_min:
+        return "OK"
+    return "FAIL"
+
+
 def _rho_max() -> float:
     return 0.04
 
@@ -658,6 +747,14 @@ def _rho_max_ratio(rho: float | None, rho_max: float | None) -> float | None:
     if rho is None or rho <= 0.0 or rho_max is None or rho_max <= 0.0:
         return None
     return rho / rho_max
+
+
+def _rho_max_status(rho_max: float | None, rho: float | None, ratio: float | None) -> str:
+    if rho_max is None or rho is None or ratio is None:
+        return "NO_DATA"
+    if rho <= rho_max:
+        return "OK"
+    return "FAIL"
 
 
 def _beta1(fck_mpa: float | None) -> float | None:

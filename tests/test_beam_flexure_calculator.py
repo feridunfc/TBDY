@@ -417,6 +417,91 @@ def test_flexure_check_to_core_check_conversion() -> None:
     assert flexure_check.evidence == original_evidence
 
 
+def test_area_checks_contain_consolidated_n1_to_n4_evidence_for_hand_verification() -> None:
+    result = TBDYFlexureCalculator().calculate(_ctx())
+    checks = _checks(result)
+
+    top = checks["beam_flexure_top_area_provided_ge_required"]
+    bottom = checks["beam_flexure_bottom_area_provided_ge_required"]
+
+    for check in (top, bottom):
+        assert check.evidence["consolidated_flexure_evidence"] is True
+        assert "selected_area_cm2" in check.evidence
+        assert "selected_area_mm2" in check.evidence
+        assert "required_area_cm2" in check.evidence
+        assert "required_area_source" in check.evidence
+        assert "provided_to_required_ratio" in check.evidence
+        assert "stress_block_a_mm" in check.evidence
+        assert "neutral_axis_c_mm" in check.evidence
+        assert "compression_block_kN" in check.evidence
+        assert "rho" in check.evidence
+        assert "rho_min" in check.evidence
+        assert "rho_max" in check.evidence
+        assert "rho_min_ratio" in check.evidence
+        assert "rho_max_ratio" in check.evidence
+        assert "rho_min_status" in check.evidence
+        assert "rho_max_status" in check.evidence
+        assert "rho_min_formula" in check.evidence
+        assert "rho_max_formula" in check.evidence
+
+    assert top.evidence["required_area_source"] == "moment_derived"
+    assert top.evidence["required_area_cm2"] == pytest.approx(result.required_top_area_cm2)
+    assert top.evidence["provided_to_required_ratio"] == pytest.approx(result.top_ratio)
+    assert top.evidence["rho"] == pytest.approx(result.top_rho)
+    assert top.evidence["rho_min"] == pytest.approx(result.rho_min)
+    assert top.evidence["rho_max"] == pytest.approx(result.rho_max)
+    assert top.evidence["rho_min_status"] == "OK"
+    assert top.evidence["rho_max_status"] == "OK"
+
+    assert bottom.evidence["required_area_source"] == "moment_derived"
+    assert bottom.evidence["required_area_cm2"] == pytest.approx(result.required_bottom_area_cm2)
+    assert bottom.evidence["provided_to_required_ratio"] == pytest.approx(result.bottom_ratio)
+    assert bottom.evidence["rho"] == pytest.approx(result.bottom_rho)
+    assert bottom.evidence["rho_min"] == pytest.approx(result.rho_min)
+    assert bottom.evidence["rho_max"] == pytest.approx(result.rho_max)
+    assert bottom.evidence["rho_min_status"] == "OK"
+    assert bottom.evidence["rho_max_status"] == "OK"
+
+
+def test_rho_checks_also_carry_consolidated_provided_vs_required_context() -> None:
+    result = TBDYFlexureCalculator().calculate(_ctx())
+    checks = _checks(result)
+
+    for name in (
+        "beam_flexure_top_rho_ge_rho_min",
+        "beam_flexure_bottom_rho_ge_rho_min",
+        "beam_flexure_top_rho_le_rho_max",
+        "beam_flexure_bottom_rho_le_rho_max",
+    ):
+        check = checks[name]
+        assert check.evidence["consolidated_flexure_evidence"] is True
+        assert "required_area_cm2" in check.evidence
+        assert "required_area_source" in check.evidence
+        assert "stress_block_a_mm" in check.evidence
+        assert "rho_min_status" in check.evidence
+        assert "rho_max_status" in check.evidence
+
+
+def test_consolidated_flexure_hand_check_statuses_match_each_subcheck() -> None:
+    result = TBDYFlexureCalculator().calculate(_ctx())
+    checks = _checks(result)
+
+    top_area = checks["beam_flexure_top_area_provided_ge_required"]
+    top_rho_min = checks["beam_flexure_top_rho_ge_rho_min"]
+    top_rho_max = checks["beam_flexure_top_rho_le_rho_max"]
+
+    assert top_area.status == "OK"
+    assert top_rho_min.status == top_area.evidence["rho_min_status"]
+    assert top_rho_max.status == top_area.evidence["rho_max_status"]
+
+    bottom_area = checks["beam_flexure_bottom_area_provided_ge_required"]
+    bottom_rho_min = checks["beam_flexure_bottom_rho_ge_rho_min"]
+    bottom_rho_max = checks["beam_flexure_bottom_rho_le_rho_max"]
+
+    assert bottom_area.status == "OK"
+    assert bottom_rho_min.status == bottom_area.evidence["rho_min_status"]
+    assert bottom_rho_max.status == bottom_area.evidence["rho_max_status"]
+
 def test_flexure_source_guard_has_no_forbidden_imports() -> None:
     source = pathlib.Path("tbdy_engine/design/beams/calculators/flexure.py").read_text(encoding="utf-8")
     forbidden = [
