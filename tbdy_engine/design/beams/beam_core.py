@@ -10,6 +10,7 @@ from tbdy_engine.design.beams.calculators.shear import (
     TBDYShearCalculator,
     calculate_capacity_shear_demand,
     capacity_design_ve_le_vr_check,
+    capacity_design_ve_le_085_vmax_check,
 )
 from tbdy_engine.design.beams.context import (
     BeamModelContext,
@@ -125,8 +126,15 @@ def _append_capacity_design_shear_check(
         d_mm=context.d_mm,
         stirrup_spacing_mm=context.stirrup_spacing_mm,
     )
+    capacity_vmax_check = capacity_design_ve_le_085_vmax_check(
+        capacity_shear_demand=capacity_demand,
+        Vmax_kN=shear.Vmax_kN,
+        fcd_mpa=context.fcd_mpa,
+        bw_mm=context.bw_mm,
+        d_mm=context.d_mm,
+    )
 
-    checks = tuple(shear.checks) + (capacity_check,)
+    checks = tuple(shear.checks) + (capacity_check, capacity_vmax_check,)
     status = _aggregate_status(*(check.status for check in checks))
 
     return replace(shear, checks=checks, status=status)

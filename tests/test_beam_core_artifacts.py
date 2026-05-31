@@ -221,4 +221,4 @@ def test_o1_artifact_json_contains_all_ten_flexure_checks(tmp_path: Path) -> Non
         for check in _checks(payload)
     }
     assert "beam_shear_capacity_design_ve_le_vr" in check_types
-    assert len(result.checks) == 23
+    assert len(result.checks) == 24

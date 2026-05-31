@@ -370,3 +370,27 @@ def test_o4_check_adapter_outputs_capacity_design_shear_check_result() -> None:
     assert _check_field(capacity_check, "demand") is not None
     assert _check_field(capacity_check, "capacity") is not None
     assert _check_field(capacity_check, "ratio") is not None
+
+def test_o5_check_adapter_outputs_capacity_design_vmax_check_result() -> None:
+    result = evaluate_beam_core(_canonical_input())
+    packages = beam_core_result_to_evaluation_packages(result)
+    check_results = _adapt_packages(packages)
+
+    check_types = tuple(
+        str(_check_field(check, "check_type"))
+        for check in check_results
+    )
+
+    assert "beam_shear_capacity_design_ve_le_085_vmax" in check_types
+    assert "beam_shear_capacity_design_ve_le_vr" in check_types
+    assert "beam_shear_ve_le_085_vmax" in check_types
+
+    capacity_check = next(
+        check for check in check_results
+        if str(_check_field(check, "check_type")) == "beam_shear_capacity_design_ve_le_085_vmax"
+    )
+
+    assert _check_field(capacity_check, "status") == "OK"
+    assert _check_field(capacity_check, "demand") is not None
+    assert _check_field(capacity_check, "capacity") is not None
+    assert _check_field(capacity_check, "ratio") is not None

@@ -12,6 +12,8 @@ if "tbdy_engine" not in sys.modules:
 
 from dataclasses import is_dataclass
 
+import pytest
+
 from tbdy_engine.design.beams.beam_core import BeamCoreResult, evaluate_beam_core
 
 
@@ -62,9 +64,9 @@ def test_valid_complete_canonical_input_returns_ok_result() -> None:
     assert result.shear is not None
     assert result.flexure is not None
     assert len(result.geometry.checks) == 4
-    assert len(result.shear.checks) == 9
+    assert len(result.shear.checks) == 10
     assert len(result.flexure.checks) == 10
-    assert len(result.core_checks) == 23
+    assert len(result.core_checks) == 24
 
     core_flexure_names = [
         check.name for check in result.core_checks if check.check_type == "flexure"
@@ -81,8 +83,8 @@ def test_core_check_ordering_is_deterministic() -> None:
     result = evaluate_beam_core(_canonical_input())
 
     assert [check.check_type for check in result.core_checks[:4]] == ["geometry"] * 4
-    assert [check.check_type for check in result.core_checks[4:13]] == ["shear"] * 9
-    assert [check.check_type for check in result.core_checks[13:]] == ["flexure"] * 10
+    assert [check.check_type for check in result.core_checks[4:14]] == ["shear"] * 10
+    assert [check.check_type for check in result.core_checks[14:]] == ["flexure"] * 10
 
 
 def test_invalid_input_does_not_run_calculators() -> None:
@@ -117,7 +119,7 @@ def test_flexure_no_data_propagates_to_beam_core_result() -> None:
     assert result.shear is not None
     assert result.flexure is not None
     assert result.flexure.status == "NO_DATA"
-    assert len(result.core_checks) == 23
+    assert len(result.core_checks) == 24
 
     flexure_checks = [
         check for check in result.core_checks if check.check_type == "flexure"
@@ -211,7 +213,7 @@ def test_n7_beam_core_preserves_n1_to_n6_checks_and_adds_bar_selection_checks() 
 
     assert len(result.flexure.checks) == 10
     assert len(core_flexure_names) == 10
-    assert len(result.core_checks) == 23
+    assert len(result.core_checks) == 24
     assert "beam_flexure_top_bar_selection" in core_flexure_names
     assert "beam_flexure_bottom_bar_selection" in core_flexure_names
     assert "beam_flexure_top_plastic_moment_available" in core_flexure_names
@@ -265,7 +267,7 @@ def test_n7_beam_core_aggregates_bar_selection_checks() -> None:
     assert result.status == "OK"
     assert result.flexure is not None
     assert len(result.flexure.checks) == 10
-    assert len(result.core_checks) == 23
+    assert len(result.core_checks) == 24
 
     core_flexure_names = tuple(
         check.name for check in result.core_checks if check.check_type == "flexure"
@@ -357,3 +359,54 @@ def test_o4_beam_core_preserves_capacity_design_shear_check_path() -> None:
     assert evidence["gravity_shear_kN"] == abs(result.context.Vd_left_kN)
     assert evidence["formula_capacity_check"] == "Ve_capacity_kN <= Vr_kN"
     assert evidence["capacity_design_vmax_check"] is False
+
+def test_o5_beam_core_preserves_capacity_design_vmax_check_path() -> None:
+    result = evaluate_beam_core(_canonical_input())
+
+    assert result.shear is not None
+    assert result.flexure is not None
+
+    shear_check = next(
+        check for check in result.shear.checks
+        if check.name == "beam_shear_capacity_design_ve_le_085_vmax"
+    )
+    core_check = next(
+        check for check in result.core_checks
+        if check.name == "beam_shear_capacity_design_ve_le_085_vmax"
+    )
+
+    assert shear_check.status == "OK"
+    assert core_check.status == shear_check.status
+    assert core_check.demand == shear_check.demand
+    assert core_check.capacity == shear_check.capacity
+    assert core_check.ratio == shear_check.ratio
+    assert core_check.unit == "kN"
+    assert core_check.code_ref == shear_check.code_ref
+
+    evidence = core_check.evidence
+    for key in (
+        "Ve_capacity_kN",
+        "Vmax_kN",
+        "capacity_design_vmax_limit_kN",
+        "fcd_mpa",
+        "bw_mm",
+        "d_mm",
+        "left_plastic_moment_kNm",
+        "right_plastic_moment_kNm",
+        "Ln_mm",
+        "Ln_m",
+        "gravity_shear_kN",
+        "formula_vmax",
+        "formula_capacity_vmax_limit",
+        "formula_capacity_demand",
+        "formula_capacity_check",
+        "source_of_plastic_moments",
+        "source_of_gravity_shear",
+    ):
+        assert key in evidence
+
+    assert evidence["Ve_capacity_kN"] == shear_check.demand
+    assert evidence["Vmax_kN"] == result.shear.Vmax_kN
+    assert evidence["capacity_design_vmax_limit_kN"] == pytest.approx(0.85 * result.shear.Vmax_kN)
+    assert evidence["formula_capacity_check"] == "Ve_capacity_kN <= 0.85 * Vmax_kN"
+    assert evidence["capacity_design_vmax_check"] is True

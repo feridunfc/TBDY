@@ -563,3 +563,61 @@ def capacity_design_ve_le_vr_check(
         message=_capacity_design_message(status, "capacity design Ve <= Vr"),
     )
 
+def capacity_design_ve_le_085_vmax_check(
+    *,
+    capacity_shear_demand: CapacityShearDemandResult,
+    Vmax_kN: float | None,
+    fcd_mpa: float,
+    bw_mm: float,
+    d_mm: float,
+) -> ShearCheck:
+    Ve_capacity_kN = capacity_shear_demand.Ve_capacity_kN
+
+    if Vmax_kN is None or Vmax_kN <= 0.0:
+        capacity = None
+    else:
+        capacity = 0.85 * Vmax_kN
+
+    if Ve_capacity_kN is None or Ve_capacity_kN <= 0.0 or capacity is None or capacity <= 0.0:
+        status = "NO_DATA"
+        demand = Ve_capacity_kN if Ve_capacity_kN is not None and Ve_capacity_kN > 0.0 else None
+        ratio = None
+    else:
+        demand = Ve_capacity_kN
+        ratio = Ve_capacity_kN / capacity
+        status = "OK" if Ve_capacity_kN <= capacity else "FAIL"
+
+    evidence = {
+        "Ve_capacity_kN": Ve_capacity_kN,
+        "Vmax_kN": Vmax_kN,
+        "capacity_design_vmax_limit_kN": capacity,
+        "fcd_mpa": fcd_mpa,
+        "bw_mm": bw_mm,
+        "d_mm": d_mm,
+        "left_plastic_moment_kNm": capacity_shear_demand.left_plastic_moment_kNm,
+        "right_plastic_moment_kNm": capacity_shear_demand.right_plastic_moment_kNm,
+        "Ln_mm": capacity_shear_demand.Ln_mm,
+        "Ln_m": capacity_shear_demand.Ln_m,
+        "gravity_shear_kN": capacity_shear_demand.gravity_shear_kN,
+        "formula_vmax": "Vmax_kN = 0.85 * 0.22 * fcd_mpa * bw_mm * d_mm / 1000",
+        "formula_capacity_vmax_limit": "capacity_design_vmax_limit_kN = 0.85 * Vmax_kN",
+        "formula_capacity_demand": "Ve_capacity_kN = (left_plastic_moment_kNm + right_plastic_moment_kNm) / (Ln_mm / 1000) + gravity_shear_kN",
+        "formula_capacity_check": "Ve_capacity_kN <= 0.85 * Vmax_kN",
+        "source_of_plastic_moments": capacity_shear_demand.evidence.get("source_of_plastic_moments"),
+        "source_of_gravity_shear": capacity_shear_demand.evidence.get("source_of_gravity_shear"),
+        "capacity_design_shear_complete": False,
+        "capacity_design_vmax_check": True,
+        "ve_capacity_check_against_vr": False,
+    }
+
+    return ShearCheck(
+        name="beam_shear_capacity_design_ve_le_085_vmax",
+        status=status,
+        demand=demand,
+        capacity=capacity,
+        ratio=ratio,
+        unit="kN",
+        code_ref="TBDY 2018 capacity-design shear Ve <= 0.85 Vmax deterministic core boundary",
+        evidence=evidence,
+        message=_capacity_design_message(status, "capacity design Ve <= 0.85 Vmax"),
+    )
