@@ -97,12 +97,14 @@ def test_flexure_calculator_returns_deterministic_ok_result() -> None:
     )
 
     assert result.status == "OK"
-    assert len(result.checks) == 4
+    assert len(result.checks) == 6
     assert [check.name for check in result.checks] == [
         "beam_flexure_top_area_provided_ge_required",
         "beam_flexure_bottom_area_provided_ge_required",
         "beam_flexure_top_rho_ge_rho_min",
         "beam_flexure_bottom_rho_ge_rho_min",
+        "beam_flexure_top_rho_le_rho_max",
+        "beam_flexure_bottom_rho_le_rho_max",
     ]
     assert result.top_design_moment_kNm == 108.7
     assert result.bottom_design_moment_kNm == 84.8
@@ -163,7 +165,9 @@ def test_rho_min_hand_calculation_for_top_and_bottom() -> None:
     assert result.bottom_rho == pytest.approx(expected_bottom_rho)
     assert result.top_rho_min_ratio == pytest.approx(expected_rho_min / expected_top_rho)
     assert result.bottom_rho_min_ratio == pytest.approx(expected_rho_min / expected_bottom_rho)
-
+    assert result.rho_max == pytest.approx(0.04)
+    assert result.top_rho_max_ratio == pytest.approx(expected_top_rho / 0.04)
+    assert result.bottom_rho_max_ratio == pytest.approx(expected_bottom_rho / 0.04)
     checks = _checks(result)
     top = checks["beam_flexure_top_rho_ge_rho_min"]
     bottom = checks["beam_flexure_bottom_rho_ge_rho_min"]
@@ -204,6 +208,47 @@ def test_rho_min_no_data_when_selected_area_or_materials_invalid() -> None:
     assert checks["beam_flexure_top_rho_ge_rho_min"].status == "NO_DATA"
     assert checks["beam_flexure_bottom_rho_ge_rho_min"].status == "NO_DATA"
 
+
+def test_rho_max_hand_calculation_for_top_and_bottom() -> None:
+    result = TBDYFlexureCalculator().calculate(_ctx())
+
+    expected_top_rho = (10.0 * 100.0) / (600.0 * 550.0)
+    expected_bottom_rho = (10.0 * 100.0) / (600.0 * 550.0)
+    expected_rho_max = 0.04
+
+    assert result.rho_max == pytest.approx(expected_rho_max)
+    assert result.top_rho == pytest.approx(expected_top_rho)
+    assert result.bottom_rho == pytest.approx(expected_bottom_rho)
+    assert result.top_rho_max_ratio == pytest.approx(expected_top_rho / expected_rho_max)
+    assert result.bottom_rho_max_ratio == pytest.approx(expected_bottom_rho / expected_rho_max)
+
+    checks = _checks(result)
+    top = checks["beam_flexure_top_rho_le_rho_max"]
+    bottom = checks["beam_flexure_bottom_rho_le_rho_max"]
+
+    assert top.status == "OK"
+    assert top.demand == pytest.approx(expected_top_rho)
+    assert top.capacity == pytest.approx(expected_rho_max)
+    assert top.ratio == pytest.approx(expected_top_rho / expected_rho_max)
+    assert top.evidence["selected_area_cm2"] == 10.0
+    assert top.evidence["selected_area_mm2"] == 1000.0
+    assert top.evidence["rho"] == pytest.approx(expected_top_rho)
+    assert top.evidence["rho_max"] == pytest.approx(expected_rho_max)
+
+    assert bottom.status == "OK"
+    assert bottom.demand == pytest.approx(expected_bottom_rho)
+    assert bottom.capacity == pytest.approx(expected_rho_max)
+
+
+def test_rho_max_fails_when_selected_area_is_too_large() -> None:
+    result = TBDYFlexureCalculator().calculate(
+        _ctx(top_selected_area_cm2=140.0, bottom_selected_area_cm2=140.0)
+    )
+    checks = _checks(result)
+
+    assert result.status == "FAIL"
+    assert checks["beam_flexure_top_rho_le_rho_max"].status == "FAIL"
+    assert checks["beam_flexure_bottom_rho_le_rho_max"].status == "FAIL"
 
 def test_context_required_area_is_used_when_moment_required_is_not_available() -> None:
     result = TBDYFlexureCalculator().calculate(

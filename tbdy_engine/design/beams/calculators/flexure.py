@@ -47,10 +47,13 @@ class FlexureResult:
     bottom_compression_block_kN: float | None
 
     rho_min: float | None
+    rho_max: float | None
     top_rho: float | None
     bottom_rho: float | None
     top_rho_min_ratio: float | None
     bottom_rho_min_ratio: float | None
+    top_rho_max_ratio: float | None
+    bottom_rho_max_ratio: float | None
 
     checks: tuple[FlexureCheck, ...]
     status: str
@@ -123,10 +126,13 @@ class TBDYFlexureCalculator:
         )
 
         rho_min = _rho_min(ctx.fctd_mpa, ctx.fyd_mpa)
+        rho_max = _rho_max()
         top_rho = _rho(ctx.top_selected_area_cm2, ctx.bw_mm, ctx.d_mm)
         bottom_rho = _rho(ctx.bottom_selected_area_cm2, ctx.bw_mm, ctx.d_mm)
         top_rho_min_ratio = _rho_min_ratio(rho_min, top_rho)
         bottom_rho_min_ratio = _rho_min_ratio(rho_min, bottom_rho)
+        top_rho_max_ratio = _rho_max_ratio(top_rho, rho_max)
+        bottom_rho_max_ratio = _rho_max_ratio(bottom_rho, rho_max)
 
         checks = (
             self._top_area_check(
@@ -159,6 +165,20 @@ class TBDYFlexureCalculator:
                 rho_min=rho_min,
                 rho=bottom_rho,
                 ratio=bottom_rho_min_ratio,
+                required_source=bottom_source,
+            ),
+            self._top_rho_max_check(
+                ctx=ctx,
+                rho_max=rho_max,
+                rho=top_rho,
+                ratio=top_rho_max_ratio,
+                required_source=top_source,
+            ),
+            self._bottom_rho_max_check(
+                ctx=ctx,
+                rho_max=rho_max,
+                rho=bottom_rho,
+                ratio=bottom_rho_max_ratio,
                 required_source=bottom_source,
             ),
         )
@@ -194,10 +214,13 @@ class TBDYFlexureCalculator:
             bottom_neutral_axis_c_mm=bottom_block["c_mm"],
             bottom_compression_block_kN=bottom_block["compression_block_kN"],
             rho_min=rho_min,
+            rho_max=rho_max,
             top_rho=top_rho,
             bottom_rho=bottom_rho,
             top_rho_min_ratio=top_rho_min_ratio,
             bottom_rho_min_ratio=bottom_rho_min_ratio,
+            top_rho_max_ratio=top_rho_max_ratio,
+            bottom_rho_max_ratio=bottom_rho_max_ratio,
             checks=checks,
             status=status,
         )
@@ -343,6 +366,52 @@ class TBDYFlexureCalculator:
         )
 
 
+    def _top_rho_max_check(
+        self,
+        *,
+        ctx: BeamModelContext,
+        rho_max: float | None,
+        rho: float | None,
+        ratio: float | None,
+        required_source: str,
+    ) -> FlexureCheck:
+        return _rho_max_check(
+            name="beam_flexure_top_rho_le_rho_max",
+            selected_area_cm2=ctx.top_selected_area_cm2,
+            bw_mm=ctx.bw_mm,
+            d_mm=ctx.d_mm,
+            fctd_mpa=ctx.fctd_mpa,
+            fyd_mpa=ctx.fyd_mpa,
+            rho_max=rho_max,
+            rho=rho,
+            ratio=ratio,
+            required_source=required_source,
+            label="top reinforcement rho_max",
+        )
+
+    def _bottom_rho_max_check(
+        self,
+        *,
+        ctx: BeamModelContext,
+        rho_max: float | None,
+        rho: float | None,
+        ratio: float | None,
+        required_source: str,
+    ) -> FlexureCheck:
+        return _rho_max_check(
+            name="beam_flexure_bottom_rho_le_rho_max",
+            selected_area_cm2=ctx.bottom_selected_area_cm2,
+            bw_mm=ctx.bw_mm,
+            d_mm=ctx.d_mm,
+            fctd_mpa=ctx.fctd_mpa,
+            fyd_mpa=ctx.fyd_mpa,
+            rho_max=rho_max,
+            rho=rho,
+            ratio=ratio,
+            required_source=required_source,
+            label="bottom reinforcement rho_max",
+        )
+
 def _valid_area(value: float | None) -> bool:
     return value is not None and value > 0.0
 
@@ -401,6 +470,54 @@ def _rho_min_check(
             "rho_min": rho_min,
             "formula": "rho = selected_area_mm2 / (bw_mm * d_mm); rho_min = max(0.8 * fctd_mpa / fyd_mpa, 0.0015)",
             "code_ref": "TBDY 2018 minimum beam longitudinal reinforcement ratio",
+            "required_area_source": required_source,
+        },
+        message=_message(status, label),
+    )
+
+
+def _rho_max_check(
+    *,
+    name: str,
+    selected_area_cm2: float | None,
+    bw_mm: float,
+    d_mm: float,
+    fctd_mpa: float,
+    fyd_mpa: float,
+    rho_max: float | None,
+    rho: float | None,
+    ratio: float | None,
+    required_source: str,
+    label: str,
+) -> FlexureCheck:
+    selected_area_mm2 = None if selected_area_cm2 is None else selected_area_cm2 * 100.0
+
+    if rho_max is None or rho is None or ratio is None:
+        status = "NO_DATA"
+    elif rho <= rho_max:
+        status = "OK"
+    else:
+        status = "FAIL"
+
+    return FlexureCheck(
+        name=name,
+        status=status,
+        demand=rho,
+        capacity=rho_max,
+        ratio=ratio,
+        unit="ratio",
+        code_ref="TBDY 2018 maximum beam longitudinal reinforcement ratio",
+        evidence={
+            "selected_area_cm2": selected_area_cm2,
+            "selected_area_mm2": selected_area_mm2,
+            "bw_mm": bw_mm,
+            "d_mm": d_mm,
+            "fctd_mpa": fctd_mpa,
+            "fyd_mpa": fyd_mpa,
+            "rho": rho,
+            "rho_max": rho_max,
+            "formula": "rho = selected_area_mm2 / (bw_mm * d_mm); rho_max = 0.04",
+            "code_ref": "TBDY 2018 maximum beam longitudinal reinforcement ratio",
             "required_area_source": required_source,
         },
         message=_message(status, label),
@@ -531,6 +648,16 @@ def _rho_min_ratio(rho_min: float | None, rho: float | None) -> float | None:
     if rho_min is None or rho is None or rho <= 0.0:
         return None
     return rho_min / rho
+
+
+def _rho_max() -> float:
+    return 0.04
+
+
+def _rho_max_ratio(rho: float | None, rho_max: float | None) -> float | None:
+    if rho is None or rho <= 0.0 or rho_max is None or rho_max <= 0.0:
+        return None
+    return rho / rho_max
 
 
 def _beta1(fck_mpa: float | None) -> float | None:
