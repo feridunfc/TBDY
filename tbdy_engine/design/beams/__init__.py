@@ -50,6 +50,8 @@ __all__ = [
     "build_beam_evaluation_packages",
     "beam_core_result_to_evaluation_packages",
     "core_check_to_beam_check_evaluation",
+    "BeamCoreArtifactResult",
+    "generate_beam_core_artifacts",
 ]
 from tbdy_engine.design.beams.beam_core import (
     BeamCoreResult,
@@ -59,4 +61,9 @@ from tbdy_engine.design.beams.beam_core import (
 from tbdy_engine.design.beams.core_package_adapter import (
     beam_core_result_to_evaluation_packages,
     core_check_to_beam_check_evaluation,
+)
+
+from tbdy_engine.design.beams.beam_core_artifacts import (
+    BeamCoreArtifactResult,
+    generate_beam_core_artifacts,
 )
