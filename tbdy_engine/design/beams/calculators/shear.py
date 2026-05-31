@@ -7,6 +7,17 @@ from typing import Mapping
 from tbdy_engine.design.beams.context import BeamModelContext
 
 
+
+@dataclass(frozen=True)
+class CapacityShearDemandResult:
+    left_plastic_moment_kNm: float | None
+    right_plastic_moment_kNm: float | None
+    Ln_mm: float
+    Ln_m: float | None
+    gravity_shear_kN: float | None
+    Ve_capacity_kN: float | None
+    status: str
+    evidence: Mapping[str, object]
 @dataclass(frozen=True)
 class ShearCheck:
     name: str
@@ -417,3 +428,72 @@ class TBDYShearCalculator:
             },
             message="Asw >= Asw_min" if Asw_mm2 >= Asw_min_mm2 else "Asw below Asw_min",
         )
+
+def calculate_capacity_shear_demand(
+    *,
+    left_plastic_moment_kNm: float | None,
+    right_plastic_moment_kNm: float | None,
+    Ln_mm: float,
+    gravity_shear_kN: float | None,
+) -> CapacityShearDemandResult:
+    Ln_m = None if Ln_mm <= 0.0 else Ln_mm / 1000.0
+
+    if (
+        left_plastic_moment_kNm is None
+        or right_plastic_moment_kNm is None
+        or left_plastic_moment_kNm <= 0.0
+        or right_plastic_moment_kNm <= 0.0
+        or Ln_m is None
+        or gravity_shear_kN is None
+    ):
+        return CapacityShearDemandResult(
+            left_plastic_moment_kNm=left_plastic_moment_kNm,
+            right_plastic_moment_kNm=right_plastic_moment_kNm,
+            Ln_mm=Ln_mm,
+            Ln_m=Ln_m,
+            gravity_shear_kN=gravity_shear_kN,
+            Ve_capacity_kN=None,
+            status="NO_DATA",
+            evidence={
+                "left_plastic_moment_kNm": left_plastic_moment_kNm,
+                "right_plastic_moment_kNm": right_plastic_moment_kNm,
+                "Ln_mm": Ln_mm,
+                "Ln_m": Ln_m,
+                "gravity_shear_kN": gravity_shear_kN,
+                "Ve_capacity_kN": None,
+                "formula": "Ve_capacity_kN = (left_plastic_moment_kNm + right_plastic_moment_kNm) / (Ln_mm / 1000) + gravity_shear_kN",
+                "source_of_plastic_moments": "O1 flexure plastic moment boundary",
+                "source_of_gravity_shear": "explicit gravity_shear_kN input",
+                "capacity_design_shear_complete": False,
+                "ve_capacity_check_against_vr": False,
+            },
+        )
+
+    Ve_capacity_kN = (
+        (left_plastic_moment_kNm + right_plastic_moment_kNm) / Ln_m
+        + gravity_shear_kN
+    )
+
+    return CapacityShearDemandResult(
+        left_plastic_moment_kNm=left_plastic_moment_kNm,
+        right_plastic_moment_kNm=right_plastic_moment_kNm,
+        Ln_mm=Ln_mm,
+        Ln_m=Ln_m,
+        gravity_shear_kN=gravity_shear_kN,
+        Ve_capacity_kN=Ve_capacity_kN,
+        status="OK",
+        evidence={
+            "left_plastic_moment_kNm": left_plastic_moment_kNm,
+            "right_plastic_moment_kNm": right_plastic_moment_kNm,
+            "Ln_mm": Ln_mm,
+            "Ln_m": Ln_m,
+            "gravity_shear_kN": gravity_shear_kN,
+            "Ve_capacity_kN": Ve_capacity_kN,
+            "formula": "Ve_capacity_kN = (left_plastic_moment_kNm + right_plastic_moment_kNm) / (Ln_mm / 1000) + gravity_shear_kN",
+            "source_of_plastic_moments": "O1 flexure plastic moment boundary",
+            "source_of_gravity_shear": "explicit gravity_shear_kN input",
+            "capacity_design_shear_complete": False,
+            "ve_capacity_check_against_vr": False,
+        },
+    )
+

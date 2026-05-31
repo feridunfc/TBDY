@@ -8,9 +8,11 @@ import pytest
 
 from tbdy_engine.design.beams import BeamModelContext
 from tbdy_engine.design.beams.calculators.shear import (
+    CapacityShearDemandResult,
     ShearCheck,
     ShearResult,
     TBDYShearCalculator,
+    calculate_capacity_shear_demand,
 )
 from tbdy_engine.design.beams.core_check import shear_check_to_core_check
 
@@ -194,3 +196,83 @@ def test_spacing_le_8_longitudinal_diameter_returns_no_data_when_missing() -> No
     assert check.unit == "mm"
     assert check.evidence["longitudinal_bar_diameter_mm"] is None
     assert check.evidence["limit_mm"] is None
+
+def test_capacity_shear_demand_matches_hand_calculation() -> None:
+    result = calculate_capacity_shear_demand(
+        left_plastic_moment_kNm=180.0,
+        right_plastic_moment_kNm=160.0,
+        Ln_mm=5000.0,
+        gravity_shear_kN=90.0,
+    )
+
+    assert isinstance(result, CapacityShearDemandResult)
+    assert result.status == "OK"
+    assert result.Ln_m == pytest.approx(5.0)
+    assert result.Ve_capacity_kN == pytest.approx(158.0)
+    assert result.evidence["left_plastic_moment_kNm"] == 180.0
+    assert result.evidence["right_plastic_moment_kNm"] == 160.0
+    assert result.evidence["Ln_mm"] == 5000.0
+    assert result.evidence["Ln_m"] == pytest.approx(5.0)
+    assert result.evidence["gravity_shear_kN"] == 90.0
+    assert result.evidence["Ve_capacity_kN"] == pytest.approx(158.0)
+    assert result.evidence["capacity_design_shear_complete"] is False
+    assert result.evidence["ve_capacity_check_against_vr"] is False
+
+
+def test_capacity_shear_demand_returns_no_data_when_plastic_moment_missing() -> None:
+    result = calculate_capacity_shear_demand(
+        left_plastic_moment_kNm=None,
+        right_plastic_moment_kNm=160.0,
+        Ln_mm=5000.0,
+        gravity_shear_kN=90.0,
+    )
+
+    assert result.status == "NO_DATA"
+    assert result.Ve_capacity_kN is None
+    assert result.Ln_m == pytest.approx(5.0)
+    assert result.evidence["Ve_capacity_kN"] is None
+
+
+def test_capacity_shear_demand_returns_no_data_when_span_invalid() -> None:
+    result = calculate_capacity_shear_demand(
+        left_plastic_moment_kNm=180.0,
+        right_plastic_moment_kNm=160.0,
+        Ln_mm=0.0,
+        gravity_shear_kN=90.0,
+    )
+
+    assert result.status == "NO_DATA"
+    assert result.Ln_m is None
+    assert result.Ve_capacity_kN is None
+
+
+def test_capacity_shear_demand_returns_no_data_when_gravity_shear_missing() -> None:
+    result = calculate_capacity_shear_demand(
+        left_plastic_moment_kNm=180.0,
+        right_plastic_moment_kNm=160.0,
+        Ln_mm=5000.0,
+        gravity_shear_kN=None,
+    )
+
+    assert result.status == "NO_DATA"
+    assert result.Ve_capacity_kN is None
+    assert result.evidence["source_of_gravity_shear"] == "explicit gravity_shear_kN input"
+
+
+def test_capacity_shear_demand_is_deterministic_for_repeated_runs() -> None:
+    first = calculate_capacity_shear_demand(
+        left_plastic_moment_kNm=180.0,
+        right_plastic_moment_kNm=160.0,
+        Ln_mm=5000.0,
+        gravity_shear_kN=90.0,
+    )
+
+    for _ in range(100):
+        current = calculate_capacity_shear_demand(
+            left_plastic_moment_kNm=180.0,
+            right_plastic_moment_kNm=160.0,
+            Ln_mm=5000.0,
+            gravity_shear_kN=90.0,
+        )
+        assert current == first
+
