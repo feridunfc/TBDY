@@ -76,6 +76,13 @@ class FlexureResult:
     bottom_selected_bar_legs: int | None
     bottom_selected_bar_area_cm2: float | None
 
+    top_plastic_moment_kNm: float | None
+    bottom_plastic_moment_kNm: float | None
+    top_plastic_moment_a_mm: float | None
+    bottom_plastic_moment_a_mm: float | None
+    top_plastic_moment_lever_arm_mm: float | None
+    bottom_plastic_moment_lever_arm_mm: float | None
+
     checks: tuple[FlexureCheck, ...]
     status: str
 
@@ -177,6 +184,20 @@ class TBDYFlexureCalculator:
             rho_max=rho_max,
         )
 
+        top_plastic = _plastic_moment(
+            selected_area_cm2=ctx.top_selected_area_cm2,
+            bw_mm=ctx.bw_mm,
+            d_mm=ctx.d_mm,
+            fcd_mpa=ctx.fcd_mpa,
+            fyd_mpa=ctx.fyd_mpa,
+        )
+        bottom_plastic = _plastic_moment(
+            selected_area_cm2=ctx.bottom_selected_area_cm2,
+            bw_mm=ctx.bw_mm,
+            d_mm=ctx.d_mm,
+            fcd_mpa=ctx.fcd_mpa,
+            fyd_mpa=ctx.fyd_mpa,
+        )
         top_consolidated = _consolidated_evidence(
             selected_area_cm2=ctx.top_selected_area_cm2,
             required_area_cm2=top_required,
@@ -279,6 +300,28 @@ class TBDYFlexureCalculator:
                     "rho_max_status": bottom_rho_max_status,
                 },
             ),
+            _plastic_moment_check(
+                name="beam_flexure_top_plastic_moment_available",
+                selected_area_cm2=ctx.top_selected_area_cm2,
+                bw_mm=ctx.bw_mm,
+                d_mm=ctx.d_mm,
+                fcd_mpa=ctx.fcd_mpa,
+                fyd_mpa=ctx.fyd_mpa,
+                plastic=top_plastic,
+                source_of_area="top_selected_area_cm2",
+                consolidated=top_consolidated,
+            ),
+            _plastic_moment_check(
+                name="beam_flexure_bottom_plastic_moment_available",
+                selected_area_cm2=ctx.bottom_selected_area_cm2,
+                bw_mm=ctx.bw_mm,
+                d_mm=ctx.d_mm,
+                fcd_mpa=ctx.fcd_mpa,
+                fyd_mpa=ctx.fyd_mpa,
+                plastic=bottom_plastic,
+                source_of_area="bottom_selected_area_cm2",
+                consolidated=bottom_consolidated,
+            ),
         )
 
         if any(check.status == "NO_DATA" for check in checks):
@@ -326,6 +369,12 @@ class TBDYFlexureCalculator:
             bottom_selected_bar_diameter_mm=bottom_bar_selection.diameter_mm,
             bottom_selected_bar_legs=bottom_bar_selection.legs,
             bottom_selected_bar_area_cm2=bottom_bar_selection.area_cm2,
+            top_plastic_moment_kNm=top_plastic["plastic_moment_kNm"],
+            bottom_plastic_moment_kNm=bottom_plastic["plastic_moment_kNm"],
+            top_plastic_moment_a_mm=top_plastic["a_mm"],
+            bottom_plastic_moment_a_mm=bottom_plastic["a_mm"],
+            top_plastic_moment_lever_arm_mm=top_plastic["lever_arm_mm"],
+            bottom_plastic_moment_lever_arm_mm=bottom_plastic["lever_arm_mm"],
             checks=checks,
             status=status,
         )
@@ -688,6 +737,120 @@ def _candidate_bars() -> tuple[dict[str, float], ...]:
 def _single_bar_area_cm2(diameter_mm: float) -> float:
     return math.pi * diameter_mm * diameter_mm / 4.0 / 100.0
 
+
+    def _plastic_moment_check(
+        self,
+        *,
+        name: str,
+        selected_area_cm2: float | None,
+        bw_mm: float,
+        d_mm: float,
+        fcd_mpa: float,
+        fyd_mpa: float,
+        plastic: Mapping[str, float | None],
+        source_of_area: str,
+        consolidated: Mapping[str, object],
+    ) -> FlexureCheck:
+        return _plastic_moment_check(
+            name=name,
+            selected_area_cm2=selected_area_cm2,
+            bw_mm=bw_mm,
+            d_mm=d_mm,
+            fcd_mpa=fcd_mpa,
+            fyd_mpa=fyd_mpa,
+            plastic=plastic,
+            source_of_area=source_of_area,
+            consolidated=consolidated,
+        )
+
+def _plastic_moment_check(
+    *,
+    name: str,
+    selected_area_cm2: float | None,
+    bw_mm: float,
+    d_mm: float,
+    fcd_mpa: float,
+    fyd_mpa: float,
+    plastic: Mapping[str, float | None],
+    source_of_area: str,
+    consolidated: Mapping[str, object],
+) -> FlexureCheck:
+    plastic_moment_kNm = plastic["plastic_moment_kNm"]
+    status = "OK" if plastic_moment_kNm is not None else "NO_DATA"
+    selected_area_mm2 = None if selected_area_cm2 is None else selected_area_cm2 * 100.0
+
+    return FlexureCheck(
+        name=name,
+        status=status,
+        demand=None,
+        capacity=plastic_moment_kNm,
+        ratio=None,
+        unit="kNm",
+        code_ref="TBDY 2018 beam plastic moment deterministic core boundary",
+        evidence={
+            **consolidated,
+            "selected_area_cm2": selected_area_cm2,
+            "selected_area_mm2": selected_area_mm2,
+            "bw_mm": bw_mm,
+            "d_mm": d_mm,
+            "fcd_mpa": fcd_mpa,
+            "fyd_mpa": fyd_mpa,
+            "a_mm": plastic["a_mm"],
+            "lever_arm_mm": plastic["lever_arm_mm"],
+            "plastic_moment_Nmm": plastic["plastic_moment_Nmm"],
+            "plastic_moment_kNm": plastic_moment_kNm,
+            "formula": "As_mm2 = selected_area_cm2 * 100; a_mm = As_mm2 * fyd_mpa / (0.85 * fcd_mpa * bw_mm); Mp_Nmm = As_mm2 * fyd_mpa * (d_mm - a_mm / 2); Mp_kNm = Mp_Nmm / 1_000_000",
+            "source_of_area": source_of_area,
+            "code_ref": "TBDY 2018 beam plastic moment deterministic core boundary",
+        },
+        message=_message(status, name.replace("beam_flexure_", "").replace("_", " ")),
+    )
+
+
+def _plastic_moment(
+    *,
+    selected_area_cm2: float | None,
+    bw_mm: float,
+    d_mm: float,
+    fcd_mpa: float,
+    fyd_mpa: float,
+) -> dict[str, float | None]:
+    if (
+        selected_area_cm2 is None
+        or selected_area_cm2 <= 0.0
+        or bw_mm <= 0.0
+        or d_mm <= 0.0
+        or fcd_mpa <= 0.0
+        or fyd_mpa <= 0.0
+    ):
+        return {
+            "a_mm": None,
+            "lever_arm_mm": None,
+            "plastic_moment_Nmm": None,
+            "plastic_moment_kNm": None,
+        }
+
+    selected_area_mm2 = selected_area_cm2 * 100.0
+    a_mm = selected_area_mm2 * fyd_mpa / (0.85 * fcd_mpa * bw_mm)
+    lever_arm_mm = d_mm - a_mm / 2.0
+
+    if lever_arm_mm <= 0.0:
+        return {
+            "a_mm": a_mm,
+            "lever_arm_mm": lever_arm_mm,
+            "plastic_moment_Nmm": None,
+            "plastic_moment_kNm": None,
+        }
+
+    plastic_moment_Nmm = selected_area_mm2 * fyd_mpa * lever_arm_mm
+    plastic_moment_kNm = plastic_moment_Nmm / 1_000_000.0
+
+    return {
+        "a_mm": a_mm,
+        "lever_arm_mm": lever_arm_mm,
+        "plastic_moment_Nmm": plastic_moment_Nmm,
+        "plastic_moment_kNm": plastic_moment_kNm,
+    }
 
 def _consolidated_evidence(
     *,

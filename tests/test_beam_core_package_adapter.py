@@ -206,7 +206,7 @@ def test_core_package_adapter_source_guard_has_no_forbidden_imports() -> None:
     for text in forbidden:
         assert text not in source
 
-EXPECTED_N7_FLEXURE_CHECK_NAMES = (
+EXPECTED_O1_FLEXURE_CHECK_NAMES = (
     "beam_flexure_top_area_provided_ge_required",
     "beam_flexure_bottom_area_provided_ge_required",
     "beam_flexure_top_rho_ge_rho_min",
@@ -215,7 +215,10 @@ EXPECTED_N7_FLEXURE_CHECK_NAMES = (
     "beam_flexure_bottom_rho_le_rho_max",
     "beam_flexure_top_bar_selection",
     "beam_flexure_bottom_bar_selection",
+    "beam_flexure_top_plastic_moment_available",
+    "beam_flexure_bottom_plastic_moment_available",
 )
+
 def test_n6_package_adapter_preserves_all_six_flexure_checks() -> None:
     result = evaluate_beam_core(_canonical_input())
     packages = beam_core_result_to_evaluation_packages(result)
@@ -228,11 +231,11 @@ def test_n6_package_adapter_preserves_all_six_flexure_checks() -> None:
         check.check_type for check in package.checks
         if check.check_type.startswith("beam_flexure_")
     )
-    assert package_flexure_names == EXPECTED_N7_FLEXURE_CHECK_NAMES
+    assert package_flexure_names == EXPECTED_O1_FLEXURE_CHECK_NAMES
 
     evidence_by_id = package.evidence["core_check_evidence_by_id"]
 
-    for name in EXPECTED_N7_FLEXURE_CHECK_NAMES:
+    for name in EXPECTED_O1_FLEXURE_CHECK_NAMES:
         check_id = f"B175:flexure:{name}"
         assert check_id in evidence_by_id
         assert evidence_by_id[check_id]["consolidated_flexure_evidence"] is True
@@ -254,7 +257,7 @@ def test_n7_package_adapter_preserves_bar_selection_evidence() -> None:
         if check.check_type.startswith("beam_flexure_")
     )
 
-    assert flexure_names == EXPECTED_N7_FLEXURE_CHECK_NAMES
+    assert flexure_names == EXPECTED_O1_FLEXURE_CHECK_NAMES
 
     evidence_by_id = package.evidence["core_check_evidence_by_id"]
     top_id = "B175:flexure:beam_flexure_top_bar_selection"
@@ -263,3 +266,19 @@ def test_n7_package_adapter_preserves_bar_selection_evidence() -> None:
     assert evidence_by_id[top_id]["selected_bar_area_cm2"] == result.flexure.top_selected_bar_area_cm2
     assert evidence_by_id[bottom_id]["selected_bar_area_cm2"] == result.flexure.bottom_selected_bar_area_cm2
     assert evidence_by_id[top_id]["prior_check_statuses"]["area_status"] == "OK"
+
+def test_o1_package_adapter_preserves_plastic_moment_evidence() -> None:
+    result = evaluate_beam_core(_canonical_input())
+    packages = beam_core_result_to_evaluation_packages(result)
+
+    package = packages[0]
+    flexure_names = tuple(
+        check.check_type for check in package.checks
+        if check.check_type.startswith("beam_flexure_")
+    )
+    assert flexure_names == EXPECTED_O1_FLEXURE_CHECK_NAMES
+
+    evidence_by_id = package.evidence["core_check_evidence_by_id"]
+    top_id = "B175:flexure:beam_flexure_top_plastic_moment_available"
+    assert evidence_by_id[top_id]["plastic_moment_kNm"] == result.flexure.top_plastic_moment_kNm
+    assert evidence_by_id[top_id]["source_of_area"] == "top_selected_area_cm2"

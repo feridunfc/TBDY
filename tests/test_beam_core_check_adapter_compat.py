@@ -281,7 +281,7 @@ def test_sprint_k_source_guard_has_no_report_runner_etabs_dependencies() -> None
         for text in forbidden:
             assert text not in source
 
-EXPECTED_N7_FLEXURE_CHECK_NAMES = (
+EXPECTED_O1_FLEXURE_CHECK_NAMES = (
     "beam_flexure_top_area_provided_ge_required",
     "beam_flexure_bottom_area_provided_ge_required",
     "beam_flexure_top_rho_ge_rho_min",
@@ -290,7 +290,10 @@ EXPECTED_N7_FLEXURE_CHECK_NAMES = (
     "beam_flexure_bottom_rho_le_rho_max",
     "beam_flexure_top_bar_selection",
     "beam_flexure_bottom_bar_selection",
+    "beam_flexure_top_plastic_moment_available",
+    "beam_flexure_bottom_plastic_moment_available",
 )
+
 def test_n6_check_adapter_outputs_all_six_flexure_check_results() -> None:
     result = evaluate_beam_core(_canonical_input())
     packages = beam_core_result_to_evaluation_packages(result)
@@ -302,14 +305,14 @@ def test_n6_check_adapter_outputs_all_six_flexure_check_results() -> None:
         if str(_check_field(check, "check_type")).startswith("beam_flexure_")
     )
 
-    assert flexure_check_types == EXPECTED_N7_FLEXURE_CHECK_NAMES
+    assert flexure_check_types == EXPECTED_O1_FLEXURE_CHECK_NAMES
 
     statuses = {
         str(_check_field(check, "check_type")): _check_field(check, "status")
         for check in check_results
         if str(_check_field(check, "check_type")).startswith("beam_flexure_")
     }
-    assert set(statuses) == set(EXPECTED_N7_FLEXURE_CHECK_NAMES)
+    assert set(statuses) == set(EXPECTED_O1_FLEXURE_CHECK_NAMES)
     assert all(status == "OK" for status in statuses.values())
 
 def test_n7_check_adapter_outputs_bar_selection_check_results() -> None:
@@ -323,6 +326,21 @@ def test_n7_check_adapter_outputs_bar_selection_check_results() -> None:
         if str(_check_field(check, "check_type")).startswith("beam_flexure_")
     )
 
-    assert flexure_check_types == EXPECTED_N7_FLEXURE_CHECK_NAMES
+    assert flexure_check_types == EXPECTED_O1_FLEXURE_CHECK_NAMES
     assert "beam_flexure_top_bar_selection" in flexure_check_types
     assert "beam_flexure_bottom_bar_selection" in flexure_check_types
+
+def test_o1_check_adapter_outputs_plastic_moment_check_results() -> None:
+    result = evaluate_beam_core(_canonical_input())
+    packages = beam_core_result_to_evaluation_packages(result)
+    check_results = _adapt_packages(packages)
+
+    flexure_check_types = tuple(
+        str(_check_field(check, "check_type"))
+        for check in check_results
+        if str(_check_field(check, "check_type")).startswith("beam_flexure_")
+    )
+
+    assert flexure_check_types == EXPECTED_O1_FLEXURE_CHECK_NAMES
+    assert "beam_flexure_top_plastic_moment_available" in flexure_check_types
+    assert "beam_flexure_bottom_plastic_moment_available" in flexure_check_types

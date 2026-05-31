@@ -97,7 +97,7 @@ def test_flexure_calculator_returns_deterministic_ok_result() -> None:
     )
 
     assert result.status == "OK"
-    assert len(result.checks) == 8
+    assert len(result.checks) == 10
     assert [check.name for check in result.checks] == [
         "beam_flexure_top_area_provided_ge_required",
         "beam_flexure_bottom_area_provided_ge_required",
@@ -107,6 +107,8 @@ def test_flexure_calculator_returns_deterministic_ok_result() -> None:
         "beam_flexure_bottom_rho_le_rho_max",
         "beam_flexure_top_bar_selection",
         "beam_flexure_bottom_bar_selection",
+        "beam_flexure_top_plastic_moment_available",
+        "beam_flexure_bottom_plastic_moment_available",
     ]
     assert result.top_design_moment_kNm == 108.7
     assert result.bottom_design_moment_kNm == 84.8
@@ -583,6 +585,75 @@ def test_bar_selection_returns_fail_when_required_area_exceeds_rho_max_capacity(
     assert result.bottom_required_area_source == "context_input"
     assert checks["beam_flexure_top_bar_selection"].status == "FAIL"
     assert checks["beam_flexure_bottom_bar_selection"].status == "FAIL"
+
+def test_plastic_moment_matches_hand_calculation() -> None:
+    result = TBDYFlexureCalculator().calculate(_ctx())
+
+    selected_top_area_cm2 = 10.0
+    selected_top_area_mm2 = selected_top_area_cm2 * 100.0
+    expected_a_mm = selected_top_area_mm2 * 365.0 / (0.85 * 20.0 * 600.0)
+    expected_lever_arm_mm = 550.0 - expected_a_mm / 2.0
+    expected_mp_Nmm = selected_top_area_mm2 * 365.0 * expected_lever_arm_mm
+    expected_mp_kNm = expected_mp_Nmm / 1_000_000.0
+
+    assert result.top_plastic_moment_a_mm == pytest.approx(expected_a_mm)
+    assert result.top_plastic_moment_lever_arm_mm == pytest.approx(expected_lever_arm_mm)
+    assert result.top_plastic_moment_kNm == pytest.approx(expected_mp_kNm)
+
+    checks = _checks(result)
+    check = checks["beam_flexure_top_plastic_moment_available"]
+
+    assert check.status == "OK"
+    assert check.capacity == pytest.approx(expected_mp_kNm)
+    assert check.evidence["selected_area_cm2"] == selected_top_area_cm2
+    assert check.evidence["selected_area_mm2"] == selected_top_area_mm2
+    assert check.evidence["a_mm"] == pytest.approx(expected_a_mm)
+    assert check.evidence["lever_arm_mm"] == pytest.approx(expected_lever_arm_mm)
+    assert check.evidence["plastic_moment_Nmm"] == pytest.approx(expected_mp_Nmm)
+    assert check.evidence["plastic_moment_kNm"] == pytest.approx(expected_mp_kNm)
+    assert check.evidence["source_of_area"] == "top_selected_area_cm2"
+
+
+def test_bottom_plastic_moment_matches_selected_bottom_area() -> None:
+    result = TBDYFlexureCalculator().calculate(_ctx())
+
+    selected_bottom_area_cm2 = 10.0
+    selected_bottom_area_mm2 = selected_bottom_area_cm2 * 100.0
+    expected_a_mm = selected_bottom_area_mm2 * 365.0 / (0.85 * 20.0 * 600.0)
+    expected_lever_arm_mm = 550.0 - expected_a_mm / 2.0
+    expected_mp_kNm = selected_bottom_area_mm2 * 365.0 * expected_lever_arm_mm / 1_000_000.0
+
+    assert result.bottom_plastic_moment_a_mm == pytest.approx(expected_a_mm)
+    assert result.bottom_plastic_moment_lever_arm_mm == pytest.approx(expected_lever_arm_mm)
+    assert result.bottom_plastic_moment_kNm == pytest.approx(expected_mp_kNm)
+
+    checks = _checks(result)
+    check = checks["beam_flexure_bottom_plastic_moment_available"]
+    assert check.status == "OK"
+    assert check.evidence["source_of_area"] == "bottom_selected_area_cm2"
+
+
+def test_plastic_moment_no_data_when_selected_area_missing() -> None:
+    result = TBDYFlexureCalculator().calculate(
+        _ctx(top_selected_area_cm2=None)
+    )
+    checks = _checks(result)
+
+    assert result.top_plastic_moment_kNm is None
+    assert result.top_plastic_moment_a_mm is None
+    assert result.top_plastic_moment_lever_arm_mm is None
+    assert checks["beam_flexure_top_plastic_moment_available"].status == "NO_DATA"
+
+
+def test_plastic_moment_is_deterministic_for_repeated_runs() -> None:
+    ctx = _ctx()
+    first = TBDYFlexureCalculator().calculate(ctx)
+
+    for _ in range(100):
+        current = TBDYFlexureCalculator().calculate(ctx)
+        assert current.top_plastic_moment_kNm == first.top_plastic_moment_kNm
+        assert current.bottom_plastic_moment_kNm == first.bottom_plastic_moment_kNm
+        assert current == first
 
 def test_flexure_source_guard_has_no_forbidden_imports() -> None:
     source = pathlib.Path("tbdy_engine/design/beams/calculators/flexure.py").read_text(encoding="utf-8")
