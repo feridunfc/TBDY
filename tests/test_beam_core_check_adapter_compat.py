@@ -280,3 +280,32 @@ def test_sprint_k_source_guard_has_no_report_runner_etabs_dependencies() -> None
         source = path.read_text(encoding="utf-8")
         for text in forbidden:
             assert text not in source
+
+EXPECTED_N6_FLEXURE_CHECK_NAMES = (
+    "beam_flexure_top_area_provided_ge_required",
+    "beam_flexure_bottom_area_provided_ge_required",
+    "beam_flexure_top_rho_ge_rho_min",
+    "beam_flexure_bottom_rho_ge_rho_min",
+    "beam_flexure_top_rho_le_rho_max",
+    "beam_flexure_bottom_rho_le_rho_max",
+)
+def test_n6_check_adapter_outputs_all_six_flexure_check_results() -> None:
+    result = evaluate_beam_core(_canonical_input())
+    packages = beam_core_result_to_evaluation_packages(result)
+    check_results = _adapt_packages(packages)
+
+    flexure_check_types = tuple(
+        str(_check_field(check, "check_type"))
+        for check in check_results
+        if str(_check_field(check, "check_type")).startswith("beam_flexure_")
+    )
+
+    assert flexure_check_types == EXPECTED_N6_FLEXURE_CHECK_NAMES
+
+    statuses = {
+        str(_check_field(check, "check_type")): _check_field(check, "status")
+        for check in check_results
+        if str(_check_field(check, "check_type")).startswith("beam_flexure_")
+    }
+    assert set(statuses) == set(EXPECTED_N6_FLEXURE_CHECK_NAMES)
+    assert all(status == "OK" for status in statuses.values())

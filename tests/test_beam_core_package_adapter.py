@@ -197,3 +197,39 @@ def test_core_package_adapter_source_guard_has_no_forbidden_imports() -> None:
     ]
     for text in forbidden:
         assert text not in source
+
+EXPECTED_N6_FLEXURE_CHECK_NAMES = (
+    "beam_flexure_top_area_provided_ge_required",
+    "beam_flexure_bottom_area_provided_ge_required",
+    "beam_flexure_top_rho_ge_rho_min",
+    "beam_flexure_bottom_rho_ge_rho_min",
+    "beam_flexure_top_rho_le_rho_max",
+    "beam_flexure_bottom_rho_le_rho_max",
+)
+def test_n6_package_adapter_preserves_all_six_flexure_checks() -> None:
+    result = evaluate_beam_core(_canonical_input())
+    packages = beam_core_result_to_evaluation_packages(result)
+
+    assert result.status == "OK"
+    assert len(packages) == 1
+
+    package = packages[0]
+    package_flexure_names = tuple(
+        check.check_type for check in package.checks
+        if check.check_type.startswith("beam_flexure_")
+    )
+    assert package_flexure_names == EXPECTED_N6_FLEXURE_CHECK_NAMES
+
+    evidence_by_id = package.evidence["core_check_evidence_by_id"]
+
+    for name in EXPECTED_N6_FLEXURE_CHECK_NAMES:
+        check_id = f"B175:flexure:{name}"
+        assert check_id in evidence_by_id
+        assert evidence_by_id[check_id]["consolidated_flexure_evidence"] is True
+
+    top_area_id = "B175:flexure:beam_flexure_top_area_provided_ge_required"
+    assert evidence_by_id[top_area_id]["required_area_source"] == "moment_derived"
+    assert "required_area_cm2" in evidence_by_id[top_area_id]
+    assert "provided_area_cm2" in evidence_by_id[top_area_id]
+    assert "rho_min_status" in evidence_by_id[top_area_id]
+    assert "rho_max_status" in evidence_by_id[top_area_id]

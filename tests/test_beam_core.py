@@ -149,3 +149,59 @@ def test_beam_core_source_guard_has_no_forbidden_imports() -> None:
     ]
     for text in forbidden:
         assert text not in source
+
+EXPECTED_N6_FLEXURE_CHECK_NAMES = (
+    "beam_flexure_top_area_provided_ge_required",
+    "beam_flexure_bottom_area_provided_ge_required",
+    "beam_flexure_top_rho_ge_rho_min",
+    "beam_flexure_bottom_rho_ge_rho_min",
+    "beam_flexure_top_rho_le_rho_max",
+    "beam_flexure_bottom_rho_le_rho_max",
+)
+def test_n6_beam_core_aggregates_all_six_flexure_checks() -> None:
+    result = evaluate_beam_core(_canonical_input())
+
+    assert result.status == "OK"
+    assert result.flexure is not None
+    assert result.flexure.status == "OK"
+
+    flexure_names = tuple(check.name for check in result.flexure.checks)
+    assert flexure_names == EXPECTED_N6_FLEXURE_CHECK_NAMES
+
+    core_flexure_names = tuple(
+        check.name for check in result.core_checks if check.check_type == "flexure"
+    )
+    assert core_flexure_names == EXPECTED_N6_FLEXURE_CHECK_NAMES
+
+    assert len(result.flexure.checks) == 6
+    assert len(core_flexure_names) == 6
+    assert len(result.core_checks) == 18
+
+    area_check = next(
+        check for check in result.core_checks
+        if check.name == "beam_flexure_top_area_provided_ge_required"
+    )
+    rho_min_check = next(
+        check for check in result.core_checks
+        if check.name == "beam_flexure_top_rho_ge_rho_min"
+    )
+    rho_max_check = next(
+        check for check in result.core_checks
+        if check.name == "beam_flexure_top_rho_le_rho_max"
+    )
+
+    assert area_check.evidence["consolidated_flexure_evidence"] is True
+    assert area_check.evidence["required_area_source"] == "moment_derived"
+    assert "required_area_cm2" in area_check.evidence
+    assert "provided_area_cm2" in area_check.evidence
+    assert "rho" in area_check.evidence
+    assert "rho_min" in area_check.evidence
+    assert "rho_max" in area_check.evidence
+
+    assert rho_min_check.evidence["consolidated_flexure_evidence"] is True
+    assert rho_min_check.evidence["rho_min"] == result.flexure.rho_min
+    assert rho_min_check.evidence["formula"].startswith("rho = selected_area_mm2")
+
+    assert rho_max_check.evidence["consolidated_flexure_evidence"] is True
+    assert rho_max_check.evidence["rho_max"] == result.flexure.rho_max
+    assert rho_max_check.evidence["formula"].startswith("rho = selected_area_mm2")
