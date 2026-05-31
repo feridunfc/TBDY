@@ -410,3 +410,155 @@ def test_o5_beam_core_preserves_capacity_design_vmax_check_path() -> None:
     assert evidence["capacity_design_vmax_limit_kN"] == pytest.approx(0.85 * result.shear.Vmax_kN)
     assert evidence["formula_capacity_check"] == "Ve_capacity_kN <= 0.85 * Vmax_kN"
     assert evidence["capacity_design_vmax_check"] is True
+
+O6_NORMAL_SHEAR_CHECK_NAMES = (
+    "beam_shear_ve_le_vr",
+    "beam_shear_ve_le_085_vmax",
+    "beam_shear_spacing_le_d_over_4",
+    "beam_shear_spacing_le_150",
+    "beam_shear_spacing_le_8_longitudinal_diameter",
+    "beam_shear_stirrup_diameter_ge_8",
+    "beam_shear_stirrup_legs_ge_2",
+    "beam_shear_asw_ge_asw_min",
+)
+
+O6_CAPACITY_DESIGN_SHEAR_CHECK_NAMES = (
+    "beam_shear_capacity_design_ve_le_vr",
+    "beam_shear_capacity_design_ve_le_085_vmax",
+)
+
+O6_REQUIRED_FLEXURE_CHECK_NAMES = (
+    "beam_flexure_top_area_provided_ge_required",
+    "beam_flexure_bottom_area_provided_ge_required",
+    "beam_flexure_top_rho_ge_rho_min",
+    "beam_flexure_bottom_rho_ge_rho_min",
+    "beam_flexure_top_rho_le_rho_max",
+    "beam_flexure_bottom_rho_le_rho_max",
+    "beam_flexure_top_bar_selection",
+    "beam_flexure_bottom_bar_selection",
+    "beam_flexure_top_plastic_moment_available",
+    "beam_flexure_bottom_plastic_moment_available",
+)
+
+
+def _o6_by_name(checks: tuple[object, ...]) -> dict[str, object]:
+    return {check.name: check for check in checks}
+
+
+def _o6_capacity_check_snapshot(result: object) -> tuple[tuple[object, ...], ...]:
+    selected = [
+        check for check in result.core_checks
+        if check.name in O6_CAPACITY_DESIGN_SHEAR_CHECK_NAMES
+    ]
+    return tuple(
+        (
+            check.id,
+            check.component,
+            check.check_type,
+            check.name,
+            check.status,
+            check.demand,
+            check.capacity,
+            check.ratio,
+            check.unit,
+            check.code_ref,
+            tuple(sorted(check.evidence.keys())),
+            tuple((key, check.evidence.get(key)) for key in sorted(check.evidence.keys())),
+        )
+        for check in selected
+    )
+
+
+def test_o6_beam_core_capacity_design_shear_closure_path_is_stable() -> None:
+    result = evaluate_beam_core(_canonical_input())
+
+    assert result.status == "OK"
+    assert result.flexure is not None
+    assert result.shear is not None
+    assert result.shear.status == "OK"
+
+    shear_by_name = _o6_by_name(result.shear.checks)
+    core_by_name = _o6_by_name(result.core_checks)
+
+    assert len(result.shear.checks) == 10
+    assert len(result.core_checks) == 24
+
+    for name in O6_NORMAL_SHEAR_CHECK_NAMES:
+        assert name in shear_by_name
+        assert name in core_by_name
+
+    for name in O6_CAPACITY_DESIGN_SHEAR_CHECK_NAMES:
+        assert name in shear_by_name
+        assert name in core_by_name
+
+    flexure_names = tuple(check.name for check in result.flexure.checks)
+    for name in O6_REQUIRED_FLEXURE_CHECK_NAMES:
+        assert name in flexure_names
+        assert name in core_by_name
+
+    assert result.flexure.top_plastic_moment_kNm is not None
+    assert result.flexure.bottom_plastic_moment_kNm is not None
+    assert result.flexure.top_selected_bar_area_cm2 is not None
+    assert result.flexure.bottom_selected_bar_area_cm2 is not None
+    assert result.flexure.required_top_area_cm2 is not None
+    assert result.flexure.required_bottom_area_cm2 is not None
+    assert result.flexure.rho_min is not None
+    assert result.flexure.rho_max is not None
+
+    for name in O6_CAPACITY_DESIGN_SHEAR_CHECK_NAMES:
+        shear_check = shear_by_name[name]
+        core_check = core_by_name[name]
+
+        assert core_check.id == f"B175:shear:{name}"
+        assert core_check.component == "B175"
+        assert core_check.check_type == "shear"
+        assert core_check.name == shear_check.name
+        assert core_check.status == shear_check.status
+        assert core_check.demand == shear_check.demand
+        assert core_check.capacity == shear_check.capacity
+        assert core_check.ratio == shear_check.ratio
+        assert core_check.unit == shear_check.unit
+        assert core_check.code_ref == shear_check.code_ref
+
+        for key in (
+            "Ve_capacity_kN",
+            "left_plastic_moment_kNm",
+            "right_plastic_moment_kNm",
+            "Ln_mm",
+            "Ln_m",
+            "gravity_shear_kN",
+            "formula_capacity_demand",
+            "formula_capacity_check",
+            "source_of_plastic_moments",
+            "source_of_gravity_shear",
+        ):
+            assert key in core_check.evidence
+
+        assert core_check.evidence["Ve_capacity_kN"] == shear_check.demand
+        assert core_check.evidence["left_plastic_moment_kNm"] == result.flexure.top_plastic_moment_kNm
+        assert core_check.evidence["right_plastic_moment_kNm"] == result.flexure.bottom_plastic_moment_kNm
+        assert core_check.evidence["Ln_mm"] == result.context.Ln_mm
+        assert core_check.evidence["gravity_shear_kN"] == abs(result.context.Vd_left_kN)
+
+    vr_check = core_by_name["beam_shear_capacity_design_ve_le_vr"]
+    assert "Vr_kN" in vr_check.evidence
+    assert vr_check.evidence["formula_capacity_check"] == "Ve_capacity_kN <= Vr_kN"
+
+    vmax_check = core_by_name["beam_shear_capacity_design_ve_le_085_vmax"]
+    assert "Vmax_kN" in vmax_check.evidence
+    assert "capacity_design_vmax_limit_kN" in vmax_check.evidence
+    assert "formula_capacity_vmax_limit" in vmax_check.evidence
+    assert vmax_check.evidence["formula_capacity_check"] == "Ve_capacity_kN <= 0.85 * Vmax_kN"
+
+
+def test_o6_capacity_design_shear_closure_is_deterministic_for_repeated_beam_core_runs() -> None:
+    first = evaluate_beam_core(_canonical_input())
+    first_snapshot = _o6_capacity_check_snapshot(first)
+
+    assert first_snapshot
+    assert len(first_snapshot) == 2
+
+    for _ in range(100):
+        current = evaluate_beam_core(_canonical_input())
+        assert current.status == first.status
+        assert _o6_capacity_check_snapshot(current) == first_snapshot

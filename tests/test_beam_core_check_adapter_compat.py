@@ -394,3 +394,52 @@ def test_o5_check_adapter_outputs_capacity_design_vmax_check_result() -> None:
     assert _check_field(capacity_check, "demand") is not None
     assert _check_field(capacity_check, "capacity") is not None
     assert _check_field(capacity_check, "ratio") is not None
+
+O6_NORMAL_SHEAR_CHECK_RESULT_TYPES = (
+    "beam_shear_ve_le_vr",
+    "beam_shear_ve_le_085_vmax",
+    "beam_shear_spacing_le_d_over_4",
+    "beam_shear_spacing_le_150",
+    "beam_shear_spacing_le_8_longitudinal_diameter",
+    "beam_shear_stirrup_diameter_ge_8",
+    "beam_shear_stirrup_legs_ge_2",
+    "beam_shear_asw_ge_asw_min",
+)
+
+O6_CAPACITY_DESIGN_SHEAR_CHECK_RESULT_TYPES = (
+    "beam_shear_capacity_design_ve_le_vr",
+    "beam_shear_capacity_design_ve_le_085_vmax",
+)
+
+
+def test_o6_check_adapter_preserves_complete_capacity_design_shear_closure_set() -> None:
+    result = evaluate_beam_core(_canonical_input())
+    packages = beam_core_result_to_evaluation_packages(result)
+    check_results = _adapt_packages(packages)
+
+    assert result.status == "OK"
+    assert len(check_results) == len(packages[0].checks)
+    assert len(check_results) == 24
+
+    check_types = tuple(
+        str(_check_field(check, "check_type"))
+        for check in check_results
+    )
+
+    for name in O6_NORMAL_SHEAR_CHECK_RESULT_TYPES:
+        assert name in check_types
+
+    for name in O6_CAPACITY_DESIGN_SHEAR_CHECK_RESULT_TYPES:
+        assert name in check_types
+
+    assert any(name.startswith("beam_flexure_") for name in check_types)
+
+    for name in O6_CAPACITY_DESIGN_SHEAR_CHECK_RESULT_TYPES:
+        check = next(
+            item for item in check_results
+            if str(_check_field(item, "check_type")) == name
+        )
+        assert _check_field(check, "status") == "OK"
+        assert _check_field(check, "demand") is not None
+        assert _check_field(check, "capacity") is not None
+        assert _check_field(check, "ratio") is not None

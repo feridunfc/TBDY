@@ -470,3 +470,51 @@ def test_o5_artifact_json_preserves_capacity_design_vmax_check(tmp_path: Path) -
 
     assert "beam_shear_capacity_design_ve_le_085_vmax" in adapter_check_types
     assert "beam_shear_capacity_design_ve_le_085_vmax" in json_check_types
+
+O6_ARTIFACT_NORMAL_SHEAR_CHECK_TYPES = (
+    "beam_shear_ve_le_vr",
+    "beam_shear_ve_le_085_vmax",
+    "beam_shear_spacing_le_d_over_4",
+    "beam_shear_spacing_le_150",
+    "beam_shear_spacing_le_8_longitudinal_diameter",
+    "beam_shear_stirrup_diameter_ge_8",
+    "beam_shear_stirrup_legs_ge_2",
+    "beam_shear_asw_ge_asw_min",
+)
+
+O6_ARTIFACT_CAPACITY_DESIGN_SHEAR_CHECK_TYPES = (
+    "beam_shear_capacity_design_ve_le_vr",
+    "beam_shear_capacity_design_ve_le_085_vmax",
+)
+
+
+def test_o6_artifact_smoke_preserves_complete_capacity_design_shear_closure_set(tmp_path: Path) -> None:
+    result, check_results, json_path, xlsx_path, payload = _produce_artifacts(
+        _canonical_input(),
+        tmp_path,
+    )
+
+    assert result.status == "OK"
+    assert json_path.exists()
+    assert json_path.name == "engine_report.json"
+    assert xlsx_path is None or xlsx_path.name == "engine_report.xlsx"
+
+    _assert_json_contract(payload)
+    _assert_xlsx_contract(xlsx_path)
+
+    json_checks = _json_checks(payload)
+    json_check_types = tuple(str(check.get("check_type")) for check in json_checks)
+    adapter_check_types = tuple(str(getattr(check, "check_type")) for check in check_results)
+
+    assert len(check_results) == 24
+    assert len(json_checks) == len(check_results)
+
+    for name in O6_ARTIFACT_NORMAL_SHEAR_CHECK_TYPES:
+        assert name in json_check_types
+        assert name in adapter_check_types
+
+    for name in O6_ARTIFACT_CAPACITY_DESIGN_SHEAR_CHECK_TYPES:
+        assert name in json_check_types
+        assert name in adapter_check_types
+
+    assert any(name.startswith("beam_flexure_") for name in json_check_types)

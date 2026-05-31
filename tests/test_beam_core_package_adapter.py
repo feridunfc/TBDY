@@ -346,3 +346,69 @@ def test_o5_package_adapter_preserves_capacity_design_vmax_check() -> None:
     evidence_by_id = package.evidence["core_check_evidence_by_id"]
     assert evidence_by_id[core_check.id]["formula_capacity_check"] == "Ve_capacity_kN <= 0.85 * Vmax_kN"
     assert evidence_by_id[core_check.id]["capacity_design_vmax_check"] is True
+
+O6_NORMAL_SHEAR_CHECK_TYPES = (
+    "beam_shear_ve_le_vr",
+    "beam_shear_ve_le_085_vmax",
+    "beam_shear_spacing_le_d_over_4",
+    "beam_shear_spacing_le_150",
+    "beam_shear_spacing_le_8_longitudinal_diameter",
+    "beam_shear_stirrup_diameter_ge_8",
+    "beam_shear_stirrup_legs_ge_2",
+    "beam_shear_asw_ge_asw_min",
+)
+
+O6_CAPACITY_DESIGN_SHEAR_CHECK_TYPES = (
+    "beam_shear_capacity_design_ve_le_vr",
+    "beam_shear_capacity_design_ve_le_085_vmax",
+)
+
+
+def test_o6_package_adapter_preserves_complete_capacity_design_shear_closure_set() -> None:
+    result = evaluate_beam_core(_canonical_input())
+    packages = beam_core_result_to_evaluation_packages(result)
+
+    assert result.status == "OK"
+    assert len(packages) == 1
+
+    package = packages[0]
+    package_checks = {
+        check.check_type: check
+        for check in package.checks
+    }
+
+    assert len(package.checks) == len(result.core_checks)
+    assert len(package.checks) == 24
+
+    for name in O6_NORMAL_SHEAR_CHECK_TYPES:
+        assert name in package_checks
+
+    for name in O6_CAPACITY_DESIGN_SHEAR_CHECK_TYPES:
+        assert name in package_checks
+
+    assert any(check.check_type.startswith("beam_flexure_") for check in package.checks)
+
+    evidence_by_id = package.evidence["core_check_evidence_by_id"]
+
+    for name in O6_CAPACITY_DESIGN_SHEAR_CHECK_TYPES:
+        core_check = next(check for check in result.core_checks if check.name == name)
+        package_check = package_checks[name]
+
+        assert package_check.status == core_check.status
+        assert package_check.demand == core_check.demand
+        assert package_check.capacity == core_check.capacity
+        assert package_check.ratio == core_check.ratio
+        assert package_check.unit == core_check.unit
+        assert package_check.code_ref == core_check.code_ref
+
+        assert core_check.id in evidence_by_id
+        assert evidence_by_id[core_check.id]["Ve_capacity_kN"] == core_check.evidence["Ve_capacity_kN"]
+        assert evidence_by_id[core_check.id]["formula_capacity_check"] == core_check.evidence["formula_capacity_check"]
+
+    vmax_core_check = next(
+        check for check in result.core_checks
+        if check.name == "beam_shear_capacity_design_ve_le_085_vmax"
+    )
+    assert evidence_by_id[vmax_core_check.id]["formula_capacity_vmax_limit"] == (
+        "capacity_design_vmax_limit_kN = 0.85 * Vmax_kN"
+    )
