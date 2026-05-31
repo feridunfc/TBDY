@@ -48,8 +48,15 @@ __all__ = [
     "BeamDesignModule",
     "BeamEvaluationPackage",
     "build_beam_evaluation_packages",
+    "beam_core_result_to_evaluation_packages",
+    "core_check_to_beam_check_evaluation",
 ]
 from tbdy_engine.design.beams.beam_core import (
     BeamCoreResult,
     evaluate_beam_core,
+)
+
+from tbdy_engine.design.beams.core_package_adapter import (
+    beam_core_result_to_evaluation_packages,
+    core_check_to_beam_check_evaluation,
 )
