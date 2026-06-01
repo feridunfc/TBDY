@@ -68,4 +68,49 @@ Manual live smoke failure must not be hidden by editing BeamCore calculators, re
 
 ## Normal test safety
 
-Default tests must not require ETABS installed, Windows COM, comtypes, SapModel, read_etabs_table_on_demand, live ETABS tables, or ETABS model files.
+Default tests must not require ETABS installed, Windows COM, comtypes, SapModel, live ETABS table-reader calls, live ETABS tables, or ETABS model files.
+
+
+## R2 manual payload smoke gate
+
+R2 adds a manual payload-path smoke gate. It remains skipped by default.
+
+Required explicit flag:
+
+```powershell
+$env:TBDY_RUN_LIVE_ETABS_SMOKE = "1"
+```
+
+Required manual payload path:
+
+```powershell
+$env:TBDY_LIVE_ETABS_PAYLOAD_PATH = "<path-to-selected-live-export-payload.json>"
+```
+
+Manual selected-payload command:
+
+```powershell
+python -m pytest tests/test_beam_etabs_live_smoke_harness.py::test_manual_live_etabs_smoke_is_opt_in -q
+```
+
+Allowed result categories:
+
+- PASS for selected payload/model
+- SKIP when the explicit payload path is absent or unavailable
+- FAIL with recorded failure stage
+
+Allowed claim after a passing selected-payload run only:
+
+```text
+LIVE_ETABS_SMOKE = MANUALLY_OBSERVED_FOR_SELECTED_MODEL
+```
+
+Forbidden claims always remain:
+
+```text
+ETABS_VALIDATED = TRUE
+ETABS_BRIDGE = PROVEN_FOR_ALL_MODELS
+PRODUCTION_READY = TRUE
+RELEASE_READY = TRUE
+FULL_CODE_COMPLIANCE_CERTIFIED = TRUE
+```

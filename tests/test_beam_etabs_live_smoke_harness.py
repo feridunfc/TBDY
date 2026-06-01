@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import json
+import os
 import pathlib
 import sys
 import types
@@ -161,3 +162,49 @@ def test_r1_harness_import_boundary_has_no_live_dependency_terms() -> None:
 )
 def test_manual_live_etabs_smoke_is_opt_in() -> None:
     pytest.skip("Manual live provider is intentionally not implemented in R1.")
+
+@pytest.mark.skipif(
+    not is_live_etabs_smoke_enabled(),
+    reason="Manual live ETABS smoke is opt-in via TBDY_RUN_LIVE_ETABS_SMOKE=1.",
+)
+def test_manual_live_etabs_smoke_is_opt_in(tmp_path: Path) -> None:
+    payload_path = os.environ.get("TBDY_LIVE_ETABS_PAYLOAD_PATH")
+    if not payload_path:
+        pytest.skip("TBDY_LIVE_ETABS_PAYLOAD_PATH is required for manual payload smoke.")
+
+    payload_file = Path(payload_path)
+    if not payload_file.exists():
+        pytest.skip(f"Manual payload file does not exist: {payload_file}")
+
+    class ManualPayloadProvider:
+        def get_beam_payload(self) -> dict[str, object]:
+            payload = json.loads(payload_file.read_text(encoding="utf-8-sig"))
+            assert isinstance(payload, dict)
+            return payload
+
+    result = run_etabs_beamcore_smoke_from_provider(
+        provider=ManualPayloadProvider(),
+        output_dir=tmp_path,
+    )
+
+    assert result["status"] == "OK"
+    assert result["beam_core_status"] == "OK"
+    assert result["package_count"] == 1
+    assert result["check_count"] == 24
+    assert isinstance(result["json_path"], Path)
+    assert result["json_path"].exists()
+    assert isinstance(result["xlsx_path"], Path)
+    assert result["xlsx_path"].exists()
+    assert "beam_shear_capacity_design_ve_le_vr" in result["check_types"]
+    assert "beam_shear_capacity_design_ve_le_085_vmax" in result["check_types"]
+
+
+def test_r2_manual_payload_smoke_claim_boundaries_are_documented() -> None:
+    checklist = Path("docs/beam_core_live_etabs_smoke_checklist.md").read_text(encoding="utf-8-sig")
+
+    assert "TBDY_RUN_LIVE_ETABS_SMOKE=1" in checklist
+    assert "TBDY_LIVE_ETABS_PAYLOAD_PATH" in checklist
+    assert "LIVE_ETABS_SMOKE = MANUALLY_OBSERVED_FOR_SELECTED_MODEL" in checklist
+    assert "ETABS_VALIDATED = TRUE" in checklist
+    assert "PRODUCTION_READY = TRUE" in checklist
+    assert "RELEASE_READY = TRUE" in checklist
