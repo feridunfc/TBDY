@@ -164,3 +164,57 @@ PRODUCTION_READY = TRUE
 RELEASE_READY = TRUE
 FULL_CODE_COMPLIANCE_CERTIFIED = TRUE
 ```
+
+
+## R6 live COM provider skeleton
+
+COM provider is gated and manual-only. Normal tests do not require ETABS, Windows COM, or a machine-specific model path.
+
+Required manual environment:
+
+```powershell
+$env:TBDY_RUN_LIVE_ETABS_SMOKE="1"
+$env:TBDY_LIVE_ETABS_COM_PROVIDER="1"
+$env:TBDY_LIVE_ETABS_MODEL_PATH="<path-to-selected-model.edb>"
+$env:TBDY_LIVE_ETABS_BEAM_NAME="<selected-beam>"
+```
+
+Manual targeted COM provider command:
+
+```powershell
+python -m pytest tests/test_beam_etabs_live_com_provider.py::test_manual_live_etabs_com_provider_is_opt_in -q
+```
+
+Prepared-not-run claim:
+
+```text
+LIVE_ETABS_COM_PROVIDER = PREPARED_NOT_RUN
+```
+
+Skeleton-only claim if selected beam extraction is not implemented:
+
+```text
+LIVE_ETABS_COM_PROVIDER = SKELETON_ONLY
+```
+
+Manual pass claim for one selected model only:
+
+```text
+LIVE_ETABS_COM_SMOKE = MANUALLY_OBSERVED_FOR_SELECTED_MODEL
+```
+
+Manual failure claim:
+
+```text
+LIVE_ETABS_COM_SMOKE = FAILED_WITH_STAGE_RECORDED
+```
+
+Forbidden claims remain:
+
+```text
+ETABS_VALIDATED = TRUE
+ETABS_BRIDGE = PROVEN_FOR_ALL_MODELS
+PRODUCTION_READY = TRUE
+RELEASE_READY = TRUE
+FULL_CODE_COMPLIANCE_CERTIFIED = TRUE
+```
