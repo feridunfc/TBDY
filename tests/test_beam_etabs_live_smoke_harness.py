@@ -208,3 +208,32 @@ def test_r2_manual_payload_smoke_claim_boundaries_are_documented() -> None:
     assert "ETABS_VALIDATED = TRUE" in checklist
     assert "PRODUCTION_READY = TRUE" in checklist
     assert "RELEASE_READY = TRUE" in checklist
+
+
+def test_r3_manual_payload_smoke_result_template_documents_claim_boundaries() -> None:
+    template = Path("docs/templates/live_etabs_smoke_result_template.md").read_text(encoding="utf-8-sig")
+    checklist = Path("docs/beam_core_live_etabs_smoke_checklist.md").read_text(encoding="utf-8-sig")
+
+    required_terms = (
+        "branch",
+        "commit",
+        "command",
+        "payload filename",
+        "smoke status",
+        "engine_report.json",
+        "engine_report.xlsx",
+        "LIVE_ETABS_SMOKE = MANUALLY_OBSERVED_FOR_SELECTED_MODEL",
+        "LIVE_ETABS_SMOKE = NOT_RUN_ENVIRONMENT_UNAVAILABLE",
+        "ETABS_VALIDATED = TRUE",
+        "ETABS_BRIDGE = PROVEN_FOR_ALL_MODELS",
+        "PRODUCTION_READY = TRUE",
+        "RELEASE_READY = TRUE",
+        "FULL_CODE_COMPLIANCE_CERTIFIED = TRUE",
+    )
+
+    for term in required_terms:
+        assert term in template
+
+    assert "TBDY_LIVE_ETABS_PAYLOAD_PATH" in checklist
+    assert "test_manual_live_etabs_smoke_is_opt_in" in checklist
+

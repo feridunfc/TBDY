@@ -114,3 +114,53 @@ PRODUCTION_READY = TRUE
 RELEASE_READY = TRUE
 FULL_CODE_COMPLIANCE_CERTIFIED = TRUE
 ```
+
+## R3 selected-payload manual smoke
+
+R3 uses an operator-provided selected payload JSON. It remains opt-in and is skipped unless both environment inputs are present.
+
+Required explicit flag:
+
+```powershell
+$env:TBDY_RUN_LIVE_ETABS_SMOKE = "1"
+```
+
+Required selected payload path:
+
+```powershell
+$env:TBDY_LIVE_ETABS_PAYLOAD_PATH = "<path-to-selected-payload.json>"
+```
+
+Manual selected-payload command:
+
+```powershell
+python -m pytest tests/test_beam_etabs_live_smoke_harness.py::test_manual_live_etabs_smoke_is_opt_in -q
+```
+
+If the selected-payload run passes, record the result using:
+
+```text
+docs/templates/live_etabs_smoke_result_template.md
+```
+
+Allowed claim after a passing selected-payload run only:
+
+```text
+LIVE_ETABS_SMOKE = MANUALLY_OBSERVED_FOR_SELECTED_MODEL
+```
+
+Allowed claim if no selected-payload run is performed:
+
+```text
+LIVE_ETABS_SMOKE = NOT_RUN_ENVIRONMENT_UNAVAILABLE
+```
+
+Forbidden claims remain:
+
+```text
+ETABS_VALIDATED = TRUE
+ETABS_BRIDGE = PROVEN_FOR_ALL_MODELS
+PRODUCTION_READY = TRUE
+RELEASE_READY = TRUE
+FULL_CODE_COMPLIANCE_CERTIFIED = TRUE
+```
