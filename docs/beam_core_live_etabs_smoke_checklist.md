@@ -259,3 +259,37 @@ ETABS_TO_BEAMCORE_BRIDGE = OBSERVED_FOR_SELECTED_MODEL
 SINGLE_BEAM_FRAMEFORCE_RUNNER = MANUALLY_RUN
 ACTIONS_SOURCE = ETABS_RESULTS
 ```
+
+## R7B live ETABS story beam batch FrameForce bridge
+
+R7B extends R7A from one selected frame object to a selected-story batch. It discovers ETABS frame objects on the exact selected story, extracts real `SapModel.Results.FrameForce` rows for at least two selected combos, applies the documented envelope rules per beam, and runs the existing BeamCore path for at least three accepted beams.
+
+Default tests remain ETABS-free.
+
+Manual command:
+
+```powershell
+python -m pytest tests/test_beam_etabs_story_beam_batch_runner.py::test_manual_live_etabs_story_beam_batch_is_opt_in -q
+```
+
+If manual run is skipped:
+
+```text
+CORE_RESET_SPRINT_R7B = NOT_ACCEPTED_AS_LIVE
+STORY_BEAM_BATCH_RUNNER = IMPLEMENTED_NOT_RUN
+```
+
+If manual run passes and report confirms actions_source = etabs_results for at least 3 beams and at least 2 combos:
+
+```text
+CORE_RESET_SPRINT_R7B = PROVISIONALLY_ACCEPTABLE_PENDING_REVIEW
+LIVE_ETABS_STORY_BATCH_CONNECTION = OBSERVED
+LIVE_ETABS_STORY_BATCH_FRAMEFORCE_EXTRACTION = OBSERVED
+ETABS_TO_BEAMCORE_BATCH_BRIDGE = OBSERVED_FOR_SELECTED_STORY
+STORY_BEAM_BATCH_RUNNER = MANUALLY_RUN
+ACTIONS_SOURCE = ETABS_RESULTS
+MIN_BEAMS_PROCESSED = 3
+MIN_COMBOS_USED = 2
+```
+
+Forbidden claims remain: ETABS validation, all-model bridge proof, design-engine validation, production readiness, release readiness, and code-compliance proof.
