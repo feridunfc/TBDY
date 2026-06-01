@@ -218,3 +218,44 @@ PRODUCTION_READY = TRUE
 RELEASE_READY = TRUE
 FULL_CODE_COMPLIANCE_CERTIFIED = TRUE
 ```
+
+## R7A single beam FrameForce bridge
+
+R7A is an opt-in live ETABS bridge proof for exactly one selected frame object. It must use real `SapModel.Results.FrameForce` rows for live acceptance. Default tests remain ETABS-free.
+
+Required manual environment:
+
+```powershell
+$env:TBDY_RUN_LIVE_ETABS_SMOKE="1"
+$env:TBDY_LIVE_ETABS_COM_PROVIDER="1"
+$env:TBDY_LIVE_ETABS_USE_OPEN_MODEL="1"
+$env:TBDY_LIVE_ETABS_BEAM_NAME="B1"
+$env:TBDY_LIVE_ETABS_COMBOS="G+Q,EX"
+$env:TBDY_LIVE_ETABS_FORCE_UNIT="kN"
+$env:TBDY_LIVE_ETABS_MOMENT_UNIT="kNm"
+$env:TBDY_LIVE_ETABS_LENGTH_UNIT="mm"
+```
+
+Manual command:
+
+```powershell
+python -m pytest tests/test_beam_etabs_single_beam_frameforce_runner.py::test_manual_live_etabs_single_beam_frameforce_is_opt_in -q
+```
+
+If manual run is skipped:
+
+```text
+CORE_RESET_SPRINT_R7A = NOT_ACCEPTED_AS_LIVE
+SINGLE_BEAM_FRAMEFORCE_RUNNER = IMPLEMENTED_NOT_RUN
+```
+
+If manual run passes and report confirms actions source:
+
+```text
+CORE_RESET_SPRINT_R7A = PROVISIONALLY_ACCEPTABLE_PENDING_REVIEW
+LIVE_ETABS_CONNECTION = OBSERVED
+LIVE_ETABS_FRAMEFORCE_EXTRACTION = OBSERVED
+ETABS_TO_BEAMCORE_BRIDGE = OBSERVED_FOR_SELECTED_MODEL
+SINGLE_BEAM_FRAMEFORCE_RUNNER = MANUALLY_RUN
+ACTIONS_SOURCE = ETABS_RESULTS
+```
