@@ -293,3 +293,29 @@ MIN_COMBOS_USED = 2
 ```
 
 Forbidden claims remain: ETABS validation, all-model bridge proof, design-engine validation, production readiness, release readiness, and code-compliance proof.
+
+## R8 BeamCore failure diagnosis for R7B output
+
+R8 is an offline diagnosis tool for already-generated R7B artifacts. It does not connect to ETABS, read SapModel, modify BeamCore formulas, or patch global report writers.
+
+Manual/local diagnosis command:
+
+```powershell
+python -c "from pathlib import Path; from tbdy_engine.design.beams.beam_core_failure_diagnosis import diagnose_r7b_batch_summary; r=diagnose_r7b_batch_summary(summary_path=Path('_local/live_etabs_story_beam_batch/story_beam_batch_summary.json'), output_dir=Path('_local/live_etabs_story_beam_batch_failure_diagnosis')); print(r['status']); print(r['json_path']); print(r['md_path']); print('beam_count', r['beam_count'])"
+```
+
+If live R7B output is absent:
+
+```text
+CORE_RESET_SPRINT_R8 = PROVISIONALLY_ACCEPTABLE_PENDING_REVIEW
+FAILURE_DIAGNOSIS_TOOL = IMPLEMENTED_NOT_RUN_ON_LIVE_OUTPUT
+```
+
+If diagnosis files are generated from live R7B output:
+
+```text
+CORE_RESET_SPRINT_R8 = PROVISIONALLY_ACCEPTABLE_PENDING_REVIEW
+FAILURE_DIAGNOSIS_REPORT = GENERATED_FOR_R7B_LIVE_OUTPUT
+```
+
+Forbidden claims remain: ETABS validation, design-engine validation, all-model bridge proof, production readiness, release readiness, and code-compliance proof.
