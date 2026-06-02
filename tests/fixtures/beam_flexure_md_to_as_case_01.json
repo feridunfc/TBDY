@@ -1,0 +1,29 @@
+{
+  "case_id": "flexure_md_to_as_rectangular_001",
+  "description": "Typical beam flexure design - 400 kNm, 600x650mm, C30, S420",
+  "input": {
+    "Md_kNm": 400.0,
+    "bw_mm": 600.0,
+    "d_mm": 650.0,
+    "fcd_mpa": 20.0,
+    "fyd_mpa": 365.0,
+    "alpha": 0.85,
+    "beta": 0.85
+  },
+  "expected": {
+    "status": "OK",
+    "Mu_check_ge_Md": true,
+    "As_required_cm2_min": 17.0,
+    "As_required_cm2_max": 19.0,
+    "a_mm_min": 60.0,
+    "a_mm_max": 70.0,
+    "c_mm_min": 70.0,
+    "c_mm_max": 85.0,
+    "neutral_axis_ratio_min": 0.1,
+    "neutral_axis_ratio_max": 0.15,
+    "lever_arm_z_mm_min": 610.0,
+    "lever_arm_z_mm_max": 625.0,
+    "rho_required_min": 0.0045,
+    "rho_required_max": 0.0055
+  }
+}

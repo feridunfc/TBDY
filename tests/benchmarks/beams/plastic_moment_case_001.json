@@ -1,0 +1,24 @@
+{
+  "case_id": "plastic_moment_case_001",
+  "description": "Plastic moment - As=20 cm², typical case",
+  "input": {
+    "As_cm2": 20.0,
+    "bw_mm": 600.0,
+    "d_mm": 650.0,
+    "fcd_mpa": 20.0,
+    "fyk_mpa": 420.0,
+    "alpha": 0.85,
+    "beta": 0.85,
+    "steel_overstrength": 1.25
+  },
+  "expected": {
+    "status": "OK",
+    "fs_capacity_mpa": 525.0,
+    "a_mm": 102.9411765,
+    "lever_arm_z_mm": 598.5294118,
+    "Mpr_kNm": 628.4558824
+  },
+  "tolerance": {
+    "relative": 0.001
+  }
+}

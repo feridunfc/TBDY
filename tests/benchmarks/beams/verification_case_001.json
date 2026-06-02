@@ -1,0 +1,26 @@
+{
+  "case_id": "verification_case_001",
+  "description": "Verification layer - all regions PASS",
+  "required": {
+    "top_left_As_cm2": 18.0,
+    "bottom_mid_As_cm2": 14.0,
+    "top_right_As_cm2": 20.0,
+    "shear_spacing_required_mm": 150.0
+  },
+  "provided": {
+    "beam_id": "B101_S1",
+    "label": "B101",
+    "top_left_As_cm2": 20.0,
+    "bottom_mid_As_cm2": 16.0,
+    "top_right_As_cm2": 22.0,
+    "stirrup": {
+      "diameter_mm": 10.0,
+      "legs": 2,
+      "spacing_mm": 100.0
+    }
+  },
+  "expected": {
+    "status": "PASS",
+    "check_count": 4
+  }
+}

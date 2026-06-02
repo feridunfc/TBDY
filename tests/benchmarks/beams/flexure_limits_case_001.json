@@ -1,0 +1,24 @@
+{
+  "case_id": "flexure_limits_case_001",
+  "description": "Flexure reinforcement limits - OK case",
+  "input": {
+    "As_required_cm2": 18.0,
+    "bw_mm": 600.0,
+    "d_mm": 650.0,
+    "fctd_mpa": 1.27,
+    "fyd_mpa": 365.0,
+    "rho_max": 0.02
+  },
+  "expected": {
+    "status": "OK",
+    "governing": "moment",
+    "As_design_required_cm2": 18.0,
+    "rho_required": 0.0046153846,
+    "rho_min": 0.0027835616,
+    "As_min_cm2": 10.8558904,
+    "As_max_cm2": 78.0
+  },
+  "tolerance": {
+    "relative": 0.001
+  }
+}

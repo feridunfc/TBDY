@@ -1,223 +1,145 @@
-﻿from __future__ import annotations
+﻿"""
+BeamModelContext — Canonical beam design input.
+Sadece geometri + malzeme + metadata.
+Reinforcement ve demand bilgisi içermez.
+Birim standardı: mm, kN, kNm, MPa.
+"""
+
+from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Mapping
-
-
-CanonicalBeamInput = Mapping[str, object]
-
-_REQUIRED_TEXT_FIELDS = ("beam_id", "story", "section_name")
-_REQUIRED_FLOAT_FIELDS = (
-    "bw_mm",
-    "h_mm",
-    "d_mm",
-    "cover_mm",
-    "Ln_mm",
-    "fck_mpa",
-    "fcd_mpa",
-    "fctd_mpa",
-    "fyk_mpa",
-    "fyd_mpa",
-    "fywd_mpa",
-    "Vd_left_kN",
-    "Ve_left_kN",
-    "Md_left_neg_kNm",
-    "axial_kN",
-    "stirrup_diameter_mm",
-    "stirrup_spacing_mm",
-)
-_OPTIONAL_FLOAT_FIELDS = (
-    "top_required_area_cm2",
-    "bottom_required_area_cm2",
-    "top_selected_area_cm2",
-    "bottom_selected_area_cm2",
-    "left_top_as_cm2",
-    "left_bottom_as_cm2",
-    "right_top_as_cm2",
-    "right_bottom_as_cm2",
-    "longitudinal_bar_diameter_mm",
-    "Md_mid_pos_kNm",
-    "Md_right_neg_kNm",
-)
-_ALLOWED_SOURCE_KEYS = frozenset({"source_table", "source_row", "source_columns", "origin"})
+from typing import Any, Mapping
 
 
 @dataclass(frozen=True)
-class BeamModelContext:
-    beam_id: str
-    story: str
-    section_name: str
+class BeamGeometryInput:
+    """Kiriş geometrisi — mm cinsinden"""
     bw_mm: float
     h_mm: float
     d_mm: float
     cover_mm: float
     Ln_mm: float
+
+
+@dataclass(frozen=True)
+class BeamMaterialInput:
+    """Beton ve donatı malzeme — MPa cinsinden"""
     fck_mpa: float
     fcd_mpa: float
     fctd_mpa: float
     fyk_mpa: float
     fyd_mpa: float
     fywd_mpa: float
-    Vd_left_kN: float
-    Ve_left_kN: float
-    Md_left_neg_kNm: float
-    axial_kN: float
-    stirrup_legs: int
-    stirrup_diameter_mm: float
-    stirrup_spacing_mm: float
-    top_required_area_cm2: float | None = None
-    bottom_required_area_cm2: float | None = None
-    top_selected_area_cm2: float | None = None
-    bottom_selected_area_cm2: float | None = None
-    left_top_as_cm2: float | None = None
-    left_bottom_as_cm2: float | None = None
-    right_top_as_cm2: float | None = None
-    right_bottom_as_cm2: float | None = None
-    longitudinal_bar_diameter_mm: float | None = None
-    Md_mid_pos_kNm: float | None = None
-    Md_right_neg_kNm: float | None = None
-    missing_inputs: tuple[str, ...] = ()
-    source: Mapping[str, object] = field(default_factory=dict)
 
 
-def build_beam_model_context(data: CanonicalBeamInput) -> BeamModelContext:
-    missing_inputs = list(_missing_inputs(data.get("missing_inputs")))
-    text_values = {name: _text_value(data.get(name), name, missing_inputs) for name in _REQUIRED_TEXT_FIELDS}
-    float_values = {name: _float_value(data.get(name), name, missing_inputs, required=True) for name in _REQUIRED_FLOAT_FIELDS}
-    optional_values = {name: _float_value(data.get(name), name, missing_inputs, required=False) for name in _OPTIONAL_FLOAT_FIELDS}
-    stirrup_legs = _int_value(data.get("stirrup_legs"), "stirrup_legs", missing_inputs)
-    return BeamModelContext(
-        beam_id=text_values["beam_id"],
-        story=text_values["story"],
-        section_name=text_values["section_name"],
-        bw_mm=float_values["bw_mm"],
-        h_mm=float_values["h_mm"],
-        d_mm=float_values["d_mm"],
-        cover_mm=float_values["cover_mm"],
-        Ln_mm=float_values["Ln_mm"],
-        fck_mpa=float_values["fck_mpa"],
-        fcd_mpa=float_values["fcd_mpa"],
-        fctd_mpa=float_values["fctd_mpa"],
-        fyk_mpa=float_values["fyk_mpa"],
-        fyd_mpa=float_values["fyd_mpa"],
-        fywd_mpa=float_values["fywd_mpa"],
-        Vd_left_kN=float_values["Vd_left_kN"],
-        Ve_left_kN=float_values["Ve_left_kN"],
-        Md_left_neg_kNm=float_values["Md_left_neg_kNm"],
-        axial_kN=float_values["axial_kN"],
-        stirrup_legs=stirrup_legs,
-        stirrup_diameter_mm=float_values["stirrup_diameter_mm"],
-        stirrup_spacing_mm=float_values["stirrup_spacing_mm"],
-        top_required_area_cm2=optional_values["top_required_area_cm2"],
-        bottom_required_area_cm2=optional_values["bottom_required_area_cm2"],
-        top_selected_area_cm2=optional_values["top_selected_area_cm2"],
-        bottom_selected_area_cm2=optional_values["bottom_selected_area_cm2"],
-        left_top_as_cm2=optional_values["left_top_as_cm2"],
-        left_bottom_as_cm2=optional_values["left_bottom_as_cm2"],
-        right_top_as_cm2=optional_values["right_top_as_cm2"],
-        right_bottom_as_cm2=optional_values["right_bottom_as_cm2"],
-        longitudinal_bar_diameter_mm=optional_values["longitudinal_bar_diameter_mm"],
-        Md_mid_pos_kNm=optional_values["Md_mid_pos_kNm"],
-        Md_right_neg_kNm=optional_values["Md_right_neg_kNm"],
-        missing_inputs=tuple(dict.fromkeys(missing_inputs)),
-        source=_sanitize_source(data.get("source")),
-    )
+@dataclass(frozen=True)
+class BeamMetadata:
+    """Kaynak, kimlik ve izlenebilirlik bilgileri"""
+    label: str = ""
+    story: str = ""
+    section_name: str = ""
+    source: str = ""
+    evidence: Mapping[str, object] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class BeamModelContext:
+    """
+    Kiriş tasarımı için canonical input.
+    Birim standardı: mm, kN, kNm, MPa.
+
+    Design Engine sadece bu context + BeamDemandSet tüketir.
+    ETABS, provided reinforcement, combo/station bilgisi içermez.
+    """
+    beam_id: str
+    geometry: BeamGeometryInput
+    material: BeamMaterialInput
+    metadata: BeamMetadata = field(default_factory=BeamMetadata)
+
+    @property
+    def label(self) -> str:
+        return self.metadata.label
+
+    @property
+    def story(self) -> str:
+        return self.metadata.story
+
+    @property
+    def section_name(self) -> str:
+        return self.metadata.section_name
 
 
 def validate_beam_model_context(ctx: BeamModelContext) -> tuple[str, ...]:
+    """BeamModelContext alanlarını doğrula, eksik alanları döndür."""
     invalid: list[str] = []
-    for name in (
-        "bw_mm",
-        "h_mm",
-        "d_mm",
-        "cover_mm",
-        "Ln_mm",
-        "fck_mpa",
-        "fcd_mpa",
-        "fctd_mpa",
-        "fyk_mpa",
-        "fyd_mpa",
-        "fywd_mpa",
-    ):
-        if _not_positive(getattr(ctx, name)):
-            invalid.append(name)
-    for name in ("Vd_left_kN", "Ve_left_kN", "Md_left_neg_kNm", "axial_kN"):
-        if _is_missing(getattr(ctx, name)):
-            invalid.append(name)
-    if _not_positive(ctx.longitudinal_bar_diameter_mm):
-        invalid.append("longitudinal_bar_diameter_mm")
-    if ctx.stirrup_legs < 2:
-        invalid.append("stirrup_legs")
-    if _not_positive(ctx.stirrup_diameter_mm):
-        invalid.append("stirrup_diameter_mm")
-    if _not_positive(ctx.stirrup_spacing_mm):
-        invalid.append("stirrup_spacing_mm")
-    invalid.extend(str(name) for name in ctx.missing_inputs if str(name) not in invalid)
+
+    if not ctx.beam_id:
+        invalid.append("beam_id")
+    if not ctx.metadata.label:
+        invalid.append("metadata.label")
+
+    for name in ("bw_mm", "h_mm", "d_mm", "cover_mm", "Ln_mm"):
+        if getattr(ctx.geometry, name, 0.0) <= 0.0:
+            invalid.append(f"geometry.{name}")
+
+    for name in ("fck_mpa", "fcd_mpa", "fctd_mpa", "fyk_mpa", "fyd_mpa", "fywd_mpa"):
+        if getattr(ctx.material, name, 0.0) <= 0.0:
+            invalid.append(f"material.{name}")
+
     return tuple(invalid)
 
 
-def _sanitize_source(value: object) -> Mapping[str, object]:
-    if not isinstance(value, Mapping):
-        return {}
-    return {str(key): value[key] for key in value if str(key) in _ALLOWED_SOURCE_KEYS}
+def is_valid_beam_model_context(ctx: BeamModelContext) -> bool:
+    return len(validate_beam_model_context(ctx)) == 0
+
+def _read_context_value(data: object, name: str, default: object = None) -> object:
+    if isinstance(data, dict):
+        return data.get(name, default)
+    return getattr(data, name, default)
 
 
-def _text_value(value: object, name: str, missing_inputs: list[str]) -> str:
-    if value in (None, ""):
-        _append_missing(missing_inputs, name)
-        return ""
-    return str(value)
+def build_beam_model_context(data: object | None = None, **overrides: object) -> BeamModelContext:
+    """Backward-compatible context builder for legacy BeamCore callers.
 
+    R9C+ preferred usage is constructing BeamModelContext explicitly from
+    BeamGeometryInput, BeamMaterialInput, and BeamMetadata.
 
-def _float_value(value: object, name: str, missing_inputs: list[str], *, required: bool) -> float | None:
-    number = _number_or_none(value)
-    if number is None and required:
-        _append_missing(missing_inputs, name)
-        return 0.0
-    return number
+    This compatibility layer accepts either:
+    - a mapping/object with legacy flat fields
+    - keyword overrides
+    """
+    source_data = data or {}
 
+    def value(name: str, default: object = None) -> object:
+        return overrides.get(name, _read_context_value(source_data, name, default))
 
-def _int_value(value: object, name: str, missing_inputs: list[str]) -> int:
-    number = _number_or_none(value)
-    if number is None:
-        _append_missing(missing_inputs, name)
-        return 0
-    return int(number)
+    beam_id = str(value("beam_id", value("label", "")) or "")
+    label = str(value("label", beam_id) or beam_id)
+    story = str(value("story", "") or "")
+    section_name = str(value("section_name", value("section", "")) or "")
+    source = str(value("source", "legacy_builder") or "legacy_builder")
 
-
-def _missing_inputs(value: object) -> tuple[str, ...]:
-    if value is None:
-        return ()
-    if isinstance(value, str):
-        return (value,) if value else ()
-    if isinstance(value, tuple):
-        return tuple(str(item) for item in value if str(item))
-    if isinstance(value, list):
-        return tuple(str(item) for item in value if str(item))
-    return ()
-
-
-def _append_missing(missing_inputs: list[str], name: str) -> None:
-    if name not in missing_inputs:
-        missing_inputs.append(name)
-
-
-def _not_positive(value: object) -> bool:
-    number = _number_or_none(value)
-    return number is None or number <= 0.0
-
-
-def _is_missing(value: object) -> bool:
-    return _number_or_none(value) is None
-
-
-def _number_or_none(value: object) -> float | None:
-    if value in (None, ""):
-        return None
-    try:
-        number = float(value)
-    except Exception:
-        return None
-    if number != number:
-        return None
-    return number
+    return BeamModelContext(
+        beam_id=beam_id,
+        geometry=BeamGeometryInput(
+            bw_mm=float(value("bw_mm", 0.0) or 0.0),
+            h_mm=float(value("h_mm", 0.0) or 0.0),
+            d_mm=float(value("d_mm", 0.0) or 0.0),
+            cover_mm=float(value("cover_mm", 0.0) or 0.0),
+            Ln_mm=float(value("Ln_mm", value("ln_mm", 0.0)) or 0.0),
+        ),
+        material=BeamMaterialInput(
+            fck_mpa=float(value("fck_mpa", 0.0) or 0.0),
+            fcd_mpa=float(value("fcd_mpa", 0.0) or 0.0),
+            fctd_mpa=float(value("fctd_mpa", 0.0) or 0.0),
+            fyk_mpa=float(value("fyk_mpa", 0.0) or 0.0),
+            fyd_mpa=float(value("fyd_mpa", 0.0) or 0.0),
+            fywd_mpa=float(value("fywd_mpa", 0.0) or 0.0),
+        ),
+        metadata=BeamMetadata(
+            label=label,
+            story=story,
+            section_name=section_name,
+            source=source,
+        ),
+    )
