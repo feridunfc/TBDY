@@ -89,6 +89,7 @@ def attach_to_open_etabs() -> object:
         raise RuntimeError(f"com_import: {exc}") from exc
 
     try:
+        _ensure_com_initialized_for_streamlit()
         etabs_object = client.GetActiveObject("CSI.ETABS.API.ETABSObject")
     except Exception as exc:
         raise RuntimeError(f"etabs_attach: {exc}") from exc
@@ -182,7 +183,20 @@ def _model_path_from_open_model(open_model: object) -> str | None:
     return None
 
 
+
+def _ensure_com_initialized_for_streamlit() -> None:
+    """Initialize COM in the current Streamlit thread.
+
+    Lazy import only; no top-level COM dependency.
+    """
+    try:
+        import pythoncom  # type: ignore
+        pythoncom.CoInitialize()
+    except Exception:
+        pass
+
 def get_etabs_connection_snapshot(*, sap_model: object | None = None) -> dict[str, object]:
+    _ensure_com_initialized_for_streamlit()
     """Return an offline-safe ETABS UI snapshot.
 
     COM/pythoncom imports are lazy and only happen when a live attach is requested.
