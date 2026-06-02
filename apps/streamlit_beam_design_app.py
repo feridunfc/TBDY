@@ -12,6 +12,10 @@ from tbdy_engine.design.beams.streamlit_etabs_ui_adapter import (
     list_available_load_cases,
     list_available_stories,
     list_story_beams,
+    filter_beam_candidates,
+    add_selection_column,
+    shape_result_rows_for_ui,
+    read_check_rows_for_ui,
     run_story_beam_checks_from_ui,
 )
 
@@ -29,7 +33,7 @@ def main() -> None:
 
     st.set_page_config(page_title="BeamCore ETABS Diagnostic UI", layout="wide")
     st.title("BeamCore ETABS Diagnostic UI")
-    st.warning("Diagnostic UI only. Not design validation. Not production-ready. Not TBDY compliance proof. Input values in the sidebar are diagnostic override assumptions.")
+    st.warning("Diagnostic UI only. Not design validation. Not production-ready. Not TBDY compliance proof.")
 
     design_values = render_sidebar()
     status = get_etabs_status()
@@ -52,6 +56,8 @@ def main() -> None:
 def render_sidebar() -> dict[str, object]:
     assert st is not None
     st.sidebar.header("Diagnostic input assumptions")
+    st.sidebar.caption("These values are temporary override assumptions unless read from ETABS/model metadata.")
+    st.sidebar.subheader("Temporary section geometry override")
     values = {
         "bw_mm": st.sidebar.number_input("bw_mm", value=float(DEFAULT_DESIGN_INPUTS["bw_mm"])),
         "h_mm": st.sidebar.number_input("h_mm", value=float(DEFAULT_DESIGN_INPUTS["h_mm"])),
@@ -94,7 +100,7 @@ def render_beam_tab(*, status: dict[str, object], design_values: dict[str, objec
     cols[1].metric("Model", str(status.get("model_name") or "-"))
     cols[2].metric("Branch", str(git_info.get("branch") or "-"))
     cols[3].metric("Commit", str(git_info.get("commit") or "-"))
-    st.info("Warnings: diagnostic UI only; not design validation; not production-ready. Sidebar values are temporary override assumptions unless read from ETABS/model metadata.")
+    st.info("Warnings: diagnostic UI only; not design validation; not production-ready.")
 
     if status["status"] != "ONLINE":
         st.warning("Open ETABS and enable live mode.")
@@ -116,25 +122,37 @@ def render_beam_tab(*, status: dict[str, object], design_values: dict[str, objec
         return
 
     default_combos = choose_default_combos(available_results)
-    selected_combos = st.multiselect("Result combinations/cases", available_results, default=default_combos)
+    selected_combos = st.multiselect("Available ETABS combinations", available_results, default=default_combos)
+    st.write("Selected combinations", selected_combos)
+    st.caption(f"selected_combos_count = {len(selected_combos)}")
+    if len(selected_combos) == 1:
+        st.info("Single-combo diagnostic run; no multi-combo envelope claim.")
+    elif len(selected_combos) >= 2:
+        st.info("Multi-combo envelope selection enabled.")
     if not selected_combos:
         st.warning("Select at least one combination/case.")
 
-    beams = list_story_beams(sap_model, selected_story)
+    beams = list_story_beams(sap_model, selected_story, include_non_beams=True)
     st.subheader("Beams on selected story")
-    st.dataframe(beams, use_container_width=True)
-
-    selection_mode = st.radio("Beam selection mode", ["all beams", "selected beams only"], horizontal=True)
+    include_non_beams = st.checkbox("Show columns / unknown frame objects", value=False)
+    if include_non_beams:
+        st.warning("Probable column — excluded from BeamCore beam checks by default.")
+    section_filter = st.text_input("Filter by section", value="")
+    label_filter = st.text_input("Filter by label text", value="")
+    beam_candidates = filter_beam_candidates(beams, include_non_beams=include_non_beams, section_filter=section_filter, label_filter=label_filter)
+    select_all_beams = st.button("Select all beams")
+    clear_selection = st.button("Clear selection")
+    editable_rows = add_selection_column(beam_candidates, select_all=select_all_beams and not clear_selection)
+    edited_rows = st.data_editor(editable_rows, use_container_width=True, disabled=["object_name", "label", "story", "section", "element_type", "classification_source", "classification_warning"])
+    st.caption("Probable column — excluded from BeamCore beam checks by default.")
     max_beams = st.number_input("Max beams", value=10, min_value=1, max_value=500)
-    selected_object_names: list[str] | None = None
-    if selection_mode == "selected beams only":
-        selected_object_names = st.multiselect("Selected beams", [beam["object_name"] for beam in beams])
+    selected_object_names = [row["object_name"] for row in edited_rows if row.get("selected")]
 
     if st.button("Run BeamCore checks"):
         if not selected_combos:
             st.error("Cannot run: no combination selected.")
             return
-        if selection_mode == "selected beams only" and not selected_object_names:
+        if not selected_object_names:
             st.error("Cannot run: no beam selected.")
             return
         try:

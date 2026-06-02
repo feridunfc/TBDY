@@ -14,6 +14,10 @@ if "tbdy_engine" not in sys.modules:
     sys.modules["tbdy_engine"] = tbdy_pkg
 
 from tbdy_engine.design.beams.streamlit_etabs_ui_adapter import (
+    shape_result_rows_for_ui,
+    add_selection_column,
+    filter_beam_candidates,
+    classify_frame_element,
     run_story_beam_checks_from_ui,
     DEFAULT_DESIGN_INPUTS,
     build_design_overrides_from_ui,
@@ -213,4 +217,90 @@ def test_ui_multi_combo_still_uses_r7b_batch_runner(monkeypatch: pytest.MonkeyPa
     assert result["status"] == "OK"
     assert calls
     assert calls[0]["combos"] == ["Grav_Ult", "Cap_SeisX"]
+def test_classify_frame_element_examples() -> None:
+    assert classify_frame_element({"label": "C5", "section": "Column_80x80"})["element_type"] == "column"
+    assert classify_frame_element({"label": "B35", "section": "B60x70"})["element_type"] == "beam"
+    assert classify_frame_element({"label": "X1", "section": "Unknown"})["element_type"] == "unknown"
+
+
+def test_beam_list_default_filter_excludes_columns() -> None:
+    records = [
+        {"object_name": "1", "label": "B35", "story": "+9.00", "section": "B60x70"},
+        {"object_name": "40", "label": "C5", "story": "+9.00", "section": "Column_80x80"},
+    ]
+
+    beams = filter_beam_candidates(records, include_non_beams=False)
+
+    assert [beam["label"] for beam in beams] == ["B35"]
+
+
+def test_show_columns_toggle_includes_warnings() -> None:
+    records = [
+        {"object_name": "1", "label": "B35", "story": "+9.00", "section": "B60x70"},
+        {"object_name": "40", "label": "C5", "story": "+9.00", "section": "Column_80x80"},
+    ]
+
+    all_records = filter_beam_candidates(records, include_non_beams=True)
+
+    assert [record["label"] for record in all_records] == ["B35", "C5"]
+    column = all_records[1]
+    assert column["element_type"] == "column"
+    assert "Probable column" in column["classification_warning"]
+
+
+def test_selection_rows_and_filters() -> None:
+    records = [
+        {"object_name": "1", "label": "B35", "story": "+9.00", "section": "B60x70"},
+        {"object_name": "2", "label": "B22", "story": "+9.00", "section": "B60x70"},
+        {"object_name": "40", "label": "C5", "story": "+9.00", "section": "Column_80x80"},
+    ]
+
+    beams = filter_beam_candidates(records, include_non_beams=False, section_filter="B60", label_filter="B")
+    rows = add_selection_column(beams, selected_object_names=["1"])
+
+    assert [row["object_name"] for row in rows] == ["1", "2"]
+    assert rows[0]["selected"] is True
+    assert rows[1]["selected"] is False
+
+
+def test_result_table_shaping_includes_governing_and_critical_fields() -> None:
+    summary = {
+        "beams": [
+            {
+                "object_name": "1",
+                "label": "B35",
+                "section": "B60x70",
+                "element_type": "beam",
+                "beam_core_status": "FAIL",
+                "actions": {
+                    "Vd_left_kN": 1,
+                    "Ve_left_kN": 2,
+                    "Md_left_neg_kNm": 3,
+                    "Md_mid_pos_kNm": 4,
+                    "Md_right_neg_kNm": 5,
+                    "axial_kN": 0,
+                },
+                "governing": {
+                    "Vd_left_kN": {"combo": "G"},
+                    "Ve_left_kN": {"combo": "E"},
+                    "Md_left_neg_kNm": {"combo": "E"},
+                    "Md_mid_pos_kNm": {"combo": "G"},
+                    "Md_right_neg_kNm": {"combo": "E"},
+                },
+                "failed_check_count": 2,
+                "most_critical_checks": [{"check_key": "beam_shear_capacity_design_ve_le_vr", "category": "capacity_design_shear"}],
+                "check_count": 24,
+                "artifact_paths": {"json": "a.json", "xlsx": "a.xlsx"},
+            }
+        ]
+    }
+
+    rows = shape_result_rows_for_ui(summary)
+
+    assert rows[0]["governing_Vd_combo"] == "G"
+    assert rows[0]["governing_Ve_combo"] == "E"
+    assert rows[0]["governing_Md_left_combo"] == "E"
+    assert rows[0]["failed_check_count"] == 2
+    assert rows[0]["critical_category"] == "capacity_design_shear"
+    assert rows[0]["top_critical_check"] == "beam_shear_capacity_design_ve_le_vr"
 

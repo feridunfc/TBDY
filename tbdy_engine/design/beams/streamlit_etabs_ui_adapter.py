@@ -84,18 +84,11 @@ class EtabsStatus:
 
 def attach_to_open_etabs() -> object:
     try:
-        comtypes_module = __import__("com" + "types")
         client = __import__("com" + "types.client").client
     except Exception as exc:
         raise RuntimeError(f"com_import: {exc}") from exc
 
     try:
-        try:
-            comtypes_module.CoInitialize()
-        except Exception:
-            # Host may already have initialized COM.
-            pass
-
         etabs_object = client.GetActiveObject("CSI.ETABS.API.ETABSObject")
     except Exception as exc:
         raise RuntimeError(f"etabs_attach: {exc}") from exc
@@ -104,6 +97,7 @@ def attach_to_open_etabs() -> object:
         return etabs_object.SapModel
     except Exception as exc:
         raise RuntimeError(f"sapmodel_access: {exc}") from exc
+
 
 def get_etabs_status(*, sap_model: object | None = None) -> dict[str, object]:
     if sap_model is None:
@@ -135,7 +129,7 @@ def get_model_name(sap_model: object) -> str:
     return "open_etabs_model"
 
 
-def list_story_beams(sap_model: object, story: str) -> list[dict[str, str]]:
+def list_story_beams(sap_model: object, story: str, *, include_non_beams: bool = True) -> list[dict[str, str]]:
     names = _frame_names(sap_model)
     beams: list[dict[str, str]] = []
     for object_name in names:
@@ -143,15 +137,15 @@ def list_story_beams(sap_model: object, story: str) -> list[dict[str, str]]:
         if beam_story != story:
             continue
         section = _frame_section(sap_model, object_name)
-        beams.append(
-            {
-                "object_name": object_name,
-                "label": label or object_name,
-                "story": beam_story or "",
-                "section": section or "",
-            }
-        )
-    return beams
+        record = {
+            "object_name": object_name,
+            "label": label or object_name,
+            "story": beam_story or "",
+            "section": section or "",
+        }
+        record.update(classify_frame_element(record))
+        beams.append(record)
+    return beams if include_non_beams else filter_beam_candidates(beams, include_non_beams=False)
 
 
 def list_available_stories(sap_model: object) -> list[str]:
@@ -173,6 +167,77 @@ def choose_default_combos(combos: Sequence[str]) -> list[str]:
     if preferred:
         return preferred
     return list(combos[:2])
+
+
+def classify_frame_element(record: Mapping[str, object]) -> dict[str, str]:
+    label = str(record.get("label") or "")
+    section = str(record.get("section") or "")
+    label_upper = label.upper()
+    section_upper = section.upper()
+
+    if label_upper.startswith("C") or "COLUMN" in section_upper:
+        element_type = "column"
+        source = "label_or_section"
+    elif label_upper.startswith("B") or section_upper.startswith("B"):
+        element_type = "beam"
+        source = "label_or_section"
+    else:
+        element_type = "unknown"
+        source = "label_or_section"
+
+    warning = ""
+    if element_type == "column":
+        warning = "Probable column — excluded from BeamCore beam checks by default."
+    elif element_type == "unknown":
+        warning = "Unknown frame object type — excluded from BeamCore beam checks by default."
+
+    return {
+        "element_type": element_type,
+        "classification_source": source,
+        "classification_warning": warning,
+    }
+
+
+def filter_beam_candidates(
+    records: Sequence[Mapping[str, str]],
+    *,
+    include_non_beams: bool = False,
+    section_filter: str = "",
+    label_filter: str = "",
+) -> list[dict[str, str]]:
+    section_filter_l = section_filter.strip().lower()
+    label_filter_l = label_filter.strip().lower()
+    result: list[dict[str, str]] = []
+
+    for record in records:
+        enriched = dict(record)
+        if "element_type" not in enriched:
+            enriched.update(classify_frame_element(enriched))
+        if not include_non_beams and enriched.get("element_type") != "beam":
+            continue
+        if section_filter_l and section_filter_l not in str(enriched.get("section", "")).lower():
+            continue
+        if label_filter_l and label_filter_l not in str(enriched.get("label", "")).lower():
+            continue
+        result.append(enriched)
+
+    return result
+
+
+def add_selection_column(
+    records: Sequence[Mapping[str, str]],
+    *,
+    selected_object_names: Sequence[str] | None = None,
+    select_all: bool = False,
+) -> list[dict[str, object]]:
+    selected = set(selected_object_names or [])
+    rows: list[dict[str, object]] = []
+    for record in records:
+        object_name = str(record.get("object_name", ""))
+        row = dict(record)
+        row["selected"] = bool(select_all or object_name in selected)
+        rows.append(row)
+    return rows
 
 
 def filter_selected_beams(beams: Sequence[Mapping[str, str]], selected_object_names: Sequence[str] | None) -> list[dict[str, str]]:
@@ -205,8 +270,9 @@ def run_story_beam_checks_from_ui(
     combos = [combo for combo in combos if combo]
     if not combos:
         raise ValueError("At least one result combination is required.")
-    beams = list_story_beams(sap_model, story)
-    selected = filter_selected_beams(beams, selected_object_names)
+    beams = list_story_beams(sap_model, story, include_non_beams=True)
+    beam_candidates = filter_beam_candidates(beams, include_non_beams=False)
+    selected = filter_selected_beams(beam_candidates, selected_object_names)
     if not selected:
         raise ValueError("At least one beam must be selected.")
 
@@ -331,6 +397,68 @@ def run_single_combo_beam_checks_from_ui(
     }
 
 
+def shape_result_rows_for_ui(summary: Mapping[str, object]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for beam in summary.get("beams", []):  # type: ignore[union-attr]
+        actions = beam.get("actions", {})
+        governing = beam.get("governing", {})
+        most_critical = beam.get("most_critical_checks", [])
+        top_critical = most_critical[0] if most_critical else {}
+        rows.append(
+            {
+                "object_name": beam.get("object_name"),
+                "label": beam.get("label"),
+                "section": beam.get("section"),
+                "element_type": beam.get("element_type") or classify_frame_element(beam).get("element_type"),
+                "BeamCore status": beam.get("beam_core_status") or beam.get("BeamCore status"),
+                "Vd_left_kN": actions.get("Vd_left_kN"),
+                "Ve_left_kN": actions.get("Ve_left_kN"),
+                "Md_left_neg_kNm": actions.get("Md_left_neg_kNm"),
+                "Md_mid_pos_kNm": actions.get("Md_mid_pos_kNm"),
+                "Md_right_neg_kNm": actions.get("Md_right_neg_kNm"),
+                "axial_kN": actions.get("axial_kN"),
+                "governing_Vd_combo": (governing.get("Vd_left_kN") or {}).get("combo"),
+                "governing_Ve_combo": (governing.get("Ve_left_kN") or {}).get("combo"),
+                "governing_Md_left_combo": (governing.get("Md_left_neg_kNm") or {}).get("combo"),
+                "governing_Md_mid_combo": (governing.get("Md_mid_pos_kNm") or {}).get("combo"),
+                "governing_Md_right_combo": (governing.get("Md_right_neg_kNm") or {}).get("combo"),
+                "failed_check_count": beam.get("failed_check_count"),
+                "critical_category": top_critical.get("category") if isinstance(top_critical, Mapping) else None,
+                "top_critical_check": top_critical.get("check_key") if isinstance(top_critical, Mapping) else None,
+                "check_count": beam.get("check_count"),
+                "json path": (beam.get("artifact_paths") or {}).get("json"),
+                "xlsx path": (beam.get("artifact_paths") or {}).get("xlsx"),
+            }
+        )
+    return rows
+
+
+def read_check_rows_for_ui(engine_report_path: Path) -> list[dict[str, object]]:
+    try:
+        from tbdy_engine.design.beams.beam_core_failure_diagnosis import extract_check_records, normalize_check_record
+    except Exception:
+        return []
+
+    if not Path(engine_report_path).exists():
+        return []
+
+    import json
+
+    report = json.loads(Path(engine_report_path).read_text(encoding="utf-8"))
+    return [
+        {
+            "check_key": check.get("check_key"),
+            "status": check.get("status"),
+            "category": check.get("category"),
+            "demand": check.get("demand"),
+            "capacity": check.get("capacity"),
+            "utilization": check.get("utilization"),
+            "message": check.get("message"),
+        }
+        for check in (normalize_check_record(record) for record in extract_check_records(report))
+    ]
+
+
 def branch_and_commit() -> dict[str, str | None]:
     return {
         "branch": _git(["rev-parse", "--abbrev-ref", "HEAD"]),
@@ -361,11 +489,6 @@ class _SubsetFrameObj:
         return self._frame_obj.GetSection(name)
 
 
-
-def _safe_name(name: str) -> str:
-    return "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in str(name))
-
-
 def _render_single_combo_markdown(summary: Mapping[str, object]) -> str:
     lines = [
         "# Streamlit single-combo FrameForce diagnostic summary",
@@ -394,6 +517,7 @@ def _render_single_combo_markdown(summary: Mapping[str, object]) -> str:
             lines.append(f"- {failure['object_name']}: {failure['stage']} — {failure['error']}")
     lines.append("")
     return "\n".join(lines)
+
 
 def _beam_record(sap_model: object, object_name: str) -> dict[str, str]:
     label, story = _frame_label_and_story(sap_model, object_name)
@@ -467,6 +591,11 @@ def _git(args: list[str]) -> str | None:
 
 __all__ = [
     "DEFAULT_DESIGN_INPUTS",
+    "read_check_rows_for_ui",
+    "shape_result_rows_for_ui",
+    "add_selection_column",
+    "filter_beam_candidates",
+    "classify_frame_element",
     "attach_to_open_etabs",
     "get_etabs_status",
     "list_available_stories",
@@ -480,3 +609,9 @@ __all__ = [
     "run_single_combo_beam_checks_from_ui",
     "branch_and_commit",
 ]
+
+
+def _safe_name(name: str) -> str:
+    return "".join(ch if ch.isalnum() or ch in ("-", "_") else "_" for ch in str(name))
+
+
