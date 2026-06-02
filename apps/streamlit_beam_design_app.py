@@ -41,6 +41,86 @@ Claim boundaries:
 """
 
 
+
+def _clear_cached_etabs_connection() -> None:
+    """Clear cached ETABS SapModel handle."""
+    assert st is not None
+    st.session_state.pop("etabs_sap_model", None)
+
+
+def _get_cached_etabs_sap_model() -> object:
+    """Keep ETABS SapModel handle stable across Streamlit reruns."""
+    assert st is not None
+    cached = st.session_state.get("etabs_sap_model")
+    if cached is not None:
+        return cached
+
+    sap_model = attach_to_open_etabs()
+    st.session_state["etabs_sap_model"] = sap_model
+    return sap_model
+
+
+def _persistent_etabs_snapshot() -> dict[str, object]:
+    """Return ETABS snapshot using cached SapModel, with one reconnect attempt."""
+    try:
+        sap_model = _get_cached_etabs_sap_model()
+        snapshot = get_etabs_connection_snapshot(sap_model=sap_model)
+        if snapshot.get("status") == "ONLINE":
+            return snapshot
+    except Exception as exc:
+        last_error = str(exc)
+    else:
+        last_error = str(snapshot.get("error") or "ETABS snapshot returned offline")
+
+    _clear_cached_etabs_connection()
+    try:
+        sap_model = _get_cached_etabs_sap_model()
+        snapshot = get_etabs_connection_snapshot(sap_model=sap_model)
+        if snapshot.get("status") == "ONLINE":
+            return snapshot
+    except Exception as exc:
+        last_error = str(exc)
+
+    return {
+        "online": False,
+        "status": "OFFLINE",
+        "model_name": None,
+        "model_path": None,
+        "present_units": None,
+        "database_units": None,
+        "error": last_error,
+    }
+
+
+def _persistent_etabs_status() -> dict[str, object]:
+    """Return ETABS status using cached SapModel, with one reconnect attempt."""
+    try:
+        sap_model = _get_cached_etabs_sap_model()
+        status = get_etabs_status(sap_model=sap_model)
+        if status.get("status") == "ONLINE":
+            return status
+    except Exception as exc:
+        last_error = str(exc)
+    else:
+        last_error = str(status.get("message") or "ETABS status returned offline")
+
+    _clear_cached_etabs_connection()
+    try:
+        sap_model = _get_cached_etabs_sap_model()
+        status = get_etabs_status(sap_model=sap_model)
+        if status.get("status") == "ONLINE":
+            return status
+    except Exception as exc:
+        last_error = str(exc)
+
+    return {
+        "status": "OFFLINE",
+        "stage": "etabs_attach",
+        "message": last_error,
+        "model_name": None,
+        "sap_model": None,
+    }
+
 def main() -> None:
     if st is None:
         print("Streamlit is not installed. Install streamlit to run the diagnostic UI.")
@@ -51,7 +131,7 @@ def main() -> None:
     st.warning("Diagnostic UI only. Not design validation. Not production-ready. Not TBDY compliance proof.")
 
     design_values = render_sidebar()
-    status = get_etabs_status()
+    status = _persistent_etabs_status()
 
     (
         connection_tab,
@@ -90,11 +170,14 @@ def main() -> None:
 def render_sidebar() -> dict[str, object]:
     assert st is not None
     st.sidebar.header("ETABS connection")
-    snapshot = get_etabs_connection_snapshot()
+    snapshot = _persistent_etabs_snapshot()
     snapshot_summary = summarize_etabs_snapshot(snapshot)
     st.sidebar.write(f"ETABS: {snapshot_summary['ETABS']}")
     st.sidebar.write(f"Model: {snapshot_summary['model_name']}")
     st.sidebar.write(f"Path: {snapshot_summary['model_path']}")
+    if st.sidebar.button("Reconnect ETABS"):
+        _clear_cached_etabs_connection()
+        st.rerun()
     if snapshot_summary.get("error"):
         st.sidebar.caption(str(snapshot_summary["error"]))
 

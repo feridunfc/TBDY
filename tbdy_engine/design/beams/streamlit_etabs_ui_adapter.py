@@ -83,16 +83,48 @@ class EtabsStatus:
 
 
 def attach_to_open_etabs() -> object:
+    """Attach to the currently open ETABS instance.
+
+    Initializes COM in the current Streamlit thread and tries:
+    1. ETABSv1.Helper.GetObject("CSI.ETABS.API.ETABSObject")
+    2. comtypes.client.GetActiveObject("CSI.ETABS.API.ETABSObject")
+    3. comtypes.client.GetActiveObject("ETABSv1.ETABSObject")
+    """
+    _ensure_com_initialized_for_streamlit()
+
     try:
         client = __import__("com" + "types.client").client
     except Exception as exc:
         raise RuntimeError(f"com_import: {exc}") from exc
 
+    errors: list[str] = []
+    etabs_object = None
+
     try:
-        _ensure_com_initialized_for_streamlit()
-        etabs_object = client.GetActiveObject("CSI.ETABS.API.ETABSObject")
+        helper = client.CreateObject("ETABSv1.Helper")
+        try:
+            etabs_gen = __import__("com" + "types.gen.ETABSv1").gen.ETABSv1
+            helper = helper.QueryInterface(etabs_gen.cHelper)
+        except Exception:
+            pass
+        etabs_object = helper.GetObject("CSI.ETABS.API.ETABSObject")
     except Exception as exc:
-        raise RuntimeError(f"etabs_attach: {exc}") from exc
+        errors.append(f"helper.GetObject CSI: {exc}")
+
+    if etabs_object is None:
+        try:
+            etabs_object = client.GetActiveObject("CSI.ETABS.API.ETABSObject")
+        except Exception as exc:
+            errors.append(f"GetActiveObject CSI: {exc}")
+
+    if etabs_object is None:
+        try:
+            etabs_object = client.GetActiveObject("ETABSv1.ETABSObject")
+        except Exception as exc:
+            errors.append(f"GetActiveObject ETABSv1: {exc}")
+
+    if etabs_object is None:
+        raise RuntimeError("etabs_attach: " + " | ".join(errors))
 
     try:
         return etabs_object.SapModel
