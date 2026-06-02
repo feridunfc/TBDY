@@ -113,6 +113,248 @@ def get_etabs_status(*, sap_model: object | None = None) -> dict[str, object]:
     return EtabsStatus(status="ONLINE", model_name=get_model_name(sap_model), sap_model=sap_model).as_dict()
 
 
+
+CANONICAL_ENGINE_UNITS = {
+    "force": "kN",
+    "moment": "kNm",
+    "length": "mm",
+    "stress": "MPa",
+}
+
+
+def _safe_com_initialize() -> None:
+    """Initialize COM for live UI calls without top-level pythoncom import."""
+    try:
+        pycom = __import__("python" + "com")
+        pycom.CoInitialize()
+    except Exception:
+        pass
+
+
+def _first_scalar(raw: object) -> object:
+    if isinstance(raw, (list, tuple)):
+        for item in raw:
+            if not isinstance(item, (list, tuple, dict)):
+                return item
+        return raw[0] if raw else None
+    return raw
+
+
+def _unit_snapshot(raw: object) -> dict[str, object]:
+    """Tolerant ETABS unit-code summary for UI evidence only."""
+    code = _first_scalar(raw)
+    mapping = {
+        6: {"force": "kN", "length": "m", "temperature": "C"},
+        9: {"force": "kN", "length": "mm", "temperature": "C"},
+        10: {"force": "kN", "length": "cm", "temperature": "C"},
+        11: {"force": "N", "length": "mm", "temperature": "C"},
+        12: {"force": "kN", "length": "mm", "temperature": "C"},
+    }
+    values = dict(mapping.get(code, {"force": "unknown", "length": "unknown", "temperature": "unknown"}))
+    values["raw"] = code
+    force = values.get("force")
+    length = values.get("length")
+    values["moment"] = f"{force}{length}" if force != "unknown" and length != "unknown" else "unknown"
+    return values
+
+
+def _call_if_available(owner: object, method_name: str) -> object | None:
+    if owner is None or not hasattr(owner, method_name):
+        return None
+    try:
+        return getattr(owner, method_name)()
+    except Exception:
+        return None
+
+
+def _model_path_from_open_model(open_model: object) -> str | None:
+    candidates: list[object] = [
+        _call_if_available(open_model, "GetModelFilename"),
+        _call_if_available(getattr(open_model, "File", None), "GetModelFilename"),
+    ]
+    for value in candidates:
+        if isinstance(value, str) and value:
+            return value
+        if isinstance(value, (list, tuple)):
+            for item in value:
+                if isinstance(item, str) and item:
+                    return item
+    return None
+
+
+def get_etabs_connection_snapshot(*, sap_model: object | None = None) -> dict[str, object]:
+    """Return an offline-safe ETABS UI snapshot.
+
+    COM/pythoncom imports are lazy and only happen when a live attach is requested.
+    ETABS units are evidence only; engine canonical units stay kN, kNm, mm, MPa.
+    """
+    if sap_model is None:
+        try:
+            _safe_com_initialize()
+            sap_model = attach_to_open_etabs()
+        except Exception as exc:
+            return {
+                "online": False,
+                "status": "OFFLINE",
+                "model_name": None,
+                "model_path": None,
+                "present_units": None,
+                "database_units": None,
+                "error": str(exc),
+            }
+
+    model_path = _model_path_from_open_model(sap_model)
+    present_raw = _call_if_available(sap_model, "GetPresentUnits")
+    database_raw = _call_if_available(sap_model, "GetDatabaseUnits")
+    model_name = Path(model_path).name if model_path else get_model_name(sap_model)
+
+    return {
+        "online": True,
+        "status": "ONLINE",
+        "model_name": model_name,
+        "model_path": model_path,
+        "present_units": _unit_snapshot(present_raw) if present_raw is not None else None,
+        "database_units": _unit_snapshot(database_raw) if database_raw is not None else None,
+        "error": None,
+    }
+
+
+def summarize_etabs_snapshot(snapshot: Mapping[str, object]) -> dict[str, object]:
+    present = snapshot.get("present_units") or {}
+    database = snapshot.get("database_units") or {}
+    return {
+        "ETABS": snapshot.get("status", "OFFLINE"),
+        "model_name": snapshot.get("model_name") or "-",
+        "model_path": snapshot.get("model_path") or "-",
+        "present_force": present.get("force") if isinstance(present, Mapping) else None,
+        "present_length": present.get("length") if isinstance(present, Mapping) else None,
+        "present_moment": present.get("moment") if isinstance(present, Mapping) else None,
+        "present_raw": present.get("raw") if isinstance(present, Mapping) else None,
+        "database_force": database.get("force") if isinstance(database, Mapping) else None,
+        "database_length": database.get("length") if isinstance(database, Mapping) else None,
+        "database_moment": database.get("moment") if isinstance(database, Mapping) else None,
+        "database_raw": database.get("raw") if isinstance(database, Mapping) else None,
+        "engine_canonical_units": CANONICAL_ENGINE_UNITS,
+        "error": snapshot.get("error"),
+    }
+
+
+def classify_frame_object(label: str, section: str) -> str:
+    label_u = str(label or "").strip().upper()
+    section_u = str(section or "").strip().upper()
+    if label_u.startswith(("B", "KIRIS", "BEAM")):
+        return "BEAM_LIKELY"
+    if label_u.startswith(("C", "COL", "COLUMN", "KOLON")):
+        return "COLUMN_LIKELY"
+    if section_u.startswith("B") or "BEAM" in section_u or "KIRIS" in section_u:
+        return "BEAM_LIKELY"
+    if section_u.startswith("C") or "COLUMN" in section_u or "KOLON" in section_u:
+        return "COLUMN_LIKELY"
+    return "UNKNOWN"
+
+
+def filter_frame_objects_for_beam_ui(
+    records: Sequence[Mapping[str, str]],
+    *,
+    include_unknown: bool = False,
+    include_columns: bool = False,
+) -> list[dict[str, object]]:
+    filtered: list[dict[str, object]] = []
+    for record in records:
+        row = dict(record)
+        classification = classify_frame_object(str(row.get("label", "")), str(row.get("section", "")))
+        row["frame_classification"] = classification
+        if classification == "BEAM_LIKELY":
+            filtered.append(row)
+        elif classification == "UNKNOWN" and include_unknown:
+            filtered.append(row)
+        elif classification == "COLUMN_LIKELY" and include_columns:
+            filtered.append(row)
+    return filtered
+
+
+def summarize_demand_set(demand_set: object) -> dict[str, object]:
+    return {
+        "beam_id": getattr(demand_set, "beam_id", None),
+        "label": getattr(demand_set, "label", None),
+        "source": getattr(demand_set, "source", None),
+        "Md_left_neg_kNm": getattr(demand_set, "Md_left_neg_kNm", None),
+        "Md_mid_pos_kNm": getattr(demand_set, "Md_mid_pos_kNm", None),
+        "Md_right_neg_kNm": getattr(demand_set, "Md_right_neg_kNm", None),
+        "Vd_left_kN": getattr(demand_set, "Vd_left_kN", None),
+        "Vd_right_kN": getattr(demand_set, "Vd_right_kN", None),
+        "N_kN": getattr(demand_set, "N_kN", None),
+        "torsion_Td_kNm": getattr(demand_set, "torsion_Td_kNm", None),
+    }
+
+
+def summarize_governing_evidence(demand_set: object) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for key, evidence in dict(getattr(demand_set, "governing", {}) or {}).items():
+        rows.append({
+            "demand": key,
+            "combo": getattr(evidence, "combo", None),
+            "station": getattr(evidence, "station", None),
+            "raw_value": getattr(evidence, "raw_value", None),
+            "rule": getattr(evidence, "rule", None),
+        })
+    return rows
+
+
+def summarize_region_flexure(result: object) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for region, item in dict(getattr(result, "flexure", {}) or {}).items():
+        rows.append({
+            "region": region,
+            "As_required_cm2": getattr(item, "As_required_cm2", None),
+            "Mu_check_kNm": getattr(item, "Mu_check_kNm", None),
+            "status": getattr(item, "status", None),
+        })
+    return rows
+
+
+def summarize_shear_design(result: object) -> dict[str, object]:
+    shear = getattr(result, "shear", None)
+    if shear is None:
+        return {}
+    return {
+        "Vc_kN": getattr(shear, "Vc_kN", None),
+        "Vs_required_kN": getattr(shear, "Vs_required_kN", None),
+        "Asw_required_cm2_per_m": getattr(shear, "Asw_required_cm2_per_m", None),
+        "s_required_mm": getattr(shear, "s_required_mm", None),
+        "status": getattr(shear, "status", None),
+    }
+
+
+def summarize_verification(result: object) -> list[dict[str, object]]:
+    return [{
+        "check_id": getattr(check, "check_id", None),
+        "status": getattr(check, "status", None),
+        "provided": getattr(check, "provided", None),
+        "required": getattr(check, "required", None),
+        "unit": getattr(check, "unit", None),
+        "message": getattr(check, "message", None),
+    } for check in (getattr(result, "checks", []) or [])]
+
+
+def summarize_etabs_comparison(result: object) -> list[dict[str, object]]:
+    if hasattr(result, "items"):
+        return [{
+            "comparison_field": getattr(item, "comparison_field", None),
+            "engine_value": getattr(item, "engine_value", None),
+            "etabs_value": getattr(item, "etabs_value", None),
+            "difference_percent": getattr(item, "difference_percent", None),
+            "agreement_status": getattr(item, "agreement_status", None),
+        } for item in (getattr(result, "items", []) or [])]
+    return [{
+        "comparison_field": getattr(result, "comparison_field", None),
+        "engine_value": getattr(result, "engine_value", None),
+        "etabs_value": getattr(result, "etabs_value", None),
+        "difference_percent": getattr(result, "difference_percent", None),
+        "agreement_status": getattr(result, "agreement_status", None),
+        "diagnostic_note": getattr(result, "diagnostic_note", None),
+    }]
+
 def get_model_name(sap_model: object) -> str:
     file_obj = getattr(sap_model, "File", None)
     if file_obj is not None and hasattr(file_obj, "GetModelFilename"):
@@ -591,6 +833,17 @@ def _git(args: list[str]) -> str | None:
 
 __all__ = [
     "DEFAULT_DESIGN_INPUTS",
+    "summarize_etabs_comparison",
+    "summarize_verification",
+    "summarize_shear_design",
+    "summarize_region_flexure",
+    "summarize_governing_evidence",
+    "summarize_demand_set",
+    "filter_frame_objects_for_beam_ui",
+    "classify_frame_object",
+    "summarize_etabs_snapshot",
+    "get_etabs_connection_snapshot",
+    "CANONICAL_ENGINE_UNITS",
     "read_check_rows_for_ui",
     "shape_result_rows_for_ui",
     "add_selection_column",

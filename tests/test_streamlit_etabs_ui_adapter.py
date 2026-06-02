@@ -304,3 +304,38 @@ def test_result_table_shaping_includes_governing_and_critical_fields() -> None:
     assert rows[0]["critical_category"] == "capacity_design_shear"
     assert rows[0]["top_critical_check"] == "beam_shear_capacity_design_ve_le_vr"
 
+
+
+
+def test_r16_classify_frame_object_public_labels() -> None:
+    from tbdy_engine.design.beams.streamlit_etabs_ui_adapter import classify_frame_object
+
+    assert classify_frame_object("B35", "B60x70") == "BEAM_LIKELY"
+    assert classify_frame_object("C5", "C60x60") == "COLUMN_LIKELY"
+    assert classify_frame_object("X1", "?") == "UNKNOWN"
+
+
+def test_r16_etabs_snapshot_summary_fake_model() -> None:
+    from tbdy_engine.design.beams.streamlit_etabs_ui_adapter import (
+        get_etabs_connection_snapshot,
+        summarize_etabs_snapshot,
+    )
+
+    class FakeFile:
+        def GetModelFilename(self) -> str:
+            return r"C:\Projects\Model.edb"
+
+    class FakeOpenModel:
+        File = FakeFile()
+
+        def GetPresentUnits(self) -> int:
+            return 6
+
+        def GetDatabaseUnits(self) -> int:
+            return 6
+
+    summary = summarize_etabs_snapshot(get_etabs_connection_snapshot(sap_model=FakeOpenModel()))
+
+    assert summary["ETABS"] == "ONLINE"
+    assert summary["model_name"].endswith("Model.edb")
+    assert summary["present_force"] == "kN"

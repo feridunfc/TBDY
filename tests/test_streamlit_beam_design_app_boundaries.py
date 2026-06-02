@@ -55,3 +55,16 @@ def test_ui_wording_guard() -> None:
     assert "etabs validated" not in lowered
     assert "tbdy compliant" not in lowered
     assert "production ready" not in lowered
+
+
+
+def test_r16_no_engineering_formula_in_ui() -> None:
+    from pathlib import Path
+
+    combined = (
+        Path("apps/streamlit_beam_design_app.py").read_text(encoding="utf-8-sig")
+        + "\n"
+        + Path("tbdy_engine/design/beams/streamlit_etabs_ui_adapter.py").read_text(encoding="utf-8-sig")
+    )
+    for term in ("rho_min =", "As_required =", "Mpr =", "Ve_capacity =", "s = Asw"):
+        assert term not in combined

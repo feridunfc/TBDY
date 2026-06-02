@@ -60,3 +60,24 @@ By default, probable columns and unknown frame objects are excluded from BeamCor
 The combination selector supports one or multiple selected combinations. One selected combination means a single-combo diagnostic run and does not claim multi-combo envelope selection. Two or more combinations use the R7B batch route.
 
 Sidebar values are diagnostic assumptions/overrides unless read from ETABS/model metadata.
+
+## R16_REV mode split and ETABS evidence
+
+The existing Streamlit diagnostic UI is upgraded with explicit modes:
+
+- Connection/Input
+- Demand
+- Design
+- Verification
+- ETABS Crosscheck
+- Reports/Evidence
+- Settings/About
+
+Sidebar evidence includes ETABS online/offline status, open model name/path, ETABS present/database units, canonical engine unit warning, provided reinforcement for verification, and output settings.
+
+Claim boundaries:
+
+- UI does not implement engineering formulas
+- ETABS disagreement is diagnostic only and does not mutate engine/verification results
+- COLUMN_LIKELY frame objects are not silently designed as beams
+- ETABS units are evidence; conversion belongs in provider layer
