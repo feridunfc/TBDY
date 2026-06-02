@@ -69,6 +69,64 @@ class BeamModelContext:
         return self.metadata.section_name
 
 
+
+    # -------------------------------------------------------------------------
+    # Legacy BeamCore compatibility
+    # -------------------------------------------------------------------------
+    # New architecture keeps geometry/material nested:
+    #   context.geometry.bw_mm
+    #   context.material.fck_mpa
+    #
+    # Legacy BeamCore still reads flat attributes:
+    #   context.bw_mm
+    #   context.fck_mpa
+    #
+    # These read-only properties preserve legacy diagnostic flow without moving
+    # reinforcement or demand data back into BeamModelContext.
+    @property
+    def bw_mm(self) -> float:
+        return self.geometry.bw_mm
+
+    @property
+    def h_mm(self) -> float:
+        return self.geometry.h_mm
+
+    @property
+    def d_mm(self) -> float:
+        return self.geometry.d_mm
+
+    @property
+    def cover_mm(self) -> float:
+        return self.geometry.cover_mm
+
+    @property
+    def Ln_mm(self) -> float:
+        return self.geometry.Ln_mm
+
+    @property
+    def fck_mpa(self) -> float:
+        return self.material.fck_mpa
+
+    @property
+    def fcd_mpa(self) -> float:
+        return self.material.fcd_mpa
+
+    @property
+    def fctd_mpa(self) -> float:
+        return self.material.fctd_mpa
+
+    @property
+    def fyk_mpa(self) -> float:
+        return self.material.fyk_mpa
+
+    @property
+    def fyd_mpa(self) -> float:
+        return self.material.fyd_mpa
+
+    @property
+    def fywd_mpa(self) -> float:
+        return self.material.fywd_mpa
+
 def validate_beam_model_context(ctx: BeamModelContext) -> tuple[str, ...]:
     """BeamModelContext alanlarını doğrula, eksik alanları döndür."""
     invalid: list[str] = []

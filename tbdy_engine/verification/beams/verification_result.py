@@ -53,3 +53,7 @@ def overall_status(checks: tuple[VerificationCheck, ...] | list[VerificationChec
     if any(status == STATUS_UNKNOWN for status in statuses):
         return STATUS_UNKNOWN
     return STATUS_PASS
+# Backward-compatible ETABS comparison re-export.
+# ETABS comparison lives in comparison_result.py; BeamVerificationResult remains
+# independent and does not contain crosscheck payload.
+from tbdy_engine.verification.beams.comparison_result import ETABSComparisonResult
