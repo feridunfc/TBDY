@@ -121,6 +121,128 @@ def _persistent_etabs_status() -> dict[str, object]:
         "sap_model": None,
     }
 
+
+def _initialize_beam_design_session_state() -> None:
+    """Initialize R17A beam design session-state slots."""
+    assert st is not None
+    defaults = {
+        "beam_model_context": None,
+        "beam_demand_set": None,
+        "beam_design_result": None,
+        "beam_verification_result": None,
+        "etabs_comparison_result": None,
+        "legacy_beamcore_result": None,
+    }
+    for key, value in defaults.items():
+        st.session_state.setdefault(key, value)
+
+
+def _store_r17a_legacy_and_demand_state(result: dict[str, object]) -> None:
+    """Store legacy BeamCore result and a UI-level demand view.
+
+    R17A does not run BeamDesignEngine yet. It extracts demand-facing
+    visualization data from the existing legacy BeamCore diagnostic summary.
+    """
+    assert st is not None
+    st.session_state["legacy_beamcore_result"] = result
+    st.session_state["beam_demand_set"] = _build_ui_demand_view_from_legacy_result(result)
+    st.session_state["beam_design_result"] = None
+    st.session_state["beam_verification_result"] = None
+    st.session_state["etabs_comparison_result"] = None
+
+
+def _build_ui_demand_view_from_legacy_result(result: dict[str, object]) -> dict[str, object]:
+    """Build a Demand-tab view from legacy BeamCore diagnostic output.
+
+    This is a UI view, not a deterministic BeamDemandSet contract object.
+    The purpose is R17A visibility without changing R7/R8/R9 acceptance paths.
+    """
+    summary = result.get("summary") or {}
+    beams = []
+    for beam in summary.get("beams", []) if isinstance(summary, dict) else []:
+        if not isinstance(beam, dict):
+            continue
+        actions = beam.get("actions") or {}
+        governing = beam.get("governing") or {}
+        beams.append({
+            "object_name": beam.get("object_name"),
+            "label": beam.get("label"),
+            "story": beam.get("story"),
+            "section": beam.get("section"),
+            "source": beam.get("actions_source") or result.get("actions_source") or "legacy_beamcore_summary",
+            "Md_left_neg_kNm": actions.get("Md_left_neg_kNm") if isinstance(actions, dict) else None,
+            "Md_mid_pos_kNm": actions.get("Md_mid_pos_kNm") if isinstance(actions, dict) else None,
+            "Md_right_neg_kNm": actions.get("Md_right_neg_kNm") if isinstance(actions, dict) else None,
+            "Vd_left_kN": actions.get("Vd_left_kN") if isinstance(actions, dict) else None,
+            "Ve_left_kN": actions.get("Ve_left_kN") if isinstance(actions, dict) else None,
+            "axial_kN": actions.get("axial_kN") if isinstance(actions, dict) else None,
+            "governing": governing if isinstance(governing, dict) else {},
+        })
+
+    return {
+        "source": "legacy_beamcore_summary",
+        "selected_story": result.get("selected_story"),
+        "selected_combos": result.get("selected_combos"),
+        "beam_count_discovered": result.get("beam_count_discovered"),
+        "beam_count_processed": result.get("beam_count_processed"),
+        "beam_count_failed": result.get("beam_count_failed"),
+        "beams": beams,
+    }
+
+
+def _demand_summary_rows_from_session() -> list[dict[str, object]]:
+    """Return Demand Summary rows for the Demand tab."""
+    assert st is not None
+    demand_view = st.session_state.get("beam_demand_set") or {}
+    if not isinstance(demand_view, dict):
+        return []
+    rows = []
+    for beam in demand_view.get("beams", []) or []:
+        if not isinstance(beam, dict):
+            continue
+        rows.append({
+            "object_name": beam.get("object_name"),
+            "label": beam.get("label"),
+            "story": beam.get("story"),
+            "section": beam.get("section"),
+            "source": beam.get("source"),
+            "Md_left_neg_kNm": beam.get("Md_left_neg_kNm"),
+            "Md_mid_pos_kNm": beam.get("Md_mid_pos_kNm"),
+            "Md_right_neg_kNm": beam.get("Md_right_neg_kNm"),
+            "Vd_left_kN": beam.get("Vd_left_kN"),
+            "Ve_left_kN": beam.get("Ve_left_kN"),
+            "axial_kN": beam.get("axial_kN"),
+        })
+    return rows
+
+
+def _governing_evidence_rows_from_session() -> list[dict[str, object]]:
+    """Return governing combo/station evidence rows for the Demand tab."""
+    assert st is not None
+    demand_view = st.session_state.get("beam_demand_set") or {}
+    if not isinstance(demand_view, dict):
+        return []
+    rows = []
+    for beam in demand_view.get("beams", []) or []:
+        if not isinstance(beam, dict):
+            continue
+        governing = beam.get("governing") or {}
+        if not isinstance(governing, dict):
+            continue
+        for demand_name, evidence in governing.items():
+            if not isinstance(evidence, dict):
+                continue
+            rows.append({
+                "object_name": beam.get("object_name"),
+                "label": beam.get("label"),
+                "demand": demand_name,
+                "combo": evidence.get("combo"),
+                "station": evidence.get("station"),
+                "raw_value": evidence.get("raw_value") or evidence.get("value"),
+                "rule": evidence.get("rule"),
+            })
+    return rows
+
 def main() -> None:
     if st is None:
         print("Streamlit is not installed. Install streamlit to run the diagnostic UI.")
@@ -308,6 +430,7 @@ def render_connection_input_tab(*, status: dict[str, object], design_values: dic
         )
         result.setdefault("ui_context_metadata", {})["etabs_units"] = snapshot.get("present_units")
         result.setdefault("ui_context_metadata", {})["database_units"] = snapshot.get("database_units")
+        _store_r17a_legacy_and_demand_state(result)
         render_results(result)
 
 
@@ -346,25 +469,73 @@ def render_results(result: dict[str, object]) -> None:
 def render_demand_tab() -> None:
     assert st is not None
     st.subheader("Demand")
-    st.info("Demand set table and governing combo/station evidence appear after a run.")
+    st.caption("R17A: Demand tab visualizes demand-facing data from the preserved legacy BeamCore diagnostic result.")
+
+    demand_view = st.session_state.get("beam_demand_set")
+    if not demand_view:
+        st.info("No BeamDemandSet view available yet. Run BeamCore checks from the Connection/Input tab.")
+        return
+
+    if isinstance(demand_view, dict):
+        st.write("Demand run metadata")
+        st.json({
+            "source": demand_view.get("source"),
+            "selected_story": demand_view.get("selected_story"),
+            "selected_combos": demand_view.get("selected_combos"),
+            "beam_count_discovered": demand_view.get("beam_count_discovered"),
+            "beam_count_processed": demand_view.get("beam_count_processed"),
+            "beam_count_failed": demand_view.get("beam_count_failed"),
+        })
+
+    demand_rows = _demand_summary_rows_from_session()
+    st.write("Demand Summary")
+    if demand_rows:
+        st.dataframe(demand_rows, use_container_width=True)
+    else:
+        st.warning("Demand summary rows are not available.")
+
+    governing_rows = _governing_evidence_rows_from_session()
+    st.write("Governing combo/station evidence")
+    if governing_rows:
+        st.dataframe(governing_rows, use_container_width=True)
+    else:
+        st.info("No governing evidence rows are available for the current result.")
 
 
 def render_design_tab() -> None:
     assert st is not None
     st.subheader("Design")
-    st.info("Design tab displays engine summaries only; the UI does not implement engineering formulas.")
+    result = st.session_state.get("beam_design_result")
+    if result is None:
+        st.info("BeamDesignResult is not available in R17A. R17A only adds Demand-tab visibility while preserving the legacy BeamCore diagnostic flow.")
+        st.caption("R17B will connect BeamDesignResult visualization without implementing engineering formulas in the UI.")
+        return
+    st.write("BeamDesignResult")
+    st.json(str(result))
 
 
 def render_verification_tab() -> None:
     assert st is not None
     st.subheader("Verification")
-    st.warning("Provided reinforcement for verification is separated from design input.")
+    result = st.session_state.get("beam_verification_result")
+    if result is None:
+        st.warning("BeamVerificationResult is not available in R17A. Provided reinforcement remains separated from design input.")
+        st.caption("Verification must never mutate BeamDesignResult.")
+        return
+    st.write("BeamVerificationResult")
+    st.json(str(result))
 
 
 def render_etabs_crosscheck_tab() -> None:
     assert st is not None
     st.subheader("ETABS Crosscheck")
-    st.warning("ETABS disagreement is diagnostic only and does not mutate engine or verification results.")
+    result = st.session_state.get("etabs_comparison_result")
+    if result is None:
+        st.warning("ETABSComparisonResult is not available in R17A. ETABS disagreement remains diagnostic only.")
+        st.caption("Crosscheck must never mutate BeamDesignResult or BeamVerificationResult.")
+        return
+    st.write("ETABSComparisonResult")
+    st.json(str(result))
 
 
 def render_reports_tab(output_dir: Path) -> None:
