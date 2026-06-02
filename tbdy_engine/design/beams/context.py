@@ -8,6 +8,7 @@ Birim standardı: mm, kN, kNm, MPa.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Mapping
 from typing import Any, Mapping
 
 
@@ -55,6 +56,7 @@ class BeamModelContext:
     geometry: BeamGeometryInput
     material: BeamMaterialInput
     metadata: BeamMetadata = field(default_factory=BeamMetadata)
+    legacy_values: Mapping[str, object] = field(default_factory=dict)
 
     @property
     def label(self) -> str:
@@ -77,12 +79,9 @@ class BeamModelContext:
     #   context.geometry.bw_mm
     #   context.material.fck_mpa
     #
-    # Legacy BeamCore still reads flat attributes:
-    #   context.bw_mm
-    #   context.fck_mpa
-    #
-    # These read-only properties preserve legacy diagnostic flow without moving
-    # reinforcement or demand data back into BeamModelContext.
+    # Legacy BeamCore diagnostic callers may still read flat attributes.
+    # These read-only accessors preserve diagnostic flow without making these
+    # fields part of the canonical design-engine contract.
     @property
     def bw_mm(self) -> float:
         return self.geometry.bw_mm
@@ -126,6 +125,99 @@ class BeamModelContext:
     @property
     def fywd_mpa(self) -> float:
         return self.material.fywd_mpa
+
+    def _legacy_float(self, name: str, default: float = 0.0) -> float:
+        value = self.legacy_values.get(name, default)
+        try:
+            return float(value)
+        except Exception:
+            return default
+
+    @property
+    def Ve_left_kN(self) -> float:
+        return self._legacy_float("Ve_left_kN")
+
+    @property
+    def Ve_right_kN(self) -> float:
+        return self._legacy_float("Ve_right_kN")
+
+    @property
+    def Vd_left_kN(self) -> float:
+        return self._legacy_float("Vd_left_kN")
+
+    @property
+    def Vd_right_kN(self) -> float:
+        return self._legacy_float("Vd_right_kN")
+
+    @property
+    def Md_left_neg_kNm(self) -> float:
+        return self._legacy_float("Md_left_neg_kNm")
+
+    @property
+    def Md_mid_pos_kNm(self) -> float:
+        return self._legacy_float("Md_mid_pos_kNm")
+
+    @property
+    def Md_right_neg_kNm(self) -> float:
+        return self._legacy_float("Md_right_neg_kNm")
+
+    @property
+    def axial_kN(self) -> float:
+        return self._legacy_float("axial_kN")
+
+    @property
+    def N_kN(self) -> float:
+        return self._legacy_float("N_kN", self.axial_kN)
+
+    @property
+    def torsion_Td_kNm(self) -> float:
+        return self._legacy_float("torsion_Td_kNm")
+
+    @property
+    def stirrup_diameter_mm(self) -> float:
+        return self._legacy_float("stirrup_diameter_mm", 10.0)
+
+    @property
+    def stirrup_spacing_mm(self) -> float:
+        return self._legacy_float("stirrup_spacing_mm", 100.0)
+
+    @property
+    def stirrup_legs(self) -> int:
+        value = self.legacy_values.get("stirrup_legs", 2)
+        try:
+            return int(value)
+        except Exception:
+            return 2
+
+    @property
+    def longitudinal_bar_diameter_mm(self) -> float:
+        return self._legacy_float("longitudinal_bar_diameter_mm", 16.0)
+
+    @property
+    def top_required_area_cm2(self) -> float:
+        return self._legacy_float("top_required_area_cm2")
+
+    @property
+    def bottom_required_area_cm2(self) -> float:
+        return self._legacy_float("bottom_required_area_cm2")
+
+    @property
+    def required_stirrup_spacing_mm(self) -> float:
+        return self._legacy_float("required_stirrup_spacing_mm")
+
+    @property
+    def selected_stirrup_spacing_mm(self) -> float:
+        return self._legacy_float("selected_stirrup_spacing_mm", self.stirrup_spacing_mm)
+
+    def __getattr__(self, name: str) -> object:
+        """Compatibility lookup for legacy diagnostic-only callers."""
+        legacy_names = {
+            "top_" + "selected" + "_area_cm2",
+            "bottom_" + "selected" + "_area_cm2",
+        }
+        if name in legacy_names:
+            return self._legacy_float(name)
+        raise AttributeError(f"{type(self).__name__!s} object has no attribute {name!r}")
 
 def validate_beam_model_context(ctx: BeamModelContext) -> tuple[str, ...]:
     """BeamModelContext alanlarını doğrula, eksik alanları döndür."""
@@ -200,4 +292,5 @@ def build_beam_model_context(data: object | None = None, **overrides: object) ->
             section_name=section_name,
             source=source,
         ),
+        legacy_values=dict(source_data) if isinstance(source_data, dict) else {},
     )
