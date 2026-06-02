@@ -1,4 +1,4 @@
-"""
+﻿"""
 Beam verification result contracts.
 Verification and crosscheck outputs are immutable and never mutate design results.
 """
@@ -41,22 +41,6 @@ class BeamVerificationResult:
     checks: tuple[VerificationCheck, ...] = ()
     evidence: Mapping[str, object] = field(default_factory=dict)
 
-
-@dataclass(frozen=True)
-class ETABSComparisonResult:
-    """
-    Diagnostic engine-vs-ETABS comparison result.
-    Does not mutate BeamDesignResult or BeamVerificationResult.
-    """
-    beam_id: str
-    label: str
-    agreement_status: str = "INCOMPLETE"
-    difference_percent: float = 0.0
-    engine_value: float = 0.0
-    etabs_value: float = 0.0
-    comparison_field: str = ""
-    diagnostic_note: str = ""
-    evidence: Mapping[str, object] = field(default_factory=dict)
 
 
 def overall_status(checks: tuple[VerificationCheck, ...] | list[VerificationCheck]) -> str:
