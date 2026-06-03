@@ -16,8 +16,9 @@ from tbdy_engine.design.beams.etabs_single_beam_frameforce_runner import (
     _safe_model_name,
     build_existing_p4_payload_from_frameforce,
     extract_frameforce_envelope,
+    _r21a_raw_signed_action_fields,
+    _r21a_raw_signed_governing_evidence,
 )
-
 
 class StoryBeamBatchError(RuntimeError):
     def __init__(self, stage: str, message: str):
@@ -89,10 +90,9 @@ def run_live_etabs_story_beam_batch(
             beam_output = output_dir / _safe_name(beam["object_name"])
             result = run_etabs_beamcore_smoke_from_provider(provider=_PayloadProvider(payload), output_dir=beam_output)
             actions = dict(payload["actions"])
-            governing = {
-                key: {"combo": action.combo, "station": action.station}
-                for key, action in envelope.items()
-            }
+            actions.update(_r21a_raw_signed_action_fields(dict(envelope)))
+            governing = _r21a_raw_signed_governing_evidence(dict(envelope))
+            _write_raw_signed_evidence_sheet(Path(result["xlsx_path"]), governing)
             processed.append(
                 {
                     "object_name": beam["object_name"],
@@ -274,6 +274,60 @@ def _frame_label_and_story(sap_model: object, object_name: str) -> tuple[str | N
     return (None, None)
 
 
+
+def _raw_signed_evidence_rows(governing: Mapping[str, object]) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for action, evidence in governing.items():
+        if not isinstance(evidence, Mapping):
+            continue
+        if "etabs_raw_signed_value" not in evidence and "design_demand_magnitude" not in evidence:
+            continue
+        rows.append(
+            {
+                "action": action,
+                "combo": evidence.get("combo"),
+                "station": evidence.get("station"),
+                "etabs_local_axis_component": evidence.get("etabs_local_axis_component"),
+                "etabs_raw_signed_value": evidence.get("etabs_raw_signed_value"),
+                "design_demand_magnitude": evidence.get("design_demand_magnitude"),
+                "sign_convention": evidence.get("sign_convention"),
+            }
+        )
+    return rows
+
+
+def _write_raw_signed_evidence_sheet(xlsx_path: Path, governing: Mapping[str, object]) -> None:
+    rows = _raw_signed_evidence_rows(governing)
+    if not rows:
+        return
+
+    try:
+        from openpyxl import load_workbook
+    except Exception:
+        return
+
+    workbook = load_workbook(xlsx_path)
+    sheet_name = "ETABS_Raw_Evidence"
+
+    if sheet_name in workbook.sheetnames:
+        del workbook[sheet_name]
+
+    worksheet = workbook.create_sheet(sheet_name)
+    headers = [
+        "action",
+        "combo",
+        "station",
+        "etabs_local_axis_component",
+        "etabs_raw_signed_value",
+        "design_demand_magnitude",
+        "sign_convention",
+    ]
+    worksheet.append(headers)
+
+    for row in rows:
+        worksheet.append([row.get(header) for header in headers])
+
+    workbook.save(xlsx_path)
 def _capacity_design_check_statuses(check_types: Sequence[str]) -> dict[str, str]:
     check_set = set(check_types)
     return {

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
@@ -735,13 +735,20 @@ def shape_result_rows_for_ui(summary: Mapping[str, object]) -> list[dict[str, ob
                 "element_type": beam.get("element_type") or classify_frame_element(beam).get("element_type"),
                 "BeamCore status": beam.get("beam_core_status") or beam.get("BeamCore status"),
                 "Vd_left_kN": actions.get("Vd_left_kN"),
+                "Vd_left_raw_signed_kN": actions.get("Vd_left_raw_signed_kN"),
                 "Ve_left_kN": actions.get("Ve_left_kN"),
+                "Ve_left_raw_signed_kN": actions.get("Ve_left_raw_signed_kN"),
                 "Md_left_neg_kNm": actions.get("Md_left_neg_kNm"),
+                "M3_left_raw_signed_kNm": actions.get("M3_left_raw_signed_kNm"),
                 "Md_mid_pos_kNm": actions.get("Md_mid_pos_kNm"),
+                "M3_mid_raw_signed_kNm": actions.get("M3_mid_raw_signed_kNm"),
                 "Md_right_neg_kNm": actions.get("Md_right_neg_kNm"),
+                "M3_right_raw_signed_kNm": actions.get("M3_right_raw_signed_kNm"),
                 "axial_kN": actions.get("axial_kN"),
                 "governing_Vd_combo": (governing.get("Vd_left_kN") or {}).get("combo"),
                 "governing_Ve_combo": (governing.get("Ve_left_kN") or {}).get("combo"),
+                "Ve_left_raw_evidence": (governing.get("Ve_left_kN") or {}).get("etabs_raw_signed_value"),
+                "sign_convention": (governing.get("Ve_left_kN") or {}).get("sign_convention"),
                 "governing_Md_left_combo": (governing.get("Md_left_neg_kNm") or {}).get("combo"),
                 "governing_Md_mid_combo": (governing.get("Md_mid_pos_kNm") or {}).get("combo"),
                 "governing_Md_right_combo": (governing.get("Md_right_neg_kNm") or {}).get("combo"),

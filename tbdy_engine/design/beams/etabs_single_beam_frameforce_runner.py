@@ -23,6 +23,16 @@ class EnvelopeAction:
     value: float
     combo: str
     station: float
+    raw_value: float | None = None
+    etabs_raw_signed_value: float | None = None
+    design_demand_magnitude: float | None = None
+    etabs_local_axis_component: str | None = None
+    sign_convention: str = "ETABS raw signed local force is preserved; design/check demand uses positive magnitude."
+    raw_value: float | None = None
+    etabs_raw_signed_value: float | None = None
+    design_demand_magnitude: float | None = None
+    etabs_local_axis_component: str | None = None
+    sign_convention: str = "ETABS raw signed local force is preserved; design/check demand uses positive magnitude."
 
 
 class _PayloadProvider:
@@ -167,18 +177,18 @@ def extract_frameforce_envelope(
         mid_candidates = sorted(rows, key=lambda row: abs(row["station"] - mid_station))
         mid = mid_candidates[0]
 
-        candidates["Vd_left_kN"].append(EnvelopeAction(abs(left["v2"]), combo, left["station"]))
-        candidates["Ve_left_kN"].append(EnvelopeAction(abs(left["v2"]), combo, left["station"]))
+        candidates["Vd_left_kN"].append(EnvelopeAction(abs(left["v2"]), combo, left["station"], raw_value=left["v2"], etabs_raw_signed_value=left["v2"], design_demand_magnitude=abs(left["v2"]), etabs_local_axis_component="V2"))
+        candidates["Ve_left_kN"].append(EnvelopeAction(abs(left["v2"]), combo, left["station"], raw_value=left["v2"], etabs_raw_signed_value=left["v2"], design_demand_magnitude=abs(left["v2"]), etabs_local_axis_component="V2"))
 
         if left["m3"] < 0:
-            candidates["Md_left_neg_kNm"].append(EnvelopeAction(abs(left["m3"]), combo, left["station"]))
+            candidates["Md_left_neg_kNm"].append(EnvelopeAction(abs(left["m3"]), combo, left["station"], raw_value=left["m3"], etabs_raw_signed_value=left["m3"], design_demand_magnitude=abs(left["m3"]), etabs_local_axis_component="M3"))
         if mid["m3"] > 0:
-            candidates["Md_mid_pos_kNm"].append(EnvelopeAction(mid["m3"], combo, mid["station"]))
+            candidates["Md_mid_pos_kNm"].append(EnvelopeAction(abs(mid["m3"]), combo, mid["station"], raw_value=mid["m3"], etabs_raw_signed_value=mid["m3"], design_demand_magnitude=abs(mid["m3"]), etabs_local_axis_component="M3"))
         if right["m3"] < 0:
-            candidates["Md_right_neg_kNm"].append(EnvelopeAction(abs(right["m3"]), combo, right["station"]))
+            candidates["Md_right_neg_kNm"].append(EnvelopeAction(abs(right["m3"]), combo, right["station"], raw_value=right["m3"], etabs_raw_signed_value=right["m3"], design_demand_magnitude=abs(right["m3"]), etabs_local_axis_component="M3"))
 
         for row in rows:
-            candidates["axial_kN"].append(EnvelopeAction(abs(row["p"]), combo, row["station"]))
+            candidates["axial_kN"].append(EnvelopeAction(abs(row["p"]), combo, row["station"], raw_value=row["p"], etabs_raw_signed_value=row["p"], design_demand_magnitude=abs(row["p"]), etabs_local_axis_component="P"))
 
     envelope: dict[str, EnvelopeAction] = {}
     for key, values in candidates.items():
@@ -198,7 +208,8 @@ def build_existing_p4_payload_from_frameforce(
     sap_model: object,
 ) -> dict[str, object]:
     actions = {key: action.value for key, action in envelope.items()}
-    governing = {key: {"combo": action.combo, "station": action.station} for key, action in envelope.items()}
+    actions.update(_r21a_raw_signed_action_fields(dict(envelope)))
+    governing = _r21a_raw_signed_governing_evidence(dict(envelope))
 
     # Existing P4-compatible ETABS-adjacent mapping only; no new payload type/schema.
     return {
@@ -527,6 +538,134 @@ def _git(args: list[str]) -> str | None:
         return subprocess.check_output(["git", *args], text=True).strip()
     except Exception:
         return None
+
+
+
+ETABS_RAW_SIGN_CONVENTION = "ETABS raw signed local force is preserved; design/check demand uses positive magnitude."
+
+
+def _r21a_attr(action: object, key: str, default=None):
+    if isinstance(action, dict):
+        return action.get(key, default)
+    return getattr(action, key, default)
+
+
+def _r21a_float_or_none(value: object) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _r21a_design_magnitude(action: object) -> float | None:
+    for key in ("design_demand_magnitude", "magnitude", "value"):
+        value = _r21a_float_or_none(_r21a_attr(action, key))
+        if value is not None:
+            return abs(value)
+    return None
+
+
+def _r21a_raw_signed_value(action: object) -> float | None:
+    for key in ("etabs_raw_signed_value", "raw_value", "signed_value"):
+        value = _r21a_float_or_none(_r21a_attr(action, key))
+        if value is not None:
+            return value
+
+    # Fallback: if only value exists, preserve that as raw too.
+    # Live runner should override this with true ETABS signed value.
+    return _r21a_float_or_none(_r21a_attr(action, "value"))
+
+
+def _r21a_component_for_action_name(action_name: str) -> str:
+    if action_name in {"Vd_left_kN", "Ve_left_kN"}:
+        return "V2"
+    if action_name in {"Md_left_neg_kNm", "Md_mid_pos_kNm", "Md_right_neg_kNm"}:
+        return "M3"
+    return ""
+
+
+def _r21a_raw_signed_action_fields(envelope: dict[str, object]) -> dict[str, object]:
+    """Return extra action fields preserving ETABS raw signed values.
+
+    Existing design/check magnitude keys are preserved.
+    This helper does not mutate engine/check logic.
+    """
+    mapping = {
+        "Vd_left_kN": "Vd_left_raw_signed_kN",
+        "Ve_left_kN": "Ve_left_raw_signed_kN",
+        "Md_left_neg_kNm": "M3_left_raw_signed_kNm",
+        "Md_mid_pos_kNm": "M3_mid_raw_signed_kNm",
+        "Md_right_neg_kNm": "M3_right_raw_signed_kNm",
+    }
+
+    fields: dict[str, object] = {}
+    for action_name, raw_field_name in mapping.items():
+        action = envelope.get(action_name)
+        if action is None:
+            continue
+
+        magnitude = _r21a_design_magnitude(action)
+        signed = _r21a_raw_signed_value(action)
+
+        if magnitude is not None:
+            fields[action_name] = magnitude
+        if signed is not None:
+            fields[raw_field_name] = signed
+
+    return fields
+
+
+def _r21a_raw_signed_governing_evidence(envelope: dict[str, object]) -> dict[str, dict[str, object]]:
+    evidence: dict[str, dict[str, object]] = {}
+
+    for action_name, action in envelope.items():
+        signed = _r21a_raw_signed_value(action)
+        magnitude = _r21a_design_magnitude(action)
+        component = (
+            _r21a_attr(action, "etabs_local_axis_component")
+            or _r21a_component_for_action_name(action_name)
+        )
+
+        evidence[action_name] = {
+            "combo": _r21a_attr(action, "combo"),
+            "station": _r21a_attr(action, "station"),
+            "raw_value": signed,
+            "etabs_raw_signed_value": signed,
+            "design_demand_magnitude": magnitude,
+            "etabs_local_axis_component": component,
+            "sign_convention": ETABS_RAW_SIGN_CONVENTION,
+        }
+
+    return evidence
+
+
+def _r21a_set_raw_signed_evidence(action: object, *, raw_value: object, component: str) -> object:
+    """Attach ETABS raw signed evidence to an existing envelope action.
+
+    Uses object.__setattr__ so frozen dataclasses can be annotated if they allow
+    dynamic attributes; if not, the function safely returns without changing
+    design/check behavior.
+    """
+    if action is None:
+        return action
+
+    raw_float = _r21a_float_or_none(raw_value)
+    if raw_float is None:
+        return action
+
+    try:
+        object.__setattr__(action, "raw_value", raw_float)
+        object.__setattr__(action, "etabs_raw_signed_value", raw_float)
+        object.__setattr__(action, "design_demand_magnitude", _r21a_design_magnitude(action))
+        object.__setattr__(action, "etabs_local_axis_component", component)
+        object.__setattr__(action, "sign_convention", ETABS_RAW_SIGN_CONVENTION)
+    except Exception:
+        # No-op: caller can still use explicit dict fallback later.
+        pass
+
+    return action
 
 
 __all__ = [

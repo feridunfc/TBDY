@@ -135,3 +135,23 @@ R20A boundaries:
 - Reports are diagnostic artifacts.
 - Reports are not TBDY compliance proof.
 - PDF report is marked as coming soon.
+
+## R21A ETABS Raw Signed Evidence
+
+R21A preserves ETABS raw signed local-axis force evidence next to existing positive design/check magnitudes.
+
+Examples:
+
+- `Vd_left_kN` remains the positive magnitude used by checks.
+- `Vd_left_raw_signed_kN` preserves ETABS signed `V2`.
+- `Md_left_neg_kNm` remains the positive magnitude used by checks.
+- `M3_left_raw_signed_kNm` preserves ETABS signed `M3`.
+
+Evidence rows include:
+
+- `etabs_raw_signed_value`
+- `design_demand_magnitude`
+- `etabs_local_axis_component`
+- `sign_convention`
+
+The sign convention text is: `ETABS raw signed local force is preserved; design/check demand uses positive magnitude.`

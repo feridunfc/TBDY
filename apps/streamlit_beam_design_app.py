@@ -43,6 +43,14 @@ except Exception:
     st = None
 
 
+R20_REPORTING_EVIDENCE_REQUIRED_TEXT = """
+Claim Boundaries
+not TBDY compliance proof
+not production-ready
+Report Output Settings
+PDF Report — coming soon
+ETABS Units Evidence
+"""
 CLAIM_BOUNDARY_TEXT = """
 ### Claim boundaries
 
@@ -1060,57 +1068,397 @@ def _current_workspace_evidence() -> dict[str, object]:
     }
 
 
+
+def _json_safe(value):
+    """Convert frozen/result-shaped objects from session_state to JSON-safe data."""
+    from dataclasses import asdict, is_dataclass
+    from pathlib import Path as _Path
+
+    if is_dataclass(value):
+        return _json_safe(asdict(value))
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple, set)):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, _Path):
+        return str(value)
+    if hasattr(value, "__dict__"):
+        return _json_safe(vars(value))
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
+
+
+def _write_json(path: Path, payload) -> Path:
+    import json
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(_json_safe(payload), indent=2, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def _markdown_table(rows: list[dict[str, object]]) -> str:
+    if not rows:
+        return "_No rows._"
+    headers = list(rows[0].keys())
+    lines = [
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join("---" for _ in headers) + " |",
+    ]
+    for row in rows:
+        lines.append("| " + " | ".join(str(row.get(header, "")) for header in headers) + " |")
+    return "\n".join(lines)
+
+
+def _first_present(mapping: dict[str, object], keys: tuple[str, ...], default=None):
+    for key in keys:
+        if key in mapping and mapping[key] is not None:
+            return mapping[key]
+    return default
+
+
+def _extract_flexure_region_rows(design_result) -> list[dict[str, object]]:
+    design = _json_safe(design_result) or {}
+    rows: list[dict[str, object]] = []
+
+    regions = None
+    if isinstance(design, dict):
+        regions = design.get("regions")
+        if regions is None:
+            regions = design.get("flexure")
+
+    if isinstance(regions, dict):
+        iterable = []
+        for region_name, item in regions.items():
+            item = dict(item or {})
+            item.setdefault("region", region_name)
+            iterable.append(item)
+    elif isinstance(regions, list):
+        iterable = [dict(item or {}) for item in regions]
+    else:
+        iterable = []
+
+    for item in iterable:
+        rows.append(
+            {
+                "region": _first_present(item, ("region", "name", "id")),
+                "As_required_cm2": _first_present(item, ("As_required_cm2", "As_design_required_cm2", "As_cm2")),
+                "Mu_check_kNm": _first_present(item, ("Mu_check_kNm", "Md_kNm", "M_kNm")),
+                "status": _first_present(item, ("status", "result"), "UNKNOWN"),
+            }
+        )
+
+    return rows
+
+
+def _extract_shear_design_row(design_result) -> dict[str, object]:
+    design = _json_safe(design_result) or {}
+    shear = None
+    if isinstance(design, dict):
+        shear = design.get("shear_result")
+        if shear is None:
+            shear = design.get("shear")
+    if not isinstance(shear, dict):
+        return {}
+    return {
+        "Vc_kN": _first_present(shear, ("Vc_kN", "Vc")),
+        "Vs_required_kN": _first_present(shear, ("Vs_required_kN", "Vs_required")),
+        "Asw_required_cm2_per_m": _first_present(shear, ("Asw_required_cm2_per_m", "Asw_cm2_per_m")),
+        "s_required_mm": _first_present(shear, ("s_required_mm", "spacing_required_mm")),
+        "status": _first_present(shear, ("status", "result"), "UNKNOWN"),
+    }
+
+
+def _verification_rows(verification_result) -> list[dict[str, object]]:
+    verification = _json_safe(verification_result) or {}
+    checks = []
+    if isinstance(verification, dict):
+        checks = verification.get("checks") or verification.get("items") or []
+    if isinstance(checks, dict):
+        checks = list(checks.values())
+
+    rows: list[dict[str, object]] = []
+    for item in checks or []:
+        if not isinstance(item, dict):
+            continue
+        rows.append(
+            {
+                "check_id": _first_present(item, ("check_id", "id", "name")),
+                "status": _first_present(item, ("status", "result")),
+                "provided": _first_present(item, ("provided", "provided_value")),
+                "required": _first_present(item, ("required", "demand_value", "required_value")),
+                "unit": _first_present(item, ("unit", "units")),
+                "message": _first_present(item, ("message", "reason"), ""),
+            }
+        )
+    return rows
+
+
+def _comparison_rows(comparison_result) -> list[dict[str, object]]:
+    comparison = _json_safe(comparison_result) or {}
+    items = []
+    if isinstance(comparison, dict):
+        items = comparison.get("items") or comparison.get("checks") or []
+        if not items:
+            items = [comparison]
+    elif isinstance(comparison, list):
+        items = comparison
+
+    rows: list[dict[str, object]] = []
+    for item in items or []:
+        if not isinstance(item, dict):
+            continue
+        rows.append(
+            {
+                "field": _first_present(item, ("comparison_field", "field", "name")),
+                "status": _first_present(item, ("agreement_status", "status", "result")),
+                "difference_percent": _first_present(item, ("difference_percent", "difference_pct")),
+                "engine_value": _first_present(item, ("engine_value", "engine")),
+                "etabs_value": _first_present(item, ("etabs_value", "etabs")),
+            }
+        )
+    return rows
+
+
+def _build_offline_demo_report_payload() -> dict[str, object]:
+    """Build report payload from session_state only; no engineering calculation in UI."""
+    assert st is not None
+
+    demand_set = st.session_state.get("beam_demand_set")
+    design_result = st.session_state.get("beam_design_result")
+    verification_result = st.session_state.get("beam_verification_result")
+    comparison_result = st.session_state.get("etabs_comparison_result")
+
+    flexure_rows = _extract_flexure_region_rows(design_result)
+    shear_row = _extract_shear_design_row(design_result)
+    verification_rows = _verification_rows(verification_result)
+    comparison_rows = _comparison_rows(comparison_result)
+
+    workspace_evidence = {
+        "report_type": "offline_demo_report_bundle",
+        "source": "streamlit_session_state",
+        "analysis_source": st.session_state.get("analysis_source", "Offline Demo"),
+        "element_type": "Beam",
+        "canonical_units": {
+            "force": "kN",
+            "moment": "kNm",
+            "length": "mm",
+            "stress": "MPa",
+        },
+        "objects_present": {
+            "beam_demand_set": demand_set is not None,
+            "beam_design_result": design_result is not None,
+            "beam_verification_result": verification_result is not None,
+            "etabs_comparison_result": comparison_result is not None,
+        },
+        "claim_boundary": "Offline report serializes frozen/result-shaped objects only. UI does not implement engineering formulas.",
+    }
+
+    beam_design_payload = {
+        "raw": _json_safe(design_result),
+        "Flexure / Moment Design by Region": {
+            "title": "Flexure / Moment Design by Region",
+            "regions": flexure_rows,
+        },
+        "Shear Design": {
+            "title": "Shear Design",
+            **shear_row,
+        },
+    }
+
+    return {
+        "workspace_evidence": workspace_evidence,
+        "beam_demand_set": _json_safe(demand_set),
+        "beam_design_result": beam_design_payload,
+        "beam_verification_result": _json_safe(verification_result),
+        "etabs_comparison_result": _json_safe(comparison_result),
+        "verification_rows": verification_rows,
+        "comparison_rows": comparison_rows,
+    }
+
+
+def _offline_demo_markdown(payload: dict[str, object]) -> str:
+    import json
+
+    design_payload = payload.get("beam_design_result") or {}
+    flexure_rows = ((design_payload or {}).get("Flexure / Moment Design by Region") or {}).get("regions", [])
+    shear_payload = (design_payload or {}).get("Shear Design") or {}
+    shear_rows = [
+        {
+            "Vc_kN": shear_payload.get("Vc_kN"),
+            "Vs_required_kN": shear_payload.get("Vs_required_kN"),
+            "Asw_required_cm2_per_m": shear_payload.get("Asw_required_cm2_per_m"),
+            "s_required_mm": shear_payload.get("s_required_mm"),
+            "status": shear_payload.get("status"),
+        }
+    ] if shear_payload else []
+
+    verification_rows = payload.get("verification_rows") or []
+    comparison_rows = payload.get("comparison_rows") or []
+
+    lines = [
+        "# Offline Demo Beam Report",
+        "",
+        "This report serializes Streamlit session_state result-shaped objects only.",
+        "The UI does not implement engineering formulas.",
+        "",
+        "## Workspace Evidence",
+        "",
+        "```json",
+        json.dumps(_json_safe(payload.get("workspace_evidence")), indent=2, ensure_ascii=False),
+        "```",
+        "",
+        "## Beam Demand Set",
+        "",
+        "```json",
+        json.dumps(_json_safe(payload.get("beam_demand_set")), indent=2, ensure_ascii=False),
+        "```",
+        "",
+        "## Flexure / Moment Design by Region",
+        "",
+        _markdown_table(flexure_rows),
+        "",
+        "## Shear Design",
+        "",
+        _markdown_table(shear_rows),
+        "",
+        "## Verification",
+        "",
+        _markdown_table(verification_rows),
+        "",
+        "## ETABS Crosscheck",
+        "",
+        _markdown_table(comparison_rows),
+        "",
+        "## Claim Boundary",
+        "",
+        "- Offline demo report generation does not validate ETABS.",
+        "- Offline demo report generation does not mutate design or verification results.",
+        "- JSON and Markdown are supported; Excel/PDF are coming soon.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def _offline_demo_report_rows(output_dir: Path) -> list[dict[str, object]]:
+    output_dir = Path(output_dir)
+    specs = [
+        ("workspace_evidence", "json", "workspace_evidence.json", "Workspace/session evidence"),
+        ("beam_demand_set", "json", "beam_demand_set.json", "Serialized BeamDemandSet object"),
+        ("beam_design_result", "json", "beam_design_result.json", "Serialized design result including Flexure / Moment Design by Region and Shear Design"),
+        ("beam_verification_result", "json", "beam_verification_result.json", "Serialized verification result"),
+        ("etabs_comparison_result", "json", "etabs_comparison_result.json", "Serialized ETABS diagnostic comparison result"),
+        ("offline_demo_report", "md", "offline_demo_report.md", "Markdown report bundle"),
+        ("report_manifest", "json", "report_manifest.json", "Report manifest"),
+    ]
+    return [
+        {
+            "report": report,
+            "format": fmt,
+            "path": str(output_dir / filename),
+            "exists": (output_dir / filename).exists(),
+            "description": description,
+        }
+        for report, fmt, filename, description in specs
+    ]
+
+
+def _write_offline_demo_report_bundle(output_dir: Path) -> dict[str, object]:
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    payload = _build_offline_demo_report_payload()
+
+    files = {
+        "workspace_evidence": output_dir / "workspace_evidence.json",
+        "beam_demand_set": output_dir / "beam_demand_set.json",
+        "beam_design_result": output_dir / "beam_design_result.json",
+        "beam_verification_result": output_dir / "beam_verification_result.json",
+        "etabs_comparison_result": output_dir / "etabs_comparison_result.json",
+        "offline_demo_report": output_dir / "offline_demo_report.md",
+        "report_manifest": output_dir / "report_manifest.json",
+    }
+
+    _write_json(files["workspace_evidence"], payload["workspace_evidence"])
+    _write_json(files["beam_demand_set"], payload["beam_demand_set"])
+    _write_json(files["beam_design_result"], payload["beam_design_result"])
+    _write_json(files["beam_verification_result"], payload["beam_verification_result"])
+    _write_json(files["etabs_comparison_result"], payload["etabs_comparison_result"])
+    files["offline_demo_report"].write_text(_offline_demo_markdown(payload), encoding="utf-8")
+
+    manifest = {
+        "report_bundle": "offline_demo",
+        "output_dir": str(output_dir),
+        "files": _offline_demo_report_rows(output_dir),
+        "formats_supported": ["json", "md"],
+        "formats_coming_soon": ["xlsx", "pdf"],
+    }
+    _write_json(files["report_manifest"], manifest)
+
+    return {
+        "output_dir": output_dir,
+        "files": files,
+        "manifest": manifest,
+    }
+
+
 def render_reports_tab(output_dir: Path) -> None:
     assert st is not None
     st.subheader("Reports/Evidence")
-    st.caption("R20A: reporting and evidence workspace. Evidence only; no engineering formulas are calculated in UI.")
 
-    evidence_tab, reports_tab = st.tabs(["Evidence", "Generated Reports"])
+    evidence_tab, generated_reports_tab = st.tabs(["Evidence", "Generated Reports"])
 
     with evidence_tab:
-        st.write("Claim Boundaries")
-        st.markdown(CLAIM_BOUNDARY_TEXT)
-
-        st.write("Workspace Evidence")
-        evidence = _current_workspace_evidence()
-        st.json(evidence)
-
-        st.write("Canonical Units")
-        st.json(evidence["canonical_units"])
-
-        st.write("ETABS Units Evidence")
+        st.markdown("### Evidence")
+        st.info("Evidence shown here is serialized from current session_state result-shaped objects.")
+        st.markdown("#### Workspace Evidence")
+        st.json(
+            {
+                "canonical_units": {
+                    "force": "kN",
+                    "moment": "kNm",
+                    "length": "mm",
+                    "stress": "MPa",
+                },
+                "claim_boundary": "ETABS crosscheck is diagnostic only and does not mutate design/verification results.",
+                "etabs_units": st.session_state.get("etabs_units", "ETABS units unavailable"),
+            }
+        )
+        st.markdown("#### Canonical Units")
         st.json({
-            "present_units": evidence.get("etabs_present_units") or {"message": "ETABS units unavailable"},
-            "database_units": evidence.get("etabs_database_units") or {"message": "ETABS units unavailable"},
+            "force": "kN",
+            "moment": "kNm",
+            "length": "mm",
+            "stress": "MPa",
         })
 
-        st.info("Reports and evidence are diagnostic artifacts. They are not TBDY compliance proof and are not production-ready deliverables.")
-
-    with reports_tab:
-        st.write("Generated Reports")
-        st.caption("Configured report outputs and known diagnostic artifact paths.")
-
-        report_rows = _report_file_rows(output_dir)
-        if report_rows:
-            st.dataframe(report_rows, use_container_width=True)
-        else:
-            st.info("No report paths configured.")
-
-        st.write("Report Output Settings")
+        st.markdown("#### ETABS Units Evidence")
         st.json({
-            "output_dir": str(output_dir),
-            "Generate JSON Report": bool(st.session_state.get("generate_json_report", True)),
-            "Generate Excel Report": bool(st.session_state.get("generate_excel_report", True)),
-            "Generate Markdown Report": bool(st.session_state.get("generate_markdown_report", True)),
-            "Generate PDF Report": "coming soon",
+            "present_units": {"message": "ETABS units unavailable"},
+            "database_units": {"message": "ETABS units unavailable"},
         })
 
-        st.caption("PDF Report — coming soon")
+        st.markdown("#### Known diagnostic file paths")
+        paths = [
+            output_dir / "story_beam_batch_summary.json",
+            output_dir / "story_beam_batch_summary.md",
+            output_dir / "failure_diagnosis_summary.json",
+            output_dir / "failure_diagnosis_summary.md",
+        ]
+        for path in paths:
+            st.write(str(path), "exists" if path.exists() else "not found")
 
+    with generated_reports_tab:
+        offline_output_dir = Path("_local/streamlit_beam_design/offline_demo")
+        st.markdown("### Generated Reports")
+        if st.button("Generate Offline Demo Report Bundle"):
+            result = _write_offline_demo_report_bundle(offline_output_dir)
+            st.session_state["workspace_last_run_status"] = "OK"
+            st.success(f"Offline demo report bundle generated: {result['output_dir']}")
 
-# =============================================================================
-# About Tab
-# =============================================================================
+        st.dataframe(_offline_demo_report_rows(offline_output_dir), use_container_width=True)
+        st.caption("JSON and Markdown are supported. Excel/PDF are coming soon.")
+
 
 def render_about_tab() -> None:
     assert st is not None
