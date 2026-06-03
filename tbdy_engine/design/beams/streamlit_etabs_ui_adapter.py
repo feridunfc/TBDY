@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import os
@@ -347,58 +347,93 @@ def summarize_governing_evidence(demand_set: object) -> list[dict[str, object]]:
     return rows
 
 
+def _first_attr(obj: object, names: tuple[str, ...], default: object = None) -> object:
+    for name in names:
+        if hasattr(obj, name):
+            return getattr(obj, name)
+    return default
+
+
 def summarize_region_flexure(result: object) -> list[dict[str, object]]:
+    """Return UI rows for BeamDesignResult / region flexure-like results."""
     rows: list[dict[str, object]] = []
-    for region, item in dict(getattr(result, "flexure", {}) or {}).items():
+    flexure_like = getattr(result, "flexure", None) or getattr(result, "regions", None) or {}
+
+    for region, item in dict(flexure_like or {}).items():
         rows.append({
             "region": region,
-            "As_required_cm2": getattr(item, "As_required_cm2", None),
-            "Mu_check_kNm": getattr(item, "Mu_check_kNm", None),
-            "status": getattr(item, "status", None),
+            "As_required_cm2": _first_attr(item, (
+                "As_required_cm2",
+                "As_design_required_cm2",
+                "As_min_cm2",
+            )),
+            "Mu_check_kNm": _first_attr(item, (
+                "Mu_check_kNm",
+                "Md_kNm",
+                "demand_moment_kNm",
+            )),
+            "status": _first_attr(item, ("status", "check_status")),
         })
     return rows
 
-
 def summarize_shear_design(result: object) -> dict[str, object]:
-    shear = getattr(result, "shear", None)
+    """Return UI summary for shear-like design result."""
+    shear = getattr(result, "shear", None) or getattr(result, "shear_result", None)
     if shear is None:
         return {}
+
     return {
-        "Vc_kN": getattr(shear, "Vc_kN", None),
-        "Vs_required_kN": getattr(shear, "Vs_required_kN", None),
-        "Asw_required_cm2_per_m": getattr(shear, "Asw_required_cm2_per_m", None),
-        "s_required_mm": getattr(shear, "s_required_mm", None),
-        "status": getattr(shear, "status", None),
+        "Vc_kN": _first_attr(shear, ("Vc_kN", "Vc_design_kN")),
+        "Vs_required_kN": _first_attr(shear, ("Vs_required_kN", "Vs_kN")),
+        "Asw_required_cm2_per_m": _first_attr(shear, (
+            "Asw_required_cm2_per_m",
+            "Asw_cm2_per_m",
+        )),
+        "s_required_mm": _first_attr(shear, (
+            "s_required_mm",
+            "spacing_required_mm",
+        )),
+        "status": _first_attr(shear, ("status", "check_status")),
     }
 
-
 def summarize_verification(result: object) -> list[dict[str, object]]:
-    return [{
-        "check_id": getattr(check, "check_id", None),
-        "status": getattr(check, "status", None),
-        "provided": getattr(check, "provided", None),
-        "required": getattr(check, "required", None),
-        "unit": getattr(check, "unit", None),
-        "message": getattr(check, "message", None),
-    } for check in (getattr(result, "checks", []) or [])]
-
+    """Return UI rows for BeamVerificationResult-like objects."""
+    rows: list[dict[str, object]] = []
+    for check in (getattr(result, "checks", []) or []):
+        rows.append({
+            "check_id": getattr(check, "check_id", None),
+            "status": getattr(check, "status", None),
+            "provided": _first_attr(check, ("provided_value", "provided")),
+            "required": _first_attr(check, ("demand_value", "required")),
+            "utilization": getattr(check, "utilization", None),
+            "unit": getattr(check, "unit", None),
+            "message": getattr(check, "message", None),
+        })
+    return rows
 
 def summarize_etabs_comparison(result: object) -> list[dict[str, object]]:
-    if hasattr(result, "items"):
+    """Return UI rows for ETABSComparisonResult-like objects."""
+    comparison_items = (
+        getattr(result, "items", None)
+        or getattr(result, "comparisons", None)
+        or ()
+    )
+
+    if comparison_items:
         return [{
             "comparison_field": getattr(item, "comparison_field", None),
             "engine_value": getattr(item, "engine_value", None),
             "etabs_value": getattr(item, "etabs_value", None),
             "difference_percent": getattr(item, "difference_percent", None),
             "agreement_status": getattr(item, "agreement_status", None),
-        } for item in (getattr(result, "items", []) or [])]
+        } for item in comparison_items]
+
     return [{
         "comparison_field": getattr(result, "comparison_field", None),
         "engine_value": getattr(result, "engine_value", None),
         "etabs_value": getattr(result, "etabs_value", None),
         "difference_percent": getattr(result, "difference_percent", None),
         "agreement_status": getattr(result, "agreement_status", None),
-        "diagnostic_note": getattr(result, "diagnostic_note", None),
     }]
 
 def get_model_name(sap_model: object) -> str:
