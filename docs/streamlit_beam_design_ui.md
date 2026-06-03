@@ -120,3 +120,18 @@ Current R19A boundaries:
 - Manual design execution is deferred to R20
 - ETABS Live keeps the existing BeamCore diagnostic flow
 - Offline Demo keeps the existing R18 result-shaped fixture flow
+
+## R20A Reporting / Evidence Workspace
+
+The `Reports/Evidence` tab is split into two concepts:
+
+- `Evidence`: claim boundaries, workspace evidence, canonical units, and ETABS unit evidence.
+- `Generated Reports`: known diagnostic artifact paths and output settings.
+
+R20A boundaries:
+
+- Evidence only.
+- No engineering formulas are calculated in UI.
+- Reports are diagnostic artifacts.
+- Reports are not TBDY compliance proof.
+- PDF report is marked as coming soon.

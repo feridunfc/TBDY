@@ -1010,19 +1010,102 @@ def render_etabs_crosscheck_tab() -> None:
 # Reports Tab
 # =============================================================================
 
-def render_reports_tab(output_dir: Path) -> None:
-    assert st is not None
-    st.subheader("Reports/Evidence")
-    st.info("Diagnostic output files")
-    for path in [
+def _report_file_rows(output_dir: Path) -> list[dict[str, object]]:
+    """Return report path availability rows for the Reports/Evidence tab."""
+    report_paths = [
         output_dir / "story_beam_batch_summary.json",
         output_dir / "story_beam_batch_summary.md",
         output_dir / "streamlit_single_combo_summary.json",
         output_dir / "streamlit_single_combo_summary.md",
         output_dir / "failure_diagnosis_summary.json",
         output_dir / "failure_diagnosis_summary.md",
-    ]:
-        st.write(str(path), "exists" if path.exists() else "not found")
+    ]
+
+    rows: list[dict[str, object]] = []
+    for path in report_paths:
+        rows.append({
+            "report": path.name,
+            "path": str(path),
+            "exists": path.exists(),
+            "type": path.suffix.lstrip(".") or "unknown",
+        })
+    return rows
+
+
+def _current_workspace_evidence() -> dict[str, object]:
+    """Return current UI evidence metadata.
+
+    Evidence only. This does not run ETABS or design formulas.
+    """
+    assert st is not None
+
+    connection_state = st.session_state.get("etabs_connection_state") or {}
+    snapshot = connection_state.get("snapshot") or {}
+    status = connection_state.get("status") or {}
+
+    return {
+        "analysis_source": st.session_state.get("workspace_analysis_source", "Manual"),
+        "element_type": st.session_state.get("workspace_element_type", "Beam"),
+        "last_run": st.session_state.get("workspace_last_run_status", "Not Run"),
+        "canonical_units": {
+            "force": "kN",
+            "moment": "kNm",
+            "length": "mm",
+            "stress": "MPa",
+        },
+        "etabs_status": status.get("status", "OFFLINE") if isinstance(status, dict) else "OFFLINE",
+        "etabs_model_name": status.get("model_name") if isinstance(status, dict) else None,
+        "etabs_present_units": snapshot.get("present_units") if isinstance(snapshot, dict) else None,
+        "etabs_database_units": snapshot.get("database_units") if isinstance(snapshot, dict) else None,
+    }
+
+
+def render_reports_tab(output_dir: Path) -> None:
+    assert st is not None
+    st.subheader("Reports/Evidence")
+    st.caption("R20A: reporting and evidence workspace. Evidence only; no engineering formulas are calculated in UI.")
+
+    evidence_tab, reports_tab = st.tabs(["Evidence", "Generated Reports"])
+
+    with evidence_tab:
+        st.write("Claim Boundaries")
+        st.markdown(CLAIM_BOUNDARY_TEXT)
+
+        st.write("Workspace Evidence")
+        evidence = _current_workspace_evidence()
+        st.json(evidence)
+
+        st.write("Canonical Units")
+        st.json(evidence["canonical_units"])
+
+        st.write("ETABS Units Evidence")
+        st.json({
+            "present_units": evidence.get("etabs_present_units") or {"message": "ETABS units unavailable"},
+            "database_units": evidence.get("etabs_database_units") or {"message": "ETABS units unavailable"},
+        })
+
+        st.info("Reports and evidence are diagnostic artifacts. They are not TBDY compliance proof and are not production-ready deliverables.")
+
+    with reports_tab:
+        st.write("Generated Reports")
+        st.caption("Configured report outputs and known diagnostic artifact paths.")
+
+        report_rows = _report_file_rows(output_dir)
+        if report_rows:
+            st.dataframe(report_rows, use_container_width=True)
+        else:
+            st.info("No report paths configured.")
+
+        st.write("Report Output Settings")
+        st.json({
+            "output_dir": str(output_dir),
+            "Generate JSON Report": bool(st.session_state.get("generate_json_report", True)),
+            "Generate Excel Report": bool(st.session_state.get("generate_excel_report", True)),
+            "Generate Markdown Report": bool(st.session_state.get("generate_markdown_report", True)),
+            "Generate PDF Report": "coming soon",
+        })
+
+        st.caption("PDF Report — coming soon")
 
 
 # =============================================================================
