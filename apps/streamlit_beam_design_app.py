@@ -596,69 +596,160 @@ def main() -> None:
 # Sidebar
 # =============================================================================
 
-def render_sidebar(*, connection_state: dict[str, object]) -> dict[str, object]:
+def render_sidebar(status: dict[str, object] | None = None) -> dict[str, object]:
     assert st is not None
 
-    st.sidebar.header("ETABS Connection")
-    snapshot = connection_state["snapshot"]
-    snapshot_summary = summarize_etabs_snapshot(snapshot)
-    st.sidebar.write(f"ETABS: {snapshot_summary['ETABS']}")
-    st.sidebar.write(f"Model: {snapshot_summary['model_name']}")
-    st.sidebar.write(f"Path: {snapshot_summary['model_path']}")
-    if st.sidebar.button("Reconnect ETABS"):
-        _clear_cached_etabs_connection()
-        st.rerun()
-    if snapshot_summary.get("error"):
-        st.sidebar.caption(str(snapshot_summary["error"]))
+    st.sidebar.title("TBDY Structural Design Workspace")
 
-    # ── Design Inputs ──
-    st.sidebar.header("Design Inputs")
-    st.sidebar.caption("Geometry, material, and design assumptions.")
+    values: dict[str, object] = {}
 
-    values: dict[str, object] = {
-        "bw_mm": st.sidebar.number_input("bw_mm", value=float(DEFAULT_DESIGN_INPUTS["bw_mm"])),
-        "h_mm": st.sidebar.number_input("h_mm", value=float(DEFAULT_DESIGN_INPUTS["h_mm"])),
-        "d_mm": st.sidebar.number_input("d_mm", value=float(DEFAULT_DESIGN_INPUTS["d_mm"])),
-        "cover_mm": st.sidebar.number_input("cover_mm", value=float(DEFAULT_DESIGN_INPUTS["cover_mm"])),
-        "Ln_mm": st.sidebar.number_input("Ln_mm", value=float(DEFAULT_DESIGN_INPUTS["Ln_mm"])),
-        "fck_mpa": st.sidebar.number_input("fck_mpa", value=float(DEFAULT_DESIGN_INPUTS["fck_mpa"])),
-        "fcd_mpa": st.sidebar.number_input("fcd_mpa", value=float(DEFAULT_DESIGN_INPUTS["fcd_mpa"])),
-        "fctd_mpa": st.sidebar.number_input("fctd_mpa", value=float(DEFAULT_DESIGN_INPUTS["fctd_mpa"])),
-        "fyk_mpa": st.sidebar.number_input("fyk_mpa", value=float(DEFAULT_DESIGN_INPUTS["fyk_mpa"])),
-        "fyd_mpa": st.sidebar.number_input("fyd_mpa", value=float(DEFAULT_DESIGN_INPUTS["fyd_mpa"])),
-        "fywd_mpa": st.sidebar.number_input("fywd_mpa", value=float(DEFAULT_DESIGN_INPUTS["fywd_mpa"])),
-        "stirrup_legs": st.sidebar.number_input("stirrup_legs", value=int(DEFAULT_DESIGN_INPUTS["stirrup_legs"])),
-        "stirrup_diameter_mm": st.sidebar.number_input("stirrup_diameter_mm", value=float(DEFAULT_DESIGN_INPUTS["stirrup_diameter_mm"])),
-        "longitudinal_bar_diameter_mm": st.sidebar.number_input("longitudinal_bar_diameter_mm", value=float(DEFAULT_DESIGN_INPUTS["longitudinal_bar_diameter_mm"])),
-        "output_dir": st.sidebar.text_input("output_dir", value=str(DEFAULT_DESIGN_INPUTS["output_dir"])),
+    st.sidebar.header("Workspace")
+    st.sidebar.radio(
+        "Element Type",
+        ["Beam", "Column preview / coming soon", "Wall preview / coming soon", "Global Checks preview / coming soon"],
+        index=0,
+    )
+    values["element_type"] = "Beam"
+
+    st.sidebar.header("Analysis Source")
+    analysis_source = st.sidebar.radio(
+        "Analysis Source",
+        ["Manual", "Offline Demo", "ETABS Live", "JSON Import preview / coming soon"],
+        index=0,
+    )
+    values["analysis_source"] = analysis_source
+
+    pipeline_map = {
+        "Manual": "Manual → BeamModelContext → BeamDemandSet → BeamDesignEngine → Verification",
+        "Offline Demo": "Offline Demo → Result-shaped fixtures → Design/Verification/Crosscheck tabs",
+        "ETABS Live": "ETABS Live → FrameForce Extraction → BeamCore Diagnostic → Demand View",
+        "JSON Import preview / coming soon": "JSON Import → Workspace State → Engine pipeline, coming soon",
     }
+    st.sidebar.subheader("Current Pipeline")
+    st.sidebar.caption(pipeline_map.get(str(analysis_source), pipeline_map["Manual"]))
 
-    # ── Verification Inputs ──
-    st.sidebar.header("Verification Inputs")
-    st.sidebar.caption("Provided reinforcement for verification — separate from design inputs.")
-    values.update({
-        "top_selected_area_cm2": st.sidebar.number_input("top provided As_cm2", value=float(DEFAULT_DESIGN_INPUTS["top_selected_area_cm2"])),
-        "bottom_selected_area_cm2": st.sidebar.number_input("bottom provided As_cm2", value=float(DEFAULT_DESIGN_INPUTS["bottom_selected_area_cm2"])),
-        "stirrup_spacing_mm": st.sidebar.number_input("provided stirrup spacing_mm", value=float(DEFAULT_DESIGN_INPUTS["stirrup_spacing_mm"])),
-    })
+    st.sidebar.subheader("Canonical Units")
+    st.sidebar.info("Readonly canonical engine units")
+    st.sidebar.write(
+        {
+            "Force": "kN",
+            "Moment": "kNm",
+            "Length": "mm",
+            "Stress": "MPa",
+        }
+    )
 
-    # ── ETABS Units ──
-    st.sidebar.header("ETABS Units")
-    st.sidebar.write("Present units")
-    st.sidebar.json(snapshot.get("present_units") or {"message": "ETABS units unavailable"})
-    st.sidebar.write("Database units")
-    st.sidebar.json(snapshot.get("database_units") or {"message": "ETABS units unavailable"})
-    st.sidebar.warning("Engine calculations use canonical units: kN, kNm, mm, MPa. ETABS units are shown as evidence. Conversion must happen in provider layer.")
+    with st.sidebar.expander("Beam Context", expanded=True):
+        st.caption("BeamModelContext: geometry + material + metadata")
+        st.subheader("Geometry")
+        values["bw_mm"] = st.number_input("bw_mm", value=float(DEFAULT_DESIGN_INPUTS["bw_mm"]))
+        values["h_mm"] = st.number_input("h_mm", value=float(DEFAULT_DESIGN_INPUTS["h_mm"]))
+        values["d_mm"] = st.number_input("d_mm", value=float(DEFAULT_DESIGN_INPUTS["d_mm"]))
+        values["cover_mm"] = st.number_input("cover_mm", value=float(DEFAULT_DESIGN_INPUTS["cover_mm"]))
+        values["Ln_mm"] = st.number_input("Ln_mm", value=float(DEFAULT_DESIGN_INPUTS["Ln_mm"]))
 
-    st.sidebar.header("Canonical Engine Units")
-    st.sidebar.json(CANONICAL_ENGINE_UNITS)
+        st.subheader("Material")
+        values["fck_mpa"] = st.number_input("fck_mpa", value=float(DEFAULT_DESIGN_INPUTS["fck_mpa"]))
+        values["fcd_mpa"] = st.number_input("fcd_mpa", value=float(DEFAULT_DESIGN_INPUTS["fcd_mpa"]))
+        values["fctd_mpa"] = st.number_input("fctd_mpa", value=float(DEFAULT_DESIGN_INPUTS["fctd_mpa"]))
+        values["fyk_mpa"] = st.number_input("fyk_mpa", value=float(DEFAULT_DESIGN_INPUTS["fyk_mpa"]))
+        values["fyd_mpa"] = st.number_input("fyd_mpa", value=float(DEFAULT_DESIGN_INPUTS["fyd_mpa"]))
+        values["fywd_mpa"] = st.number_input("fywd_mpa", value=float(DEFAULT_DESIGN_INPUTS["fywd_mpa"]))
+
+    with st.sidebar.expander("Beam Demand Set", expanded=False):
+        st.caption("Manual demand fields are staged for workspace state. Manual design execution remains a future boundary.")
+        values["Md_left_neg_kNm"] = st.number_input("Md_left_neg_kNm", value=0.0)
+        values["Md_mid_pos_kNm"] = st.number_input("Md_mid_pos_kNm", value=0.0)
+        values["Md_right_neg_kNm"] = st.number_input("Md_right_neg_kNm", value=0.0)
+        values["Vd_left_kN"] = st.number_input("Vd_left_kN", value=0.0)
+        values["Vd_right_kN"] = st.number_input("Vd_right_kN", value=0.0)
+        values["N_kN"] = st.number_input("N_kN", value=0.0)
+
+    with st.sidebar.expander("Verification Inputs", expanded=False):
+        st.subheader("Provided Reinforcement")
+        st.caption("Provided reinforcement for verification. Used only by verification. Does not mutate design result.")
+        values["top_provided_As_cm2"] = st.number_input(
+            "top provided As_cm2",
+            value=float(DEFAULT_DESIGN_INPUTS["top_selected_area_cm2"]),
+        )
+        values["bottom_provided_As_cm2"] = st.number_input(
+            "bottom provided As_cm2",
+            value=float(DEFAULT_DESIGN_INPUTS["bottom_selected_area_cm2"]),
+        )
+        values["stirrup_spacing_mm"] = st.number_input(
+            "provided stirrup spacing_mm",
+            value=float(DEFAULT_DESIGN_INPUTS["stirrup_spacing_mm"]),
+        )
+        values["stirrup_legs"] = st.number_input(
+            "provided stirrup legs",
+            value=int(DEFAULT_DESIGN_INPUTS["stirrup_legs"]),
+        )
+        values["stirrup_diameter_mm"] = st.number_input(
+            "provided stirrup diameter_mm",
+            value=float(DEFAULT_DESIGN_INPUTS["stirrup_diameter_mm"]),
+        )
+        values["longitudinal_bar_diameter_mm"] = st.number_input(
+            "longitudinal_bar_diameter_mm",
+            value=float(DEFAULT_DESIGN_INPUTS["longitudinal_bar_diameter_mm"]),
+        )
+
+    # Compatibility for existing BeamCore diagnostic adapter keys.
+    values["top_selected_area_cm2"] = values["top_provided_As_cm2"]
+    values["bottom_selected_area_cm2"] = values["bottom_provided_As_cm2"]
+
+    with st.sidebar.expander("Output Settings", expanded=False):
+        values["output_dir"] = st.text_input("output_dir", value=str(DEFAULT_DESIGN_INPUTS["output_dir"]))
+        values["generate_json_report"] = st.checkbox("Generate JSON Report", value=True)
+        values["generate_excel_report"] = st.checkbox("Generate Excel Report", value=True)
+        values["generate_markdown_report"] = st.checkbox("Generate Markdown Report", value=True)
+        st.checkbox("Generate PDF Report — coming soon", value=False, disabled=True)
+
+    values["force_unit"] = "kN"
+    values["moment_unit"] = "kNm"
+    values["length_unit"] = "mm"
+
+    st.sidebar.header("Workspace Status")
+    context_ready = all(float(values[key]) > 0.0 for key in ("bw_mm", "h_mm", "d_mm", "cover_mm", "Ln_mm", "fck_mpa", "fyd_mpa"))
+    demand_ready = any(float(values[key]) != 0.0 for key in ("Md_left_neg_kNm", "Md_mid_pos_kNm", "Md_right_neg_kNm", "Vd_left_kN", "Vd_right_kN", "N_kN"))
+    verification_ready = any(float(values[key]) > 0.0 for key in ("top_provided_As_cm2", "bottom_provided_As_cm2", "stirrup_spacing_mm"))
+    last_run = st.session_state.get("workspace_last_run_status", "Not Run")
+
+    st.sidebar.write(
+        {
+            "Element": "Beam",
+            "Source": analysis_source,
+            "Context": "Ready" if context_ready else "Missing",
+            "Demand": "Ready" if demand_ready else "Missing",
+            "Verification": "Ready" if verification_ready else "Missing",
+            "Last Run": last_run,
+        }
+    )
+
+    st.sidebar.header("Run Workspace")
+    if analysis_source == "Manual":
+        st.sidebar.button("Run Design — future boundary", disabled=True)
+        st.sidebar.caption("Manual → BeamDesignEngine execution is deferred to R20.")
+    elif analysis_source == "Offline Demo":
+        st.sidebar.caption("Use the existing Load R18 offline demo results action in the app.")
+    elif analysis_source == "ETABS Live":
+        st.sidebar.caption("Use the existing Run BeamCore checks diagnostic action.")
+    else:
+        st.sidebar.button("Run JSON Import — coming soon", disabled=True)
+
+    st.sidebar.header("ETABS connection")
+    if status is None:
+        status = st.session_state.get(
+            "etabs_connection_status",
+            {"status": "OFFLINE", "stage": "not_checked", "message": "Connection status is owned by the main app flow."},
+        )
+    st.sidebar.write(status.get("status", "OFFLINE"))
+    if status.get("stage"):
+        st.sidebar.caption(f"{status.get('stage')}: {status.get('message')}")
+    if status.get("model_name"):
+        st.sidebar.caption(str(status["model_name"]))
 
     return values
 
-
-# =============================================================================
-# Connection/Input Tab
-# =============================================================================
 
 def render_connection_input_tab(*, status: dict[str, object], design_values: dict[str, object]) -> None:
     assert st is not None

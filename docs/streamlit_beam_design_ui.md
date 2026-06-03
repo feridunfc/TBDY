@@ -81,3 +81,42 @@ Claim boundaries:
 - ETABS disagreement is diagnostic only and does not mutate engine/verification results
 - COLUMN_LIKELY frame objects are not silently designed as beams
 - ETABS units are evidence; conversion belongs in provider layer
+
+## R19A Structural Workspace Sidebar Semantics
+
+The sidebar is now framed as `TBDY Structural Design Workspace` rather than a beam-only design-input panel.
+
+Sections:
+
+- Workspace
+- Analysis Source
+- Current Pipeline
+- Canonical Units
+- Beam Context
+- Beam Demand Set
+- Verification Inputs
+- Output Settings
+- Workspace Status
+- Run Workspace
+
+Terminology:
+
+- `Beam Context` aligns with `BeamModelContext`
+- `Beam Demand Set` aligns with `BeamDemandSet`
+- `Verification Inputs` contains element-specific provided reinforcement
+- `Design Inputs` is intentionally removed from UI wording
+
+Implementation boundary:
+
+- Sidebar does not call live ETABS connection functions directly.
+- ETABS connection status is passed from the main app flow or read from session state.
+- Semantic provided keys are `top_provided_As_cm2` / `bottom_provided_As_cm2`.
+- Legacy `top_selected_area_cm2` / `bottom_selected_area_cm2` keys are kept only as a compatibility layer for existing BeamCore diagnostic adapters.
+
+Current R19A boundaries:
+
+- Beam is the active element
+- Column / Wall / Global Checks are preview / coming soon
+- Manual design execution is deferred to R20
+- ETABS Live keeps the existing BeamCore diagnostic flow
+- Offline Demo keeps the existing R18 result-shaped fixture flow

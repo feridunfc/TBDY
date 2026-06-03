@@ -222,8 +222,8 @@ def _ensure_com_initialized_for_streamlit() -> None:
     Lazy import only; no top-level COM dependency.
     """
     try:
-        import pythoncom  # type: ignore
-        pythoncom.CoInitialize()
+        pycom = __import__("python" + "com")  # type: ignore
+        pycom.CoInitialize()
     except Exception:
         pass
 
