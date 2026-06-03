@@ -6,6 +6,7 @@ R16: Beam Design Engine visualization + legacy BeamCore diagnostic preservation.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 from tbdy_engine.design.beams.streamlit_etabs_ui_adapter import (
     CANONICAL_ENGINE_UNITS,
@@ -673,6 +674,13 @@ def render_connection_input_tab(*, status: dict[str, object], design_values: dic
     if status["status"] != "ONLINE":
         st.warning("ETABS is OFFLINE. Open ETABS and enable live mode for live checks.")
         st.markdown(CLAIM_BOUNDARY_TEXT)
+
+    st.divider()
+    st.subheader("R18 Offline UI Demo")
+    st.caption("Loads fixture-like result objects into session_state. Does not run ETABS or engineering formulas.")
+    if st.button("Load R18 offline demo results"):
+        _load_r18_offline_demo_results()
+        st.success("R18 offline demo results loaded. Open Design, Verification, and ETABS Crosscheck tabs.")
         return
 
     sap_model = status["sap_model"]
@@ -922,6 +930,83 @@ def render_about_tab() -> None:
     st.subheader("Settings/About")
     st.markdown(CLAIM_BOUNDARY_TEXT)
 
+    st.divider()
+
+
+
+def _load_r18_offline_demo_results() -> None:
+    """Load fixture-like result objects for offline UI visualization.
+
+    R18-OFFLINE only: this does not run ETABS, BeamDesignEngine, or engineering
+    formulas. It injects result-shaped objects so Design / Verification /
+    Crosscheck tabs can be reviewed and tested without a live ETABS machine.
+    """
+    assert st is not None
+
+    st.session_state["beam_design_result"] = SimpleNamespace(
+        beam_id="R18_DEMO_BEAM",
+        label="R18 Demo Beam",
+        regions={
+            "left_top": SimpleNamespace(As_design_required_cm2=12.5, Md_kNm=180.0, status="DEMO"),
+            "mid_bottom": SimpleNamespace(As_design_required_cm2=9.8, Md_kNm=140.0, status="DEMO"),
+            "right_top": SimpleNamespace(As_design_required_cm2=13.2, Md_kNm=190.0, status="DEMO"),
+        },
+        shear_result=SimpleNamespace(
+            Vc_kN=82.0,
+            Vs_required_kN=45.0,
+            Asw_required_cm2_per_m=4.2,
+            s_required_mm=120.0,
+            status="DEMO",
+        ),
+    )
+
+    st.session_state["beam_verification_result"] = SimpleNamespace(
+        beam_id="R18_DEMO_BEAM",
+        label="R18 Demo Beam",
+        status="DEMO",
+        checks=[
+            SimpleNamespace(
+                check_id="flexure_left_top",
+                status="DEMO",
+                provided_value=16.0,
+                demand_value=12.5,
+                utilization=0.78,
+                unit="cm2",
+                message="offline demo verification row",
+            ),
+            SimpleNamespace(
+                check_id="shear_spacing",
+                status="DEMO",
+                provided_value=100.0,
+                demand_value=120.0,
+                utilization=0.83,
+                unit="mm",
+                message="offline demo verification row",
+            ),
+        ],
+    )
+
+    st.session_state["etabs_comparison_result"] = SimpleNamespace(
+        beam_id="R18_DEMO_BEAM",
+        label="R18 Demo Beam",
+        agreement_status="DEMO",
+        items=[
+            SimpleNamespace(
+                comparison_field="left_top_As_cm2",
+                engine_value=12.5,
+                etabs_value=13.0,
+                difference_percent=4.0,
+                agreement_status="DEMO",
+            ),
+            SimpleNamespace(
+                comparison_field="shear_spacing_mm",
+                engine_value=120.0,
+                etabs_value=125.0,
+                difference_percent=4.17,
+                agreement_status="DEMO",
+            ),
+        ],
+    )
 
 if __name__ == "__main__":
     main()
