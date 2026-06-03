@@ -598,6 +598,24 @@ def main() -> None:
 
 def render_sidebar(*, connection_state: dict[str, object] | None = None) -> dict[str, object]:
     assert st is not None
+    if connection_state is None:
+        connection_state = {
+            "status": st.session_state.get(
+                "etabs_connection_status",
+                {
+                    "status": "OFFLINE",
+                    "stage": "not_checked",
+                    "message": "Connection status is owned by the main app flow.",
+                    "model_name": None,
+                },
+            )
+        }
+    status = connection_state.get("status") or {
+        "status": "OFFLINE",
+        "stage": "not_checked",
+        "message": "Connection status is unavailable.",
+        "model_name": None,
+    }
 
     st.sidebar.title("TBDY Structural Design Workspace")
 
@@ -737,11 +755,6 @@ def render_sidebar(*, connection_state: dict[str, object] | None = None) -> dict
         st.sidebar.button("Run JSON Import — coming soon", disabled=True)
 
     st.sidebar.header("ETABS connection")
-    if status is None:
-        status = st.session_state.get(
-            "etabs_connection_status",
-            {"status": "OFFLINE", "stage": "not_checked", "message": "Connection status is owned by the main app flow."},
-        )
     st.sidebar.write(status.get("status", "OFFLINE"))
     if status.get("stage"):
         st.sidebar.caption(f"{status.get('stage')}: {status.get('message')}")
