@@ -596,7 +596,7 @@ def main() -> None:
 # Sidebar
 # =============================================================================
 
-def render_sidebar(status: dict[str, object] | None = None) -> dict[str, object]:
+def render_sidebar(*, connection_state: dict[str, object] | None = None) -> dict[str, object]:
     assert st is not None
 
     st.sidebar.title("TBDY Structural Design Workspace")
