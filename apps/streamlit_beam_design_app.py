@@ -5,6 +5,8 @@ R16: Beam Design Engine visualization + legacy BeamCore diagnostic preservation.
 
 from __future__ import annotations
 
+import json
+
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1395,6 +1397,140 @@ def _offline_demo_report_rows(output_dir: Path) -> list[dict[str, object]]:
     ]
 
 
+
+def _write_r22d_etabs_design_crosscheck_report_bundle(output_dir: Path) -> dict[str, object]:
+    """Write ETABS design output crosscheck diagnostic artifacts.
+
+    Diagnostic only. ETABS design output does not validate BeamCore and does not
+    prove TBDY compliance.
+    """
+    assert st is not None
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    rows = st.session_state.get("r22c_etabs_design_crosscheck_rows", [])
+    if not rows:
+        return {
+            "status": "NO_DATA",
+            "message": "No ETABS design output crosscheck rows available.",
+            "files": {},
+        }
+
+    payload = {
+        "artifact": "ETABS Design Output Crosscheck",
+        "status": "DIAGNOSTIC",
+        "claim_boundary": "ETABS design output does not validate BeamCore and does not prove TBDY compliance.",
+        "rows": rows,
+    }
+
+    json_path = output_dir / "etabs_design_crosscheck.json"
+    md_path = output_dir / "etabs_design_crosscheck.md"
+    xlsx_path = output_dir / "etabs_design_crosscheck.xlsx"
+
+    json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    md_path.write_text(_r22d_render_etabs_design_crosscheck_markdown(payload), encoding="utf-8")
+    _r22d_write_etabs_design_crosscheck_xlsx(xlsx_path, rows)
+
+    return {
+        "status": "OK",
+        "files": {
+            "json": str(json_path),
+            "markdown": str(md_path),
+            "xlsx": str(xlsx_path),
+        },
+    }
+
+
+def _r22d_render_etabs_design_crosscheck_markdown(payload: dict[str, object]) -> str:
+    rows = payload.get("rows", [])
+    lines = [
+        "# ETABS Design Output Crosscheck",
+        "",
+        "Diagnostic comparison only.",
+        "",
+        "ETABS design output does not validate BeamCore and does not prove TBDY compliance.",
+        "",
+        "| Story | Label | UniqueName | Section | Location | Region | Status | ETABS -M kNm | BeamCore -M kNm | Δ-M kNm | ETABS +M kNm | BeamCore +M kNm | Δ+M kNm | ETABS As Top cm2 | BeamCore Top Req cm2 | Δ Top cm2 | ETABS As Bot cm2 | BeamCore Bot Req cm2 | Δ Bot cm2 |",
+        "|---|---|---|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+    ]
+
+    for row in rows:
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    str(row.get("story", "")),
+                    str(row.get("label", "")),
+                    str(row.get("unique_name", "")),
+                    str(row.get("section", "")),
+                    str(row.get("location", "")),
+                    str(row.get("region", "")),
+                    str(row.get("status", "")),
+                    _fmt(row.get("etabs_negative_moment_kNm")),
+                    _fmt(row.get("beamcore_negative_moment_kNm")),
+                    _fmt(row.get("negative_moment_delta_kNm")),
+                    _fmt(row.get("etabs_positive_moment_kNm")),
+                    _fmt(row.get("beamcore_positive_moment_kNm")),
+                    _fmt(row.get("positive_moment_delta_kNm")),
+                    _fmt(row.get("etabs_as_top_cm2")),
+                    _fmt(row.get("beamcore_top_required_cm2")),
+                    _fmt(row.get("top_as_delta_cm2")),
+                    _fmt(row.get("etabs_as_bot_cm2")),
+                    _fmt(row.get("beamcore_bottom_required_cm2")),
+                    _fmt(row.get("bottom_as_delta_cm2")),
+                ]
+            )
+            + " |"
+        )
+
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _r22d_write_etabs_design_crosscheck_xlsx(xlsx_path: Path, rows: list[dict[str, object]]) -> None:
+    from openpyxl import Workbook
+
+    workbook = Workbook()
+    worksheet = workbook.active
+    worksheet.title = "ETABS_Design_Crosscheck"
+
+    headers = [
+        "story",
+        "label",
+        "unique_name",
+        "section",
+        "location",
+        "region",
+        "status",
+        "etabs_negative_moment_kNm",
+        "beamcore_negative_moment_kNm",
+        "negative_moment_delta_kNm",
+        "etabs_positive_moment_kNm",
+        "beamcore_positive_moment_kNm",
+        "positive_moment_delta_kNm",
+        "etabs_as_top_cm2",
+        "beamcore_top_required_cm2",
+        "top_as_delta_cm2",
+        "etabs_as_bot_cm2",
+        "beamcore_bottom_required_cm2",
+        "bottom_as_delta_cm2",
+        "message",
+    ]
+
+    worksheet.append(headers)
+    for row in rows:
+        worksheet.append([row.get(header) for header in headers])
+
+    workbook.save(xlsx_path)
+
+
+def _fmt(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, float):
+        return f"{value:.6g}"
+    return str(value)
 def _write_offline_demo_report_bundle(output_dir: Path) -> dict[str, object]:
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1484,6 +1620,12 @@ def render_reports_tab(output_dir: Path) -> None:
 
     with generated_reports_tab:
         offline_output_dir = Path("_local/streamlit_beam_design/offline_demo")
+
+        st.markdown("### ETABS Design Output Crosscheck Report")
+        st.caption("R22D diagnostic artifact. ETABS design output does not validate BeamCore.")
+        if st.button("Generate ETABS Design Crosscheck Report"):
+            result = _write_r22d_etabs_design_crosscheck_report_bundle(output_dir)
+            st.json(result)
         st.markdown("### Generated Reports")
         if st.button("Generate Offline Demo Report Bundle"):
             result = _write_offline_demo_report_bundle(offline_output_dir)
