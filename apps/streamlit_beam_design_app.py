@@ -1053,6 +1053,54 @@ def render_etabs_crosscheck_tab() -> None:
 # =============================================================================
 
 
+
+def _report_registry_summary(rows: list[dict[str, object]]) -> dict[str, int]:
+    """Return status counts for report registry rows."""
+    summary = {"AVAILABLE": 0, "MISSING": 0, "COMING_SOON": 0}
+
+    for row in rows:
+        status = str(row.get("status", "MISSING"))
+        if status not in summary:
+            summary[status] = 0
+        summary[status] += 1
+
+    return summary
+
+
+def _report_registry_display_rows(rows: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Return compact display rows for the Report Artifact Registry UI."""
+    display_rows: list[dict[str, object]] = []
+
+    for row in rows:
+        status = str(row.get("status", "MISSING"))
+        display_rows.append(
+            {
+                "status": _report_registry_status_badge(status),
+                "report": row.get("report"),
+                "kind": row.get("kind"),
+                "available": row.get("available"),
+                "json_exists": row.get("json_exists"),
+                "markdown_exists": row.get("markdown_exists"),
+                "xlsx_exists": row.get("xlsx_exists"),
+                "pdf_exists": row.get("pdf_exists"),
+                "sheet": row.get("sheet"),
+                "claim_boundary": row.get("claim_boundary"),
+                "json": row.get("json"),
+                "markdown": row.get("markdown"),
+                "xlsx": row.get("xlsx"),
+                "pdf": row.get("pdf"),
+            }
+        )
+
+    return display_rows
+
+
+def _report_registry_status_badge(status: str) -> str:
+    if status == "AVAILABLE":
+        return "AVAILABLE"
+    if status == "COMING_SOON":
+        return "COMING_SOON"
+    return "MISSING"
 def _report_artifact_registry(output_dir: Path) -> list[dict[str, object]]:
     """Return known report artifact registry rows for the Reports/Evidence workspace.
 
@@ -1742,7 +1790,9 @@ def render_reports_tab(output_dir: Path) -> None:
         st.markdown("### Report Artifact Registry")
         st.caption("R23A registry only. Does not generate reports, run ETABS, or calculate engineering formulas.")
         registry_rows = _report_artifact_registry(output_dir)
-        st.dataframe(registry_rows, use_container_width=True)
+        registry_summary = _report_registry_summary(registry_rows)
+        st.json(registry_summary)
+        st.dataframe(_report_registry_display_rows(registry_rows), use_container_width=True)
         st.markdown("### Generated Reports")
         if st.button("Generate Offline Demo Report Bundle"):
             result = _write_offline_demo_report_bundle(offline_output_dir)
