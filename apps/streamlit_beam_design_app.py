@@ -8,6 +8,11 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
+from tbdy_engine.verification.beams.etabs_design_output import normalize_etabs_beam_design_output_rows
+from tbdy_engine.verification.beams.etabs_design_crosscheck import (
+    crosscheck_etabs_design_output_rows,
+    crosscheck_rows_to_report_dicts,
+)
 from tbdy_engine.design.beams.streamlit_etabs_ui_adapter import (
     CANONICAL_ENGINE_UNITS,
     DEFAULT_DESIGN_INPUTS,
@@ -1001,6 +1006,33 @@ def render_etabs_crosscheck_tab() -> None:
     st.subheader("ETABS Crosscheck")
     st.caption("ETABSComparisonResult visualization. Crosscheck must never mutate BeamDesignResult or BeamVerificationResult.")
 
+    # R22C ETABS concrete design output diagnostic crosscheck UI
+    st.markdown("### ETABS Concrete Design Output Crosscheck")
+    st.caption(
+        "Diagnostic comparison only. ETABS design output does not validate BeamCore, "
+        "does not prove TBDY compliance, and does not mutate design or verification results."
+    )
+    st.markdown("Location mapping: End-I → left/top, Middle → mid/bottom, End-J → right/top.")
+    st.caption("Input fields include As Top and As Bot from ETABS concrete design output.")
+
+    if st.button("Load R22C demo ETABS design output crosscheck"):
+        normalized_rows = normalize_etabs_beam_design_output_rows(_r22c_demo_etabs_design_output_rows())
+        crosscheck_rows = crosscheck_etabs_design_output_rows(
+            normalized_rows,
+            beamcore_actions=_r22c_demo_beamcore_actions(),
+            beamcore_flexure=_r22c_demo_beamcore_flexure(),
+        )
+        st.session_state["r22c_etabs_design_crosscheck_rows"] = crosscheck_rows_to_report_dicts(crosscheck_rows)
+        st.success("R22C ETABS design output diagnostic crosscheck loaded.")
+
+    rows = st.session_state.get("r22c_etabs_design_crosscheck_rows", [])
+    if rows:
+        st.write("ETABS Design Output Crosscheck Rows")
+        st.dataframe(rows, use_container_width=True)
+    else:
+        st.info("No ETABS concrete design output crosscheck rows loaded.")
+
+    st.caption("ETABS design output does not validate BeamCore. Status remains DIAGNOSTIC.")
     comparison_result = st.session_state.get("etabs_comparison_result")
     if comparison_result is None:
         st.warning("ETABSComparisonResult is not available yet. Run BeamCore checks from the Connection/Input tab.")
@@ -1402,6 +1434,8 @@ def _write_offline_demo_report_bundle(output_dir: Path) -> dict[str, object]:
     }
 
 
+
+
 def render_reports_tab(output_dir: Path) -> None:
     assert st is not None
     st.subheader("Reports/Evidence")
@@ -1469,6 +1503,68 @@ def render_about_tab() -> None:
 
 
 
+
+def _r22c_demo_etabs_design_output_rows() -> list[dict[str, object]]:
+    """Fixture-like ETABS concrete design output rows for diagnostic crosscheck UI."""
+    return [
+        {
+            "Story": "+14.5",
+            "Beam": "B4",
+            "UniqueName": "300",
+            "Section": "B40x70",
+            "Location": "End-I",
+            "-ve Moment Combo": "Crack_SeisX_Soil",
+            "-ve Moment": -49.7361,
+            "As Top": 0.000262,
+            "+ve Moment Combo": "Crack_SeisX_Soil",
+            "+ve Moment": 24.868,
+            "As Bot": 0.000141,
+            "Status": "",
+        },
+        {
+            "Story": "+14.5",
+            "Beam": "B4",
+            "UniqueName": "300",
+            "Section": "B40x70",
+            "Location": "Middle",
+            "-ve Moment Combo": "Crack_SeisX_Up",
+            "-ve Moment": -17.0984,
+            "As Top": 0.000098,
+            "+ve Moment Combo": "Crack_SeisX_Soil",
+            "+ve Moment": 43.7621,
+            "As Bot": 0.000225,
+            "Status": "",
+        },
+        {
+            "Story": "+14.5",
+            "Beam": "B4",
+            "UniqueName": "300",
+            "Section": "B40x70",
+            "Location": "End-J",
+            "-ve Moment Combo": "Crack_SeisX",
+            "-ve Moment": -63.2114,
+            "As Top": 0.000324,
+            "+ve Moment Combo": "Crack_SeisX_Soil",
+            "+ve Moment": 47.1527,
+            "As Bot": 0.000242,
+            "Status": "",
+        },
+    ]
+
+
+def _r22c_demo_beamcore_actions() -> dict[str, object]:
+    return {
+        "Md_left_neg_kNm": 26.193888203152845,
+        "Md_mid_pos_kNm": 48.65543620177891,
+        "Md_right_neg_kNm": 13.537957010315958,
+    }
+
+
+def _r22c_demo_beamcore_flexure() -> dict[str, object]:
+    return {
+        "top_required_area_cm2": 1.310387385383232,
+        "bottom_required_area_cm2": 2.44310001537692,
+    }
 def _load_r18_offline_demo_results() -> None:
     """Load fixture-like result objects for offline UI visualization.
 

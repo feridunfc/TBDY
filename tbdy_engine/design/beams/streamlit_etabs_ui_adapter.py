@@ -547,6 +547,50 @@ def filter_beam_candidates(
     return result
 
 
+
+def summarize_etabs_design_crosscheck_rows(rows: object) -> list[dict[str, object]]:
+    """Return UI rows for ETABS design output crosscheck diagnostic rows."""
+    if rows is None:
+        return []
+
+    if hasattr(rows, "items"):
+        iterable = rows.values()
+    else:
+        iterable = rows
+
+    result: list[dict[str, object]] = []
+    for row in iterable:
+        if isinstance(row, dict):
+            get = row.get
+        else:
+            get = lambda name, default=None: getattr(row, name, default)
+
+        result.append(
+            {
+                "story": get("story"),
+                "label": get("label"),
+                "unique_name": get("unique_name"),
+                "section": get("section"),
+                "location": get("location"),
+                "region": get("region"),
+                "status": get("status"),
+                "etabs_negative_moment_kNm": get("etabs_negative_moment_kNm"),
+                "beamcore_negative_moment_kNm": get("beamcore_negative_moment_kNm"),
+                "negative_moment_delta_kNm": get("negative_moment_delta_kNm"),
+                "etabs_positive_moment_kNm": get("etabs_positive_moment_kNm"),
+                "beamcore_positive_moment_kNm": get("beamcore_positive_moment_kNm"),
+                "positive_moment_delta_kNm": get("positive_moment_delta_kNm"),
+                "etabs_as_top_cm2": get("etabs_as_top_cm2"),
+                "beamcore_top_required_cm2": get("beamcore_top_required_cm2"),
+                "top_as_delta_cm2": get("top_as_delta_cm2"),
+                "etabs_as_bot_cm2": get("etabs_as_bot_cm2"),
+                "beamcore_bottom_required_cm2": get("beamcore_bottom_required_cm2"),
+                "bottom_as_delta_cm2": get("bottom_as_delta_cm2"),
+                "message": get("message"),
+            }
+        )
+
+    return result
 def add_selection_column(
     records: Sequence[Mapping[str, str]],
     *,
