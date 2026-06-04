@@ -1052,6 +1052,118 @@ def render_etabs_crosscheck_tab() -> None:
 # Reports Tab
 # =============================================================================
 
+
+def _report_artifact_registry(output_dir: Path) -> list[dict[str, object]]:
+    """Return known report artifact registry rows for the Reports/Evidence workspace.
+
+    Registry only. Does not generate reports, does not run ETABS, and does not
+    calculate engineering formulas.
+    """
+    output_dir = Path(output_dir)
+
+    specs = [
+        {
+            "report": "Live Story Beam Batch Summary",
+            "kind": "live_etabs_story_batch",
+            "json": output_dir / "story_beam_batch_summary.json",
+            "markdown": output_dir / "story_beam_batch_summary.md",
+            "xlsx": None,
+            "claim_boundary": "Diagnostic ETABS FrameForce evidence only; not ETABS validation and not TBDY compliance proof.",
+        },
+        {
+            "report": "Offline Demo Bundle",
+            "kind": "offline_demo_bundle",
+            "json": output_dir / "offline_demo_report_bundle.json",
+            "markdown": output_dir / "offline_demo_report_bundle.md",
+            "xlsx": output_dir / "offline_demo_report_bundle.xlsx",
+            "claim_boundary": "Offline fixture-like visualization only; does not run ETABS or engineering formulas.",
+        },
+        {
+            "report": "ETABS Raw Signed Evidence",
+            "kind": "etabs_raw_signed_evidence",
+            "json": output_dir / "story_beam_batch_summary.json",
+            "markdown": None,
+            "xlsx": output_dir / "300" / "engine_report.xlsx",
+            "sheet": "ETABS_Raw_Evidence",
+            "claim_boundary": "Raw signed ETABS local-axis evidence is preserved; design/check demand uses positive magnitude.",
+        },
+        {
+            "report": "ETABS Design Crosscheck",
+            "kind": "etabs_design_crosscheck",
+            "json": output_dir / "etabs_design_crosscheck.json",
+            "markdown": output_dir / "etabs_design_crosscheck.md",
+            "xlsx": output_dir / "etabs_design_crosscheck.xlsx",
+            "sheet": "ETABS_Design_Crosscheck",
+            "claim_boundary": "Diagnostic only; ETABS design output does not validate BeamCore and does not prove TBDY compliance.",
+        },
+        {
+            "report": "PDF Report",
+            "kind": "pdf_report",
+            "json": None,
+            "markdown": None,
+            "xlsx": None,
+            "pdf": output_dir / "beam_design_report.pdf",
+            "status_override": "COMING_SOON",
+            "claim_boundary": "PDF Report — coming soon.",
+        },
+    ]
+
+    rows: list[dict[str, object]] = []
+    for spec in specs:
+        json_path = spec.get("json")
+        md_path = spec.get("markdown")
+        xlsx_path = spec.get("xlsx")
+        pdf_path = spec.get("pdf")
+
+        files = {
+            "json": _artifact_path_str(json_path),
+            "markdown": _artifact_path_str(md_path),
+            "xlsx": _artifact_path_str(xlsx_path),
+            "pdf": _artifact_path_str(pdf_path),
+        }
+
+        exists = {
+            "json": _artifact_exists(json_path),
+            "markdown": _artifact_exists(md_path),
+            "xlsx": _artifact_exists(xlsx_path),
+            "pdf": _artifact_exists(pdf_path),
+        }
+
+        available = any(exists.values())
+        status = spec.get("status_override") or ("AVAILABLE" if available else "MISSING")
+
+        rows.append(
+            {
+                "report": spec["report"],
+                "kind": spec["kind"],
+                "status": status,
+                "available": available,
+                "json": files["json"],
+                "json_exists": exists["json"],
+                "markdown": files["markdown"],
+                "markdown_exists": exists["markdown"],
+                "xlsx": files["xlsx"],
+                "xlsx_exists": exists["xlsx"],
+                "pdf": files["pdf"],
+                "pdf_exists": exists["pdf"],
+                "sheet": spec.get("sheet"),
+                "claim_boundary": spec["claim_boundary"],
+            }
+        )
+
+    return rows
+
+
+def _artifact_path_str(path: object) -> str | None:
+    if path is None:
+        return None
+    return str(Path(path))
+
+
+def _artifact_exists(path: object) -> bool:
+    if path is None:
+        return False
+    return Path(path).exists()
 def _report_file_rows(output_dir: Path) -> list[dict[str, object]]:
     """Return report path availability rows for the Reports/Evidence tab."""
     report_paths = [
@@ -1626,6 +1738,11 @@ def render_reports_tab(output_dir: Path) -> None:
         if st.button("Generate ETABS Design Crosscheck Report"):
             result = _write_r22d_etabs_design_crosscheck_report_bundle(output_dir)
             st.json(result)
+
+        st.markdown("### Report Artifact Registry")
+        st.caption("R23A registry only. Does not generate reports, run ETABS, or calculate engineering formulas.")
+        registry_rows = _report_artifact_registry(output_dir)
+        st.dataframe(registry_rows, use_container_width=True)
         st.markdown("### Generated Reports")
         if st.button("Generate Offline Demo Report Bundle"):
             result = _write_offline_demo_report_bundle(offline_output_dir)
