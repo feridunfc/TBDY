@@ -155,3 +155,70 @@ Evidence rows include:
 - `sign_convention`
 
 The sign convention text is: `ETABS raw signed local force is preserved; design/check demand uses positive magnitude.`
+
+## R23 Report Workspace
+
+The Reports/Evidence tab is organized as a diagnostic report workspace.
+
+### Report Actions
+
+Report Actions define what the UI can generate. The current action registry includes:
+
+- Offline Demo Report Bundle
+- ETABS Design Crosscheck Report
+- PDF Report — coming soon
+
+Report actions are diagnostic only. They do not run independent engineering validation, do not prove TBDY compliance, and do not make production-ready claims.
+
+### Report Artifact Registry
+
+The Report Artifact Registry lists known report outputs and their availability.
+
+Tracked artifact families include:
+
+- Live Story Beam Batch Summary
+- Offline Demo Bundle
+- ETABS Raw Signed Evidence
+- ETABS Design Crosscheck
+- PDF Report — coming soon
+
+For each report, the registry exposes status, availability, JSON path, Markdown path, XLSX path, PDF path, sheet name when applicable, and claim boundary.
+
+### ETABS Raw Signed Evidence
+
+ETABS raw signed local-axis values are preserved as diagnostic evidence.
+
+The design/check demand may use a positive magnitude, but the original ETABS signed value is preserved in evidence fields and, when available, the `ETABS_Raw_Evidence` Excel sheet.
+
+This is evidence only. It is not ETABS validation.
+
+### ETABS Design Crosscheck
+
+The ETABS Design Crosscheck compares ETABS concrete design output rows with BeamCore diagnostic evidence.
+
+The crosscheck uses the following location mapping:
+
+- End-I → left/top
+- Middle → mid/bottom
+- End-J → right/top
+
+Artifacts may include:
+
+- `etabs_design_crosscheck.json`
+- `etabs_design_crosscheck.md`
+- `etabs_design_crosscheck.xlsx`
+- Excel sheet: `ETABS_Design_Crosscheck`
+
+The status remains `DIAGNOSTIC`. ETABS design output does not validate BeamCore and does not prove TBDY compliance.
+
+### Claim Boundaries
+
+The report workspace must preserve these boundaries:
+
+- Diagnostic UI only
+- Not ETABS validation
+- Not design-engine validation
+- Not TBDY compliance proof
+- Not production-ready
+- Engineering review required
+
