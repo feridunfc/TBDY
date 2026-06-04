@@ -1055,6 +1055,57 @@ def render_etabs_crosscheck_tab() -> None:
 
 
 
+
+def _run_report_action(kind: str, output_dir: Path) -> dict[str, object]:
+    """Run a registered report action and return a standard result dict.
+
+    Diagnostic report actions only. Does not validate ETABS, does not prove TBDY
+    compliance, and does not make production-ready claims.
+    """
+    output_dir = Path(output_dir)
+
+    if kind == "offline_demo_bundle":
+        result = _write_offline_demo_report_bundle(output_dir)
+        return _standard_report_action_result(kind, result)
+
+    if kind == "etabs_design_crosscheck":
+        result = _write_r22d_etabs_design_crosscheck_report_bundle(output_dir)
+        return _standard_report_action_result(kind, result)
+
+    if kind == "pdf_report":
+        return {
+            "kind": kind,
+            "status": "COMING_SOON",
+            "message": "PDF Report — coming soon.",
+            "files": {},
+            "claim_boundary": "PDF Report — coming soon.",
+        }
+
+    return {
+        "kind": kind,
+        "status": "UNKNOWN_ACTION",
+        "message": f"Unknown report action: {kind}",
+        "files": {},
+        "claim_boundary": "Unknown diagnostic report action; no validation claim is made.",
+    }
+
+
+def _standard_report_action_result(kind: str, result: dict[str, object]) -> dict[str, object]:
+    """Normalize report writer result shape for the R23D action runner."""
+    return {
+        "kind": kind,
+        "status": result.get("status", "UNKNOWN"),
+        "message": result.get("message"),
+        "files": result.get("files", {}),
+        "claim_boundary": _report_action_claim_boundary(kind),
+    }
+
+
+def _report_action_claim_boundary(kind: str) -> str:
+    for action in _report_action_registry():
+        if action.get("kind") == kind:
+            return str(action.get("claim_boundary"))
+    return "Diagnostic report action only; no validation claim is made."
 def _report_action_registry() -> list[dict[str, object]]:
     """Return report action registry rows.
 
@@ -1867,6 +1918,25 @@ def render_reports_tab(output_dir: Path) -> None:
         st.caption("R23C action registry. Actions preserve diagnostic claim boundaries.")
         report_actions = _report_action_registry()
         st.dataframe(_report_action_display_rows(report_actions), use_container_width=True)
+
+        selected_report_action = st.selectbox(
+            "Report action",
+            [str(action["kind"]) for action in report_actions],
+            key="report_action_selector",
+        )
+        selected_report_action_status = _report_action_status(
+            next(action for action in report_actions if action["kind"] == selected_report_action)
+        )
+        st.json({"selected_action": selected_report_action, "status": selected_report_action_status})
+
+        if st.button("Run Selected Report Action", disabled=selected_report_action_status in ("COMING_SOON", "DISABLED")):
+            result = _run_report_action(selected_report_action, output_dir)
+            st.session_state["last_report_action_result"] = result
+            st.json(result)
+
+        if st.session_state.get("last_report_action_result"):
+            st.markdown("#### Last Report Action Result")
+            st.json(st.session_state["last_report_action_result"])
         st.markdown("### Report Artifact Registry")
         st.caption("R23A registry only. Does not generate reports, run ETABS, or calculate engineering formulas.")
         registry_rows = _report_artifact_registry(output_dir)
