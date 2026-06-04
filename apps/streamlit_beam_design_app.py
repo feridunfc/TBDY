@@ -1054,6 +1054,81 @@ def render_etabs_crosscheck_tab() -> None:
 
 
 
+
+def _report_action_registry() -> list[dict[str, object]]:
+    """Return report action registry rows.
+
+    Registry only. Does not generate reports, run ETABS, or calculate engineering formulas.
+    """
+    return [
+        {
+            "kind": "offline_demo_bundle",
+            "label": "Generate Offline Demo Report Bundle",
+            "enabled": True,
+            "requires_data": False,
+            "status": "AVAILABLE",
+            "claim_boundary": "Offline fixture-like visualization only; does not run ETABS or engineering formulas.",
+        },
+        {
+            "kind": "etabs_design_crosscheck",
+            "label": "Generate ETABS Design Crosscheck Report",
+            "enabled": True,
+            "requires_data": True,
+            "required_session_key": "r22c_etabs_design_crosscheck_rows",
+            "status": "AVAILABLE",
+            "claim_boundary": "Diagnostic only; ETABS design output does not validate BeamCore and does not prove TBDY compliance.",
+        },
+        {
+            "kind": "pdf_report",
+            "label": "Generate PDF Report",
+            "enabled": False,
+            "requires_data": True,
+            "status": "COMING_SOON",
+            "claim_boundary": "PDF Report — coming soon.",
+        },
+    ]
+
+
+def _report_action_display_rows(actions: list[dict[str, object]]) -> list[dict[str, object]]:
+    """Return compact report action rows for UI display."""
+    return [
+        {
+            "status": action.get("status"),
+            "label": action.get("label"),
+            "kind": action.get("kind"),
+            "enabled": action.get("enabled"),
+            "requires_data": action.get("requires_data"),
+            "required_session_key": action.get("required_session_key"),
+            "claim_boundary": action.get("claim_boundary"),
+        }
+        for action in actions
+    ]
+
+
+def _report_action_data_available(action: dict[str, object]) -> bool:
+    """Return whether an action has required session data available."""
+    assert st is not None
+
+    if not action.get("requires_data"):
+        return True
+
+    key = action.get("required_session_key")
+    if not key:
+        return False
+
+    value = st.session_state.get(str(key))
+    return bool(value)
+
+
+def _report_action_status(action: dict[str, object]) -> str:
+    """Return current report action status."""
+    if action.get("status") == "COMING_SOON":
+        return "COMING_SOON"
+    if not action.get("enabled"):
+        return "DISABLED"
+    if not _report_action_data_available(action):
+        return "NO_DATA"
+    return "READY"
 def _report_registry_summary(rows: list[dict[str, object]]) -> dict[str, int]:
     """Return status counts for report registry rows."""
     summary = {"AVAILABLE": 0, "MISSING": 0, "COMING_SOON": 0}
@@ -1787,6 +1862,11 @@ def render_reports_tab(output_dir: Path) -> None:
             result = _write_r22d_etabs_design_crosscheck_report_bundle(output_dir)
             st.json(result)
 
+
+        st.markdown("### Report Actions")
+        st.caption("R23C action registry. Actions preserve diagnostic claim boundaries.")
+        report_actions = _report_action_registry()
+        st.dataframe(_report_action_display_rows(report_actions), use_container_width=True)
         st.markdown("### Report Artifact Registry")
         st.caption("R23A registry only. Does not generate reports, run ETABS, or calculate engineering formulas.")
         registry_rows = _report_artifact_registry(output_dir)
