@@ -153,6 +153,40 @@ def run_live_etabs_single_beam_frameforce_from_env() -> Mapping[str, object]:
     )
 
 
+
+def _middle_region_positive_m3_row(rows: Sequence[Mapping[str, float]]) -> Mapping[str, float] | None:
+    """Return governing positive M3 row inside the middle design region.
+
+    R24A: ETABS concrete design output reports Middle +M as the governing positive
+    moment inside the middle region, not necessarily at the exact mid station.
+
+    Region rule: 0.30L <= station <= 0.70L.
+    The upper bound intentionally includes the common ETABS middle-design station
+    around 0.70L, such as 2.52 m for a 3.6 m beam.
+    """
+    if not rows:
+        return None
+
+    left = min(rows, key=lambda row: row["station"])
+    right = max(rows, key=lambda row: row["station"])
+    length = right["station"] - left["station"]
+
+    if length <= 0:
+        positive_rows = [row for row in rows if row["m3"] > 0]
+    else:
+        start = left["station"] + 0.30 * length
+        end = left["station"] + 0.70 * length
+        positive_rows = [
+            row for row in rows
+            if row["m3"] > 0 and start <= row["station"] <= end
+        ]
+
+    if not positive_rows:
+        return None
+
+    return max(positive_rows, key=lambda row: row["m3"])
+
+
 def extract_frameforce_envelope(
     *,
     sap_model: object,
@@ -173,16 +207,14 @@ def extract_frameforce_envelope(
         rows = _frame_force_rows(sap_model=sap_model, beam_name=beam_name, combo=combo)
         left = min(rows, key=lambda row: row["station"])
         right = max(rows, key=lambda row: row["station"])
-        mid_station = (left["station"] + right["station"]) / 2.0
-        mid_candidates = sorted(rows, key=lambda row: abs(row["station"] - mid_station))
-        mid = mid_candidates[0]
+        mid = _middle_region_positive_m3_row(rows)
 
         candidates["Vd_left_kN"].append(EnvelopeAction(abs(left["v2"]), combo, left["station"], raw_value=left["v2"], etabs_raw_signed_value=left["v2"], design_demand_magnitude=abs(left["v2"]), etabs_local_axis_component="V2"))
         candidates["Ve_left_kN"].append(EnvelopeAction(abs(left["v2"]), combo, left["station"], raw_value=left["v2"], etabs_raw_signed_value=left["v2"], design_demand_magnitude=abs(left["v2"]), etabs_local_axis_component="V2"))
 
         if left["m3"] < 0:
             candidates["Md_left_neg_kNm"].append(EnvelopeAction(abs(left["m3"]), combo, left["station"], raw_value=left["m3"], etabs_raw_signed_value=left["m3"], design_demand_magnitude=abs(left["m3"]), etabs_local_axis_component="M3"))
-        if mid["m3"] > 0:
+        if mid is not None and mid["m3"] > 0:
             candidates["Md_mid_pos_kNm"].append(EnvelopeAction(abs(mid["m3"]), combo, mid["station"], raw_value=mid["m3"], etabs_raw_signed_value=mid["m3"], design_demand_magnitude=abs(mid["m3"]), etabs_local_axis_component="M3"))
         if right["m3"] < 0:
             candidates["Md_right_neg_kNm"].append(EnvelopeAction(abs(right["m3"]), combo, right["station"], raw_value=right["m3"], etabs_raw_signed_value=right["m3"], design_demand_magnitude=abs(right["m3"]), etabs_local_axis_component="M3"))
@@ -672,6 +704,7 @@ __all__ = [
     "SingleBeamFrameForceError",
     "EnvelopeAction",
     "extract_frameforce_envelope",
+    "_middle_region_positive_m3_row",
     "build_existing_p4_payload_from_frameforce",
     "run_live_etabs_single_beam_frameforce",
     "run_live_etabs_single_beam_frameforce_from_env",

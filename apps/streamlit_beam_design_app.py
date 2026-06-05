@@ -956,6 +956,92 @@ def render_demand_tab() -> None:
 # Design Tab
 # =============================================================================
 
+
+def _live_beamcore_diagnostic_beams() -> list[dict[str, object]]:
+    """Return live BeamCore diagnostic beam rows from preserved legacy result."""
+    assert st is not None
+
+    legacy_result = st.session_state.get("legacy_beamcore_result") or {}
+    if not isinstance(legacy_result, dict):
+        return []
+
+    summary = legacy_result.get("summary") or {}
+    if not isinstance(summary, dict):
+        return []
+
+    beams = summary.get("beams") or []
+    return [beam for beam in beams if isinstance(beam, dict)]
+
+
+def _live_beamcore_design_fallback_rows() -> list[dict[str, object]]:
+    """Return compact diagnostic design fallback rows for the Design tab."""
+    rows: list[dict[str, object]] = []
+
+    for beam in _live_beamcore_diagnostic_beams():
+        actions = beam.get("actions") or {}
+        governing = beam.get("governing") or {}
+        artifact_paths = beam.get("artifact_paths") or {}
+
+        if not isinstance(actions, dict):
+            actions = {}
+        if not isinstance(governing, dict):
+            governing = {}
+        if not isinstance(artifact_paths, dict):
+            artifact_paths = {}
+
+        md_mid_governing = governing.get("Md_mid_pos_kNm") or {}
+        if not isinstance(md_mid_governing, dict):
+            md_mid_governing = {}
+
+        rows.append(
+            {
+                "object_name": beam.get("object_name"),
+                "label": beam.get("label"),
+                "story": beam.get("story"),
+                "section": beam.get("section"),
+                "Md_left_neg_kNm": actions.get("Md_left_neg_kNm"),
+                "Md_mid_pos_kNm": actions.get("Md_mid_pos_kNm"),
+                "Md_right_neg_kNm": actions.get("Md_right_neg_kNm"),
+                "Vd_left_kN": actions.get("Vd_left_kN"),
+                "Ve_left_kN": actions.get("Ve_left_kN"),
+                "axial_kN": actions.get("axial_kN"),
+                "Md_mid_pos_combo": md_mid_governing.get("combo"),
+                "Md_mid_pos_station": md_mid_governing.get("station"),
+                "artifact_json": artifact_paths.get("json"),
+                "artifact_xlsx": artifact_paths.get("xlsx"),
+            }
+        )
+
+    return rows
+
+
+def _live_beamcore_verification_fallback_rows() -> list[dict[str, object]]:
+    """Return compact diagnostic verification fallback rows for the Verification tab."""
+    rows: list[dict[str, object]] = []
+
+    for beam in _live_beamcore_diagnostic_beams():
+        artifact_paths = beam.get("artifact_paths") or {}
+        capacity_statuses = beam.get("capacity_design_check_statuses") or {}
+
+        if not isinstance(artifact_paths, dict):
+            artifact_paths = {}
+        if not isinstance(capacity_statuses, dict):
+            capacity_statuses = {}
+
+        rows.append(
+            {
+                "object_name": beam.get("object_name"),
+                "label": beam.get("label"),
+                "story": beam.get("story"),
+                "beam_core_status": beam.get("beam_core_status"),
+                "check_count": beam.get("check_count"),
+                "capacity_design_check_statuses": capacity_statuses,
+                "artifact_json": artifact_paths.get("json"),
+                "artifact_xlsx": artifact_paths.get("xlsx"),
+            }
+        )
+
+    return rows
 def render_design_tab() -> None:
     assert st is not None
     st.subheader("Design")
@@ -963,6 +1049,13 @@ def render_design_tab() -> None:
 
     design_result = st.session_state.get("beam_design_result")
     if design_result is None:
+        fallback_rows = _live_beamcore_design_fallback_rows()
+        if fallback_rows:
+            st.info("BeamDesignResult is not available. Showing live BeamCore diagnostic design evidence instead.")
+            st.caption("Diagnostic fallback only. This does not create a BeamDesignResult and does not prove design correctness.")
+            st.dataframe(fallback_rows, use_container_width=True)
+            return
+
         st.info("BeamDesignResult is not available yet. Run BeamCore checks from the Connection/Input tab.")
         return
 
@@ -970,12 +1063,15 @@ def render_design_tab() -> None:
     flexure_rows = summarize_region_flexure(design_result)
     if flexure_rows:
         st.dataframe(flexure_rows, use_container_width=True)
+    else:
+        st.info("No flexure region rows available.")
 
     st.write("Shear Design")
-    shear_summary = summarize_shear_design(design_result)
-    if shear_summary:
-        st.json(shear_summary)
-
+    shear_rows = summarize_shear_design(design_result)
+    if shear_rows:
+        st.dataframe(shear_rows, use_container_width=True)
+    else:
+        st.info("No shear design rows available.")
 
 # =============================================================================
 # Verification Tab
@@ -988,6 +1084,13 @@ def render_verification_tab() -> None:
 
     verification_result = st.session_state.get("beam_verification_result")
     if verification_result is None:
+        fallback_rows = _live_beamcore_verification_fallback_rows()
+        if fallback_rows:
+            st.warning("BeamVerificationResult is not available. Showing live BeamCore diagnostic verification evidence instead.")
+            st.caption("Diagnostic fallback only. Verification must never mutate BeamDesignResult.")
+            st.dataframe(fallback_rows, use_container_width=True)
+            return
+
         st.warning("BeamVerificationResult is not available yet. Run BeamCore checks from the Connection/Input tab.")
         st.caption("Verification must never mutate BeamDesignResult.")
         return
@@ -996,8 +1099,7 @@ def render_verification_tab() -> None:
     if verification_rows:
         st.dataframe(verification_rows, use_container_width=True)
     else:
-        st.info("No verification checks available.")
-
+        st.info("No verification rows available.")
 
 # =============================================================================
 # ETABS Crosscheck Tab
