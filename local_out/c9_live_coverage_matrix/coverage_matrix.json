@@ -1,0 +1,1875 @@
+{
+  "checks": [
+    {
+      "check_id": "beam_geometry_min_width",
+      "check_readiness_status": "partial",
+      "combo_policy_status": "NOT_APPLICABLE",
+      "component_id": "297",
+      "component_type": "beam",
+      "coverage_status": "PARTIAL",
+      "diagnostics": [
+        {
+          "code": "DESIGN_CONTEXT_MISSING",
+          "details": {
+            "check_id": "beam_geometry_min_width",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Required design context is missing for coverage",
+          "severity": "WARNING"
+        }
+      ],
+      "ductility_context_status": "MISSING",
+      "effective_evaluation_level": "SCREENING",
+      "evidence_status": "FULL",
+      "expected_evidence_requirements": {
+        "beam_width_mm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ]
+      },
+      "missing_design_context": [
+        {
+          "context_field": "ductility_class",
+          "reason": "Required design context is missing"
+        }
+      ],
+      "missing_design_context_sources": {
+        "ductility_class": {
+          "context_name": "ductility_class",
+          "expected_evidence_fields": [
+            "source_contract",
+            "source_field",
+            "resolved_value"
+          ],
+          "source_contract": "design_basis.yaml",
+          "source_field": "ductility_class",
+          "source_kind": "design_context",
+          "unit": ""
+        }
+      },
+      "missing_feature_sources": {},
+      "missing_features": [],
+      "reason": "Required design context is incomplete",
+      "required_design_context": [
+        "ductility_class"
+      ],
+      "required_features": [
+        "beam_width_mm"
+      ],
+      "resolved_design_context": [],
+      "resolved_features": [
+        "beam_width_mm"
+      ],
+      "section_state_status": "RESOLVED",
+      "source_diagnostics": [
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_geometry_min_width",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Expected source metadata recorded for missing design context",
+          "severity": "INFO"
+        }
+      ]
+    },
+    {
+      "check_id": "beam_geometry_min_depth",
+      "check_readiness_status": "partial",
+      "combo_policy_status": "NOT_APPLICABLE",
+      "component_id": "297",
+      "component_type": "beam",
+      "coverage_status": "PARTIAL",
+      "diagnostics": [
+        {
+          "code": "DESIGN_CONTEXT_MISSING",
+          "details": {
+            "check_id": "beam_geometry_min_depth",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Required design context is missing for coverage",
+          "severity": "WARNING"
+        }
+      ],
+      "ductility_context_status": "MISSING",
+      "effective_evaluation_level": "SCREENING",
+      "evidence_status": "FULL",
+      "expected_evidence_requirements": {
+        "beam_depth_mm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ]
+      },
+      "missing_design_context": [
+        {
+          "context_field": "ductility_class",
+          "reason": "Required design context is missing"
+        }
+      ],
+      "missing_design_context_sources": {
+        "ductility_class": {
+          "context_name": "ductility_class",
+          "expected_evidence_fields": [
+            "source_contract",
+            "source_field",
+            "resolved_value"
+          ],
+          "source_contract": "design_basis.yaml",
+          "source_field": "ductility_class",
+          "source_kind": "design_context",
+          "unit": ""
+        }
+      },
+      "missing_feature_sources": {},
+      "missing_features": [],
+      "reason": "Required design context is incomplete",
+      "required_design_context": [
+        "ductility_class"
+      ],
+      "required_features": [
+        "beam_depth_mm"
+      ],
+      "resolved_design_context": [],
+      "resolved_features": [
+        "beam_depth_mm"
+      ],
+      "section_state_status": "RESOLVED",
+      "source_diagnostics": [
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_geometry_min_depth",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Expected source metadata recorded for missing design context",
+          "severity": "INFO"
+        }
+      ]
+    },
+    {
+      "check_id": "beam_span_depth_ratio",
+      "check_readiness_status": "missing_features",
+      "combo_policy_status": "NOT_APPLICABLE",
+      "component_id": "297",
+      "component_type": "beam",
+      "coverage_status": "BLOCKED",
+      "diagnostics": [
+        {
+          "code": "FEATURE_MISSING",
+          "details": {
+            "check_id": "beam_span_depth_ratio",
+            "feature_name": "beam_clear_span_mm"
+          },
+          "message": "Required feature is missing from FeatureSnapshot",
+          "severity": "ERROR"
+        },
+        {
+          "code": "DESIGN_CONTEXT_MISSING",
+          "details": {
+            "check_id": "beam_span_depth_ratio",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Required design context is missing for coverage",
+          "severity": "WARNING"
+        }
+      ],
+      "ductility_context_status": "MISSING",
+      "effective_evaluation_level": "NO_DATA",
+      "evidence_status": "MISSING",
+      "expected_evidence_requirements": {
+        "beam_clear_span_mm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ],
+        "beam_depth_mm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ]
+      },
+      "missing_design_context": [
+        {
+          "context_field": "ductility_class",
+          "reason": "Required design context is missing"
+        }
+      ],
+      "missing_design_context_sources": {
+        "ductility_class": {
+          "context_name": "ductility_class",
+          "expected_evidence_fields": [
+            "source_contract",
+            "source_field",
+            "resolved_value"
+          ],
+          "source_contract": "design_basis.yaml",
+          "source_field": "ductility_class",
+          "source_kind": "design_context",
+          "unit": ""
+        }
+      },
+      "missing_feature_sources": {
+        "beam_clear_span_mm": {
+          "aggregation": "none",
+          "combo_family": "NONE",
+          "expected_evidence_fields": [
+            "source_table",
+            "source_row",
+            "source_column",
+            "raw_value",
+            "normalized_value",
+            "unit",
+            "output_case",
+            "combo_family"
+          ],
+          "feature_name": "beam_clear_span_mm",
+          "field_aliases": [
+            "Length"
+          ],
+          "source_kind": "etabs_table",
+          "table_aliases": [
+            "Frame Assignments - Summary"
+          ],
+          "table_key": "frame_assignments",
+          "unit": "mm"
+        }
+      },
+      "missing_features": [
+        {
+          "feature_name": "beam_clear_span_mm",
+          "reason": "FeatureSnapshot does not contain a resolved feature value"
+        }
+      ],
+      "reason": "One or more required features are missing",
+      "required_design_context": [
+        "ductility_class"
+      ],
+      "required_features": [
+        "beam_clear_span_mm",
+        "beam_depth_mm"
+      ],
+      "resolved_design_context": [],
+      "resolved_features": [
+        "beam_depth_mm"
+      ],
+      "section_state_status": "RESOLVED",
+      "source_diagnostics": [
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_span_depth_ratio",
+            "feature_name": "beam_clear_span_mm",
+            "source_kind": "etabs_table"
+          },
+          "message": "Expected source metadata recorded for missing feature",
+          "severity": "INFO"
+        },
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_span_depth_ratio",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Expected source metadata recorded for missing design context",
+          "severity": "INFO"
+        }
+      ]
+    },
+    {
+      "check_id": "beam_depth_width_ratio",
+      "check_readiness_status": "partial",
+      "combo_policy_status": "NOT_APPLICABLE",
+      "component_id": "297",
+      "component_type": "beam",
+      "coverage_status": "PARTIAL",
+      "diagnostics": [
+        {
+          "code": "DESIGN_CONTEXT_MISSING",
+          "details": {
+            "check_id": "beam_depth_width_ratio",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Required design context is missing for coverage",
+          "severity": "WARNING"
+        }
+      ],
+      "ductility_context_status": "MISSING",
+      "effective_evaluation_level": "SCREENING",
+      "evidence_status": "FULL",
+      "expected_evidence_requirements": {
+        "beam_depth_mm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ],
+        "beam_width_mm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ]
+      },
+      "missing_design_context": [
+        {
+          "context_field": "ductility_class",
+          "reason": "Required design context is missing"
+        }
+      ],
+      "missing_design_context_sources": {
+        "ductility_class": {
+          "context_name": "ductility_class",
+          "expected_evidence_fields": [
+            "source_contract",
+            "source_field",
+            "resolved_value"
+          ],
+          "source_contract": "design_basis.yaml",
+          "source_field": "ductility_class",
+          "source_kind": "design_context",
+          "unit": ""
+        }
+      },
+      "missing_feature_sources": {},
+      "missing_features": [],
+      "reason": "Required design context is incomplete",
+      "required_design_context": [
+        "ductility_class"
+      ],
+      "required_features": [
+        "beam_depth_mm",
+        "beam_width_mm"
+      ],
+      "resolved_design_context": [],
+      "resolved_features": [
+        "beam_depth_mm",
+        "beam_width_mm"
+      ],
+      "section_state_status": "RESOLVED",
+      "source_diagnostics": [
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_depth_width_ratio",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Expected source metadata recorded for missing design context",
+          "severity": "INFO"
+        }
+      ]
+    },
+    {
+      "check_id": "beam_flexure_top_selected_ge_governing_required",
+      "check_readiness_status": "missing_features",
+      "combo_policy_status": "RESOLVED",
+      "component_id": "297",
+      "component_type": "beam",
+      "coverage_status": "BLOCKED",
+      "diagnostics": [
+        {
+          "code": "FEATURE_MISSING",
+          "details": {
+            "check_id": "beam_flexure_top_selected_ge_governing_required",
+            "feature_name": "beam_As_top_engine_selected_mm2"
+          },
+          "message": "Required feature is missing from FeatureSnapshot",
+          "severity": "ERROR"
+        },
+        {
+          "code": "FEATURE_MISSING",
+          "details": {
+            "check_id": "beam_flexure_top_selected_ge_governing_required",
+            "feature_name": "beam_As_top_governing_required_mm2"
+          },
+          "message": "Required feature is missing from FeatureSnapshot",
+          "severity": "ERROR"
+        },
+        {
+          "code": "DESIGN_CONTEXT_MISSING",
+          "details": {
+            "check_id": "beam_flexure_top_selected_ge_governing_required",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Required design context is missing for coverage",
+          "severity": "WARNING"
+        }
+      ],
+      "ductility_context_status": "MISSING",
+      "effective_evaluation_level": "NO_DATA",
+      "evidence_status": "MISSING",
+      "expected_evidence_requirements": {
+        "beam_As_top_engine_selected_mm2": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ],
+        "beam_As_top_governing_required_mm2": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ]
+      },
+      "missing_design_context": [
+        {
+          "context_field": "ductility_class",
+          "reason": "Required design context is missing"
+        }
+      ],
+      "missing_design_context_sources": {
+        "ductility_class": {
+          "context_name": "ductility_class",
+          "expected_evidence_fields": [
+            "source_contract",
+            "source_field",
+            "resolved_value"
+          ],
+          "source_contract": "design_basis.yaml",
+          "source_field": "ductility_class",
+          "source_kind": "design_context",
+          "unit": ""
+        }
+      },
+      "missing_feature_sources": {
+        "beam_As_top_engine_selected_mm2": {
+          "custom_resolver": "engine_selected_rebar_resolver",
+          "expected_evidence_fields": [
+            "source_table",
+            "source_row",
+            "source_column",
+            "raw_value",
+            "normalized_value",
+            "unit",
+            "output_case",
+            "combo_family"
+          ],
+          "feature_name": "beam_As_top_engine_selected_mm2",
+          "required_inputs": [
+            "beam_As_top_governing_required_mm2"
+          ],
+          "source_kind": "computed",
+          "unit": "mm2"
+        },
+        "beam_As_top_governing_required_mm2": {
+          "custom_resolver": "governing_rebar_resolver",
+          "expected_evidence_fields": [
+            "source_table",
+            "source_row",
+            "source_column",
+            "raw_value",
+            "normalized_value",
+            "unit",
+            "output_case",
+            "combo_family"
+          ],
+          "feature_name": "beam_As_top_governing_required_mm2",
+          "required_inputs": [
+            "beam_As_top_etabs_required_mm2",
+            "beam_As_top_tbdy_min_required_mm2"
+          ],
+          "source_kind": "computed",
+          "unit": "mm2"
+        }
+      },
+      "missing_features": [
+        {
+          "feature_name": "beam_As_top_engine_selected_mm2",
+          "reason": "FeatureSnapshot does not contain a resolved feature value"
+        },
+        {
+          "feature_name": "beam_As_top_governing_required_mm2",
+          "reason": "FeatureSnapshot does not contain a resolved feature value"
+        }
+      ],
+      "reason": "One or more required features are missing",
+      "required_design_context": [
+        "ductility_class"
+      ],
+      "required_features": [
+        "beam_As_top_engine_selected_mm2",
+        "beam_As_top_governing_required_mm2"
+      ],
+      "resolved_design_context": [],
+      "resolved_features": [],
+      "section_state_status": "RESOLVED",
+      "source_diagnostics": [
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_flexure_top_selected_ge_governing_required",
+            "feature_name": "beam_As_top_engine_selected_mm2",
+            "source_kind": "computed"
+          },
+          "message": "Expected source metadata recorded for missing feature",
+          "severity": "INFO"
+        },
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_flexure_top_selected_ge_governing_required",
+            "feature_name": "beam_As_top_governing_required_mm2",
+            "source_kind": "computed"
+          },
+          "message": "Expected source metadata recorded for missing feature",
+          "severity": "INFO"
+        },
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_flexure_top_selected_ge_governing_required",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Expected source metadata recorded for missing design context",
+          "severity": "INFO"
+        }
+      ]
+    },
+    {
+      "check_id": "beam_flexure_bottom_selected_ge_governing_required",
+      "check_readiness_status": "missing_features",
+      "combo_policy_status": "RESOLVED",
+      "component_id": "297",
+      "component_type": "beam",
+      "coverage_status": "BLOCKED",
+      "diagnostics": [
+        {
+          "code": "FEATURE_MISSING",
+          "details": {
+            "check_id": "beam_flexure_bottom_selected_ge_governing_required",
+            "feature_name": "beam_As_bottom_engine_selected_mm2"
+          },
+          "message": "Required feature is missing from FeatureSnapshot",
+          "severity": "ERROR"
+        },
+        {
+          "code": "FEATURE_MISSING",
+          "details": {
+            "check_id": "beam_flexure_bottom_selected_ge_governing_required",
+            "feature_name": "beam_As_bottom_governing_required_mm2"
+          },
+          "message": "Required feature is missing from FeatureSnapshot",
+          "severity": "ERROR"
+        },
+        {
+          "code": "DESIGN_CONTEXT_MISSING",
+          "details": {
+            "check_id": "beam_flexure_bottom_selected_ge_governing_required",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Required design context is missing for coverage",
+          "severity": "WARNING"
+        }
+      ],
+      "ductility_context_status": "MISSING",
+      "effective_evaluation_level": "NO_DATA",
+      "evidence_status": "MISSING",
+      "expected_evidence_requirements": {
+        "beam_As_bottom_engine_selected_mm2": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ],
+        "beam_As_bottom_governing_required_mm2": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ]
+      },
+      "missing_design_context": [
+        {
+          "context_field": "ductility_class",
+          "reason": "Required design context is missing"
+        }
+      ],
+      "missing_design_context_sources": {
+        "ductility_class": {
+          "context_name": "ductility_class",
+          "expected_evidence_fields": [
+            "source_contract",
+            "source_field",
+            "resolved_value"
+          ],
+          "source_contract": "design_basis.yaml",
+          "source_field": "ductility_class",
+          "source_kind": "design_context",
+          "unit": ""
+        }
+      },
+      "missing_feature_sources": {
+        "beam_As_bottom_engine_selected_mm2": {
+          "custom_resolver": "engine_selected_rebar_resolver",
+          "expected_evidence_fields": [
+            "source_table",
+            "source_row",
+            "source_column",
+            "raw_value",
+            "normalized_value",
+            "unit",
+            "output_case",
+            "combo_family"
+          ],
+          "feature_name": "beam_As_bottom_engine_selected_mm2",
+          "required_inputs": [
+            "beam_As_bottom_governing_required_mm2"
+          ],
+          "source_kind": "computed",
+          "unit": "mm2"
+        },
+        "beam_As_bottom_governing_required_mm2": {
+          "custom_resolver": "governing_rebar_resolver",
+          "expected_evidence_fields": [
+            "source_table",
+            "source_row",
+            "source_column",
+            "raw_value",
+            "normalized_value",
+            "unit",
+            "output_case",
+            "combo_family"
+          ],
+          "feature_name": "beam_As_bottom_governing_required_mm2",
+          "required_inputs": [
+            "beam_As_bottom_etabs_required_mm2",
+            "beam_As_bottom_tbdy_min_required_mm2"
+          ],
+          "source_kind": "computed",
+          "unit": "mm2"
+        }
+      },
+      "missing_features": [
+        {
+          "feature_name": "beam_As_bottom_engine_selected_mm2",
+          "reason": "FeatureSnapshot does not contain a resolved feature value"
+        },
+        {
+          "feature_name": "beam_As_bottom_governing_required_mm2",
+          "reason": "FeatureSnapshot does not contain a resolved feature value"
+        }
+      ],
+      "reason": "One or more required features are missing",
+      "required_design_context": [
+        "ductility_class"
+      ],
+      "required_features": [
+        "beam_As_bottom_engine_selected_mm2",
+        "beam_As_bottom_governing_required_mm2"
+      ],
+      "resolved_design_context": [],
+      "resolved_features": [],
+      "section_state_status": "RESOLVED",
+      "source_diagnostics": [
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_flexure_bottom_selected_ge_governing_required",
+            "feature_name": "beam_As_bottom_engine_selected_mm2",
+            "source_kind": "computed"
+          },
+          "message": "Expected source metadata recorded for missing feature",
+          "severity": "INFO"
+        },
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_flexure_bottom_selected_ge_governing_required",
+            "feature_name": "beam_As_bottom_governing_required_mm2",
+            "source_kind": "computed"
+          },
+          "message": "Expected source metadata recorded for missing feature",
+          "severity": "INFO"
+        },
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_flexure_bottom_selected_ge_governing_required",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Expected source metadata recorded for missing design context",
+          "severity": "INFO"
+        }
+      ]
+    },
+    {
+      "check_id": "beam_shear_ve_le_vr",
+      "check_readiness_status": "missing_features",
+      "combo_policy_status": "NOT_APPLICABLE",
+      "component_id": "297",
+      "component_type": "beam",
+      "coverage_status": "BLOCKED",
+      "diagnostics": [
+        {
+          "code": "FEATURE_MISSING",
+          "details": {
+            "check_id": "beam_shear_ve_le_vr",
+            "feature_name": "beam_Vd_left_kN"
+          },
+          "message": "Required feature is missing from FeatureSnapshot",
+          "severity": "ERROR"
+        },
+        {
+          "code": "FEATURE_MISSING",
+          "details": {
+            "check_id": "beam_shear_ve_le_vr",
+            "feature_name": "beam_Vd_right_kN"
+          },
+          "message": "Required feature is missing from FeatureSnapshot",
+          "severity": "ERROR"
+        },
+        {
+          "code": "FEATURE_MISSING",
+          "details": {
+            "check_id": "beam_shear_ve_le_vr",
+            "feature_name": "beam_effective_depth_mm"
+          },
+          "message": "Required feature is missing from FeatureSnapshot",
+          "severity": "ERROR"
+        },
+        {
+          "code": "DESIGN_CONTEXT_MISSING",
+          "details": {
+            "check_id": "beam_shear_ve_le_vr",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Required design context is missing for coverage",
+          "severity": "WARNING"
+        }
+      ],
+      "ductility_context_status": "MISSING",
+      "effective_evaluation_level": "NO_DATA",
+      "evidence_status": "MISSING",
+      "expected_evidence_requirements": {
+        "beam_Vd_left_kN": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ],
+        "beam_Vd_right_kN": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ],
+        "beam_effective_depth_mm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ],
+        "beam_width_mm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ]
+      },
+      "missing_design_context": [
+        {
+          "context_field": "ductility_class",
+          "reason": "Required design context is missing"
+        }
+      ],
+      "missing_design_context_sources": {
+        "ductility_class": {
+          "context_name": "ductility_class",
+          "expected_evidence_fields": [
+            "source_contract",
+            "source_field",
+            "resolved_value"
+          ],
+          "source_contract": "design_basis.yaml",
+          "source_field": "ductility_class",
+          "source_kind": "design_context",
+          "unit": ""
+        }
+      },
+      "missing_feature_sources": {
+        "beam_Vd_left_kN": {
+          "aggregation": "left_zone_max_abs",
+          "combo_family": "DUCTILE_X_OR_Y",
+          "expected_evidence_fields": [
+            "source_table",
+            "source_row",
+            "source_column",
+            "raw_value",
+            "normalized_value",
+            "unit",
+            "output_case",
+            "combo_family"
+          ],
+          "feature_name": "beam_Vd_left_kN",
+          "field_aliases": [
+            "V2"
+          ],
+          "source_kind": "etabs_table",
+          "table_aliases": [
+            "Element Forces - Beams"
+          ],
+          "table_key": "beam_forces",
+          "unit": "kN"
+        },
+        "beam_Vd_right_kN": {
+          "aggregation": "right_zone_max_abs",
+          "combo_family": "DUCTILE_X_OR_Y",
+          "expected_evidence_fields": [
+            "source_table",
+            "source_row",
+            "source_column",
+            "raw_value",
+            "normalized_value",
+            "unit",
+            "output_case",
+            "combo_family"
+          ],
+          "feature_name": "beam_Vd_right_kN",
+          "field_aliases": [
+            "V2"
+          ],
+          "source_kind": "etabs_table",
+          "table_aliases": [
+            "Element Forces - Beams"
+          ],
+          "table_key": "beam_forces",
+          "unit": "kN"
+        },
+        "beam_effective_depth_mm": {
+          "custom_resolver": "custom_resolver",
+          "expected_evidence_fields": [
+            "source_table",
+            "source_row",
+            "source_column",
+            "raw_value",
+            "normalized_value",
+            "unit",
+            "output_case",
+            "combo_family"
+          ],
+          "feature_name": "beam_effective_depth_mm",
+          "required_inputs": [
+            "beam_depth_mm"
+          ],
+          "source_kind": "computed",
+          "unit": "mm"
+        }
+      },
+      "missing_features": [
+        {
+          "feature_name": "beam_Vd_left_kN",
+          "reason": "FeatureSnapshot does not contain a resolved feature value"
+        },
+        {
+          "feature_name": "beam_Vd_right_kN",
+          "reason": "FeatureSnapshot does not contain a resolved feature value"
+        },
+        {
+          "feature_name": "beam_effective_depth_mm",
+          "reason": "FeatureSnapshot does not contain a resolved feature value"
+        }
+      ],
+      "reason": "One or more required features are missing",
+      "required_design_context": [
+        "ductility_class"
+      ],
+      "required_features": [
+        "beam_Vd_left_kN",
+        "beam_Vd_right_kN",
+        "beam_width_mm",
+        "beam_effective_depth_mm"
+      ],
+      "resolved_design_context": [],
+      "resolved_features": [
+        "beam_width_mm"
+      ],
+      "section_state_status": "RESOLVED",
+      "source_diagnostics": [
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_shear_ve_le_vr",
+            "feature_name": "beam_Vd_left_kN",
+            "source_kind": "etabs_table"
+          },
+          "message": "Expected source metadata recorded for missing feature",
+          "severity": "INFO"
+        },
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_shear_ve_le_vr",
+            "feature_name": "beam_Vd_right_kN",
+            "source_kind": "etabs_table"
+          },
+          "message": "Expected source metadata recorded for missing feature",
+          "severity": "INFO"
+        },
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_shear_ve_le_vr",
+            "feature_name": "beam_effective_depth_mm",
+            "source_kind": "computed"
+          },
+          "message": "Expected source metadata recorded for missing feature",
+          "severity": "INFO"
+        },
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_shear_ve_le_vr",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Expected source metadata recorded for missing design context",
+          "severity": "INFO"
+        }
+      ]
+    },
+    {
+      "check_id": "beam_shear_asw_ge_asw_min",
+      "check_readiness_status": "missing_features",
+      "combo_policy_status": "NOT_APPLICABLE",
+      "component_id": "297",
+      "component_type": "beam",
+      "coverage_status": "BLOCKED",
+      "diagnostics": [
+        {
+          "code": "FEATURE_MISSING",
+          "details": {
+            "check_id": "beam_shear_asw_ge_asw_min",
+            "feature_name": "beam_As_top_governing_required_mm2"
+          },
+          "message": "Required feature is missing from FeatureSnapshot",
+          "severity": "ERROR"
+        },
+        {
+          "code": "DESIGN_CONTEXT_MISSING",
+          "details": {
+            "check_id": "beam_shear_asw_ge_asw_min",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Required design context is missing for coverage",
+          "severity": "WARNING"
+        }
+      ],
+      "ductility_context_status": "MISSING",
+      "effective_evaluation_level": "NO_DATA",
+      "evidence_status": "MISSING",
+      "expected_evidence_requirements": {
+        "beam_As_top_governing_required_mm2": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ],
+        "beam_width_mm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ]
+      },
+      "missing_design_context": [
+        {
+          "context_field": "ductility_class",
+          "reason": "Required design context is missing"
+        }
+      ],
+      "missing_design_context_sources": {
+        "ductility_class": {
+          "context_name": "ductility_class",
+          "expected_evidence_fields": [
+            "source_contract",
+            "source_field",
+            "resolved_value"
+          ],
+          "source_contract": "design_basis.yaml",
+          "source_field": "ductility_class",
+          "source_kind": "design_context",
+          "unit": ""
+        }
+      },
+      "missing_feature_sources": {
+        "beam_As_top_governing_required_mm2": {
+          "custom_resolver": "governing_rebar_resolver",
+          "expected_evidence_fields": [
+            "source_table",
+            "source_row",
+            "source_column",
+            "raw_value",
+            "normalized_value",
+            "unit",
+            "output_case",
+            "combo_family"
+          ],
+          "feature_name": "beam_As_top_governing_required_mm2",
+          "required_inputs": [
+            "beam_As_top_etabs_required_mm2",
+            "beam_As_top_tbdy_min_required_mm2"
+          ],
+          "source_kind": "computed",
+          "unit": "mm2"
+        }
+      },
+      "missing_features": [
+        {
+          "feature_name": "beam_As_top_governing_required_mm2",
+          "reason": "FeatureSnapshot does not contain a resolved feature value"
+        }
+      ],
+      "reason": "One or more required features are missing",
+      "required_design_context": [
+        "ductility_class"
+      ],
+      "required_features": [
+        "beam_As_top_governing_required_mm2",
+        "beam_width_mm"
+      ],
+      "resolved_design_context": [],
+      "resolved_features": [
+        "beam_width_mm"
+      ],
+      "section_state_status": "RESOLVED",
+      "source_diagnostics": [
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_shear_asw_ge_asw_min",
+            "feature_name": "beam_As_top_governing_required_mm2",
+            "source_kind": "computed"
+          },
+          "message": "Expected source metadata recorded for missing feature",
+          "severity": "INFO"
+        },
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_shear_asw_ge_asw_min",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Expected source metadata recorded for missing design context",
+          "severity": "INFO"
+        }
+      ]
+    },
+    {
+      "check_id": "beam_capacity_design_shear",
+      "check_readiness_status": "missing_features",
+      "combo_policy_status": "NOT_APPLICABLE",
+      "component_id": "297",
+      "component_type": "beam",
+      "coverage_status": "BLOCKED",
+      "diagnostics": [
+        {
+          "code": "FEATURE_MISSING",
+          "details": {
+            "check_id": "beam_capacity_design_shear",
+            "feature_name": "beam_Md_left_neg_kNm"
+          },
+          "message": "Required feature is missing from FeatureSnapshot",
+          "severity": "ERROR"
+        },
+        {
+          "code": "FEATURE_MISSING",
+          "details": {
+            "check_id": "beam_capacity_design_shear",
+            "feature_name": "beam_Md_right_neg_kNm"
+          },
+          "message": "Required feature is missing from FeatureSnapshot",
+          "severity": "ERROR"
+        },
+        {
+          "code": "FEATURE_MISSING",
+          "details": {
+            "check_id": "beam_capacity_design_shear",
+            "feature_name": "beam_clear_span_mm"
+          },
+          "message": "Required feature is missing from FeatureSnapshot",
+          "severity": "ERROR"
+        },
+        {
+          "code": "DESIGN_CONTEXT_MISSING",
+          "details": {
+            "check_id": "beam_capacity_design_shear",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Required design context is missing for coverage",
+          "severity": "WARNING"
+        }
+      ],
+      "ductility_context_status": "MISSING",
+      "effective_evaluation_level": "NO_DATA",
+      "evidence_status": "MISSING",
+      "expected_evidence_requirements": {
+        "beam_Md_left_neg_kNm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ],
+        "beam_Md_right_neg_kNm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ],
+        "beam_clear_span_mm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ]
+      },
+      "missing_design_context": [
+        {
+          "context_field": "ductility_class",
+          "reason": "Required design context is missing"
+        }
+      ],
+      "missing_design_context_sources": {
+        "ductility_class": {
+          "context_name": "ductility_class",
+          "expected_evidence_fields": [
+            "source_contract",
+            "source_field",
+            "resolved_value"
+          ],
+          "source_contract": "design_basis.yaml",
+          "source_field": "ductility_class",
+          "source_kind": "design_context",
+          "unit": ""
+        }
+      },
+      "missing_feature_sources": {
+        "beam_Md_left_neg_kNm": {
+          "aggregation": "left_zone_max_abs_negative",
+          "combo_family": "DUCTILE_X_OR_Y",
+          "expected_evidence_fields": [
+            "source_table",
+            "source_row",
+            "source_column",
+            "raw_value",
+            "normalized_value",
+            "unit",
+            "output_case",
+            "combo_family"
+          ],
+          "feature_name": "beam_Md_left_neg_kNm",
+          "field_aliases": [
+            "M3"
+          ],
+          "source_kind": "etabs_table",
+          "table_aliases": [
+            "Element Forces - Beams"
+          ],
+          "table_key": "beam_forces",
+          "unit": "kNm"
+        },
+        "beam_Md_right_neg_kNm": {
+          "aggregation": "right_zone_max_abs_negative",
+          "combo_family": "DUCTILE_X_OR_Y",
+          "expected_evidence_fields": [
+            "source_table",
+            "source_row",
+            "source_column",
+            "raw_value",
+            "normalized_value",
+            "unit",
+            "output_case",
+            "combo_family"
+          ],
+          "feature_name": "beam_Md_right_neg_kNm",
+          "field_aliases": [
+            "M3"
+          ],
+          "source_kind": "etabs_table",
+          "table_aliases": [
+            "Element Forces - Beams"
+          ],
+          "table_key": "beam_forces",
+          "unit": "kNm"
+        },
+        "beam_clear_span_mm": {
+          "aggregation": "none",
+          "combo_family": "NONE",
+          "expected_evidence_fields": [
+            "source_table",
+            "source_row",
+            "source_column",
+            "raw_value",
+            "normalized_value",
+            "unit",
+            "output_case",
+            "combo_family"
+          ],
+          "feature_name": "beam_clear_span_mm",
+          "field_aliases": [
+            "Length"
+          ],
+          "source_kind": "etabs_table",
+          "table_aliases": [
+            "Frame Assignments - Summary"
+          ],
+          "table_key": "frame_assignments",
+          "unit": "mm"
+        }
+      },
+      "missing_features": [
+        {
+          "feature_name": "beam_Md_left_neg_kNm",
+          "reason": "FeatureSnapshot does not contain a resolved feature value"
+        },
+        {
+          "feature_name": "beam_Md_right_neg_kNm",
+          "reason": "FeatureSnapshot does not contain a resolved feature value"
+        },
+        {
+          "feature_name": "beam_clear_span_mm",
+          "reason": "FeatureSnapshot does not contain a resolved feature value"
+        }
+      ],
+      "reason": "One or more required features are missing",
+      "required_design_context": [
+        "ductility_class"
+      ],
+      "required_features": [
+        "beam_Md_left_neg_kNm",
+        "beam_Md_right_neg_kNm",
+        "beam_clear_span_mm"
+      ],
+      "resolved_design_context": [],
+      "resolved_features": [],
+      "section_state_status": "RESOLVED",
+      "source_diagnostics": [
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_capacity_design_shear",
+            "feature_name": "beam_Md_left_neg_kNm",
+            "source_kind": "etabs_table"
+          },
+          "message": "Expected source metadata recorded for missing feature",
+          "severity": "INFO"
+        },
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_capacity_design_shear",
+            "feature_name": "beam_Md_right_neg_kNm",
+            "source_kind": "etabs_table"
+          },
+          "message": "Expected source metadata recorded for missing feature",
+          "severity": "INFO"
+        },
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_capacity_design_shear",
+            "feature_name": "beam_clear_span_mm",
+            "source_kind": "etabs_table"
+          },
+          "message": "Expected source metadata recorded for missing feature",
+          "severity": "INFO"
+        },
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "beam_capacity_design_shear",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Expected source metadata recorded for missing design context",
+          "severity": "INFO"
+        }
+      ]
+    },
+    {
+      "check_id": "story_drift_limit",
+      "check_readiness_status": "missing_features",
+      "combo_policy_status": "NOT_APPLICABLE",
+      "component_id": "+14.5",
+      "component_type": "story",
+      "coverage_status": "BLOCKED",
+      "diagnostics": [
+        {
+          "code": "FEATURE_MISSING",
+          "details": {
+            "check_id": "story_drift_limit",
+            "feature_name": "story_height_mm"
+          },
+          "message": "Required feature is missing from FeatureSnapshot",
+          "severity": "ERROR"
+        },
+        {
+          "code": "DESIGN_CONTEXT_MISSING",
+          "details": {
+            "check_id": "story_drift_limit",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Required design context is missing for coverage",
+          "severity": "WARNING"
+        }
+      ],
+      "ductility_context_status": "MISSING",
+      "effective_evaluation_level": "NO_DATA",
+      "evidence_status": "MISSING",
+      "expected_evidence_requirements": {
+        "story_drift_max_mm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ],
+        "story_height_mm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ]
+      },
+      "missing_design_context": [
+        {
+          "context_field": "ductility_class",
+          "reason": "Required design context is missing"
+        }
+      ],
+      "missing_design_context_sources": {
+        "ductility_class": {
+          "context_name": "ductility_class",
+          "expected_evidence_fields": [
+            "source_contract",
+            "source_field",
+            "resolved_value"
+          ],
+          "source_contract": "design_basis.yaml",
+          "source_field": "ductility_class",
+          "source_kind": "design_context",
+          "unit": ""
+        }
+      },
+      "missing_feature_sources": {
+        "story_height_mm": {
+          "aggregation": "none",
+          "combo_family": "NONE",
+          "expected_evidence_fields": [
+            "source_table",
+            "source_row",
+            "source_column",
+            "raw_value",
+            "normalized_value",
+            "unit",
+            "output_case",
+            "combo_family"
+          ],
+          "feature_name": "story_height_mm",
+          "field_aliases": [
+            "Height"
+          ],
+          "source_kind": "etabs_table",
+          "table_aliases": [
+            "Story Definitions"
+          ],
+          "table_key": "story_definitions",
+          "unit": "mm"
+        }
+      },
+      "missing_features": [
+        {
+          "feature_name": "story_height_mm",
+          "reason": "FeatureSnapshot does not contain a resolved feature value"
+        }
+      ],
+      "reason": "One or more required features are missing",
+      "required_design_context": [
+        "ductility_class"
+      ],
+      "required_features": [
+        "story_drift_max_mm",
+        "story_height_mm"
+      ],
+      "resolved_design_context": [],
+      "resolved_features": [
+        "story_drift_max_mm"
+      ],
+      "section_state_status": "RESOLVED",
+      "source_diagnostics": [
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "story_drift_limit",
+            "feature_name": "story_height_mm",
+            "source_kind": "etabs_table"
+          },
+          "message": "Expected source metadata recorded for missing feature",
+          "severity": "INFO"
+        },
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "story_drift_limit",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Expected source metadata recorded for missing design context",
+          "severity": "INFO"
+        }
+      ]
+    },
+    {
+      "check_id": "torsional_irregularity_A1",
+      "check_readiness_status": "partial",
+      "combo_policy_status": "NOT_APPLICABLE",
+      "component_id": "+14.5",
+      "component_type": "story",
+      "coverage_status": "PARTIAL",
+      "diagnostics": [
+        {
+          "code": "DESIGN_CONTEXT_MISSING",
+          "details": {
+            "check_id": "torsional_irregularity_A1",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Required design context is missing for coverage",
+          "severity": "WARNING"
+        }
+      ],
+      "ductility_context_status": "MISSING",
+      "effective_evaluation_level": "SCREENING",
+      "evidence_status": "FULL",
+      "expected_evidence_requirements": {
+        "story_torsion_a1_coefficient": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ]
+      },
+      "missing_design_context": [
+        {
+          "context_field": "ductility_class",
+          "reason": "Required design context is missing"
+        }
+      ],
+      "missing_design_context_sources": {
+        "ductility_class": {
+          "context_name": "ductility_class",
+          "expected_evidence_fields": [
+            "source_contract",
+            "source_field",
+            "resolved_value"
+          ],
+          "source_contract": "design_basis.yaml",
+          "source_field": "ductility_class",
+          "source_kind": "design_context",
+          "unit": ""
+        }
+      },
+      "missing_feature_sources": {},
+      "missing_features": [],
+      "reason": "Required design context is incomplete",
+      "required_design_context": [
+        "ductility_class"
+      ],
+      "required_features": [
+        "story_torsion_a1_coefficient"
+      ],
+      "resolved_design_context": [],
+      "resolved_features": [
+        "story_torsion_a1_coefficient"
+      ],
+      "section_state_status": "RESOLVED",
+      "source_diagnostics": [
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "torsional_irregularity_A1",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Expected source metadata recorded for missing design context",
+          "severity": "INFO"
+        }
+      ]
+    },
+    {
+      "check_id": "modal_mass_participation",
+      "check_readiness_status": "partial",
+      "combo_policy_status": "NOT_APPLICABLE",
+      "component_id": "GLOBAL",
+      "component_type": "global",
+      "coverage_status": "PARTIAL",
+      "diagnostics": [
+        {
+          "code": "DESIGN_CONTEXT_MISSING",
+          "details": {
+            "check_id": "modal_mass_participation",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Required design context is missing for coverage",
+          "severity": "WARNING"
+        }
+      ],
+      "ductility_context_status": "MISSING",
+      "effective_evaluation_level": "SCREENING",
+      "evidence_status": "FULL",
+      "expected_evidence_requirements": {
+        "modal_sum_ux": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ],
+        "modal_sum_uy": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ]
+      },
+      "missing_design_context": [
+        {
+          "context_field": "ductility_class",
+          "reason": "Required design context is missing"
+        }
+      ],
+      "missing_design_context_sources": {
+        "ductility_class": {
+          "context_name": "ductility_class",
+          "expected_evidence_fields": [
+            "source_contract",
+            "source_field",
+            "resolved_value"
+          ],
+          "source_contract": "design_basis.yaml",
+          "source_field": "ductility_class",
+          "source_kind": "design_context",
+          "unit": ""
+        }
+      },
+      "missing_feature_sources": {},
+      "missing_features": [],
+      "reason": "Required design context is incomplete",
+      "required_design_context": [
+        "ductility_class"
+      ],
+      "required_features": [
+        "modal_sum_ux",
+        "modal_sum_uy"
+      ],
+      "resolved_design_context": [],
+      "resolved_features": [
+        "modal_sum_ux",
+        "modal_sum_uy"
+      ],
+      "section_state_status": "NOT_APPLICABLE",
+      "source_diagnostics": [
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "modal_mass_participation",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Expected source metadata recorded for missing design context",
+          "severity": "INFO"
+        }
+      ]
+    },
+    {
+      "check_id": "base_shear_scaling",
+      "check_readiness_status": "missing_features",
+      "combo_policy_status": "NOT_APPLICABLE",
+      "component_id": "GLOBAL",
+      "component_type": "global",
+      "coverage_status": "BLOCKED",
+      "diagnostics": [
+        {
+          "code": "FEATURE_MISSING",
+          "details": {
+            "check_id": "base_shear_scaling",
+            "feature_name": "design_base_shear_kN"
+          },
+          "message": "Required feature is missing from FeatureSnapshot",
+          "severity": "ERROR"
+        },
+        {
+          "code": "DESIGN_CONTEXT_MISSING",
+          "details": {
+            "check_id": "base_shear_scaling",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Required design context is missing for coverage",
+          "severity": "WARNING"
+        }
+      ],
+      "ductility_context_status": "MISSING",
+      "effective_evaluation_level": "NO_DATA",
+      "evidence_status": "MISSING",
+      "expected_evidence_requirements": {
+        "base_reaction_x_kN": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ],
+        "base_reaction_y_kN": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ],
+        "design_base_shear_kN": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ]
+      },
+      "missing_design_context": [
+        {
+          "context_field": "ductility_class",
+          "reason": "Required design context is missing"
+        }
+      ],
+      "missing_design_context_sources": {
+        "ductility_class": {
+          "context_name": "ductility_class",
+          "expected_evidence_fields": [
+            "source_contract",
+            "source_field",
+            "resolved_value"
+          ],
+          "source_contract": "design_basis.yaml",
+          "source_field": "ductility_class",
+          "source_kind": "design_context",
+          "unit": ""
+        }
+      },
+      "missing_feature_sources": {
+        "design_base_shear_kN": {
+          "custom_resolver": "computed_resolver",
+          "expected_evidence_fields": [
+            "source_table",
+            "source_row",
+            "source_column",
+            "raw_value",
+            "normalized_value",
+            "unit",
+            "output_case",
+            "combo_family"
+          ],
+          "feature_name": "design_base_shear_kN",
+          "required_inputs": [],
+          "source_kind": "computed",
+          "unit": "kN"
+        }
+      },
+      "missing_features": [
+        {
+          "feature_name": "design_base_shear_kN",
+          "reason": "FeatureSnapshot does not contain a resolved feature value"
+        }
+      ],
+      "reason": "One or more required features are missing",
+      "required_design_context": [
+        "ductility_class"
+      ],
+      "required_features": [
+        "base_reaction_x_kN",
+        "base_reaction_y_kN",
+        "design_base_shear_kN"
+      ],
+      "resolved_design_context": [],
+      "resolved_features": [
+        "base_reaction_x_kN",
+        "base_reaction_y_kN"
+      ],
+      "section_state_status": "NOT_APPLICABLE",
+      "source_diagnostics": [
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "base_shear_scaling",
+            "feature_name": "design_base_shear_kN",
+            "source_kind": "computed"
+          },
+          "message": "Expected source metadata recorded for missing feature",
+          "severity": "INFO"
+        },
+        {
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "details": {
+            "check_id": "base_shear_scaling",
+            "missing_design_context": [
+              "ductility_class"
+            ]
+          },
+          "message": "Expected source metadata recorded for missing design context",
+          "severity": "INFO"
+        }
+      ]
+    }
+  ],
+  "contract_version": "1.0"
+}

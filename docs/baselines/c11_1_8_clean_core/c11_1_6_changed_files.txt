@@ -1,0 +1,10 @@
+tbdy_engine/catalogs/schemas/feature_snapshot.schema.json
+tbdy_engine/catalogs/examples/feature_snapshot.example.json
+tbdy_engine/tools/validate_contract_constitution.py
+tests/contracts/test_contract_constitution_files.py
+tests/contracts/test_contract_loader.py
+tests/contracts/test_examples_validate_against_schemas.py
+tests/contracts/test_feature_snapshot_schema_contract.py
+tests/fixtures/feature_snapshot_c8_3_minimal_valid.json
+tests/live_check_dry_run/test_validation_fixtures_bootstrap.py
+tools/bootstrap_validation_fixtures.py

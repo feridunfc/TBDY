@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "metadata",
+    "code_basis",
+    "unit_system",
+    "seismic_design_context",
+    "model_assumptions",
+    "element_design_policy"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "contract",
+        "version",
+        "catalog_name"
+      ],
+      "properties": {
+        "contract": {
+          "const": "Contract Constitution"
+        },
+        "version": {
+          "const": "1.0"
+        },
+        "catalog_name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "code_basis": {
+      "type": "object"
+    },
+    "unit_system": {
+      "type": "object"
+    },
+    "seismic_design_context": {
+      "type": "object"
+    },
+    "model_assumptions": {
+      "type": "object"
+    },
+    "element_design_policy": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

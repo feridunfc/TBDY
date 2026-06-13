@@ -1,0 +1,414 @@
+{
+  "base_reactions": {
+    "actual_table_name": "Base Reactions",
+    "attempted_case_fallback": false,
+    "available_output_case_samples": [
+      "Crack_SeisY_UpSoil"
+    ],
+    "available_story_samples": [],
+    "canonical_table_name": "base_reactions",
+    "debug_sample_row_count": 1,
+    "diagnostics": [
+      {
+        "code": "LEGACY_FIXTURE_SAMPLE_ROWS_USED",
+        "details": {
+          "actual_table_name": "Base Reactions",
+          "sample_row_count": 1
+        },
+        "message": "Tiny fixture has no separate full-row storage; sample rows are used as fixture resolver rows only.",
+        "severity": "INFO"
+      }
+    ],
+    "display_selection_attempted": false,
+    "display_selection_attempts": [],
+    "display_selection_selected_method": null,
+    "display_selection_success": false,
+    "fetch_after_display_selection": false,
+    "header_count": 5,
+    "headers": [
+      "OutputCase",
+      "CaseType",
+      "StepType",
+      "FX",
+      "FY"
+    ],
+    "normalized_headers": [
+      "outputcase",
+      "casetype",
+      "steptype",
+      "fx",
+      "fy"
+    ],
+    "number_fields_detected": 5,
+    "number_fields_source": "header_count_fallback",
+    "number_records_by_signature": {},
+    "parser_status": "PARSED_ROWS",
+    "parser_status_by_signature": {},
+    "preferred_output_case": "Crack_SeisY_UpSoil",
+    "preferred_output_kind_detected": "unknown",
+    "raw_table_diagnostics": {
+      "attempted_case_fallback": false,
+      "debug_sample_row_count": 1,
+      "display_selection_attempted": false,
+      "display_selection_attempts": [],
+      "display_selection_selected_method": null,
+      "display_selection_success": false,
+      "expected_flat_length": 5,
+      "fetch_after_display_selection": false,
+      "fields": [
+        "OutputCase",
+        "CaseType",
+        "StepType",
+        "FX",
+        "FY"
+      ],
+      "header_count": 5,
+      "number_fields": 5,
+      "number_fields_detected": 5,
+      "number_fields_source": "header_count_fallback",
+      "number_records": 1,
+      "number_records_by_signature": {},
+      "parser_status": "FIXTURE_SAMPLE_ROWS",
+      "parser_status_by_signature": {},
+      "preferred_output_case": null,
+      "preferred_output_kind_detected": "unknown",
+      "resolver_row_count": 1,
+      "return_code": null,
+      "selected_signature": {},
+      "selected_signature_reason": null,
+      "signature_attempts": [],
+      "skipped_case_selection_because_combo_succeeded": false,
+      "table_data_length": 5,
+      "table_data_length_by_signature": {},
+      "table_name": "Base Reactions"
+    },
+    "required_alias_values_seen": {
+      "fx": [
+        1020.5
+      ],
+      "fy": [
+        2440.1
+      ],
+      "output_case": [
+        "Crack_SeisY_UpSoil"
+      ]
+    },
+    "required_columns_seen": {
+      "fx": true,
+      "fy": true,
+      "output_case": true
+    },
+    "resolver_row_count": 1,
+    "row_count": 1,
+    "sample_rows": [
+      {
+        "CaseType": "Combination",
+        "FX": 1020.5,
+        "FY": 2440.1,
+        "OutputCase": "Crack_SeisY_UpSoil",
+        "StepType": "Max"
+      }
+    ],
+    "selected_row": {
+      "CaseType": "Combination",
+      "FX": 1020.5,
+      "FY": 2440.1,
+      "OutputCase": "Crack_SeisY_UpSoil",
+      "StepType": "Max"
+    },
+    "selected_row_reason": "preferred_output_case_match_with_numeric_fx_fy",
+    "selected_signature": {},
+    "selected_signature_reason": null,
+    "signature_attempts": [],
+    "skipped_case_selection_because_combo_succeeded": false,
+    "source_row_storage_field_used": "sample_rows_limited",
+    "table_alias": "base_reactions",
+    "table_data_length_by_signature": {},
+    "target_story": null,
+    "why_partial_if_partial": null
+  },
+  "story_drifts": {
+    "actual_table_name": "Story Drifts",
+    "attempted_case_fallback": false,
+    "available_output_case_samples": [
+      "Crack_SeisY_UpSoil"
+    ],
+    "available_story_samples": [
+      "+14.5"
+    ],
+    "canonical_table_name": "story_drifts",
+    "debug_sample_row_count": 1,
+    "diagnostics": [
+      {
+        "code": "LEGACY_FIXTURE_SAMPLE_ROWS_USED",
+        "details": {
+          "actual_table_name": "Story Drifts",
+          "sample_row_count": 1
+        },
+        "message": "Tiny fixture has no separate full-row storage; sample rows are used as fixture resolver rows only.",
+        "severity": "INFO"
+      }
+    ],
+    "display_selection_attempted": false,
+    "display_selection_attempts": [],
+    "display_selection_selected_method": null,
+    "display_selection_success": false,
+    "fetch_after_display_selection": false,
+    "header_count": 6,
+    "headers": [
+      "Story",
+      "OutputCase",
+      "CaseType",
+      "StepType",
+      "Direction",
+      "Drift"
+    ],
+    "normalized_headers": [
+      "story",
+      "outputcase",
+      "casetype",
+      "steptype",
+      "direction",
+      "drift"
+    ],
+    "number_fields_detected": 6,
+    "number_fields_source": "header_count_fallback",
+    "number_records_by_signature": {},
+    "parser_status": "PARSED_ROWS",
+    "parser_status_by_signature": {},
+    "preferred_output_case": "Crack_SeisY_UpSoil",
+    "preferred_output_kind_detected": "unknown",
+    "raw_table_diagnostics": {
+      "attempted_case_fallback": false,
+      "debug_sample_row_count": 1,
+      "display_selection_attempted": false,
+      "display_selection_attempts": [],
+      "display_selection_selected_method": null,
+      "display_selection_success": false,
+      "expected_flat_length": 6,
+      "fetch_after_display_selection": false,
+      "fields": [
+        "Story",
+        "OutputCase",
+        "CaseType",
+        "StepType",
+        "Direction",
+        "Drift"
+      ],
+      "header_count": 6,
+      "number_fields": 6,
+      "number_fields_detected": 6,
+      "number_fields_source": "header_count_fallback",
+      "number_records": 1,
+      "number_records_by_signature": {},
+      "parser_status": "FIXTURE_SAMPLE_ROWS",
+      "parser_status_by_signature": {},
+      "preferred_output_case": null,
+      "preferred_output_kind_detected": "unknown",
+      "resolver_row_count": 1,
+      "return_code": null,
+      "selected_signature": {},
+      "selected_signature_reason": null,
+      "signature_attempts": [],
+      "skipped_case_selection_because_combo_succeeded": false,
+      "table_data_length": 6,
+      "table_data_length_by_signature": {},
+      "table_name": "Story Drifts"
+    },
+    "required_alias_values_seen": {
+      "direction": [
+        "Y"
+      ],
+      "drift": [
+        9.5
+      ],
+      "output_case": [
+        "Crack_SeisY_UpSoil"
+      ],
+      "story": [
+        "+14.5"
+      ]
+    },
+    "required_columns_seen": {
+      "direction": true,
+      "drift": true,
+      "output_case": true,
+      "story": true
+    },
+    "resolver_row_count": 1,
+    "row_count": 1,
+    "sample_rows": [
+      {
+        "CaseType": "Combination",
+        "Direction": "Y",
+        "Drift": 9.5,
+        "OutputCase": "Crack_SeisY_UpSoil",
+        "StepType": "Max",
+        "Story": "+14.5"
+      }
+    ],
+    "selected_row": {
+      "CaseType": "Combination",
+      "Direction": "Y",
+      "Drift": 9.5,
+      "OutputCase": "Crack_SeisY_UpSoil",
+      "StepType": "Max",
+      "Story": "+14.5"
+    },
+    "selected_row_reason": "deterministic_valid_row",
+    "selected_signature": {},
+    "selected_signature_reason": null,
+    "signature_attempts": [],
+    "skipped_case_selection_because_combo_succeeded": false,
+    "source_row_storage_field_used": "sample_rows_limited",
+    "table_alias": "story_drifts",
+    "table_data_length_by_signature": {},
+    "target_story": null,
+    "why_partial_if_partial": null
+  },
+  "story_max_over_avg_drifts": {
+    "actual_table_name": "Story Max Over Avg Drifts",
+    "attempted_case_fallback": false,
+    "available_output_case_samples": [
+      "Crack_SeisY_UpSoil"
+    ],
+    "available_story_samples": [
+      "+14.5"
+    ],
+    "canonical_table_name": "story_max_over_avg_drifts",
+    "debug_sample_row_count": 1,
+    "diagnostics": [
+      {
+        "code": "LEGACY_FIXTURE_SAMPLE_ROWS_USED",
+        "details": {
+          "actual_table_name": "Story Max Over Avg Drifts",
+          "sample_row_count": 1
+        },
+        "message": "Tiny fixture has no separate full-row storage; sample rows are used as fixture resolver rows only.",
+        "severity": "INFO"
+      }
+    ],
+    "display_selection_attempted": false,
+    "display_selection_attempts": [],
+    "display_selection_selected_method": null,
+    "display_selection_success": false,
+    "fetch_after_display_selection": false,
+    "header_count": 8,
+    "headers": [
+      "Story",
+      "OutputCase",
+      "CaseType",
+      "StepType",
+      "Direction",
+      "Max Drift",
+      "Avg Drift",
+      "Ratio"
+    ],
+    "normalized_headers": [
+      "story",
+      "outputcase",
+      "casetype",
+      "steptype",
+      "direction",
+      "maxdrift",
+      "avgdrift",
+      "ratio"
+    ],
+    "number_fields_detected": 8,
+    "number_fields_source": "header_count_fallback",
+    "number_records_by_signature": {},
+    "parser_status": "PARSED_ROWS",
+    "parser_status_by_signature": {},
+    "preferred_output_case": "Crack_SeisY_UpSoil",
+    "preferred_output_kind_detected": "unknown",
+    "raw_table_diagnostics": {
+      "attempted_case_fallback": false,
+      "debug_sample_row_count": 1,
+      "display_selection_attempted": false,
+      "display_selection_attempts": [],
+      "display_selection_selected_method": null,
+      "display_selection_success": false,
+      "expected_flat_length": 8,
+      "fetch_after_display_selection": false,
+      "fields": [
+        "Story",
+        "OutputCase",
+        "CaseType",
+        "StepType",
+        "Direction",
+        "Max Drift",
+        "Avg Drift",
+        "Ratio"
+      ],
+      "header_count": 8,
+      "number_fields": 8,
+      "number_fields_detected": 8,
+      "number_fields_source": "header_count_fallback",
+      "number_records": 1,
+      "number_records_by_signature": {},
+      "parser_status": "FIXTURE_SAMPLE_ROWS",
+      "parser_status_by_signature": {},
+      "preferred_output_case": null,
+      "preferred_output_kind_detected": "unknown",
+      "resolver_row_count": 1,
+      "return_code": null,
+      "selected_signature": {},
+      "selected_signature_reason": null,
+      "signature_attempts": [],
+      "skipped_case_selection_because_combo_succeeded": false,
+      "table_data_length": 8,
+      "table_data_length_by_signature": {},
+      "table_name": "Story Max Over Avg Drifts"
+    },
+    "required_alias_values_seen": {
+      "output_case": [
+        "Crack_SeisY_UpSoil"
+      ],
+      "ratio": [
+        1.33
+      ],
+      "story": [
+        "+14.5"
+      ]
+    },
+    "required_columns_seen": {
+      "output_case": true,
+      "ratio": true,
+      "story": true
+    },
+    "resolver_row_count": 1,
+    "row_count": 1,
+    "sample_rows": [
+      {
+        "Avg Drift": 7.1,
+        "CaseType": "Combination",
+        "Direction": "Y",
+        "Max Drift": 9.5,
+        "OutputCase": "Crack_SeisY_UpSoil",
+        "Ratio": 1.33,
+        "StepType": "Max",
+        "Story": "+14.5"
+      }
+    ],
+    "selected_row": {
+      "Avg Drift": 7.1,
+      "CaseType": "Combination",
+      "Direction": "Y",
+      "Max Drift": 9.5,
+      "OutputCase": "Crack_SeisY_UpSoil",
+      "Ratio": 1.33,
+      "StepType": "Max",
+      "Story": "+14.5"
+    },
+    "selected_row_reason": "deterministic_valid_row",
+    "selected_signature": {},
+    "selected_signature_reason": null,
+    "signature_attempts": [],
+    "skipped_case_selection_because_combo_succeeded": false,
+    "source_row_storage_field_used": "sample_rows_limited",
+    "table_alias": "story_max_over_avg_drifts",
+    "table_data_length_by_signature": {},
+    "target_story": null,
+    "why_partial_if_partial": null
+  }
+}

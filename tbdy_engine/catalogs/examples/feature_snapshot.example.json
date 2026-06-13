@@ -1,0 +1,93 @@
+{
+  "feature_status_counts": {
+    "RESOLVED": 1
+  },
+  "metadata": {
+    "check_engine_executed": false,
+    "check_result_emitted": false,
+    "live_verdict_emitted": false,
+    "sprint": "C8_3_LIVE_MODEL_GEOMETRY_RETRIEVAL",
+    "unit_context": {
+      "diagnostics": [],
+      "etabs_database_units": null,
+      "etabs_present_units_raw": null,
+      "etabs_present_units_return_code": null,
+      "force_unit": "N",
+      "length_unit": "mm",
+      "run_id": null,
+      "source": "fixture_declared_units",
+      "temperature_unit": "C",
+      "unit_basis_confidence": "high",
+      "unit_query_status": "RESOLVED",
+      "unit_query_succeeded": true
+    }
+  },
+  "snapshots": [
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "diagnostics": [],
+      "evidence_by_feature": {
+        "beam_width_mm": [
+          {
+            "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+            "combo_family": null,
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 400.0,
+            "output_case": null,
+            "raw_value": 400,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "t2",
+            "source_row": {
+              "section": "B40x70"
+            },
+            "source_table": "frame_section_properties",
+            "unit": "mm"
+          }
+        ]
+      },
+      "features": {
+        "beam_width_mm": {
+          "diagnostics": [],
+          "evidence": [
+            {
+              "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+              "combo_family": null,
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 400.0,
+              "output_case": null,
+              "raw_value": 400,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "t2",
+              "source_row": {
+                "section": "B40x70"
+              },
+              "source_table": "frame_section_properties",
+              "unit": "mm"
+            }
+          ],
+          "feature_name": "beam_width_mm",
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 400.0
+        }
+      },
+      "identity": {
+        "component": "297",
+        "label": "B1",
+        "section": "B40x70",
+        "station": 0,
+        "story": "+14.5"
+      }
+    }
+  ]
+}

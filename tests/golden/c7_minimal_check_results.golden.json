@@ -1,0 +1,379 @@
+{
+  "check_results": [
+    {
+      "capacity": null,
+      "check_id": "required_feature_missing_no_data",
+      "code_ref": "contract",
+      "component": "B_MISSING",
+      "component_type": "beam",
+      "demand": null,
+      "evaluation_level": "NO_DATA",
+      "evidence": [
+        {
+          "check_id": "required_feature_missing_no_data",
+          "combo_policy_status": "NOT_APPLICABLE",
+          "component_id": "B_MISSING",
+          "component_type": "beam",
+          "coverage_status": "BLOCKED",
+          "diagnostics": [],
+          "ductility_context_status": "NOT_APPLICABLE",
+          "evidence_status": "MISSING",
+          "expected_evidence_requirements": {
+            "missing_artificial_feature": [
+              "source_table",
+              "source_row",
+              "source_column",
+              "raw_value",
+              "normalized_value",
+              "unit",
+              "output_case",
+              "combo_family"
+            ]
+          },
+          "missing_design_context": [],
+          "missing_design_context_sources": {},
+          "missing_feature_sources": {
+            "missing_artificial_feature": {
+              "aggregation": "first",
+              "combo_family": "NONE",
+              "expected_evidence_fields": [
+                "source_table",
+                "source_row",
+                "source_column",
+                "raw_value",
+                "normalized_value",
+                "unit",
+                "output_case",
+                "combo_family"
+              ],
+              "feature_name": "missing_artificial_feature",
+              "field_aliases": [
+                "missing_artificial_feature"
+              ],
+              "source_kind": "etabs_table",
+              "table_aliases": [
+                "Artificial Fixture Table"
+              ],
+              "table_key": "artificial_fixture_table",
+              "unit": ""
+            }
+          },
+          "missing_features": [
+            {
+              "feature_name": "missing_artificial_feature",
+              "reason": "intentionally absent in C7 golden fixture"
+            }
+          ],
+          "reason": "Required artificial feature is intentionally absent",
+          "required_design_context": [],
+          "required_features": [
+            "missing_artificial_feature"
+          ],
+          "resolved_design_context": [],
+          "resolved_features": [],
+          "section_state_status": "NOT_APPLICABLE",
+          "source_diagnostics": []
+        }
+      ],
+      "limit": null,
+      "messages": [
+        "Required artificial feature is intentionally absent"
+      ],
+      "pass_rule": null,
+      "ratio": null,
+      "ratio_type": null,
+      "section": "B30x60",
+      "status": "NO_DATA",
+      "story": "+14.5",
+      "unit": null,
+      "value": null
+    },
+    {
+      "capacity": null,
+      "check_id": "beam_geometry_min_width",
+      "code_ref": "TBDY2018/Beam geometry min width fixture",
+      "component": "B_OK",
+      "component_type": "beam",
+      "demand": null,
+      "evaluation_level": "SCREENING",
+      "evidence": [
+        {
+          "actual_table_name": "artificial_fixture",
+          "combo_family": "NONE",
+          "ductility_class": null,
+          "evidence_status": "FULL",
+          "governing_combo": null,
+          "normalized_value": 300,
+          "output_case": null,
+          "raw_value": 300,
+          "reason": null,
+          "resolver": "c7_artificial_fixture",
+          "section_state": null,
+          "source_column": "beam_width_mm",
+          "source_row": {
+            "beam_width_mm": 300,
+            "component_id": "B_OK"
+          },
+          "source_table": "artificial_fixture",
+          "unit": "mm"
+        }
+      ],
+      "limit": 250,
+      "messages": [],
+      "pass_rule": "actual_over_minimum",
+      "ratio": 1.2,
+      "ratio_type": "actual_over_minimum",
+      "section": "B30x60",
+      "status": "OK",
+      "story": "+14.5",
+      "unit": "mm",
+      "value": 300
+    },
+    {
+      "capacity": null,
+      "check_id": "beam_geometry_min_width",
+      "code_ref": "contract",
+      "component": "B_PARTIAL",
+      "component_type": "beam",
+      "demand": null,
+      "evaluation_level": "SCREENING",
+      "evidence": [
+        {
+          "check_id": "beam_geometry_min_width",
+          "combo_policy_status": "NOT_APPLICABLE",
+          "component_id": "B_PARTIAL",
+          "component_type": "beam",
+          "coverage_status": "PARTIAL",
+          "diagnostics": [],
+          "ductility_context_status": "NOT_APPLICABLE",
+          "evidence_status": "PARTIAL",
+          "expected_evidence_requirements": {
+            "beam_width_mm": [
+              "source_table",
+              "source_row",
+              "source_column",
+              "raw_value",
+              "normalized_value",
+              "unit",
+              "output_case",
+              "combo_family"
+            ]
+          },
+          "missing_design_context": [],
+          "missing_design_context_sources": {},
+          "missing_feature_sources": {},
+          "missing_features": [],
+          "reason": "Artificial partial coverage path for C7 warning proof",
+          "required_design_context": [],
+          "required_features": [
+            "beam_width_mm"
+          ],
+          "resolved_design_context": [],
+          "resolved_features": [
+            "beam_width_mm"
+          ],
+          "section_state_status": "NOT_APPLICABLE",
+          "source_diagnostics": []
+        }
+      ],
+      "limit": null,
+      "messages": [
+        "Artificial partial coverage path for C7 warning proof"
+      ],
+      "pass_rule": null,
+      "ratio": null,
+      "ratio_type": null,
+      "section": "B30x60",
+      "status": "WARNING",
+      "story": "+14.5",
+      "unit": null,
+      "value": null
+    },
+    {
+      "capacity": null,
+      "check_id": "beam_depth_width_ratio",
+      "code_ref": "TBDY2018/Beam depth-width screening fixture",
+      "component": "B_RATIO_FAIL",
+      "component_type": "beam",
+      "demand": null,
+      "evaluation_level": "SCREENING",
+      "evidence": [
+        {
+          "actual_table_name": "artificial_fixture",
+          "combo_family": "NONE",
+          "ductility_class": null,
+          "evidence_status": "FULL",
+          "governing_combo": null,
+          "normalized_value": 1200,
+          "output_case": null,
+          "raw_value": 1200,
+          "reason": null,
+          "resolver": "c7_artificial_fixture",
+          "section_state": null,
+          "source_column": "beam_depth_mm",
+          "source_row": {
+            "beam_depth_mm": 1200,
+            "component_id": "B_RATIO_FAIL"
+          },
+          "source_table": "artificial_fixture",
+          "unit": "mm"
+        },
+        {
+          "actual_table_name": "artificial_fixture",
+          "combo_family": "NONE",
+          "ductility_class": null,
+          "evidence_status": "FULL",
+          "governing_combo": null,
+          "normalized_value": 300,
+          "output_case": null,
+          "raw_value": 300,
+          "reason": null,
+          "resolver": "c7_artificial_fixture",
+          "section_state": null,
+          "source_column": "beam_width_mm",
+          "source_row": {
+            "beam_width_mm": 300,
+            "component_id": "B_RATIO_FAIL"
+          },
+          "source_table": "artificial_fixture",
+          "unit": "mm"
+        }
+      ],
+      "limit": 3.5,
+      "messages": [],
+      "pass_rule": "value_over_maximum",
+      "ratio": 1.1428571428571428,
+      "ratio_type": "value_over_maximum",
+      "section": "B30x120",
+      "status": "FAIL",
+      "story": "+14.5",
+      "unit": "ratio",
+      "value": 4.0
+    },
+    {
+      "capacity": null,
+      "check_id": "beam_geometry_min_width",
+      "code_ref": "TBDY2018/Beam geometry min width fixture",
+      "component": "B_WIDTH_FAIL",
+      "component_type": "beam",
+      "demand": null,
+      "evaluation_level": "SCREENING",
+      "evidence": [
+        {
+          "actual_table_name": "artificial_fixture",
+          "combo_family": "NONE",
+          "ductility_class": null,
+          "evidence_status": "FULL",
+          "governing_combo": null,
+          "normalized_value": 200,
+          "output_case": null,
+          "raw_value": 200,
+          "reason": null,
+          "resolver": "c7_artificial_fixture",
+          "section_state": null,
+          "source_column": "beam_width_mm",
+          "source_row": {
+            "beam_width_mm": 200,
+            "component_id": "B_WIDTH_FAIL"
+          },
+          "source_table": "artificial_fixture",
+          "unit": "mm"
+        }
+      ],
+      "limit": 250,
+      "messages": [],
+      "pass_rule": "actual_over_minimum",
+      "ratio": 0.8,
+      "ratio_type": "actual_over_minimum",
+      "section": "B20x60",
+      "status": "FAIL",
+      "story": "+14.5",
+      "unit": "mm",
+      "value": 200
+    },
+    {
+      "capacity": null,
+      "check_id": "modal_mass_sumux_ge_threshold",
+      "code_ref": "TBDY2018/Modal participating mass fixture",
+      "component": "GLOBAL_MODAL_OK",
+      "component_type": "global",
+      "demand": null,
+      "evaluation_level": "SCREENING",
+      "evidence": [
+        {
+          "actual_table_name": "artificial_fixture",
+          "combo_family": "NONE",
+          "ductility_class": null,
+          "evidence_status": "FULL",
+          "governing_combo": null,
+          "normalized_value": 0.95,
+          "output_case": null,
+          "raw_value": 0.95,
+          "reason": null,
+          "resolver": "c7_artificial_fixture",
+          "section_state": null,
+          "source_column": "modal_sum_ux",
+          "source_row": {
+            "component_id": "GLOBAL_MODAL_OK",
+            "modal_sum_ux": 0.95
+          },
+          "source_table": "artificial_fixture",
+          "unit": "ratio"
+        }
+      ],
+      "limit": 0.9,
+      "messages": [],
+      "pass_rule": "value_over_minimum",
+      "ratio": 1.0555555555555556,
+      "ratio_type": "value_over_minimum",
+      "section": null,
+      "status": "OK",
+      "story": null,
+      "unit": "ratio",
+      "value": 0.95
+    },
+    {
+      "capacity": null,
+      "check_id": "story_drift_ratio",
+      "code_ref": "TBDY2018/Story drift upper-bound fixture",
+      "component": "S_DRIFT_FAIL",
+      "component_type": "story",
+      "demand": null,
+      "evaluation_level": "SCREENING",
+      "evidence": [
+        {
+          "actual_table_name": "artificial_fixture",
+          "combo_family": "NONE",
+          "ductility_class": null,
+          "evidence_status": "FULL",
+          "governing_combo": null,
+          "normalized_value": 1.2,
+          "output_case": null,
+          "raw_value": 1.2,
+          "reason": null,
+          "resolver": "c7_artificial_fixture",
+          "section_state": null,
+          "source_column": "story_drift_value",
+          "source_row": {
+            "component_id": "S_DRIFT_FAIL",
+            "story_drift_value": 1.2
+          },
+          "source_table": "artificial_fixture",
+          "unit": "ratio"
+        }
+      ],
+      "limit": 1.0,
+      "messages": [],
+      "pass_rule": "value_over_maximum",
+      "ratio": 1.2,
+      "ratio_type": "value_over_maximum",
+      "section": null,
+      "status": "FAIL",
+      "story": "+14.5",
+      "unit": "ratio",
+      "value": 1.2
+    }
+  ],
+  "contract_version": "1.0",
+  "source": "C7 artificial fixture only"
+}

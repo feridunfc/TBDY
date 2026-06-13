@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Coverage Policy",
+  "type": "object",
+  "required": [
+    "metadata",
+    "policy_version",
+    "coverage_statuses",
+    "evidence_statuses",
+    "policy_statuses",
+    "builder_inputs",
+    "runnability_rules",
+    "forbidden_outputs",
+    "alignment_rules",
+    "expected_source_diagnostics"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "contract",
+        "version",
+        "catalog_name"
+      ],
+      "properties": {
+        "contract": {
+          "const": "Contract Constitution"
+        },
+        "version": {
+          "const": "1.0"
+        },
+        "catalog_name": {
+          "const": "coverage_policy"
+        }
+      },
+      "additionalProperties": true
+    },
+    "policy_version": {
+      "type": "string"
+    },
+    "coverage_statuses": {
+      "type": "object",
+      "required": [
+        "RUNNABLE",
+        "BLOCKED",
+        "PARTIAL"
+      ],
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "meaning",
+          "decision_status_allowed"
+        ],
+        "properties": {
+          "meaning": {
+            "type": "string"
+          },
+          "decision_status_allowed": {
+            "const": false
+          }
+        }
+      }
+    },
+    "evidence_statuses": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "FULL",
+          "PARTIAL",
+          "MISSING"
+        ]
+      }
+    },
+    "policy_statuses": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "RESOLVED",
+          "MISSING",
+          "NOT_APPLICABLE"
+        ]
+      }
+    },
+    "builder_inputs": {
+      "type": "object",
+      "required": [
+        "allowed",
+        "forbidden"
+      ],
+      "properties": {
+        "allowed": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbidden": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "runnability_rules": {
+      "type": "object",
+      "required": [
+        "missing_required_feature",
+        "partial_evidence",
+        "missing_design_context_default",
+        "blocked_requires_reason",
+        "partial_requires_reason"
+      ],
+      "properties": {
+        "missing_required_feature": {
+          "const": "BLOCKED"
+        },
+        "partial_evidence": {
+          "const": "PARTIAL"
+        },
+        "missing_design_context_default": {
+          "enum": [
+            "PARTIAL",
+            "BLOCKED"
+          ]
+        },
+        "blocked_requires_reason": {
+          "const": true
+        },
+        "partial_requires_reason": {
+          "const": true
+        }
+      }
+    },
+    "forbidden_outputs": {
+      "type": "object",
+      "required": [
+        "decision_status_tokens",
+        "ratio_fields_forbidden",
+        "check_result_objects_forbidden",
+        "pass_rule_execution_forbidden",
+        "engineering_formula_execution_forbidden"
+      ],
+      "properties": {
+        "decision_status_tokens": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "OK",
+              "FAIL"
+            ]
+          }
+        },
+        "ratio_fields_forbidden": {
+          "const": true
+        },
+        "check_result_objects_forbidden": {
+          "const": true
+        },
+        "pass_rule_execution_forbidden": {
+          "const": true
+        },
+        "engineering_formula_execution_forbidden": {
+          "const": true
+        }
+      }
+    },
+    "alignment_rules": {
+      "type": "object"
+    },
+    "expected_source_diagnostics": {
+      "type": "object",
+      "required": [
+        "required_for_blocked",
+        "required_for_partial",
+        "missing_feature_sources_required",
+        "missing_design_context_sources_required",
+        "expected_evidence_requirements_required_for_partial_evidence",
+        "source_diagnostics_required",
+        "source_kinds",
+        "semantic_note"
+      ],
+      "properties": {
+        "required_for_blocked": {
+          "const": true
+        },
+        "required_for_partial": {
+          "const": true
+        },
+        "missing_feature_sources_required": {
+          "const": true
+        },
+        "missing_design_context_sources_required": {
+          "const": true
+        },
+        "expected_evidence_requirements_required_for_partial_evidence": {
+          "const": true
+        },
+        "source_diagnostics_required": {
+          "const": true
+        },
+        "source_kinds": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "etabs_table",
+              "computed",
+              "design_context",
+              "unknown"
+            ]
+          }
+        },
+        "semantic_note": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,117 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  sprint: C2_STRUCTURAL_WORKSPACE_CONSTITUTION
+  status: workspace_contract
+  owner: TBDY Engine
+  catalog_name: workspace_contract
+  notes:
+  - Contract-only. No engine/check/ETABS runtime implementation.
+  - C2 extends C1 with workspace/product state and element registry boundaries.
+workspace_version: 1.0.0
+workspace_lifecycle_states:
+- CREATED
+- SOURCE_BOUND
+- MODEL_DISCOVERED
+- ELEMENTS_REGISTERED
+- FEATURES_PLANNED
+- FEATURES_RESOLVED
+- COVERAGE_BUILT
+- CHECKS_EXECUTED
+- REPORTS_READY
+- ARCHIVED
+allowed_source_types:
+  ETABS_LIVE:
+    production_allowed: true
+    test_allowed: false
+    debug_allowed: false
+    regression_allowed: false
+    description: Only production source of truth.
+  FAKE_PROVIDER:
+    production_allowed: false
+    test_allowed: true
+    debug_allowed: false
+    regression_allowed: false
+    description: Tests only.
+  EXCEL_FIXTURE:
+    production_allowed: false
+    test_allowed: true
+    debug_allowed: true
+    regression_allowed: true
+    description: Fixture/debug/regression only; never production input.
+  JSON_FIXTURE:
+    production_allowed: false
+    test_allowed: true
+    debug_allowed: true
+    regression_allowed: true
+    description: Fixture/debug/regression only; never production input.
+source_rules:
+  production_source: ETABS_LIVE
+  excel_never_production_input: true
+  json_fixture_never_production_input: true
+  fake_provider_never_production_input: true
+  fixture_sources:
+  - FAKE_PROVIDER
+  - EXCEL_FIXTURE
+  - JSON_FIXTURE
+state_models:
+  model_state:
+    allowed_status:
+    - NOT_BOUND
+    - BOUND
+    - DISCOVERED
+    - INVALID
+    - STALE
+  element_state:
+    allowed_status:
+    - NOT_STARTED
+    - DISCOVERED
+    - REGISTERED
+    - PARTIAL
+    - BLOCKED
+  feature_state:
+    allowed_status:
+    - NOT_STARTED
+    - PLANNED
+    - PARTIAL
+    - RESOLVED
+    - BLOCKED
+  coverage_state:
+    allowed_status:
+    - NOT_STARTED
+    - RUNNABLE
+    - PARTIAL
+    - BLOCKED
+  check_state:
+    allowed_status:
+    - NOT_STARTED
+    - READY
+    - EXECUTED
+    - BLOCKED
+  report_state:
+    allowed_status:
+    - NOT_STARTED
+    - PARTIAL
+    - COMPLETE
+    - BLOCKED
+illegal_state_transitions:
+- from: CREATED
+  to: CHECKS_EXECUTED
+  reason: checks cannot execute before source, elements, features and coverage exist
+- from: SOURCE_BOUND
+  to: REPORTS_READY
+  reason: reports require checks and check_results_json
+- from: FEATURES_PLANNED
+  to: CHECKS_EXECUTED
+  reason: coverage must be built before checks
+state_consistency_rules:
+  workspace_state_cannot_contain_unknown_element_type: true
+  check_status_cannot_be_EXECUTED_when_coverage_status_BLOCKED: true
+  report_status_cannot_be_COMPLETE_when_check_status_NOT_STARTED: true
+  report_status_COMPLETE_requires_check_results_json: true
+  workspace_state_must_not_contain_CheckResult_objects: true
+forbidden_content:
+  formulas: true
+  check_logic: true
+  engine_code: true
+  provider_implementation: true

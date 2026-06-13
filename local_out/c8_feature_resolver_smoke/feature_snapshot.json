@@ -1,0 +1,1950 @@
+{
+  "feature_status_counts": {
+    "RESOLVED": 28
+  },
+  "metadata": {
+    "check_engine_executed": false,
+    "check_result_emitted": false,
+    "live_verdict_emitted": false,
+    "sprint": "C8_3_LIVE_MODEL_GEOMETRY_RETRIEVAL",
+    "unit_context": {
+      "diagnostics": [],
+      "etabs_database_units": null,
+      "etabs_present_units_raw": null,
+      "etabs_present_units_return_code": null,
+      "force_unit": "N",
+      "length_unit": "mm",
+      "run_id": null,
+      "source": "fixture_declared_units",
+      "temperature_unit": "C",
+      "unit_basis_confidence": "high",
+      "unit_query_status": "RESOLVED",
+      "unit_query_succeeded": true
+    }
+  },
+  "snapshots": [
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "diagnostics": [
+        {
+          "code": "IDENTITY_SEEDED_FROM_DESIGN_SUMMARY",
+          "details": {
+            "identity_seeded": true,
+            "identity_source": "concrete_beam_design_summary"
+          },
+          "message": "Beam target identity seeded from concrete_beam_design_summary before frame assignment matching",
+          "severity": "WARNING"
+        }
+      ],
+      "evidence_by_feature": {
+        "beam_As_bottom_combo": [
+          {
+            "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+            "combo_family": "DUCTILE_X",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": "Crack_SeisX",
+            "output_case": "Crack_SeisX",
+            "raw_value": "Crack_SeisX",
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "AsBotCombo",
+            "source_row": {
+              "component": "297",
+              "label": "B1",
+              "section": "B40x70",
+              "station": 0,
+              "story": "+14.5"
+            },
+            "source_table": "concrete_beam_design_summary",
+            "unit": ""
+          }
+        ],
+        "beam_As_bottom_etabs_required_mm2": [
+          {
+            "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+            "combo_family": "DUCTILE_X",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 1180.0,
+            "output_case": "Crack_SeisX",
+            "raw_value": 1180,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "AsBot",
+            "source_row": {
+              "component": "297",
+              "label": "B1",
+              "section": "B40x70",
+              "station": 0,
+              "story": "+14.5"
+            },
+            "source_table": "concrete_beam_design_summary",
+            "unit": "mm2"
+          }
+        ],
+        "beam_As_top_combo": [
+          {
+            "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+            "combo_family": "DUCTILE_Y",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": "Crack_SeisY_UpSoil",
+            "output_case": "Crack_SeisY_UpSoil",
+            "raw_value": "Crack_SeisY_UpSoil",
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "AsTopCombo",
+            "source_row": {
+              "component": "297",
+              "label": "B1",
+              "section": "B40x70",
+              "station": 0,
+              "story": "+14.5"
+            },
+            "source_table": "concrete_beam_design_summary",
+            "unit": ""
+          }
+        ],
+        "beam_As_top_etabs_required_mm2": [
+          {
+            "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+            "combo_family": "DUCTILE_Y",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 1250.0,
+            "output_case": "Crack_SeisY_UpSoil",
+            "raw_value": 1250,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "AsTop",
+            "source_row": {
+              "component": "297",
+              "label": "B1",
+              "section": "B40x70",
+              "station": 0,
+              "story": "+14.5"
+            },
+            "source_table": "concrete_beam_design_summary",
+            "unit": "mm2"
+          }
+        ],
+        "beam_V_combo": [
+          {
+            "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+            "combo_family": "DUCTILE_Y",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": "Crack_SeisY",
+            "output_case": "Crack_SeisY",
+            "raw_value": "Crack_SeisY",
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "VCombo",
+            "source_row": {
+              "component": "297",
+              "label": "B1",
+              "section": "B40x70",
+              "station": 0,
+              "story": "+14.5"
+            },
+            "source_table": "concrete_beam_design_summary",
+            "unit": ""
+          }
+        ],
+        "beam_depth_mm": [
+          {
+            "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+            "combo_family": null,
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 700.0,
+            "output_case": null,
+            "raw_value": 700,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "t3",
+            "source_row": {
+              "section": "B40x70"
+            },
+            "source_table": "frame_section_properties",
+            "unit": "mm"
+          }
+        ],
+        "beam_design_err_msg": [
+          {
+            "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+            "combo_family": null,
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": "No Message",
+            "output_case": null,
+            "raw_value": "No Message",
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "ErrMsg",
+            "source_row": {
+              "component": "297",
+              "label": "B1",
+              "section": "B40x70",
+              "station": 0,
+              "story": "+14.5"
+            },
+            "source_table": "concrete_beam_design_summary",
+            "unit": ""
+          }
+        ],
+        "beam_design_warn_msg": [
+          {
+            "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+            "combo_family": null,
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": "Shear design warning text",
+            "output_case": null,
+            "raw_value": "Shear design warning text",
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "WarnMsg",
+            "source_row": {
+              "component": "297",
+              "label": "B1",
+              "section": "B40x70",
+              "station": 0,
+              "story": "+14.5"
+            },
+            "source_table": "concrete_beam_design_summary",
+            "unit": ""
+          }
+        ],
+        "beam_label": [
+          {
+            "actual_table_name": "Frame Assignments - Summary",
+            "combo_family": null,
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": "B1",
+            "output_case": null,
+            "raw_value": "B1",
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "Label",
+            "source_row": {
+              "component": "297",
+              "label": "B1",
+              "section": "B40x70",
+              "story": "+14.5"
+            },
+            "source_table": "frame_assignments",
+            "unit": ""
+          }
+        ],
+        "beam_length_mm": [
+          {
+            "actual_table_name": "Frame Assignments - Summary",
+            "combo_family": null,
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 6200.0,
+            "output_case": null,
+            "raw_value": 6200,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "Length",
+            "source_row": {
+              "component": "297",
+              "label": "B1",
+              "section": "B40x70",
+              "story": "+14.5"
+            },
+            "source_table": "frame_assignments",
+            "unit": "mm"
+          }
+        ],
+        "beam_section_name": [
+          {
+            "actual_table_name": "Frame Assignments - Summary",
+            "combo_family": null,
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": "B40x70",
+            "output_case": null,
+            "raw_value": "B40x70",
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "DesignSect",
+            "source_row": {
+              "component": "297",
+              "label": "B1",
+              "section": "B40x70",
+              "story": "+14.5"
+            },
+            "source_table": "frame_assignments",
+            "unit": ""
+          }
+        ],
+        "beam_shear_rebar_etabs_required_mm2": [
+          {
+            "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+            "combo_family": "DUCTILE_Y",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 420.0,
+            "output_case": "Crack_SeisY",
+            "raw_value": 420,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "VRebar",
+            "source_row": {
+              "component": "297",
+              "label": "B1",
+              "section": "B40x70",
+              "station": 0,
+              "story": "+14.5"
+            },
+            "source_table": "concrete_beam_design_summary",
+            "unit": "mm2"
+          }
+        ],
+        "beam_story": [
+          {
+            "actual_table_name": "Frame Assignments - Summary",
+            "combo_family": null,
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": "+14.5",
+            "output_case": null,
+            "raw_value": "+14.5",
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "Story",
+            "source_row": {
+              "component": "297",
+              "label": "B1",
+              "section": "B40x70",
+              "story": "+14.5"
+            },
+            "source_table": "frame_assignments",
+            "unit": ""
+          }
+        ],
+        "beam_unique_name": [
+          {
+            "actual_table_name": "Frame Assignments - Summary",
+            "combo_family": null,
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": "297",
+            "output_case": null,
+            "raw_value": "297",
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "UniqueName",
+            "source_row": {
+              "component": "297",
+              "label": "B1",
+              "section": "B40x70",
+              "story": "+14.5"
+            },
+            "source_table": "frame_assignments",
+            "unit": ""
+          }
+        ],
+        "beam_width_mm": [
+          {
+            "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+            "combo_family": null,
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 400.0,
+            "output_case": null,
+            "raw_value": 400,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "t2",
+            "source_row": {
+              "section": "B40x70"
+            },
+            "source_table": "frame_section_properties",
+            "unit": "mm"
+          }
+        ]
+      },
+      "features": {
+        "beam_As_bottom_combo": {
+          "diagnostics": [
+            {
+              "code": "COMBO_ENGINEERING_REVIEW",
+              "details": {
+                "combo_family": "DUCTILE_X",
+                "needs_engineering_review": true,
+                "raw_value": "Crack_SeisX"
+              },
+              "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+              "combo_family": "DUCTILE_X",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": "Crack_SeisX",
+              "output_case": "Crack_SeisX",
+              "raw_value": "Crack_SeisX",
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "AsBotCombo",
+              "source_row": {
+                "component": "297",
+                "label": "B1",
+                "section": "B40x70",
+                "station": 0,
+                "story": "+14.5"
+              },
+              "source_table": "concrete_beam_design_summary",
+              "unit": ""
+            }
+          ],
+          "feature_name": "beam_As_bottom_combo",
+          "semantic_role": "ETABS_DESIGN_COMBO_NAME",
+          "status": "RESOLVED",
+          "unit": "",
+          "value": "Crack_SeisX"
+        },
+        "beam_As_bottom_etabs_required_mm2": {
+          "diagnostics": [
+            {
+              "code": "COMBO_ENGINEERING_REVIEW",
+              "details": {
+                "combo_family": "DUCTILE_X",
+                "needs_engineering_review": true,
+                "raw_value": "Crack_SeisX"
+              },
+              "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+              "combo_family": "DUCTILE_X",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 1180.0,
+              "output_case": "Crack_SeisX",
+              "raw_value": 1180,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "AsBot",
+              "source_row": {
+                "component": "297",
+                "label": "B1",
+                "section": "B40x70",
+                "station": 0,
+                "story": "+14.5"
+              },
+              "source_table": "concrete_beam_design_summary",
+              "unit": "mm2"
+            }
+          ],
+          "feature_name": "beam_As_bottom_etabs_required_mm2",
+          "semantic_role": "ETABS_REQUIRED_REBAR",
+          "status": "RESOLVED",
+          "unit": "mm2",
+          "value": 1180.0
+        },
+        "beam_As_top_combo": {
+          "diagnostics": [
+            {
+              "code": "COMBO_ENGINEERING_REVIEW",
+              "details": {
+                "combo_family": "DUCTILE_Y",
+                "needs_engineering_review": true,
+                "raw_value": "Crack_SeisY_UpSoil"
+              },
+              "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+              "combo_family": "DUCTILE_Y",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": "Crack_SeisY_UpSoil",
+              "output_case": "Crack_SeisY_UpSoil",
+              "raw_value": "Crack_SeisY_UpSoil",
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "AsTopCombo",
+              "source_row": {
+                "component": "297",
+                "label": "B1",
+                "section": "B40x70",
+                "station": 0,
+                "story": "+14.5"
+              },
+              "source_table": "concrete_beam_design_summary",
+              "unit": ""
+            }
+          ],
+          "feature_name": "beam_As_top_combo",
+          "semantic_role": "ETABS_DESIGN_COMBO_NAME",
+          "status": "RESOLVED",
+          "unit": "",
+          "value": "Crack_SeisY_UpSoil"
+        },
+        "beam_As_top_etabs_required_mm2": {
+          "diagnostics": [
+            {
+              "code": "COMBO_ENGINEERING_REVIEW",
+              "details": {
+                "combo_family": "DUCTILE_Y",
+                "needs_engineering_review": true,
+                "raw_value": "Crack_SeisY_UpSoil"
+              },
+              "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+              "combo_family": "DUCTILE_Y",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 1250.0,
+              "output_case": "Crack_SeisY_UpSoil",
+              "raw_value": 1250,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "AsTop",
+              "source_row": {
+                "component": "297",
+                "label": "B1",
+                "section": "B40x70",
+                "station": 0,
+                "story": "+14.5"
+              },
+              "source_table": "concrete_beam_design_summary",
+              "unit": "mm2"
+            }
+          ],
+          "feature_name": "beam_As_top_etabs_required_mm2",
+          "semantic_role": "ETABS_REQUIRED_REBAR",
+          "status": "RESOLVED",
+          "unit": "mm2",
+          "value": 1250.0
+        },
+        "beam_V_combo": {
+          "diagnostics": [
+            {
+              "code": "COMBO_ENGINEERING_REVIEW",
+              "details": {
+                "combo_family": "DUCTILE_Y",
+                "needs_engineering_review": true,
+                "raw_value": "Crack_SeisY"
+              },
+              "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+              "combo_family": "DUCTILE_Y",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": "Crack_SeisY",
+              "output_case": "Crack_SeisY",
+              "raw_value": "Crack_SeisY",
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "VCombo",
+              "source_row": {
+                "component": "297",
+                "label": "B1",
+                "section": "B40x70",
+                "station": 0,
+                "story": "+14.5"
+              },
+              "source_table": "concrete_beam_design_summary",
+              "unit": ""
+            }
+          ],
+          "feature_name": "beam_V_combo",
+          "semantic_role": "ETABS_DESIGN_COMBO_NAME",
+          "status": "RESOLVED",
+          "unit": "",
+          "value": "Crack_SeisY"
+        },
+        "beam_depth_mm": {
+          "diagnostics": [],
+          "evidence": [
+            {
+              "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+              "combo_family": null,
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 700.0,
+              "output_case": null,
+              "raw_value": 700,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "t3",
+              "source_row": {
+                "section": "B40x70"
+              },
+              "source_table": "frame_section_properties",
+              "unit": "mm"
+            }
+          ],
+          "feature_name": "beam_depth_mm",
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 700.0
+        },
+        "beam_design_err_msg": {
+          "diagnostics": [],
+          "evidence": [
+            {
+              "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+              "combo_family": null,
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": "No Message",
+              "output_case": null,
+              "raw_value": "No Message",
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "ErrMsg",
+              "source_row": {
+                "component": "297",
+                "label": "B1",
+                "section": "B40x70",
+                "station": 0,
+                "story": "+14.5"
+              },
+              "source_table": "concrete_beam_design_summary",
+              "unit": ""
+            }
+          ],
+          "feature_name": "beam_design_err_msg",
+          "semantic_role": "ETABS_DIAGNOSTIC_TEXT",
+          "status": "RESOLVED",
+          "unit": "",
+          "value": "No Message"
+        },
+        "beam_design_warn_msg": {
+          "diagnostics": [
+            {
+              "code": "ETABS_WARNING_MESSAGE",
+              "details": {
+                "feature_name": "beam_design_warn_msg"
+              },
+              "message": "ETABS design diagnostic text preserved as feature evidence only",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+              "combo_family": null,
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": "Shear design warning text",
+              "output_case": null,
+              "raw_value": "Shear design warning text",
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "WarnMsg",
+              "source_row": {
+                "component": "297",
+                "label": "B1",
+                "section": "B40x70",
+                "station": 0,
+                "story": "+14.5"
+              },
+              "source_table": "concrete_beam_design_summary",
+              "unit": ""
+            }
+          ],
+          "feature_name": "beam_design_warn_msg",
+          "semantic_role": "ETABS_DIAGNOSTIC_TEXT",
+          "status": "RESOLVED",
+          "unit": "",
+          "value": "Shear design warning text"
+        },
+        "beam_label": {
+          "diagnostics": [
+            {
+              "code": "IDENTITY_SEEDED_FROM_DESIGN_SUMMARY",
+              "details": {
+                "identity_seeded": true,
+                "identity_source": "concrete_beam_design_summary"
+              },
+              "message": "Beam target identity seeded from concrete_beam_design_summary before frame assignment matching",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Frame Assignments - Summary",
+              "combo_family": null,
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": "B1",
+              "output_case": null,
+              "raw_value": "B1",
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "Label",
+              "source_row": {
+                "component": "297",
+                "label": "B1",
+                "section": "B40x70",
+                "story": "+14.5"
+              },
+              "source_table": "frame_assignments",
+              "unit": ""
+            }
+          ],
+          "feature_name": "beam_label",
+          "semantic_role": "IDENTITY",
+          "status": "RESOLVED",
+          "unit": "",
+          "value": "B1"
+        },
+        "beam_length_mm": {
+          "diagnostics": [],
+          "evidence": [
+            {
+              "actual_table_name": "Frame Assignments - Summary",
+              "combo_family": null,
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 6200.0,
+              "output_case": null,
+              "raw_value": 6200,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "Length",
+              "source_row": {
+                "component": "297",
+                "label": "B1",
+                "section": "B40x70",
+                "story": "+14.5"
+              },
+              "source_table": "frame_assignments",
+              "unit": "mm"
+            }
+          ],
+          "feature_name": "beam_length_mm",
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 6200.0
+        },
+        "beam_section_name": {
+          "diagnostics": [
+            {
+              "code": "IDENTITY_SEEDED_FROM_DESIGN_SUMMARY",
+              "details": {
+                "identity_seeded": true,
+                "identity_source": "concrete_beam_design_summary"
+              },
+              "message": "Beam target identity seeded from concrete_beam_design_summary before frame assignment matching",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Frame Assignments - Summary",
+              "combo_family": null,
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": "B40x70",
+              "output_case": null,
+              "raw_value": "B40x70",
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "DesignSect",
+              "source_row": {
+                "component": "297",
+                "label": "B1",
+                "section": "B40x70",
+                "story": "+14.5"
+              },
+              "source_table": "frame_assignments",
+              "unit": ""
+            }
+          ],
+          "feature_name": "beam_section_name",
+          "semantic_role": "GEOMETRY_ID",
+          "status": "RESOLVED",
+          "unit": "",
+          "value": "B40x70"
+        },
+        "beam_shear_rebar_etabs_required_mm2": {
+          "diagnostics": [
+            {
+              "code": "SHEAR_REBAR_UNIT_SEMANTICS_REVIEW",
+              "details": {
+                "feature_name": "beam_shear_rebar_etabs_required_mm2",
+                "raw_unit": "mm2"
+              },
+              "message": "VRebar unit semantics require engineering review; value preserved as observed evidence",
+              "severity": "WARNING"
+            },
+            {
+              "code": "COMBO_ENGINEERING_REVIEW",
+              "details": {
+                "combo_family": "DUCTILE_Y",
+                "needs_engineering_review": true,
+                "raw_value": "Crack_SeisY"
+              },
+              "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+              "combo_family": "DUCTILE_Y",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 420.0,
+              "output_case": "Crack_SeisY",
+              "raw_value": 420,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "VRebar",
+              "source_row": {
+                "component": "297",
+                "label": "B1",
+                "section": "B40x70",
+                "station": 0,
+                "story": "+14.5"
+              },
+              "source_table": "concrete_beam_design_summary",
+              "unit": "mm2"
+            }
+          ],
+          "feature_name": "beam_shear_rebar_etabs_required_mm2",
+          "semantic_role": "ETABS_REQUIRED_REBAR",
+          "status": "RESOLVED",
+          "unit": "mm2",
+          "value": 420.0
+        },
+        "beam_story": {
+          "diagnostics": [
+            {
+              "code": "IDENTITY_SEEDED_FROM_DESIGN_SUMMARY",
+              "details": {
+                "identity_seeded": true,
+                "identity_source": "concrete_beam_design_summary"
+              },
+              "message": "Beam target identity seeded from concrete_beam_design_summary before frame assignment matching",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Frame Assignments - Summary",
+              "combo_family": null,
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": "+14.5",
+              "output_case": null,
+              "raw_value": "+14.5",
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "Story",
+              "source_row": {
+                "component": "297",
+                "label": "B1",
+                "section": "B40x70",
+                "story": "+14.5"
+              },
+              "source_table": "frame_assignments",
+              "unit": ""
+            }
+          ],
+          "feature_name": "beam_story",
+          "semantic_role": "IDENTITY",
+          "status": "RESOLVED",
+          "unit": "",
+          "value": "+14.5"
+        },
+        "beam_unique_name": {
+          "diagnostics": [
+            {
+              "code": "IDENTITY_SEEDED_FROM_DESIGN_SUMMARY",
+              "details": {
+                "identity_seeded": true,
+                "identity_source": "concrete_beam_design_summary"
+              },
+              "message": "Beam target identity seeded from concrete_beam_design_summary before frame assignment matching",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Frame Assignments - Summary",
+              "combo_family": null,
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": "297",
+              "output_case": null,
+              "raw_value": "297",
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "UniqueName",
+              "source_row": {
+                "component": "297",
+                "label": "B1",
+                "section": "B40x70",
+                "story": "+14.5"
+              },
+              "source_table": "frame_assignments",
+              "unit": ""
+            }
+          ],
+          "feature_name": "beam_unique_name",
+          "semantic_role": "IDENTITY",
+          "status": "RESOLVED",
+          "unit": "",
+          "value": "297"
+        },
+        "beam_width_mm": {
+          "diagnostics": [],
+          "evidence": [
+            {
+              "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+              "combo_family": null,
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 400.0,
+              "output_case": null,
+              "raw_value": 400,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "t2",
+              "source_row": {
+                "section": "B40x70"
+              },
+              "source_table": "frame_section_properties",
+              "unit": "mm"
+            }
+          ],
+          "feature_name": "beam_width_mm",
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 400.0
+        }
+      },
+      "identity": {
+        "component": "297",
+        "label": "B1",
+        "section": "B40x70",
+        "station": 0,
+        "story": "+14.5"
+      }
+    },
+    {
+      "component_id": "MATERIALS",
+      "component_type": "material",
+      "diagnostics": [],
+      "evidence_by_feature": {
+        "concrete_fck_mpa": [
+          {
+            "actual_table_name": "Material Properties - Concrete Data",
+            "combo_family": null,
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 30.0,
+            "output_case": null,
+            "raw_value": 30,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "Fc",
+            "source_row": {},
+            "source_table": "material_concrete_data",
+            "unit": "MPa"
+          }
+        ],
+        "rebar_fyk_mpa": [
+          {
+            "actual_table_name": "Material Properties - Rebar Data",
+            "combo_family": null,
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 420.0,
+            "output_case": null,
+            "raw_value": 420,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "Fy",
+            "source_row": {},
+            "source_table": "material_rebar_data",
+            "unit": "MPa"
+          }
+        ]
+      },
+      "features": {
+        "concrete_fck_mpa": {
+          "diagnostics": [],
+          "evidence": [
+            {
+              "actual_table_name": "Material Properties - Concrete Data",
+              "combo_family": null,
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 30.0,
+              "output_case": null,
+              "raw_value": 30,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "Fc",
+              "source_row": {},
+              "source_table": "material_concrete_data",
+              "unit": "MPa"
+            }
+          ],
+          "feature_name": "concrete_fck_mpa",
+          "semantic_role": "DESIGN_BASIS",
+          "status": "RESOLVED",
+          "unit": "MPa",
+          "value": 30.0
+        },
+        "rebar_fyk_mpa": {
+          "diagnostics": [],
+          "evidence": [
+            {
+              "actual_table_name": "Material Properties - Rebar Data",
+              "combo_family": null,
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 420.0,
+              "output_case": null,
+              "raw_value": 420,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "Fy",
+              "source_row": {},
+              "source_table": "material_rebar_data",
+              "unit": "MPa"
+            }
+          ],
+          "feature_name": "rebar_fyk_mpa",
+          "semantic_role": "DESIGN_BASIS",
+          "status": "RESOLVED",
+          "unit": "MPa",
+          "value": 420.0
+        }
+      },
+      "identity": {
+        "component": "MATERIALS",
+        "material_name": "C30"
+      }
+    },
+    {
+      "component_id": "+14.5",
+      "component_type": "story",
+      "diagnostics": [],
+      "evidence_by_feature": {
+        "story_drift_direction": [
+          {
+            "actual_table_name": "Story Drifts",
+            "combo_family": null,
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": "Y",
+            "output_case": null,
+            "raw_value": "Y",
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "Direction",
+            "source_row": {
+              "output_case": "Crack_SeisY_UpSoil",
+              "story": "+14.5"
+            },
+            "source_table": "story_drifts",
+            "unit": ""
+          }
+        ],
+        "story_drift_max_mm": [
+          {
+            "actual_table_name": "Story Drifts",
+            "combo_family": "DUCTILE_Y",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 9.5,
+            "output_case": "Crack_SeisY_UpSoil",
+            "raw_value": 9.5,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "Drift",
+            "source_row": {
+              "output_case": "Crack_SeisY_UpSoil",
+              "story": "+14.5"
+            },
+            "source_table": "story_drifts",
+            "unit": "mm"
+          }
+        ],
+        "story_drift_output_case": [
+          {
+            "actual_table_name": "Story Drifts",
+            "combo_family": "DUCTILE_Y",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": "Crack_SeisY_UpSoil",
+            "output_case": "Crack_SeisY_UpSoil",
+            "raw_value": "Crack_SeisY_UpSoil",
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "OutputCase",
+            "source_row": {
+              "output_case": "Crack_SeisY_UpSoil",
+              "story": "+14.5"
+            },
+            "source_table": "story_drifts",
+            "unit": ""
+          }
+        ],
+        "story_drift_value": [
+          {
+            "actual_table_name": "Story Drifts",
+            "combo_family": "DUCTILE_Y",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 9.5,
+            "output_case": "Crack_SeisY_UpSoil",
+            "raw_value": 9.5,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "Drift",
+            "source_row": {
+              "output_case": "Crack_SeisY_UpSoil",
+              "story": "+14.5"
+            },
+            "source_table": "story_drifts",
+            "unit": "mm"
+          }
+        ],
+        "story_torsion_a1_coefficient": [
+          {
+            "actual_table_name": "Story Max Over Avg Drifts",
+            "combo_family": "DUCTILE_Y",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 1.33,
+            "output_case": "Crack_SeisY_UpSoil",
+            "raw_value": 1.33,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "Ratio",
+            "source_row": {
+              "output_case": "Crack_SeisY_UpSoil",
+              "story": "+14.5"
+            },
+            "source_table": "story_max_over_avg_drifts",
+            "unit": "ratio"
+          }
+        ]
+      },
+      "features": {
+        "story_drift_direction": {
+          "diagnostics": [
+            {
+              "code": "FILTER_NOT_MATCHED",
+              "details": {
+                "selected_story": "+14.5"
+              },
+              "message": "No target_story was provided; selected deterministic valid story row as smoke fallback",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Story Drifts",
+              "combo_family": null,
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": "Y",
+              "output_case": null,
+              "raw_value": "Y",
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "Direction",
+              "source_row": {
+                "output_case": "Crack_SeisY_UpSoil",
+                "story": "+14.5"
+              },
+              "source_table": "story_drifts",
+              "unit": ""
+            }
+          ],
+          "feature_name": "story_drift_direction",
+          "semantic_role": "DIRECTION",
+          "status": "RESOLVED",
+          "unit": "",
+          "value": "Y"
+        },
+        "story_drift_max_mm": {
+          "diagnostics": [
+            {
+              "code": "FILTER_NOT_MATCHED",
+              "details": {
+                "selected_story": "+14.5"
+              },
+              "message": "No target_story was provided; selected deterministic valid story row as smoke fallback",
+              "severity": "WARNING"
+            },
+            {
+              "code": "COMBO_ENGINEERING_REVIEW",
+              "details": {
+                "combo_family": "DUCTILE_Y",
+                "needs_engineering_review": true,
+                "raw_value": "Crack_SeisY_UpSoil"
+              },
+              "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Story Drifts",
+              "combo_family": "DUCTILE_Y",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 9.5,
+              "output_case": "Crack_SeisY_UpSoil",
+              "raw_value": 9.5,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "Drift",
+              "source_row": {
+                "output_case": "Crack_SeisY_UpSoil",
+                "story": "+14.5"
+              },
+              "source_table": "story_drifts",
+              "unit": "mm"
+            }
+          ],
+          "feature_name": "story_drift_max_mm",
+          "semantic_role": "DISPLACEMENT_OBSERVED",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 9.5
+        },
+        "story_drift_output_case": {
+          "diagnostics": [
+            {
+              "code": "FILTER_NOT_MATCHED",
+              "details": {
+                "selected_story": "+14.5"
+              },
+              "message": "No target_story was provided; selected deterministic valid story row as smoke fallback",
+              "severity": "WARNING"
+            },
+            {
+              "code": "COMBO_ENGINEERING_REVIEW",
+              "details": {
+                "combo_family": "DUCTILE_Y",
+                "needs_engineering_review": true,
+                "raw_value": "Crack_SeisY_UpSoil"
+              },
+              "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Story Drifts",
+              "combo_family": "DUCTILE_Y",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": "Crack_SeisY_UpSoil",
+              "output_case": "Crack_SeisY_UpSoil",
+              "raw_value": "Crack_SeisY_UpSoil",
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "OutputCase",
+              "source_row": {
+                "output_case": "Crack_SeisY_UpSoil",
+                "story": "+14.5"
+              },
+              "source_table": "story_drifts",
+              "unit": ""
+            }
+          ],
+          "feature_name": "story_drift_output_case",
+          "semantic_role": "OUTPUT_CASE_NAME",
+          "status": "RESOLVED",
+          "unit": "",
+          "value": "Crack_SeisY_UpSoil"
+        },
+        "story_drift_value": {
+          "diagnostics": [
+            {
+              "code": "FILTER_NOT_MATCHED",
+              "details": {
+                "selected_story": "+14.5"
+              },
+              "message": "No target_story was provided; selected deterministic valid story row as smoke fallback",
+              "severity": "WARNING"
+            },
+            {
+              "code": "COMBO_ENGINEERING_REVIEW",
+              "details": {
+                "combo_family": "DUCTILE_Y",
+                "needs_engineering_review": true,
+                "raw_value": "Crack_SeisY_UpSoil"
+              },
+              "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Story Drifts",
+              "combo_family": "DUCTILE_Y",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 9.5,
+              "output_case": "Crack_SeisY_UpSoil",
+              "raw_value": 9.5,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "Drift",
+              "source_row": {
+                "output_case": "Crack_SeisY_UpSoil",
+                "story": "+14.5"
+              },
+              "source_table": "story_drifts",
+              "unit": "mm"
+            }
+          ],
+          "feature_name": "story_drift_value",
+          "semantic_role": "ETABS_DRIFT_VALUE",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 9.5
+        },
+        "story_torsion_a1_coefficient": {
+          "diagnostics": [
+            {
+              "code": "FILTER_NOT_MATCHED",
+              "details": {
+                "selected_story": "+14.5"
+              },
+              "message": "No target_story was provided; selected deterministic valid story row as smoke fallback",
+              "severity": "WARNING"
+            },
+            {
+              "code": "COMBO_ENGINEERING_REVIEW",
+              "details": {
+                "combo_family": "DUCTILE_Y",
+                "needs_engineering_review": true,
+                "raw_value": "Crack_SeisY_UpSoil"
+              },
+              "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Story Max Over Avg Drifts",
+              "combo_family": "DUCTILE_Y",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 1.33,
+              "output_case": "Crack_SeisY_UpSoil",
+              "raw_value": 1.33,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "Ratio",
+              "source_row": {
+                "output_case": "Crack_SeisY_UpSoil",
+                "story": "+14.5"
+              },
+              "source_table": "story_max_over_avg_drifts",
+              "unit": "ratio"
+            }
+          ],
+          "feature_name": "story_torsion_a1_coefficient",
+          "semantic_role": "IRREGULARITY_OBSERVED",
+          "status": "RESOLVED",
+          "unit": "ratio",
+          "value": 1.33
+        }
+      },
+      "identity": {
+        "component": "+14.5",
+        "story": "+14.5"
+      }
+    },
+    {
+      "component_id": "GLOBAL",
+      "component_type": "global",
+      "diagnostics": [],
+      "evidence_by_feature": {
+        "base_reaction_fx": [
+          {
+            "actual_table_name": "Base Reactions",
+            "combo_family": "DUCTILE_Y",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 1.0205,
+            "output_case": "Crack_SeisY_UpSoil",
+            "raw_value": 1020.5,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "FX",
+            "source_row": {
+              "output_case": "Crack_SeisY_UpSoil"
+            },
+            "source_table": "base_reactions",
+            "unit": "kN"
+          }
+        ],
+        "base_reaction_fy": [
+          {
+            "actual_table_name": "Base Reactions",
+            "combo_family": "DUCTILE_Y",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 2.4400999999999997,
+            "output_case": "Crack_SeisY_UpSoil",
+            "raw_value": 2440.1,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "FY",
+            "source_row": {
+              "output_case": "Crack_SeisY_UpSoil"
+            },
+            "source_table": "base_reactions",
+            "unit": "kN"
+          }
+        ],
+        "base_reaction_x_kN": [
+          {
+            "actual_table_name": "Base Reactions",
+            "combo_family": "DUCTILE_Y",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 1.0205,
+            "output_case": "Crack_SeisY_UpSoil",
+            "raw_value": 1020.5,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "FX",
+            "source_row": {
+              "output_case": "Crack_SeisY_UpSoil"
+            },
+            "source_table": "base_reactions",
+            "unit": "kN"
+          }
+        ],
+        "base_reaction_y_kN": [
+          {
+            "actual_table_name": "Base Reactions",
+            "combo_family": "DUCTILE_Y",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 2.4400999999999997,
+            "output_case": "Crack_SeisY_UpSoil",
+            "raw_value": 2440.1,
+            "reason": null,
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "FY",
+            "source_row": {
+              "output_case": "Crack_SeisY_UpSoil"
+            },
+            "source_table": "base_reactions",
+            "unit": "kN"
+          }
+        ],
+        "modal_sum_ux": [
+          {
+            "actual_table_name": "Modal Participating Mass Ratios",
+            "combo_family": "MODAL",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 0.96,
+            "output_case": "Modal",
+            "raw_value": 0.96,
+            "reason": "resolved by max_cumulative aggregation over all modal participating mass rows",
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "SumUX",
+            "source_row": {
+              "aggregation_method": "max_cumulative",
+              "first_mode": 1,
+              "last_mode": 12,
+              "max_mode": 12,
+              "mode_count": 2,
+              "output_case": "Modal",
+              "selected_mode_for_ux": 12,
+              "selected_row_index_for_ux": 1,
+              "selected_sum_ux": 0.96,
+              "source_rows_considered_count": 2
+            },
+            "source_table": "modal_participating_mass",
+            "unit": "ratio"
+          }
+        ],
+        "modal_sum_uy": [
+          {
+            "actual_table_name": "Modal Participating Mass Ratios",
+            "combo_family": "MODAL",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 0.95,
+            "output_case": "Modal",
+            "raw_value": 0.95,
+            "reason": "resolved by max_cumulative aggregation over all modal participating mass rows",
+            "resolver": "c8_3_live_geometry_resolver",
+            "section_state": null,
+            "source_column": "SumUY",
+            "source_row": {
+              "aggregation_method": "max_cumulative",
+              "first_mode": 1,
+              "last_mode": 12,
+              "max_mode": 12,
+              "mode_count": 2,
+              "output_case": "Modal",
+              "selected_mode_for_uy": 12,
+              "selected_row_index_for_uy": 1,
+              "selected_sum_uy": 0.95,
+              "source_rows_considered_count": 2
+            },
+            "source_table": "modal_participating_mass",
+            "unit": "ratio"
+          }
+        ]
+      },
+      "features": {
+        "base_reaction_fx": {
+          "diagnostics": [
+            {
+              "code": "UNIT_NORMALIZED",
+              "details": {
+                "conversion_formula": "value_N / 1000 = value_kN",
+                "feature_name": "base_reaction_fx",
+                "normalized_unit": "kN",
+                "raw_unit": "N"
+              },
+              "message": "Value normalized using explicit unit context",
+              "severity": "WARNING"
+            },
+            {
+              "code": "COMBO_ENGINEERING_REVIEW",
+              "details": {
+                "combo_family": "DUCTILE_Y",
+                "needs_engineering_review": true,
+                "raw_value": "Crack_SeisY_UpSoil"
+              },
+              "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Base Reactions",
+              "combo_family": "DUCTILE_Y",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 1.0205,
+              "output_case": "Crack_SeisY_UpSoil",
+              "raw_value": 1020.5,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "FX",
+              "source_row": {
+                "output_case": "Crack_SeisY_UpSoil"
+              },
+              "source_table": "base_reactions",
+              "unit": "kN"
+            }
+          ],
+          "feature_name": "base_reaction_fx",
+          "semantic_role": "BASE_REACTION_FORCE",
+          "status": "RESOLVED",
+          "unit": "kN",
+          "value": 1.0205
+        },
+        "base_reaction_fy": {
+          "diagnostics": [
+            {
+              "code": "UNIT_NORMALIZED",
+              "details": {
+                "conversion_formula": "value_N / 1000 = value_kN",
+                "feature_name": "base_reaction_fy",
+                "normalized_unit": "kN",
+                "raw_unit": "N"
+              },
+              "message": "Value normalized using explicit unit context",
+              "severity": "WARNING"
+            },
+            {
+              "code": "COMBO_ENGINEERING_REVIEW",
+              "details": {
+                "combo_family": "DUCTILE_Y",
+                "needs_engineering_review": true,
+                "raw_value": "Crack_SeisY_UpSoil"
+              },
+              "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Base Reactions",
+              "combo_family": "DUCTILE_Y",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 2.4400999999999997,
+              "output_case": "Crack_SeisY_UpSoil",
+              "raw_value": 2440.1,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "FY",
+              "source_row": {
+                "output_case": "Crack_SeisY_UpSoil"
+              },
+              "source_table": "base_reactions",
+              "unit": "kN"
+            }
+          ],
+          "feature_name": "base_reaction_fy",
+          "semantic_role": "BASE_REACTION_FORCE",
+          "status": "RESOLVED",
+          "unit": "kN",
+          "value": 2.4400999999999997
+        },
+        "base_reaction_x_kN": {
+          "diagnostics": [
+            {
+              "code": "UNIT_NORMALIZED",
+              "details": {
+                "conversion_formula": "value_N / 1000 = value_kN",
+                "feature_name": "base_reaction_x_kN",
+                "normalized_unit": "kN",
+                "raw_unit": "N"
+              },
+              "message": "Value normalized using explicit unit context",
+              "severity": "WARNING"
+            },
+            {
+              "code": "COMBO_ENGINEERING_REVIEW",
+              "details": {
+                "combo_family": "DUCTILE_Y",
+                "needs_engineering_review": true,
+                "raw_value": "Crack_SeisY_UpSoil"
+              },
+              "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Base Reactions",
+              "combo_family": "DUCTILE_Y",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 1.0205,
+              "output_case": "Crack_SeisY_UpSoil",
+              "raw_value": 1020.5,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "FX",
+              "source_row": {
+                "output_case": "Crack_SeisY_UpSoil"
+              },
+              "source_table": "base_reactions",
+              "unit": "kN"
+            }
+          ],
+          "feature_name": "base_reaction_x_kN",
+          "semantic_role": "DEMAND",
+          "status": "RESOLVED",
+          "unit": "kN",
+          "value": 1.0205
+        },
+        "base_reaction_y_kN": {
+          "diagnostics": [
+            {
+              "code": "UNIT_NORMALIZED",
+              "details": {
+                "conversion_formula": "value_N / 1000 = value_kN",
+                "feature_name": "base_reaction_y_kN",
+                "normalized_unit": "kN",
+                "raw_unit": "N"
+              },
+              "message": "Value normalized using explicit unit context",
+              "severity": "WARNING"
+            },
+            {
+              "code": "COMBO_ENGINEERING_REVIEW",
+              "details": {
+                "combo_family": "DUCTILE_Y",
+                "needs_engineering_review": true,
+                "raw_value": "Crack_SeisY_UpSoil"
+              },
+              "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Base Reactions",
+              "combo_family": "DUCTILE_Y",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 2.4400999999999997,
+              "output_case": "Crack_SeisY_UpSoil",
+              "raw_value": 2440.1,
+              "reason": null,
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "FY",
+              "source_row": {
+                "output_case": "Crack_SeisY_UpSoil"
+              },
+              "source_table": "base_reactions",
+              "unit": "kN"
+            }
+          ],
+          "feature_name": "base_reaction_y_kN",
+          "semantic_role": "DEMAND",
+          "status": "RESOLVED",
+          "unit": "kN",
+          "value": 2.4400999999999997
+        },
+        "modal_sum_ux": {
+          "diagnostics": [
+            {
+              "code": "MODAL_AGGREGATION_MAX_CUMULATIVE_USED",
+              "details": {
+                "feature_name": "modal_sum_ux",
+                "mode_count": 2,
+                "selected_mode": 12,
+                "selected_row_index": 1,
+                "selected_value": 0.96,
+                "source_column": "SumUX",
+                "source_rows_considered_count": 2
+              },
+              "message": "Modal cumulative participation resolved using max_cumulative over all available rows",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Modal Participating Mass Ratios",
+              "combo_family": "MODAL",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 0.96,
+              "output_case": "Modal",
+              "raw_value": 0.96,
+              "reason": "resolved by max_cumulative aggregation over all modal participating mass rows",
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "SumUX",
+              "source_row": {
+                "aggregation_method": "max_cumulative",
+                "first_mode": 1,
+                "last_mode": 12,
+                "max_mode": 12,
+                "mode_count": 2,
+                "output_case": "Modal",
+                "selected_mode_for_ux": 12,
+                "selected_row_index_for_ux": 1,
+                "selected_sum_ux": 0.96,
+                "source_rows_considered_count": 2
+              },
+              "source_table": "modal_participating_mass",
+              "unit": "ratio"
+            }
+          ],
+          "feature_name": "modal_sum_ux",
+          "semantic_role": "MODAL_CUMULATIVE_PARTICIPATION",
+          "status": "RESOLVED",
+          "unit": "ratio",
+          "value": 0.96
+        },
+        "modal_sum_uy": {
+          "diagnostics": [
+            {
+              "code": "MODAL_AGGREGATION_MAX_CUMULATIVE_USED",
+              "details": {
+                "feature_name": "modal_sum_uy",
+                "mode_count": 2,
+                "selected_mode": 12,
+                "selected_row_index": 1,
+                "selected_value": 0.95,
+                "source_column": "SumUY",
+                "source_rows_considered_count": 2
+              },
+              "message": "Modal cumulative participation resolved using max_cumulative over all available rows",
+              "severity": "WARNING"
+            }
+          ],
+          "evidence": [
+            {
+              "actual_table_name": "Modal Participating Mass Ratios",
+              "combo_family": "MODAL",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 0.95,
+              "output_case": "Modal",
+              "raw_value": 0.95,
+              "reason": "resolved by max_cumulative aggregation over all modal participating mass rows",
+              "resolver": "c8_3_live_geometry_resolver",
+              "section_state": null,
+              "source_column": "SumUY",
+              "source_row": {
+                "aggregation_method": "max_cumulative",
+                "first_mode": 1,
+                "last_mode": 12,
+                "max_mode": 12,
+                "mode_count": 2,
+                "output_case": "Modal",
+                "selected_mode_for_uy": 12,
+                "selected_row_index_for_uy": 1,
+                "selected_sum_uy": 0.95,
+                "source_rows_considered_count": 2
+              },
+              "source_table": "modal_participating_mass",
+              "unit": "ratio"
+            }
+          ],
+          "feature_name": "modal_sum_uy",
+          "semantic_role": "MODAL_CUMULATIVE_PARTICIPATION",
+          "status": "RESOLVED",
+          "unit": "ratio",
+          "value": 0.95
+        }
+      },
+      "identity": {
+        "component": "GLOBAL"
+      }
+    }
+  ]
+}

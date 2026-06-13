@@ -1,0 +1,667 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  sprint: C1_CONTRACT_HARDENING
+  status: hardened_contract
+  owner: TBDY Engine
+  catalog_name: table_registry
+  notes:
+  - Contract-only. No engine/check/ETABS runtime implementation.
+  - Production source of truth is live ETABS tables; Excel is fixture/debug/regression
+    only.
+  - 'Rebar semantics: ETABS_REQUIRED + TBDY_MIN -> GOVERNING_REQUIRED -> ENGINE_SELECTED;
+    USER_PROVIDED is explicit only.'
+providers:
+  primary: ETABS_LIVE_PROVIDER
+  secondary_allowed:
+  - EXCEL_FIXTURE_PROVIDER
+  - FAKE_ETABS_TABLE_CLIENT
+  excel_role: fixture_debug_regression_only
+unit_policy:
+  canonical:
+    length: mm
+    force: kN
+    moment: kNm
+    stress: MPa
+    area: mm2
+    ratio: ''
+    period: s
+  source_units_required: true
+  missing_units_behavior: requires_preflight_diagnostic
+tables:
+  frame_assignments:
+    logical_name: Frame Assignments - Summary
+    provider_sources:
+      etabs:
+      - Frame Assignments - Summary
+      excel:
+      - Frame Assignments - Summary
+    required_columns_any:
+    - - UniqueName
+      - Label
+      - Story
+      - DesignSect
+    - - UniqueName
+      - Label
+      - Story
+      - AnalysisSect
+    - - Frame
+      - Story
+      - DesignSect
+    - - Frame
+      - Story
+      - AnalysisSect
+    domain: identity_geometry
+    status: active_contract
+  frame_section_properties:
+    logical_name: Frame Section Property Definitions - Concrete Rectangular
+    provider_sources:
+      etabs:
+      - Frame Section Property Definitions - Concrete Rectangular
+      - Frame Sec Def - Conc Rect
+      - Frame Section Property Definitions - Concrete Rect
+      excel:
+      - Frame Section Property Definitions - Concrete Rectangular
+      - Frame Sec Def - Conc Rect
+      - Frame Section Property Definitions - Concrete Rect
+    required_columns_any:
+    - - Name
+      - t3
+      - t2
+    - - Name
+      - Depth
+      - Width
+    - - SectionName
+      - Depth
+      - Width
+    domain: geometry
+    status: active_contract
+  material_properties:
+    logical_name: Material Properties - Concrete/Rebar Composite
+    provider_sources:
+      etabs:
+      - Material Properties - Concrete/Rebar
+      excel:
+      - Material Properties - Concrete/Rebar
+    required_columns_any:
+    - - Material
+      - Fc
+      - Fy
+    domain: material
+    status: legacy_composite_contract
+    notes: Composite compatibility key. Prefer material_concrete_data and material_rebar_data.
+    source_kind: composite
+    requires_tables:
+    - material_concrete_data
+    - material_rebar_data
+    missing_table_behavior: diagnostic_composite_source
+  beam_forces:
+    logical_name: Element Forces - Beams
+    provider_sources:
+      etabs:
+      - Element Forces - Beams
+      excel:
+      - Element Forces - Beams
+    required_columns_any:
+    - - Frame
+      - Story
+      - Station
+      - OutputCase
+      - P
+      - V2
+      - V3
+      - T
+      - M2
+      - M3
+    - - UniqueName
+      - Story
+      - Station
+      - Output Case
+      - P
+      - V2
+      - V3
+      - T
+      - M2
+      - M3
+    domain: beam_demand
+    status: active_contract
+  concrete_beam_design_summary:
+    logical_name: Concrete Beam Design Summary
+    provider_sources:
+      etabs:
+      - Concrete Beam Design Summary
+      - Concrete Beam Design Summary - TS 500-2000(R2018)
+      excel:
+      - Concrete Beam Design Summary
+      - Concrete Beam Design Summary - TS 500-2000(R2018)
+    required_columns_any:
+    - - Label
+      - Story
+      - Station
+      - AsTop
+      - AsBot
+      - VRebar
+    - - UniqueName
+      - Story
+      - Station
+      - AsTop
+      - AsBot
+      - VRebar
+    - - Label
+      - Story
+      - AsTop
+      - AsBot
+      - VRebar
+    - - Beam
+      - Story
+      - Station
+      - AsTop
+      - AsBot
+      - AsShear
+    domain: etabs_required_rebar
+    status: active_contract
+  concrete_column_design_summary:
+    logical_name: Concrete Column Design Summary
+    provider_sources:
+      etabs:
+      - Concrete Column Design Summary
+      - Concrete Column Design Summary - TS 500-2000(R2018)
+      excel:
+      - Concrete Column Design Summary
+      - Concrete Column Design Summary - TS 500-2000(R2018)
+    required_columns_any:
+    - - Label
+      - Story
+      - PMMRatio
+    - - UniqueName
+      - Story
+      - PMMRatio
+    - - Frame
+      - Story
+      - PMMRatio
+    - - Column
+      - Story
+    domain: column_design
+    status: reserved_contract
+  pier_design_summary:
+    logical_name: Shear Wall Pier Design Summary
+    provider_sources:
+      etabs:
+      - Shear Wall/Pier Design Summary
+      - Shear Wall Pier Design Summary
+      - Shear Wall Pier Design Summary - TS 500-2000(R2018)
+      excel:
+      - Shear Wall/Pier Design Summary
+      - Shear Wall Pier Design Summary
+      - Shear Wall Pier Design Summary - TS 500-2000(R2018)
+    required_columns_any:
+    - - Pier
+      - Story
+    - - Pier Name
+      - Story
+    domain: wall_design
+    status: reserved_contract
+  modal_participating_mass:
+    logical_name: Modal Participating Mass Ratios
+    provider_sources:
+      etabs:
+      - Modal Participating Mass Ratios
+      excel:
+      - Modal Participating Mass Ratios
+    required_columns_any:
+    - - Mode
+      - Period
+      - SumUX
+      - SumUY
+    domain: global_modal
+    status: reserved_contract
+  story_drifts:
+    logical_name: Story Drifts
+    provider_sources:
+      etabs:
+      - Story Drifts
+      excel:
+      - Story Drifts
+    required_columns_any:
+    - - Story
+      - OutputCase
+      - Direction
+      - Drift
+    - - Story
+      - Output Case
+      - Direction
+      - Drift
+    domain: story_drift
+    status: reserved_contract
+  story_max_over_avg_drifts:
+    logical_name: Story Max Over Avg Drifts
+    provider_sources:
+      etabs:
+      - Story Max Over Avg Drifts
+      excel:
+      - Story Max Over Avg Drifts
+    required_columns_any:
+    - - Story
+      - OutputCase
+      - Max Drift
+      - Avg Drift
+      - Ratio
+    - - Story
+      - Output Case
+      - Max Drift
+      - Avg Drift
+      - Ratio
+    - - Story
+      - OutputCase
+      - MaxDrift
+      - AvgDrift
+      - Ratio
+    domain: story_torsion
+    status: reserved_contract
+  story_definitions:
+    logical_name: Story Definitions
+    provider_sources:
+      etabs:
+      - Story Definitions
+      excel:
+      - Story Definitions
+    required_columns_any:
+    - - Story
+      - Height
+      - Elevation
+    - - Story
+      - Height
+    domain: story_geometry
+    status: reserved_contract
+  base_reactions:
+    logical_name: Base Reactions
+    provider_sources:
+      etabs:
+      - Base Reactions
+      excel:
+      - Base Reactions
+    required_columns_any:
+    - - OutputCase
+      - FX
+      - FY
+    - - Output Case
+      - FX
+      - FY
+    domain: global_base_shear
+    status: reserved_contract
+  column_section_data:
+    logical_name: Column Section Data Composite
+    provider_sources:
+      etabs:
+      - Frame Section Property Definitions - Concrete Rectangular
+      - Frame Assignments - Summary
+      - Frame Section Property Definitions - Concrete Column Reinforcing
+      excel:
+      - Frame Section Property Definitions - Concrete Rectangular
+      - Frame Assignments - Summary
+      - Frame Section Property Definitions - Concrete Column Reinforcing
+    required_columns_any:
+    - - Name
+      - t3
+      - t2
+    - - Name
+      - Depth
+      - Width
+    - - Name
+      - RebarMatL
+      - RebarMatC
+    domain: column_geometry
+    status: reserved_contract
+    notes: Composite alias. Column geometry resolves through frame_section_properties
+      + frame_assignments + column reinforcing table when available.
+    source_kind: composite
+    requires_tables:
+    - frame_section_properties
+    - frame_assignments
+    missing_table_behavior: diagnostic_composite_source
+  wall_section_data:
+    logical_name: Pier Section Properties
+    provider_sources:
+      etabs:
+      - Pier Section Properties
+      excel:
+      - Pier Section Properties
+    required_columns_any:
+    - - Pier
+      - Story
+      - WidthBot
+      - ThickBot
+    - - Pier
+      - Story
+      - WidthTop
+      - ThickTop
+    - - Pier
+      - Story
+      - WidthBottom
+      - ThicknessBottom
+    domain: wall_geometry
+    status: reserved_contract
+  material_concrete_data:
+    logical_name: Material Properties - Concrete Data
+    provider_sources:
+      etabs:
+      - Material Properties - Concrete Data
+      - Mat Prop - Concrete Data
+      excel:
+      - Material Properties - Concrete Data
+      - Mat Prop - Concrete Data
+    required_columns_any:
+    - - Material
+      - Fc
+    - - Name
+      - Fc
+    domain: material
+    status: active_contract
+  material_rebar_data:
+    logical_name: Material Properties - Rebar Data
+    provider_sources:
+      etabs:
+      - Material Properties - Rebar Data
+      - Mat Prop - Rebar Data
+      excel:
+      - Material Properties - Rebar Data
+      - Mat Prop - Rebar Data
+    required_columns_any:
+    - - Material
+      - Fy
+    - - Name
+      - Fy
+    domain: material
+    status: active_contract
+  material_basic_mechanical:
+    logical_name: Material Properties - Basic Mechanical Properties
+    provider_sources:
+      etabs:
+      - Material Properties - Basic Mechanical Properties
+      - Mat Prop - Basic Mechanical Properties
+      excel:
+      - Material Properties - Basic Mechanical Properties
+      - Mat Prop - Basic Mechanical Properties
+    required_columns_any:
+    - - Material
+    - - Name
+    domain: material
+    status: active_contract
+  material_general:
+    logical_name: Material Properties - General
+    provider_sources:
+      etabs:
+      - Material Properties - General
+      - Mat Prop - General
+      excel:
+      - Material Properties - General
+      - Mat Prop - General
+    required_columns_any:
+    - - Material
+    - - Name
+    domain: material
+    status: active_contract
+  concrete_beam_flexure_envelope:
+    logical_name: Concrete Beam Flexure Envelope
+    provider_sources:
+      etabs:
+      - Concrete Beam Flexure Envelope
+      - Concrete Beam Flexure Envelope - TS 500-2000(R2018)
+      - Concrete Beam Flexure Envelope -  TS 500-2000(R2018)
+      excel:
+      - Concrete Beam Flexure Envelope
+      - Concrete Beam Flexure Envelope - TS 500-2000(R2018)
+      - Concrete Beam Flexure Envelope -  TS 500-2000(R2018)
+    required_columns_any:
+    - - Frame
+      - Story
+    - - Beam
+      - Story
+    - - Label
+      - Story
+    domain: etabs_required_rebar
+    status: active_contract
+  concrete_beam_shear_envelope:
+    logical_name: Concrete Beam Shear Envelope
+    provider_sources:
+      etabs:
+      - Concrete Beam Shear Envelope
+      - Concrete Beam Shear Envelope - TS 500-2000(R2018)
+      - Concrete Beam Shear Envelope -  TS 500-2000(R2018)
+      excel:
+      - Concrete Beam Shear Envelope
+      - Concrete Beam Shear Envelope - TS 500-2000(R2018)
+      - Concrete Beam Shear Envelope -  TS 500-2000(R2018)
+    required_columns_any:
+    - - Frame
+      - Story
+    - - Beam
+      - Story
+    - - Label
+      - Story
+    domain: etabs_required_rebar
+    status: active_contract
+  concrete_beam_overwrites:
+    logical_name: Concrete Beam Overwrites
+    provider_sources:
+      etabs:
+      - Concrete Beam Overwrites
+      - Concrete Beam Overwrites - TS 500-2000(R2018)
+      excel:
+      - Concrete Beam Overwrites
+      - Concrete Beam Overwrites - TS 500-2000(R2018)
+    required_columns_any:
+    - - Frame
+    - - Beam
+    - - Label
+    domain: design_overwrites
+    status: reserved_contract
+  concrete_column_pmm_envelope:
+    logical_name: Concrete Column PMM Envelope
+    provider_sources:
+      etabs:
+      - Concrete Column PMM Envelope
+      - Concrete Column PMM Envelope - TS 500-2000(R2018)
+      excel:
+      - Concrete Column PMM Envelope
+      - Concrete Column PMM Envelope - TS 500-2000(R2018)
+    required_columns_any:
+    - - Frame
+      - Story
+    - - Column
+      - Story
+    - - Label
+      - Story
+    domain: column_design
+    status: reserved_contract
+  concrete_column_shear_envelope:
+    logical_name: Concrete Column Shear Envelope
+    provider_sources:
+      etabs:
+      - Concrete Column Shear Envelope
+      - Concrete Column Shear Envelope - TS 500-2000(R2018)
+      - Concrete Column Shear Envelope -  TS 500-2000(R2018)
+      excel:
+      - Concrete Column Shear Envelope
+      - Concrete Column Shear Envelope - TS 500-2000(R2018)
+      - Concrete Column Shear Envelope -  TS 500-2000(R2018)
+    required_columns_any:
+    - - Frame
+      - Story
+    - - Column
+      - Story
+    - - Label
+      - Story
+    domain: column_design
+    status: reserved_contract
+  concrete_column_overwrites:
+    logical_name: Concrete Column Overwrites
+    provider_sources:
+      etabs:
+      - Concrete Column Overwrites
+      - Concrete Column Overwrites - TS 500-2000(R2018)
+      excel:
+      - Concrete Column Overwrites
+      - Concrete Column Overwrites - TS 500-2000(R2018)
+    required_columns_any:
+    - - Frame
+    - - Column
+    - - Label
+    domain: design_overwrites
+    status: reserved_contract
+  pier_forces:
+    logical_name: Pier Forces
+    provider_sources:
+      etabs:
+      - Pier Forces
+      excel:
+      - Pier Forces
+    required_columns_any:
+    - - Pier
+      - Story
+      - OutputCase
+      - P
+      - V2
+      - M3
+    - - Pier
+      - Story
+      - Output Case
+      - P
+      - V2
+      - M3
+    domain: wall_demand
+    status: reserved_contract
+  wall_design_load_combinations:
+    logical_name: Shear Wall Design Load Combination Data
+    provider_sources:
+      etabs:
+      - Shear Wall Design Load Combination Data
+      excel:
+      - Shear Wall Design Load Combination Data
+    required_columns_any:
+    - - Combo
+    - - DesignCombo
+    - - Load Combination
+    domain: wall_design
+    status: reserved_contract
+  wall_design_preferences:
+    logical_name: Shear Wall Design Preferences
+    provider_sources:
+      etabs:
+      - Shear Wall Design Preferences
+      - Shear Wall Design Preferences - TS 500-2000(R2018)
+      excel:
+      - Shear Wall Design Preferences
+      - Shear Wall Design Preferences - TS 500-2000(R2018)
+    required_columns_any:
+    - - Item
+    - - Preference
+    domain: wall_design
+    status: reserved_contract
+  wall_design_overwrites:
+    logical_name: Shear Wall Pier Design Overwrites
+    provider_sources:
+      etabs:
+      - Shear Wall Pier Design Overwrites
+      - Shear Wall Pier Design Overwrites - TS 500-2000(R2018)
+      excel:
+      - Shear Wall Pier Design Overwrites
+      - Shear Wall Pier Design Overwrites - TS 500-2000(R2018)
+    required_columns_any:
+    - - Pier
+    - - Pier Name
+    domain: wall_design
+    status: reserved_contract
+  concrete_frame_design_load_combinations:
+    logical_name: Concrete Frame Design Load Combination Data
+    provider_sources:
+      etabs:
+      - Concrete Frame Design Load Combination Data
+      excel:
+      - Concrete Frame Design Load Combination Data
+    required_columns_any:
+    - - Combo
+    - - DesignCombo
+    - - Load Combination
+    domain: load_combo
+    status: active_contract
+  load_combination_definitions:
+    logical_name: Load Combination Definitions
+    provider_sources:
+      etabs:
+      - Load Combination Definitions
+      excel:
+      - Load Combination Definitions
+    required_columns_any:
+    - - Combo
+    - - Name
+    - - Load Combination
+    domain: load_combo
+    status: active_contract
+  load_pattern_definitions:
+    logical_name: Load Pattern Definitions
+    provider_sources:
+      etabs:
+      - Load Pattern Definitions
+      excel:
+      - Load Pattern Definitions
+    required_columns_any:
+    - - LoadPattern
+    - - Name
+    - - Load Pattern
+    domain: load_pattern
+    status: active_contract
+  auto_seismic_tsc_2018:
+    logical_name: Load Pattern Definitions - Auto Seismic - TSC 2018
+    provider_sources:
+      etabs:
+      - Load Pattern Definitions - Auto Seismic - TSC 2018
+      - Auto Seismic - TSC 2018
+      excel:
+      - Load Pattern Definitions - Auto Seismic - TSC 2018
+      - Auto Seismic - TSC 2018
+    required_columns_any:
+    - - LoadPattern
+    - - Name
+    - - Load Pattern
+    domain: load_pattern
+    status: active_contract
+column_alias_semantics:
+  Section:
+    preferred: DesignSect
+    fallback: AnalysisSect
+    fallback_diagnostic: ANALYSIS_SECTION_FALLBACK
+  Width:
+    aliases:
+    - Width
+    - t2
+  Depth:
+    aliases:
+    - Depth
+    - t3
+  Beam:
+    aliases:
+    - Label
+    - UniqueName
+    preferred_identity: UniqueName
+    display_label: Label
+  Frame:
+    aliases:
+    - Label
+    - UniqueName
+    preferred_identity: UniqueName
+    display_label: Label
+  AsShear:
+    preferred: VRebar
+    semantics_review:
+    - totTrnRebar
+  WidthBottom:
+    aliases:
+    - WidthBot
+    - WidthTop
+    - WidthBottom
+  ThicknessBottom:
+    aliases:
+    - ThickBot
+    - ThickTop
+    - ThicknessBottom

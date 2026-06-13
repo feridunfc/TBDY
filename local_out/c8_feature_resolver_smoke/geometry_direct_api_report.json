@@ -1,0 +1,29 @@
+{
+  "attempted_frame_identity_resolution": false,
+  "diagnostics": [
+    {
+      "code": "DIRECT_SECTION_GEOMETRY_UNAVAILABLE",
+      "message": "Direct section geometry API data unavailable or did not match target section",
+      "severity": "WARNING"
+    },
+    {
+      "code": "DIRECT_FRAME_LENGTH_UNAVAILABLE",
+      "message": "Direct frame endpoint API data unavailable",
+      "severity": "WARNING"
+    }
+  ],
+  "frame_points_api_call": "FrameObj.GetPoints + PointObj.GetCoordCartesian",
+  "frame_points_return_code": null,
+  "normalized_length_mm": null,
+  "point_coordinates": null,
+  "raw_length": null,
+  "resolved_frame_object_name": null,
+  "resolved_label": null,
+  "resolved_section_name": "B40x70",
+  "resolved_story": null,
+  "section_api_call": "PropFrame.GetRectangle",
+  "section_api_return_code": null,
+  "section_normalized_dimensions": null,
+  "section_raw_dimensions": null,
+  "used": false
+}

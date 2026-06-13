@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "metadata",
+    "features",
+    "rebar_semantics"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "contract",
+        "version",
+        "catalog_name"
+      ],
+      "properties": {
+        "contract": {
+          "const": "Contract Constitution"
+        },
+        "version": {
+          "const": "1.0"
+        },
+        "catalog_name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "features": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "element_type",
+          "type",
+          "unit",
+          "semantic_role",
+          "availability",
+          "source",
+          "semantics"
+        ],
+        "properties": {
+          "availability": {
+            "type": "object",
+            "required": [
+              "status",
+              "confidence"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "available",
+                  "partially_available",
+                  "missing_in_export",
+                  "derived"
+                ]
+              },
+              "confidence": {
+                "enum": [
+                  "high",
+                  "medium",
+                  "low"
+                ]
+              }
+            }
+          },
+          "semantics": {
+            "type": "object",
+            "required": [
+              "source_level",
+              "provided_rebar_verified"
+            ],
+            "properties": {
+              "source_level": {
+                "enum": [
+                  "ETABS_RAW",
+                  "DERIVED",
+                  "ETABS_DESIGN_RESULT",
+                  "MANUAL"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "rebar_semantics": {
+      "type": "object",
+      "required": [
+        "canonical_flow"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

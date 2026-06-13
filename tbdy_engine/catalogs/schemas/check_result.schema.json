@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tbdy-engine.local/schemas/check_result.schema.json",
+  "title": "Canonical CheckResult",
+  "type": "object",
+  "required": [
+    "check_id",
+    "component",
+    "component_type",
+    "status",
+    "evaluation_level",
+    "evidence",
+    "messages",
+    "code_ref"
+  ],
+  "properties": {
+    "check_id": {
+      "type": "string"
+    },
+    "component": {
+      "type": "string"
+    },
+    "component_type": {
+      "enum": [
+        "beam",
+        "column",
+        "story",
+        "wall",
+        "joint",
+        "diaphragm",
+        "global"
+      ]
+    },
+    "story": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "section": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "enum": [
+        "OK",
+        "WARNING",
+        "FAIL",
+        "NO_DATA"
+      ]
+    },
+    "value": {},
+    "limit": {},
+    "demand": {},
+    "capacity": {},
+    "ratio": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "ratio_type": {
+      "enum": [
+        "demand_over_capacity",
+        "actual_over_minimum",
+        "selected_over_required",
+        "required_over_selected",
+        "value_over_maximum",
+        "value_over_minimum",
+        "value_over_limit",
+        "limit_over_value",
+        "actual_over_required",
+        "availability",
+        "boolean",
+        null
+      ]
+    },
+    "pass_rule": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "unit": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "evaluation_level": {
+      "enum": [
+        "DESIGN_LEVEL",
+        "ETABS_DESIGN_RESULT",
+        "SCREENING",
+        "NO_DATA"
+      ]
+    },
+    "readiness_status": {
+      "enum": [
+        "ready",
+        "partial",
+        "missing_features",
+        null
+      ]
+    },
+    "evidence": {
+      "type": "array"
+    },
+    "messages": {
+      "type": "array"
+    },
+    "code_ref": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

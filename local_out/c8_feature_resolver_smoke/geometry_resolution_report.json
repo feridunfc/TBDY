@@ -1,0 +1,62 @@
+{
+  "geometry_features": {
+    "beam_depth_mm": {
+      "evidence_status": "FULL",
+      "source_column": "t3",
+      "source_table": "frame_section_properties",
+      "status": "RESOLVED",
+      "unit": "mm",
+      "unit_evidence": {
+        "conversion_applied": false,
+        "conversion_formula": null,
+        "diagnostics": [],
+        "normalized_unit": "mm",
+        "normalized_value": 700.0,
+        "raw_unit": "mm",
+        "raw_value": 700,
+        "unit_context_source": "fixture_declared_units",
+        "unit_normalization_status": "RESOLVED"
+      },
+      "value": 700.0
+    },
+    "beam_length_mm": {
+      "evidence_status": "FULL",
+      "source_column": "Length",
+      "source_table": "frame_assignments",
+      "status": "RESOLVED",
+      "unit": "mm",
+      "unit_evidence": {
+        "conversion_applied": false,
+        "conversion_formula": null,
+        "diagnostics": [],
+        "normalized_unit": "mm",
+        "normalized_value": 6200.0,
+        "raw_unit": "mm",
+        "raw_value": 6200,
+        "unit_context_source": "fixture_declared_units",
+        "unit_normalization_status": "RESOLVED"
+      },
+      "value": 6200.0
+    },
+    "beam_width_mm": {
+      "evidence_status": "FULL",
+      "source_column": "t2",
+      "source_table": "frame_section_properties",
+      "status": "RESOLVED",
+      "unit": "mm",
+      "unit_evidence": {
+        "conversion_applied": false,
+        "conversion_formula": null,
+        "diagnostics": [],
+        "normalized_unit": "mm",
+        "normalized_value": 400.0,
+        "raw_unit": "mm",
+        "raw_value": 400,
+        "unit_context_source": "fixture_declared_units",
+        "unit_normalization_status": "RESOLVED"
+      },
+      "value": 400.0
+    }
+  },
+  "section_name_parse_suggestion": null
+}

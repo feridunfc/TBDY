@@ -1,0 +1,20 @@
+{
+  "diagnostics": [
+    {
+      "code": "DISPLAY_SELECTION_NOT_MUTATED",
+      "message": "C8.3 smoke does not call SetLoadCasesSelectedForDisplay, SetLoadCombinationsSelectedForDisplay, or SetLoadPatternsSelectedForDisplay.",
+      "severity": "INFO"
+    }
+  ],
+  "may_require_display_selection": [
+    "analysis result tables"
+  ],
+  "metadata": {
+    "model_mutated": false,
+    "read_only": true
+  },
+  "model_definition_tables_should_not_require_load_case_selection": [
+    "Frame Assignments - Summary",
+    "Frame Section Property Definitions - Concrete Rectangular"
+  ]
+}

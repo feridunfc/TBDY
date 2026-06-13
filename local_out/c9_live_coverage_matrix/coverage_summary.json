@@ -1,0 +1,163 @@
+{
+  "coverage_row_count": 13,
+  "coverage_status_counts": {
+    "BLOCKED": 8,
+    "PARTIAL": 5,
+    "RUNNABLE": 0
+  },
+  "feature_status_counts": {
+    "MISSING": 0,
+    "PARTIAL": 0,
+    "RESOLVED": 28
+  },
+  "metadata": {
+    "check_engine_executed": false,
+    "check_result_emitted": false,
+    "input_feature_snapshot": "C:\\Users\\FCY\\PycharmProjects\\tbdy_engine_core\\local_out\\c8_feature_resolver_smoke\\feature_snapshot.json",
+    "live_verdict_emitted": false,
+    "manual_live_etabs_run_required": false,
+    "sprint": "C9_LIVE_COVERAGE_MATRIX"
+  },
+  "runnable_zero_explanation": {
+    "examples": [
+      {
+        "check_id": "beam_geometry_min_width",
+        "component_id": "297",
+        "component_type": "beam",
+        "coverage_status": "PARTIAL",
+        "missing_design_context": [
+          "ductility_class"
+        ],
+        "missing_features": [],
+        "reason": "Required design context is incomplete"
+      },
+      {
+        "check_id": "beam_geometry_min_depth",
+        "component_id": "297",
+        "component_type": "beam",
+        "coverage_status": "PARTIAL",
+        "missing_design_context": [
+          "ductility_class"
+        ],
+        "missing_features": [],
+        "reason": "Required design context is incomplete"
+      },
+      {
+        "check_id": "beam_span_depth_ratio",
+        "component_id": "297",
+        "component_type": "beam",
+        "coverage_status": "BLOCKED",
+        "missing_design_context": [
+          "ductility_class"
+        ],
+        "missing_features": [
+          "beam_clear_span_mm"
+        ],
+        "reason": "One or more required features are missing"
+      },
+      {
+        "check_id": "beam_depth_width_ratio",
+        "component_id": "297",
+        "component_type": "beam",
+        "coverage_status": "PARTIAL",
+        "missing_design_context": [
+          "ductility_class"
+        ],
+        "missing_features": [],
+        "reason": "Required design context is incomplete"
+      },
+      {
+        "check_id": "beam_flexure_top_selected_ge_governing_required",
+        "component_id": "297",
+        "component_type": "beam",
+        "coverage_status": "BLOCKED",
+        "missing_design_context": [
+          "ductility_class"
+        ],
+        "missing_features": [
+          "beam_As_top_engine_selected_mm2",
+          "beam_As_top_governing_required_mm2"
+        ],
+        "reason": "One or more required features are missing"
+      },
+      {
+        "check_id": "beam_flexure_bottom_selected_ge_governing_required",
+        "component_id": "297",
+        "component_type": "beam",
+        "coverage_status": "BLOCKED",
+        "missing_design_context": [
+          "ductility_class"
+        ],
+        "missing_features": [
+          "beam_As_bottom_engine_selected_mm2",
+          "beam_As_bottom_governing_required_mm2"
+        ],
+        "reason": "One or more required features are missing"
+      },
+      {
+        "check_id": "beam_shear_ve_le_vr",
+        "component_id": "297",
+        "component_type": "beam",
+        "coverage_status": "BLOCKED",
+        "missing_design_context": [
+          "ductility_class"
+        ],
+        "missing_features": [
+          "beam_Vd_left_kN",
+          "beam_Vd_right_kN",
+          "beam_effective_depth_mm"
+        ],
+        "reason": "One or more required features are missing"
+      },
+      {
+        "check_id": "beam_shear_asw_ge_asw_min",
+        "component_id": "297",
+        "component_type": "beam",
+        "coverage_status": "BLOCKED",
+        "missing_design_context": [
+          "ductility_class"
+        ],
+        "missing_features": [
+          "beam_As_top_governing_required_mm2"
+        ],
+        "reason": "One or more required features are missing"
+      },
+      {
+        "check_id": "beam_capacity_design_shear",
+        "component_id": "297",
+        "component_type": "beam",
+        "coverage_status": "BLOCKED",
+        "missing_design_context": [
+          "ductility_class"
+        ],
+        "missing_features": [
+          "beam_Md_left_neg_kNm",
+          "beam_Md_right_neg_kNm",
+          "beam_clear_span_mm"
+        ],
+        "reason": "One or more required features are missing"
+      },
+      {
+        "check_id": "story_drift_limit",
+        "component_id": "+14.5",
+        "component_type": "story",
+        "coverage_status": "BLOCKED",
+        "missing_design_context": [
+          "ductility_class"
+        ],
+        "missing_features": [
+          "story_height_mm"
+        ],
+        "reason": "One or more required features are missing"
+      }
+    ],
+    "explanation": "RUNNABLE remains zero because C8 intentionally resolves an observed feature subset, while coverage rows also need check-specific feature sets and design context before a future check run can be considered ready.",
+    "reason_category_counts": {
+      "check requires design context not present": 13,
+      "check requires features outside C8 subset": 8,
+      "ductility/section policy context missing": 13,
+      "evidence requirements incomplete": 8
+    },
+    "runnable_count": 0
+  }
+}

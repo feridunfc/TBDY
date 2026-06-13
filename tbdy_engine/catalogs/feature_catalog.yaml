@@ -1,0 +1,1985 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  sprint: C1_CONTRACT_HARDENING
+  status: hardened_contract
+  owner: TBDY Engine
+  catalog_name: feature_catalog
+  notes:
+  - Contract-only. No engine/check/ETABS runtime implementation.
+  - Production source of truth is live ETABS tables; Excel is fixture/debug/regression
+    only.
+  - 'Rebar semantics: ETABS_REQUIRED + TBDY_MIN -> GOVERNING_REQUIRED -> ENGINE_SELECTED;
+    USER_PROVIDED is explicit only.'
+rebar_semantics:
+  forbidden_central_terms:
+  - VERIFIED_PROVIDED_REBAR
+  - AS_BUILT_REBAR
+  canonical_flow:
+  - ETABS_REQUIRED_REBAR
+  - TBDY_MIN_REQUIRED_REBAR
+  - GOVERNING_REQUIRED_REBAR
+  - ENGINE_SELECTED_REBAR
+  - DESIGN_SELECTION
+  - USER_PROVIDED_REBAR
+  - FINAL_DETAILING_REQUIRED
+  rule: ETABS required output is never final selected/detailing reinforcement. USER_PROVIDED_REBAR
+    is explicit manual input only.
+forbidden_feature_name_terms:
+- ratio
+- status
+- pass
+- fail
+- ok
+features:
+  beam_label:
+    element_type: beam
+    type: string
+    unit: ''
+    semantic_role: IDENTITY
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: frame_assignments
+      field_aliases:
+      - Label
+      - Frame
+      - Beam
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: ''
+      target_unit: ''
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: 'C11.1 semantic lock: modal_sum_uy is max_cumulative over all available SumUY rows, not an intermediate mode.'
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_story:
+    element_type: beam
+    type: string
+    unit: ''
+    semantic_role: IDENTITY
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: frame_assignments
+      field_aliases:
+      - Story
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: ''
+      target_unit: ''
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_section_name:
+    element_type: beam
+    type: string
+    unit: ''
+    semantic_role: GEOMETRY_ID
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: frame_assignments
+      field_aliases:
+      - DesignSect
+      - AnalysisSect
+      - Section
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: ''
+      target_unit: ''
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_width_mm:
+    element_type: beam
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: frame_section_properties
+      field_aliases:
+      - Width
+      - t2
+      - b
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_depth_mm:
+    element_type: beam
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: frame_section_properties
+      field_aliases:
+      - Depth
+      - t3
+      - h
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_length_mm:
+    element_type: beam
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: frame_assignments
+      field_aliases:
+      - Length
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_clear_span_mm:
+    element_type: beam
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY_REFERENCE
+    availability:
+      status: partially_available
+      confidence: medium
+    source:
+      table_key: frame_assignments
+      field_aliases:
+      - Length
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: true
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_effective_depth_mm:
+    element_type: beam
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY_REFERENCE
+    availability:
+      status: derived
+      confidence: medium
+    source:
+      table_key: null
+      field_aliases: []
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: contract_defined_later_no_formula
+    fallback:
+      allowed: true
+      method: custom_resolver
+      warning: ''
+    semantics:
+      source_level: DERIVED
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+    derived_from:
+    - beam_depth_mm
+  concrete_fck_mpa:
+    element_type: material
+    type: float
+    unit: MPa
+    semantic_role: DESIGN_BASIS
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: material_concrete_data
+      field_aliases:
+      - Fc
+      - fc
+      - Concrete Strength
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: MPa
+      target_unit: MPa
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  rebar_fyk_mpa:
+    element_type: material
+    type: float
+    unit: MPa
+    semantic_role: DESIGN_BASIS
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: material_rebar_data
+      field_aliases:
+      - Fy
+      - fy
+      - Yield Strength
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: MPa
+      target_unit: MPa
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_Md_left_neg_kNm:
+    element_type: beam
+    type: float
+    unit: kNm
+    semantic_role: DEMAND
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: beam_forces
+      field_aliases:
+      - M3
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: left_zone_max_abs_negative
+    unit_policy:
+      source_unit: kNm
+      target_unit: kNm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_Md_mid_pos_kNm:
+    element_type: beam
+    type: float
+    unit: kNm
+    semantic_role: DEMAND
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: beam_forces
+      field_aliases:
+      - M3
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: mid_zone_max_positive
+    unit_policy:
+      source_unit: kNm
+      target_unit: kNm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_Md_right_neg_kNm:
+    element_type: beam
+    type: float
+    unit: kNm
+    semantic_role: DEMAND
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: beam_forces
+      field_aliases:
+      - M3
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: right_zone_max_abs_negative
+    unit_policy:
+      source_unit: kNm
+      target_unit: kNm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_Vd_left_kN:
+    element_type: beam
+    type: float
+    unit: kN
+    semantic_role: DEMAND
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: beam_forces
+      field_aliases:
+      - V2
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: left_zone_max_abs
+    unit_policy:
+      source_unit: kN
+      target_unit: kN
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_Vd_right_kN:
+    element_type: beam
+    type: float
+    unit: kN
+    semantic_role: DEMAND
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: beam_forces
+      field_aliases:
+      - V2
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: right_zone_max_abs
+    unit_policy:
+      source_unit: kN
+      target_unit: kN
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_As_top_etabs_required_mm2:
+    element_type: beam
+    type: float
+    unit: mm2
+    semantic_role: ETABS_REQUIRED_REBAR
+    availability:
+      status: partially_available
+      confidence: medium
+    source:
+      table_key: concrete_beam_design_summary
+      field_aliases:
+      - AsTop
+      - AsMinTop
+      - totTopRebar
+      - TopArea
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: max_envelope
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: none
+    fallback:
+      allowed: true
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_DESIGN_RESULT
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_As_bottom_etabs_required_mm2:
+    element_type: beam
+    type: float
+    unit: mm2
+    semantic_role: ETABS_REQUIRED_REBAR
+    availability:
+      status: partially_available
+      confidence: medium
+    source:
+      table_key: concrete_beam_design_summary
+      field_aliases:
+      - AsBot
+      - AsMinBot
+      - totBotRebar
+      - BotArea
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: max_envelope
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: none
+    fallback:
+      allowed: true
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_DESIGN_RESULT
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_As_top_tbdy_min_required_mm2:
+    element_type: beam
+    type: float
+    unit: mm2
+    semantic_role: TBDY_MIN_REQUIRED_REBAR
+    availability:
+      status: derived
+      confidence: medium
+    source:
+      table_key: null
+      field_aliases: []
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: contract_defined_later_no_formula
+    fallback:
+      allowed: true
+      method: custom_resolver
+      warning: ''
+    semantics:
+      source_level: DERIVED
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+    derived_from:
+    - beam_width_mm
+    - beam_depth_mm
+    - concrete_fck_mpa
+    - rebar_fyk_mpa
+  beam_As_bottom_tbdy_min_required_mm2:
+    element_type: beam
+    type: float
+    unit: mm2
+    semantic_role: TBDY_MIN_REQUIRED_REBAR
+    availability:
+      status: derived
+      confidence: medium
+    source:
+      table_key: null
+      field_aliases: []
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: contract_defined_later_no_formula
+    fallback:
+      allowed: true
+      method: custom_resolver
+      warning: ''
+    semantics:
+      source_level: DERIVED
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+    derived_from:
+    - beam_width_mm
+    - beam_depth_mm
+    - concrete_fck_mpa
+    - rebar_fyk_mpa
+  beam_As_top_governing_required_mm2:
+    element_type: beam
+    type: float
+    unit: mm2
+    semantic_role: GOVERNING_REQUIRED_REBAR
+    availability:
+      status: derived
+      confidence: medium
+    source:
+      table_key: null
+      field_aliases: []
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: contract_defined_later_no_formula
+    fallback:
+      allowed: true
+      method: custom_resolver
+      warning: ''
+    semantics:
+      source_level: DERIVED
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+    derived_from:
+    - beam_As_top_etabs_required_mm2
+    - beam_As_top_tbdy_min_required_mm2
+  beam_As_bottom_governing_required_mm2:
+    element_type: beam
+    type: float
+    unit: mm2
+    semantic_role: GOVERNING_REQUIRED_REBAR
+    availability:
+      status: derived
+      confidence: medium
+    source:
+      table_key: null
+      field_aliases: []
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: contract_defined_later_no_formula
+    fallback:
+      allowed: true
+      method: custom_resolver
+      warning: ''
+    semantics:
+      source_level: DERIVED
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+    derived_from:
+    - beam_As_bottom_etabs_required_mm2
+    - beam_As_bottom_tbdy_min_required_mm2
+  beam_As_top_engine_selected_mm2:
+    element_type: beam
+    type: float
+    unit: mm2
+    semantic_role: ENGINE_SELECTED_REBAR
+    availability:
+      status: derived
+      confidence: low
+    source:
+      table_key: null
+      field_aliases: []
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: contract_defined_later_no_formula
+    fallback:
+      allowed: true
+      method: custom_resolver
+      warning: ''
+    semantics:
+      source_level: DERIVED
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+    derived_from:
+    - beam_As_top_governing_required_mm2
+  beam_As_bottom_engine_selected_mm2:
+    element_type: beam
+    type: float
+    unit: mm2
+    semantic_role: ENGINE_SELECTED_REBAR
+    availability:
+      status: derived
+      confidence: low
+    source:
+      table_key: null
+      field_aliases: []
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: contract_defined_later_no_formula
+    fallback:
+      allowed: true
+      method: custom_resolver
+      warning: ''
+    semantics:
+      source_level: DERIVED
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+    derived_from:
+    - beam_As_bottom_governing_required_mm2
+  beam_As_top_user_provided_mm2:
+    element_type: beam
+    type: float
+    unit: mm2
+    semantic_role: USER_PROVIDED_REBAR
+    availability:
+      status: missing_in_export
+      confidence: low
+    source:
+      table_key: null
+      field_aliases: []
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: none
+    fallback:
+      allowed: true
+      method: manual_input
+      warning: Manual/review input required.
+    semantics:
+      source_level: MANUAL
+      provided_rebar_verified: 'false'
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_engine_selected_rebar_requires_detailing_review:
+    element_type: beam
+    type: bool
+    unit: ''
+    semantic_role: FINAL_DETAILING_REQUIRED
+    availability:
+      status: derived
+      confidence: high
+    source:
+      table_key: null
+      field_aliases: []
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: ''
+      target_unit: ''
+      conversion: contract_defined_later_no_formula
+    fallback:
+      allowed: true
+      method: custom_resolver
+      warning: ''
+    semantics:
+      source_level: DERIVED
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+    derived_from:
+    - beam_As_top_engine_selected_mm2
+    - beam_As_bottom_engine_selected_mm2
+  column_width_mm:
+    element_type: column
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: frame_section_properties
+      field_aliases:
+      - Width
+      - t2
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: Column geometry uses frame_section_properties via frame_assignments section
+        identity; column_section_data remains a composite diagnostic key.
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  column_depth_mm:
+    element_type: column
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: frame_section_properties
+      field_aliases:
+      - Depth
+      - t3
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: Column geometry uses frame_section_properties via frame_assignments section
+        identity; column_section_data remains a composite diagnostic key.
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  column_Nd_max_kN:
+    element_type: column
+    type: float
+    unit: kN
+    semantic_role: DEMAND
+    availability:
+      status: partially_available
+      confidence: medium
+    source:
+      table_key: concrete_column_design_summary
+      field_aliases:
+      - P
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: none
+    unit_policy:
+      source_unit: kN
+      target_unit: kN
+      conversion: none
+    fallback:
+      allowed: true
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  column_rho_longitudinal_value:
+    element_type: column
+    type: float
+    unit: ratio
+    semantic_role: REBAR_RATIO_OBSERVED
+    availability:
+      status: missing_in_export
+      confidence: low
+    source:
+      table_key: null
+      field_aliases: []
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: ratio
+      target_unit: ratio
+      conversion: none
+    fallback:
+      allowed: true
+      method: manual_input
+      warning: Manual/review input required.
+    semantics:
+      source_level: MANUAL
+      provided_rebar_verified: 'false'
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  wall_thickness_mm:
+    element_type: wall
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: wall_section_data
+      field_aliases:
+      - ThickBot
+      - ThickTop
+      - ThicknessBottom
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  wall_length_mm:
+    element_type: wall
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: wall_section_data
+      field_aliases:
+      - WidthBot
+      - WidthTop
+      - WidthBottom
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  wall_Vd_kN:
+    element_type: wall
+    type: float
+    unit: kN
+    semantic_role: DEMAND
+    availability:
+      status: partially_available
+      confidence: medium
+    source:
+      table_key: pier_design_summary
+      field_aliases:
+      - V2
+      filters: []
+      combo_family: CAPACITY_X_OR_Y
+      aggregation: none
+    unit_policy:
+      source_unit: kN
+      target_unit: kN
+      conversion: none
+    fallback:
+      allowed: true
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  story_height_mm:
+    element_type: story
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: story_definitions
+      field_aliases:
+      - Height
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  story_drift_max_mm:
+    element_type: story
+    type: float
+    unit: mm
+    semantic_role: DISPLACEMENT_OBSERVED
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: story_drifts
+      field_aliases:
+      - Drift
+      filters: []
+      combo_family: DISP_X_OR_Y
+      aggregation: max_abs
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  story_drift_avg_mm:
+    element_type: story
+    type: float
+    unit: mm
+    semantic_role: DISPLACEMENT_OBSERVED
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: story_max_over_avg_drifts
+      field_aliases:
+      - Avg Drift
+      - AvgDrift
+      filters: []
+      combo_family: DISP_X_OR_Y
+      aggregation: max_abs
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  story_torsion_a1_coefficient:
+    element_type: story
+    type: float
+    unit: ratio
+    semantic_role: IRREGULARITY_OBSERVED
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: story_max_over_avg_drifts
+      field_aliases:
+      - Ratio
+      filters: []
+      combo_family: DISP_X_OR_Y
+      aggregation: max
+    unit_policy:
+      source_unit: ratio
+      target_unit: ratio
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  modal_sum_ux:
+    element_type: global
+    type: float
+    unit: ratio
+    semantic_role: MODAL_CUMULATIVE_PARTICIPATION
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: modal_participating_mass
+      field_aliases:
+      - SumUX
+      filters: []
+      combo_family: MODAL
+      aggregation: max_cumulative
+    unit_policy:
+      source_unit: ratio
+      target_unit: ratio
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: 'C11.1 semantic lock: modal_sum_ux is max_cumulative over all available SumUX rows, not an intermediate mode.'
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  modal_sum_uy:
+    element_type: global
+    type: float
+    unit: ratio
+    semantic_role: MODAL_CUMULATIVE_PARTICIPATION
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: modal_participating_mass
+      field_aliases:
+      - SumUY
+      filters: []
+      combo_family: MODAL
+      aggregation: max_cumulative
+    unit_policy:
+      source_unit: ratio
+      target_unit: ratio
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: 'C11.1 semantic lock: modal_sum_uy is max_cumulative over all available SumUY rows, not an intermediate mode.'
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  base_reaction_x_kN:
+    element_type: global
+    type: float
+    unit: kN
+    semantic_role: DEMAND
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: base_reactions
+      field_aliases:
+      - FX
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: max_abs
+    unit_policy:
+      source_unit: kN
+      target_unit: kN
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  base_reaction_y_kN:
+    element_type: global
+    type: float
+    unit: kN
+    semantic_role: DEMAND
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: base_reactions
+      field_aliases:
+      - FY
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: max_abs
+    unit_policy:
+      source_unit: kN
+      target_unit: kN
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  design_base_shear_kN:
+    element_type: global
+    type: float
+    unit: kN
+    semantic_role: DESIGN_BASIS
+    availability:
+      status: missing_in_export
+      confidence: low
+    source:
+      table_key: null
+      field_aliases: []
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: kN
+      target_unit: kN
+      conversion: none
+    fallback:
+      allowed: true
+      method: manual_input
+      warning: Manual/review input required.
+    semantics:
+      source_level: MANUAL
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_unique_name:
+    element_type: beam
+    type: string
+    unit: ''
+    semantic_role: IDENTITY
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: frame_assignments
+      field_aliases:
+      - UniqueName
+      filters: []
+      combo_family: NONE
+      aggregation: first
+    unit_policy:
+      source_unit: ''
+      target_unit: ''
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_shear_rebar_etabs_required_mm2:
+    element_type: beam
+    type: float
+    unit: mm2
+    semantic_role: ETABS_REQUIRED_REBAR
+    availability:
+      status: partially_available
+      confidence: medium
+    source:
+      table_key: concrete_beam_design_summary
+      field_aliases:
+      - VRebar
+      - totTrnRebar
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: max_envelope
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: none
+    fallback:
+      allowed: true
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_DESIGN_RESULT
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_As_top_combo:
+    element_type: beam
+    type: float
+    unit: ''
+    semantic_role: ETABS_DESIGN_COMBO_NAME
+    availability:
+      status: partially_available
+      confidence: medium
+    source:
+      table_key: concrete_beam_design_summary
+      field_aliases:
+      - AsTopCombo
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: first
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: none
+    fallback:
+      allowed: true
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_DESIGN_RESULT
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_As_bottom_combo:
+    element_type: beam
+    type: float
+    unit: ''
+    semantic_role: ETABS_DESIGN_COMBO_NAME
+    availability:
+      status: partially_available
+      confidence: medium
+    source:
+      table_key: concrete_beam_design_summary
+      field_aliases:
+      - AsBotCombo
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: first
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: none
+    fallback:
+      allowed: true
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_DESIGN_RESULT
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_V_combo:
+    element_type: beam
+    type: float
+    unit: ''
+    semantic_role: ETABS_DESIGN_COMBO_NAME
+    availability:
+      status: partially_available
+      confidence: medium
+    source:
+      table_key: concrete_beam_design_summary
+      field_aliases:
+      - VCombo
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: first
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: none
+    fallback:
+      allowed: true
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_DESIGN_RESULT
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_design_warn_msg:
+    element_type: beam
+    type: float
+    unit: ''
+    semantic_role: ETABS_DIAGNOSTIC_TEXT
+    availability:
+      status: partially_available
+      confidence: medium
+    source:
+      table_key: concrete_beam_design_summary
+      field_aliases:
+      - WarnMsg
+      filters: []
+      combo_family: NONE
+      aggregation: first
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: none
+    fallback:
+      allowed: true
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_DESIGN_RESULT
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  beam_design_err_msg:
+    element_type: beam
+    type: float
+    unit: ''
+    semantic_role: ETABS_DIAGNOSTIC_TEXT
+    availability:
+      status: partially_available
+      confidence: medium
+    source:
+      table_key: concrete_beam_design_summary
+      field_aliases:
+      - ErrMsg
+      filters: []
+      combo_family: NONE
+      aggregation: first
+    unit_policy:
+      source_unit: mm2
+      target_unit: mm2
+      conversion: none
+    fallback:
+      allowed: true
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_DESIGN_RESULT
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  story_drift_value:
+    element_type: story
+    type: float
+    unit: mm
+    semantic_role: ETABS_DRIFT_VALUE
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: story_drifts
+      field_aliases:
+      - Drift
+      filters: []
+      combo_family: DISP_X_OR_Y
+      aggregation: max_abs
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  story_drift_output_case:
+    element_type: story
+    type: float
+    unit: ''
+    semantic_role: OUTPUT_CASE_NAME
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: story_drifts
+      field_aliases:
+      - OutputCase
+      - Output Case
+      filters: []
+      combo_family: DISP_X_OR_Y
+      aggregation: first
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  story_drift_direction:
+    element_type: story
+    type: float
+    unit: ''
+    semantic_role: DIRECTION
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: story_drifts
+      field_aliases:
+      - Direction
+      filters: []
+      combo_family: DISP_X_OR_Y
+      aggregation: first
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  base_reaction_fx:
+    element_type: global
+    type: float
+    unit: kN
+    semantic_role: BASE_REACTION_FORCE
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: base_reactions
+      field_aliases:
+      - FX
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: max_abs
+    unit_policy:
+      source_unit: kN
+      target_unit: kN
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family
+  base_reaction_fy:
+    element_type: global
+    type: float
+    unit: kN
+    semantic_role: BASE_REACTION_FORCE
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: base_reactions
+      field_aliases:
+      - FY
+      filters: []
+      combo_family: DUCTILE_X_OR_Y
+      aggregation: max_abs
+    unit_policy:
+      source_unit: kN
+      target_unit: kN
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+    - source_table
+    - source_row
+    - source_column
+    - raw_value
+    - normalized_value
+    - unit
+    - output_case
+    - combo_family

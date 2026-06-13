@@ -1,0 +1,41 @@
+{
+  "CheckEngine_executed": true,
+  "CheckResult_emitted": true,
+  "beam_flexure_executed": false,
+  "beam_shear_executed": false,
+  "blocked_rows_executed": false,
+  "check_engine_executed": true,
+  "check_result_count": 3,
+  "excel_production_path_added": false,
+  "executed_check_ids": [
+    "beam_geometry_min_width",
+    "beam_depth_width_ratio",
+    "modal_mass_participation"
+  ],
+  "executed_only_runnable_rows": true,
+  "feature_resolver_called": false,
+  "forbidden_import_status": "PASS",
+  "legacy_imports_added": false,
+  "live_etabs_called": false,
+  "metadata": {
+    "fixture_mode_only": true,
+    "sprint": "C11_1_MODAL_MASS_AGGREGATION_FIX"
+  },
+  "partial_rows_silent_OK": false,
+  "provider_called": false,
+  "rebar_selection_executed": false,
+  "runner_v2_runtime_archx_imports": false,
+  "skipped_blocked_count": 8,
+  "skipped_partial_count": 2,
+  "skipped_reason_counts": {
+    "blocked_coverage": 8,
+    "partial_coverage": 2
+  },
+  "skipped_rows_count": 10,
+  "status_counts": {
+    "FAIL": 0,
+    "NO_DATA": 0,
+    "OK": 3,
+    "WARNING": 0
+  }
+}

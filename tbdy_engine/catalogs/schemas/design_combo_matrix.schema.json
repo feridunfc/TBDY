@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "metadata",
+    "design_mappings"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "contract",
+        "version",
+        "catalog_name"
+      ],
+      "properties": {
+        "contract": {
+          "const": "Contract Constitution"
+        },
+        "version": {
+          "const": "1.0"
+        },
+        "catalog_name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "design_mappings": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "element_type",
+          "purpose",
+          "combo_family",
+          "reinforcement_design"
+        ]
+      }
+    }
+  },
+  "additionalProperties": true
+}

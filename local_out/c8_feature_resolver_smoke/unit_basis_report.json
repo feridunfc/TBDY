@@ -1,0 +1,12 @@
+{
+  "etabs_database_units": null,
+  "etabs_present_units": null,
+  "etabs_present_units_return_code": null,
+  "force_unit": "N",
+  "length_unit": "mm",
+  "source": "fixture_declared_units",
+  "temperature_unit": "C",
+  "unit_basis_confidence": "high",
+  "unit_query_status": "RESOLVED",
+  "unit_query_succeeded": true
+}

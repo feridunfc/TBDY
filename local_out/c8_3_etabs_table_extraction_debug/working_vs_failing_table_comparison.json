@@ -1,0 +1,58 @@
+{
+  "tables": [
+    {
+      "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+      "fields_count": 13,
+      "number_records": 1,
+      "parser_status": "FIXTURE_SAMPLE_ROWS",
+      "sample_first_row": {
+        "AsBot": 1180,
+        "AsBotCombo": "Crack_SeisX",
+        "AsTop": 1250,
+        "AsTopCombo": "Crack_SeisY_UpSoil",
+        "DesignSect": "B40x70",
+        "ErrMsg": "No Message",
+        "Label": "B1",
+        "Station": 0,
+        "Story": "+14.5",
+        "UniqueName": "297",
+        "VCombo": "Crack_SeisY",
+        "VRebar": 420,
+        "WarnMsg": "Shear design warning text"
+      },
+      "table_data_length": 13,
+      "table_key": "concrete_beam_design_summary"
+    },
+    {
+      "actual_table_name": "Frame Assignments - Summary",
+      "fields_count": 7,
+      "number_records": 1,
+      "parser_status": "FIXTURE_SAMPLE_ROWS",
+      "sample_first_row": {
+        "AnalysisSect": "B40x70_ANA",
+        "DesignSect": "B40x70",
+        "Label": "B1",
+        "Length": 6200,
+        "Story": "+14.5",
+        "Type": "Beam",
+        "UniqueName": "297"
+      },
+      "table_data_length": 7,
+      "table_key": "frame_assignments"
+    },
+    {
+      "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+      "fields_count": 4,
+      "number_records": 1,
+      "parser_status": "FIXTURE_SAMPLE_ROWS",
+      "sample_first_row": {
+        "Material": "C30",
+        "Name": "B40x70",
+        "t2": 400,
+        "t3": 700
+      },
+      "table_data_length": 4,
+      "table_key": "frame_section_properties"
+    }
+  ]
+}

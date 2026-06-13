@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Element Registry",
+  "type": "object",
+  "required": [
+    "metadata",
+    "registry_version",
+    "element_types",
+    "validation_rules",
+    "forbidden_content"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "contract",
+        "version",
+        "catalog_name"
+      ],
+      "properties": {
+        "contract": {
+          "const": "Contract Constitution"
+        },
+        "version": {
+          "const": "1.0"
+        },
+        "catalog_name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "registry_version": {
+      "type": "string"
+    },
+    "element_types": {
+      "type": "object",
+      "minProperties": 7,
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "component_type",
+          "identity_fields",
+          "context_model",
+          "demand_set",
+          "design_result",
+          "verification_result",
+          "allowed_feature_groups",
+          "allowed_check_categories"
+        ]
+      }
+    },
+    "explicit_allowed_component_types": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "validation_rules": {
+      "type": "object"
+    },
+    "forbidden_content": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,215 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  sprint: C1_CONTRACT_HARDENING
+  status: hardened_contract
+  owner: TBDY Engine
+  catalog_name: design_combo_matrix
+  notes:
+  - Contract-only. No engine/check/ETABS runtime implementation.
+  - Production source of truth is live ETABS tables; Excel is fixture/debug/regression
+    only.
+  - 'Rebar semantics: ETABS_REQUIRED + TBDY_MIN -> GOVERNING_REQUIRED -> ENGINE_SELECTED;
+    USER_PROVIDED is explicit only.'
+matrix_version: 1.0.0
+design_mappings:
+- id: beam_geometry
+  element_type: beam
+  purpose: geometry
+  combo_family: NONE
+  source_priority:
+  - etabs_live
+  design_result_table_key: null
+  section_state_required: false
+  ductility_context_required: false
+  evidence_requirements:
+    source_table: true
+    output_case: false
+    combo_family: false
+    governing_combo: false
+  reinforcement_design: false
+- id: beam_flexure
+  element_type: beam
+  purpose: flexure
+  combo_family: DUCTILE_X_OR_Y
+  source_priority:
+  - etabs_live
+  design_result_table_key: concrete_beam_design_summary
+  section_state_required: true
+  ductility_context_required: true
+  evidence_requirements:
+    source_table: true
+    output_case: true
+    combo_family: true
+    governing_combo: true
+  reinforcement_design: true
+- id: beam_shear
+  element_type: beam
+  purpose: shear
+  combo_family: DUCTILE_X_OR_Y
+  source_priority:
+  - etabs_live
+  design_result_table_key: concrete_beam_design_summary
+  section_state_required: true
+  ductility_context_required: true
+  evidence_requirements:
+    source_table: true
+    output_case: true
+    combo_family: true
+    governing_combo: true
+  reinforcement_design: true
+- id: beam_capacity_design_shear
+  element_type: beam
+  purpose: capacity_design_shear
+  combo_family: CAPACITY_X_OR_Y
+  source_priority:
+  - etabs_live
+  design_result_table_key: concrete_beam_design_summary
+  section_state_required: true
+  ductility_context_required: true
+  evidence_requirements:
+    source_table: true
+    output_case: true
+    combo_family: true
+    governing_combo: true
+  reinforcement_design: true
+- id: column_geometry
+  element_type: column
+  purpose: geometry
+  combo_family: NONE
+  source_priority:
+  - etabs_live
+  design_result_table_key: null
+  section_state_required: false
+  ductility_context_required: false
+  evidence_requirements:
+    source_table: true
+    output_case: false
+    combo_family: false
+    governing_combo: false
+  reinforcement_design: false
+- id: column_pmm
+  element_type: column
+  purpose: pmm
+  combo_family: DUCTILE_X_OR_Y
+  source_priority:
+  - etabs_live
+  design_result_table_key: concrete_column_design_summary
+  section_state_required: true
+  ductility_context_required: true
+  evidence_requirements:
+    source_table: true
+    output_case: true
+    combo_family: true
+    governing_combo: true
+  reinforcement_design: true
+- id: column_shear
+  element_type: column
+  purpose: shear
+  combo_family: CAPACITY_X_OR_Y
+  source_priority:
+  - etabs_live
+  design_result_table_key: concrete_column_design_summary
+  section_state_required: true
+  ductility_context_required: true
+  evidence_requirements:
+    source_table: true
+    output_case: true
+    combo_family: true
+    governing_combo: true
+  reinforcement_design: true
+- id: story_drift
+  element_type: story
+  purpose: drift
+  combo_family: DISP_X_OR_Y
+  source_priority:
+  - etabs_live
+  design_result_table_key: story_drifts
+  section_state_required: true
+  ductility_context_required: true
+  evidence_requirements:
+    source_table: true
+    output_case: true
+    combo_family: true
+    governing_combo: true
+  reinforcement_design: false
+- id: story_torsion_A1
+  element_type: story
+  purpose: torsion_A1
+  combo_family: DISP_X_OR_Y
+  source_priority:
+  - etabs_live
+  design_result_table_key: story_max_over_avg_drifts
+  section_state_required: true
+  ductility_context_required: true
+  evidence_requirements:
+    source_table: true
+    output_case: true
+    combo_family: true
+    governing_combo: true
+  reinforcement_design: false
+- id: global_modal_mass
+  element_type: global
+  purpose: modal_mass
+  combo_family: MODAL
+  source_priority:
+  - etabs_live
+  design_result_table_key: modal_participating_mass
+  section_state_required: false
+  ductility_context_required: false
+  evidence_requirements:
+    source_table: true
+    output_case: false
+    combo_family: false
+    governing_combo: false
+  reinforcement_design: false
+- id: global_base_shear
+  element_type: global
+  purpose: base_shear
+  combo_family: DUCTILE_X_OR_Y
+  source_priority:
+  - etabs_live
+  design_result_table_key: base_reactions
+  section_state_required: false
+  ductility_context_required: true
+  evidence_requirements:
+    source_table: true
+    output_case: true
+    combo_family: true
+    governing_combo: true
+  reinforcement_design: false
+- id: wall_pier_design
+  element_type: wall
+  purpose: pier_design
+  combo_family: DUCTILE_X_OR_Y
+  source_priority:
+  - etabs_live
+  design_result_table_key: pier_design_summary
+  section_state_required: true
+  ductility_context_required: true
+  evidence_requirements:
+    source_table: true
+    output_case: true
+    combo_family: true
+    governing_combo: true
+  reinforcement_design: true
+- id: wall_shear
+  element_type: wall
+  purpose: shear
+  combo_family: CAPACITY_X_OR_Y
+  source_priority:
+  - etabs_live
+  design_result_table_key: pier_design_summary
+  section_state_required: true
+  ductility_context_required: true
+  evidence_requirements:
+    source_table: true
+    output_case: true
+    combo_family: true
+    governing_combo: true
+  reinforcement_design: true
+cross_references:
+  all_combo_families_exist_in_load_combo_policy: true
+  no_displacement_for_reinforcement_design: true
+  all_aliases_expand_to_valid_families: true
+  all_table_keys_exist_in_table_registry: true

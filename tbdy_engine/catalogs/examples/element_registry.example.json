@@ -1,0 +1,389 @@
+{
+  "metadata": {
+    "contract": "Contract Constitution",
+    "version": "1.0",
+    "sprint": "C2_STRUCTURAL_WORKSPACE_CONSTITUTION",
+    "status": "workspace_contract",
+    "owner": "TBDY Engine",
+    "catalog_name": "element_registry",
+    "notes": [
+      "Contract-only. No engine/check/ETABS runtime implementation.",
+      "C2 extends C1 with workspace/product state and element registry boundaries."
+    ]
+  },
+  "registry_version": "1.0.0",
+  "element_types": {
+    "beam": {
+      "component_type": "beam",
+      "identity_fields": [
+        "component",
+        "story",
+        "section",
+        "label"
+      ],
+      "context_model": "BeamContext",
+      "demand_set": [
+        "beam_demand_envelope",
+        "beam_station_zones"
+      ],
+      "design_result": [
+        "ETABS_REQUIRED_REBAR",
+        "TBDY_MIN_REQUIRED_REBAR",
+        "GOVERNING_REQUIRED_REBAR",
+        "ENGINE_SELECTED_REBAR",
+        "USER_PROVIDED_REBAR"
+      ],
+      "verification_result": [
+        "FINAL_DETAILING_REQUIRED",
+        "ENGINE_SELECTION_REVIEW_REQUIRED"
+      ],
+      "allowed_feature_groups": [
+        "identity",
+        "geometry",
+        "material",
+        "demand",
+        "rebar",
+        "section_state",
+        "coverage"
+      ],
+      "allowed_check_categories": [
+        "GEOMETRY",
+        "FLEXURE",
+        "SHEAR",
+        "DETAILING",
+        "DIAGNOSTIC"
+      ]
+    },
+    "column": {
+      "component_type": "column",
+      "identity_fields": [
+        "component",
+        "story",
+        "section",
+        "label"
+      ],
+      "context_model": "ColumnContext",
+      "demand_set": [
+        "column_pmm_demand",
+        "column_shear_demand"
+      ],
+      "design_result": [
+        "ETABS_REQUIRED_REBAR",
+        "TBDY_MIN_REQUIRED_REBAR",
+        "GOVERNING_REQUIRED_REBAR",
+        "ENGINE_SELECTED_REBAR",
+        "USER_PROVIDED_REBAR"
+      ],
+      "verification_result": [
+        "FINAL_DETAILING_REQUIRED",
+        "ENGINE_SELECTION_REVIEW_REQUIRED"
+      ],
+      "allowed_feature_groups": [
+        "identity",
+        "geometry",
+        "material",
+        "demand",
+        "rebar",
+        "section_state",
+        "coverage"
+      ],
+      "allowed_check_categories": [
+        "GEOMETRY",
+        "FLEXURE",
+        "SHEAR",
+        "DETAILING",
+        "DIAGNOSTIC"
+      ]
+    },
+    "wall": {
+      "component_type": "wall",
+      "identity_fields": [
+        "component",
+        "story",
+        "section",
+        "pier_label"
+      ],
+      "context_model": "WallContext",
+      "demand_set": [
+        "wall_pier_demand",
+        "wall_shear_demand"
+      ],
+      "design_result": [
+        "ETABS_REQUIRED_REBAR",
+        "TBDY_MIN_REQUIRED_REBAR",
+        "GOVERNING_REQUIRED_REBAR",
+        "ENGINE_SELECTED_REBAR",
+        "USER_PROVIDED_REBAR"
+      ],
+      "verification_result": [
+        "FINAL_DETAILING_REQUIRED",
+        "ENGINE_SELECTION_REVIEW_REQUIRED"
+      ],
+      "allowed_feature_groups": [
+        "identity",
+        "geometry",
+        "material",
+        "demand",
+        "rebar",
+        "section_state",
+        "coverage"
+      ],
+      "allowed_check_categories": [
+        "GEOMETRY",
+        "FLEXURE",
+        "SHEAR",
+        "DETAILING",
+        "DIAGNOSTIC"
+      ]
+    },
+    "slab": {
+      "component_type": "slab",
+      "identity_fields": [
+        "component",
+        "story",
+        "section",
+        "area_label"
+      ],
+      "context_model": "SlabContext",
+      "demand_set": [
+        "slab_force_demand"
+      ],
+      "design_result": [
+        "ETABS_REQUIRED_REBAR",
+        "TBDY_MIN_REQUIRED_REBAR",
+        "GOVERNING_REQUIRED_REBAR",
+        "ENGINE_SELECTED_REBAR",
+        "USER_PROVIDED_REBAR"
+      ],
+      "verification_result": [
+        "FINAL_DETAILING_REQUIRED"
+      ],
+      "allowed_feature_groups": [
+        "identity",
+        "geometry",
+        "material",
+        "demand",
+        "rebar",
+        "coverage"
+      ],
+      "allowed_check_categories": [
+        "GEOMETRY",
+        "FLEXURE",
+        "SHEAR",
+        "DETAILING",
+        "DIAGNOSTIC"
+      ]
+    },
+    "raft": {
+      "component_type": "raft",
+      "identity_fields": [
+        "component",
+        "section",
+        "foundation_label"
+      ],
+      "context_model": "RaftContext",
+      "demand_set": [
+        "raft_force_demand",
+        "soil_pressure_demand"
+      ],
+      "design_result": [
+        "ETABS_REQUIRED_REBAR",
+        "TBDY_MIN_REQUIRED_REBAR",
+        "GOVERNING_REQUIRED_REBAR",
+        "ENGINE_SELECTED_REBAR",
+        "USER_PROVIDED_REBAR"
+      ],
+      "verification_result": [
+        "FINAL_DETAILING_REQUIRED"
+      ],
+      "allowed_feature_groups": [
+        "identity",
+        "geometry",
+        "material",
+        "demand",
+        "soil",
+        "rebar",
+        "coverage"
+      ],
+      "allowed_check_categories": [
+        "GEOMETRY",
+        "FLEXURE",
+        "SHEAR",
+        "DETAILING",
+        "DIAGNOSTIC"
+      ]
+    },
+    "story": {
+      "component_type": "story",
+      "identity_fields": [
+        "component",
+        "story"
+      ],
+      "context_model": "StoryContext",
+      "demand_set": [
+        "story_drift",
+        "story_shear",
+        "torsion"
+      ],
+      "design_result": [
+        "DISPLACEMENT_RESPONSE",
+        "STORY_RESPONSE"
+      ],
+      "verification_result": [
+        "MODEL_BASIS_REVIEW_REQUIRED"
+      ],
+      "allowed_feature_groups": [
+        "identity",
+        "geometry",
+        "drift",
+        "torsion",
+        "story_force",
+        "section_state",
+        "coverage"
+      ],
+      "allowed_check_categories": [
+        "GLOBAL",
+        "IRREGULARITY",
+        "MODAL",
+        "DIAGNOSTIC"
+      ]
+    },
+    "global": {
+      "component_type": "global",
+      "identity_fields": [
+        "component"
+      ],
+      "context_model": "GlobalContext",
+      "demand_set": [
+        "modal_response",
+        "base_shear_response",
+        "design_basis"
+      ],
+      "design_result": [
+        "GLOBAL_RESPONSE",
+        "MODEL_BASIS"
+      ],
+      "verification_result": [
+        "MODEL_BASIS_REVIEW_REQUIRED"
+      ],
+      "allowed_feature_groups": [
+        "identity",
+        "modal",
+        "base_shear",
+        "design_basis",
+        "coverage"
+      ],
+      "allowed_check_categories": [
+        "GLOBAL",
+        "MODAL",
+        "DIAGNOSTIC"
+      ]
+    },
+    "material": {
+      "component_type": "material",
+      "identity_fields": [
+        "component",
+        "material_name"
+      ],
+      "context_model": "MaterialContext",
+      "demand_set": [
+        "not_applicable"
+      ],
+      "design_result": [
+        "MATERIAL_BASIS"
+      ],
+      "verification_result": [
+        "MATERIAL_REVIEW_REQUIRED"
+      ],
+      "allowed_feature_groups": [
+        "material",
+        "design_basis",
+        "coverage"
+      ],
+      "allowed_check_categories": [
+        "MATERIAL",
+        "DIAGNOSTIC"
+      ]
+    },
+    "joint": {
+      "component_type": "joint",
+      "identity_fields": [
+        "component",
+        "story",
+        "joint_label"
+      ],
+      "context_model": "JointContext",
+      "demand_set": [
+        "joint_shear_demand"
+      ],
+      "design_result": [
+        "ETABS_REQUIRED_REBAR",
+        "TBDY_MIN_REQUIRED_REBAR",
+        "GOVERNING_REQUIRED_REBAR"
+      ],
+      "verification_result": [
+        "FINAL_DETAILING_REQUIRED"
+      ],
+      "allowed_feature_groups": [
+        "identity",
+        "geometry",
+        "demand",
+        "rebar",
+        "coverage"
+      ],
+      "allowed_check_categories": [
+        "SHEAR",
+        "DETAILING",
+        "DIAGNOSTIC"
+      ]
+    },
+    "diaphragm": {
+      "component_type": "diaphragm",
+      "identity_fields": [
+        "component",
+        "story",
+        "diaphragm_label"
+      ],
+      "context_model": "DiaphragmContext",
+      "demand_set": [
+        "diaphragm_force_demand",
+        "torsion_response"
+      ],
+      "design_result": [
+        "DIAPHRAGM_RESPONSE"
+      ],
+      "verification_result": [
+        "MODEL_BASIS_REVIEW_REQUIRED"
+      ],
+      "allowed_feature_groups": [
+        "identity",
+        "geometry",
+        "demand",
+        "coverage"
+      ],
+      "allowed_check_categories": [
+        "GLOBAL",
+        "IRREGULARITY",
+        "DIAGNOSTIC"
+      ]
+    }
+  },
+  "explicit_allowed_component_types": [
+    "joint",
+    "diaphragm"
+  ],
+  "validation_rules": {
+    "feature_catalog_element_types_must_exist": true,
+    "check_catalog_element_types_must_exist": true,
+    "design_combo_matrix_element_types_must_exist": true,
+    "high_ductility_scope_element_types_must_exist": true,
+    "check_result_component_types_must_exist_or_be_explicitly_allowed": true,
+    "registry_must_not_define_formulas": true
+  },
+  "forbidden_content": {
+    "formulas": true,
+    "check_logic": true,
+    "etabs_table_names": true,
+    "combo_regex": true
+  }
+}

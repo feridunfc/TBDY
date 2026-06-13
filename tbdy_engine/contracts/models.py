@@ -1,194 +1,69 @@
+"""Immutable contract models for the TBDY contract/catalog layer.
+
+C3 infrastructure only: no engine checks, no feature resolution, no provider calls.
+"""
 from __future__ import annotations
-from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, Field
-try:
-    from pydantic import ConfigDict  # type: ignore
-except Exception:
-    ConfigDict = None  # type: ignore
 
-def model_to_dict(model: Any) -> Dict[str, Any]:
-    return model.model_dump() if hasattr(model, "model_dump") else model.dict()
+from dataclasses import dataclass
+from types import MappingProxyType
+from typing import Any, Mapping
 
-def model_json_schema_compat(model_cls: Any) -> Dict[str, Any]:
-    return model_cls.model_json_schema() if hasattr(model_cls, "model_json_schema") else model_cls.schema()
 
-if ConfigDict is not None:
-    class ContractBaseModel(BaseModel):
-        model_config = ConfigDict(extra="allow")  # type: ignore
-else:
-    class ContractBaseModel(BaseModel):
-        class Config:
-            extra = "allow"
+def freeze_data(value: Any) -> Any:
+    """Recursively convert Python containers into read-only equivalents."""
+    if isinstance(value, MappingProxyType):
+        return value
+    if isinstance(value, Mapping):
+        return MappingProxyType({str(k): freeze_data(v) for k, v in value.items()})
+    if isinstance(value, list | tuple):
+        return tuple(freeze_data(v) for v in value)
+    if isinstance(value, set | frozenset):
+        return frozenset(freeze_data(v) for v in value)
+    return value
 
-class DatasetSpec(ContractBaseModel):
-    source: Union[str, Dict[str, Any]]
-    required: bool = False
-    used_by: List[str] = Field(default_factory=list)
-    key_fields: List[str] = Field(default_factory=list)
-    description: str = ""
 
-class DatasetsContract(ContractBaseModel):
-    version: str = "3.1-alpha"
-    datasets: Dict[str, DatasetSpec] = Field(default_factory=dict)
+@dataclass(frozen=True, slots=True)
+class ContractBundle:
+    """Read-only view of loaded contract catalogs, schemas, and examples."""
 
-class EvaluationDependsOn(ContractBaseModel):
-    datasets: List[str] = Field(default_factory=list)
-    optional: List[str] = Field(default_factory=list)
-    flags: List[str] = Field(default_factory=list)
+    catalog_dir: str
+    catalogs: Mapping[str, Any]
+    schemas: Mapping[str, Any]
+    examples: Mapping[str, Any]
 
-class EvaluationSpec(ContractBaseModel):
-    enabled: bool = True
-    experimental: bool = False
-    reason: str = ""
-    module: str
-    method: str = "run"
-    cache_key: Optional[str] = None
-    depends_on: Union[EvaluationDependsOn, Dict[str, Any]] = Field(default_factory=EvaluationDependsOn)
-    depends_on_results: List[str] = Field(default_factory=list)
-    produces: List[str] = Field(default_factory=list)
-    output: str = "EvaluationPackage"
-    def dataset_dependencies(self) -> List[str]:
-        if isinstance(self.depends_on, EvaluationDependsOn):
-            return list(self.depends_on.datasets)
-        if isinstance(self.depends_on, dict):
-            return list(self.depends_on.get("datasets", []) or [])
-        return []
+    @classmethod
+    def from_raw(
+        cls,
+        *,
+        catalog_dir: str,
+        catalogs: Mapping[str, Any],
+        schemas: Mapping[str, Any],
+        examples: Mapping[str, Any],
+    ) -> "ContractBundle":
+        return cls(
+            catalog_dir=catalog_dir,
+            catalogs=freeze_data(dict(catalogs)),
+            schemas=freeze_data(dict(schemas)),
+            examples=freeze_data(dict(examples)),
+        )
 
-class EvaluationsContract(ContractBaseModel):
-    version: str = "3.1-alpha"
-    evaluations: Dict[str, EvaluationSpec] = Field(default_factory=dict)
+    @property
+    def catalog_count(self) -> int:
+        return len(self.catalogs)
 
-class CheckSpec(ContractBaseModel):
-    id: str
-    evaluation: str
-    evaluation_field: str = ""
-    fallback_evaluation: str = ""
-    fallback_fields: List[str] = Field(default_factory=list)
-    tbdy_ref: str = "N/A"
-    severity: str = "MEDIUM"
-    category: str = "UNCATEGORIZED"
-    report_section: str = ""
-    uses_combo: List[str] = Field(default_factory=list)
-    combo_families: List[str] = Field(default_factory=list)
-    aliases: List[str] = Field(default_factory=list)
-    depends_on_checks: List[str] = Field(default_factory=list)
-    fail_blocks: List[str] = Field(default_factory=list)
-    experimental: bool = False
-    implementation_status: str = ""
-    runner_enabled: Optional[bool] = None
-    required_tables: List[str] = Field(default_factory=list)
-    required_context: List[str] = Field(default_factory=list)
-    required_datasets: List[str] = Field(default_factory=list)
-    report_outputs: List[str] = Field(default_factory=list)
-    sub_checks: List[str] = Field(default_factory=list)
-    legacy_contract_id: str = ""
-    legacy_canonical_check_name: str = ""
-    legacy_matrix_key: str = ""
-    formula: str = ""
-    formula_detail: str = ""
-    etabs_canonical: str = ""
-    cross_check: bool = False
-    tolerance: Dict[str, Any] = Field(default_factory=dict)
-    design_required: List[str] = Field(default_factory=list)
-    screening_required: List[str] = Field(default_factory=list)
-    design_table_required: List[str] = Field(default_factory=list)
-    manual_design_required: List[str] = Field(default_factory=list)
-    data_source_policy: List[str] = Field(default_factory=list)
-    legacy_notes: str = ""
-    source_files: List[str] = Field(default_factory=list)
-    def normalized_uses_combo(self) -> List[str]:
-        out: List[str] = []
-        for value in list(self.uses_combo or []) + list(self.combo_families or []):
-            if value and value not in out:
-                out.append(value)
-        return out
+    @property
+    def schema_count(self) -> int:
+        return len(self.schemas)
 
-class ChecksContract(ContractBaseModel):
-    version: str = "3.1-alpha"
-    checks: List[CheckSpec] = Field(default_factory=list)
+    @property
+    def example_count(self) -> int:
+        return len(self.examples)
 
-class ComboFamilySpec(ContractBaseModel):
-    description: str = ""
-    combos: List[str] = Field(default_factory=list)
-    legacy_groups: List[str] = Field(default_factory=list)
-    aliases: Dict[str, str] = Field(default_factory=dict)
-    cracked: Optional[bool] = None
-    seismic: Optional[bool] = None
-    vertical_eq: Optional[bool] = None
-    serviceability: Optional[bool] = None
+    def catalog(self, name: str) -> Any:
+        return self.catalogs[name]
 
-class CombosContract(ContractBaseModel):
-    version: str = "3.1-alpha"
-    combo_families: Dict[str, ComboFamilySpec] = Field(default_factory=dict)
+    def schema(self, name: str) -> Any:
+        return self.schemas[name]
 
-class ReportSpec(ContractBaseModel):
-    formats: List[str] = Field(default_factory=lambda: ["json"])
-    include: List[str] = Field(default_factory=list)
-    sections: List[str] = Field(default_factory=list)
-    filters: Dict[str, Any] = Field(default_factory=dict)
-    include_fields: List[str] = Field(default_factory=list)
-    metrics: List[str] = Field(default_factory=list)
-
-class ReportsContract(ContractBaseModel):
-    version: str = "3.1-alpha"
-    reports: Dict[str, ReportSpec] = Field(default_factory=dict)
-
-class RuntimeCheckCatalogItem(ContractBaseModel):
-    id: str
-    evaluation: str
-    evaluation_field: str = ""
-    fallback_evaluation: str = ""
-    fallback_fields: List[str] = Field(default_factory=list)
-    category: str = "UNCATEGORIZED"
-    severity: str = "MEDIUM"
-    tbdy_ref: str = "N/A"
-    implementation_status: str = ""
-    runner_enabled: bool = True
-    experimental: bool = False
-    required_datasets: List[str] = Field(default_factory=list)
-    required_tables: List[str] = Field(default_factory=list)
-    required_context: List[str] = Field(default_factory=list)
-    uses_combo: List[str] = Field(default_factory=list)
-    report_outputs: List[str] = Field(default_factory=list)
-    sub_checks: List[str] = Field(default_factory=list)
-    aliases: List[str] = Field(default_factory=list)
-    depends_on_checks: List[str] = Field(default_factory=list)
-    formula: str = ""
-    formula_detail: str = ""
-    etabs_canonical: str = ""
-    cross_check: bool = False
-    tolerance: Dict[str, Any] = Field(default_factory=dict)
-    data_source_policy: List[str] = Field(default_factory=list)
-    design_required: List[str] = Field(default_factory=list)
-    screening_required: List[str] = Field(default_factory=list)
-    legacy_contract_id: str = ""
-    legacy_canonical_check_name: str = ""
-    legacy_matrix_key: str = ""
-    legacy_notes: str = ""
-    source_files: List[str] = Field(default_factory=list)
-
-class RuntimeCatalog(ContractBaseModel):
-    version: str = "3.1-alpha"
-    checks: Dict[str, RuntimeCheckCatalogItem] = Field(default_factory=dict)
-    evaluations: Dict[str, EvaluationSpec] = Field(default_factory=dict)
-    datasets: Dict[str, DatasetSpec] = Field(default_factory=dict)
-    combo_families: Dict[str, ComboFamilySpec] = Field(default_factory=dict)
-    reports: Dict[str, ReportSpec] = Field(default_factory=dict)
-    warnings: List[str] = Field(default_factory=list)
-
-class ContractBundle(ContractBaseModel):
-    datasets: DatasetsContract
-    evaluations: EvaluationsContract
-    checks: ChecksContract
-    combos: CombosContract
-    reports: ReportsContract
-    legacy_raw: Dict[str, Any] = Field(default_factory=dict)
-    warnings: List[str] = Field(default_factory=list)
-    def as_runtime_configs(self) -> Dict[str, Dict[str, Any]]:
-        return {
-            "datasets": model_to_dict(self.datasets),
-            "evaluations": model_to_dict(self.evaluations),
-            "checks": model_to_dict(self.checks),
-            "combos": model_to_dict(self.combos),
-            "reports": model_to_dict(self.reports),
-        }
+    def example(self, name: str) -> Any:
+        return self.examples[name]

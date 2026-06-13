@@ -1,0 +1,960 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  catalog_name: etabs_feature_source_contract
+  sprint: C11.1.7
+  status: primary_supporting_contract
+  owner: TBDY Engine
+  notes:
+  - Defines allowed source provenance for current accepted C8.3/C11.1.4 resolved features
+    only.
+  - Does not unlock rebar/flexure/shear/capacity engineering checks.
+  - Excel production source is forbidden.
+scope:
+  current_minimal_live_slice_only: true
+  future_locked_scopes_absent: true
+  legacy_cleanup_not_started: true
+  c12_not_started: true
+defaults:
+  preferred_output_case_default: Crack_SeisY_UpSoil
+  display_selection_methods:
+  - SetLoadCombinationsSelectedForDisplay
+  - SetLoadCasesSelectedForDisplay
+  display_selection_call_shape: list_only
+not_applicable_semantic_items:
+- semantic_item: ductility_class
+  reason: No current FeatureCatalog feature_id or current FeatureSnapshot feature
+    exists for ductility_class; design context remains separate and is not invented
+    as a feature.
+sources:
+- feature_id: beam_label
+  semantic_role: IDENTITY
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Frame Assignments - Summary
+  canonical_table_key: frame_assignments
+  required_columns:
+  - UniqueName
+  - Label
+  - Story
+  - DesignSect
+  optional_columns:
+  - AnalysisSect
+  - Section
+  - Length
+  row_selection_rule:
+  - match target component_id/UniqueName when available
+  - preserve Label/Story/DesignSect as observed identity fields
+  display_selection_required: false
+  unit_expectation:
+    unit: ''
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_identity_observation
+- feature_id: beam_story
+  semantic_role: IDENTITY
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Frame Assignments - Summary
+  canonical_table_key: frame_assignments
+  required_columns:
+  - UniqueName
+  - Label
+  - Story
+  - DesignSect
+  optional_columns:
+  - AnalysisSect
+  - Section
+  - Length
+  row_selection_rule:
+  - match target component_id/UniqueName when available
+  - preserve Label/Story/DesignSect as observed identity fields
+  display_selection_required: false
+  unit_expectation:
+    unit: ''
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_identity_observation
+- feature_id: beam_section_name
+  semantic_role: GEOMETRY_ID
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Frame Assignments - Summary
+  canonical_table_key: frame_assignments
+  required_columns:
+  - UniqueName
+  - Label
+  - Story
+  - DesignSect
+  optional_columns:
+  - AnalysisSect
+  - Section
+  - Length
+  row_selection_rule:
+  - match target component_id/UniqueName when available
+  - preserve Label/Story/DesignSect as observed identity fields
+  display_selection_required: false
+  unit_expectation:
+    unit: ''
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_identity_observation
+- feature_id: beam_unique_name
+  semantic_role: IDENTITY
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Frame Assignments - Summary
+  canonical_table_key: frame_assignments
+  required_columns:
+  - UniqueName
+  - Label
+  - Story
+  - DesignSect
+  optional_columns:
+  - AnalysisSect
+  - Section
+  - Length
+  row_selection_rule:
+  - match target component_id/UniqueName when available
+  - preserve Label/Story/DesignSect as observed identity fields
+  display_selection_required: false
+  unit_expectation:
+    unit: ''
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_identity_observation
+- feature_id: beam_width_mm
+  semantic_role: GEOMETRY
+  source_type: direct_api
+  source_owner: ETABS
+  api_path:
+  - SapModel.PropFrame.GetRectangle
+  raw_fields:
+  - t2
+  row_selection_rule:
+  - use target component and resolved section/points from live ETABS API
+  display_selection_required: false
+  unit_normalization:
+    from: m
+    to: mm
+    conversion: multiply_by_1000
+  evidence_required: true
+  forbidden_source:
+  - section_name_inference
+  - excel_production
+  locked_future_scope: false
+- feature_id: beam_depth_mm
+  semantic_role: GEOMETRY
+  source_type: direct_api
+  source_owner: ETABS
+  api_path:
+  - SapModel.PropFrame.GetRectangle
+  raw_fields:
+  - t3
+  row_selection_rule:
+  - use target component and resolved section/points from live ETABS API
+  display_selection_required: false
+  unit_normalization:
+    from: m
+    to: mm
+    conversion: multiply_by_1000
+  evidence_required: true
+  forbidden_source:
+  - section_name_inference
+  - excel_production
+  locked_future_scope: false
+- feature_id: beam_length_mm
+  semantic_role: GEOMETRY
+  source_type: direct_api
+  source_owner: ETABS
+  api_path:
+  - SapModel.FrameObj.GetPoints
+  - SapModel.PointObj.GetCoordCartesian
+  raw_fields:
+  - point_i
+  - point_j
+  - x
+  - y
+  - z
+  row_selection_rule:
+  - use target component and resolved section/points from live ETABS API
+  display_selection_required: false
+  unit_normalization:
+    from: m
+    to: mm
+    conversion: multiply_by_1000
+  evidence_required: true
+  forbidden_source:
+  - section_name_inference
+  - excel_production
+  locked_future_scope: false
+- feature_id: concrete_fck_mpa
+  semantic_role: DESIGN_BASIS
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Material Properties - Concrete Data
+  canonical_table_key: material_concrete_data
+  required_columns:
+  - Material
+  - Fc
+  optional_columns:
+  - UnitWeight
+  - E
+  row_selection_rule:
+  - read concrete material strength field Fc from material table
+  - do not infer from section name
+  display_selection_required: false
+  unit_expectation:
+    stress: MPa
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_material_property_observation
+- feature_id: rebar_fyk_mpa
+  semantic_role: DESIGN_BASIS
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Material Properties - Rebar Data
+  canonical_table_key: material_rebar_data
+  required_columns:
+  - Material
+  - Fy
+  optional_columns:
+  - Fu
+  - E
+  row_selection_rule:
+  - read rebar material yield strength field Fy from material table
+  - do not infer from section name
+  display_selection_required: false
+  unit_expectation:
+    stress: MPa
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_material_property_observation
+- feature_id: beam_As_bottom_combo
+  semantic_role: ETABS_DESIGN_COMBO_NAME
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Concrete Beam Design Summary - TS 500-2000(R2018)
+  canonical_table_key: concrete_beam_design_summary
+  required_columns:
+  - UniqueName
+  - Label
+  - Story
+  - DesignSect
+  - Station
+  - AsBotCombo
+  optional_columns:
+  - AsTop
+  - AsBot
+  - AsTopCombo
+  - AsBotCombo
+  - VCombo
+  - VRebar
+  - WarnMsg
+  - ErrMsg
+  row_selection_rule:
+  - match target component_id/label/story/section where available
+  - read ETABS design summary output as observed source data only
+  - do not execute CheckEngine or engine-selected detailing
+  display_selection_required: false
+  unit_expectation:
+    unit: ''
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_etabs_design_summary_observation
+  locked_future_notes: Allows only existing ETABS-observed summary fields; does not
+    unlock engine rebar/flexure/shear/capacity checks.
+- feature_id: beam_As_bottom_etabs_required_mm2
+  semantic_role: ETABS_REQUIRED_REBAR
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Concrete Beam Design Summary - TS 500-2000(R2018)
+  canonical_table_key: concrete_beam_design_summary
+  required_columns:
+  - UniqueName
+  - Label
+  - Story
+  - DesignSect
+  - Station
+  - AsBot
+  optional_columns:
+  - AsTop
+  - AsBot
+  - AsTopCombo
+  - AsBotCombo
+  - VCombo
+  - VRebar
+  - WarnMsg
+  - ErrMsg
+  row_selection_rule:
+  - match target component_id/label/story/section where available
+  - read ETABS design summary output as observed source data only
+  - do not execute CheckEngine or engine-selected detailing
+  display_selection_required: false
+  unit_expectation:
+    area: mm2
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_etabs_design_summary_observation
+  locked_future_notes: Allows only existing ETABS-observed summary fields; does not
+    unlock engine rebar/flexure/shear/capacity checks.
+- feature_id: beam_As_top_combo
+  semantic_role: ETABS_DESIGN_COMBO_NAME
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Concrete Beam Design Summary - TS 500-2000(R2018)
+  canonical_table_key: concrete_beam_design_summary
+  required_columns:
+  - UniqueName
+  - Label
+  - Story
+  - DesignSect
+  - Station
+  - AsTopCombo
+  optional_columns:
+  - AsTop
+  - AsBot
+  - AsTopCombo
+  - AsBotCombo
+  - VCombo
+  - VRebar
+  - WarnMsg
+  - ErrMsg
+  row_selection_rule:
+  - match target component_id/label/story/section where available
+  - read ETABS design summary output as observed source data only
+  - do not execute CheckEngine or engine-selected detailing
+  display_selection_required: false
+  unit_expectation:
+    unit: ''
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_etabs_design_summary_observation
+  locked_future_notes: Allows only existing ETABS-observed summary fields; does not
+    unlock engine rebar/flexure/shear/capacity checks.
+- feature_id: beam_As_top_etabs_required_mm2
+  semantic_role: ETABS_REQUIRED_REBAR
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Concrete Beam Design Summary - TS 500-2000(R2018)
+  canonical_table_key: concrete_beam_design_summary
+  required_columns:
+  - UniqueName
+  - Label
+  - Story
+  - DesignSect
+  - Station
+  - AsTop
+  optional_columns:
+  - AsTop
+  - AsBot
+  - AsTopCombo
+  - AsBotCombo
+  - VCombo
+  - VRebar
+  - WarnMsg
+  - ErrMsg
+  row_selection_rule:
+  - match target component_id/label/story/section where available
+  - read ETABS design summary output as observed source data only
+  - do not execute CheckEngine or engine-selected detailing
+  display_selection_required: false
+  unit_expectation:
+    area: mm2
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_etabs_design_summary_observation
+  locked_future_notes: Allows only existing ETABS-observed summary fields; does not
+    unlock engine rebar/flexure/shear/capacity checks.
+- feature_id: beam_V_combo
+  semantic_role: ETABS_DESIGN_COMBO_NAME
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Concrete Beam Design Summary - TS 500-2000(R2018)
+  canonical_table_key: concrete_beam_design_summary
+  required_columns:
+  - UniqueName
+  - Label
+  - Story
+  - DesignSect
+  - Station
+  - VCombo
+  optional_columns:
+  - AsTop
+  - AsBot
+  - AsTopCombo
+  - AsBotCombo
+  - VCombo
+  - VRebar
+  - WarnMsg
+  - ErrMsg
+  row_selection_rule:
+  - match target component_id/label/story/section where available
+  - read ETABS design summary output as observed source data only
+  - do not execute CheckEngine or engine-selected detailing
+  display_selection_required: false
+  unit_expectation:
+    unit: ''
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_etabs_design_summary_observation
+  locked_future_notes: Allows only existing ETABS-observed summary fields; does not
+    unlock engine rebar/flexure/shear/capacity checks.
+- feature_id: beam_shear_rebar_etabs_required_mm2
+  semantic_role: ETABS_REQUIRED_REBAR
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Concrete Beam Design Summary - TS 500-2000(R2018)
+  canonical_table_key: concrete_beam_design_summary
+  required_columns:
+  - UniqueName
+  - Label
+  - Story
+  - DesignSect
+  - Station
+  - VRebar
+  optional_columns:
+  - AsTop
+  - AsBot
+  - AsTopCombo
+  - AsBotCombo
+  - VCombo
+  - VRebar
+  - WarnMsg
+  - ErrMsg
+  row_selection_rule:
+  - match target component_id/label/story/section where available
+  - read ETABS design summary output as observed source data only
+  - do not execute CheckEngine or engine-selected detailing
+  display_selection_required: false
+  unit_expectation:
+    area: mm2
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_etabs_design_summary_observation
+  locked_future_notes: Allows only existing ETABS-observed summary fields; does not
+    unlock engine rebar/flexure/shear/capacity checks.
+- feature_id: beam_design_warn_msg
+  semantic_role: ETABS_DIAGNOSTIC_TEXT
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Concrete Beam Design Summary - TS 500-2000(R2018)
+  canonical_table_key: concrete_beam_design_summary
+  required_columns:
+  - UniqueName
+  - Label
+  - Story
+  - DesignSect
+  - Station
+  - WarnMsg
+  optional_columns:
+  - AsTop
+  - AsBot
+  - AsTopCombo
+  - AsBotCombo
+  - VCombo
+  - VRebar
+  - WarnMsg
+  - ErrMsg
+  row_selection_rule:
+  - match target component_id/label/story/section where available
+  - read ETABS design summary output as observed source data only
+  - do not execute CheckEngine or engine-selected detailing
+  display_selection_required: false
+  unit_expectation:
+    unit: ''
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_etabs_design_summary_observation
+  locked_future_notes: Allows only existing ETABS-observed summary fields; does not
+    unlock engine rebar/flexure/shear/capacity checks.
+- feature_id: beam_design_err_msg
+  semantic_role: ETABS_DIAGNOSTIC_TEXT
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Concrete Beam Design Summary - TS 500-2000(R2018)
+  canonical_table_key: concrete_beam_design_summary
+  required_columns:
+  - UniqueName
+  - Label
+  - Story
+  - DesignSect
+  - Station
+  - ErrMsg
+  optional_columns:
+  - AsTop
+  - AsBot
+  - AsTopCombo
+  - AsBotCombo
+  - VCombo
+  - VRebar
+  - WarnMsg
+  - ErrMsg
+  row_selection_rule:
+  - match target component_id/label/story/section where available
+  - read ETABS design summary output as observed source data only
+  - do not execute CheckEngine or engine-selected detailing
+  display_selection_required: false
+  unit_expectation:
+    unit: ''
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_etabs_design_summary_observation
+  locked_future_notes: Allows only existing ETABS-observed summary fields; does not
+    unlock engine rebar/flexure/shear/capacity checks.
+- feature_id: story_drift_value
+  semantic_role: ETABS_DRIFT_VALUE
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Story Drifts
+  canonical_table_key: story_drifts
+  required_columns:
+  - Story
+  - OutputCase
+  - CaseType
+  - StepType
+  - Direction
+  - Drift
+  optional_columns:
+  - Drift/
+  - Label
+  - X
+  - Y
+  - Z
+  row_selection_rule:
+  - normalize Story and match target_story
+  - prefer OutputCase == preferred_output_case
+  - require numeric Drift for numeric drift features
+  - deterministic first valid row if multiple rows remain
+  display_selection_required: true
+  preferred_output_case_default: Crack_SeisY_UpSoil
+  unit_expectation:
+    displacement: mm
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_story_drift_observation
+- feature_id: story_drift_max_mm
+  semantic_role: DISPLACEMENT_OBSERVED
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Story Drifts
+  canonical_table_key: story_drifts
+  required_columns:
+  - Story
+  - OutputCase
+  - CaseType
+  - StepType
+  - Direction
+  - Drift
+  optional_columns:
+  - Drift/
+  - Label
+  - X
+  - Y
+  - Z
+  row_selection_rule:
+  - normalize Story and match target_story
+  - prefer OutputCase == preferred_output_case
+  - require numeric Drift for numeric drift features
+  - deterministic first valid row if multiple rows remain
+  display_selection_required: true
+  preferred_output_case_default: Crack_SeisY_UpSoil
+  unit_expectation:
+    displacement: mm
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_story_drift_observation
+- feature_id: story_drift_output_case
+  semantic_role: OUTPUT_CASE_NAME
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Story Drifts
+  canonical_table_key: story_drifts
+  required_columns:
+  - Story
+  - OutputCase
+  - CaseType
+  - StepType
+  - Direction
+  - Drift
+  optional_columns:
+  - Drift/
+  - Label
+  - X
+  - Y
+  - Z
+  row_selection_rule:
+  - normalize Story and match target_story
+  - prefer OutputCase == preferred_output_case
+  - require numeric Drift for numeric drift features
+  - deterministic first valid row if multiple rows remain
+  display_selection_required: true
+  preferred_output_case_default: Crack_SeisY_UpSoil
+  unit_expectation:
+    unit: ''
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_story_drift_observation
+- feature_id: story_drift_direction
+  semantic_role: DIRECTION
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Story Drifts
+  canonical_table_key: story_drifts
+  required_columns:
+  - Story
+  - OutputCase
+  - CaseType
+  - StepType
+  - Direction
+  - Drift
+  optional_columns:
+  - Drift/
+  - Label
+  - X
+  - Y
+  - Z
+  row_selection_rule:
+  - normalize Story and match target_story
+  - prefer OutputCase == preferred_output_case
+  - require numeric Drift for numeric drift features
+  - deterministic first valid row if multiple rows remain
+  display_selection_required: true
+  preferred_output_case_default: Crack_SeisY_UpSoil
+  unit_expectation:
+    unit: ''
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_story_drift_observation
+- feature_id: story_torsion_a1_coefficient
+  semantic_role: IRREGULARITY_OBSERVED
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Story Max Over Avg Drifts
+  canonical_table_key: story_max_over_avg_drifts
+  required_columns:
+  - Story
+  - OutputCase
+  - CaseType
+  - StepType
+  - Direction
+  - Ratio
+  optional_columns:
+  - Max Drift
+  - Avg Drift
+  row_selection_rule:
+  - normalize Story and match target_story
+  - prefer OutputCase == preferred_output_case
+  - require numeric Ratio
+  - deterministic first valid row if multiple rows remain
+  display_selection_required: true
+  preferred_output_case_default: Crack_SeisY_UpSoil
+  unit_expectation:
+    ratio: dimensionless
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_story_torsion_observation
+- feature_id: base_reaction_fx
+  semantic_role: BASE_REACTION_FORCE
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Base Reactions
+  canonical_table_key: base_reactions
+  required_columns:
+  - OutputCase
+  - CaseType
+  - StepType
+  - FX
+  - FY
+  optional_columns:
+  - FZ
+  - MX
+  - MY
+  - MZ
+  - X
+  - Y
+  - Z
+  row_selection_rule:
+  - do not require Story
+  - do not require component_id
+  - prefer OutputCase == preferred_output_case
+  - require numeric FX/FY for force features
+  - deterministic first valid row if multiple rows remain
+  display_selection_required: true
+  preferred_output_case_default: Crack_SeisY_UpSoil
+  unit_expectation:
+    force: kN
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_base_reaction_observation
+  identity_requirements:
+    requires_story: false
+    requires_component_id: false
+- feature_id: base_reaction_fy
+  semantic_role: BASE_REACTION_FORCE
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Base Reactions
+  canonical_table_key: base_reactions
+  required_columns:
+  - OutputCase
+  - CaseType
+  - StepType
+  - FX
+  - FY
+  optional_columns:
+  - FZ
+  - MX
+  - MY
+  - MZ
+  - X
+  - Y
+  - Z
+  row_selection_rule:
+  - do not require Story
+  - do not require component_id
+  - prefer OutputCase == preferred_output_case
+  - require numeric FX/FY for force features
+  - deterministic first valid row if multiple rows remain
+  display_selection_required: true
+  preferred_output_case_default: Crack_SeisY_UpSoil
+  unit_expectation:
+    force: kN
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_base_reaction_observation
+  identity_requirements:
+    requires_story: false
+    requires_component_id: false
+- feature_id: base_reaction_x_kN
+  semantic_role: DEMAND
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Base Reactions
+  canonical_table_key: base_reactions
+  required_columns:
+  - OutputCase
+  - CaseType
+  - StepType
+  - FX
+  - FY
+  optional_columns:
+  - FZ
+  - MX
+  - MY
+  - MZ
+  - X
+  - Y
+  - Z
+  row_selection_rule:
+  - do not require Story
+  - do not require component_id
+  - prefer OutputCase == preferred_output_case
+  - require numeric FX/FY for force features
+  - deterministic first valid row if multiple rows remain
+  display_selection_required: true
+  preferred_output_case_default: Crack_SeisY_UpSoil
+  unit_expectation:
+    force: kN
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_base_reaction_observation
+  identity_requirements:
+    requires_story: false
+    requires_component_id: false
+- feature_id: base_reaction_y_kN
+  semantic_role: DEMAND
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Base Reactions
+  canonical_table_key: base_reactions
+  required_columns:
+  - OutputCase
+  - CaseType
+  - StepType
+  - FX
+  - FY
+  optional_columns:
+  - FZ
+  - MX
+  - MY
+  - MZ
+  - X
+  - Y
+  - Z
+  row_selection_rule:
+  - do not require Story
+  - do not require component_id
+  - prefer OutputCase == preferred_output_case
+  - require numeric FX/FY for force features
+  - deterministic first valid row if multiple rows remain
+  display_selection_required: true
+  preferred_output_case_default: Crack_SeisY_UpSoil
+  unit_expectation:
+    force: kN
+  evidence_required: true
+  forbidden_source:
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  source_scope: current_base_reaction_observation
+  identity_requirements:
+    requires_story: false
+    requires_component_id: false
+- feature_id: modal_sum_ux
+  semantic_role: MODAL_CUMULATIVE_PARTICIPATION
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Modal Participating Mass Ratios
+  canonical_table_key: modal_participating_mass
+  required_columns:
+  - OutputCase
+  - Mode
+  - SumUX
+  optional_columns:
+  - Period
+  - UX
+  - UY
+  - UZ
+  - SumUX
+  - SumUY
+  - SumUZ
+  row_selection_rule:
+  - use maximum cumulative UX/UY across all available modes
+  - do not use fixed Mode 10 as final if later modes exist
+  - deterministic maximum cumulative aggregation
+  display_selection_required: false
+  unit_expectation:
+    ratio: dimensionless
+  evidence_required: true
+  forbidden_source:
+  - fixed_mode_10_only
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  aggregation: max_cumulative
+  source_scope: current_modal_mass_observation
+- feature_id: modal_sum_uy
+  semantic_role: MODAL_CUMULATIVE_PARTICIPATION
+  source_type: display_table
+  source_owner: ETABS
+  etabs_table_name: Modal Participating Mass Ratios
+  canonical_table_key: modal_participating_mass
+  required_columns:
+  - OutputCase
+  - Mode
+  - SumUY
+  optional_columns:
+  - Period
+  - UX
+  - UY
+  - UZ
+  - SumUX
+  - SumUY
+  - SumUZ
+  row_selection_rule:
+  - use maximum cumulative UX/UY across all available modes
+  - do not use fixed Mode 10 as final if later modes exist
+  - deterministic maximum cumulative aggregation
+  display_selection_required: false
+  unit_expectation:
+    ratio: dimensionless
+  evidence_required: true
+  forbidden_source:
+  - fixed_mode_10_only
+  - excel_production
+  - check_result
+  - engineering_verdict
+  locked_future_scope: false
+  aggregation: max_cumulative
+  source_scope: current_modal_mass_observation

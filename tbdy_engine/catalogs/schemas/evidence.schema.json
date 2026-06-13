@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tbdy-engine.local/schemas/evidence.schema.json",
+  "title": "Evidence",
+  "type": "object",
+  "required": [
+    "evidence_id",
+    "feature_name",
+    "evidence_status",
+    "source_level",
+    "availability_status",
+    "confidence",
+    "resolved_value",
+    "unit",
+    "resolver",
+    "source_table",
+    "source_column",
+    "source_row",
+    "output_case",
+    "combo_family",
+    "messages"
+  ],
+  "properties": {
+    "evidence_id": {
+      "type": "string"
+    },
+    "feature_name": {
+      "type": "string"
+    },
+    "evidence_status": {
+      "enum": [
+        "FULL",
+        "PARTIAL",
+        "MISSING"
+      ]
+    },
+    "source_level": {
+      "enum": [
+        "ETABS_RAW",
+        "DERIVED",
+        "ETABS_DESIGN_RESULT",
+        "MANUAL"
+      ]
+    },
+    "availability_status": {
+      "enum": [
+        "available",
+        "partially_available",
+        "missing_in_export",
+        "derived"
+      ]
+    },
+    "confidence": {
+      "enum": [
+        "high",
+        "medium",
+        "low"
+      ]
+    },
+    "source_table": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "actual_table_name": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_column": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_row": {
+      "type": [
+        "object",
+        "null"
+      ]
+    },
+    "output_case": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "combo_family": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "governing_combo": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "section_state": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "raw_value": {},
+    "resolved_value": {},
+    "unit": {
+      "type": "string"
+    },
+    "resolver": {
+      "type": "string"
+    },
+    "fallback_used": {
+      "type": "boolean"
+    },
+    "fallback_warning": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "messages": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": true
+}

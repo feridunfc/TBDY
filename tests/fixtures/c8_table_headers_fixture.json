@@ -1,0 +1,86 @@
+{
+  "unit_context": {
+    "source": "fixture_declared_units",
+    "force_unit": "N",
+    "length_unit": "mm",
+    "temperature_unit": "C",
+    "unit_query_status": "RESOLVED",
+    "unit_basis_confidence": "high",
+    "diagnostics": []
+  },
+  "tables": [
+    {
+      "actual_table_name": "Frame Assignments - Summary",
+      "canonical_table_key": "frame_assignments",
+      "headers": ["Story", "Label", "UniqueName", "Type", "Length", "AnalysisSect", "DesignSect"],
+      "sample_rows_limited": [
+        {"Story": "+14.5", "Label": "B1", "UniqueName": "297", "Type": "Beam", "Length": 6200, "AnalysisSect": "B40x70_ANA", "DesignSect": "B40x70"}
+      ]
+    },
+    {
+      "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+      "canonical_table_key": "frame_section_properties",
+      "headers": ["Name", "Material", "t3", "t2"],
+      "sample_rows_limited": [
+        {"Name": "B40x70", "Material": "C30", "t3": 700, "t2": 400}
+      ]
+    },
+    {
+      "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+      "canonical_table_key": "concrete_beam_design_summary",
+      "headers": ["Story", "Label", "UniqueName", "DesignSect", "Station", "AsTopCombo", "AsTop", "AsBotCombo", "AsBot", "VCombo", "VRebar", "WarnMsg", "ErrMsg"],
+      "sample_rows_limited": [
+        {"Story": "+14.5", "Label": "B1", "UniqueName": "297", "DesignSect": "B40x70", "Station": 0, "AsTopCombo": "Crack_SeisY_UpSoil", "AsTop": 1250, "AsBotCombo": "Crack_SeisX", "AsBot": 1180, "VCombo": "Crack_SeisY", "VRebar": 420, "WarnMsg": "Shear design warning text", "ErrMsg": "No Message"}
+      ]
+    },
+    {
+      "actual_table_name": "Material Properties - Concrete Data",
+      "canonical_table_key": "material_concrete_data",
+      "headers": ["Material", "Fc"],
+      "sample_rows_limited": [
+        {"Material": "C30", "Fc": 30}
+      ]
+    },
+    {
+      "actual_table_name": "Material Properties - Rebar Data",
+      "canonical_table_key": "material_rebar_data",
+      "headers": ["Material", "Fy"],
+      "sample_rows_limited": [
+        {"Material": "B420C", "Fy": 420}
+      ]
+    },
+    {
+      "actual_table_name": "Story Drifts",
+      "canonical_table_key": "story_drifts",
+      "headers": ["Story", "OutputCase", "CaseType", "StepType", "Direction", "Drift"],
+      "sample_rows_limited": [
+        {"Story": "+14.5", "OutputCase": "Crack_SeisY_UpSoil", "CaseType": "Combination", "StepType": "Max", "Direction": "Y", "Drift": 9.5}
+      ]
+    },
+    {
+      "actual_table_name": "Story Max Over Avg Drifts",
+      "canonical_table_key": "story_max_over_avg_drifts",
+      "headers": ["Story", "OutputCase", "CaseType", "StepType", "Direction", "Max Drift", "Avg Drift", "Ratio"],
+      "sample_rows_limited": [
+        {"Story": "+14.5", "OutputCase": "Crack_SeisY_UpSoil", "CaseType": "Combination", "StepType": "Max", "Direction": "Y", "Max Drift": 9.5, "Avg Drift": 7.1, "Ratio": 1.33}
+      ]
+    },
+    {
+      "actual_table_name": "Modal Participating Mass Ratios",
+      "canonical_table_key": "modal_participating_mass",
+      "headers": ["Case", "Mode", "Period", "SumUX", "SumUY"],
+      "sample_rows_limited": [
+        {"Case": "Modal", "Mode": 1, "Period": 0.56, "SumUX": 0.71, "SumUY": 0.68},
+        {"Case": "Modal", "Mode": 12, "Period": 0.04, "SumUX": 0.96, "SumUY": 0.95}
+      ]
+    },
+    {
+      "actual_table_name": "Base Reactions",
+      "canonical_table_key": "base_reactions",
+      "headers": ["OutputCase", "CaseType", "StepType", "FX", "FY"],
+      "sample_rows_limited": [
+        {"OutputCase": "Crack_SeisY_UpSoil", "CaseType": "Combination", "StepType": "Max", "FX": 1020.5, "FY": 2440.1}
+      ]
+    }
+  ]
+}

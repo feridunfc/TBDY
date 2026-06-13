@@ -1,0 +1,173 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  sprint: C1_CONTRACT_HARDENING
+  status: hardened_contract
+  owner: TBDY Engine
+  catalog_name: load_combo_policy
+  notes:
+  - Contract-only. No engine/check/ETABS runtime implementation.
+  - Production source of truth is live ETABS tables; Excel is fixture/debug/regression
+    only.
+  - 'Rebar semantics: ETABS_REQUIRED + TBDY_MIN -> GOVERNING_REQUIRED -> ENGINE_SELECTED;
+    USER_PROVIDED is explicit only.'
+source_of_truth: ETABS model load cases and combinations fetched live
+policy:
+  production_input: ETABS_LIVE_PROVIDER
+  excel_input: fixture_debug_regression_only
+  combo_name_aliasing: allowed_in_feature_resolver_only
+  check_engine_combo_names: forbidden
+  unknown_combo_behavior: diagnostic
+  displacement_combinations_are_read_only: true
+  displacement_combinations_must_not_be_used_for_reinforcement_design: true
+combo_families:
+  GRAV_SERVICE:
+    description: Gravity/service combinations
+    design_use: serviceability
+    read_only: false
+    reinforcement_design_allowed: true
+  GRAV_STRENGTH:
+    description: Gravity strength combinations
+    design_use: strength_design
+    read_only: false
+    reinforcement_design_allowed: true
+  DUCTILE_X:
+    description: Ductile seismic design combinations in X
+    design_use: seismic_ductile
+    read_only: false
+    reinforcement_design_allowed: true
+  DUCTILE_Y:
+    description: Ductile seismic design combinations in Y
+    design_use: seismic_ductile
+    read_only: false
+    reinforcement_design_allowed: true
+  CAPACITY_X:
+    description: Capacity design combinations in X
+    design_use: capacity_design
+    read_only: false
+    reinforcement_design_allowed: true
+  CAPACITY_Y:
+    description: Capacity design combinations in Y
+    design_use: capacity_design
+    read_only: false
+    reinforcement_design_allowed: true
+  DISP_X:
+    description: Displacement/drift combinations in X
+    design_use: displacement
+    read_only: true
+    reinforcement_design_allowed: false
+  DISP_Y:
+    description: Displacement/drift combinations in Y
+    design_use: displacement
+    read_only: true
+    reinforcement_design_allowed: false
+  MODAL:
+    description: Modal analysis results
+    design_use: modal
+    read_only: true
+    reinforcement_design_allowed: false
+  SOIL:
+    description: Soil/SSI combinations
+    design_use: soil_interaction
+    read_only: false
+    reinforcement_design_allowed: false
+  TEMP_POS:
+    description: Positive temperature combinations
+    design_use: temperature
+    read_only: false
+    reinforcement_design_allowed: false
+  TEMP_NEG:
+    description: Negative temperature combinations
+    design_use: temperature
+    read_only: false
+    reinforcement_design_allowed: false
+  NONE:
+    description: No load-combination dependency
+    design_use: independent
+    read_only: false
+    reinforcement_design_allowed: false
+combo_family_aliases:
+  DUCTILE_X_OR_Y:
+    expands_to:
+    - DUCTILE_X
+    - DUCTILE_Y
+  CAPACITY_X_OR_Y:
+    expands_to:
+    - CAPACITY_X
+    - CAPACITY_Y
+  DISP_X_OR_Y:
+    expands_to:
+    - DISP_X
+    - DISP_Y
+matching_rules:
+- family: GRAV_SERVICE
+  include_patterns:
+  - ^G.*SERV.*
+  - .*SERVICE.*
+  exclude_patterns:
+  - .*SEISMIC.*
+  - .*DEPREM.*
+- family: GRAV_STRENGTH
+  include_patterns:
+  - ^1\.4G.*
+  - ^1\.2G.*
+  - .*STRENGTH.*
+  exclude_patterns:
+  - .*DRIFT.*
+  - .*DISP.*
+- family: DUCTILE_X
+  include_patterns:
+  - .*DUCTILE.*X.*
+  - .*EX.*
+  exclude_patterns:
+  - .*CAP.*
+  - .*DISP.*
+- family: DUCTILE_Y
+  include_patterns:
+  - .*DUCTILE.*Y.*
+  - .*EY.*
+  exclude_patterns:
+  - .*CAP.*
+  - .*DISP.*
+- family: CAPACITY_X
+  include_patterns:
+  - .*CAP.*X.*
+  - .*OMEGA.*X.*
+  exclude_patterns: []
+- family: CAPACITY_Y
+  include_patterns:
+  - .*CAP.*Y.*
+  - .*OMEGA.*Y.*
+  exclude_patterns: []
+- family: DISP_X
+  include_patterns:
+  - .*DISP.*X.*
+  - .*DRIFT.*X.*
+  exclude_patterns:
+  - .*CAP.*
+- family: DISP_Y
+  include_patterns:
+  - .*DISP.*Y.*
+  - .*DRIFT.*Y.*
+  exclude_patterns:
+  - .*CAP.*
+- family: MODAL
+  include_patterns:
+  - ^MODAL.*
+  - ^MOD.*
+  exclude_patterns: []
+project_alias_review:
+  cracked_seismic_cases:
+  - pattern: ^Crack_SeisX(?:_.*)?$
+    diagnostic_family: DUCTILE_X
+    needs_engineering_review: true
+  - pattern: ^Crack_SeisY(?:_.*)?$
+    diagnostic_family: DUCTILE_Y
+    needs_engineering_review: true
+  - pattern: ^Crack_.*_UpSoil$
+    diagnostic_family: SOIL
+    needs_engineering_review: true
+  ignored_envelope_markers:
+  - Max
+  - Combination
+  numeric_values_are_not_combo_names: true

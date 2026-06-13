@@ -1,0 +1,418 @@
+{
+  "features_with_combo_engineering_review_diagnostic": [
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "diagnostic": {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_X",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisX"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      },
+      "feature_name": "beam_As_bottom_combo"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "diagnostic": {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_X",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisX"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      },
+      "feature_name": "beam_As_bottom_etabs_required_mm2"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "diagnostic": {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      },
+      "feature_name": "beam_As_top_combo"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "diagnostic": {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      },
+      "feature_name": "beam_As_top_etabs_required_mm2"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "diagnostic": {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      },
+      "feature_name": "beam_V_combo"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "diagnostic": {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      },
+      "feature_name": "beam_shear_rebar_etabs_required_mm2"
+    },
+    {
+      "component_id": "+14.5",
+      "component_type": "story",
+      "diagnostic": {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      },
+      "feature_name": "story_drift_max_mm"
+    },
+    {
+      "component_id": "+14.5",
+      "component_type": "story",
+      "diagnostic": {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      },
+      "feature_name": "story_drift_output_case"
+    },
+    {
+      "component_id": "+14.5",
+      "component_type": "story",
+      "diagnostic": {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      },
+      "feature_name": "story_drift_value"
+    },
+    {
+      "component_id": "+14.5",
+      "component_type": "story",
+      "diagnostic": {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      },
+      "feature_name": "story_torsion_a1_coefficient"
+    },
+    {
+      "component_id": "GLOBAL",
+      "component_type": "global",
+      "diagnostic": {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      },
+      "feature_name": "base_reaction_fx"
+    },
+    {
+      "component_id": "GLOBAL",
+      "component_type": "global",
+      "diagnostic": {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      },
+      "feature_name": "base_reaction_fy"
+    },
+    {
+      "component_id": "GLOBAL",
+      "component_type": "global",
+      "diagnostic": {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      },
+      "feature_name": "base_reaction_x_kN"
+    },
+    {
+      "component_id": "GLOBAL",
+      "component_type": "global",
+      "diagnostic": {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      },
+      "feature_name": "base_reaction_y_kN"
+    }
+  ],
+  "features_with_complete_evidence": [
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_As_bottom_combo"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_As_bottom_etabs_required_mm2"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_As_top_combo"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_As_top_etabs_required_mm2"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_V_combo"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_depth_mm"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_design_err_msg"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_design_warn_msg"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_label"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_length_mm"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_section_name"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_shear_rebar_etabs_required_mm2"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_story"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_unique_name"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_width_mm"
+    },
+    {
+      "component_id": "MATERIALS",
+      "component_type": "material",
+      "feature_name": "concrete_fck_mpa"
+    },
+    {
+      "component_id": "MATERIALS",
+      "component_type": "material",
+      "feature_name": "rebar_fyk_mpa"
+    },
+    {
+      "component_id": "+14.5",
+      "component_type": "story",
+      "feature_name": "story_drift_direction"
+    },
+    {
+      "component_id": "+14.5",
+      "component_type": "story",
+      "feature_name": "story_drift_max_mm"
+    },
+    {
+      "component_id": "+14.5",
+      "component_type": "story",
+      "feature_name": "story_drift_output_case"
+    },
+    {
+      "component_id": "+14.5",
+      "component_type": "story",
+      "feature_name": "story_drift_value"
+    },
+    {
+      "component_id": "+14.5",
+      "component_type": "story",
+      "feature_name": "story_torsion_a1_coefficient"
+    },
+    {
+      "component_id": "GLOBAL",
+      "component_type": "global",
+      "feature_name": "base_reaction_fx"
+    },
+    {
+      "component_id": "GLOBAL",
+      "component_type": "global",
+      "feature_name": "base_reaction_fy"
+    },
+    {
+      "component_id": "GLOBAL",
+      "component_type": "global",
+      "feature_name": "base_reaction_x_kN"
+    },
+    {
+      "component_id": "GLOBAL",
+      "component_type": "global",
+      "feature_name": "base_reaction_y_kN"
+    },
+    {
+      "component_id": "GLOBAL",
+      "component_type": "global",
+      "feature_name": "modal_sum_ux"
+    },
+    {
+      "component_id": "GLOBAL",
+      "component_type": "global",
+      "feature_name": "modal_sum_uy"
+    }
+  ],
+  "features_with_fallback_section_evidence": [],
+  "features_with_incomplete_evidence": [],
+  "features_with_unknown_units": [
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_As_bottom_combo"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_As_top_combo"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_V_combo"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_design_err_msg"
+    },
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "feature_name": "beam_design_warn_msg"
+    },
+    {
+      "component_id": "+14.5",
+      "component_type": "story",
+      "feature_name": "story_drift_direction"
+    },
+    {
+      "component_id": "+14.5",
+      "component_type": "story",
+      "feature_name": "story_drift_output_case"
+    }
+  ],
+  "summary": {
+    "combo_review_count": 14,
+    "complete_evidence_count": 28,
+    "fallback_section_count": 0,
+    "incomplete_evidence_count": 0,
+    "unknown_unit_count": 7,
+    "warnmsg_errmsg_diagnostic_count": 1
+  },
+  "warnmsg_errmsg_evidence_diagnostics": [
+    {
+      "component_id": "297",
+      "component_type": "beam",
+      "diagnostic": {
+        "code": "ETABS_WARNING_MESSAGE",
+        "details": {
+          "feature_name": "beam_design_warn_msg"
+        },
+        "message": "ETABS design diagnostic text preserved as feature evidence only",
+        "severity": "WARNING"
+      },
+      "feature_name": "beam_design_warn_msg"
+    }
+  ]
+}

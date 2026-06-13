@@ -1,0 +1,216 @@
+[
+  {
+    "check_id": "beam_geometry_min_depth",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "PARTIAL",
+    "missing_design_context": [
+      {
+        "context_field": "ductility_class",
+        "reason": "Required design context is missing"
+      }
+    ],
+    "missing_required_features": [],
+    "must_not_execute_reason": "PARTIAL coverage rows must not be silently OKed",
+    "reason_skipped": "partial_coverage"
+  },
+  {
+    "check_id": "beam_span_depth_ratio",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "missing_design_context": [
+      {
+        "context_field": "ductility_class",
+        "reason": "Required design context is missing"
+      }
+    ],
+    "missing_required_features": [
+      {
+        "feature_name": "beam_clear_span_mm",
+        "reason": "FeatureSnapshot does not contain a resolved feature value"
+      }
+    ],
+    "must_not_execute_reason": "BLOCKED coverage rows must not be executed",
+    "reason_skipped": "blocked_coverage"
+  },
+  {
+    "check_id": "beam_flexure_top_selected_ge_governing_required",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "missing_design_context": [
+      {
+        "context_field": "ductility_class",
+        "reason": "Required design context is missing"
+      }
+    ],
+    "missing_required_features": [
+      {
+        "feature_name": "beam_As_top_engine_selected_mm2",
+        "reason": "FeatureSnapshot does not contain a resolved feature value"
+      },
+      {
+        "feature_name": "beam_As_top_governing_required_mm2",
+        "reason": "FeatureSnapshot does not contain a resolved feature value"
+      }
+    ],
+    "must_not_execute_reason": "BLOCKED coverage rows must not be executed",
+    "reason_skipped": "blocked_coverage"
+  },
+  {
+    "check_id": "beam_flexure_bottom_selected_ge_governing_required",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "missing_design_context": [
+      {
+        "context_field": "ductility_class",
+        "reason": "Required design context is missing"
+      }
+    ],
+    "missing_required_features": [
+      {
+        "feature_name": "beam_As_bottom_engine_selected_mm2",
+        "reason": "FeatureSnapshot does not contain a resolved feature value"
+      },
+      {
+        "feature_name": "beam_As_bottom_governing_required_mm2",
+        "reason": "FeatureSnapshot does not contain a resolved feature value"
+      }
+    ],
+    "must_not_execute_reason": "BLOCKED coverage rows must not be executed",
+    "reason_skipped": "blocked_coverage"
+  },
+  {
+    "check_id": "beam_shear_ve_le_vr",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "missing_design_context": [
+      {
+        "context_field": "ductility_class",
+        "reason": "Required design context is missing"
+      }
+    ],
+    "missing_required_features": [
+      {
+        "feature_name": "beam_Vd_left_kN",
+        "reason": "FeatureSnapshot does not contain a resolved feature value"
+      },
+      {
+        "feature_name": "beam_Vd_right_kN",
+        "reason": "FeatureSnapshot does not contain a resolved feature value"
+      },
+      {
+        "feature_name": "beam_effective_depth_mm",
+        "reason": "FeatureSnapshot does not contain a resolved feature value"
+      }
+    ],
+    "must_not_execute_reason": "BLOCKED coverage rows must not be executed",
+    "reason_skipped": "blocked_coverage"
+  },
+  {
+    "check_id": "beam_shear_asw_ge_asw_min",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "missing_design_context": [
+      {
+        "context_field": "ductility_class",
+        "reason": "Required design context is missing"
+      }
+    ],
+    "missing_required_features": [
+      {
+        "feature_name": "beam_As_top_governing_required_mm2",
+        "reason": "FeatureSnapshot does not contain a resolved feature value"
+      }
+    ],
+    "must_not_execute_reason": "BLOCKED coverage rows must not be executed",
+    "reason_skipped": "blocked_coverage"
+  },
+  {
+    "check_id": "beam_capacity_design_shear",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "missing_design_context": [
+      {
+        "context_field": "ductility_class",
+        "reason": "Required design context is missing"
+      }
+    ],
+    "missing_required_features": [
+      {
+        "feature_name": "beam_Md_left_neg_kNm",
+        "reason": "FeatureSnapshot does not contain a resolved feature value"
+      },
+      {
+        "feature_name": "beam_Md_right_neg_kNm",
+        "reason": "FeatureSnapshot does not contain a resolved feature value"
+      },
+      {
+        "feature_name": "beam_clear_span_mm",
+        "reason": "FeatureSnapshot does not contain a resolved feature value"
+      }
+    ],
+    "must_not_execute_reason": "BLOCKED coverage rows must not be executed",
+    "reason_skipped": "blocked_coverage"
+  },
+  {
+    "check_id": "story_drift_limit",
+    "component_id": "+14.5",
+    "component_type": "story",
+    "coverage_status": "BLOCKED",
+    "missing_design_context": [
+      {
+        "context_field": "ductility_class",
+        "reason": "Required design context is missing"
+      }
+    ],
+    "missing_required_features": [
+      {
+        "feature_name": "story_height_mm",
+        "reason": "FeatureSnapshot does not contain a resolved feature value"
+      }
+    ],
+    "must_not_execute_reason": "BLOCKED coverage rows must not be executed",
+    "reason_skipped": "blocked_coverage"
+  },
+  {
+    "check_id": "torsional_irregularity_A1",
+    "component_id": "+14.5",
+    "component_type": "story",
+    "coverage_status": "PARTIAL",
+    "missing_design_context": [
+      {
+        "context_field": "ductility_class",
+        "reason": "Required design context is missing"
+      }
+    ],
+    "missing_required_features": [],
+    "must_not_execute_reason": "PARTIAL coverage rows must not be silently OKed",
+    "reason_skipped": "partial_coverage"
+  },
+  {
+    "check_id": "base_shear_scaling",
+    "component_id": "GLOBAL",
+    "component_type": "global",
+    "coverage_status": "BLOCKED",
+    "missing_design_context": [
+      {
+        "context_field": "ductility_class",
+        "reason": "Required design context is missing"
+      }
+    ],
+    "missing_required_features": [
+      {
+        "feature_name": "design_base_shear_kN",
+        "reason": "FeatureSnapshot does not contain a resolved feature value"
+      }
+    ],
+    "must_not_execute_reason": "BLOCKED coverage rows must not be executed",
+    "reason_skipped": "blocked_coverage"
+  }
+]

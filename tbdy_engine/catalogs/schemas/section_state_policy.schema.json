@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "metadata",
+    "allowed_states",
+    "combo_family_to_section_state"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "contract",
+        "version",
+        "catalog_name"
+      ],
+      "properties": {
+        "contract": {
+          "const": "Contract Constitution"
+        },
+        "version": {
+          "const": "1.0"
+        },
+        "catalog_name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "allowed_states": {
+      "type": "array",
+      "minItems": 6
+    },
+    "combo_family_to_section_state": {
+      "type": "object",
+      "minProperties": 13
+    }
+  },
+  "additionalProperties": true
+}

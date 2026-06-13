@@ -1,0 +1,88 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  sprint: C1_CONTRACT_HARDENING
+  status: hardened_contract
+  owner: TBDY Engine
+  catalog_name: design_basis
+  notes:
+  - Contract-only. No engine/check/ETABS runtime implementation.
+  - Production source of truth is live ETABS tables; Excel is fixture/debug/regression
+    only.
+  - 'Rebar semantics: ETABS_REQUIRED + TBDY_MIN -> GOVERNING_REQUIRED -> ENGINE_SELECTED;
+    USER_PROVIDED is explicit only.'
+design_basis_version: 1.0.0
+project_id: PROJECT_ID_PLACEHOLDER
+project_name: PROJECT_NAME_PLACEHOLDER
+code_basis:
+  seismic: TBDY_2018
+  concrete: TS500_2000
+  rebar: TS708_2016
+  additional_codes: []
+unit_system:
+  length: mm
+  force: kN
+  moment: kNm
+  stress: MPa
+  area: mm2
+  area_per_meter: mm2/m
+  ratio: ''
+  period: s
+  angle: degrees
+seismic_design_context:
+  ductility_class: HIGH
+  structural_system: FRAME
+  importance_factor_I: 1.0
+  behavior_factor_R: 8.0
+  behavior_factor_Rx: 8.0
+  behavior_factor_Ry: 8.0
+  overstrength_factor_D: 2.5
+  overstrength_factor_Dx: 2.5
+  overstrength_factor_Dy: 2.5
+  soil_class: ZC
+  SDS: null
+  SD1: null
+  BYS: null
+  DTS: null
+model_assumptions:
+  section_state_policy_ref: section_state_policy.yaml
+  load_combo_policy_ref: load_combo_policy.yaml
+  table_registry_ref: table_registry.yaml
+  design_combo_matrix_ref: design_combo_matrix.yaml
+  diaphragm_assumption: RIGID
+  p_delta_included: true
+  cracking_considered: true
+  effective_stiffness_factors_applied: true
+element_design_policy:
+  beam:
+    default_section_state: cracked
+    minimum_depth_mm: 300
+    minimum_width_mm: 250
+    rebar_grade: B420C
+    concrete_grade: C30
+    cover_mm: 35
+    longitudinal_min_diameter_mm: 14
+    transverse_min_diameter_mm: 8
+  column:
+    default_section_state: cracked
+    minimum_dimension_mm: 300
+    rebar_grade: B420C
+    concrete_grade: C30
+    cover_mm: 40
+    minimum_longitudinal_ratio: 0.01
+    maximum_longitudinal_ratio: 0.04
+  wall:
+    default_section_state: cracked
+    minimum_thickness_mm: 250
+    minimum_vertical_ratio: 0.0025
+    minimum_horizontal_ratio: 0.0025
+  story:
+    drift_limit: 0.02
+    torsion_coefficient_limit: 1.2
+  global:
+    modal_mass_participation_target: 0.95
+review_status:
+  design_basis_reviewed: false
+  review_date: null
+  reviewed_by: null
+  comments: []

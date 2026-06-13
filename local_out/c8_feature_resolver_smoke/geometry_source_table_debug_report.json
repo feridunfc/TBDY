@@ -1,0 +1,173 @@
+{
+  "frame_assignments": {
+    "actual_table_name": "Frame Assignments - Summary",
+    "has_required_columns": true,
+    "headers": [
+      "Story",
+      "Label",
+      "UniqueName",
+      "Type",
+      "Length",
+      "AnalysisSect",
+      "DesignSect"
+    ],
+    "matching_attempts": [
+      {
+        "attempted_keys": {
+          "DesignSect": "B40x70",
+          "Label": "B1",
+          "Story": "+14.5",
+          "UniqueName": "297"
+        },
+        "matched": true,
+        "reason": "matched_by_unique_label_story_designsect"
+      }
+    ],
+    "raw_table_diagnostics": {
+      "attempted_case_fallback": false,
+      "debug_sample_row_count": 1,
+      "display_selection_attempted": false,
+      "display_selection_attempts": [],
+      "display_selection_selected_method": null,
+      "display_selection_success": false,
+      "expected_flat_length": 7,
+      "fetch_after_display_selection": false,
+      "fields": [
+        "Story",
+        "Label",
+        "UniqueName",
+        "Type",
+        "Length",
+        "AnalysisSect",
+        "DesignSect"
+      ],
+      "header_count": 7,
+      "number_fields": 7,
+      "number_fields_detected": 7,
+      "number_fields_source": "header_count_fallback",
+      "number_records": 1,
+      "number_records_by_signature": {},
+      "parser_status": "FIXTURE_SAMPLE_ROWS",
+      "parser_status_by_signature": {},
+      "preferred_output_case": null,
+      "preferred_output_kind_detected": "unknown",
+      "resolver_row_count": 1,
+      "return_code": null,
+      "selected_signature": {},
+      "selected_signature_reason": null,
+      "signature_attempts": [],
+      "skipped_case_selection_because_combo_succeeded": false,
+      "table_data_length": 7,
+      "table_data_length_by_signature": {},
+      "table_name": "Frame Assignments - Summary"
+    },
+    "required_columns_found": [
+      "UniqueName",
+      "Label",
+      "Story",
+      "DesignSect",
+      "AnalysisSect",
+      "Length"
+    ],
+    "required_columns_missing": [],
+    "row_count": 1,
+    "row_count_investigation": {
+      "expected_flat_length": 7,
+      "headers_present": true,
+      "number_records": 1,
+      "parser_status": "FIXTURE_SAMPLE_ROWS",
+      "rows_present": true,
+      "table_data_length": 7
+    },
+    "sample_rows": [
+      {
+        "AnalysisSect": "B40x70_ANA",
+        "DesignSect": "B40x70",
+        "Label": "B1",
+        "Length": 6200,
+        "Story": "+14.5",
+        "Type": "Beam",
+        "UniqueName": "297"
+      }
+    ],
+    "table_key": "frame_assignments"
+  },
+  "frame_section_properties": {
+    "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+    "has_required_columns": true,
+    "headers": [
+      "Name",
+      "Material",
+      "t3",
+      "t2"
+    ],
+    "matching_attempts": [
+      {
+        "attempted_keys": {
+          "Name": "B40x70"
+        },
+        "matched": true,
+        "reason": "matched_section_by_Name"
+      }
+    ],
+    "raw_table_diagnostics": {
+      "attempted_case_fallback": false,
+      "debug_sample_row_count": 1,
+      "display_selection_attempted": false,
+      "display_selection_attempts": [],
+      "display_selection_selected_method": null,
+      "display_selection_success": false,
+      "expected_flat_length": 4,
+      "fetch_after_display_selection": false,
+      "fields": [
+        "Name",
+        "Material",
+        "t3",
+        "t2"
+      ],
+      "header_count": 4,
+      "number_fields": 4,
+      "number_fields_detected": 4,
+      "number_fields_source": "header_count_fallback",
+      "number_records": 1,
+      "number_records_by_signature": {},
+      "parser_status": "FIXTURE_SAMPLE_ROWS",
+      "parser_status_by_signature": {},
+      "preferred_output_case": null,
+      "preferred_output_kind_detected": "unknown",
+      "resolver_row_count": 1,
+      "return_code": null,
+      "selected_signature": {},
+      "selected_signature_reason": null,
+      "signature_attempts": [],
+      "skipped_case_selection_because_combo_succeeded": false,
+      "table_data_length": 4,
+      "table_data_length_by_signature": {},
+      "table_name": "Frame Section Property Definitions - Concrete Rectangular"
+    },
+    "required_columns_found": [
+      "Name",
+      "t2",
+      "t3"
+    ],
+    "required_columns_missing": [],
+    "row_count": 1,
+    "row_count_investigation": {
+      "expected_flat_length": 4,
+      "headers_present": true,
+      "number_records": 1,
+      "parser_status": "FIXTURE_SAMPLE_ROWS",
+      "rows_present": true,
+      "table_data_length": 4
+    },
+    "sample_rows": [
+      {
+        "Material": "C30",
+        "Name": "B40x70",
+        "t2": 400,
+        "t3": 700
+      }
+    ],
+    "table_key": "frame_section_properties"
+  }
+}

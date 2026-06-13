@@ -1,0 +1,15 @@
+{
+  "etabs_live_path_opt_in_only": true,
+  "excel_production_path_added": false,
+  "legacy_imports_added": false,
+  "live_etabs_required_for_ci": false,
+  "metadata": {
+    "check_engine_executed": false,
+    "check_result_emitted": false,
+    "live_verdict_emitted": false,
+    "sprint": "C8_3_LIVE_MODEL_GEOMETRY_RETRIEVAL"
+  },
+  "provider_check_execution": false,
+  "rebar_flexure_shear_unlocked": false,
+  "runner_v2_runtime_archx_imports": false
+}

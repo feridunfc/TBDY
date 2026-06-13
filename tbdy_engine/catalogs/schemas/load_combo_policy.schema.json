@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "metadata",
+    "combo_families",
+    "combo_family_aliases",
+    "policy"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "contract",
+        "version",
+        "catalog_name"
+      ],
+      "properties": {
+        "contract": {
+          "const": "Contract Constitution"
+        },
+        "version": {
+          "const": "1.0"
+        },
+        "catalog_name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "combo_families": {
+      "type": "object",
+      "minProperties": 13
+    },
+    "combo_family_aliases": {
+      "type": "object"
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "unknown_combo_behavior"
+      ],
+      "properties": {
+        "unknown_combo_behavior": {
+          "const": "diagnostic"
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

@@ -1,0 +1,947 @@
+[
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [
+      {
+        "code": "IDENTITY_SEEDED_FROM_DESIGN_SUMMARY",
+        "details": {
+          "identity_seeded": true,
+          "identity_source": "concrete_beam_design_summary"
+        },
+        "message": "Beam target identity seeded from concrete_beam_design_summary before frame assignment matching",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "beam_unique_name",
+    "source_column": "UniqueName",
+    "source_table": "frame_assignments",
+    "status": "RESOLVED",
+    "unit": "",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "",
+      "normalized_value": "297",
+      "raw_unit": "",
+      "raw_value": "297",
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NOT_APPLICABLE"
+    },
+    "value": "297"
+  },
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [
+      {
+        "code": "IDENTITY_SEEDED_FROM_DESIGN_SUMMARY",
+        "details": {
+          "identity_seeded": true,
+          "identity_source": "concrete_beam_design_summary"
+        },
+        "message": "Beam target identity seeded from concrete_beam_design_summary before frame assignment matching",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "beam_label",
+    "source_column": "Label",
+    "source_table": "frame_assignments",
+    "status": "RESOLVED",
+    "unit": "",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "",
+      "normalized_value": "B1",
+      "raw_unit": "",
+      "raw_value": "B1",
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NOT_APPLICABLE"
+    },
+    "value": "B1"
+  },
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [
+      {
+        "code": "IDENTITY_SEEDED_FROM_DESIGN_SUMMARY",
+        "details": {
+          "identity_seeded": true,
+          "identity_source": "concrete_beam_design_summary"
+        },
+        "message": "Beam target identity seeded from concrete_beam_design_summary before frame assignment matching",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "beam_story",
+    "source_column": "Story",
+    "source_table": "frame_assignments",
+    "status": "RESOLVED",
+    "unit": "",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "",
+      "normalized_value": "+14.5",
+      "raw_unit": "",
+      "raw_value": "+14.5",
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NOT_APPLICABLE"
+    },
+    "value": "+14.5"
+  },
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [
+      {
+        "code": "IDENTITY_SEEDED_FROM_DESIGN_SUMMARY",
+        "details": {
+          "identity_seeded": true,
+          "identity_source": "concrete_beam_design_summary"
+        },
+        "message": "Beam target identity seeded from concrete_beam_design_summary before frame assignment matching",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "beam_section_name",
+    "source_column": "DesignSect",
+    "source_table": "frame_assignments",
+    "status": "RESOLVED",
+    "unit": "",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "",
+      "normalized_value": "B40x70",
+      "raw_unit": "",
+      "raw_value": "B40x70",
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NOT_APPLICABLE"
+    },
+    "value": "B40x70"
+  },
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [],
+    "feature_name": "beam_width_mm",
+    "source_column": "t2",
+    "source_table": "frame_section_properties",
+    "status": "RESOLVED",
+    "unit": "mm",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "mm",
+      "normalized_value": 400.0,
+      "raw_unit": "mm",
+      "raw_value": 400,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "RESOLVED"
+    },
+    "value": 400.0
+  },
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [],
+    "feature_name": "beam_depth_mm",
+    "source_column": "t3",
+    "source_table": "frame_section_properties",
+    "status": "RESOLVED",
+    "unit": "mm",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "mm",
+      "normalized_value": 700.0,
+      "raw_unit": "mm",
+      "raw_value": 700,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "RESOLVED"
+    },
+    "value": 700.0
+  },
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [],
+    "feature_name": "beam_length_mm",
+    "source_column": "Length",
+    "source_table": "frame_assignments",
+    "status": "RESOLVED",
+    "unit": "mm",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "mm",
+      "normalized_value": 6200.0,
+      "raw_unit": "mm",
+      "raw_value": 6200,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "RESOLVED"
+    },
+    "value": 6200.0
+  },
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [
+      {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "beam_As_top_etabs_required_mm2",
+    "source_column": "AsTop",
+    "source_table": "concrete_beam_design_summary",
+    "status": "RESOLVED",
+    "unit": "mm2",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "mm2",
+      "normalized_value": 1250.0,
+      "raw_unit": "mm2",
+      "raw_value": 1250,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "RESOLVED"
+    },
+    "value": 1250.0
+  },
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [
+      {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_X",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisX"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "beam_As_bottom_etabs_required_mm2",
+    "source_column": "AsBot",
+    "source_table": "concrete_beam_design_summary",
+    "status": "RESOLVED",
+    "unit": "mm2",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "mm2",
+      "normalized_value": 1180.0,
+      "raw_unit": "mm2",
+      "raw_value": 1180,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "RESOLVED"
+    },
+    "value": 1180.0
+  },
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [
+      {
+        "code": "SHEAR_REBAR_UNIT_SEMANTICS_REVIEW",
+        "details": {
+          "feature_name": "beam_shear_rebar_etabs_required_mm2",
+          "raw_unit": "mm2"
+        },
+        "message": "VRebar unit semantics require engineering review; value preserved as observed evidence",
+        "severity": "WARNING"
+      },
+      {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "beam_shear_rebar_etabs_required_mm2",
+    "source_column": "VRebar",
+    "source_table": "concrete_beam_design_summary",
+    "status": "RESOLVED",
+    "unit": "mm2",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "mm2",
+      "normalized_value": 420.0,
+      "raw_unit": "mm2",
+      "raw_value": 420,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "SEMANTICS_REVIEW"
+    },
+    "value": 420.0
+  },
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [
+      {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "beam_As_top_combo",
+    "source_column": "AsTopCombo",
+    "source_table": "concrete_beam_design_summary",
+    "status": "RESOLVED",
+    "unit": "",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "",
+      "normalized_value": "Crack_SeisY_UpSoil",
+      "raw_unit": "",
+      "raw_value": "Crack_SeisY_UpSoil",
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NOT_APPLICABLE"
+    },
+    "value": "Crack_SeisY_UpSoil"
+  },
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [
+      {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_X",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisX"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "beam_As_bottom_combo",
+    "source_column": "AsBotCombo",
+    "source_table": "concrete_beam_design_summary",
+    "status": "RESOLVED",
+    "unit": "",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "",
+      "normalized_value": "Crack_SeisX",
+      "raw_unit": "",
+      "raw_value": "Crack_SeisX",
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NOT_APPLICABLE"
+    },
+    "value": "Crack_SeisX"
+  },
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [
+      {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "beam_V_combo",
+    "source_column": "VCombo",
+    "source_table": "concrete_beam_design_summary",
+    "status": "RESOLVED",
+    "unit": "",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "",
+      "normalized_value": "Crack_SeisY",
+      "raw_unit": "",
+      "raw_value": "Crack_SeisY",
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NOT_APPLICABLE"
+    },
+    "value": "Crack_SeisY"
+  },
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [
+      {
+        "code": "ETABS_WARNING_MESSAGE",
+        "details": {
+          "feature_name": "beam_design_warn_msg"
+        },
+        "message": "ETABS design diagnostic text preserved as feature evidence only",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "beam_design_warn_msg",
+    "source_column": "WarnMsg",
+    "source_table": "concrete_beam_design_summary",
+    "status": "RESOLVED",
+    "unit": "",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "",
+      "normalized_value": "Shear design warning text",
+      "raw_unit": "",
+      "raw_value": "Shear design warning text",
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NOT_APPLICABLE"
+    },
+    "value": "Shear design warning text"
+  },
+  {
+    "component_id": "297",
+    "component_type": "beam",
+    "diagnostics": [],
+    "feature_name": "beam_design_err_msg",
+    "source_column": "ErrMsg",
+    "source_table": "concrete_beam_design_summary",
+    "status": "RESOLVED",
+    "unit": "",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "",
+      "normalized_value": "No Message",
+      "raw_unit": "",
+      "raw_value": "No Message",
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NOT_APPLICABLE"
+    },
+    "value": "No Message"
+  },
+  {
+    "component_id": "MATERIALS",
+    "component_type": "material",
+    "diagnostics": [],
+    "feature_name": "concrete_fck_mpa",
+    "source_column": "Fc",
+    "source_table": "material_concrete_data",
+    "status": "RESOLVED",
+    "unit": "MPa",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "MPa",
+      "normalized_value": 30.0,
+      "raw_unit": "N/mm2",
+      "raw_value": 30,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "RESOLVED"
+    },
+    "value": 30.0
+  },
+  {
+    "component_id": "MATERIALS",
+    "component_type": "material",
+    "diagnostics": [],
+    "feature_name": "rebar_fyk_mpa",
+    "source_column": "Fy",
+    "source_table": "material_rebar_data",
+    "status": "RESOLVED",
+    "unit": "MPa",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "MPa",
+      "normalized_value": 420.0,
+      "raw_unit": "N/mm2",
+      "raw_value": 420,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "RESOLVED"
+    },
+    "value": 420.0
+  },
+  {
+    "component_id": "+14.5",
+    "component_type": "story",
+    "diagnostics": [
+      {
+        "code": "FILTER_NOT_MATCHED",
+        "details": {
+          "selected_story": "+14.5"
+        },
+        "message": "No target_story was provided; selected deterministic valid story row as smoke fallback",
+        "severity": "WARNING"
+      },
+      {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "story_drift_value",
+    "source_column": "Drift",
+    "source_table": "story_drifts",
+    "status": "RESOLVED",
+    "unit": "mm",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "mm",
+      "normalized_value": 9.5,
+      "raw_unit": "mm",
+      "raw_value": 9.5,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "RESOLVED"
+    },
+    "value": 9.5
+  },
+  {
+    "component_id": "+14.5",
+    "component_type": "story",
+    "diagnostics": [
+      {
+        "code": "FILTER_NOT_MATCHED",
+        "details": {
+          "selected_story": "+14.5"
+        },
+        "message": "No target_story was provided; selected deterministic valid story row as smoke fallback",
+        "severity": "WARNING"
+      },
+      {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "story_drift_max_mm",
+    "source_column": "Drift",
+    "source_table": "story_drifts",
+    "status": "RESOLVED",
+    "unit": "mm",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "mm",
+      "normalized_value": 9.5,
+      "raw_unit": "mm",
+      "raw_value": 9.5,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "RESOLVED"
+    },
+    "value": 9.5
+  },
+  {
+    "component_id": "+14.5",
+    "component_type": "story",
+    "diagnostics": [
+      {
+        "code": "FILTER_NOT_MATCHED",
+        "details": {
+          "selected_story": "+14.5"
+        },
+        "message": "No target_story was provided; selected deterministic valid story row as smoke fallback",
+        "severity": "WARNING"
+      },
+      {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "story_drift_output_case",
+    "source_column": "OutputCase",
+    "source_table": "story_drifts",
+    "status": "RESOLVED",
+    "unit": "",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "",
+      "normalized_value": "Crack_SeisY_UpSoil",
+      "raw_unit": "",
+      "raw_value": "Crack_SeisY_UpSoil",
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NOT_APPLICABLE"
+    },
+    "value": "Crack_SeisY_UpSoil"
+  },
+  {
+    "component_id": "+14.5",
+    "component_type": "story",
+    "diagnostics": [
+      {
+        "code": "FILTER_NOT_MATCHED",
+        "details": {
+          "selected_story": "+14.5"
+        },
+        "message": "No target_story was provided; selected deterministic valid story row as smoke fallback",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "story_drift_direction",
+    "source_column": "Direction",
+    "source_table": "story_drifts",
+    "status": "RESOLVED",
+    "unit": "",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "",
+      "normalized_value": "Y",
+      "raw_unit": "",
+      "raw_value": "Y",
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NOT_APPLICABLE"
+    },
+    "value": "Y"
+  },
+  {
+    "component_id": "+14.5",
+    "component_type": "story",
+    "diagnostics": [
+      {
+        "code": "FILTER_NOT_MATCHED",
+        "details": {
+          "selected_story": "+14.5"
+        },
+        "message": "No target_story was provided; selected deterministic valid story row as smoke fallback",
+        "severity": "WARNING"
+      },
+      {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "story_torsion_a1_coefficient",
+    "source_column": "Ratio",
+    "source_table": "story_max_over_avg_drifts",
+    "status": "RESOLVED",
+    "unit": "ratio",
+    "unit_evidence": {
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "ratio",
+      "normalized_value": 1.33,
+      "raw_unit": "ratio",
+      "raw_value": 1.33,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "RESOLVED"
+    },
+    "value": 1.33
+  },
+  {
+    "component_id": "GLOBAL",
+    "component_type": "global",
+    "diagnostics": [
+      {
+        "code": "MODAL_AGGREGATION_MAX_CUMULATIVE_USED",
+        "details": {
+          "feature_name": "modal_sum_ux",
+          "mode_count": 2,
+          "selected_mode": 12,
+          "selected_row_index": 1,
+          "selected_value": 0.96,
+          "source_column": "SumUX",
+          "source_rows_considered_count": 2
+        },
+        "message": "Modal cumulative participation resolved using max_cumulative over all available rows",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "modal_sum_ux",
+    "source_column": "SumUX",
+    "source_table": "modal_participating_mass",
+    "status": "RESOLVED",
+    "unit": "ratio",
+    "unit_evidence": {
+      "aggregation_method": "max_cumulative",
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "ratio",
+      "normalized_value": 0.96,
+      "raw_unit": "ratio",
+      "raw_value": 0.96,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NOT_APPLICABLE"
+    },
+    "value": 0.96
+  },
+  {
+    "component_id": "GLOBAL",
+    "component_type": "global",
+    "diagnostics": [
+      {
+        "code": "MODAL_AGGREGATION_MAX_CUMULATIVE_USED",
+        "details": {
+          "feature_name": "modal_sum_uy",
+          "mode_count": 2,
+          "selected_mode": 12,
+          "selected_row_index": 1,
+          "selected_value": 0.95,
+          "source_column": "SumUY",
+          "source_rows_considered_count": 2
+        },
+        "message": "Modal cumulative participation resolved using max_cumulative over all available rows",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "modal_sum_uy",
+    "source_column": "SumUY",
+    "source_table": "modal_participating_mass",
+    "status": "RESOLVED",
+    "unit": "ratio",
+    "unit_evidence": {
+      "aggregation_method": "max_cumulative",
+      "conversion_applied": false,
+      "conversion_formula": null,
+      "diagnostics": [],
+      "normalized_unit": "ratio",
+      "normalized_value": 0.95,
+      "raw_unit": "ratio",
+      "raw_value": 0.95,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NOT_APPLICABLE"
+    },
+    "value": 0.95
+  },
+  {
+    "component_id": "GLOBAL",
+    "component_type": "global",
+    "diagnostics": [
+      {
+        "code": "UNIT_NORMALIZED",
+        "details": {
+          "conversion_formula": "value_N / 1000 = value_kN",
+          "feature_name": "base_reaction_fx",
+          "normalized_unit": "kN",
+          "raw_unit": "N"
+        },
+        "message": "Value normalized using explicit unit context",
+        "severity": "WARNING"
+      },
+      {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "base_reaction_fx",
+    "source_column": "FX",
+    "source_table": "base_reactions",
+    "status": "RESOLVED",
+    "unit": "kN",
+    "unit_evidence": {
+      "conversion_applied": true,
+      "conversion_formula": "value_N / 1000 = value_kN",
+      "diagnostics": [],
+      "normalized_unit": "kN",
+      "normalized_value": 1.0205,
+      "raw_unit": "N",
+      "raw_value": 1020.5,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NORMALIZED"
+    },
+    "value": 1.0205
+  },
+  {
+    "component_id": "GLOBAL",
+    "component_type": "global",
+    "diagnostics": [
+      {
+        "code": "UNIT_NORMALIZED",
+        "details": {
+          "conversion_formula": "value_N / 1000 = value_kN",
+          "feature_name": "base_reaction_fy",
+          "normalized_unit": "kN",
+          "raw_unit": "N"
+        },
+        "message": "Value normalized using explicit unit context",
+        "severity": "WARNING"
+      },
+      {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "base_reaction_fy",
+    "source_column": "FY",
+    "source_table": "base_reactions",
+    "status": "RESOLVED",
+    "unit": "kN",
+    "unit_evidence": {
+      "conversion_applied": true,
+      "conversion_formula": "value_N / 1000 = value_kN",
+      "diagnostics": [],
+      "normalized_unit": "kN",
+      "normalized_value": 2.4400999999999997,
+      "raw_unit": "N",
+      "raw_value": 2440.1,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NORMALIZED"
+    },
+    "value": 2.4400999999999997
+  },
+  {
+    "component_id": "GLOBAL",
+    "component_type": "global",
+    "diagnostics": [
+      {
+        "code": "UNIT_NORMALIZED",
+        "details": {
+          "conversion_formula": "value_N / 1000 = value_kN",
+          "feature_name": "base_reaction_x_kN",
+          "normalized_unit": "kN",
+          "raw_unit": "N"
+        },
+        "message": "Value normalized using explicit unit context",
+        "severity": "WARNING"
+      },
+      {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "base_reaction_x_kN",
+    "source_column": "FX",
+    "source_table": "base_reactions",
+    "status": "RESOLVED",
+    "unit": "kN",
+    "unit_evidence": {
+      "conversion_applied": true,
+      "conversion_formula": "value_N / 1000 = value_kN",
+      "diagnostics": [],
+      "normalized_unit": "kN",
+      "normalized_value": 1.0205,
+      "raw_unit": "N",
+      "raw_value": 1020.5,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NORMALIZED"
+    },
+    "value": 1.0205
+  },
+  {
+    "component_id": "GLOBAL",
+    "component_type": "global",
+    "diagnostics": [
+      {
+        "code": "UNIT_NORMALIZED",
+        "details": {
+          "conversion_formula": "value_N / 1000 = value_kN",
+          "feature_name": "base_reaction_y_kN",
+          "normalized_unit": "kN",
+          "raw_unit": "N"
+        },
+        "message": "Value normalized using explicit unit context",
+        "severity": "WARNING"
+      },
+      {
+        "code": "COMBO_ENGINEERING_REVIEW",
+        "details": {
+          "combo_family": "DUCTILE_Y",
+          "needs_engineering_review": true,
+          "raw_value": "Crack_SeisY_UpSoil"
+        },
+        "message": "Project-specific combo/output case matched diagnostic family and requires engineering review",
+        "severity": "WARNING"
+      }
+    ],
+    "feature_name": "base_reaction_y_kN",
+    "source_column": "FY",
+    "source_table": "base_reactions",
+    "status": "RESOLVED",
+    "unit": "kN",
+    "unit_evidence": {
+      "conversion_applied": true,
+      "conversion_formula": "value_N / 1000 = value_kN",
+      "diagnostics": [],
+      "normalized_unit": "kN",
+      "normalized_value": 2.4400999999999997,
+      "raw_unit": "N",
+      "raw_value": 2440.1,
+      "unit_context_source": "fixture_declared_units",
+      "unit_normalization_status": "NORMALIZED"
+    },
+    "value": 2.4400999999999997
+  }
+]

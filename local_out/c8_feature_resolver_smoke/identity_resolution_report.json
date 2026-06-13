@@ -1,0 +1,80 @@
+{
+  "diagnostics": [
+    {
+      "code": "IDENTITY_SEEDED_FROM_DESIGN_SUMMARY",
+      "details": {
+        "identity_seeded": true,
+        "identity_source": "concrete_beam_design_summary"
+      },
+      "message": "Beam target identity seeded from concrete_beam_design_summary before frame assignment matching",
+      "severity": "WARNING"
+    }
+  ],
+  "frame_assignment_matching_attempts": [
+    {
+      "attempted_keys": {
+        "DesignSect": "B40x70",
+        "Label": "B1",
+        "Story": "+14.5",
+        "UniqueName": "297"
+      },
+      "matched": true,
+      "reason": "matched_by_unique_label_story_designsect"
+    }
+  ],
+  "identity_confidence": "high",
+  "identity_confirmed_by_frame_assignments": true,
+  "identity_features": {
+    "beam_label": {
+      "evidence_status": "FULL",
+      "source_column": "Label",
+      "source_table": "frame_assignments",
+      "status": "RESOLVED",
+      "value": "B1"
+    },
+    "beam_section_name": {
+      "evidence_status": "FULL",
+      "source_column": "DesignSect",
+      "source_table": "frame_assignments",
+      "status": "RESOLVED",
+      "value": "B40x70"
+    },
+    "beam_story": {
+      "evidence_status": "FULL",
+      "source_column": "Story",
+      "source_table": "frame_assignments",
+      "status": "RESOLVED",
+      "value": "+14.5"
+    },
+    "beam_unique_name": {
+      "evidence_status": "FULL",
+      "source_column": "UniqueName",
+      "source_table": "frame_assignments",
+      "status": "RESOLVED",
+      "value": "297"
+    }
+  },
+  "identity_seeded": true,
+  "identity_source": "concrete_beam_design_summary",
+  "resolved_identity": {
+    "component": "297",
+    "label": "B1",
+    "section": "B40x70",
+    "station": 0,
+    "story": "+14.5"
+  },
+  "seed_identity": {
+    "component": "297",
+    "label": "B1",
+    "section": "B40x70",
+    "station": 0,
+    "story": "+14.5"
+  },
+  "target_selection_policy": {
+    "auto_seed_from_design_summary": true,
+    "target_component": null,
+    "target_label": null,
+    "target_section": null,
+    "target_story": null
+  }
+}

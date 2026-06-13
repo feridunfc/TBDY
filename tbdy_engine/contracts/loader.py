@@ -1,54 +1,77 @@
+"""Contract Constitution loader.
+
+Source YAML/JSON files remain under ``tbdy_engine/catalogs``. This package is the
+Python loader only. C3 does not implement providers, resolvers, formulas, checks,
+or engine execution.
+"""
 from __future__ import annotations
+
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
+
 import yaml
-from .migrator import LegacyContractMigrator
-from .models import ChecksContract, CombosContract, ContractBundle, DatasetsContract, EvaluationsContract, ReportsContract, model_to_dict
-from .runtime_catalog import RuntimeCatalogBuilder
-RUNTIME_FILES = {"datasets": "datasets.yaml", "evaluations": "evaluations.yaml", "checks": "checks.yaml", "combos": "combos.yaml", "reports": "reports.yaml"}
-LEGACY_FILES = ["check_contract.yaml", "detailed_checklist.yaml", "combo_contract.yaml", "combo_usage_matrix.yaml"]
-def _read_yaml(path: Path) -> Dict[str, Any]:
-    if not path.exists(): return {}
-    with path.open("r", encoding="utf-8-sig") as f:
-        data = yaml.safe_load(f)
-    if data is None: return {}
-    if not isinstance(data, dict): raise ValueError(f"YAML root must be a mapping: {path}")
-    return data
-class EngineContractLoader:
-    def __init__(self, contracts_dir: str | Path, project_root: str | Path | None = None):
-        self.contracts_dir = Path(contracts_dir)
-        self.project_root = Path(project_root) if project_root is not None else self.contracts_dir.resolve().parents[1]
-    @classmethod
-    def from_project_root(cls, project_root: str | Path | None = None) -> "EngineContractLoader":
-        root = Path(project_root or Path.cwd())
-        return cls(root / "tbdy_engine" / "contracts", project_root=root)
-    def load(self, include_legacy: bool = False) -> ContractBundle:
-        warnings: list[str] = []
-        bundle = ContractBundle(
-            datasets=DatasetsContract(**_read_yaml(self.contracts_dir / RUNTIME_FILES["datasets"])),
-            evaluations=EvaluationsContract(**_read_yaml(self.contracts_dir / RUNTIME_FILES["evaluations"])),
-            checks=ChecksContract(**_read_yaml(self.contracts_dir / RUNTIME_FILES["checks"])),
-            combos=CombosContract(**_read_yaml(self.contracts_dir / RUNTIME_FILES["combos"])),
-            reports=ReportsContract(**_read_yaml(self.contracts_dir / RUNTIME_FILES["reports"])),
-            legacy_raw=self._load_legacy_raw(warnings) if include_legacy else {},
-            warnings=warnings)
-        if include_legacy and bundle.legacy_raw:
-            bundle = LegacyContractMigrator().enrich_bundle(bundle)
-        return bundle
-    def build_runtime_catalog(self, include_legacy: bool = False):
-        return RuntimeCatalogBuilder(self.load(include_legacy=include_legacy)).build()
-    def _load_legacy_raw(self, warnings: list[str]) -> Dict[str, Any]:
-        raw: Dict[str, Any] = {}
-        for fn in LEGACY_FILES:
-            for directory in [self.contracts_dir / "legacy", self.project_root / "tbdy_engine" / "checks"]:
-                path = directory / fn
-                if path.exists():
-                    try: raw[fn] = _read_yaml(path)
-                    except Exception as exc: warnings.append(f"Could not load legacy YAML {path}: {exc}")
-                    break
-        return raw
-def dump_runtime_catalog_json(catalog: Any, output_path: Path) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as f:
-        json.dump(model_to_dict(catalog), f, ensure_ascii=False, indent=2)
+
+from tbdy_engine.contracts.models import ContractBundle
+from tbdy_engine.contracts.validation import validate_contracts
+from tbdy_engine.tools.validate_contract_constitution import (
+    CATALOG_FILES,
+    DEFAULT_CATALOG_DIR,
+    EXAMPLE_SCHEMA_MAP,
+    REQUIRED_SCHEMA_FILES,
+)
+
+
+class ContractConstitutionLoader:
+    """Load and validate C1/C2/C3 contract files as read-only data."""
+
+    def __init__(self, catalog_dir: str | Path = DEFAULT_CATALOG_DIR) -> None:
+        self.catalog_dir = Path(catalog_dir)
+
+    @property
+    def schema_dir(self) -> Path:
+        return self.catalog_dir / "schemas"
+
+    @property
+    def example_dir(self) -> Path:
+        return self.catalog_dir / "examples"
+
+    def load(self) -> ContractBundle:
+        """Validate then load all catalogs, schemas, and examples.
+
+        Validation happens first to fail fast on YAML, schema, or cross-reference
+        errors. Returned data is immutable/read-only.
+        """
+        validate_contracts(self.catalog_dir)
+        catalogs = {name: self._load_yaml(self.catalog_dir / name) for name in CATALOG_FILES}
+        schemas = {name: self._load_json(self.schema_dir / name) for name in REQUIRED_SCHEMA_FILES}
+        examples = {name: self._load_json(self.example_dir / name) for name in EXAMPLE_SCHEMA_MAP}
+        return ContractBundle.from_raw(
+            catalog_dir=str(self.catalog_dir),
+            catalogs=catalogs,
+            schemas=schemas,
+            examples=examples,
+        )
+
+    @staticmethod
+    def _load_yaml(path: Path) -> dict[str, Any]:
+        with path.open("r", encoding="utf-8") as stream:
+            data = yaml.safe_load(stream)
+        if not isinstance(data, dict):
+            raise ValueError(f"{path} must contain a YAML object")
+        return data
+
+    @staticmethod
+    def _load_json(path: Path) -> dict[str, Any]:
+        with path.open("r", encoding="utf-8") as stream:
+            data = json.load(stream)
+        if not isinstance(data, dict):
+            raise ValueError(f"{path} must contain a JSON object")
+        return data
+
+
+def load_contracts(catalog_dir: str | Path = DEFAULT_CATALOG_DIR) -> ContractBundle:
+    return ContractConstitutionLoader(catalog_dir).load()
+
+
+__all__ = ["ContractConstitutionLoader", "load_contracts"]

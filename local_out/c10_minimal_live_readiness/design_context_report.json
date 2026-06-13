@@ -1,0 +1,35 @@
+{
+  "design_context": {
+    "ductility_class": "HIGH"
+  },
+  "metadata": {
+    "coverage_readiness_only": true,
+    "explicit_design_context_consumed": true,
+    "silent_ductility_inference_used": false,
+    "sprint": "C10_MINIMAL_LIVE_READINESS_SLICE"
+  },
+  "provenance": {
+    "fields": {
+      "ductility_class": {
+        "provenance": "manual_design_context",
+        "source": "manual_project_design_basis",
+        "source_file": "C:\\Users\\FCY\\PycharmProjects\\tbdy_engine_core\\tests\\fixtures\\c10_design_context_fixture.json",
+        "value": "HIGH"
+      }
+    },
+    "notes": "Provided manually for C10 readiness smoke only; not inferred from ETABS or combo names.",
+    "silent_inference_used": false,
+    "source": "manual_project_design_basis",
+    "source_file": "C:\\Users\\FCY\\PycharmProjects\\tbdy_engine_core\\tests\\fixtures\\c10_design_context_fixture.json",
+    "source_kind": "manual_design_context"
+  },
+  "unlock_policy": {
+    "description": "C10 applies explicit design context only to the minimal safe readiness slice; rebar, flexure, shear, and force-demand rows remain locked.",
+    "rebar_flexure_shear_rows_not_unlocked": true
+  },
+  "unlocked_check_ids": [
+    "beam_depth_width_ratio",
+    "beam_geometry_min_width",
+    "modal_mass_participation"
+  ]
+}

@@ -1,0 +1,289 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  sprint: C1_CONTRACT_HARDENING
+  status: hardened_contract
+  owner: TBDY Engine
+  catalog_name: high_ductility_check_scope
+  notes:
+  - Contract-only. No engine/check/ETABS runtime implementation.
+  - Production source of truth is live ETABS tables; Excel is fixture/debug/regression
+    only.
+  - 'Rebar semantics: ETABS_REQUIRED + TBDY_MIN -> GOVERNING_REQUIRED -> ENGINE_SELECTED;
+    USER_PROVIDED is explicit only.'
+scope_version: 1.0.0
+scope_items:
+- check_scope_id: HD-BEAM-001
+  category: dimensional_constraints
+  element_type: beam
+  status: CONTRACTED
+  description: HD-BEAM-001
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - beam_geometry_min_width
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-BEAM-002
+  category: dimensional_constraints
+  element_type: beam
+  status: CONTRACTED
+  description: HD-BEAM-002
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - beam_geometry_min_depth
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-BEAM-003
+  category: dimensional_constraints
+  element_type: beam
+  status: CONTRACTED
+  description: HD-BEAM-003
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - beam_span_depth_ratio
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-BEAM-004
+  category: dimensional_constraints
+  element_type: beam
+  status: CONTRACTED
+  description: HD-BEAM-004
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - beam_depth_width_ratio
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-BEAM-005
+  category: longitudinal_rebar
+  element_type: beam
+  status: CONTRACTED
+  description: HD-BEAM-005
+  combo_families:
+  - DUCTILE_X_OR_Y
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - beam_flexure_top_selected_ge_governing_required
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-BEAM-006
+  category: longitudinal_rebar
+  element_type: beam
+  status: CONTRACTED
+  description: HD-BEAM-006
+  combo_families:
+  - DUCTILE_X_OR_Y
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - beam_flexure_bottom_selected_ge_governing_required
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-BEAM-007
+  category: shear
+  element_type: beam
+  status: CONTRACTED
+  description: HD-BEAM-007
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - beam_shear_ve_le_vr
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-BEAM-008
+  category: shear
+  element_type: beam
+  status: CONTRACTED
+  description: HD-BEAM-008
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - beam_shear_asw_ge_asw_min
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-BEAM-009
+  category: capacity_design
+  element_type: beam
+  status: CONTRACTED
+  description: HD-BEAM-009
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - beam_capacity_design_shear
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-COL-001
+  category: dimensional_constraints
+  element_type: column
+  status: CONTRACTED
+  description: HD-COL-001
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - column_geometry_min_dimension
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-COL-002
+  category: pmm
+  element_type: column
+  status: CONTRACTED
+  description: HD-COL-002
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - column_pmm_contract
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-COL-003
+  category: shear
+  element_type: column
+  status: CONTRACTED
+  description: HD-COL-003
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - column_shear_contract
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-WALL-001
+  category: dimensional_constraints
+  element_type: wall
+  status: CONTRACTED
+  description: HD-WALL-001
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - wall_geometry_min_thickness
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-WALL-002
+  category: pier_design
+  element_type: wall
+  status: CONTRACTED
+  description: HD-WALL-002
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - wall_pier_design_contract
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-WALL-003
+  category: shear
+  element_type: wall
+  status: CONTRACTED
+  description: HD-WALL-003
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - wall_shear_contract
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-STORY-001
+  category: story_drift
+  element_type: story
+  status: CONTRACTED
+  description: HD-STORY-001
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - story_drift_limit
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-STORY-002
+  category: torsion
+  element_type: story
+  status: CONTRACTED
+  description: HD-STORY-002
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - torsional_irregularity_A1
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-GLOB-001
+  category: modal_mass
+  element_type: global
+  status: CONTRACTED
+  description: HD-GLOB-001
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - modal_mass_participation
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-GLOB-002
+  category: base_shear
+  element_type: global
+  status: CONTRACTED
+  description: HD-GLOB-002
+  combo_families:
+  - NONE
+  design_context_requirements:
+  - ductility_class
+  related_check_catalog_keys:
+  - base_shear_scaling
+  missing_alignment_reason: null
+  code_ref: review_required
+- check_scope_id: HD-JOINT-001
+  category: joint_shear
+  element_type: joint
+  status: BACKLOG
+  description: HD-JOINT-001
+  combo_families:
+  - CAPACITY_X_OR_Y
+  design_context_requirements: []
+  related_check_catalog_keys: []
+  missing_alignment_reason: Joint feature resolver not in C1.
+  code_ref: review_required
+- check_scope_id: HD-DIAPH-001
+  category: diaphragm
+  element_type: diaphragm
+  status: BACKLOG
+  description: HD-DIAPH-001
+  combo_families:
+  - DISP_X_OR_Y
+  design_context_requirements: []
+  related_check_catalog_keys: []
+  missing_alignment_reason: Diaphragm checks deferred.
+  code_ref: review_required
+summary:
+  total_scope_items: 21
+  contracted: 19
+  backlog: 2
+  pending_alignment: 0

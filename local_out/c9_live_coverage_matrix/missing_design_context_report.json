@@ -1,0 +1,262 @@
+[
+  {
+    "check_id": "beam_geometry_min_width",
+    "component_id": "297",
+    "component_type": "beam",
+    "context_field": "ductility_class",
+    "coverage_status": "PARTIAL",
+    "expected_source": {
+      "context_name": "ductility_class",
+      "expected_evidence_fields": [
+        "source_contract",
+        "source_field",
+        "resolved_value"
+      ],
+      "source_contract": "design_basis.yaml",
+      "source_field": "ductility_class",
+      "source_kind": "design_context",
+      "unit": ""
+    },
+    "reason": "Required design context is missing"
+  },
+  {
+    "check_id": "beam_geometry_min_depth",
+    "component_id": "297",
+    "component_type": "beam",
+    "context_field": "ductility_class",
+    "coverage_status": "PARTIAL",
+    "expected_source": {
+      "context_name": "ductility_class",
+      "expected_evidence_fields": [
+        "source_contract",
+        "source_field",
+        "resolved_value"
+      ],
+      "source_contract": "design_basis.yaml",
+      "source_field": "ductility_class",
+      "source_kind": "design_context",
+      "unit": ""
+    },
+    "reason": "Required design context is missing"
+  },
+  {
+    "check_id": "beam_span_depth_ratio",
+    "component_id": "297",
+    "component_type": "beam",
+    "context_field": "ductility_class",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "context_name": "ductility_class",
+      "expected_evidence_fields": [
+        "source_contract",
+        "source_field",
+        "resolved_value"
+      ],
+      "source_contract": "design_basis.yaml",
+      "source_field": "ductility_class",
+      "source_kind": "design_context",
+      "unit": ""
+    },
+    "reason": "Required design context is missing"
+  },
+  {
+    "check_id": "beam_depth_width_ratio",
+    "component_id": "297",
+    "component_type": "beam",
+    "context_field": "ductility_class",
+    "coverage_status": "PARTIAL",
+    "expected_source": {
+      "context_name": "ductility_class",
+      "expected_evidence_fields": [
+        "source_contract",
+        "source_field",
+        "resolved_value"
+      ],
+      "source_contract": "design_basis.yaml",
+      "source_field": "ductility_class",
+      "source_kind": "design_context",
+      "unit": ""
+    },
+    "reason": "Required design context is missing"
+  },
+  {
+    "check_id": "beam_flexure_top_selected_ge_governing_required",
+    "component_id": "297",
+    "component_type": "beam",
+    "context_field": "ductility_class",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "context_name": "ductility_class",
+      "expected_evidence_fields": [
+        "source_contract",
+        "source_field",
+        "resolved_value"
+      ],
+      "source_contract": "design_basis.yaml",
+      "source_field": "ductility_class",
+      "source_kind": "design_context",
+      "unit": ""
+    },
+    "reason": "Required design context is missing"
+  },
+  {
+    "check_id": "beam_flexure_bottom_selected_ge_governing_required",
+    "component_id": "297",
+    "component_type": "beam",
+    "context_field": "ductility_class",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "context_name": "ductility_class",
+      "expected_evidence_fields": [
+        "source_contract",
+        "source_field",
+        "resolved_value"
+      ],
+      "source_contract": "design_basis.yaml",
+      "source_field": "ductility_class",
+      "source_kind": "design_context",
+      "unit": ""
+    },
+    "reason": "Required design context is missing"
+  },
+  {
+    "check_id": "beam_shear_ve_le_vr",
+    "component_id": "297",
+    "component_type": "beam",
+    "context_field": "ductility_class",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "context_name": "ductility_class",
+      "expected_evidence_fields": [
+        "source_contract",
+        "source_field",
+        "resolved_value"
+      ],
+      "source_contract": "design_basis.yaml",
+      "source_field": "ductility_class",
+      "source_kind": "design_context",
+      "unit": ""
+    },
+    "reason": "Required design context is missing"
+  },
+  {
+    "check_id": "beam_shear_asw_ge_asw_min",
+    "component_id": "297",
+    "component_type": "beam",
+    "context_field": "ductility_class",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "context_name": "ductility_class",
+      "expected_evidence_fields": [
+        "source_contract",
+        "source_field",
+        "resolved_value"
+      ],
+      "source_contract": "design_basis.yaml",
+      "source_field": "ductility_class",
+      "source_kind": "design_context",
+      "unit": ""
+    },
+    "reason": "Required design context is missing"
+  },
+  {
+    "check_id": "beam_capacity_design_shear",
+    "component_id": "297",
+    "component_type": "beam",
+    "context_field": "ductility_class",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "context_name": "ductility_class",
+      "expected_evidence_fields": [
+        "source_contract",
+        "source_field",
+        "resolved_value"
+      ],
+      "source_contract": "design_basis.yaml",
+      "source_field": "ductility_class",
+      "source_kind": "design_context",
+      "unit": ""
+    },
+    "reason": "Required design context is missing"
+  },
+  {
+    "check_id": "story_drift_limit",
+    "component_id": "+14.5",
+    "component_type": "story",
+    "context_field": "ductility_class",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "context_name": "ductility_class",
+      "expected_evidence_fields": [
+        "source_contract",
+        "source_field",
+        "resolved_value"
+      ],
+      "source_contract": "design_basis.yaml",
+      "source_field": "ductility_class",
+      "source_kind": "design_context",
+      "unit": ""
+    },
+    "reason": "Required design context is missing"
+  },
+  {
+    "check_id": "torsional_irregularity_A1",
+    "component_id": "+14.5",
+    "component_type": "story",
+    "context_field": "ductility_class",
+    "coverage_status": "PARTIAL",
+    "expected_source": {
+      "context_name": "ductility_class",
+      "expected_evidence_fields": [
+        "source_contract",
+        "source_field",
+        "resolved_value"
+      ],
+      "source_contract": "design_basis.yaml",
+      "source_field": "ductility_class",
+      "source_kind": "design_context",
+      "unit": ""
+    },
+    "reason": "Required design context is missing"
+  },
+  {
+    "check_id": "modal_mass_participation",
+    "component_id": "GLOBAL",
+    "component_type": "global",
+    "context_field": "ductility_class",
+    "coverage_status": "PARTIAL",
+    "expected_source": {
+      "context_name": "ductility_class",
+      "expected_evidence_fields": [
+        "source_contract",
+        "source_field",
+        "resolved_value"
+      ],
+      "source_contract": "design_basis.yaml",
+      "source_field": "ductility_class",
+      "source_kind": "design_context",
+      "unit": ""
+    },
+    "reason": "Required design context is missing"
+  },
+  {
+    "check_id": "base_shear_scaling",
+    "component_id": "GLOBAL",
+    "component_type": "global",
+    "context_field": "ductility_class",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "context_name": "ductility_class",
+      "expected_evidence_fields": [
+        "source_contract",
+        "source_field",
+        "resolved_value"
+      ],
+      "source_contract": "design_basis.yaml",
+      "source_field": "ductility_class",
+      "source_kind": "design_context",
+      "unit": ""
+    },
+    "reason": "Required design context is missing"
+  }
+]

@@ -1,0 +1,41 @@
+{
+  "active_runtime_violations": [],
+  "blockers": [],
+  "c11_sprint": "C11.1.8_LEGACY_CLEANUP",
+  "excel_production_path_violations": [],
+  "forbidden_imports": [],
+  "forbidden_imports_found": false,
+  "legacy_files_candidates": [
+    {
+      "candidate_type": "directory",
+      "exists": false,
+      "path": "tbdy_engine/archx"
+    },
+    {
+      "candidate_type": "directory",
+      "exists": false,
+      "path": "tbdy_engine/runtime"
+    },
+    {
+      "candidate_type": "directory",
+      "exists": false,
+      "path": "tbdy_engine/reports"
+    },
+    {
+      "candidate_type": "file",
+      "exists": false,
+      "path": "tbdy_engine/runner_v2.py"
+    }
+  ],
+  "parse_errors": [],
+  "safe_to_remove": true,
+  "scanned_files_count": 237,
+  "summary": {
+    "archx_runtime_runner_v2_removed_or_quarantined": true,
+    "check_engine_reads_only_snapshot_coverage_catalog": true,
+    "excel_production_path_absent": true,
+    "legacy_import_audit_clean": true,
+    "old_report_app_not_used": true,
+    "streamlit_ui_not_in_engine_runtime": true
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "drift_torsion_semantic_lock": {
+    "drift_verdict_emitted": false,
+    "semantic_lock_preserved": true,
+    "story_drift_value_source": {
+      "actual_table_name": "Story Drifts",
+      "combo_family": "DUCTILE_Y",
+      "ductility_class": null,
+      "evidence_status": "FULL",
+      "governing_combo": null,
+      "normalized_value": 9.5,
+      "output_case": "Crack_SeisY_UpSoil",
+      "raw_value": 9.5,
+      "reason": null,
+      "resolver": "c8_3_live_geometry_resolver",
+      "section_state": null,
+      "source_column": "Drift",
+      "source_row": {
+        "output_case": "Crack_SeisY_UpSoil",
+        "story": "+14.5"
+      },
+      "source_table": "story_drifts",
+      "unit": "mm"
+    },
+    "story_torsion_a1_coefficient_source": {
+      "actual_table_name": "Story Max Over Avg Drifts",
+      "combo_family": "DUCTILE_Y",
+      "ductility_class": null,
+      "evidence_status": "FULL",
+      "governing_combo": null,
+      "normalized_value": 1.33,
+      "output_case": "Crack_SeisY_UpSoil",
+      "raw_value": 1.33,
+      "reason": null,
+      "resolver": "c8_3_live_geometry_resolver",
+      "section_state": null,
+      "source_column": "Ratio",
+      "source_row": {
+        "output_case": "Crack_SeisY_UpSoil",
+        "story": "+14.5"
+      },
+      "source_table": "story_max_over_avg_drifts",
+      "unit": "ratio"
+    }
+  },
+  "forbidden_import_status": "PASS",
+  "forbidden_runtime_paths_used": [],
+  "metadata": {
+    "check_engine_executed": false,
+    "check_result_emitted": false,
+    "coverage_readiness_only": true,
+    "live_etabs_required_in_ci": false,
+    "live_verdict_emitted": false,
+    "sprint": "C9_LIVE_COVERAGE_MATRIX"
+  }
+}

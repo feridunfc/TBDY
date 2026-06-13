@@ -1,0 +1,45 @@
+{
+  "workspace_id": "WS-EXAMPLE-0001",
+  "environment": "production",
+  "source": {
+    "source_type": "ETABS_LIVE",
+    "environment": "production"
+  },
+  "model_state": {
+    "status": "DISCOVERED"
+  },
+  "element_state": {
+    "status": "REGISTERED"
+  },
+  "feature_state": {
+    "status": "RESOLVED"
+  },
+  "coverage_state": {
+    "status": "RUNNABLE"
+  },
+  "check_state": {
+    "status": "EXECUTED"
+  },
+  "report_state": {
+    "status": "COMPLETE"
+  },
+  "elements": [
+    {
+      "element_type": "beam",
+      "component": "B1"
+    },
+    {
+      "element_type": "column",
+      "component": "C1"
+    },
+    {
+      "element_type": "story",
+      "component": "Story1"
+    },
+    {
+      "element_type": "global",
+      "component": "GLOBAL"
+    }
+  ],
+  "check_results_json": "reports/check_results.json"
+}

@@ -1,0 +1,44 @@
+{
+  "coverage_row_count": 13,
+  "coverage_status_counts": {
+    "BLOCKED": 8,
+    "PARTIAL": 2,
+    "RUNNABLE": 3
+  },
+  "design_context_fields_present": [
+    "ductility_class"
+  ],
+  "feature_status_counts": {
+    "MISSING": 0,
+    "PARTIAL": 0,
+    "RESOLVED": 28
+  },
+  "metadata": {
+    "check_engine_executed": false,
+    "check_result_emitted": false,
+    "input_design_context": "C:\\Users\\FCY\\PycharmProjects\\tbdy_engine_core\\tests\\fixtures\\c10_design_context_fixture.json",
+    "input_feature_snapshot": "C:\\Users\\FCY\\PycharmProjects\\tbdy_engine_core\\local_out\\c8_feature_resolver_smoke\\feature_snapshot.json",
+    "live_verdict_emitted": false,
+    "manual_live_etabs_run_required": false,
+    "sprint": "C10_MINIMAL_LIVE_READINESS_SLICE"
+  },
+  "runnable_count_preferred_minimum_met": true,
+  "runnable_rows_are_readiness_only": true,
+  "top_remaining_missing_design_context": [
+    "ductility_class"
+  ],
+  "top_remaining_missing_features": [
+    "beam_clear_span_mm",
+    "beam_As_top_governing_required_mm2",
+    "beam_As_top_engine_selected_mm2",
+    "beam_As_bottom_engine_selected_mm2",
+    "beam_As_bottom_governing_required_mm2",
+    "beam_Vd_left_kN",
+    "beam_Vd_right_kN",
+    "beam_effective_depth_mm",
+    "beam_Md_left_neg_kNm",
+    "beam_Md_right_neg_kNm",
+    "story_height_mm",
+    "design_base_shear_kN"
+  ]
+}

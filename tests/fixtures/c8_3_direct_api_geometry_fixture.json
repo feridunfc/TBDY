@@ -1,0 +1,296 @@
+{
+  "unit_context": {
+    "source": "fixture_declared_units",
+    "force_unit": "kN",
+    "length_unit": "m",
+    "temperature_unit": "C",
+    "unit_query_status": "RESOLVED",
+    "unit_basis_confidence": "high",
+    "diagnostics": []
+  },
+  "tables": [
+    {
+      "actual_table_name": "Frame Assignments - Summary",
+      "canonical_table_key": "frame_assignments",
+      "headers": [
+        "Story",
+        "Label",
+        "UniqueName",
+        "Type",
+        "Length",
+        "AnalysisSect",
+        "DesignSect"
+      ],
+      "sample_rows_limited": [],
+      "raw_table_diagnostics": {
+        "table_name": "Frame Assignments - Summary",
+        "return_code": 0,
+        "number_fields": 7,
+        "number_records": 998,
+        "fields": [
+          "Story",
+          "Label",
+          "UniqueName",
+          "Type",
+          "Length",
+          "AnalysisSect",
+          "DesignSect"
+        ],
+        "table_data_length": 0,
+        "expected_flat_length": 6986,
+        "parser_status": "EMPTY"
+      },
+      "raw_response": {
+        "return_code": 0,
+        "field_keys": [
+          "Story",
+          "Label",
+          "UniqueName",
+          "Type",
+          "Length",
+          "AnalysisSect",
+          "DesignSect"
+        ],
+        "number_fields": 7,
+        "number_records": 998,
+        "table_data": []
+      }
+    },
+    {
+      "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+      "canonical_table_key": "frame_section_properties",
+      "headers": [
+        "Name",
+        "Material",
+        "t3",
+        "t2"
+      ],
+      "sample_rows_limited": [],
+      "raw_table_diagnostics": {
+        "table_name": "Frame Section Property Definitions - Concrete Rectangular",
+        "return_code": 0,
+        "number_fields": 4,
+        "number_records": 16,
+        "fields": [
+          "Name",
+          "Material",
+          "t3",
+          "t2"
+        ],
+        "table_data_length": 0,
+        "expected_flat_length": 64,
+        "parser_status": "EMPTY"
+      },
+      "raw_response": {
+        "return_code": 0,
+        "field_keys": [
+          "Name",
+          "Material",
+          "t3",
+          "t2"
+        ],
+        "number_fields": 4,
+        "number_records": 16,
+        "table_data": []
+      }
+    },
+    {
+      "actual_table_name": "Concrete Beam Design Summary - TS 500-2000(R2018)",
+      "canonical_table_key": "concrete_beam_design_summary",
+      "headers": [
+        "Story",
+        "Label",
+        "UniqueName",
+        "DesignSect",
+        "Station",
+        "AsTopCombo",
+        "AsTop",
+        "AsBotCombo",
+        "AsBot",
+        "VCombo",
+        "VRebar",
+        "WarnMsg",
+        "ErrMsg"
+      ],
+      "sample_rows_limited": [
+        {
+          "Story": "+14.5",
+          "Label": "B1",
+          "UniqueName": "297",
+          "DesignSect": "B40x70",
+          "Station": 0,
+          "AsTopCombo": "Crack_SeisY_UpSoil",
+          "AsTop": 0.000572,
+          "AsBotCombo": "Crack_SeisX",
+          "AsBot": 0.000303,
+          "VCombo": "Crack_SeisY",
+          "VRebar": 0.00045,
+          "WarnMsg": "Shear design warning text",
+          "ErrMsg": "No Message"
+        }
+      ]
+    },
+    {
+      "actual_table_name": "Material Properties - Concrete Data",
+      "canonical_table_key": "material_concrete_data",
+      "headers": [
+        "Material",
+        "Fc"
+      ],
+      "sample_rows_limited": [
+        {
+          "Material": "C30",
+          "Fc": 30000
+        }
+      ]
+    },
+    {
+      "actual_table_name": "Material Properties - Rebar Data",
+      "canonical_table_key": "material_rebar_data",
+      "headers": [
+        "Material",
+        "Fy"
+      ],
+      "sample_rows_limited": [
+        {
+          "Material": "B500C",
+          "Fy": 500000
+        }
+      ]
+    },
+    {
+      "actual_table_name": "Story Drifts",
+      "canonical_table_key": "story_drifts",
+      "headers": [
+        "Story",
+        "OutputCase",
+        "CaseType",
+        "StepType",
+        "Direction",
+        "Drift"
+      ],
+      "sample_rows_limited": [
+        {
+          "Story": "+14.5",
+          "OutputCase": "Crack_SeisY_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Max",
+          "Direction": "Y",
+          "Drift": 0.0095
+        }
+      ]
+    },
+    {
+      "actual_table_name": "Story Max Over Avg Drifts",
+      "canonical_table_key": "story_max_over_avg_drifts",
+      "headers": [
+        "Story",
+        "OutputCase",
+        "CaseType",
+        "StepType",
+        "Direction",
+        "Max Drift",
+        "Avg Drift",
+        "Ratio"
+      ],
+      "sample_rows_limited": [
+        {
+          "Story": "+14.5",
+          "OutputCase": "Crack_SeisY_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Max",
+          "Direction": "Y",
+          "Max Drift": 0.0095,
+          "Avg Drift": 0.0071,
+          "Ratio": 1.33
+        }
+      ]
+    },
+    {
+      "actual_table_name": "Modal Participating Mass Ratios",
+      "canonical_table_key": "modal_participating_mass",
+      "headers": [
+        "Case",
+        "Mode",
+        "Period",
+        "SumUX",
+        "SumUY"
+      ],
+      "sample_rows_limited": [
+        {
+          "Case": "Modal",
+          "Mode": 1,
+          "Period": 0.56,
+          "SumUX": 0.71,
+          "SumUY": 0.68
+        },
+        {
+          "Case": "Modal",
+          "Mode": 12,
+          "Period": 0.04,
+          "SumUX": 0.96,
+          "SumUY": 0.95
+        }
+      ]
+    },
+    {
+      "actual_table_name": "Base Reactions",
+      "canonical_table_key": "base_reactions",
+      "headers": [
+        "OutputCase",
+        "CaseType",
+        "StepType",
+        "FX",
+        "FY"
+      ],
+      "sample_rows_limited": [
+        {
+          "OutputCase": "Crack_SeisY_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Max",
+          "FX": 1020.5,
+          "FY": 2440.1
+        }
+      ]
+    }
+  ],
+  "direct_api_geometry": {
+    "frame": {
+      "object_name": "297",
+      "label": "B1",
+      "story": "+14.5",
+      "section": "B40x70",
+      "points": [
+        "P1",
+        "P2"
+      ]
+    },
+    "section": {
+      "api_call": "PropFrame.GetRectangle",
+      "section": "B40x70",
+      "return_code": 0,
+      "t2": 0.4,
+      "t3": 0.7
+    },
+    "points": {
+      "return_code": 0,
+      "point_names": [
+        "P1",
+        "P2"
+      ],
+      "coordinates": {
+        "P1": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 14.5
+        },
+        "P2": {
+          "x": 6.2,
+          "y": 0.0,
+          "z": 14.5
+        }
+      }
+    },
+    "diagnostics": []
+  }
+}

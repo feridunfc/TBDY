@@ -1,0 +1,32 @@
+{
+  "check_result_count": 3,
+  "executed_check_ids": [
+    "beam_geometry_min_width",
+    "beam_depth_width_ratio",
+    "modal_mass_participation"
+  ],
+  "metadata": {
+    "dry_run_fixture_mode": true,
+    "feature_resolver_called": false,
+    "live_etabs_called": false,
+    "provider_called": false,
+    "sprint": "C11_1_MODAL_MASS_AGGREGATION_FIX"
+  },
+  "pass_rule_types_used": [
+    "actual_over_minimum",
+    "value_over_maximum",
+    "value_over_minimum"
+  ],
+  "skipped_blocked_count": 8,
+  "skipped_partial_count": 2,
+  "skipped_reason_counts": {
+    "blocked_coverage": 8,
+    "partial_coverage": 2
+  },
+  "status_counts": {
+    "FAIL": 0,
+    "NO_DATA": 0,
+    "OK": 3,
+    "WARNING": 0
+  }
+}

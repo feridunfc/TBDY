@@ -1,0 +1,15 @@
+{
+  "feedback_payload": null,
+  "feedback_source": null,
+  "legacy_feedback_only": {
+    "old_tests_imported_or_executed": false,
+    "structural_verdict_imported": false,
+    "used_for_alias_or_gap_diagnostics": false,
+    "used_for_current_check_result": false
+  },
+  "metadata": {
+    "manual_feedback_status": "not_provided",
+    "reference_only": true,
+    "sprint": "C10_MINIMAL_LIVE_READINESS_SLICE"
+  }
+}

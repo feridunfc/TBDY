@@ -1,0 +1,61 @@
+{
+  "current_table_registry_keys_considered": [
+    "auto_seismic_tsc_2018",
+    "base_reactions",
+    "beam_forces",
+    "column_section_data",
+    "concrete_beam_design_summary",
+    "concrete_beam_flexure_envelope",
+    "concrete_beam_overwrites",
+    "concrete_beam_shear_envelope",
+    "concrete_column_design_summary",
+    "concrete_column_overwrites",
+    "concrete_column_pmm_envelope",
+    "concrete_column_shear_envelope",
+    "concrete_frame_design_load_combinations",
+    "frame_assignments",
+    "frame_section_properties",
+    "load_combination_definitions",
+    "load_pattern_definitions",
+    "material_basic_mechanical",
+    "material_concrete_data",
+    "material_general",
+    "material_properties",
+    "material_rebar_data",
+    "modal_participating_mass",
+    "pier_design_summary",
+    "pier_forces",
+    "story_definitions",
+    "story_drifts",
+    "story_max_over_avg_drifts",
+    "wall_design_load_combinations",
+    "wall_design_overwrites",
+    "wall_design_preferences",
+    "wall_section_data"
+  ],
+  "direct_import_allowed": false,
+  "legacy_policy": "reference_only_no_imports_no_execution",
+  "reference_aliases_used_for_c8_1": {
+    "column_aliases": [
+      "OutputCase",
+      "UniqueName",
+      "Label",
+      "Story",
+      "DesignSect",
+      "AnalysisSect",
+      "t2",
+      "t3",
+      "AsTop",
+      "AsBot",
+      "VRebar"
+    ],
+    "table_aliases": [
+      "Base Reactions",
+      "Story Drifts",
+      "Story Max Over Avg Drifts",
+      "Modal Participating Mass Ratios",
+      "Frame Assignments - Summary",
+      "Frame Section Property Definitions - Concrete Rectangular"
+    ]
+  }
+}

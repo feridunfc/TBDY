@@ -1,0 +1,110 @@
+{
+  "sprint": "C11.1.5",
+  "status": "PASS",
+  "checks": {
+    "feature_catalog_integrity": {
+      "ok": true,
+      "feature_count": 53,
+      "duplicate_ids": false,
+      "missing_required_fields": [],
+      "no_check_result_semantics_inside_feature_snapshot": true,
+      "no_fake_inferred_geometry_from_section_name": true,
+      "no_excel_production_source": true,
+      "excel_note": "Catalog explicitly states production source of truth is live ETABS tables; Excel is fixture/debug/regression only."
+    },
+    "check_catalog_integrity": {
+      "ok": true,
+      "check_count": 19,
+      "duplicate_ids": false,
+      "missing_required_fields": [],
+      "missing_feature_refs": [],
+      "checkengine_reads_only_catalog_snapshot_coverage": true,
+      "checkengine_forbidden_imports": []
+    },
+    "schema_integrity": {
+      "ok": true,
+      "schema_count": 16,
+      "schemas_loaded": [
+        "check_catalog.schema.json",
+        "check_result.schema.json",
+        "check_scope_alignment.schema.json",
+        "coverage_matrix.schema.json",
+        "coverage_policy.schema.json",
+        "design_basis.schema.json",
+        "design_combo_matrix.schema.json",
+        "element_registry.schema.json",
+        "evidence.schema.json",
+        "feature_catalog.schema.json",
+        "high_ductility_check_scope.schema.json",
+        "load_combo_policy.schema.json",
+        "section_state_policy.schema.json",
+        "table_registry.schema.json",
+        "workspace_contract.schema.json",
+        "workspace_state.schema.json"
+      ],
+      "example_validation_errors": [],
+      "current_output_validation_errors": [],
+      "feature_snapshot_schema_present": false,
+      "feature_snapshot_current_c8_3_output_structural_validation": true,
+      "coverage_matrix_current_c10_validated": true,
+      "check_result_current_c11_count": 3,
+      "legacy_checkresult_schema_used": false,
+      "note": "No standalone feature_snapshot.schema.json exists in the repository; FeatureSnapshot output is structurally validated and covered by feature/resolver tests."
+    },
+    "boundary_constitution_integrity": {
+      "ok": true,
+      "boundary_report": {
+        "live_etabs_called": false,
+        "provider_called": false,
+        "feature_resolver_called": false,
+        "check_result_count": 3,
+        "partial_rows_silent_OK": false,
+        "rebar_selection_executed": false,
+        "beam_flexure_executed": false,
+        "beam_shear_executed": false
+      },
+      "no_runner_v2_runtime_path_imported": true,
+      "no_runtime_archx_imported_by_engine_runtime": true,
+      "no_old_beamcheckresult_imported_in_active_path": true,
+      "no_report_app_mixed_with_engine_runtime": true,
+      "no_streamlit_ui_logic_inside_engine_runtime": true,
+      "no_excel_production_path": true,
+      "no_checkengine_in_c8_c9_c10": true,
+      "no_checkresult_before_c11": true,
+      "no_live_verdict_before_checkengine": true,
+      "no_rebar_flexure_shear_capacity_unlock": true,
+      "c8_c10_checkengine_violations": [],
+      "checkresult_before_c11_import_violations": []
+    },
+    "c11_1_5_boundary_reporting_acceptance": {
+      "ok": true,
+      "boundary_count": 3,
+      "summary_count": 3,
+      "check_results_len": 3,
+      "executed_check_ids": [
+        "beam_geometry_min_width",
+        "beam_depth_width_ratio",
+        "modal_mass_participation"
+      ],
+      "status_counts": {
+        "FAIL": 0,
+        "NO_DATA": 0,
+        "OK": 3,
+        "WARNING": 0
+      }
+    },
+    "display_selection_hardening_acceptance": {
+      "ok": true,
+      "list_only_combo_call": true,
+      "list_only_case_fallback": true,
+      "int_overloads_used": false,
+      "combo_success_skips_case_mutation_by_default": true,
+      "case_fallback_only_when_combo_fails": true,
+      "story_base_fetch_happens_after_display_selection": true,
+      "preferred_output_case_default": "Crack_SeisY_UpSoil",
+      "cli_support": true,
+      "source_scan_note": "Forbidden int overload text appears only in explanatory comments; tests verify runtime calls use list-only args."
+    }
+  },
+  "notes": []
+}

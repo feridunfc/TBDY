@@ -1,0 +1,241 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  sprint: C1_CONTRACT_HARDENING
+  status: hardened_contract
+  owner: TBDY Engine
+  catalog_name: check_scope_alignment
+  notes:
+  - Contract-only. No engine/check/ETABS runtime implementation.
+  - Production source of truth is live ETABS tables; Excel is fixture/debug/regression
+    only.
+  - 'Rebar semantics: ETABS_REQUIRED + TBDY_MIN -> GOVERNING_REQUIRED -> ENGINE_SELECTED;
+    USER_PROVIDED is explicit only.'
+alignment_version: 1.0.0
+mappings:
+- scope_id: HD-BEAM-001
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - beam_geometry_min_width
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-BEAM-002
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - beam_geometry_min_depth
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-BEAM-003
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - beam_span_depth_ratio
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-BEAM-004
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - beam_depth_width_ratio
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-BEAM-005
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - beam_flexure_top_selected_ge_governing_required
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-BEAM-006
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - beam_flexure_bottom_selected_ge_governing_required
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-BEAM-007
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - beam_shear_ve_le_vr
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-BEAM-008
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - beam_shear_asw_ge_asw_min
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-BEAM-009
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - beam_capacity_design_shear
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-COL-001
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - column_geometry_min_dimension
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-COL-002
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - column_pmm_contract
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-COL-003
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - column_shear_contract
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-WALL-001
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - wall_geometry_min_thickness
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-WALL-002
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - wall_pier_design_contract
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-WALL-003
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - wall_shear_contract
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-STORY-001
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - story_drift_limit
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-STORY-002
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - torsional_irregularity_A1
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-GLOB-001
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - modal_mass_participation
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-GLOB-002
+  scope_status: CONTRACTED
+  check_catalog_keys:
+  - base_shear_scaling
+  alignment_status: ALIGNED
+  reason: null
+  release_blocker: false
+- scope_id: HD-JOINT-001
+  scope_status: BACKLOG
+  check_catalog_keys: []
+  alignment_status: NOT_APPLICABLE
+  reason: Joint feature resolver not in C1.
+  release_blocker: false
+- scope_id: HD-DIAPH-001
+  scope_status: BACKLOG
+  check_catalog_keys: []
+  alignment_status: NOT_APPLICABLE
+  reason: Diaphragm checks deferred.
+  release_blocker: false
+reverse_mappings:
+- check_catalog_key: beam_geometry_min_width
+  scope_id: HD-BEAM-001
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: beam_geometry_min_depth
+  scope_id: HD-BEAM-002
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: beam_span_depth_ratio
+  scope_id: HD-BEAM-003
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: beam_depth_width_ratio
+  scope_id: HD-BEAM-004
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: beam_flexure_top_selected_ge_governing_required
+  scope_id: HD-BEAM-005
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: beam_flexure_bottom_selected_ge_governing_required
+  scope_id: HD-BEAM-006
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: beam_shear_ve_le_vr
+  scope_id: HD-BEAM-007
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: beam_shear_asw_ge_asw_min
+  scope_id: HD-BEAM-008
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: beam_capacity_design_shear
+  scope_id: HD-BEAM-009
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: column_geometry_min_dimension
+  scope_id: HD-COL-001
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: column_pmm_contract
+  scope_id: HD-COL-002
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: column_shear_contract
+  scope_id: HD-COL-003
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: wall_geometry_min_thickness
+  scope_id: HD-WALL-001
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: wall_pier_design_contract
+  scope_id: HD-WALL-002
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: wall_shear_contract
+  scope_id: HD-WALL-003
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: story_drift_limit
+  scope_id: HD-STORY-001
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: torsional_irregularity_A1
+  scope_id: HD-STORY-002
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: modal_mass_participation
+  scope_id: HD-GLOB-001
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+- check_catalog_key: base_shear_scaling
+  scope_id: HD-GLOB-002
+  scope_status: CONTRACTED
+  out_of_scope_reason: null
+validation:
+  every_contracted_scope_has_check_or_reason: true
+  every_check_catalog_key_has_scope_or_out_of_scope: true
+  no_orphan_checks: true

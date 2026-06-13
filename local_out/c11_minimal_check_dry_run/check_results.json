@@ -1,0 +1,178 @@
+[
+  {
+    "capacity": null,
+    "check_id": "beam_geometry_min_width",
+    "code_ref": "TBDY geometry readiness dry-run fixture",
+    "component": "297",
+    "component_type": "beam",
+    "demand": null,
+    "evaluation_level": "SCREENING",
+    "evidence": [
+      {
+        "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+        "combo_family": null,
+        "ductility_class": null,
+        "evidence_status": "FULL",
+        "governing_combo": null,
+        "normalized_value": 400.0,
+        "output_case": null,
+        "raw_value": 400,
+        "reason": null,
+        "resolver": "c8_3_live_geometry_resolver",
+        "section_state": null,
+        "source_column": "t2",
+        "source_row": {
+          "section": "B40x70"
+        },
+        "source_table": "frame_section_properties",
+        "unit": "mm"
+      }
+    ],
+    "limit": 250,
+    "messages": [],
+    "pass_rule": "actual_over_minimum",
+    "ratio": 1.6,
+    "ratio_type": "actual_over_minimum",
+    "section": "B40x70",
+    "status": "OK",
+    "story": "+14.5",
+    "unit": "mm",
+    "value": 400.0
+  },
+  {
+    "capacity": null,
+    "check_id": "beam_depth_width_ratio",
+    "code_ref": "TBDY geometry readiness dry-run fixture",
+    "component": "297",
+    "component_type": "beam",
+    "demand": null,
+    "evaluation_level": "SCREENING",
+    "evidence": [
+      {
+        "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+        "combo_family": null,
+        "ductility_class": null,
+        "evidence_status": "FULL",
+        "governing_combo": null,
+        "normalized_value": 700.0,
+        "output_case": null,
+        "raw_value": 700,
+        "reason": null,
+        "resolver": "c8_3_live_geometry_resolver",
+        "section_state": null,
+        "source_column": "t3",
+        "source_row": {
+          "section": "B40x70"
+        },
+        "source_table": "frame_section_properties",
+        "unit": "mm"
+      },
+      {
+        "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+        "combo_family": null,
+        "ductility_class": null,
+        "evidence_status": "FULL",
+        "governing_combo": null,
+        "normalized_value": 400.0,
+        "output_case": null,
+        "raw_value": 400,
+        "reason": null,
+        "resolver": "c8_3_live_geometry_resolver",
+        "section_state": null,
+        "source_column": "t2",
+        "source_row": {
+          "section": "B40x70"
+        },
+        "source_table": "frame_section_properties",
+        "unit": "mm"
+      }
+    ],
+    "limit": 3.5,
+    "messages": [],
+    "pass_rule": "value_over_maximum",
+    "ratio": 0.5,
+    "ratio_type": "value_over_maximum",
+    "section": "B40x70",
+    "status": "OK",
+    "story": "+14.5",
+    "unit": "ratio",
+    "value": 1.75
+  },
+  {
+    "capacity": null,
+    "check_id": "modal_mass_participation",
+    "code_ref": "TBDY modal readiness dry-run fixture",
+    "component": "GLOBAL",
+    "component_type": "global",
+    "demand": null,
+    "evaluation_level": "SCREENING",
+    "evidence": [
+      {
+        "actual_table_name": "Modal Participating Mass Ratios",
+        "combo_family": "MODAL",
+        "ductility_class": null,
+        "evidence_status": "FULL",
+        "governing_combo": null,
+        "normalized_value": 0.96,
+        "output_case": "Modal",
+        "raw_value": 0.96,
+        "reason": "resolved by max_cumulative aggregation over all modal participating mass rows",
+        "resolver": "c8_3_live_geometry_resolver",
+        "section_state": null,
+        "source_column": "SumUX",
+        "source_row": {
+          "aggregation_method": "max_cumulative",
+          "first_mode": 1,
+          "last_mode": 12,
+          "max_mode": 12,
+          "mode_count": 2,
+          "output_case": "Modal",
+          "selected_mode_for_ux": 12,
+          "selected_row_index_for_ux": 1,
+          "selected_sum_ux": 0.96,
+          "source_rows_considered_count": 2
+        },
+        "source_table": "modal_participating_mass",
+        "unit": "ratio"
+      },
+      {
+        "actual_table_name": "Modal Participating Mass Ratios",
+        "combo_family": "MODAL",
+        "ductility_class": null,
+        "evidence_status": "FULL",
+        "governing_combo": null,
+        "normalized_value": 0.95,
+        "output_case": "Modal",
+        "raw_value": 0.95,
+        "reason": "resolved by max_cumulative aggregation over all modal participating mass rows",
+        "resolver": "c8_3_live_geometry_resolver",
+        "section_state": null,
+        "source_column": "SumUY",
+        "source_row": {
+          "aggregation_method": "max_cumulative",
+          "first_mode": 1,
+          "last_mode": 12,
+          "max_mode": 12,
+          "mode_count": 2,
+          "output_case": "Modal",
+          "selected_mode_for_uy": 12,
+          "selected_row_index_for_uy": 1,
+          "selected_sum_uy": 0.95,
+          "source_rows_considered_count": 2
+        },
+        "source_table": "modal_participating_mass",
+        "unit": "ratio"
+      }
+    ],
+    "limit": 0.9,
+    "messages": [],
+    "pass_rule": "value_over_minimum",
+    "ratio": 1.0555555555555556,
+    "ratio_type": "value_over_minimum",
+    "section": null,
+    "status": "OK",
+    "story": null,
+    "unit": "ratio",
+    "value": 0.95
+  }
+]

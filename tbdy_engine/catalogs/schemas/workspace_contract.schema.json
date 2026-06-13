@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Workspace Contract",
+  "type": "object",
+  "required": [
+    "metadata",
+    "workspace_lifecycle_states",
+    "allowed_source_types",
+    "source_rules",
+    "state_models",
+    "illegal_state_transitions",
+    "state_consistency_rules",
+    "forbidden_content"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "contract",
+        "version",
+        "catalog_name"
+      ],
+      "properties": {
+        "contract": {
+          "const": "Contract Constitution"
+        },
+        "version": {
+          "const": "1.0"
+        },
+        "catalog_name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "workspace_version": {
+      "type": "string"
+    },
+    "workspace_lifecycle_states": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "allowed_source_types": {
+      "type": "object",
+      "required": [
+        "ETABS_LIVE",
+        "FAKE_PROVIDER",
+        "EXCEL_FIXTURE",
+        "JSON_FIXTURE"
+      ],
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "production_allowed",
+          "test_allowed",
+          "debug_allowed",
+          "regression_allowed"
+        ]
+      }
+    },
+    "source_rules": {
+      "type": "object",
+      "required": [
+        "production_source",
+        "excel_never_production_input",
+        "json_fixture_never_production_input",
+        "fake_provider_never_production_input"
+      ]
+    },
+    "state_models": {
+      "type": "object"
+    },
+    "illegal_state_transitions": {
+      "type": "array"
+    },
+    "state_consistency_rules": {
+      "type": "object"
+    },
+    "forbidden_content": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

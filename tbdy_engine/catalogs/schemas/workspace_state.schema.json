@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Workspace State",
+  "type": "object",
+  "required": [
+    "workspace_id",
+    "source",
+    "model_state",
+    "element_state",
+    "feature_state",
+    "coverage_state",
+    "check_state",
+    "report_state",
+    "elements"
+  ],
+  "properties": {
+    "workspace_id": {
+      "type": "string"
+    },
+    "environment": {
+      "enum": [
+        "production",
+        "test",
+        "debug",
+        "regression"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "source_type",
+        "environment"
+      ],
+      "properties": {
+        "source_type": {
+          "enum": [
+            "ETABS_LIVE",
+            "FAKE_PROVIDER",
+            "EXCEL_FIXTURE",
+            "JSON_FIXTURE"
+          ]
+        },
+        "environment": {
+          "enum": [
+            "production",
+            "test",
+            "debug",
+            "regression"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "model_state": {
+      "type": "object",
+      "required": [
+        "status"
+      ]
+    },
+    "element_state": {
+      "type": "object",
+      "required": [
+        "status"
+      ]
+    },
+    "feature_state": {
+      "type": "object",
+      "required": [
+        "status"
+      ]
+    },
+    "coverage_state": {
+      "type": "object",
+      "required": [
+        "status"
+      ]
+    },
+    "check_state": {
+      "type": "object",
+      "required": [
+        "status"
+      ]
+    },
+    "report_state": {
+      "type": "object",
+      "required": [
+        "status"
+      ]
+    },
+    "elements": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "element_type",
+          "component"
+        ],
+        "properties": {
+          "element_type": {
+            "type": "string"
+          },
+          "component": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "check_results_json": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": true
+}

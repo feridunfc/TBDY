@@ -1,0 +1,73 @@
+{
+  "contract_version": "1.0",
+  "checks": [
+    {
+      "check_id": "beam_geometry_min_width",
+      "component_type": "beam",
+      "component_id": "B1",
+      "required_features": [
+        "beam_width_mm"
+      ],
+      "required_design_context": [
+        "ductility_class"
+      ],
+      "combo_policy_status": "NOT_APPLICABLE",
+      "section_state_status": "NOT_APPLICABLE",
+      "check_readiness_status": "ready",
+      "diagnostics": [],
+      "coverage_status": "PARTIAL",
+      "resolved_features": [
+        "beam_width_mm"
+      ],
+      "missing_features": [],
+      "resolved_design_context": [],
+      "missing_design_context": [
+        {
+          "context_field": "ductility_class",
+          "reason": "Required design context is missing"
+        }
+      ],
+      "ductility_context_status": "MISSING",
+      "evidence_status": "PARTIAL",
+      "effective_evaluation_level": "SCREENING",
+      "reason": "Required design context is incomplete",
+      "missing_feature_sources": {},
+      "missing_design_context_sources": {
+        "ductility_class": {
+          "source_kind": "design_context",
+          "context_name": "ductility_class",
+          "source_contract": "design_basis.yaml",
+          "source_field": "ductility_class",
+          "unit": "",
+          "expected_evidence_fields": [
+            "source_contract",
+            "source_field",
+            "resolved_value"
+          ]
+        }
+      },
+      "expected_evidence_requirements": {
+        "beam_width_mm": [
+          "source_table",
+          "source_row",
+          "source_column",
+          "raw_value",
+          "normalized_value",
+          "unit",
+          "output_case",
+          "combo_family"
+        ]
+      },
+      "source_diagnostics": [
+        {
+          "severity": "INFO",
+          "code": "EXPECTED_SOURCE_RECORDED",
+          "message": "Expected source metadata recorded for missing design context",
+          "details": {
+            "context_name": "ductility_class"
+          }
+        }
+      ]
+    }
+  ]
+}

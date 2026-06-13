@@ -1,59 +1,71 @@
-# Local ETABS Smoke Gate
+# Local ETABS Smoke Audit
 
-## Purpose
+This smoke script is **manual/local only**. CI does not run ETABS and the worker environment cannot validate live ETABS behavior.
 
-- Optional local release gate for Windows machines with ETABS installed and a model open.
-- Not part of default CI or default pytest.
-- Converts the manually verified local ETABS smoke into an opt-in pytest marker workflow.
+The script is opt-in and only attaches to an already-open ETABS model. It never starts a model, never modifies the model, never runs design, never executes checks, never emits OK/FAIL, and never emits CheckResult objects.
 
-## How to run
+Run locally on a Windows machine with ETABS open:
 
-```powershell
-$env:PYTHONPATH = (Get-Location).Path
-pytest -q tests -m etabs_smoke
+```bash
+python tools/smoke_etabs_live_provider.py --out local_out/etabs_smoke
 ```
 
-The default test suite remains independent from ETABS:
+Expected outputs:
 
-```powershell
-$env:PYTHONPATH = (Get-Location).Path
-pytest -q tests
+```text
+local_out/etabs_smoke/etabs_table_inventory.json
+local_out/etabs_smoke/table_registry_match_summary.json
+local_out/etabs_smoke/missing_expected_tables.json
 ```
 
-## Known validated environment
+Exit behavior:
 
-- ETABS 23.2.0
-- Model: `C:\tmp\B-BLOK_Revised.EDB`
-- Available tables: 194
+- exits `0` when ETABS attach succeeds and inventory files are written, even if some expected tables are missing;
+- exits `0` with clear diagnostic JSON when ETABS/comtypes is unavailable or no open model can be attached;
+- exits nonzero only for unexpected script/runtime errors.
 
-## Manual smoke result summary
+Paste the three JSON outputs back into the audit workflow for contract-fit review.
 
-- Story Definitions: PASS, shape (4, 8)
-- Concrete Column Design Summary - TS 500-2000(R2018): PASS, shape (1090, 19)
-- Concrete Beam Design Summary - TS 500-2000(R2018): PASS, shape (19073, 23)
-- Concrete Column PMM Envelope - TS 500-2000(R2018): PASS, shape (520, 11)
-- Concrete Joint Design Summary - TS 500-2000(R2018): PASS, shape (260, 15)
+## C5.3 Deep-Fit Outputs
 
-## Known optional empty tables
+C5.3 extends the manual smoke to write contract-fit diagnostics in addition to the basic table inventory. These files are audit-only and do not execute checks, compute ratios, emit OK/FAIL, or produce CheckResult payloads.
 
-- Concrete Column Shear Envelope - TS 500-2000(R2018)
-- Concrete Beam Flexure Envelope - TS 500-2000(R2018)
-- Concrete Beam Shear Envelope - TS 500-2000(R2018)
-- Concrete Joint Envelope - TS 500-2000(R2018)
+Expected local outputs:
 
-## Rules
+- `etabs_table_inventory.json`
+- `table_registry_match_summary.json`
+- `missing_expected_tables.json`
+- `table_contract_fit_report.json`
+- `feature_source_fit_report.json`
+- `combo_family_fit_report.json`
+- `element_identity_fit_report.json`
+- `missing_required_sources.json`
 
-- ETABS must be open.
-- A model must be loaded.
-- Tests are read-only.
-- Tests do not run analysis/design.
-- Tests may skip if ETABS is unavailable.
-- Empty optional envelope tables are not a failure.
+The smoke remains manual/local only. CI does not run ETABS. If ETABS or COM attachment is unavailable, the script writes diagnostic JSON and exits gracefully.
 
-## Test selection behavior
+## C5.4 Header/Sample Audit Extension
 
-The ETABS smoke tests are marked with `pytest.mark.etabs_smoke`.
+C5.4 adds a header/sample audit step for matched canonical tables. The script still remains manual/local only and never modifies the ETABS model, never starts a design run, never executes checks, and never emits CheckResult or OK/FAIL status values.
 
-- `pytest -q tests` does not require ETABS.
-- `pytest -q tests -m etabs_smoke` runs the local ETABS smoke gate.
-- If ETABS is unavailable during the smoke run, the tests skip with the connection message.
+When the local CSI API exposes `DatabaseTables.GetTableForDisplayArray`, the smoke attempts to read the table headers and a small redacted row sample for each available ETABS table. These rows are used only to prove table-header, feature-source, identity-column, and combo-family fit. If the local ETABS API wrapper cannot return headers/rows without the display-table call, the script writes an explicit limitation diagnostic and leaves column-fit reports partial.
+
+Additional output:
+
+```text
+local_out/etabs_smoke/table_headers_report.json
+```
+
+The deep-fit reports are then updated from the fetched headers/sample rows:
+
+- `table_contract_fit_report.json` includes `matched_columns` and `missing_columns`.
+- `feature_source_fit_report.json` includes `matched_column` where field aliases match.
+- `element_identity_fit_report.json` includes `available_identity_columns` and identity mappings.
+- `combo_family_fit_report.json` is populated by scanning combo/output-case/design-combo columns in the redacted sample rows.
+
+Optional row sample limit:
+
+```bash
+python tools/smoke_etabs_live_provider.py --out local_out/etabs_smoke --sample-rows 3
+```
+
+If ETABS tables include design status text such as OK/FAIL, the sample writer redacts those literal values before writing JSON so the smoke remains an audit/data-fit artifact, not a check result artifact.

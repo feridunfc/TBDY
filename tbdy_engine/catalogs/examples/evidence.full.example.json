@@ -1,0 +1,27 @@
+{
+  "evidence_id": "EVD-BEAM-000001-abcdef12",
+  "feature_name": "beam_width_mm",
+  "evidence_status": "FULL",
+  "source_level": "ETABS_RAW",
+  "availability_status": "available",
+  "confidence": "high",
+  "source_table": "frame_section_properties",
+  "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+  "source_column": "Width",
+  "source_row": {
+    "story": "S1",
+    "element_label": "B1",
+    "row_index": 10
+  },
+  "output_case": "NONE",
+  "combo_family": "NONE",
+  "governing_combo": null,
+  "section_state": "not_applicable",
+  "raw_value": 0.3,
+  "resolved_value": 300.0,
+  "unit": "mm",
+  "resolver": "direct_table_lookup",
+  "fallback_used": false,
+  "fallback_warning": null,
+  "messages": []
+}

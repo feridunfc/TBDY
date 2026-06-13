@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tbdy-engine.local/schemas/coverage_matrix.schema.json",
+  "title": "Coverage Matrix",
+  "type": "object",
+  "required": ["contract_version", "checks"],
+  "properties": {
+    "contract_version": {"const": "1.0"},
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "check_id",
+          "component_type",
+          "component_id",
+          "coverage_status",
+          "required_features",
+          "resolved_features",
+          "missing_features",
+          "required_design_context",
+          "resolved_design_context",
+          "missing_design_context",
+          "combo_policy_status",
+          "section_state_status",
+          "ductility_context_status",
+          "evidence_status",
+          "check_readiness_status",
+          "effective_evaluation_level",
+          "missing_feature_sources",
+          "missing_design_context_sources",
+          "expected_evidence_requirements",
+          "source_diagnostics"
+        ],
+        "properties": {
+          "check_id": {"type": "string"},
+          "component_type": {"type": "string"},
+          "component_id": {"type": "string"},
+          "coverage_status": {"enum": ["RUNNABLE", "BLOCKED", "PARTIAL"]},
+          "required_features": {"type": "array", "items": {"type": "string"}},
+          "resolved_features": {"type": "array", "items": {"type": "string"}},
+          "missing_features": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["feature_name", "reason"],
+              "properties": {
+                "feature_name": {"type": "string"},
+                "reason": {"type": "string"}
+              },
+              "additionalProperties": false
+            }
+          },
+          "missing_feature_sources": {
+            "type": "object",
+            "additionalProperties": {"$ref": "#/$defs/expected_source"}
+          },
+          "required_design_context": {"type": "array", "items": {"type": "string"}},
+          "resolved_design_context": {"type": "array", "items": {"type": "string"}},
+          "missing_design_context": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["context_field", "reason"],
+              "properties": {
+                "context_field": {"type": "string"},
+                "reason": {"type": "string"}
+              },
+              "additionalProperties": false
+            }
+          },
+          "missing_design_context_sources": {
+            "type": "object",
+            "additionalProperties": {"$ref": "#/$defs/expected_source"}
+          },
+          "expected_evidence_requirements": {
+            "type": "object",
+            "additionalProperties": {"type": "array", "items": {"type": "string"}}
+          },
+          "source_diagnostics": {
+            "type": "array",
+            "items": {"type": "object"}
+          },
+          "combo_policy_status": {"enum": ["RESOLVED", "MISSING", "NOT_APPLICABLE"]},
+          "section_state_status": {"enum": ["RESOLVED", "MISSING", "NOT_APPLICABLE"]},
+          "ductility_context_status": {"enum": ["RESOLVED", "MISSING", "NOT_APPLICABLE"]},
+          "evidence_status": {"enum": ["FULL", "PARTIAL", "MISSING"]},
+          "check_readiness_status": {"enum": ["ready", "partial", "missing_features"]},
+          "effective_evaluation_level": {"enum": ["DESIGN_LEVEL", "ETABS_DESIGN_RESULT", "SCREENING", "NO_DATA"]},
+          "reason": {"type": ["string", "null"]},
+          "diagnostics": {"type": "array", "items": {"type": "object"}}
+        },
+        "additionalProperties": false,
+        "not": {
+          "anyOf": [
+            {"required": ["ratio"]},
+            {"required": ["ratios"]},
+            {"required": ["CheckResult"]},
+            {"required": ["check_result"]},
+            {"required": ["check_results"]},
+            {"properties": {"coverage_status": {"enum": ["OK", "FAIL"]}}}
+          ]
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"coverage_status": {"const": "BLOCKED"}}},
+            "then": {
+              "required": ["reason"],
+              "properties": {
+                "missing_features": {"minItems": 1},
+                "reason": {"type": "string"},
+                "missing_feature_sources": {"minProperties": 1}
+              }
+            }
+          },
+          {
+            "if": {"properties": {"coverage_status": {"const": "PARTIAL"}}},
+            "then": {
+              "required": ["reason"],
+              "properties": {"reason": {"type": "string"}},
+              "anyOf": [
+                {"properties": {"expected_evidence_requirements": {"minProperties": 1}}},
+                {"properties": {"missing_design_context_sources": {"minProperties": 1}}},
+                {"properties": {"source_diagnostics": {"minItems": 1}}}
+              ]
+            }
+          }
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "expected_source": {
+      "type": "object",
+      "required": ["source_kind", "unit", "expected_evidence_fields"],
+      "properties": {
+        "source_kind": {"enum": ["etabs_table", "computed", "design_context", "unknown"]},
+        "feature_name": {"type": "string"},
+        "context_name": {"type": "string"},
+        "table_key": {"type": "string"},
+        "table_aliases": {"type": "array", "items": {"type": "string"}},
+        "field_aliases": {"type": "array", "items": {"type": "string"}},
+        "filters": {"type": "array", "items": {"type": "object"}},
+        "combo_family": {"type": ["string", "null"]},
+        "aggregation": {"type": ["string", "null"]},
+        "custom_resolver": {"type": "string"},
+        "required_inputs": {"type": "array", "items": {"type": "string"}},
+        "source_contract": {"type": "string"},
+        "source_field": {"type": "string"},
+        "unit": {"type": ["string", "null"]},
+        "expected_evidence_fields": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {"properties": {"source_kind": {"const": "etabs_table"}}},
+          "then": {"required": ["feature_name", "table_key", "table_aliases", "field_aliases", "combo_family", "aggregation"]}
+        },
+        {
+          "if": {"properties": {"source_kind": {"const": "computed"}}},
+          "then": {"required": ["feature_name", "custom_resolver", "required_inputs"]}
+        },
+        {
+          "if": {"properties": {"source_kind": {"const": "design_context"}}},
+          "then": {"required": ["context_name", "source_contract", "source_field"]}
+        }
+      ]
+    }
+  }
+}

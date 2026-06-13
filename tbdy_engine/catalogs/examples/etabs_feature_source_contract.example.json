@@ -1,0 +1,66 @@
+{
+  "metadata": {
+    "contract": "Contract Constitution",
+    "version": "1.0",
+    "catalog_name": "etabs_feature_source_contract",
+    "sprint": "C11.1.7",
+    "status": "primary_supporting_contract",
+    "owner": "TBDY Engine",
+    "notes": [
+      "Defines allowed source provenance for current accepted C8.3/C11.1.4 resolved features only.",
+      "Does not unlock rebar/flexure/shear/capacity engineering checks.",
+      "Excel production source is forbidden."
+    ]
+  },
+  "scope": {
+    "current_minimal_live_slice_only": true,
+    "future_locked_scopes_absent": true,
+    "legacy_cleanup_not_started": true,
+    "c12_not_started": true
+  },
+  "defaults": {
+    "preferred_output_case_default": "Crack_SeisY_UpSoil",
+    "display_selection_methods": [
+      "SetLoadCombinationsSelectedForDisplay",
+      "SetLoadCasesSelectedForDisplay"
+    ],
+    "display_selection_call_shape": "list_only"
+  },
+  "sources": [
+    {
+      "feature_id": "beam_label",
+      "semantic_role": "IDENTITY",
+      "source_type": "display_table",
+      "source_owner": "ETABS",
+      "etabs_table_name": "Frame Assignments - Summary",
+      "canonical_table_key": "frame_assignments",
+      "required_columns": [
+        "UniqueName",
+        "Label",
+        "Story",
+        "DesignSect"
+      ],
+      "optional_columns": [
+        "AnalysisSect",
+        "Section",
+        "Length"
+      ],
+      "row_selection_rule": [
+        "match target component_id/UniqueName when available",
+        "preserve Label/Story/DesignSect as observed identity fields"
+      ],
+      "display_selection_required": false,
+      "unit_expectation": {
+        "unit": ""
+      },
+      "evidence_required": true,
+      "forbidden_source": [
+        "excel_production",
+        "check_result",
+        "engineering_verdict"
+      ],
+      "locked_future_scope": false,
+      "source_scope": "current_identity_observation"
+    }
+  ]
+}

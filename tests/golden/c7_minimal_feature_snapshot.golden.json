@@ -1,0 +1,457 @@
+{
+  "contract_version": "1.0",
+  "snapshots": [
+    {
+      "component_id": "B_MISSING",
+      "component_type": "beam",
+      "diagnostics": [],
+      "evidence_by_feature": {},
+      "features": {},
+      "identity": {
+        "section": "B30x60",
+        "story": "+14.5"
+      }
+    },
+    {
+      "component_id": "B_OK",
+      "component_type": "beam",
+      "diagnostics": [],
+      "evidence_by_feature": {
+        "beam_width_mm": [
+          {
+            "actual_table_name": "artificial_fixture",
+            "combo_family": "NONE",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 300,
+            "output_case": null,
+            "raw_value": 300,
+            "reason": null,
+            "resolver": "c7_artificial_fixture",
+            "section_state": null,
+            "source_column": "beam_width_mm",
+            "source_row": {
+              "beam_width_mm": 300,
+              "component_id": "B_OK"
+            },
+            "source_table": "artificial_fixture",
+            "unit": "mm"
+          }
+        ]
+      },
+      "features": {
+        "beam_width_mm": {
+          "diagnostics": [],
+          "evidence": [
+            {
+              "actual_table_name": "artificial_fixture",
+              "combo_family": "NONE",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 300,
+              "output_case": null,
+              "raw_value": 300,
+              "reason": null,
+              "resolver": "c7_artificial_fixture",
+              "section_state": null,
+              "source_column": "beam_width_mm",
+              "source_row": {
+                "beam_width_mm": 300,
+                "component_id": "B_OK"
+              },
+              "source_table": "artificial_fixture",
+              "unit": "mm"
+            }
+          ],
+          "feature_name": "beam_width_mm",
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 300
+        }
+      },
+      "identity": {
+        "section": "B30x60",
+        "story": "+14.5"
+      }
+    },
+    {
+      "component_id": "B_PARTIAL",
+      "component_type": "beam",
+      "diagnostics": [],
+      "evidence_by_feature": {
+        "beam_width_mm": [
+          {
+            "actual_table_name": "artificial_fixture",
+            "combo_family": "NONE",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 300,
+            "output_case": null,
+            "raw_value": 300,
+            "reason": null,
+            "resolver": "c7_artificial_fixture",
+            "section_state": null,
+            "source_column": "beam_width_mm",
+            "source_row": {
+              "beam_width_mm": 300,
+              "component_id": "B_PARTIAL"
+            },
+            "source_table": "artificial_fixture",
+            "unit": "mm"
+          }
+        ]
+      },
+      "features": {
+        "beam_width_mm": {
+          "diagnostics": [],
+          "evidence": [
+            {
+              "actual_table_name": "artificial_fixture",
+              "combo_family": "NONE",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 300,
+              "output_case": null,
+              "raw_value": 300,
+              "reason": null,
+              "resolver": "c7_artificial_fixture",
+              "section_state": null,
+              "source_column": "beam_width_mm",
+              "source_row": {
+                "beam_width_mm": 300,
+                "component_id": "B_PARTIAL"
+              },
+              "source_table": "artificial_fixture",
+              "unit": "mm"
+            }
+          ],
+          "feature_name": "beam_width_mm",
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 300
+        }
+      },
+      "identity": {
+        "section": "B30x60",
+        "story": "+14.5"
+      }
+    },
+    {
+      "component_id": "B_RATIO_FAIL",
+      "component_type": "beam",
+      "diagnostics": [],
+      "evidence_by_feature": {
+        "beam_depth_mm": [
+          {
+            "actual_table_name": "artificial_fixture",
+            "combo_family": "NONE",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 1200,
+            "output_case": null,
+            "raw_value": 1200,
+            "reason": null,
+            "resolver": "c7_artificial_fixture",
+            "section_state": null,
+            "source_column": "beam_depth_mm",
+            "source_row": {
+              "beam_depth_mm": 1200,
+              "component_id": "B_RATIO_FAIL"
+            },
+            "source_table": "artificial_fixture",
+            "unit": "mm"
+          }
+        ],
+        "beam_width_mm": [
+          {
+            "actual_table_name": "artificial_fixture",
+            "combo_family": "NONE",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 300,
+            "output_case": null,
+            "raw_value": 300,
+            "reason": null,
+            "resolver": "c7_artificial_fixture",
+            "section_state": null,
+            "source_column": "beam_width_mm",
+            "source_row": {
+              "beam_width_mm": 300,
+              "component_id": "B_RATIO_FAIL"
+            },
+            "source_table": "artificial_fixture",
+            "unit": "mm"
+          }
+        ]
+      },
+      "features": {
+        "beam_depth_mm": {
+          "diagnostics": [],
+          "evidence": [
+            {
+              "actual_table_name": "artificial_fixture",
+              "combo_family": "NONE",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 1200,
+              "output_case": null,
+              "raw_value": 1200,
+              "reason": null,
+              "resolver": "c7_artificial_fixture",
+              "section_state": null,
+              "source_column": "beam_depth_mm",
+              "source_row": {
+                "beam_depth_mm": 1200,
+                "component_id": "B_RATIO_FAIL"
+              },
+              "source_table": "artificial_fixture",
+              "unit": "mm"
+            }
+          ],
+          "feature_name": "beam_depth_mm",
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 1200
+        },
+        "beam_width_mm": {
+          "diagnostics": [],
+          "evidence": [
+            {
+              "actual_table_name": "artificial_fixture",
+              "combo_family": "NONE",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 300,
+              "output_case": null,
+              "raw_value": 300,
+              "reason": null,
+              "resolver": "c7_artificial_fixture",
+              "section_state": null,
+              "source_column": "beam_width_mm",
+              "source_row": {
+                "beam_width_mm": 300,
+                "component_id": "B_RATIO_FAIL"
+              },
+              "source_table": "artificial_fixture",
+              "unit": "mm"
+            }
+          ],
+          "feature_name": "beam_width_mm",
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 300
+        }
+      },
+      "identity": {
+        "section": "B30x120",
+        "story": "+14.5"
+      }
+    },
+    {
+      "component_id": "B_WIDTH_FAIL",
+      "component_type": "beam",
+      "diagnostics": [],
+      "evidence_by_feature": {
+        "beam_width_mm": [
+          {
+            "actual_table_name": "artificial_fixture",
+            "combo_family": "NONE",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 200,
+            "output_case": null,
+            "raw_value": 200,
+            "reason": null,
+            "resolver": "c7_artificial_fixture",
+            "section_state": null,
+            "source_column": "beam_width_mm",
+            "source_row": {
+              "beam_width_mm": 200,
+              "component_id": "B_WIDTH_FAIL"
+            },
+            "source_table": "artificial_fixture",
+            "unit": "mm"
+          }
+        ]
+      },
+      "features": {
+        "beam_width_mm": {
+          "diagnostics": [],
+          "evidence": [
+            {
+              "actual_table_name": "artificial_fixture",
+              "combo_family": "NONE",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 200,
+              "output_case": null,
+              "raw_value": 200,
+              "reason": null,
+              "resolver": "c7_artificial_fixture",
+              "section_state": null,
+              "source_column": "beam_width_mm",
+              "source_row": {
+                "beam_width_mm": 200,
+                "component_id": "B_WIDTH_FAIL"
+              },
+              "source_table": "artificial_fixture",
+              "unit": "mm"
+            }
+          ],
+          "feature_name": "beam_width_mm",
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 200
+        }
+      },
+      "identity": {
+        "section": "B20x60",
+        "story": "+14.5"
+      }
+    },
+    {
+      "component_id": "GLOBAL_MODAL_OK",
+      "component_type": "global",
+      "diagnostics": [],
+      "evidence_by_feature": {
+        "modal_sum_ux": [
+          {
+            "actual_table_name": "artificial_fixture",
+            "combo_family": "NONE",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 0.95,
+            "output_case": null,
+            "raw_value": 0.95,
+            "reason": null,
+            "resolver": "c7_artificial_fixture",
+            "section_state": null,
+            "source_column": "modal_sum_ux",
+            "source_row": {
+              "component_id": "GLOBAL_MODAL_OK",
+              "modal_sum_ux": 0.95
+            },
+            "source_table": "artificial_fixture",
+            "unit": "ratio"
+          }
+        ]
+      },
+      "features": {
+        "modal_sum_ux": {
+          "diagnostics": [],
+          "evidence": [
+            {
+              "actual_table_name": "artificial_fixture",
+              "combo_family": "NONE",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 0.95,
+              "output_case": null,
+              "raw_value": 0.95,
+              "reason": null,
+              "resolver": "c7_artificial_fixture",
+              "section_state": null,
+              "source_column": "modal_sum_ux",
+              "source_row": {
+                "component_id": "GLOBAL_MODAL_OK",
+                "modal_sum_ux": 0.95
+              },
+              "source_table": "artificial_fixture",
+              "unit": "ratio"
+            }
+          ],
+          "feature_name": "modal_sum_ux",
+          "semantic_role": "MODAL",
+          "status": "RESOLVED",
+          "unit": "ratio",
+          "value": 0.95
+        }
+      },
+      "identity": {
+        "component": "global"
+      }
+    },
+    {
+      "component_id": "S_DRIFT_FAIL",
+      "component_type": "story",
+      "diagnostics": [],
+      "evidence_by_feature": {
+        "story_drift_value": [
+          {
+            "actual_table_name": "artificial_fixture",
+            "combo_family": "NONE",
+            "ductility_class": null,
+            "evidence_status": "FULL",
+            "governing_combo": null,
+            "normalized_value": 1.2,
+            "output_case": null,
+            "raw_value": 1.2,
+            "reason": null,
+            "resolver": "c7_artificial_fixture",
+            "section_state": null,
+            "source_column": "story_drift_value",
+            "source_row": {
+              "component_id": "S_DRIFT_FAIL",
+              "story_drift_value": 1.2
+            },
+            "source_table": "artificial_fixture",
+            "unit": "ratio"
+          }
+        ]
+      },
+      "features": {
+        "story_drift_value": {
+          "diagnostics": [],
+          "evidence": [
+            {
+              "actual_table_name": "artificial_fixture",
+              "combo_family": "NONE",
+              "ductility_class": null,
+              "evidence_status": "FULL",
+              "governing_combo": null,
+              "normalized_value": 1.2,
+              "output_case": null,
+              "raw_value": 1.2,
+              "reason": null,
+              "resolver": "c7_artificial_fixture",
+              "section_state": null,
+              "source_column": "story_drift_value",
+              "source_row": {
+                "component_id": "S_DRIFT_FAIL",
+                "story_drift_value": 1.2
+              },
+              "source_table": "artificial_fixture",
+              "unit": "ratio"
+            }
+          ],
+          "feature_name": "story_drift_value",
+          "semantic_role": "DRIFT",
+          "status": "RESOLVED",
+          "unit": "ratio",
+          "value": 1.2
+        }
+      },
+      "identity": {
+        "story": "+14.5"
+      }
+    }
+  ],
+  "source": "C7 artificial fixture only"
+}

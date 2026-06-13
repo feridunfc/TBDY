@@ -1,0 +1,48 @@
+{
+  "acceptance_gate": {
+    "feature_snapshot_schema_present": true,
+    "current_feature_snapshot_validates": true,
+    "check_result_semantics_rejected_inside_snapshot": true,
+    "contract_validator": "OK",
+    "full_tests": "PASS",
+    "clean_zip_validation": "PASS"
+  },
+  "schema_count_before": 16,
+  "schema_count_after": 17,
+  "example_count_after": 10,
+  "feature_snapshot_schema_path": "tbdy_engine/catalogs/schemas/feature_snapshot.schema.json",
+  "feature_snapshot_schema_present": true,
+  "feature_snapshot_current_output_schema_validation": true,
+  "schema_integrity": "PASS",
+  "feature_catalog_integrity": "PASS",
+  "check_catalog_integrity": "PASS",
+  "legacy_checkresult_schema_used": false,
+  "negative_rejection_tests": {
+    "check_result_semantics_rejected_inside_snapshot": true,
+    "ok_fail_verdict_fields_rejected_inside_feature": true,
+    "status_from_counts_rejected": true,
+    "checkresult_status_values_rejected_as_feature_status": true
+  },
+  "bootstrap": {
+    "approach": "Option B: tools/bootstrap_validation_fixtures.py",
+    "uses_live_etabs": false,
+    "uses_committed_fixtures_only": true,
+    "outputs": [
+      "local_out/c9_live_coverage_matrix/coverage_matrix.json",
+      "local_out/c10_minimal_live_readiness/feature_snapshot_with_context.json",
+      "local_out/c10_minimal_live_readiness/coverage_matrix.json"
+    ]
+  },
+  "c11_boundary_counts": {
+    "check_results_summary.check_result_count": 3,
+    "len(check_results.json)": 3,
+    "c11_boundary_report.check_result_count": 3,
+    "all_three_counts_match": true
+  },
+  "gates": {
+    "go_for_C11_1_6_acceptance": true,
+    "go_for_legacy_cleanup": false,
+    "go_for_C12": false,
+    "go_for_rebar_flexure_shear": false
+  }
+}

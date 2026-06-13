@@ -1,0 +1,5 @@
+{
+  "ductility_class": "HIGH",
+  "source": "manual_project_design_basis",
+  "notes": "Provided manually for C10 readiness smoke only; not inferred from ETABS or combo names."
+}

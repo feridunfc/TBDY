@@ -1,0 +1,737 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  sprint: C1_CONTRACT_HARDENING
+  status: hardened_contract
+  owner: TBDY Engine
+  catalog_name: check_catalog
+  notes:
+  - Contract-only. No engine/check/ETABS runtime implementation.
+  - Production source of truth is live ETABS tables; Excel is fixture/debug/regression
+    only.
+  - 'Rebar semantics: ETABS_REQUIRED + TBDY_MIN -> GOVERNING_REQUIRED -> ENGINE_SELECTED;
+    USER_PROVIDED is explicit only.'
+policy:
+  must_not_reference_table_keys: true
+  must_reference_feature_names_only: true
+  c1_no_engine_formulas: true
+  check_engine_combo_names: false
+ratio_semantics:
+  demand_over_capacity:
+    pass_when: ratio <= 1.0
+  actual_over_required:
+    pass_when: ratio >= 1.0
+  selected_over_required:
+    pass_when: ratio >= 1.0
+  required_over_selected:
+    pass_when: ratio <= 1.0
+  value_over_limit:
+    pass_when: ratio <= 1.0
+    deprecated_alias_for: value_over_maximum
+    must_not_mean: ratio >= 1.0 OK
+  limit_over_value:
+    pass_when: ratio <= 1.0
+  actual_over_minimum:
+    pass_when: ratio >= 1.0
+  availability:
+    pass_when: value exists
+  boolean:
+    pass_when: condition is true
+  value_over_maximum:
+    pass_when: ratio <= 1.0
+    intended_for: upper_bound_checks
+  value_over_minimum:
+    pass_when: ratio >= 1.0
+    intended_for: lower_bound_checks
+checks:
+  beam_geometry_min_width:
+    title: Beam Geometry Min Width
+    element_type: beam
+    category: GEOMETRY
+    readiness:
+      status: ready
+      reason: Contract definition; implementation deferred.
+    required_features: &id001
+    - beam_width_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id001
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  beam_geometry_min_depth:
+    title: Beam Geometry Min Depth
+    element_type: beam
+    category: GEOMETRY
+    readiness:
+      status: ready
+      reason: Contract definition; implementation deferred.
+    required_features: &id002
+    - beam_depth_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id002
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  beam_span_depth_ratio:
+    title: Beam Span Depth Ratio
+    element_type: beam
+    category: GEOMETRY
+    readiness:
+      status: partial
+      reason: Contract definition; implementation deferred.
+    required_features: &id003
+    - beam_clear_span_mm
+    - beam_depth_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id003
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  beam_depth_width_ratio:
+    title: Beam Depth Width Ratio
+    element_type: beam
+    category: GEOMETRY
+    readiness:
+      status: ready
+      reason: Contract definition; implementation deferred.
+    required_features: &id004
+    - beam_depth_mm
+    - beam_width_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id004
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  beam_flexure_top_selected_ge_governing_required:
+    title: Beam Flexure Top Selected Ge Governing Required
+    element_type: beam
+    category: FLEXURE
+    readiness:
+      status: partial
+      reason: Engine selected rebar is a design selection requiring review.
+    required_features: &id005
+    - beam_As_top_engine_selected_mm2
+    - beam_As_top_governing_required_mm2
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: selected_over_required
+      ok_if: '>= 1.0'
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id005
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  beam_flexure_bottom_selected_ge_governing_required:
+    title: Beam Flexure Bottom Selected Ge Governing Required
+    element_type: beam
+    category: FLEXURE
+    readiness:
+      status: partial
+      reason: Engine selected rebar is a design selection requiring review.
+    required_features: &id006
+    - beam_As_bottom_engine_selected_mm2
+    - beam_As_bottom_governing_required_mm2
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: selected_over_required
+      ok_if: '>= 1.0'
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id006
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  beam_shear_ve_le_vr:
+    title: Beam Shear Ve Le Vr
+    element_type: beam
+    category: SHEAR
+    readiness:
+      status: partial
+      reason: Capacity feature not implemented in C1.
+    required_features: &id007
+    - beam_Vd_left_kN
+    - beam_Vd_right_kN
+    - beam_width_mm
+    - beam_effective_depth_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: demand_over_capacity
+      ok_if: <= 1.0
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id007
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  beam_shear_asw_ge_asw_min:
+    title: Beam Shear Asw Ge Asw Min
+    element_type: beam
+    category: SHEAR
+    readiness:
+      status: partial
+      reason: Shear rebar contract placeholder only.
+    required_features: &id008
+    - beam_As_top_governing_required_mm2
+    - beam_width_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: actual_over_required
+      ok_if: '>= 1.0'
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id008
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  beam_capacity_design_shear:
+    title: Beam Capacity Design Shear
+    element_type: beam
+    category: SHEAR
+    readiness:
+      status: partial
+      reason: Capacity design feature resolver deferred.
+    required_features: &id009
+    - beam_Md_left_neg_kNm
+    - beam_Md_right_neg_kNm
+    - beam_clear_span_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: demand_over_capacity
+      ok_if: <= 1.0
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id009
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  column_geometry_min_dimension:
+    title: Column Geometry Min Dimension
+    element_type: column
+    category: GEOMETRY
+    readiness:
+      status: ready
+      reason: Contract definition; implementation deferred.
+    required_features: &id010
+    - column_width_mm
+    - column_depth_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id010
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  column_pmm_contract:
+    title: Column Pmm Contract
+    element_type: column
+    category: FLEXURE
+    readiness:
+      status: partial
+      reason: Contract definition; implementation deferred.
+    required_features: &id011
+    - column_Nd_max_kN
+    - column_width_mm
+    - column_depth_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id011
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  column_shear_contract:
+    title: Column Shear Contract
+    element_type: column
+    category: SHEAR
+    readiness:
+      status: partial
+      reason: Contract definition; implementation deferred.
+    required_features: &id012
+    - column_Nd_max_kN
+    - column_width_mm
+    - column_depth_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id012
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  wall_geometry_min_thickness:
+    title: Wall Geometry Min Thickness
+    element_type: wall
+    category: GEOMETRY
+    readiness:
+      status: ready
+      reason: Contract definition; implementation deferred.
+    required_features: &id013
+    - wall_thickness_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id013
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  wall_pier_design_contract:
+    title: Wall Pier Design Contract
+    element_type: wall
+    category: FLEXURE
+    readiness:
+      status: partial
+      reason: Contract definition; implementation deferred.
+    required_features: &id014
+    - wall_length_mm
+    - wall_thickness_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id014
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  wall_shear_contract:
+    title: Wall Shear Contract
+    element_type: wall
+    category: SHEAR
+    readiness:
+      status: partial
+      reason: Contract definition; implementation deferred.
+    required_features: &id015
+    - wall_Vd_kN
+    - wall_thickness_mm
+    - wall_length_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id015
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  story_drift_limit:
+    title: Story Drift Limit
+    element_type: story
+    category: GLOBAL
+    readiness:
+      status: partial
+      reason: Displacement section state must be resolved.
+    required_features: &id016
+    - story_drift_max_mm
+    - story_height_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: demand_over_capacity
+      ok_if: <= 1.0
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id016
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  torsional_irregularity_A1:
+    title: Torsional Irregularity A1
+    element_type: story
+    category: IRREGULARITY
+    readiness:
+      status: partial
+      reason: Contract definition; implementation deferred.
+    required_features: &id017
+    - story_torsion_a1_coefficient
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id017
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  modal_mass_participation:
+    title: Modal Mass Participation
+    element_type: global
+    category: MODAL
+    readiness:
+      status: ready
+      reason: Modal participation features available.
+    required_features: &id018
+    - modal_sum_ux
+    - modal_sum_uy
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: value_over_minimum
+      ok_if: '>= 1.0'
+    c11_1_semantics:
+      actual: min(modal_sum_ux, modal_sum_uy)
+      required_minimum: 0.90
+      notes: controlling modal mass participation uses the weaker cumulative direction after max_cumulative feature aggregation.
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id018
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  base_shear_scaling:
+    title: Base Shear Scaling
+    element_type: global
+    category: GLOBAL
+    readiness:
+      status: missing_features
+      reason: design_base_shear_kN is manual/blocking until resolved.
+    required_features: &id019
+    - base_reaction_x_kN
+    - base_reaction_y_kN
+    - design_base_shear_kN
+    optional_features: []
+    formula_ref: contract_only_no_formula_in_C1
+    pass_rule:
+      ratio_type: demand_over_capacity
+      ok_if: <= 1.0
+    status_logic:
+      OK: required features resolved and pass_rule satisfied
+      WARNING: features resolved only at SCREENING or partial readiness
+      FAIL: required features resolved and pass_rule not satisfied
+      NO_DATA: one or more required features unavailable or blocked
+    evaluation_level_policy:
+      DESIGN_LEVEL: Requires resolved features with design-level provenance.
+      ETABS_DESIGN_RESULT: Allowed only when ETABS design result role is explicit.
+      SCREENING: ETABS_RAW or unverified/partial data only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features: *id019
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract

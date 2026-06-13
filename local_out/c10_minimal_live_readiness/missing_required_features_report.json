@@ -1,0 +1,416 @@
+[
+  {
+    "check_id": "beam_span_depth_ratio",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "aggregation": "none",
+      "combo_family": "NONE",
+      "expected_evidence_fields": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ],
+      "feature_name": "beam_clear_span_mm",
+      "field_aliases": [
+        "Length"
+      ],
+      "source_kind": "etabs_table",
+      "table_aliases": [
+        "Frame Assignments - Summary"
+      ],
+      "table_key": "frame_assignments",
+      "unit": "mm"
+    },
+    "feature_name": "beam_clear_span_mm",
+    "reason": "FeatureSnapshot does not contain a resolved feature value"
+  },
+  {
+    "check_id": "beam_flexure_top_selected_ge_governing_required",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "custom_resolver": "engine_selected_rebar_resolver",
+      "expected_evidence_fields": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ],
+      "feature_name": "beam_As_top_engine_selected_mm2",
+      "required_inputs": [
+        "beam_As_top_governing_required_mm2"
+      ],
+      "source_kind": "computed",
+      "unit": "mm2"
+    },
+    "feature_name": "beam_As_top_engine_selected_mm2",
+    "reason": "FeatureSnapshot does not contain a resolved feature value"
+  },
+  {
+    "check_id": "beam_flexure_top_selected_ge_governing_required",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "custom_resolver": "governing_rebar_resolver",
+      "expected_evidence_fields": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ],
+      "feature_name": "beam_As_top_governing_required_mm2",
+      "required_inputs": [
+        "beam_As_top_etabs_required_mm2",
+        "beam_As_top_tbdy_min_required_mm2"
+      ],
+      "source_kind": "computed",
+      "unit": "mm2"
+    },
+    "feature_name": "beam_As_top_governing_required_mm2",
+    "reason": "FeatureSnapshot does not contain a resolved feature value"
+  },
+  {
+    "check_id": "beam_flexure_bottom_selected_ge_governing_required",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "custom_resolver": "engine_selected_rebar_resolver",
+      "expected_evidence_fields": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ],
+      "feature_name": "beam_As_bottom_engine_selected_mm2",
+      "required_inputs": [
+        "beam_As_bottom_governing_required_mm2"
+      ],
+      "source_kind": "computed",
+      "unit": "mm2"
+    },
+    "feature_name": "beam_As_bottom_engine_selected_mm2",
+    "reason": "FeatureSnapshot does not contain a resolved feature value"
+  },
+  {
+    "check_id": "beam_flexure_bottom_selected_ge_governing_required",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "custom_resolver": "governing_rebar_resolver",
+      "expected_evidence_fields": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ],
+      "feature_name": "beam_As_bottom_governing_required_mm2",
+      "required_inputs": [
+        "beam_As_bottom_etabs_required_mm2",
+        "beam_As_bottom_tbdy_min_required_mm2"
+      ],
+      "source_kind": "computed",
+      "unit": "mm2"
+    },
+    "feature_name": "beam_As_bottom_governing_required_mm2",
+    "reason": "FeatureSnapshot does not contain a resolved feature value"
+  },
+  {
+    "check_id": "beam_shear_ve_le_vr",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "aggregation": "left_zone_max_abs",
+      "combo_family": "DUCTILE_X_OR_Y",
+      "expected_evidence_fields": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ],
+      "feature_name": "beam_Vd_left_kN",
+      "field_aliases": [
+        "V2"
+      ],
+      "source_kind": "etabs_table",
+      "table_aliases": [
+        "Element Forces - Beams"
+      ],
+      "table_key": "beam_forces",
+      "unit": "kN"
+    },
+    "feature_name": "beam_Vd_left_kN",
+    "reason": "FeatureSnapshot does not contain a resolved feature value"
+  },
+  {
+    "check_id": "beam_shear_ve_le_vr",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "aggregation": "right_zone_max_abs",
+      "combo_family": "DUCTILE_X_OR_Y",
+      "expected_evidence_fields": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ],
+      "feature_name": "beam_Vd_right_kN",
+      "field_aliases": [
+        "V2"
+      ],
+      "source_kind": "etabs_table",
+      "table_aliases": [
+        "Element Forces - Beams"
+      ],
+      "table_key": "beam_forces",
+      "unit": "kN"
+    },
+    "feature_name": "beam_Vd_right_kN",
+    "reason": "FeatureSnapshot does not contain a resolved feature value"
+  },
+  {
+    "check_id": "beam_shear_ve_le_vr",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "custom_resolver": "custom_resolver",
+      "expected_evidence_fields": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ],
+      "feature_name": "beam_effective_depth_mm",
+      "required_inputs": [
+        "beam_depth_mm"
+      ],
+      "source_kind": "computed",
+      "unit": "mm"
+    },
+    "feature_name": "beam_effective_depth_mm",
+    "reason": "FeatureSnapshot does not contain a resolved feature value"
+  },
+  {
+    "check_id": "beam_shear_asw_ge_asw_min",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "custom_resolver": "governing_rebar_resolver",
+      "expected_evidence_fields": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ],
+      "feature_name": "beam_As_top_governing_required_mm2",
+      "required_inputs": [
+        "beam_As_top_etabs_required_mm2",
+        "beam_As_top_tbdy_min_required_mm2"
+      ],
+      "source_kind": "computed",
+      "unit": "mm2"
+    },
+    "feature_name": "beam_As_top_governing_required_mm2",
+    "reason": "FeatureSnapshot does not contain a resolved feature value"
+  },
+  {
+    "check_id": "beam_capacity_design_shear",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "aggregation": "left_zone_max_abs_negative",
+      "combo_family": "DUCTILE_X_OR_Y",
+      "expected_evidence_fields": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ],
+      "feature_name": "beam_Md_left_neg_kNm",
+      "field_aliases": [
+        "M3"
+      ],
+      "source_kind": "etabs_table",
+      "table_aliases": [
+        "Element Forces - Beams"
+      ],
+      "table_key": "beam_forces",
+      "unit": "kNm"
+    },
+    "feature_name": "beam_Md_left_neg_kNm",
+    "reason": "FeatureSnapshot does not contain a resolved feature value"
+  },
+  {
+    "check_id": "beam_capacity_design_shear",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "aggregation": "right_zone_max_abs_negative",
+      "combo_family": "DUCTILE_X_OR_Y",
+      "expected_evidence_fields": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ],
+      "feature_name": "beam_Md_right_neg_kNm",
+      "field_aliases": [
+        "M3"
+      ],
+      "source_kind": "etabs_table",
+      "table_aliases": [
+        "Element Forces - Beams"
+      ],
+      "table_key": "beam_forces",
+      "unit": "kNm"
+    },
+    "feature_name": "beam_Md_right_neg_kNm",
+    "reason": "FeatureSnapshot does not contain a resolved feature value"
+  },
+  {
+    "check_id": "beam_capacity_design_shear",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "aggregation": "none",
+      "combo_family": "NONE",
+      "expected_evidence_fields": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ],
+      "feature_name": "beam_clear_span_mm",
+      "field_aliases": [
+        "Length"
+      ],
+      "source_kind": "etabs_table",
+      "table_aliases": [
+        "Frame Assignments - Summary"
+      ],
+      "table_key": "frame_assignments",
+      "unit": "mm"
+    },
+    "feature_name": "beam_clear_span_mm",
+    "reason": "FeatureSnapshot does not contain a resolved feature value"
+  },
+  {
+    "check_id": "story_drift_limit",
+    "component_id": "+14.5",
+    "component_type": "story",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "aggregation": "none",
+      "combo_family": "NONE",
+      "expected_evidence_fields": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ],
+      "feature_name": "story_height_mm",
+      "field_aliases": [
+        "Height"
+      ],
+      "source_kind": "etabs_table",
+      "table_aliases": [
+        "Story Definitions"
+      ],
+      "table_key": "story_definitions",
+      "unit": "mm"
+    },
+    "feature_name": "story_height_mm",
+    "reason": "FeatureSnapshot does not contain a resolved feature value"
+  },
+  {
+    "check_id": "base_shear_scaling",
+    "component_id": "GLOBAL",
+    "component_type": "global",
+    "coverage_status": "BLOCKED",
+    "expected_source": {
+      "custom_resolver": "computed_resolver",
+      "expected_evidence_fields": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ],
+      "feature_name": "design_base_shear_kN",
+      "required_inputs": [],
+      "source_kind": "computed",
+      "unit": "kN"
+    },
+    "feature_name": "design_base_shear_kN",
+    "reason": "FeatureSnapshot does not contain a resolved feature value"
+  }
+]

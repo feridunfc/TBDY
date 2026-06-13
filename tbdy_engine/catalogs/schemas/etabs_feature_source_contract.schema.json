@@ -1,0 +1,416 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tbdy-engine.local/schemas/etabs_feature_source_contract.schema.json",
+  "title": "ETABS Feature Source Contract",
+  "description": "Allowed source provenance contract for current accepted resolved FeatureSnapshot features. Forbids Excel production, CheckResult/verdict semantics, and future engineering scope unlocks.",
+  "type": "object",
+  "required": [
+    "metadata",
+    "sources"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "contract",
+        "version",
+        "catalog_name"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "contract": {
+          "const": "Contract Constitution"
+        },
+        "version": {
+          "const": "1.0"
+        },
+        "catalog_name": {
+          "const": "etabs_feature_source_contract"
+        }
+      }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "current_minimal_live_slice_only": {
+          "type": "boolean"
+        },
+        "future_locked_scopes_absent": {
+          "type": "boolean"
+        }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "preferred_output_case_default": {
+          "type": "string",
+          "minLength": 1
+        },
+        "display_selection_call_shape": {
+          "const": "list_only"
+        },
+        "display_selection_methods": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "SetLoadCombinationsSelectedForDisplay",
+              "SetLoadCasesSelectedForDisplay"
+            ]
+          }
+        }
+      }
+    },
+    "not_applicable_semantic_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "semantic_item",
+          "reason"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "semantic_item": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/source_entry"
+      }
+    }
+  },
+  "$defs": {
+    "forbidden_property_names": {
+      "not": {
+        "enum": [
+          "check_id",
+          "check_result",
+          "check_results",
+          "CheckResult",
+          "pass",
+          "fail",
+          "OK",
+          "FAIL",
+          "verdict",
+          "live_verdict",
+          "engineering_verdict",
+          "check_engine_status",
+          "structural_status",
+          "status_from_counts"
+        ]
+      }
+    },
+    "source_entry": {
+      "type": "object",
+      "required": [
+        "feature_id",
+        "semantic_role",
+        "source_type",
+        "source_owner",
+        "row_selection_rule",
+        "evidence_required",
+        "display_selection_required",
+        "forbidden_source",
+        "locked_future_scope"
+      ],
+      "propertyNames": {
+        "$ref": "#/$defs/forbidden_property_names"
+      },
+      "additionalProperties": true,
+      "properties": {
+        "feature_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "semantic_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source_type": {
+          "enum": [
+            "direct_api",
+            "display_table",
+            "manual_context",
+            "derived_from_feature"
+          ]
+        },
+        "source_owner": {
+          "enum": [
+            "ETABS",
+            "manual",
+            "resolver"
+          ]
+        },
+        "api_path": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "raw_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "etabs_table_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "canonical_table_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "required_columns": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "optional_columns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "input_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "derived_from_features": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "row_selection_rule": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "display_selection_required": {
+          "type": "boolean"
+        },
+        "preferred_output_case_default": {
+          "type": "string",
+          "minLength": 1
+        },
+        "unit_expectation": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "unit_normalization": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "evidence_required": {
+          "type": "boolean"
+        },
+        "forbidden_source": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "not": {
+              "enum": [
+                "OK",
+                "FAIL",
+                "WARNING",
+                "NO_DATA"
+              ]
+            }
+          },
+          "not": {
+            "contains": {
+              "const": "excel_production_allowed"
+            }
+          }
+        },
+        "locked_future_scope": {
+          "type": "boolean"
+        },
+        "aggregation": {
+          "type": "string"
+        },
+        "source_status": {
+          "not": {
+            "enum": [
+              "OK",
+              "FAIL",
+              "WARNING",
+              "NO_DATA"
+            ]
+          }
+        },
+        "identity_requirements": {
+          "type": "object",
+          "additionalProperties": true,
+          "properties": {
+            "requires_story": {
+              "type": "boolean"
+            },
+            "requires_component_id": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "source_type": {
+                "const": "direct_api"
+              }
+            },
+            "required": [
+              "source_type"
+            ]
+          },
+          "then": {
+            "required": [
+              "api_path",
+              "raw_fields"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_type": {
+                "const": "display_table"
+              }
+            },
+            "required": [
+              "source_type"
+            ]
+          },
+          "then": {
+            "required": [
+              "etabs_table_name",
+              "canonical_table_key",
+              "required_columns",
+              "row_selection_rule"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_type": {
+                "const": "manual_context"
+              }
+            },
+            "required": [
+              "source_type"
+            ]
+          },
+          "then": {
+            "anyOf": [
+              {
+                "required": [
+                  "input_file"
+                ]
+              },
+              {
+                "required": [
+                  "context_key"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "source_type": {
+                "const": "derived_from_feature"
+              }
+            },
+            "required": [
+              "source_type"
+            ]
+          },
+          "then": {
+            "required": [
+              "derived_from_features"
+            ]
+          }
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "properties": {
+                  "source_type": {
+                    "const": "excel_production"
+                  }
+                },
+                "required": [
+                  "source_type"
+                ]
+              },
+              {
+                "properties": {
+                  "source_status": {
+                    "enum": [
+                      "OK",
+                      "FAIL",
+                      "WARNING",
+                      "NO_DATA"
+                    ]
+                  }
+                },
+                "required": [
+                  "source_status"
+                ]
+              },
+              {
+                "properties": {
+                  "source_scope": {
+                    "enum": [
+                      "future_rebar_unlock",
+                      "future_flexure_unlock",
+                      "future_shear_unlock",
+                      "future_capacity_unlock",
+                      "capacity_design"
+                    ]
+                  }
+                },
+                "required": [
+                  "source_scope"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

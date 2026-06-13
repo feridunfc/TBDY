@@ -1,0 +1,168 @@
+[
+  {
+    "check_id": "beam_geometry_min_depth",
+    "check_readiness_status": "partial",
+    "combo_policy_status": "NOT_APPLICABLE",
+    "component_id": "297",
+    "component_type": "beam",
+    "coverage_status": "PARTIAL",
+    "diagnostics": [
+      {
+        "code": "DESIGN_CONTEXT_MISSING",
+        "details": {
+          "check_id": "beam_geometry_min_depth",
+          "missing_design_context": [
+            "ductility_class"
+          ]
+        },
+        "message": "Required design context is missing for coverage",
+        "severity": "WARNING"
+      }
+    ],
+    "ductility_context_status": "MISSING",
+    "effective_evaluation_level": "SCREENING",
+    "evidence_status": "FULL",
+    "expected_evidence_requirements": {
+      "beam_depth_mm": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ]
+    },
+    "missing_design_context": [
+      {
+        "context_field": "ductility_class",
+        "reason": "Required design context is missing"
+      }
+    ],
+    "missing_design_context_sources": {
+      "ductility_class": {
+        "context_name": "ductility_class",
+        "expected_evidence_fields": [
+          "source_contract",
+          "source_field",
+          "resolved_value"
+        ],
+        "source_contract": "design_basis.yaml",
+        "source_field": "ductility_class",
+        "source_kind": "design_context",
+        "unit": ""
+      }
+    },
+    "missing_feature_sources": {},
+    "missing_features": [],
+    "reason": "Required design context is incomplete",
+    "required_design_context": [
+      "ductility_class"
+    ],
+    "required_features": [
+      "beam_depth_mm"
+    ],
+    "resolved_design_context": [],
+    "resolved_features": [
+      "beam_depth_mm"
+    ],
+    "section_state_status": "RESOLVED",
+    "source_diagnostics": [
+      {
+        "code": "EXPECTED_SOURCE_RECORDED",
+        "details": {
+          "check_id": "beam_geometry_min_depth",
+          "missing_design_context": [
+            "ductility_class"
+          ]
+        },
+        "message": "Expected source metadata recorded for missing design context",
+        "severity": "INFO"
+      }
+    ]
+  },
+  {
+    "check_id": "torsional_irregularity_A1",
+    "check_readiness_status": "partial",
+    "combo_policy_status": "NOT_APPLICABLE",
+    "component_id": "+14.5",
+    "component_type": "story",
+    "coverage_status": "PARTIAL",
+    "diagnostics": [
+      {
+        "code": "DESIGN_CONTEXT_MISSING",
+        "details": {
+          "check_id": "torsional_irregularity_A1",
+          "missing_design_context": [
+            "ductility_class"
+          ]
+        },
+        "message": "Required design context is missing for coverage",
+        "severity": "WARNING"
+      }
+    ],
+    "ductility_context_status": "MISSING",
+    "effective_evaluation_level": "SCREENING",
+    "evidence_status": "FULL",
+    "expected_evidence_requirements": {
+      "story_torsion_a1_coefficient": [
+        "source_table",
+        "source_row",
+        "source_column",
+        "raw_value",
+        "normalized_value",
+        "unit",
+        "output_case",
+        "combo_family"
+      ]
+    },
+    "missing_design_context": [
+      {
+        "context_field": "ductility_class",
+        "reason": "Required design context is missing"
+      }
+    ],
+    "missing_design_context_sources": {
+      "ductility_class": {
+        "context_name": "ductility_class",
+        "expected_evidence_fields": [
+          "source_contract",
+          "source_field",
+          "resolved_value"
+        ],
+        "source_contract": "design_basis.yaml",
+        "source_field": "ductility_class",
+        "source_kind": "design_context",
+        "unit": ""
+      }
+    },
+    "missing_feature_sources": {},
+    "missing_features": [],
+    "reason": "Required design context is incomplete",
+    "required_design_context": [
+      "ductility_class"
+    ],
+    "required_features": [
+      "story_torsion_a1_coefficient"
+    ],
+    "resolved_design_context": [],
+    "resolved_features": [
+      "story_torsion_a1_coefficient"
+    ],
+    "section_state_status": "RESOLVED",
+    "source_diagnostics": [
+      {
+        "code": "EXPECTED_SOURCE_RECORDED",
+        "details": {
+          "check_id": "torsional_irregularity_A1",
+          "missing_design_context": [
+            "ductility_class"
+          ]
+        },
+        "message": "Expected source metadata recorded for missing design context",
+        "severity": "INFO"
+      }
+    ]
+  }
+]

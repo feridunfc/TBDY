@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tbdy-engine.local/schemas/feature_snapshot.schema.json",
+  "title": "FeatureSnapshot Contract",
+  "description": "Provider-independent resolved/observed feature snapshot consumed by CoverageMatrix and CheckEngine. Forbids CheckResult/verdict semantics inside per-feature payloads.",
+  "type": "object",
+  "required": [
+    "metadata",
+    "snapshots",
+    "feature_status_counts"
+  ],
+  "additionalProperties": true,
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true
+    },
+    "feature_status_counts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "propertyNames": {
+        "enum": [
+          "RESOLVED",
+          "PARTIAL",
+          "MISSING",
+          "BLOCKED",
+          "UNKNOWN"
+        ]
+      }
+    },
+    "snapshots": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/component_snapshot"
+      }
+    }
+  },
+  "$defs": {
+    "forbidden_feature_payload_property_names": {
+      "not": {
+        "enum": [
+          "check_id",
+          "check_result",
+          "check_results",
+          "CheckResult",
+          "pass",
+          "fail",
+          "OK",
+          "FAIL",
+          "verdict",
+          "live_verdict",
+          "engineering_verdict",
+          "check_engine_status",
+          "structural_status",
+          "status_from_counts"
+        ]
+      }
+    },
+    "free_json": {},
+    "diagnostic": {
+      "type": "object",
+      "required": [
+        "severity",
+        "code",
+        "message"
+      ],
+      "propertyNames": {
+        "$ref": "#/$defs/forbidden_feature_payload_property_names"
+      },
+      "additionalProperties": true,
+      "properties": {
+        "severity": {
+          "type": "string"
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": [
+            "object",
+            "array",
+            "string",
+            "number",
+            "integer",
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
+    "evidence_item": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/forbidden_feature_payload_property_names"
+      },
+      "additionalProperties": true,
+      "properties": {
+        "evidence_status": {
+          "enum": [
+            "FULL",
+            "PARTIAL",
+            "MISSING",
+            "UNKNOWN"
+          ]
+        },
+        "source_table": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "actual_table_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_column": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_row": {},
+        "raw_value": {},
+        "normalized_value": {},
+        "output_case": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "combo_family": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "section_state": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ductility_class": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "governing_combo": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "resolver": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "messages": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "feature_value": {
+      "type": "object",
+      "required": [
+        "feature_name",
+        "status",
+        "value",
+        "semantic_role"
+      ],
+      "propertyNames": {
+        "$ref": "#/$defs/forbidden_feature_payload_property_names"
+      },
+      "additionalProperties": true,
+      "properties": {
+        "feature_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "semantic_role": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "enum": [
+            "RESOLVED",
+            "PARTIAL",
+            "MISSING",
+            "BLOCKED",
+            "UNKNOWN"
+          ]
+        },
+        "value": {},
+        "unit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "units": {},
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence_item"
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      }
+    },
+    "component_snapshot": {
+      "type": "object",
+      "required": [
+        "component_id",
+        "component_type",
+        "identity",
+        "features"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "component_id": {
+          "type": [
+            "string",
+            "number",
+            "integer"
+          ]
+        },
+        "component_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identity": {
+          "type": "object",
+          "additionalProperties": true
+        },
+        "features": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/feature_value"
+          }
+        },
+        "evidence_by_feature": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/evidence_item"
+            }
+          }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/diagnostic"
+          }
+        }
+      }
+    }
+  }
+}

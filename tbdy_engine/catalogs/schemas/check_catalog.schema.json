@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "metadata",
+    "checks",
+    "ratio_semantics"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "contract",
+        "version",
+        "catalog_name"
+      ],
+      "properties": {
+        "contract": {
+          "const": "Contract Constitution"
+        },
+        "version": {
+          "const": "1.0"
+        },
+        "catalog_name": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
+    },
+    "checks": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "element_type",
+          "category",
+          "readiness",
+          "required_features",
+          "pass_rule",
+          "status_logic",
+          "evaluation_level_policy",
+          "evidence_policy"
+        ],
+        "properties": {
+          "readiness": {
+            "type": "object",
+            "required": [
+              "status",
+              "reason"
+            ],
+            "properties": {
+              "status": {
+                "enum": [
+                  "ready",
+                  "partial",
+                  "missing_features"
+                ]
+              },
+              "reason": {
+                "type": "string"
+              }
+            }
+          },
+          "required_features": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pass_rule": {
+            "type": "object",
+            "required": [
+              "ratio_type",
+              "ok_if"
+            ]
+          }
+        }
+      }
+    },
+    "ratio_semantics": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": true
+}

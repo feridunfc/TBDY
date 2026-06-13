@@ -1,0 +1,82 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  sprint: C5_COVERAGE_MATRIX_FOUNDATION
+  status: coverage_policy
+  owner: TBDY Engine
+  catalog_name: coverage_policy
+  notes:
+  - Coverage-only. No CheckEngine, no engineering decisions, no ETABS/provider access.
+policy_version: '1.0'
+coverage_statuses:
+  RUNNABLE:
+    meaning: All required feature and context prerequisites are present with full
+      evidence.
+    decision_status_allowed: false
+  PARTIAL:
+    meaning: Required features are present but evidence or design context is incomplete.
+    decision_status_allowed: false
+  BLOCKED:
+    meaning: One or more required features are missing; downstream check execution
+      must not proceed.
+    decision_status_allowed: false
+evidence_statuses:
+- FULL
+- PARTIAL
+- MISSING
+policy_statuses:
+- RESOLVED
+- MISSING
+- NOT_APPLICABLE
+builder_inputs:
+  allowed:
+  - check_catalog.yaml
+  - feature_catalog.yaml
+  - design_combo_matrix.yaml
+  - high_ductility_check_scope.yaml
+  - check_scope_alignment.yaml
+  - element_registry.yaml
+  - FeatureSnapshot
+  - ContractBundle
+  forbidden:
+  - ETABS_TABLES_DIRECT
+  - PROVIDER_DATA_DIRECT
+  - table_registry_as_data_source
+  - CheckEngine
+  - runner_v2
+  - runtime
+  - archx
+runnability_rules:
+  missing_required_feature: BLOCKED
+  partial_evidence: PARTIAL
+  missing_design_context_default: PARTIAL
+  blocked_requires_reason: true
+  partial_requires_reason: true
+forbidden_outputs:
+  decision_status_tokens:
+  - OK
+  - FAIL
+  ratio_fields_forbidden: true
+  check_result_objects_forbidden: true
+  pass_rule_execution_forbidden: true
+  engineering_formula_execution_forbidden: true
+alignment_rules:
+  every_check_catalog_key_can_generate_row: true
+  every_contracted_scope_maps_to_check_or_pending_reason: true
+  every_coverage_row_references_known_check_id: true
+  every_component_type_exists_in_element_registry: true
+  every_required_feature_exists_in_feature_catalog: true
+
+expected_source_diagnostics:
+  required_for_blocked: true
+  required_for_partial: true
+  missing_feature_sources_required: true
+  missing_design_context_sources_required: true
+  expected_evidence_requirements_required_for_partial_evidence: true
+  source_diagnostics_required: true
+  source_kinds:
+  - etabs_table
+  - computed
+  - design_context
+  - unknown
+  semantic_note: Expected source diagnostics explain where missing data was expected to come from; they are not feature resolution.

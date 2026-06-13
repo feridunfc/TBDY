@@ -1,0 +1,94 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  sprint: C1_CONTRACT_HARDENING
+  status: hardened_contract
+  owner: TBDY Engine
+  catalog_name: section_state_policy
+  notes:
+  - Contract-only. No engine/check/ETABS runtime implementation.
+  - Production source of truth is live ETABS tables; Excel is fixture/debug/regression
+    only.
+  - 'Rebar semantics: ETABS_REQUIRED + TBDY_MIN -> GOVERNING_REQUIRED -> ENGINE_SELECTED;
+    USER_PROVIDED is explicit only.'
+policy_version: 1.0.0
+allowed_states:
+- gross_uncracked
+- cracked
+- code_modified_effective
+- etabs_model_assigned
+- unknown
+- not_applicable
+combo_family_to_section_state:
+  GRAV_SERVICE:
+    default_state: gross_uncracked
+    state_source: policy
+    evidence_required: true
+    stiffness_modifier_applied: false
+  GRAV_STRENGTH:
+    default_state: gross_uncracked
+    state_source: policy
+    evidence_required: true
+    stiffness_modifier_applied: false
+  DUCTILE_X:
+    default_state: cracked
+    state_source: policy
+    evidence_required: true
+    stiffness_modifier_applied: true
+  DUCTILE_Y:
+    default_state: cracked
+    state_source: policy
+    evidence_required: true
+    stiffness_modifier_applied: true
+  CAPACITY_X:
+    default_state: cracked
+    state_source: policy
+    evidence_required: true
+    stiffness_modifier_applied: true
+  CAPACITY_Y:
+    default_state: cracked
+    state_source: policy
+    evidence_required: true
+    stiffness_modifier_applied: true
+  DISP_X:
+    default_state: cracked
+    state_source: policy
+    evidence_required: true
+    stiffness_modifier_applied: true
+  DISP_Y:
+    default_state: cracked
+    state_source: policy
+    evidence_required: true
+    stiffness_modifier_applied: true
+  MODAL:
+    default_state: etabs_model_assigned
+    state_source: policy
+    evidence_required: true
+    stiffness_modifier_applied: true
+  SOIL:
+    default_state: gross_uncracked
+    state_source: policy
+    evidence_required: false
+    stiffness_modifier_applied: false
+  TEMP_POS:
+    default_state: gross_uncracked
+    state_source: policy
+    evidence_required: false
+    stiffness_modifier_applied: false
+  TEMP_NEG:
+    default_state: gross_uncracked
+    state_source: policy
+    evidence_required: false
+    stiffness_modifier_applied: false
+  NONE:
+    default_state: not_applicable
+    state_source: policy
+    evidence_required: false
+    stiffness_modifier_applied: false
+displacement_state_conflict_resolution:
+  decision: DISP_X and DISP_Y require cracked/code-modified-effective section state
+    for drift-sensitive evaluation; gross_uncracked displacement evidence is blocked
+    unless explicitly marked review_only.
+  gross_displacement_allowed_for_reinforcement_design: false
+  reinforcement_design_from_displacement_combos_allowed: false
+missing_section_state_behavior: diagnostic_and_block
