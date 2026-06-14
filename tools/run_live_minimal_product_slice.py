@@ -432,6 +432,9 @@ def build_product_slice(
 
     _copy_required(paths["baseline"] / "baseline_guard_report.json", out_dir / "baseline_guard_report.json")
     _copy_required(paths["c8"] / "feature_snapshot.json", out_dir / "feature_snapshot.json")
+    c13_source_tables = paths["c8"] / "product_report_source_tables.json"
+    if c13_source_tables.is_file():
+        shutil.copy2(c13_source_tables, out_dir / "product_report_source_tables.json")
     _copy_required(paths["c9"] / "coverage_matrix.json", out_dir / "coverage_matrix.json")
     _copy_required(paths["c10"] / "feature_snapshot_with_context.json", out_dir / "feature_snapshot_with_context.json")
     _copy_required(paths["c11"] / "check_results.json", out_dir / "check_results.json")
