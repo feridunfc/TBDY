@@ -153,6 +153,7 @@ class SmokeOutputs:
     display_selection_diagnostics: Mapping[str, Any]
     working_vs_failing_table_comparison: Mapping[str, Any]
     story_base_table_debug_report: Mapping[str, Any]
+    product_report_source_tables: Mapping[str, Any]
     live_failure_delta_report: Mapping[str, Any]
     boundary_report: Mapping[str, Any]
 
@@ -1828,9 +1829,56 @@ class C8LiveFeatureResolverSmoke:
             display_selection_diagnostics=self._display_selection_diagnostics(),
             working_vs_failing_table_comparison=self._working_vs_failing_table_comparison(),
             story_base_table_debug_report=self._story_base_table_debug_report(),
+            product_report_source_tables=self._product_report_source_tables(),
             live_failure_delta_report=self._live_failure_delta_report(snapshots),
             boundary_report=self._boundary_report(),
         )
+
+
+    def _product_report_source_tables(self) -> dict[str, Any]:
+        """Expose observed full-row display tables needed by product reporting.
+
+        This is a reporting artifact only. It preserves ETABS observed data for
+        all-beam section screening and full modal table rendering without
+        changing FeatureSnapshot or CheckResult semantics.
+        """
+        keys = (
+            "frame_assignments",
+            "frame_section_properties",
+            "modal_participating_mass",
+        )
+        tables: dict[str, Any] = {}
+        for key in keys:
+            table = self._table(key)
+            raw = _raw_table_diagnostics_from_table(table)
+            if table is None:
+                tables[key] = {
+                    "table_key": key,
+                    "actual_table_name": None,
+                    "columns": [],
+                    "row_count": 0,
+                    "rows": [],
+                    "raw_table_diagnostics": raw,
+                }
+                continue
+            tables[key] = {
+                "table_key": key,
+                "actual_table_name": table.actual_table_name,
+                "columns": list(table.columns),
+                "row_count": len(table.rows),
+                "rows": [dict(row) for row in table.rows],
+                "raw_table_diagnostics": raw,
+            }
+        return {
+            "metadata": {
+                "artifact": "product_report_source_tables",
+                "read_only": True,
+                "check_engine_executed": False,
+                "engineering_scope_unlocked": False,
+                "intended_use": "C13.0 all beam section type screening report",
+            },
+            "tables": tables,
+        }
 
     def _unit_context_report(self) -> dict[str, Any]:
         return {"unit_context": self.unit_context.as_dict()}
@@ -2462,6 +2510,7 @@ def write_smoke_outputs(out_dir: Path, outputs: SmokeOutputs) -> None:
         "geometry_direct_api_report.json": outputs.geometry_direct_api_report,
         "story_base_table_debug_report.json": outputs.story_base_table_debug_report,
         "story_base_resolver_table_debug_report.json": outputs.story_base_table_debug_report,
+        "product_report_source_tables.json": outputs.product_report_source_tables,
         "live_failure_delta_report.json": outputs.live_failure_delta_report,
         "c8_1_boundary_report.json": outputs.boundary_report,
         "c8_3_boundary_report.json": outputs.boundary_report,

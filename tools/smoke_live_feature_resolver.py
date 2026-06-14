@@ -34,6 +34,8 @@ from tbdy_engine.features.resolver.live_smoke import (
 from tbdy_engine.providers.table_registry import TableRegistry
 
 FULL_ROW_CAPTURE_TABLES: frozenset[str] = frozenset({
+    "Frame Assignments - Summary",
+    "Frame Section Property Definitions - Concrete Rectangular",
     "Modal Participating Mass Ratios",
     "Story Drifts",
     "Story Max Over Avg Drifts",
