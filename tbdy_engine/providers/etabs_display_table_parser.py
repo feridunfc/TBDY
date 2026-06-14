@@ -104,8 +104,60 @@ def _extract_mapping_shape(result: Mapping[str, Any]) -> tuple[int | None, tuple
     )
 
 
+def _extract_compact_six_item_etabs_shape(
+    result: Sequence[Any],
+) -> tuple[int | None, tuple[str, ...], Any, int | None, int | None, dict[str, Any]] | None:
+    """Parse the compact six-item ETABS COM return shape observed live.
+
+    Accepted live C11.1.11 traces returned:
+
+    ``[field_key_list_or_empty, number_fields_or_wrapper_slot, headers, number_records, table_data, ret]``
+
+    The second slot may be a COM wrapper/status value (often 1 or 2), so it is
+    trusted as ``number_fields`` only when it exactly equals ``len(headers)``.
+    This compact shape must be recognized before the generic sequence fallback,
+    otherwise the large TableData tuple can be missed or misdiagnosed as empty.
+    """
+    if len(result) != 6:
+        return None
+    headers = _as_string_tuple(result[2])
+    if not headers:
+        return None
+    records = result[3]
+    table_data = result[4]
+    ret = result[5]
+    if not isinstance(records, int) or not isinstance(ret, int):
+        return None
+    slot_1 = result[1]
+    number_fields: int | None = None
+    number_fields_source = "compact_6_item_slot_1_ignored_as_ambiguous"
+    if isinstance(slot_1, int) and slot_1 == len(headers):
+        number_fields = int(slot_1)
+        number_fields_source = "compact_6_item_slot_1_matches_header_count"
+    debug: dict[str, Any] = {
+        "sequence_length": len(result),
+        "return_code_guess": int(ret),
+        "integer_slots": [int(item) for item in result if isinstance(item, int)],
+        "candidate_string_sequences": sum(1 for item in result if _is_string_sequence(item)),
+        "number_fields_source": number_fields_source,
+        "number_fields_detected": number_fields,
+        "compact_six_item_shape_detected": True,
+        "compact_shape_slots": {
+            "headers_index": 2,
+            "number_records_index": 3,
+            "table_data_index": 4,
+            "return_code_index": 5,
+        },
+    }
+    return int(ret), headers, table_data, number_fields, int(records), debug
+
+
 def _extract_sequence_shape(result: Sequence[Any]) -> tuple[int | None, tuple[str, ...], Any, int | None, int | None, dict[str, Any]]:
-    debug: dict[str, Any] = {"sequence_length": len(result)}
+    compact = _extract_compact_six_item_etabs_shape(result)
+    if compact is not None:
+        return compact
+
+    debug: dict[str, Any] = {"sequence_length": len(result), "compact_six_item_shape_detected": False}
     return_code: int | None = None
     if result and isinstance(result[-1], int) and result[-1] in {0, 1, -1}:
         return_code = int(result[-1])
@@ -342,6 +394,7 @@ def parse_available_tables_result(result: Any) -> tuple[str, ...]:
 
 __all__ = [
     "ParsedDisplayTable",
+    "_extract_compact_six_item_etabs_shape",
     "_rows_from_data",
     "_table_data_length",
     "parse_available_tables_result",

@@ -10,6 +10,7 @@ from enum import StrEnum
 from typing import Any, Mapping
 
 from tbdy_engine.contracts.models import freeze_data
+from tbdy_engine.json_safe import to_jsonable
 
 
 class FeatureDiagnosticSeverity(StrEnum):
@@ -54,6 +55,9 @@ class FeatureDiagnosticCode(StrEnum):
     RESOLVER_ONLY_HAS_SAMPLE_ROWS = "RESOLVER_ONLY_HAS_SAMPLE_ROWS"
     RESOLVER_TABLE_PARSE_MISMATCH_WITH_PROBE = "RESOLVER_TABLE_PARSE_MISMATCH_WITH_PROBE"
     RESOLVER_SELECTOR_NO_MATCH_WITH_ROWS_PRESENT = "RESOLVER_SELECTOR_NO_MATCH_WITH_ROWS_PRESENT"
+    TARGET_IDENTITY_SEEDED_FROM_ARGS = "TARGET_IDENTITY_SEEDED_FROM_ARGS"
+    TABLE_UNAVAILABLE = "TABLE_UNAVAILABLE"
+    DESIGN_SUMMARY_ROW_MATCHING_USES_SEEDED_IDENTITY = "DESIGN_SUMMARY_ROW_MATCHING_USES_SEEDED_IDENTITY"
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,7 +79,7 @@ class FeatureDiagnostic:
             "severity": self.severity.value,
             "code": self.code.value,
             "message": self.message,
-            "details": dict(self.details),
+            "details": to_jsonable(self.details),
         }
 
 

@@ -31,14 +31,19 @@ FEATURE_SNAPSHOT_SCHEMA_TEST = "tests/contracts/test_feature_snapshot_schema_con
 ETABS_SOURCE_CONTRACT_TEST = "tests/contracts/test_etabs_feature_source_contract.py"
 
 
-def _run(command: list[str], *, cwd: Path = ROOT, timeout: int = 90) -> dict[str, Any]:
-    """Run a validation command and capture logs without pipe deadlocks."""
+def _run(command: list[str], *, cwd: Path = ROOT, timeout: int = 90, log_stem: str = "command") -> dict[str, Any]:
+    """Run a validation command and capture logs without pipe deadlocks.
+
+    C12.1 hardening: log filenames are short deterministic stems, never
+    derived from full command strings. This avoids Windows path-length failures
+    while preserving the full command array in the JSON report.
+    """
     print("[baseline-guard] RUN " + " ".join(command), flush=True)
     log_dir = _COMMAND_LOG_DIR
     log_dir.mkdir(parents=True, exist_ok=True)
-    slug = re.sub(r"[^A-Za-z0-9_.-]+", "_", "_".join(command))[:140]
-    stdout_path = log_dir / f"{slug}.stdout.log"
-    stderr_path = log_dir / f"{slug}.stderr.log"
+    safe_stem = re.sub(r"[^A-Za-z0-9_.-]+", "_", log_stem).strip("_") or "command"
+    stdout_path = log_dir / f"{safe_stem}.stdout.log"
+    stderr_path = log_dir / f"{safe_stem}.stderr.log"
     with stdout_path.open("w", encoding="utf-8") as stdout_file, stderr_path.open("w", encoding="utf-8") as stderr_file:
         proc = subprocess.Popen(command, cwd=cwd, text=True, stdout=stdout_file, stderr=stderr_file, start_new_session=True)
         timed_out = False
@@ -158,11 +163,11 @@ def build_baseline_guard_report(out_dir: Path = DEFAULT_OUT) -> dict[str, Any]:
     _COMMAND_LOG_DIR.mkdir(parents=True, exist_ok=True)
     commands: dict[str, dict[str, Any]] = {}
 
-    commands["compileall"] = _run([sys.executable, "-m", "compileall", "-q", "tbdy_engine", "tests", "tools"])
-    commands["contract_validator"] = _run([sys.executable, "tbdy_engine/tools/validate_contract_constitution.py"])
+    commands["compileall"] = _run([sys.executable, "-m", "compileall", "-q", "tbdy_engine", "tests", "tools"], log_stem="01_compileall")
+    commands["contract_validator"] = _run([sys.executable, "tbdy_engine/tools/validate_contract_constitution.py"], log_stem="02_contract_validator")
     catalog_count, schema_count, example_count = _parse_contract_counts(commands["contract_validator"]["stdout"])
-    commands["bootstrap_validation_fixtures"] = _run([sys.executable, "tools/bootstrap_validation_fixtures.py"])
-    commands["legacy_import_audit"] = _run([sys.executable, "tools/audit_legacy_imports.py", "--out", str(out_dir)])
+    commands["bootstrap_validation_fixtures"] = _run([sys.executable, "tools/bootstrap_validation_fixtures.py"], log_stem="03_bootstrap_validation_fixtures")
+    commands["legacy_import_audit"] = _run([sys.executable, "tools/audit_legacy_imports.py", "--out", str(out_dir)], log_stem="04_legacy_import_audit")
     # The guard validates the contract facts directly here. The corresponding
     # pytest suites are still run as explicit validation commands for C11.1.9.
     commands["pytest_baseline_guard_subset"] = {

@@ -245,6 +245,71 @@ def _row_identity(row: Mapping[str, Any] | None) -> dict[str, Any]:
     return identity
 
 
+def build_seed_identity_from_target(
+    target_component: str | None,
+    target_label: str | None,
+    target_story: str | None,
+    target_section: str | None,
+) -> dict[str, str]:
+    """Build ETABS table-keyed identity seed from live target arguments.
+
+    The seed is source/selector data only. It is not used to fake observed
+    feature values; identity features are resolved only from observed Frame
+    Assignments, concrete design summary rows, or read-only direct ETABS API
+    identity evidence.
+    """
+    seed: dict[str, str] = {}
+    if target_component not in (None, ""):
+        seed["UniqueName"] = str(target_component)
+    if target_label not in (None, ""):
+        seed["Label"] = str(target_label)
+    if target_story not in (None, ""):
+        seed["Story"] = str(target_story)
+    if target_section not in (None, ""):
+        seed["DesignSect"] = str(target_section)
+        seed["AnalysisSect"] = str(target_section)
+    return seed
+
+
+def _canonical_identity_from_seed(seed: Mapping[str, Any] | None) -> dict[str, Any]:
+    if not seed:
+        return {}
+    identity: dict[str, Any] = {}
+    for out, aliases in {
+        "component": ("component", "UniqueName", "Frame", "Beam", "Pier"),
+        "label": ("label", "Label", "Frame", "Beam"),
+        "story": ("story", "Story"),
+        "section": ("section", "DesignSect", "AnalysisSect", "Section", "Name"),
+        "station": ("station", "Station", "Location"),
+        "output_case": ("output_case", "OutputCase", "Output Case", "Case"),
+    }.items():
+        _, value = _first_present(seed, aliases)
+        if value not in (None, ""):
+            identity[out] = value
+    return identity
+
+
+def _seed_identity_from_row(row: Mapping[str, Any] | None) -> dict[str, Any]:
+    if not row:
+        return {}
+    seed: dict[str, Any] = {}
+    for out, aliases in {
+        "UniqueName": ("UniqueName", "Frame", "Beam"),
+        "Label": ("Label", "Frame", "Beam"),
+        "Story": _STORY_ALIASES,
+        "DesignSect": ("DesignSect", "Section"),
+        "AnalysisSect": ("AnalysisSect",),
+    }.items():
+        _, value = _first_present(row, aliases)
+        if value not in (None, ""):
+            seed[out] = value
+    if "DesignSect" not in seed and "AnalysisSect" in seed:
+        seed["DesignSect"] = seed["AnalysisSect"]
+    if "AnalysisSect" not in seed and "DesignSect" in seed:
+        seed["AnalysisSect"] = seed["DesignSect"]
+    return seed
+
+
 def _json_safe(value: Any) -> Any:
     """Backward-compatible local wrapper for old tests/imports."""
     return to_jsonable(value)
@@ -1163,25 +1228,64 @@ class C8LiveFeatureResolverSmoke:
             diagnostics=tuple(diagnostics) + tuple(combo_diags),
         )
 
-    def _select_design_row(self) -> Mapping[str, Any] | None:
+    def _select_design_row(self, seed: Mapping[str, Any] | None = None) -> tuple[Mapping[str, Any] | None, list[dict[str, Any]]]:
         table = self._table("concrete_beam_design_summary")
+        attempts: list[dict[str, Any]] = []
         if not table:
-            return None
-        for row in table.rows:
-            _, unique = _first_present(row, ("UniqueName", "Frame", "Beam"))
-            _, label = _first_present(row, ("Label", "Frame", "Beam"))
-            _, story = _first_present(row, _STORY_ALIASES)
-            _, section = _first_present(row, ("DesignSect", "AnalysisSect", "Section"))
-            if self.target["component"] and _norm(unique) != _norm(self.target["component"]):
-                continue
-            if self.target["label"] and _norm(label) != _norm(self.target["label"]):
-                continue
-            if self.target["story"] and _norm(story) != _norm(self.target["story"]):
-                continue
-            if self.target["section"] and _norm(section) != _norm(self.target["section"]):
-                continue
-            return row
-        return table.rows[0] if table.rows else None
+            attempts.append({"attempted_keys": dict(seed or {}), "matched": False, "reason": "TABLE_UNAVAILABLE"})
+            return None, attempts
+        canonical = _canonical_identity_from_seed(seed)
+        component = canonical.get("component") or self.target.get("component")
+        label = canonical.get("label") or self.target.get("label")
+        story = canonical.get("story") or self.target.get("story")
+        section = canonical.get("section") or self.target.get("section")
+        has_target = any(value not in (None, "") for value in (component, label, story, section))
+
+        ordered = [
+            ("unique_label_story_designsect", {"UniqueName": component, "Label": label, "Story": story, "DesignSect": section}),
+            ("unique", {"UniqueName": component}),
+            ("label_story", {"Label": label, "Story": story}),
+            ("label", {"Label": label}),
+            ("designsect", {"DesignSect": section}),
+            ("analysissect", {"AnalysisSect": section}),
+        ]
+
+        def matches(row: Mapping[str, Any], mode: str) -> bool:
+            _, row_unique = _first_present(row, ("UniqueName", "Frame", "Beam"))
+            _, row_label = _first_present(row, ("Label", "Frame", "Beam"))
+            _, row_story = _first_present(row, _STORY_ALIASES)
+            _, row_design = _first_present(row, ("DesignSect", "Section"))
+            _, row_analysis = _first_present(row, ("AnalysisSect",))
+            if mode == "unique_label_story_designsect":
+                return all(v not in (None, "") for v in (component, label, story, section)) and _norm(row_unique) == _norm(component) and _norm(row_label) == _norm(label) and _story_values_match(row_story, story) and _norm(row_design) == _norm(section)
+            if mode == "unique":
+                return component not in (None, "") and _norm(row_unique) == _norm(component)
+            if mode == "label_story":
+                return label not in (None, "") and story not in (None, "") and _norm(row_label) == _norm(label) and _story_values_match(row_story, story)
+            if mode == "label":
+                return label not in (None, "") and _norm(row_label) == _norm(label)
+            if mode == "designsect":
+                return section not in (None, "") and _norm(row_design) == _norm(section)
+            if mode == "analysissect":
+                return section not in (None, "") and _norm(row_analysis) == _norm(section)
+            return False
+
+        if has_target:
+            for mode, keys in ordered:
+                for row in table.rows:
+                    if matches(row, mode):
+                        attempts.append({"attempted_keys": keys, "matched": True, "reason": f"matched_by_{mode}"})
+                        return row, attempts
+                attempts.append({"attempted_keys": keys, "matched": False, "reason": f"no_match_by_{mode}"})
+            return None, attempts
+
+        # Legacy fixture path: no explicit live target was provided, so the first
+        # observed concrete design summary row is still the deterministic seed.
+        if table.rows:
+            attempts.append({"attempted_keys": {}, "matched": True, "reason": "first_design_summary_row_no_target"})
+            return table.rows[0], attempts
+        attempts.append({"attempted_keys": {}, "matched": False, "reason": "design_summary_table_empty"})
+        return None, attempts
 
     def _frame_assignment_match(self, seed: Mapping[str, Any]) -> tuple[Mapping[str, Any] | None, list[dict[str, Any]], list[FeatureDiagnostic], bool]:
         table = self._table("frame_assignments")
@@ -1190,10 +1294,11 @@ class C8LiveFeatureResolverSmoke:
         if not table:
             attempts.append({"attempted_keys": {}, "matched": False, "reason": "frame_assignments table missing"})
             return None, attempts, diagnostics, False
-        component = seed.get("component")
-        label = seed.get("label")
-        story = seed.get("story")
-        section = seed.get("section")
+        canonical = _canonical_identity_from_seed(seed)
+        component = canonical.get("component")
+        label = canonical.get("label")
+        story = canonical.get("story")
+        section = canonical.get("section")
 
         def check_row(row: Mapping[str, Any], mode: str) -> bool:
             _, row_unique = _first_present(row, ("UniqueName", "Frame", "Beam"))
@@ -1202,17 +1307,17 @@ class C8LiveFeatureResolverSmoke:
             _, row_design = _first_present(row, ("DesignSect", "Section"))
             _, row_analysis = _first_present(row, ("AnalysisSect",))
             if mode == "unique_label_story_designsect":
-                return _norm(row_unique) == _norm(component) and _norm(row_label) == _norm(label) and _norm(row_story) == _norm(story) and _norm(row_design) == _norm(section)
+                return all(v not in (None, "") for v in (component, label, story, section)) and _norm(row_unique) == _norm(component) and _norm(row_label) == _norm(label) and _story_values_match(row_story, story) and _norm(row_design) == _norm(section)
             if mode == "unique":
-                return _norm(row_unique) == _norm(component)
+                return component not in (None, "") and _norm(row_unique) == _norm(component)
             if mode == "label_story":
-                return _norm(row_label) == _norm(label) and _norm(row_story) == _norm(story)
+                return label not in (None, "") and story not in (None, "") and _norm(row_label) == _norm(label) and _story_values_match(row_story, story)
             if mode == "label":
-                return _norm(row_label) == _norm(label)
+                return label not in (None, "") and _norm(row_label) == _norm(label)
             if mode == "designsect":
-                return _norm(row_design) == _norm(section)
+                return section not in (None, "") and _norm(row_design) == _norm(section)
             if mode == "analysissect":
-                return _norm(row_analysis) == _norm(section)
+                return section not in (None, "") and _norm(row_analysis) == _norm(section)
             return False
 
         ordered = [
@@ -1444,19 +1549,115 @@ class C8LiveFeatureResolverSmoke:
             },
         }
 
+    def _concrete_beam_design_summary_availability_report(self, design_attempts: Sequence[Mapping[str, Any]], *, row_matching_uses_seeded_identity: bool) -> dict[str, Any]:
+        table_key = "concrete_beam_design_summary"
+        table = self._table(table_key)
+        live_debug = dict(self.table_extraction_debug.get("concrete_beam_design_summary_availability") or {})
+        registry_info = self.table_registry.get(table_key, {}) if isinstance(self.table_registry, Mapping) else {}
+        provider_sources = registry_info.get("provider_sources") if isinstance(registry_info, Mapping) else {}
+        catalog_aliases = list((provider_sources or {}).get("etabs") or ()) if isinstance(provider_sources, Mapping) else []
+        aliases_attempted = list(dict.fromkeys(list(live_debug.get("aliases_attempted") or ()) + catalog_aliases + ([table.actual_table_name] if table and table.actual_table_name else [])))
+        raw = _raw_table_diagnostics_from_table(table)
+        available = table is not None and bool(table.rows)
+        row_matching_attempted = bool(table and table.rows)
+        matched = any(bool(item.get("matched")) for item in design_attempts)
+        diagnostic_code = None if available else "TABLE_UNAVAILABLE"
+        if table is not None and not table.rows:
+            diagnostic_code = "TABLE_EMPTY"
+        return {
+            "concrete_beam_design_summary_fetch_attempted": bool(live_debug.get("fetch_attempted", True)),
+            "concrete_beam_design_summary_aliases_attempted": aliases_attempted,
+            "concrete_beam_design_summary_available": available,
+            "concrete_beam_design_summary_row_matching_attempted": row_matching_attempted,
+            "concrete_beam_design_summary_row_matching_uses_seeded_identity": bool(row_matching_uses_seeded_identity),
+            "concrete_beam_design_summary_row_matched": matched,
+            "concrete_beam_design_summary_matching_attempts": [dict(item) for item in design_attempts],
+            "diagnostic": diagnostic_code,
+            "display_selection_attempted": bool(raw.get("display_selection_attempted", live_debug.get("display_selection_attempted", False))),
+            "display_selection_success": bool(raw.get("display_selection_success", live_debug.get("display_selection_success", False))),
+            "display_selection_selected_method": raw.get("display_selection_selected_method", live_debug.get("display_selection_selected_method")),
+            "display_selection_attempts": list(raw.get("display_selection_attempts") or live_debug.get("display_selection_attempts") or ()),
+            "preferred_output_case": raw.get("preferred_output_case", live_debug.get("preferred_output_case", self.preferred_output_case)),
+            "actual_table_name": table.actual_table_name if table else live_debug.get("actual_table_name"),
+            "parser_status": raw.get("parser_status"),
+            "row_count": len(table.rows) if table else 0,
+            "raw_table_diagnostics": raw,
+        }
+
+    def _table_unavailable_diag(self, table_key: str, report: Mapping[str, Any]) -> FeatureDiagnostic:
+        return self._diag(
+            FeatureDiagnosticCode.TABLE_UNAVAILABLE,
+            f"{table_key} table is unavailable in smoke input",
+            table_key=table_key,
+            aliases_attempted=list(report.get("concrete_beam_design_summary_aliases_attempted") or ()),
+            fetch_attempted=bool(report.get("concrete_beam_design_summary_fetch_attempted")),
+            display_selection_attempted=bool(report.get("display_selection_attempted")),
+        )
+
+    def _direct_identity_value(self, feature_name: str, value: Any, *, column: str, identity: Mapping[str, Any]) -> FeatureValue:
+        evidence = FeatureEvidence(
+            evidence_status=FeatureEvidenceStatus.FULL,
+            source_table="live_etabs_direct_api",
+            actual_table_name="live_etabs_direct_api",
+            source_column=column,
+            source_row={"source_kind": "live_etabs_direct_api", **dict(identity)},
+            raw_value=value,
+            normalized_value=value,
+            unit=self._unit(feature_name),
+            resolver=RESOLVER_NAME,
+            reason="resolved from observed read-only direct ETABS API identity evidence",
+        )
+        diag = self._diag(FeatureDiagnosticCode.DIRECT_API_FALLBACK_USED, "Identity feature resolved from read-only direct ETABS API/provider fallback", feature_name=feature_name, source_kind="live_etabs_direct_api")
+        return FeatureValue(feature_name=feature_name, value=value, unit=self._unit(feature_name), semantic_role=self._semantic_role(feature_name), status=FeatureValueStatus.RESOLVED, evidence=[evidence], diagnostics=(diag,))
+
+    def _identity_feature_from_observed_source(
+        self,
+        feature_name: str,
+        source_table: str | None,
+        source_row: Mapping[str, Any] | None,
+        aliases: Sequence[str],
+        *,
+        direct_identity: Mapping[str, Any] | None = None,
+        direct_key: str | None = None,
+        diagnostics: Sequence[FeatureDiagnostic] = (),
+        reason: str | None = None,
+    ) -> FeatureValue:
+        if source_table and source_row:
+            return self._resolve_from_row(feature_name, source_table, source_row, aliases, diagnostics=diagnostics, reason=reason)
+        if direct_identity and direct_key and direct_identity.get(direct_key) not in (None, ""):
+            return self._direct_identity_value(feature_name, direct_identity.get(direct_key), column=direct_key, identity=direct_identity)
+        return self._missing(feature_name, "Observed identity source is not available", unit=self._unit(feature_name), table_key=source_table or "observed_identity", diagnostics=diagnostics)
+
     def build_beam_snapshot(self, component_id: str | None = None) -> FeatureSnapshot:
-        design_row = self._select_design_row()
-        seed_identity = _row_identity(design_row)
-        if component_id and not seed_identity.get("component"):
-            seed_identity["component"] = component_id
+        target_seed = build_seed_identity_from_target(
+            self.target.get("component") or component_id,
+            self.target.get("label"),
+            self.target.get("story"),
+            self.target.get("section"),
+        )
+        design_row, design_attempts = self._select_design_row(target_seed)
+        seed_identity = dict(target_seed)
+        identity_source = "target_args" if seed_identity else "unknown"
         identity_diags: list[FeatureDiagnostic] = []
-        if design_row:
+        if seed_identity:
+            identity_diags.append(self._diag(FeatureDiagnosticCode.TARGET_IDENTITY_SEEDED_FROM_ARGS, "Beam target identity seeded from live target CLI args before frame assignment and concrete design matching", identity_source="target_args", identity_seeded=True))
+        elif design_row:
+            seed_identity = _seed_identity_from_row(design_row)
+            identity_source = "concrete_beam_design_summary"
             identity_diags.append(self._diag(FeatureDiagnosticCode.IDENTITY_SEEDED_FROM_DESIGN_SUMMARY, "Beam target identity seeded from concrete_beam_design_summary before frame assignment matching", identity_source="concrete_beam_design_summary", identity_seeded=True))
+        elif component_id:
+            seed_identity = {"UniqueName": str(component_id)}
+            identity_source = "component_id_arg"
+
+        design_summary_report = self._concrete_beam_design_summary_availability_report(design_attempts, row_matching_uses_seeded_identity=bool(seed_identity))
         assignment, frame_attempts, frame_diags, analysis_fallback = self._frame_assignment_match(seed_identity)
         identity_diags.extend(frame_diags)
         identity_confirmed = assignment is not None
-        if not identity_confirmed and design_row:
+        if not identity_confirmed and identity_source == "concrete_beam_design_summary":
             identity_diags.append(self._diag(FeatureDiagnosticCode.IDENTITY_SEEDED_NOT_FRAME_CONFIRMED, "Design summary identity was not confirmed by Frame Assignments - Summary", identity_source="concrete_beam_design_summary", identity_seeded=True, identity_confirmed_by_frame_assignments=False))
+        if design_summary_report.get("concrete_beam_design_summary_row_matching_uses_seeded_identity"):
+            identity_diags.append(self._diag(FeatureDiagnosticCode.DESIGN_SUMMARY_ROW_MATCHING_USES_SEEDED_IDENTITY, "Concrete beam design summary row matching used seeded target identity", attempted_match_keys=[dict(item) for item in design_attempts]))
+
         frame_identity = _row_identity(assignment)
         if assignment is not None:
             design_col, _design_value = _first_present(assignment, ("DesignSect", "Section"))
@@ -1464,7 +1665,7 @@ class C8LiveFeatureResolverSmoke:
             if design_col is None and analysis_col is not None:
                 analysis_fallback = True
                 identity_diags.append(self._diag(FeatureDiagnosticCode.ANALYSIS_SECTION_FALLBACK, "AnalysisSect used because DesignSect was unavailable or unmatched", section_column=analysis_col))
-        identity = dict(seed_identity)
+        identity = _canonical_identity_from_seed(seed_identity)
         for key, value in frame_identity.items():
             if value not in (None, ""):
                 identity[key] = value
@@ -1485,7 +1686,10 @@ class C8LiveFeatureResolverSmoke:
         self._geometry_debug = {
             "frame_assignments": self._table_debug("frame_assignments", ("UniqueName", "Label", "Story", "DesignSect", "AnalysisSect", "Length"), frame_attempts),
             "frame_section_properties": self._table_debug("frame_section_properties", ("Name", "t2", "t3"), section_attempts),
+            "concrete_beam_design_summary": self._table_debug("concrete_beam_design_summary", ("UniqueName", "Label", "Story", "DesignSect", "AnalysisSect", "AsTop", "AsBot", "VRebar"), design_attempts) | dict(design_summary_report),
         }
+        confidence = "high" if identity_confirmed else ("medium" if direct_identity or design_row else "low")
+        resolved_identity_source = "frame_assignments" if assignment else ("direct_api_plus_frame_assignments" if direct_identity else identity_source)
         self._identity_report = {
             "target_selection_policy": {
                 "target_component": self.target.get("component") or component_id,
@@ -1494,40 +1698,47 @@ class C8LiveFeatureResolverSmoke:
                 "target_section": self.target.get("section"),
                 "auto_seed_from_design_summary": not any(self.target.values()) and component_id is None,
             },
-            "identity_source": "concrete_beam_design_summary" if design_row else "unknown",
-            "identity_seeded": bool(design_row),
+            "identity_source": resolved_identity_source,
+            "identity_seeded": bool(seed_identity),
             "identity_confirmed_by_frame_assignments": identity_confirmed,
-            "identity_confidence": "high" if identity_confirmed else ("medium" if design_row else "low"),
+            "identity_confidence": confidence,
             "seed_identity": seed_identity,
             "resolved_identity": identity,
             "frame_assignment_matching_attempts": frame_attempts,
+            "concrete_beam_design_summary": design_summary_report,
+            **{k: v for k, v in design_summary_report.items() if k.startswith("concrete_beam_design_summary_")},
             "diagnostics": [diag.as_dict() for diag in identity_diags],
         }
-        seed_reason = "identity seeded from concrete_beam_design_summary" if design_row and not assignment else None
-        seed_diag = [d for d in identity_diags if d.code in {FeatureDiagnosticCode.IDENTITY_SEEDED_FROM_DESIGN_SUMMARY, FeatureDiagnosticCode.IDENTITY_SEEDED_NOT_FRAME_CONFIRMED}]
+        seed_reason = "identity seeded from concrete_beam_design_summary" if identity_source == "concrete_beam_design_summary" and not assignment else None
+        seed_diag = [d for d in identity_diags if d.code in {FeatureDiagnosticCode.IDENTITY_SEEDED_FROM_DESIGN_SUMMARY, FeatureDiagnosticCode.IDENTITY_SEEDED_NOT_FRAME_CONFIRMED, FeatureDiagnosticCode.TARGET_IDENTITY_SEEDED_FROM_ARGS}]
         source_row_for_identity = assignment or design_row
-        source_table_for_identity = "frame_assignments" if assignment else "concrete_beam_design_summary"
+        source_table_for_identity = "frame_assignments" if assignment else ("concrete_beam_design_summary" if design_row else None)
+        design_value_diags: list[FeatureDiagnostic] = []
+        if not design_summary_report.get("concrete_beam_design_summary_available"):
+            design_value_diags.append(self._table_unavailable_diag("concrete_beam_design_summary", design_summary_report))
+        elif design_row is None:
+            design_value_diags.append(self._diag(FeatureDiagnosticCode.ROW_MISSING, "No concrete beam design summary row matched seeded identity", attempted_match_keys=[dict(item) for item in design_attempts]))
         direct_geometry_features, direct_geometry_report = self._resolve_direct_api_geometry_features(section_name)
         self._geometry_direct_api_report = direct_geometry_report
         table_width = self._resolve_from_row("beam_width_mm", "frame_section_properties", section_row, ("t2", "Width", "b"))
         table_depth = self._resolve_from_row("beam_depth_mm", "frame_section_properties", section_row, ("t3", "Depth", "h"))
         table_length = self._resolve_from_row("beam_length_mm", "frame_assignments", assignment, ("Length", "ObjectLength", "FrameLength"))
         features = {
-            "beam_unique_name": self._resolve_from_row("beam_unique_name", source_table_for_identity, source_row_for_identity, ("UniqueName", "Frame", "Beam"), diagnostics=seed_diag, reason=seed_reason),
-            "beam_label": self._resolve_from_row("beam_label", source_table_for_identity, source_row_for_identity, ("Label", "Frame", "Beam"), diagnostics=seed_diag, reason=seed_reason),
-            "beam_story": self._resolve_from_row("beam_story", source_table_for_identity, source_row_for_identity, _STORY_ALIASES, diagnostics=seed_diag, reason=seed_reason),
-            "beam_section_name": self._resolve_from_row("beam_section_name", source_table_for_identity, source_row_for_identity, ("DesignSect", "AnalysisSect", "Section"), diagnostics=identity_diags if analysis_fallback or not assignment else identity_diags[:1], reason=seed_reason),
+            "beam_unique_name": self._identity_feature_from_observed_source("beam_unique_name", source_table_for_identity, source_row_for_identity, ("UniqueName", "Frame", "Beam"), direct_identity=direct_identity, direct_key="component", diagnostics=seed_diag, reason=seed_reason),
+            "beam_label": self._identity_feature_from_observed_source("beam_label", source_table_for_identity, source_row_for_identity, ("Label", "Frame", "Beam"), direct_identity=direct_identity, direct_key="label", diagnostics=seed_diag, reason=seed_reason),
+            "beam_story": self._identity_feature_from_observed_source("beam_story", source_table_for_identity, source_row_for_identity, _STORY_ALIASES, direct_identity=direct_identity, direct_key="story", diagnostics=seed_diag, reason=seed_reason),
+            "beam_section_name": self._identity_feature_from_observed_source("beam_section_name", source_table_for_identity, source_row_for_identity, ("DesignSect", "AnalysisSect", "Section"), direct_identity=direct_identity, direct_key="section", diagnostics=identity_diags if analysis_fallback or not assignment else identity_diags[:1], reason=seed_reason),
             "beam_width_mm": table_width if table_width.status == FeatureValueStatus.RESOLVED else direct_geometry_features.get("beam_width_mm", table_width),
             "beam_depth_mm": table_depth if table_depth.status == FeatureValueStatus.RESOLVED else direct_geometry_features.get("beam_depth_mm", table_depth),
             "beam_length_mm": table_length if table_length.status == FeatureValueStatus.RESOLVED else direct_geometry_features.get("beam_length_mm", table_length),
-            "beam_As_top_etabs_required_mm2": self._resolve_from_row("beam_As_top_etabs_required_mm2", "concrete_beam_design_summary", design_row, ("AsTop", "AsMinTop", "totTopRebar", "TopArea"), combo_column_aliases=("AsTopCombo",)),
-            "beam_As_bottom_etabs_required_mm2": self._resolve_from_row("beam_As_bottom_etabs_required_mm2", "concrete_beam_design_summary", design_row, ("AsBot", "AsMinBot", "totBotRebar", "BotArea"), combo_column_aliases=("AsBotCombo",)),
-            "beam_shear_rebar_etabs_required_mm2": self._resolve_from_row("beam_shear_rebar_etabs_required_mm2", "concrete_beam_design_summary", design_row, ("VRebar",), combo_column_aliases=("VCombo",)),
-            "beam_As_top_combo": self._resolve_from_row("beam_As_top_combo", "concrete_beam_design_summary", design_row, ("AsTopCombo",), combo_column_aliases=("AsTopCombo",)),
-            "beam_As_bottom_combo": self._resolve_from_row("beam_As_bottom_combo", "concrete_beam_design_summary", design_row, ("AsBotCombo",), combo_column_aliases=("AsBotCombo",)),
-            "beam_V_combo": self._resolve_from_row("beam_V_combo", "concrete_beam_design_summary", design_row, ("VCombo",), combo_column_aliases=("VCombo",)),
-            "beam_design_warn_msg": self._resolve_from_row("beam_design_warn_msg", "concrete_beam_design_summary", design_row, ("WarnMsg",)),
-            "beam_design_err_msg": self._resolve_from_row("beam_design_err_msg", "concrete_beam_design_summary", design_row, ("ErrMsg",)),
+            "beam_As_top_etabs_required_mm2": self._resolve_from_row("beam_As_top_etabs_required_mm2", "concrete_beam_design_summary", design_row, ("AsTop", "AsMinTop", "totTopRebar", "TopArea"), combo_column_aliases=("AsTopCombo",), diagnostics=design_value_diags),
+            "beam_As_bottom_etabs_required_mm2": self._resolve_from_row("beam_As_bottom_etabs_required_mm2", "concrete_beam_design_summary", design_row, ("AsBot", "AsMinBot", "totBotRebar", "BotArea"), combo_column_aliases=("AsBotCombo",), diagnostics=design_value_diags),
+            "beam_shear_rebar_etabs_required_mm2": self._resolve_from_row("beam_shear_rebar_etabs_required_mm2", "concrete_beam_design_summary", design_row, ("VRebar",), combo_column_aliases=("VCombo",), diagnostics=design_value_diags),
+            "beam_As_top_combo": self._resolve_from_row("beam_As_top_combo", "concrete_beam_design_summary", design_row, ("AsTopCombo",), combo_column_aliases=("AsTopCombo",), diagnostics=design_value_diags),
+            "beam_As_bottom_combo": self._resolve_from_row("beam_As_bottom_combo", "concrete_beam_design_summary", design_row, ("AsBotCombo",), combo_column_aliases=("AsBotCombo",), diagnostics=design_value_diags),
+            "beam_V_combo": self._resolve_from_row("beam_V_combo", "concrete_beam_design_summary", design_row, ("VCombo",), combo_column_aliases=("VCombo",), diagnostics=design_value_diags),
+            "beam_design_warn_msg": self._resolve_from_row("beam_design_warn_msg", "concrete_beam_design_summary", design_row, ("WarnMsg",), diagnostics=design_value_diags),
+            "beam_design_err_msg": self._resolve_from_row("beam_design_err_msg", "concrete_beam_design_summary", design_row, ("ErrMsg",), diagnostics=design_value_diags),
         }
         for name, code in (("beam_design_warn_msg", FeatureDiagnosticCode.ETABS_WARNING_MESSAGE), ("beam_design_err_msg", FeatureDiagnosticCode.ETABS_ERROR_MESSAGE)):
             value = features[name].value
@@ -2282,6 +2493,7 @@ __all__ = [
     "tables_from_probe_report",
     "unit_context_from_payload",
     "to_jsonable",
+    "build_seed_identity_from_target",
     "write_json_payload",
     "write_smoke_outputs",
 ]

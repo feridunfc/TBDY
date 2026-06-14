@@ -8,6 +8,7 @@ create engineering verdicts.
 from __future__ import annotations
 
 import json
+from json import JSONDecodeError
 from collections import Counter
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -52,8 +53,79 @@ C10_FORBIDDEN_UNLOCK_CHECK_PATTERNS = (
 )
 
 
+REQUIRED_DESIGN_CONTEXT_KEYS = ("ductility_class",)
+
+
 def _load_json(path: Path) -> Any:
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(path.read_text(encoding="utf-8-sig"))
+
+
+def validate_design_context_path(path: Path) -> dict[str, Any]:
+    """Validate design context JSON without silently accepting bad input.
+
+    C12.1 hardening accepts both normal UTF-8 and UTF-8 with BOM while
+    producing explicit diagnostics for missing files, malformed JSON, and
+    incomplete minimal context.
+    """
+    report: dict[str, Any] = {
+        "stage": "preflight",
+        "path": str(path),
+        "required_keys": list(REQUIRED_DESIGN_CONTEXT_KEYS),
+        "message": None,
+        "missing_keys": [],
+        "has_utf8_bom": False,
+    }
+    if not path.is_file():
+        report.update({
+            "status": "DESIGN_CONTEXT_MISSING",
+            "message": "Design context JSON is missing; ductility_class is required for current minimal readiness.",
+            "user_action": "Create the design context file or copy tests/fixtures/c10_design_context_fixture.json to this path.",
+        })
+        return report
+    try:
+        raw = path.read_bytes()
+        report["has_utf8_bom"] = raw.startswith(b"\xef\xbb\xbf")
+        payload = json.loads(raw.decode("utf-8-sig"))
+    except UnicodeDecodeError as exc:
+        report.update({
+            "status": "DESIGN_CONTEXT_INVALID_JSON",
+            "message": f"Design context is not valid UTF-8/UTF-8-BOM JSON: {exc}",
+            "parse_error": str(exc),
+            "user_action": "Rewrite the file as valid JSON encoded as UTF-8 or UTF-8 with BOM.",
+        })
+        return report
+    except JSONDecodeError as exc:
+        report.update({
+            "status": "DESIGN_CONTEXT_INVALID_JSON",
+            "message": f"Design context JSON is malformed: {exc}",
+            "parse_error": str(exc),
+            "user_action": "Fix the JSON syntax; ductility_class is required for current minimal readiness.",
+        })
+        return report
+    if not isinstance(payload, Mapping):
+        report.update({
+            "status": "DESIGN_CONTEXT_INVALID_JSON",
+            "message": "Design context JSON must be an object.",
+            "parse_error": "top-level JSON value is not an object",
+            "user_action": "Use an object such as {\"ductility_class\": \"HIGH\"}.",
+        })
+        return report
+    missing = [key for key in REQUIRED_DESIGN_CONTEXT_KEYS if payload.get(key) in (None, "")]
+    if missing:
+        report.update({
+            "status": "DESIGN_CONTEXT_INCOMPLETE",
+            "message": "Design context is missing required keys for current minimal readiness.",
+            "missing_keys": missing,
+            "user_action": "Add ductility_class to the design context JSON.",
+        })
+        return report
+    report.update({
+        "status": "DESIGN_CONTEXT_OK",
+        "message": "Design context JSON is readable and contains the required minimal readiness keys.",
+        "present_keys": sorted(str(key) for key in payload.keys()),
+        "payload": dict(payload),
+    })
+    return report
 
 
 def _write_all(out_dir: Path, outputs: Mapping[str, Any]) -> None:
@@ -79,9 +151,12 @@ def load_design_context(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
       "notes": "..."
     }
     """
-    payload = _load_json(path)
-    if not isinstance(payload, Mapping):
-        raise ValueError("Design context must be a JSON object")
+    validation = validate_design_context_path(path)
+    if validation.get("status") != "DESIGN_CONTEXT_OK":
+        raise ValueError(f"{validation.get('status')}: {validation.get('message')}")
+    payload = validation.get("payload")
+    if not isinstance(payload, Mapping):  # defensive, should be unreachable after validation
+        raise ValueError("DESIGN_CONTEXT_INVALID_JSON: Design context JSON must be an object")
     values: dict[str, Any] = {}
     if payload.get("ductility_class") is not None:
         values["ductility_class"] = payload.get("ductility_class")
@@ -91,6 +166,8 @@ def load_design_context(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         "source": source,
         "source_file": str(path),
         "notes": payload.get("notes"),
+        "encoding": "utf-8-sig-compatible",
+        "has_utf8_bom": bool(validation.get("has_utf8_bom")),
         "fields": {
             key: {
                 "value": value,
@@ -103,7 +180,6 @@ def load_design_context(path: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         "silent_inference_used": False,
     }
     return values, provenance
-
 
 def _build_matrix_with_minimal_context(
     bundle: ContractBundle,
@@ -348,4 +424,6 @@ __all__ = [
     "build_and_write_c10_outputs",
     "build_c10_outputs",
     "load_design_context",
+    "validate_design_context_path",
+    "REQUIRED_DESIGN_CONTEXT_KEYS",
 ]

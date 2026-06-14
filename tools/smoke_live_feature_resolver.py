@@ -40,10 +40,12 @@ FULL_ROW_CAPTURE_TABLES: frozenset[str] = frozenset({
     "Base Reactions",
 })
 
-STORY_BASE_RESULT_TABLES: frozenset[str] = frozenset({
+OUTPUT_DEPENDENT_DISPLAY_TABLES: frozenset[str] = frozenset({
     "Story Drifts",
     "Story Max Over Avg Drifts",
     "Base Reactions",
+    "Concrete Beam Design Summary",
+    "Concrete Beam Design Summary - TS 500-2000(R2018)",
 })
 
 
@@ -218,8 +220,28 @@ def _live_probe_tables_and_units(bundle, max_rows: int, *, target_component: str
         raise RuntimeError(f"Could not attach to an already open ETABS model: {exc}") from exc
     registry = TableRegistry.from_dict(bundle.catalog("table_registry.yaml"))
     parsed_payloads = []
-    raw_debug_payload = {"raw_com_tuple_dump": {"tables": []}, "parser_strategy_report": {"tables": []}, "display_selection_diagnostics": {"preferred_output_case": preferred_output_case, "tables": {}}}
-    for requested in DEFAULT_TABLE_WHITELIST:  # pragma: no cover - requires local Windows/ETABS
+    table_catalog = bundle.catalog("table_registry.yaml").get("tables", {})
+    concrete_sources = table_catalog.get("concrete_beam_design_summary", {}).get("provider_sources", {}).get("etabs", [])
+    concrete_aliases = list(dict.fromkeys([str(x) for x in concrete_sources] + ["Concrete Beam Design Summary - TS 500-2000(R2018)"]))
+    requested_tables = list(dict.fromkeys(list(DEFAULT_TABLE_WHITELIST) + concrete_aliases))
+    concrete_available_actual = next((_table_is_available(alias, available) for alias in concrete_aliases if _table_is_available(alias, available)), None)
+    raw_debug_payload = {
+        "raw_com_tuple_dump": {"tables": []},
+        "parser_strategy_report": {"tables": []},
+        "display_selection_diagnostics": {"preferred_output_case": preferred_output_case, "tables": {}},
+        "concrete_beam_design_summary_availability": {
+            "fetch_attempted": True,
+            "aliases_attempted": concrete_aliases,
+            "actual_table_name": concrete_available_actual,
+            "available": bool(concrete_available_actual),
+            "preferred_output_case": preferred_output_case,
+            "display_selection_attempted": False,
+            "display_selection_success": False,
+            "display_selection_selected_method": None,
+            "display_selection_attempts": [],
+        },
+    }
+    for requested in requested_tables:  # pragma: no cover - requires local Windows/ETABS
         actual = _table_is_available(requested, available)
         if not actual:
             continue
@@ -229,9 +251,16 @@ def _live_probe_tables_and_units(bundle, max_rows: int, *, target_component: str
         # when the target story/output case was outside the first sample rows.
         table_max_rows = _live_table_max_rows(actual, max_rows)
         display_selection = None
-        if actual in STORY_BASE_RESULT_TABLES:
+        if actual in OUTPUT_DEPENDENT_DISPLAY_TABLES:
             display_selection = select_output_for_display(database_tables, preferred_output_case)
             raw_debug_payload["display_selection_diagnostics"]["tables"][actual] = dict(display_selection)
+            if actual in {"Concrete Beam Design Summary", "Concrete Beam Design Summary - TS 500-2000(R2018)"}:
+                raw_debug_payload["concrete_beam_design_summary_availability"].update({
+                    "display_selection_attempted": bool(display_selection.get("display_selection_attempted")),
+                    "display_selection_success": bool(display_selection.get("display_selection_success")),
+                    "display_selection_selected_method": display_selection.get("display_selection_selected_method"),
+                    "display_selection_attempts": list(display_selection.get("display_selection_attempts") or ()),
+                })
         fetched = fetch_display_table(database_tables, actual, max_rows=table_max_rows)
         result = fetched.raw_response
         parsed = fetched.parsed
@@ -241,6 +270,13 @@ def _live_probe_tables_and_units(bundle, max_rows: int, *, target_component: str
             raw_diag = dict(table_payload.get("raw_table_diagnostics") or {})
             raw_diag.update(display_selection)
             table_payload["raw_table_diagnostics"] = raw_diag
+        if actual in {"Concrete Beam Design Summary", "Concrete Beam Design Summary - TS 500-2000(R2018)"}:
+            raw_debug_payload["concrete_beam_design_summary_availability"].update({
+                "actual_table_name": actual,
+                "available": bool(table_payload.get("rows") or table_payload.get("parsed_rows")),
+                "parser_status": (table_payload.get("raw_table_diagnostics") or {}).get("parser_status"),
+                "row_count": len(table_payload.get("rows") or table_payload.get("parsed_rows") or ()),
+            })
         parsed_payloads.append(table_payload)
         if actual in {"Frame Assignments - Summary", "Frame Section Property Definitions - Concrete Rectangular", "Concrete Beam Design Summary - TS 500-2000(R2018)", "Modal Participating Mass Ratios", "Story Drifts", "Story Max Over Avg Drifts", "Base Reactions"}:
             from tbdy_engine.features.resolver.live_smoke import raw_com_tuple_dump_for_response, parser_strategy_report_for_response
