@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "C13.2-P2 ETABS Feature Source Contract Schema",
+  "type": "object",
+  "required": [
+    "metadata",
+    "sources"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object"
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "evidence_status",
+          "display_selection_required",
+          "check_unlock_allowed",
+          "source_type",
+          "required_columns",
+          "semantic_role",
+          "feature_id",
+          "row_selection_rule",
+          "evidence_required",
+          "table_registry_key",
+          "column",
+          "source_owner",
+          "canonical_table_key",
+          "etabs_table_name"
+        ],
+        "properties": {
+          "feature_id": {
+            "type": "string",
+            "pattern": "^(?!.*(pass|fail|ok|verdict|check_result)).+$"
+          },
+          "table_registry_key": {
+            "type": "string"
+          },
+          "column": {
+            "type": "string"
+          },
+          "unit_family": {
+            "type": "string"
+          },
+          "evidence_status": {
+            "enum": [
+              "VERIFIED_LIVE",
+              "NEEDS_LIVE_PROBE",
+              "SEMANTIC_REVIEW",
+              "EXCEL_INVENTORY_ONLY",
+              "PLANNED"
+            ]
+          },
+          "semantic_role": {
+            "type": "string"
+          },
+          "check_unlock_allowed": {
+            "const": false
+          },
+          "source_type": {
+            "type": "string"
+          },
+          "source_owner": {
+            "type": "string"
+          },
+          "etabs_table_name": {
+            "type": "string"
+          },
+          "canonical_table_key": {
+            "type": "string"
+          },
+          "required_columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "optional_columns": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "row_selection_rule": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence_required": {
+            "const": true
+          },
+          "display_selection_required": {
+            "type": "boolean"
+          },
+          "unit_expectation": {
+            "type": "object"
+          },
+          "forbidden_source": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "locked_future_scope": {
+            "type": "boolean"
+          },
+          "source_scope": {
+            "type": "string"
+          },
+          "api_path": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "raw_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "source_type": {
+                  "const": "direct_api"
+                }
+              },
+              "required": [
+                "source_type"
+              ]
+            },
+            "then": {
+              "required": [
+                "api_path",
+                "raw_fields"
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

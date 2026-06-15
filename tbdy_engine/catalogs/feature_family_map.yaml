@@ -1,0 +1,64 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  catalog_name: feature_family_map
+  sprint: C13.2-P2
+  status: verified_live_feature_family_grouping
+  safe_to_implement_checks_now: false
+feature_families:
+  frame_identity:
+    source_tables:
+    - frame_assignments_summary
+    evidence_status: VERIFIED_LIVE
+    check_unlock_allowed: false
+  beam_identity:
+    source_tables:
+    - frame_assignments_summary
+    filter:
+      Type: Beam
+    evidence_status: VERIFIED_LIVE
+    check_unlock_allowed: false
+  column_identity:
+    source_tables:
+    - frame_assignments_summary
+    filter:
+      Type: Column
+    evidence_status: VERIFIED_LIVE
+    check_unlock_allowed: false
+  rectangular_section_geometry:
+    source_tables:
+    - concrete_rectangular_frame_sections
+    evidence_status: VERIFIED_LIVE
+    check_unlock_allowed: false
+  modal_mass:
+    source_tables:
+    - modal_participating_mass
+    evidence_status: VERIFIED_LIVE
+    check_unlock_allowed: false
+  story_drift_observed_source:
+    source_tables:
+    - story_drifts
+    - story_max_over_avg_drifts
+    evidence_status: VERIFIED_LIVE
+    check_unlock_allowed: false
+  base_reaction_observed_source:
+    source_tables:
+    - base_reactions
+    evidence_status: VERIFIED_LIVE
+    check_unlock_allowed: false
+  material_context_verified:
+    source_tables:
+    - concrete_material_properties
+    - rebar_material_properties
+    - material_list_by_story
+    - frame_section_material_assignments
+    - frame_section_assignments
+    evidence_status: VERIFIED_LIVE
+    check_unlock_allowed: false
+  area_wall_identity_context:
+    source_tables:
+    - area_assignments_summary
+    - wall_section_properties
+    - pier_assignments
+    evidence_status: VERIFIED_LIVE
+    check_unlock_allowed: false

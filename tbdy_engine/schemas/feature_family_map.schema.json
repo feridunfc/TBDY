@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "C13.2-P2 Feature Family Map Schema",
+  "type": "object",
+  "required": ["metadata", "feature_families"],
+  "properties": {
+    "metadata": {"type": "object"},
+    "feature_families": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["source_tables", "evidence_status", "check_unlock_allowed"],
+        "properties": {
+          "source_tables": {"type": "array", "items": {"type": "string"}},
+          "filter": {"type": "object"},
+          "evidence_status": {"enum": ["VERIFIED_LIVE", "NEEDS_LIVE_PROBE", "SEMANTIC_REVIEW", "EXCEL_INVENTORY_ONLY", "PLANNED"]},
+          "check_unlock_allowed": {"const": false}
+        }
+      }
+    }
+  }
+}

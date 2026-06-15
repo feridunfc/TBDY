@@ -1,0 +1,53 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  catalog_name: product_report_table_contract
+  sprint: C13.2-P2
+  status: report_table_source_contract_only
+  safe_to_implement_checks_now: false
+  notes:
+  - Documents source dependencies for existing/planned report sections.
+  - Does not change renderer behavior.
+report_tables:
+  concrete_beam_section_geometry_checks:
+    verified_sources:
+    - frame_assignments_summary
+    - concrete_rectangular_frame_sections
+    check_unlock_allowed: false
+  concrete_column_section_geometry_checks:
+    verified_sources:
+    - frame_assignments_summary
+    - concrete_rectangular_frame_sections
+    - frame_section_assignments
+    check_unlock_allowed: false
+  modal_mass_full_table:
+    verified_sources:
+    - modal_participating_mass
+    check_unlock_allowed: false
+  modal_mass_final_verdict:
+    verified_sources:
+    - modal_participating_mass
+    check_unlock_allowed: false
+  source_verification_appendix:
+    verified_sources:
+    - frame_assignments_summary
+    - concrete_rectangular_frame_sections
+    - modal_participating_mass
+    - story_drifts
+    - story_max_over_avg_drifts
+    - base_reactions
+    - material_list_by_story
+    - concrete_material_properties
+    - rebar_material_properties
+    - frame_section_assignments
+    - frame_section_material_assignments
+    - area_assignments_summary
+    - wall_section_properties
+    - pier_assignments
+    blocked_sources:
+    - material_properties
+    - pier_section_properties
+    - story_definitions
+    semantic_review_sources:
+    - pier_forces
+    check_unlock_allowed: false
