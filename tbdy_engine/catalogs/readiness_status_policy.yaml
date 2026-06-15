@@ -1,0 +1,35 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  catalog_name: readiness_status_policy
+  sprint: C13.2-P2
+  safe_to_implement_checks_now: false
+statuses:
+  VERIFIED_LIVE:
+    meaning: source/table/header/sample verified by live ETABS probe
+    may_unlock_source_contract: true
+    may_unlock_engineering_check: false
+  NEEDS_LIVE_PROBE:
+    meaning: candidate source exists but live/header/semantic proof incomplete
+    may_unlock_source_contract: false
+    may_unlock_engineering_check: false
+  SEMANTIC_REVIEW:
+    meaning: source exists but engineering meaning requires human review
+    may_unlock_source_contract: false
+    may_unlock_engineering_check: false
+  EXCEL_INVENTORY_ONLY:
+    meaning: present only in Excel inventory
+    may_unlock_source_contract: false
+    may_unlock_engineering_check: false
+  PLANNED:
+    meaning: planned future source family
+    may_unlock_source_contract: false
+    may_unlock_engineering_check: false
+  OUT_OF_SCOPE:
+    meaning: unsupported product scope, not failure
+    may_unlock_source_contract: false
+    may_unlock_engineering_check: false
+  UNSUPPORTED_SECTION_TYPE:
+    meaning: known element with unsupported section type, not failure
+    may_unlock_source_contract: false
+    may_unlock_engineering_check: false

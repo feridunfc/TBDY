@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "C13.2-P2 Product Report Table Contract Schema",
+  "type": "object",
+  "required": ["metadata", "report_tables"],
+  "properties": {
+    "metadata": {"type": "object"},
+    "report_tables": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["verified_sources", "check_unlock_allowed"],
+        "properties": {
+          "verified_sources": {"type": "array", "items": {"type": "string"}},
+          "blocked_sources": {"type": "array", "items": {"type": "string"}},
+          "semantic_review_sources": {"type": "array", "items": {"type": "string"}},
+          "check_unlock_allowed": {"const": false}
+        }
+      }
+    }
+  }
+}

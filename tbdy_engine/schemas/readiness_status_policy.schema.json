@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "C13.2-P2 Readiness Status Policy Schema",
+  "type": "object",
+  "required": ["metadata", "statuses"],
+  "properties": {
+    "metadata": {"type": "object"},
+    "statuses": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["meaning"],
+        "properties": {
+          "meaning": {"type": "string"},
+          "may_unlock_source_contract": {"type": "boolean"},
+          "may_unlock_engineering_check": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}

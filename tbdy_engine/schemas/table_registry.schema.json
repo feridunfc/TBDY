@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "C13.2-P2 Table Registry Schema",
+  "type": "object",
+  "required": [
+    "metadata",
+    "tables"
+  ],
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "version",
+        "catalog_name"
+      ],
+      "properties": {
+        "version": {
+          "const": "1.0"
+        },
+        "catalog_name": {
+          "const": "table_registry"
+        }
+      },
+      "additionalProperties": true
+    },
+    "tables": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "provider",
+          "evidence_status",
+          "live_table_name",
+          "excel_inventory_aliases",
+          "fetch_policy",
+          "verified_by",
+          "required_columns",
+          "optional_columns",
+          "source_role",
+          "check_unlock_allowed"
+        ],
+        "properties": {
+          "provider": {
+            "const": "etabs"
+          },
+          "evidence_status": {
+            "enum": [
+              "VERIFIED_LIVE",
+              "NEEDS_LIVE_PROBE",
+              "SEMANTIC_REVIEW",
+              "EXCEL_INVENTORY_ONLY",
+              "PLANNED"
+            ]
+          },
+          "live_table_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "excel_inventory_aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fetch_policy": {
+            "enum": [
+              "exact_only",
+              "exact_first_capped_keyword",
+              "explicit_profile_only"
+            ]
+          },
+          "verified_by": {
+            "type": "object",
+            "required": [
+              "sprint",
+              "live_probe",
+              "probe_profile"
+            ],
+            "properties": {
+              "sprint": {
+                "type": "string"
+              },
+              "live_probe": {
+                "type": "boolean"
+              },
+              "probe_profile": {
+                "type": "string"
+              }
+            }
+          },
+          "required_columns": {
+            "type": "object"
+          },
+          "optional_columns": {
+            "type": "object"
+          },
+          "source_role": {
+            "type": "string",
+            "minLength": 1
+          },
+          "check_unlock_allowed": {
+            "const": false
+          },
+          "compatibility_alias_for": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
