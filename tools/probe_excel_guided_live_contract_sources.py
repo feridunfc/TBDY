@@ -94,7 +94,18 @@ HEADER_ALIASES: dict[str, tuple[str, ...]] = {
     "Thickness": ("Thickness", "Thick", "t"),
     "Width": ("Width", "t2", "T2", "B", "b"),
     "Depth": ("Depth", "t3", "T3", "H", "h"),
+    "E1": ("E1", "Elastic Modulus", "Modulus of Elasticity", "E"),
+    "G12": ("G12", "Shear Modulus", "G"),
+    "U12": ("U12", "Poisson", "Poisson Ratio"),
+    "UnitWeight": ("UnitWeight", "Unit Weight", "Weight"),
+    "UnitMass": ("UnitMass", "Unit Mass", "Mass"),
+    "DensityType": ("DensityType", "Density Type", "Density"),
+    "SectProp": ("SectProp", "Section Property", "Section", "Property", "PropName"),
+    "Shape": ("Shape", "Section Shape"),
+    "Fc": ("Fc", "fck", "Concrete Strength"),
+    "Fy": ("Fy", "Fye", "Yield Strength"),
 }
+
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +118,8 @@ class FamilyRule:
     optional_columns: tuple[str, ...] = ()
     semantic_review: bool = False
     planned_only: bool = False
+    source_role: str = "observed_source"
+    check_unlock_allowed: bool = False
     profile_allowed: tuple[str, ...] = ("verification_gate",)
 
 
@@ -175,8 +188,21 @@ FAMILY_RULES: tuple[FamilyRule, ...] = (
     FamilyRule(
         "material_properties",
         "material_context",
-        ("Material Properties", "Material Properties - Summary", "Mat Prop - Basic Mech Props", "Material List"),
-        ("Material Properties", "Material", "Basic Mechanical"),
+        ("Material Properties", "Material Properties - Summary", "Mat Prop - Basic Mech Props", "Material Properties - Basic Mechanical Properties"),
+        ("Material Properties", "Basic Mechanical", "Mat Prop"),
+        ("Material", "E1", "G12", "U12"),
+        ("UnitWeight", "UnitMass", "DensityType"),
+        source_role="basic_mechanical_material_properties",
+        profile_allowed=("material_context", "verification_gate"),
+    ),
+    FamilyRule(
+        "material_list_by_story",
+        "material_context",
+        ("Material List by Story",),
+        ("Material List", "Story"),
+        ("Story", "Material"),
+        source_role="quantity_or_inventory_context_only",
+        check_unlock_allowed=False,
         profile_allowed=("material_context", "verification_gate"),
     ),
     FamilyRule(
@@ -184,6 +210,8 @@ FAMILY_RULES: tuple[FamilyRule, ...] = (
         "material_context",
         ("Mat Prop - Concrete Data", "Material Properties - Concrete Data"),
         ("Concrete", "Material", "Properties"),
+        ("Material", "Fc"),
+        source_role="concrete_material_strength_properties",
         profile_allowed=("material_context", "verification_gate"),
     ),
     FamilyRule(
@@ -191,13 +219,29 @@ FAMILY_RULES: tuple[FamilyRule, ...] = (
         "material_context",
         ("Mat Prop - Rebar Data", "Material Properties - Rebar Data"),
         ("Rebar", "Material", "Properties"),
+        ("Material", "Fy"),
+        source_role="rebar_material_strength_properties",
         profile_allowed=("material_context", "verification_gate"),
     ),
     FamilyRule(
         "frame_section_material_assignments",
         "material_context",
-        ("Frame Prop - Summary", "Frame Property Assignments", "Frame Section Assignments"),
+        ("Frame Prop - Summary", "Frame Section Property Definitions - Summary"),
         ("Frame", "Section", "Material"),
+        ("Name", "Material"),
+        ("Shape",),
+        source_role="section_property_material_mapping",
+        profile_allowed=("material_context", "verification_gate"),
+    ),
+    FamilyRule(
+        "frame_section_assignments",
+        "material_context",
+        ("Frame Assignments - Section Properties", "Frame Assigns - Sect Prop", "Frame Section Assignments"),
+        ("Frame Assignments", "Section Properties"),
+        ("Story", "Label", "UniqueName", "SectProp"),
+        ("Shape",),
+        source_role="section_assignment_context_only",
+        check_unlock_allowed=False,
         profile_allowed=("material_context", "verification_gate"),
     ),
     FamilyRule(
@@ -418,6 +462,12 @@ def classify_table_family(table_name: str, headers: Sequence[str] = ()) -> str:
         return "concrete_material_properties"
     if "matproprebar" in name_norm or ("rebar" in name_norm and "material" in name_norm):
         return "rebar_material_properties"
+    if "materiallistbystory" in name_norm or ("materiallist" in name_norm and "story" in name_norm):
+        return "material_list_by_story"
+    if "frameassign" in name_norm and "section" in name_norm:
+        return "frame_section_assignments"
+    if "frameprop" in name_norm and "summary" in name_norm:
+        return "frame_section_material_assignments"
     if "material" in name_norm:
         return "material_properties"
     if "beamdesignsummary" in name_norm or "concretebeamdesignsummary" in name_norm:
@@ -761,6 +811,45 @@ def column_geometry_gate(sample_rows_by_table: Mapping[str, Mapping[str, Any]]) 
     }
 
 
+def semantic_source_role_validation(family_id: str, live_table_name: Any, live_headers: Sequence[Any]) -> dict[str, Any]:
+    """Validate that live table semantics match the requested family.
+
+    A table can exist and headers can partially match while still proving the
+    wrong source role.  C13.2-P1 may only recommend VERIFIED_LIVE when the live
+    source role is semantically compatible with the family id.
+    """
+    name_norm = _norm(live_table_name)
+    blockers: list[str] = []
+    passed = True
+
+    if family_id == "material_properties":
+        if "materiallist" in name_norm:
+            passed = False
+            blockers.append("Material List tables are inventory/quantity context, not basic mechanical material properties")
+        for col in ("Material", "E1", "G12", "U12"):
+            if not _has_header(live_headers, col):
+                passed = False
+                blockers.append(f"missing semantic material property header: {col}")
+
+    if family_id == "frame_section_material_assignments":
+        proves_section_assignment_only = "frameassignment" in name_norm or "frameassign" in name_norm
+        missing_material = not _has_header(live_headers, "Material")
+        if proves_section_assignment_only or missing_material:
+            passed = False
+        if proves_section_assignment_only and missing_material:
+            blockers.append("live table proves section assignment, not material assignment; Material header missing")
+            blockers.append("missing Material header required for section-material mapping")
+        elif proves_section_assignment_only:
+            blockers.append("live table proves section assignment, not section-to-material mapping")
+        elif missing_material:
+            blockers.append("Material header missing; cannot prove section-to-material mapping")
+        # Section-material mapping should be proven by a section property summary
+        # source, not by an object assignment source.  A keyword table/header match
+        # is not enough for VERIFIED_LIVE when the source role is different.
+
+    return {"passed": passed, "blockers": blockers}
+
+
 def build_promotion_rows(
     classification_rows: Sequence[Mapping[str, Any]],
     match_rows: Sequence[Mapping[str, Any]],
@@ -782,8 +871,10 @@ def build_promotion_rows(
         rule = family_rule(family_id)
         comp = header_by_family.get(family_id, {})
         validation = comp.get("expected_header_validation") or {"passed": False}
+        live_headers = list(comp.get("live_headers") or [])
         live_sample_row_count = int(comp.get("live_sample_row_count") or 0)
         live_table_name = match.get("live_table_name")
+        semantic_validation = semantic_source_role_validation(family_id, live_table_name, live_headers)
         planned_absent = bool(match.get("planned_absent"))
         observed_in_excel = (not planned_absent) and bool(excel_names_by_family.get(family_id))
         planned_without_excel_evidence = planned_absent
@@ -809,10 +900,15 @@ def build_promotion_rows(
             recommended_status = "NEEDS_LIVE_PROBE"
             match_quality = "EXACT_TABLE_HEADER_PARTIAL" if match.get("match_basis") == "exact" else "KEYWORD_TABLE_HEADER_MATCH"
             blockers.append("live table headers do not prove expected semantics")
+            blockers.extend(str(b) for b in semantic_validation.get("blockers", []))
         elif live_sample_row_count <= 0:
             recommended_status = "NEEDS_LIVE_PROBE"
             match_quality = "EXACT_TABLE_HEADER_PARTIAL"
             blockers.append("live headers found but no sample rows")
+        elif not semantic_validation.get("passed"):
+            recommended_status = "NEEDS_LIVE_PROBE"
+            match_quality = "EXACT_TABLE_HEADER_PARTIAL" if match.get("match_basis") == "exact" else "KEYWORD_TABLE_HEADER_MATCH"
+            blockers.extend(str(b) for b in semantic_validation.get("blockers", []))
         else:
             recommended_status = "VERIFIED_LIVE"
             match_quality = "EXACT_TABLE_AND_HEADERS" if match.get("match_basis") == "exact" else "KEYWORD_TABLE_HEADER_MATCH"
@@ -822,8 +918,11 @@ def build_promotion_rows(
             "all_excel_table_names": excel_names_by_family.get(family_id, []),
             "live_table_name": live_table_name,
             "excel_headers": excel_headers_by_family.get(family_id, []),
-            "live_headers": comp.get("live_headers") or [],
+            "live_headers": live_headers,
             "live_sample_row_count": live_sample_row_count,
+            "source_role": rule.source_role if rule else "unknown_or_ambiguous",
+            "check_unlock_allowed": False,
+            "semantic_source_role_validation": semantic_validation,
             "match_quality": match_quality,
             "recommended_status": recommended_status,
             "planned_absent": planned_absent,

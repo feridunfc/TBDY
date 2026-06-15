@@ -304,3 +304,178 @@ def test_default_verification_gate_observed_rows_have_metadata(tmp_path: Path):
     assert all(r["observed_in_excel"] is True for r in recs)
     assert all(r["planned_without_excel_evidence"] is False for r in recs)
     assert all("live_fetch_allowed" in r for r in recs)
+
+
+def test_material_properties_not_verified_by_material_list_by_story():
+    classification_rows = [{
+        "family_id": "material_properties",
+        "excel_table_name": "Mat Prop - Basic Mech Props",
+        "headers": ["Material", "E1", "G12", "U12"],
+    }]
+    match_rows = [{
+        "family_id": "material_properties",
+        "live_table_name": "Material List by Story",
+        "planned_absent": False,
+        "planned_live_fetch_allowed": True,
+        "match_basis": "keyword_or_alias",
+    }]
+    header_rows = [{
+        "family_id": "material_properties",
+        "live_table_name": "Material List by Story",
+        "live_headers": ["Story", "Material", "Object Type", "Weight"],
+        "expected_header_validation": {"passed": True},  # even if a caller over-trusts generic headers
+        "live_sample_row_count": 5,
+    }]
+    rows = probe.build_promotion_rows(classification_rows, match_rows, header_rows, live_mode=True)
+    assert rows[0]["recommended_status"] == "NEEDS_LIVE_PROBE"
+    assert rows[0]["match_quality"] == "KEYWORD_TABLE_HEADER_MATCH"
+    assert any("not basic mechanical material properties" in b for b in rows[0]["blockers"])
+
+
+def test_frame_section_material_assignments_not_verified_without_material_header():
+    classification_rows = [{
+        "family_id": "frame_section_material_assignments",
+        "excel_table_name": "Frame Prop - Summary",
+        "headers": ["Name", "Material", "Shape"],
+    }]
+    match_rows = [{
+        "family_id": "frame_section_material_assignments",
+        "live_table_name": "Frame Assignments - Section Properties",
+        "planned_absent": False,
+        "planned_live_fetch_allowed": True,
+        "match_basis": "keyword_or_alias",
+    }]
+    header_rows = [{
+        "family_id": "frame_section_material_assignments",
+        "live_table_name": "Frame Assignments - Section Properties",
+        "live_headers": ["Story", "Label", "UniqueName", "Shape", "AutoSelect", "SectProp"],
+        "expected_header_validation": {"passed": True},  # semantic role still must reject it
+        "live_sample_row_count": 5,
+    }]
+    rows = probe.build_promotion_rows(classification_rows, match_rows, header_rows, live_mode=True)
+    assert rows[0]["recommended_status"] == "NEEDS_LIVE_PROBE"
+    assert any("section assignment, not material assignment" in b for b in rows[0]["blockers"])
+    assert any("missing Material header" in b for b in rows[0]["blockers"])
+
+
+def test_keyword_table_header_match_alone_cannot_verify_without_header_proof():
+    classification_rows = [{
+        "family_id": "frame_assignments_summary",
+        "excel_table_name": "Frame Assignments - Summary",
+        "headers": ["UniqueName", "Label", "Story", "Type", "DesignSect"],
+    }]
+    match_rows = [{
+        "family_id": "frame_assignments_summary",
+        "live_table_name": "Some Frame Summary Keyword Match",
+        "planned_absent": False,
+        "planned_live_fetch_allowed": True,
+        "match_basis": "keyword_or_alias",
+    }]
+    header_rows = [{
+        "family_id": "frame_assignments_summary",
+        "live_table_name": "Some Frame Summary Keyword Match",
+        "live_headers": ["Story", "Label"],
+        "expected_header_validation": {"passed": False},
+        "live_sample_row_count": 5,
+    }]
+    rows = probe.build_promotion_rows(classification_rows, match_rows, header_rows, live_mode=True)
+    assert rows[0]["match_quality"] == "KEYWORD_TABLE_HEADER_MATCH"
+    assert rows[0]["recommended_status"] != "VERIFIED_LIVE"
+
+
+def test_context_inventory_family_can_verify_but_never_unlock_checks():
+    classification_rows = [{
+        "family_id": "material_list_by_story",
+        "excel_table_name": "Material List by Story",
+        "headers": ["Story", "Material"],
+    }]
+    match_rows = [{
+        "family_id": "material_list_by_story",
+        "live_table_name": "Material List by Story",
+        "planned_absent": False,
+        "planned_live_fetch_allowed": True,
+        "match_basis": "exact",
+    }]
+    header_rows = [{
+        "family_id": "material_list_by_story",
+        "live_table_name": "Material List by Story",
+        "live_headers": ["Story", "Material", "Object Type", "Weight"],
+        "expected_header_validation": {"passed": True},
+        "live_sample_row_count": 5,
+    }]
+    rows = probe.build_promotion_rows(classification_rows, match_rows, header_rows, live_mode=True)
+    assert rows[0]["recommended_status"] == "VERIFIED_LIVE"
+    assert rows[0]["source_role"] == "quantity_or_inventory_context_only"
+    assert rows[0]["check_unlock_allowed"] is False
+    assert rows[0]["can_implement_check_now"] is False
+
+
+def test_frame_section_material_assignments_absent_from_verified_decision_when_only_section_assignment_live():
+    classification_rows = [
+        {
+            "family_id": "frame_section_material_assignments",
+            "excel_table_name": "Frame Prop - Summary",
+            "headers": ["Name", "Material", "Shape"],
+        },
+        {
+            "family_id": "frame_section_assignments",
+            "excel_table_name": "Frame Assignments - Section Properties",
+            "headers": ["Story", "Label", "UniqueName", "SectProp"],
+        },
+    ]
+    match_rows = [
+        {
+            "family_id": "frame_section_material_assignments",
+            "live_table_name": "Frame Assignments - Section Properties",
+            "planned_absent": False,
+            "planned_live_fetch_allowed": True,
+            "match_basis": "keyword_or_alias",
+        },
+        {
+            "family_id": "frame_section_assignments",
+            "live_table_name": "Frame Assignments - Section Properties",
+            "planned_absent": False,
+            "planned_live_fetch_allowed": True,
+            "match_basis": "exact",
+        },
+    ]
+    header_rows = [
+        {
+            "family_id": "frame_section_material_assignments",
+            "live_table_name": "Frame Assignments - Section Properties",
+            "live_headers": ["Story", "Label", "UniqueName", "Shape", "AutoSelect", "SectProp"],
+            "expected_header_validation": {"passed": False},
+            "live_sample_row_count": 5,
+        },
+        {
+            "family_id": "frame_section_assignments",
+            "live_table_name": "Frame Assignments - Section Properties",
+            "live_headers": ["Story", "Label", "UniqueName", "Shape", "AutoSelect", "SectProp"],
+            "expected_header_validation": {"passed": True},
+            "live_sample_row_count": 5,
+        },
+    ]
+    rows = probe.build_promotion_rows(classification_rows, match_rows, header_rows, live_mode=True)
+    by_family = {r["family_id"]: r for r in rows}
+    assert by_family["frame_section_material_assignments"]["recommended_status"] == "NEEDS_LIVE_PROBE"
+    assert by_family["frame_section_material_assignments"]["can_expand_contract_now"] is False
+    assert by_family["frame_section_assignments"]["recommended_status"] == "VERIFIED_LIVE"
+    assert by_family["frame_section_assignments"]["source_role"] == "section_assignment_context_only"
+    assert by_family["frame_section_assignments"]["check_unlock_allowed"] is False
+
+    decision = probe.expansion_decision_report({"table_count": 2}, rows, {"passed": True}, live_mode=True)
+    assert "frame_section_material_assignments" not in decision["verified_live_families"]
+    assert "frame_section_material_assignments" in decision["needs_live_probe_families"]
+    assert "frame_section_assignments" in decision["verified_live_families"]
+    assert decision["safe_to_implement_checks_now"] is False
+    assert decision["full_c13_2_contract_expansion_now"] is False
+
+
+def test_frame_section_material_assignments_blocker_message_is_specific_for_section_assignment_table():
+    validation = probe.semantic_source_role_validation(
+        "frame_section_material_assignments",
+        "Frame Assignments - Section Properties",
+        ["Story", "Label", "UniqueName", "Shape", "AutoSelect", "SectProp"],
+    )
+    assert validation["passed"] is False
+    assert "live table proves section assignment, not material assignment; Material header missing" in validation["blockers"]

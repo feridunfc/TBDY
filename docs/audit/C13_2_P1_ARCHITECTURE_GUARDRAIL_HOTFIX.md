@@ -76,3 +76,14 @@ Rules:
 - Default `verification_gate` remains inventory-scoped and does not generate absent-family rows.
 
 Cache artifacts are intentionally excluded from the release package.
+
+## Semantic promotion hotfix addendum
+
+After live verification, `VERIFIED_LIVE` is additionally gated by semantic
+source-role validation.  Generic keyword/header matches are not enough.
+
+- `material_properties` cannot be verified by `Material List by Story`.
+- `frame_section_material_assignments` cannot be verified by `Frame Assignments - Section Properties` without a `Material` header.
+- Context-only families such as `material_list_by_story` and
+  `frame_section_assignments` may be verified only as context sources with
+  `check_unlock_allowed: false`.
