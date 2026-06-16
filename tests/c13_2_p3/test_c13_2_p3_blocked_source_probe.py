@@ -199,6 +199,7 @@ def test_script_compiles():
 def test_story_definitions_expected_tables_include_tower_and_base_story_definition():
     family = p3.TARGET_FAMILIES["story_definitions"]
     assert "Tower and Base Story Definition" in family.expected_table_names
+    assert "Tower and Base Story Definitions" in family.expected_table_names
 
 
 def test_story_definitions_combined_story_height_and_bselev_is_candidate():
@@ -322,4 +323,66 @@ def test_pier_summary_records_direct_geometry_flags_and_keeps_unlock_false():
     assert pier["section_name_column_present"] is False
     assert pier["material_present"] is True
     assert pier["check_unlock_allowed"] is False
+    assert summary["safe_to_implement_checks_now"] is False
+
+
+def test_story_definitions_plural_tower_base_exact_alias_is_accepted():
+    family = p3.TARGET_FAMILIES["story_definitions"]
+    match = p3.match_target_tables(
+        ["Story Definitions", "Tower and Base Story Definitions"],
+        family,
+        max_candidate_tables_per_family=5,
+    )
+    assert match["match_strategy"] == "exact"
+    assert match["selected_tables"] == ["Story Definitions", "Tower and Base Story Definitions"]
+
+
+def test_story_definitions_singular_tower_base_exact_alias_still_accepted():
+    family = p3.TARGET_FAMILIES["story_definitions"]
+    match = p3.match_target_tables(
+        ["Story Definitions", "Tower and Base Story Definition"],
+        family,
+        max_candidate_tables_per_family=5,
+    )
+    assert match["match_strategy"] == "exact"
+    assert match["selected_tables"] == ["Story Definitions", "Tower and Base Story Definition"]
+
+
+def test_story_definitions_plural_combined_story_height_and_bselev_is_candidate():
+    family = p3.TARGET_FAMILIES["story_definitions"]
+    result = p3.evaluate_family_status(
+        family,
+        ["Story Definitions", "Tower and Base Story Definitions"],
+        {
+            "Story Definitions": ["Name", "Height", "MasterStory"],
+            "Tower and Base Story Definitions": ["Tower", "BSElev"],
+        },
+    )
+    assert result["source_status"] == "VERIFIED_LIVE_CANDIDATE"
+    assert result["derived_elevation_supported"] is True
+    assert result["elevation_is_direct_column"] is False
+    assert result["base_elevation_column"] == "BSElev"
+    assert result["tower_and_base_story_definition_table"] == "Tower and Base Story Definitions"
+    assert result["check_unlock_allowed"] is False
+
+
+def test_story_definitions_plural_combined_summary_records_required_flags():
+    matches = {"story_definitions": {"selected_tables": ["Story Definitions", "Tower and Base Story Definitions"]}}
+    summary = p3.build_summary(
+        live_etabs_connected=True,
+        probe_passed=True,
+        family_ids=["story_definitions"],
+        matches=matches,
+        headers_by_table={
+            "Story Definitions": ["Story", "Height"],
+            "Tower and Base Story Definitions": ["BSElev"],
+        },
+    )
+    story = summary["families"]["story_definitions"]
+    assert story["source_status"] == "VERIFIED_LIVE_CANDIDATE"
+    assert story["derived_elevation_supported"] is True
+    assert story["elevation_is_direct_column"] is False
+    assert story["base_elevation_column"] == "BSElev"
+    assert story["tower_and_base_story_definition_table"] == "Tower and Base Story Definitions"
+    assert story["check_unlock_allowed"] is False
     assert summary["safe_to_implement_checks_now"] is False

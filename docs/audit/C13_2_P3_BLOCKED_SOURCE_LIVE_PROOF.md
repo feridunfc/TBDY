@@ -16,7 +16,7 @@ No other source family is probed by this sprint unless a later sprint explicitly
 
 ### C13.2-P3 story definition combined proof note
 
-`story_definitions` includes the exact expected table `Tower and Base Story Definition`. The probe treats `Story Definitions` and `Tower and Base Story Definition` as a combined evidence pair: `Story/Name` + `Height` from `Story Definitions` plus `BSElev` from `Tower and Base Story Definition` is enough for `VERIFIED_LIVE_CANDIDATE`, but it remains evidence-only and does not update stable contracts.
+`story_definitions` includes the exact expected table `Tower and Base Story Definition(s)`. The probe treats `Story Definitions` and `Tower and Base Story Definition(s)` as a combined evidence pair: `Story/Name` + `Height` from `Story Definitions` plus `BSElev` from `Tower and Base Story Definition(s)` is enough for `VERIFIED_LIVE_CANDIDATE`, but it remains evidence-only and does not update stable contracts.
 
 ## Why broad probing is forbidden
 
@@ -54,7 +54,7 @@ When `--live-etabs` is supplied, the probe:
 A family can become `VERIFIED_LIVE_CANDIDATE` only when live selected tables prove the required observed-data semantics:
 
 - `material_properties`: `Material/Name`, `E1`, `G12`, and `U12`-like columns are required. Material inventory tables such as `Material List by Story`, `Material List by Object Type`, and `Material List by Section Prop` are context only and must not prove material mechanical constants.
-- `story_definitions`: direct proof can use `Story/Name`, `Height`, and `Elevation`-like columns from `Story Definitions`. Combined proof is also accepted when `Story Definitions` proves `Story/Name` + `Height` and `Tower and Base Story Definition` proves `BSElev`; in that case outputs must record `derived_elevation_supported: true` and `elevation_is_direct_column: false`.
+- `story_definitions`: direct proof can use `Story/Name`, `Height`, and `Elevation`-like columns from `Story Definitions`. Combined proof is also accepted when `Story Definitions` proves `Story/Name` + `Height` and `Tower and Base Story Definition(s)` proves `BSElev`; in that case outputs must record `derived_elevation_supported: true` and `elevation_is_direct_column: false`.
 - `pier_section_properties`: direct pier section geometry proof can come from `Pier Section Properties` when it proves `Story`, `Pier`, at least one width column (`Width Bottom` or `Width Top`), and at least one thickness column (`Thickness Bottom` or `Thickness Top`). A literal `Section`/`PropName`/`WallProp` column is not required for this direct geometry proof; the probe records `section_name_column_present: false` when absent. `Material` is supporting proof only and is recorded as `material_present`.
 
 ### C13.2-P3 Hotfix 2 wall/pier evidence note
@@ -108,3 +108,12 @@ python tools/probe_c13_2_p3_blocked_sources.py `
 ```
 
 Live output must be reviewed manually before any later promotion sprint.
+
+
+## Hotfix 3: Story tower/base plural live alias
+
+Live ETABS may expose the tower/base elevation table as `Tower and Base Story Definitions` while earlier offline evidence and tests used the singular `Tower and Base Story Definition`. C13.2-P3 accepts both exact aliases and keeps exact matching bounded.
+
+For `story_definitions`, the probe selects `Story Definitions` together with either `Tower and Base Story Definition` or `Tower and Base Story Definitions`. If `Story Definitions` proves `Story`/`Name` plus `Height`, and the tower/base table proves `BSElev`, the family is reported as `VERIFIED_LIVE_CANDIDATE` with `derived_elevation_supported: true`, `elevation_is_direct_column: false`, `base_elevation_column: BSElev`, and `check_unlock_allowed: false`.
+
+This is evidence only. It does not promote stable contracts, does not implement checks, and does not change `safe_to_implement_checks_now: false`.

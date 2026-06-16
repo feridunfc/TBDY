@@ -108,8 +108,14 @@ TARGET_FAMILIES: dict[str, TargetFamily] = {
     "story_definitions": TargetFamily(
         family_id="story_definitions",
         semantic_role="story metadata / elevation / height context proof only",
-        expected_table_names=("Story Definitions", "Story Data", "Story Definitions - Summary", "Tower and Base Story Definition"),
-        fallback_keywords=("Story Definitions", "Story Data", "Story Information", "Tower Base Story"),
+        expected_table_names=(
+            "Story Definitions",
+            "Story Data",
+            "Story Definitions - Summary",
+            "Tower and Base Story Definition",
+            "Tower and Base Story Definitions",
+        ),
+        fallback_keywords=("Story Definitions", "Story Data", "Story Information", "Tower Base Story", "Tower and Base Story"),
         required_columns=("Story", "Height", "Elevation"),
         optional_columns=("BSElev", "MasterStory", "SimilarTo", "SpliceAbove", "SpliceHeight"),
     ),
@@ -280,12 +286,23 @@ def _find_selected_table(selected_tables: Sequence[str], expected_name: str) -> 
     return None
 
 
+def _find_selected_table_alias(selected_tables: Sequence[str], expected_names: Sequence[str]) -> str | None:
+    expected = {_normalize_token(name) for name in expected_names}
+    for table in selected_tables:
+        if _normalize_token(table) in expected:
+            return table
+    return None
+
+
 def _story_definitions_proof(
     selected_tables: Sequence[str],
     headers_by_table: Mapping[str, Sequence[str]],
 ) -> dict[str, Any]:
     story_table = _find_selected_table(selected_tables, "Story Definitions")
-    tower_table = _find_selected_table(selected_tables, "Tower and Base Story Definition")
+    tower_table = _find_selected_table_alias(
+        selected_tables,
+        ("Tower and Base Story Definition", "Tower and Base Story Definitions"),
+    )
     story_columns = _headers_for_table(headers_by_table, story_table) if story_table else ()
     tower_columns = _headers_for_table(headers_by_table, tower_table) if tower_table else ()
 
@@ -439,6 +456,7 @@ def evaluate_family_status(
                 "story_definitions_table": proof["story_definitions_table"],
                 "tower_and_base_story_definition_table": proof["tower_and_base_story_definition_table"],
                 "base_elevation_column": proof["base_elevation_column"],
+                "check_unlock_allowed": False,
             }
         return {
             "source_status": "NEEDS_LIVE_PROBE",
@@ -451,6 +469,7 @@ def evaluate_family_status(
             "story_definitions_table": proof["story_definitions_table"],
             "tower_and_base_story_definition_table": proof["tower_and_base_story_definition_table"],
             "base_elevation_column": proof["base_elevation_column"],
+            "check_unlock_allowed": False,
         }
 
     if family.family_id == "pier_section_properties":
