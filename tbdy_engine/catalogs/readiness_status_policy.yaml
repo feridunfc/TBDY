@@ -2,8 +2,9 @@ metadata:
   contract: Contract Constitution
   version: '1.0'
   catalog_name: readiness_status_policy
-  sprint: C13.2-P2
+  sprint: C13.2-P5
   safe_to_implement_checks_now: false
+  status: source_feature_readiness_contract_closure
 statuses:
   VERIFIED_LIVE:
     meaning: source/table/header/sample verified by live ETABS probe
@@ -33,3 +34,76 @@ statuses:
     meaning: known element with unsupported section type, not failure
     may_unlock_source_contract: false
     may_unlock_engineering_check: false
+  READY_DIRECT_SOURCE:
+    meaning: Existing feature/source capability can be produced directly from VERIFIED_LIVE
+      source columns/tables.
+    may_unlock_source_contract: true
+    may_unlock_engineering_check: false
+  READY_DERIVED_SOURCE:
+    meaning: Feature/source capability can be produced through an explicit derivation
+      policy from VERIFIED_LIVE sources.
+    may_unlock_source_contract: true
+    may_unlock_engineering_check: false
+  READY_SUPPORTING_CONTEXT_ONLY:
+    meaning: Verified source provides identity/context only and cannot produce a final
+      engineering feature alone.
+    may_unlock_source_contract: true
+    may_unlock_engineering_check: false
+  BLOCKED_NEEDS_LIVE_PROBE:
+    meaning: Required source family/table still lacks bounded live ETABS proof.
+    may_unlock_source_contract: false
+    may_unlock_engineering_check: false
+  BLOCKED_SEMANTIC_REVIEW:
+    meaning: Table/source exists but semantic interpretation is not safe enough for
+      FeatureSnapshot or check use.
+    may_unlock_source_contract: false
+    may_unlock_engineering_check: false
+  BLOCKED_FEATURE_CONTRACT_MISSING:
+    meaning: No existing canonical feature id has a clear source contract path yet.
+    may_unlock_source_contract: false
+    may_unlock_engineering_check: false
+  OUT_OF_SCOPE_UNSUPPORTED:
+    meaning: Feature/check/section is intentionally outside the current product slice.
+    may_unlock_source_contract: false
+    may_unlock_engineering_check: false
+  LOCKED_CHECK_NOT_ALLOWED:
+    meaning: Feature/source exists but cannot unlock CheckEngine or engineering verdicts.
+    may_unlock_source_contract: false
+    may_unlock_engineering_check: false
+unit_policy:
+  sprint: C13.2-P5
+  status: contract_level_unit_policy_addendum
+  safe_to_implement_checks_now: false
+  source_contract_silent_conversion_allowed: false
+  source_unit_policy: ETABS live source values are accepted in the live model/API
+    unit context and preserved as raw evidence.
+  normalized_unit_policy: Future FeatureSnapshot work must carry both raw and normalized
+    unit metadata.
+  report_display_policy: Report output may convert values to project default display
+    units with explicit labels.
+  check_engine_policy: Future CheckEngine work must not consume ambiguous raw numeric
+    values without unit metadata.
+  allowed_units:
+  - kN
+  - kN.m
+  - m
+  - mm
+  - mm2
+  - MPa
+  - ratio
+  - percent
+  - unitless
+  default_report_units:
+    force: kN
+    moment: kN.m
+    global_length_elevation: m
+    section_dimensions: mm
+    deformation_displacement: mm
+    drift: ratio or percent, explicitly labeled
+    stress_material_strength: MPa
+    identity_context: unitless
+    modal_participation: ratio
+    reinforcement_area: mm2
+  feature_resolver_behavior_changed: false
+  check_engine_behavior_changed: false
+  checks_implemented: false
