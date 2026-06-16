@@ -42,6 +42,12 @@ ALLOWED_VERIFIED_LIVE = {
     "area_assignments_summary",
     "wall_section_properties",
     "pier_assignments",
+    # C13.2-P4 promoted blocked sources and live-proved supporting context.
+    "material_properties",
+    "story_definitions",
+    "pier_section_properties",
+    "wall_bays",
+    "wall_object_connectivity",
 }
 FORBIDDEN_FEATURE_TERMS = ("pass", "fail", "ok", "verdict", "check_result")
 
@@ -136,7 +142,7 @@ def validate_table_registry(data: Dict[str, Any], errors: List[str]) -> Dict[str
 
 def validate_semantic_guardrails(tables: Dict[str, Any], errors: List[str]) -> None:
     material_properties = tables.get("material_properties") or {}
-    require(material_properties.get("evidence_status") != "VERIFIED_LIVE", "material_properties must not be VERIFIED_LIVE", errors)
+    # C13.2-P4 may promote material_properties after targeted live proof.
     material_live_name = str(material_properties.get("live_table_name", ""))
     forbidden_material_tables = ("Material List by Story", "Material List by Object Type", "Material List by Section Prop")
     for forbidden in forbidden_material_tables:
@@ -178,8 +184,7 @@ def validate_semantic_guardrails(tables: Dict[str, Any], errors: List[str]) -> N
         errors,
     )
 
-    require((tables.get("story_definitions") or {}).get("evidence_status") != "VERIFIED_LIVE", "story_definitions must not be VERIFIED_LIVE", errors)
-    require((tables.get("pier_section_properties") or {}).get("evidence_status") != "VERIFIED_LIVE", "pier_section_properties must not be VERIFIED_LIVE", errors)
+    # C13.2-P4 may promote story_definitions and pier_section_properties after targeted live proof.
     require((tables.get("pier_forces") or {}).get("evidence_status") == "SEMANTIC_REVIEW", "pier_forces must remain SEMANTIC_REVIEW", errors)
 
 

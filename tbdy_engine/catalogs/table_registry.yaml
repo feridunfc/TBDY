@@ -1,11 +1,11 @@
 metadata:
   contract: Contract Constitution
   version: '1.0'
-  sprint: C13.2-P2
-  status: verified_live_source_contract_expansion
+  sprint: C13.2-P4
+  status: promoted_verified_blocked_source_contracts
   owner: TBDY Engine
   catalog_name: table_registry
-  source_basis: C13.2-P1_VERIFIED_LIVE_only
+  source_basis: C13.2-P3_VERIFIED_LIVE_CANDIDATES
   safe_to_implement_checks_now: false
   notes:
   - Contract-only. No engine/check/ETABS runtime implementation.
@@ -14,6 +14,13 @@ metadata:
   - This registry promotes only human-reviewed C13.2-P1 live-verified source families.
   - C13.2-P2 preserves legacy table keys as compatibility aliases; canonical new keys
     remain additive.
+  - C13.2-P4 promotes P3 verified live candidates as stable source contracts only.
+  - Promotion does not unlock FeatureResolver behavior, CheckEngine behavior, report
+    rendering, or engineering checks.
+  - Material/story/pier promoted sources keep check_unlock_allowed false and safe_to_implement_checks_now
+    false.
+  - Excel input-export remains inventory and acceptance-policy evidence only; never
+    production input.
 providers:
   primary: ETABS_LIVE_PROVIDER
   secondary_allowed:
@@ -587,58 +594,101 @@ tables:
     check_unlock_allowed: false
   material_properties:
     provider: etabs
-    evidence_status: NEEDS_LIVE_PROBE
+    evidence_status: VERIFIED_LIVE
     live_table_name: Material Properties - Basic Mechanical Properties
     excel_inventory_aliases:
     - Mat Prop - Basic Mech Props
     - Material Properties - Basic Mechanical Properties
-    fetch_policy: explicit_profile_only
-    verified_by:
-      sprint: C13.2-P1
-      live_probe: false
-      probe_profile: verification_gate
+    - Material Properties - Concrete Data
+    - Material Properties - Rebar Data
+    fetch_policy: exact_first_capped_keyword
+    verified_by: &id001
+      sprint: C13.2-P3
+      live_probe: true
+      probe_profile: targeted_blocked_source_proof
+      etabs_version: 23.2.0
+      model: C:\tmp\B-BLOK_Revised.EDB
     required_columns:
       Material:
         aliases:
         - Material
+        - Name
       E1:
         aliases:
         - E1
+        - Elastic Modulus
         - Modulus of Elasticity
+        - E
       G12:
         aliases:
         - G12
         - Shear Modulus
+        - G
       U12:
         aliases:
         - U12
         - Poisson Ratio
+        - Poisson
+        - U
     optional_columns:
       UnitWeight:
         aliases:
         - UnitWeight
         - Unit Weight
+        - Weight
       UnitMass:
         aliases:
         - UnitMass
         - Unit Mass
-    source_role: basic_mechanical_material_properties
+        - Mass
+      Fc:
+        aliases:
+        - Fc
+        - fck
+        - Concrete Strength
+      Fy:
+        aliases:
+        - Fy
+        - Fye
+        - Yield Strength
+      Fu:
+        aliases:
+        - Fu
+        - Fue
+        - Ultimate Strength
+    source_role: material_mechanical_properties_and_material_metadata
     must_not_use:
     - Material List by Story
     - Material List by Object Type
     - Material List by Section Prop
     check_unlock_allowed: false
+    live_table_names:
+    - Material Properties - Basic Mechanical Properties
+    - Material Properties - Concrete Data
+    - Material Properties - Rebar Data
+    semantic_guardrail: raw material constants/metadata only; no material compliance
+      check or TBDY/TS500 pass/fail interpretation
+    safe_to_implement_checks_now: false
+    stable_contract_promotion: true
+    stable_contract_promotion_sprint: C13.2-P4
+    engineering_checks_implemented: false
+    feature_resolver_behavior_changed: false
+    check_engine_behavior_changed: false
   pier_section_properties:
     provider: etabs
-    evidence_status: NEEDS_LIVE_PROBE
+    evidence_status: VERIFIED_LIVE
     live_table_name: Pier Section Properties
     excel_inventory_aliases:
     - Pier Section Properties
-    fetch_policy: explicit_profile_only
-    verified_by:
-      sprint: C13.2-P1
-      live_probe: false
-      probe_profile: verification_gate
+    - Area Assignments - Summary
+    - Wall Bays
+    - Wall Object Connectivity
+    - Area Assigns - Pier Labels
+    - Area Assigns - Sect Prop
+    - Wall Property Def - Specified
+    - Area Section Props - Summary
+    fetch_policy: exact_first_capped_keyword
+    verified_by: *id001
     required_columns:
       Story:
         aliases:
@@ -646,29 +696,82 @@ tables:
       Pier:
         aliases:
         - Pier
+        - Pier Label
+      Width:
+        aliases:
+        - Width
+        - Width Bottom
+        - Width Top
+        - WidthBot
+        - WidthTop
+      Thickness:
+        aliases:
+        - Thickness
+        - Thickness Bottom
+        - Thickness Top
+        - ThickBot
+        - ThickTop
       Material:
         aliases:
         - Material
+        - Material Name
     optional_columns:
+      Section:
+        aliases:
+        - Section
+        - PropName
+        - WallProp
       WidthBottom:
         aliases:
         - Width Bottom
+        - WidthBot
+      WidthTop:
+        aliases:
+        - Width Top
+        - WidthTop
       ThicknessBottom:
         aliases:
         - Thickness Bottom
-    source_role: pier_section_geometry_context
+        - ThickBot
+      ThicknessTop:
+        aliases:
+        - Thickness Top
+        - ThickTop
+    source_role: pier_section_direct_geometry_material_context
     check_unlock_allowed: false
+    live_table_names:
+    - Pier Section Properties
+    supporting_context_tables:
+    - Area Assignments - Summary
+    - Wall Bays
+    - Wall Object Connectivity
+    - Area Assigns - Pier Labels
+    - Area Assigns - Sect Prop
+    - Wall Property Def - Specified
+    - Area Section Props - Summary
+    direct_section_geometry_present: true
+    section_name_column_required: false
+    section_name_column_present: false
+    material_present: true
+    semantic_guardrail: pier/wall section geometry/material source only; no wall force,
+      pier force, shear, flexure/axial, confinement, detailing, or engineering verdict
+      unlock
+    safe_to_implement_checks_now: false
+    stable_contract_promotion: true
+    stable_contract_promotion_sprint: C13.2-P4
+    engineering_checks_implemented: false
+    feature_resolver_behavior_changed: false
+    check_engine_behavior_changed: false
   story_definitions:
     provider: etabs
-    evidence_status: NEEDS_LIVE_PROBE
+    evidence_status: VERIFIED_LIVE
     live_table_name: Story Definitions
     excel_inventory_aliases:
     - Story Definitions
-    fetch_policy: explicit_profile_only
-    verified_by:
-      sprint: C13.2-P1
-      live_probe: false
-      probe_profile: verification_gate
+    - Tower and Base Story Definition
+    - Tower and Base Story Definitions
+    fetch_policy: exact_first_capped_keyword
+    verified_by: *id001
     required_columns:
       Story:
         aliases:
@@ -678,15 +781,49 @@ tables:
         aliases:
         - Height
         - Story Height
+      BSElev:
+        aliases:
+        - BSElev
+        - Base Elevation
+        - Base Story Elevation
     optional_columns:
       MasterStory:
         aliases:
         - Master Story
+        - MasterStory
       SimilarTo:
         aliases:
         - Similar To
-    source_role: story_definition_context
+        - SimilarTo
+      SpliceAbove:
+        aliases:
+        - Splice Above
+        - SpliceAbove
+      SpliceHeight:
+        aliases:
+        - Splice Height
+        - SpliceHeight
+    source_role: story_definition_and_derived_elevation_context
     check_unlock_allowed: false
+    live_table_names:
+    - Story Definitions
+    - Tower and Base Story Definitions
+    backward_compatibility_aliases:
+    - Tower and Base Story Definition
+    derived_elevation_supported: true
+    elevation_is_direct_column: false
+    base_elevation_column: BSElev
+    tower_and_base_story_definition_table: Tower and Base Story Definitions
+    tower_and_base_story_definition_backward_compatibility_alias: Tower and Base Story
+      Definition
+    semantic_guardrail: story metadata only; does not unlock drift, torsion, story
+      force, or check verdicts
+    safe_to_implement_checks_now: false
+    stable_contract_promotion: true
+    stable_contract_promotion_sprint: C13.2-P4
+    engineering_checks_implemented: false
+    feature_resolver_behavior_changed: false
+    check_engine_behavior_changed: false
   pier_forces:
     provider: etabs
     evidence_status: SEMANTIC_REVIEW
@@ -1051,3 +1188,69 @@ tables:
     source_role: legacy_design_output_requires_semantic_review
     check_unlock_allowed: false
     legacy_compatibility_alias: true
+  wall_bays:
+    provider: etabs
+    evidence_status: VERIFIED_LIVE
+    live_table_name: Wall Bays
+    excel_inventory_aliases:
+    - Wall Bays
+    fetch_policy: exact_first_capped_keyword
+    verified_by: *id001
+    required_columns:
+      Story:
+        aliases:
+        - Story
+      Pier:
+        aliases:
+        - Pier
+    optional_columns:
+      Bay:
+        aliases:
+        - Bay
+        - BayName
+      Label:
+        aliases:
+        - Label
+    source_role: wall_pier_topology_context_only
+    check_unlock_allowed: false
+    safe_to_implement_checks_now: false
+    stable_contract_promotion: true
+    stable_contract_promotion_sprint: C13.2-P4
+    engineering_checks_implemented: false
+    feature_resolver_behavior_changed: false
+    check_engine_behavior_changed: false
+  wall_object_connectivity:
+    provider: etabs
+    evidence_status: VERIFIED_LIVE
+    live_table_name: Wall Object Connectivity
+    excel_inventory_aliases:
+    - Wall Object Connectivity
+    fetch_policy: exact_first_capped_keyword
+    verified_by: *id001
+    required_columns:
+      Story:
+        aliases:
+        - Story
+      Label:
+        aliases:
+        - Label
+    optional_columns:
+      Point1:
+        aliases:
+        - Point1
+        - Point I
+      Point2:
+        aliases:
+        - Point2
+        - Point J
+      Pier:
+        aliases:
+        - Pier
+    source_role: wall_area_object_connectivity_context_only
+    check_unlock_allowed: false
+    safe_to_implement_checks_now: false
+    stable_contract_promotion: true
+    stable_contract_promotion_sprint: C13.2-P4
+    engineering_checks_implemented: false
+    feature_resolver_behavior_changed: false
+    check_engine_behavior_changed: false

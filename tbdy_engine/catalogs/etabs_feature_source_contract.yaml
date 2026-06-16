@@ -2,16 +2,64 @@ metadata:
   contract: Contract Constitution
   version: '1.0'
   catalog_name: etabs_feature_source_contract
-  sprint: C13.2-P2
-  status: verified_live_source_contract_expansion
+  sprint: C13.2-P4
+  status: promoted_verified_blocked_source_contract_metadata
   owner: TBDY Engine
-  source_basis: C13.2-P1_VERIFIED_LIVE_only
+  source_basis: C13.2-P3_VERIFIED_LIVE_CANDIDATES
   safe_to_implement_checks_now: false
   notes:
-  - C13.2-P2 additive source contract expansion using only existing feature_catalog feature_id values.
-  - Preserves legacy etabs_feature_source_contract schema shape required by Contract Constitution validator.
+  - C13.2-P2 additive source contract expansion using only existing feature_catalog
+    feature_id values.
+  - Preserves legacy etabs_feature_source_contract schema shape required by Contract
+    Constitution validator.
   - Does not unlock rebar/flexure/shear/capacity engineering checks.
   - Excel production source remains forbidden.
+  - C13.2-P4 promotes material_properties, story_definitions, and pier_section_properties
+    as stable source contracts only.
+  - No new feature_id entries are added in P4; runtime feature wiring remains a later
+    source-to-feature sprint.
+  - No FeatureResolver, CheckEngine, report renderer, or engineering check behavior
+    is unlocked.
+  p4_promoted_source_contracts:
+    material_properties:
+      table_registry_keys:
+      - material_properties
+      - concrete_material_properties
+      - rebar_material_properties
+      live_table_names:
+      - Material Properties - Basic Mechanical Properties
+      - Material Properties - Concrete Data
+      - Material Properties - Rebar Data
+      semantic_role: material mechanical properties and material metadata only
+      check_unlock_allowed: false
+      safe_to_implement_checks_now: false
+    story_definitions:
+      table_registry_keys:
+      - story_definitions
+      live_table_names:
+      - Story Definitions
+      - Tower and Base Story Definitions
+      backward_compatibility_aliases:
+      - Tower and Base Story Definition
+      derived_elevation_supported: true
+      elevation_is_direct_column: false
+      base_elevation_column: BSElev
+      check_unlock_allowed: false
+      safe_to_implement_checks_now: false
+    pier_section_properties:
+      table_registry_keys:
+      - pier_section_properties
+      - wall_bays
+      - wall_object_connectivity
+      - area_assignments_summary
+      - pier_assignments
+      - wall_section_properties
+      direct_section_geometry_present: true
+      section_name_column_required: false
+      section_name_column_present: false
+      material_present: true
+      check_unlock_allowed: false
+      safe_to_implement_checks_now: false
 defaults:
   source_owner: ETABS
   source_type: display_table
@@ -146,7 +194,8 @@ sources:
   - excel_production
   - section_name_inference
   locked_future_scope: false
-  source_scope: current direct_api geometry contract; C13.2-P2 table proof is additive only; no check unlock
+  source_scope: current direct_api geometry contract; C13.2-P2 table proof is additive
+    only; no check unlock
   evidence_status: VERIFIED_LIVE
   check_unlock_allowed: false
   api_path:
@@ -255,7 +304,8 @@ sources:
   - excel_production
   - section_name_inference
   locked_future_scope: false
-  source_scope: current direct_api geometry contract; C13.2-P2 table proof is additive only; no check unlock
+  source_scope: current direct_api geometry contract; C13.2-P2 table proof is additive
+    only; no check unlock
   evidence_status: VERIFIED_LIVE
   check_unlock_allowed: false
   api_path:
@@ -294,7 +344,8 @@ sources:
   - excel_production
   - section_name_inference
   locked_future_scope: false
-  source_scope: current direct_api geometry contract; C13.2-P2 table proof is additive only; no check unlock
+  source_scope: current direct_api geometry contract; C13.2-P2 table proof is additive
+    only; no check unlock
   evidence_status: VERIFIED_LIVE
   check_unlock_allowed: false
   api_path:

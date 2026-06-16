@@ -2,8 +2,8 @@ metadata:
   contract: Contract Constitution
   version: '1.0'
   catalog_name: feature_family_map
-  sprint: C13.2-P2
-  status: verified_live_feature_family_grouping
+  sprint: C13.2-P4
+  status: promoted_verified_blocked_source_family_grouping
   safe_to_implement_checks_now: false
 feature_families:
   frame_identity:
@@ -62,3 +62,34 @@ feature_families:
     - pier_assignments
     evidence_status: VERIFIED_LIVE
     check_unlock_allowed: false
+  material_properties_promoted:
+    source_tables:
+    - material_properties
+    - concrete_material_properties
+    - rebar_material_properties
+    evidence_status: VERIFIED_LIVE
+    source_role: material_mechanical_properties_and_material_metadata
+    check_unlock_allowed: false
+    safe_to_implement_checks_now: false
+  story_definition_metadata_promoted:
+    source_tables:
+    - story_definitions
+    evidence_status: VERIFIED_LIVE
+    source_role: story_definition_and_derived_elevation_context
+    derived_elevation_supported: true
+    elevation_is_direct_column: false
+    check_unlock_allowed: false
+    safe_to_implement_checks_now: false
+  pier_section_geometry_promoted:
+    source_tables:
+    - pier_section_properties
+    - area_assignments_summary
+    - pier_assignments
+    - wall_bays
+    - wall_object_connectivity
+    - wall_section_properties
+    evidence_status: VERIFIED_LIVE
+    source_role: pier_section_direct_geometry_material_context
+    direct_section_geometry_present: true
+    check_unlock_allowed: false
+    safe_to_implement_checks_now: false
