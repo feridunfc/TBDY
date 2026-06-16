@@ -25,6 +25,12 @@ ALLOWED_VERIFIED = {
     "area_assignments_summary",
     "wall_section_properties",
     "pier_assignments",
+    # C13.2-P4 promoted blocked sources and live-proved supporting context.
+    "material_properties",
+    "story_definitions",
+    "pier_section_properties",
+    "wall_bays",
+    "wall_object_connectivity",
 }
 LEGACY_COMPATIBILITY_ALIASES = {
     "frame_assignments": "frame_assignments_summary",
@@ -81,9 +87,9 @@ def test_legacy_table_keys_are_preserved_as_compatibility_aliases():
         assert tables[alias_key]["check_unlock_allowed"] is False
 
 
-def test_material_properties_is_not_verified_and_does_not_use_material_list_tables():
+def test_material_properties_promotion_does_not_use_material_list_tables():
     material = table_registry()["material_properties"]
-    assert material["evidence_status"] == "NEEDS_LIVE_PROBE"
+    assert material["evidence_status"] in {"NEEDS_LIVE_PROBE", "VERIFIED_LIVE"}
     assert "Material List" not in material["live_table_name"]
     assert set(material["must_not_use"]) >= {
         "Material List by Story",
@@ -104,10 +110,12 @@ def test_frame_section_source_distinction_is_preserved():
     assert assignment_context["source_role"] == "section_assignment_context_only"
 
 
-def test_story_definitions_and_pier_section_properties_not_promoted():
+def test_story_definitions_and_pier_section_properties_keep_check_unlock_locked():
     tables = table_registry()
-    assert tables["story_definitions"]["evidence_status"] == "NEEDS_LIVE_PROBE"
-    assert tables["pier_section_properties"]["evidence_status"] == "NEEDS_LIVE_PROBE"
+    assert tables["story_definitions"]["evidence_status"] in {"NEEDS_LIVE_PROBE", "VERIFIED_LIVE"}
+    assert tables["pier_section_properties"]["evidence_status"] in {"NEEDS_LIVE_PROBE", "VERIFIED_LIVE"}
+    assert tables["story_definitions"]["check_unlock_allowed"] is False
+    assert tables["pier_section_properties"]["check_unlock_allowed"] is False
 
 
 def test_pier_forces_remain_semantic_review_and_locked():
