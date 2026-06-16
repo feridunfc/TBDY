@@ -1,0 +1,267 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "C13.2-P5 Source Feature Readiness Matrix",
+  "type": "object",
+  "required": [
+    "metadata",
+    "readiness_status_taxonomy",
+    "matrix"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "metadata": {
+      "type": "object",
+      "required": [
+        "contract",
+        "version",
+        "sprint",
+        "catalog_name",
+        "safe_to_implement_checks_now",
+        "check_unlock_allowed",
+        "excel_production_input",
+        "runtime_behavior_changed",
+        "unit_policy"
+      ],
+      "additionalProperties": true,
+      "properties": {
+        "contract": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        },
+        "sprint": {
+          "const": "C13.2-P5"
+        },
+        "catalog_name": {
+          "const": "source_feature_readiness_matrix"
+        },
+        "safe_to_implement_checks_now": {
+          "const": false
+        },
+        "check_unlock_allowed": {
+          "const": false
+        },
+        "excel_production_input": {
+          "const": false
+        },
+        "runtime_behavior_changed": {
+          "const": false
+        },
+        "unit_policy": {
+          "type": "object",
+          "required": [
+            "allowed_units",
+            "default_report_units",
+            "source_contract_silent_conversion_allowed",
+            "future_feature_snapshot_requirement",
+            "future_check_engine_requirement",
+            "feature_resolver_behavior_changed",
+            "check_engine_behavior_changed",
+            "checks_implemented",
+            "safe_to_implement_checks_now"
+          ],
+          "additionalProperties": true,
+          "properties": {
+            "allowed_units": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "contains": {
+                "const": "kN"
+              }
+            },
+            "default_report_units": {
+              "type": "object",
+              "required": [
+                "force",
+                "moment",
+                "global_length_elevation",
+                "section_dimensions",
+                "deformation_displacement",
+                "drift",
+                "stress_material_strength"
+              ],
+              "additionalProperties": true
+            },
+            "source_contract_silent_conversion_allowed": {
+              "const": false
+            },
+            "feature_resolver_behavior_changed": {
+              "const": false
+            },
+            "check_engine_behavior_changed": {
+              "const": false
+            },
+            "checks_implemented": {
+              "const": false
+            },
+            "safe_to_implement_checks_now": {
+              "const": false
+            }
+          }
+        }
+      }
+    },
+    "readiness_status_taxonomy": {
+      "type": "array",
+      "minItems": 8,
+      "items": {
+        "type": "string",
+        "enum": [
+          "READY_DIRECT_SOURCE",
+          "READY_DERIVED_SOURCE",
+          "READY_SUPPORTING_CONTEXT_ONLY",
+          "BLOCKED_NEEDS_LIVE_PROBE",
+          "BLOCKED_SEMANTIC_REVIEW",
+          "BLOCKED_FEATURE_CONTRACT_MISSING",
+          "OUT_OF_SCOPE_UNSUPPORTED",
+          "LOCKED_CHECK_NOT_ALLOWED"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "matrix": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "row_id",
+          "domain",
+          "readiness_status",
+          "source_families",
+          "feature_id",
+          "evidence_kind",
+          "semantic_role",
+          "check_unlock_allowed",
+          "safe_to_implement_checks_now",
+          "excel_production_input",
+          "notes",
+          "quantity_kind",
+          "source_unit_policy",
+          "normalized_unit_policy",
+          "default_report_unit"
+        ],
+        "additionalProperties": true,
+        "properties": {
+          "row_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "domain": {
+            "type": "string",
+            "minLength": 1
+          },
+          "feature_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "output_feature": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "readiness_status": {
+            "type": "string",
+            "enum": [
+              "READY_DIRECT_SOURCE",
+              "READY_DERIVED_SOURCE",
+              "READY_SUPPORTING_CONTEXT_ONLY",
+              "BLOCKED_NEEDS_LIVE_PROBE",
+              "BLOCKED_SEMANTIC_REVIEW",
+              "BLOCKED_FEATURE_CONTRACT_MISSING",
+              "OUT_OF_SCOPE_UNSUPPORTED",
+              "LOCKED_CHECK_NOT_ALLOWED"
+            ]
+          },
+          "source_families": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "required_source_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "supporting_source_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "evidence_kind": {
+            "type": "string"
+          },
+          "semantic_role": {
+            "type": "string"
+          },
+          "derivation_policy": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "semantic_guardrail": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "check_unlock_allowed": {
+            "const": false
+          },
+          "safe_to_implement_checks_now": {
+            "const": false
+          },
+          "excel_production_input": {
+            "const": false
+          },
+          "notes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "quantity_kind": {
+            "type": "string",
+            "minLength": 1
+          },
+          "source_unit_policy": {
+            "type": "string",
+            "minLength": 1
+          },
+          "normalized_unit_policy": {
+            "type": "string",
+            "minLength": 1
+          },
+          "default_report_unit": {
+            "type": "string",
+            "enum": [
+              "kN",
+              "kN.m",
+              "m",
+              "mm",
+              "mm2",
+              "MPa",
+              "ratio",
+              "percent",
+              "unitless"
+            ]
+          },
+          "unit_guardrail": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

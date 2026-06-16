@@ -1,0 +1,1419 @@
+metadata:
+  contract: Contract Constitution
+  version: '1.0'
+  sprint: C13.2-P5
+  catalog_name: source_feature_readiness_matrix
+  status: contract_closure_source_to_feature_readiness
+  owner: TBDY Engine
+  source_basis: C13.2-P4 promoted verified live source contracts
+  safe_to_implement_checks_now: false
+  check_unlock_allowed: false
+  excel_production_input: false
+  runtime_behavior_changed: false
+  feature_resolver_changed: false
+  check_engine_changed: false
+  report_renderer_changed: false
+  notes:
+  - P5 is a contract-closure/readiness sprint only.
+  - The matrix references existing feature ids where they exist and records explicit
+    gaps where they do not.
+  - No FeatureResolver, CheckEngine, report renderer, runtime, or Excel production
+    path is introduced.
+  unit_policy:
+    status: C13.2-P5_UNIT_POLICY_CLOSED_AT_CONTRACT_LEVEL
+    etabs_live_source_unit_context: ACCEPT_VALUES_IN_LIVE_MODEL_API_UNIT_CONTEXT
+    raw_source_value_policy: RAW_SOURCE_VALUES_MUST_NOT_BE_SILENTLY_CONVERTED_AT_SOURCE_CONTRACT_LEVEL
+    source_contract_silent_conversion_allowed: false
+    report_output_may_convert_to_default_display_units: true
+    future_feature_snapshot_requirement: CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+    future_check_engine_requirement: MUST_NOT_CONSUME_AMBIGUOUS_RAW_NUMERIC_VALUES_WITHOUT_UNIT_METADATA
+    feature_resolver_behavior_changed: false
+    check_engine_behavior_changed: false
+    checks_implemented: false
+    safe_to_implement_checks_now: false
+    allowed_units:
+    - kN
+    - kN.m
+    - m
+    - mm
+    - MPa
+    - ratio
+    - percent
+    - unitless
+    - mm2
+    default_report_units:
+      force: kN
+      moment: kN.m
+      global_length_elevation: m
+      section_dimensions: mm
+      deformation_displacement: mm
+      drift: ratio or percent, explicitly labeled
+      stress_material_strength: MPa
+      identity_context: unitless
+      modal_participation: ratio
+      reinforcement_area: mm2
+readiness_status_taxonomy:
+- READY_DIRECT_SOURCE
+- READY_DERIVED_SOURCE
+- READY_SUPPORTING_CONTEXT_ONLY
+- BLOCKED_NEEDS_LIVE_PROBE
+- BLOCKED_SEMANTIC_REVIEW
+- BLOCKED_FEATURE_CONTRACT_MISSING
+- OUT_OF_SCOPE_UNSUPPORTED
+- LOCKED_CHECK_NOT_ALLOWED
+matrix:
+- row_id: material_concrete_fck_direct
+  domain: materials
+  feature_id: concrete_fck_mpa
+  output_feature: concrete_fck_mpa
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - concrete_material_properties
+  - material_properties
+  required_source_fields:
+  - Material
+  - Fc
+  supporting_source_fields:
+  - E1
+  - G12
+  - U12
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: concrete material raw strength source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Raw evidence only; no material compliance check is unlocked.
+  quantity_kind: stress_material_strength
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: MPa
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: material_rebar_fyk_direct
+  domain: materials
+  feature_id: rebar_fyk_mpa
+  output_feature: rebar_fyk_mpa
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - rebar_material_properties
+  - material_properties
+  required_source_fields:
+  - Material
+  - Fy
+  supporting_source_fields:
+  - E1
+  - G12
+  - U12
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: rebar material raw strength source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Raw evidence only; no rebar compliance check is unlocked.
+  quantity_kind: stress_material_strength
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: MPa
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: material_mechanical_constants_source_capability
+  domain: materials
+  feature_id: null
+  output_feature: material_mechanical_constants_source_capability
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - material_properties
+  required_source_fields:
+  - Material
+  - E1
+  - G12
+  - U12
+  supporting_source_fields:
+  - Type
+  - UnitWeight
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: material mechanical constants source capability
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - No existing feature ids for E/G/Poisson are added in P5; this row records source
+    capability only.
+  quantity_kind: material_mechanical_constants
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: MPa
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: material_compliance_checks_locked
+  domain: materials
+  feature_id: null
+  output_feature: material_compliance_check_readiness
+  readiness_status: LOCKED_CHECK_NOT_ALLOWED
+  source_families:
+  - material_properties
+  - concrete_material_properties
+  - rebar_material_properties
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: material compliance checks locked
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - TBDY/TS500 material pass/fail interpretation remains locked.
+  quantity_kind: material_check_policy
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: story_height_direct
+  domain: story
+  feature_id: story_height_mm
+  output_feature: story_height_mm
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - story_definitions
+  required_source_fields:
+  - Story
+  - Height
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: story height source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Story name/id is source context; only existing feature id story_height_mm is referenced.
+  quantity_kind: global_length_elevation
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: m
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: story_derived_elevation_policy
+  domain: story
+  feature_id: null
+  output_feature: story_elevation_derived_source_capability
+  readiness_status: READY_DERIVED_SOURCE
+  source_families:
+  - story_definitions
+  required_source_fields:
+  - Story
+  - Height
+  - BSElev
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: story derived elevation source capability
+  derivation_policy:
+    policy_id: derive_story_elevation_from_tower_base_and_heights
+    source_families:
+    - story_definitions
+    input_fields:
+    - Story
+    - Height
+    - BSElev
+    output_feature: story_elevation_derived_source_capability
+    derived_elevation_supported: true
+    elevation_is_direct_column: false
+    base_elevation_column: BSElev
+    human_review_required: true
+  semantic_guardrail: Derived story elevation support only; no drift/torsion/story-force
+    check unlock.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Elevation direct feature id is not present in feature_catalog; derivation policy
+    is recorded without inventing a new feature id.
+  quantity_kind: global_length_elevation
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: m
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: story_drift_value_locked
+  domain: story
+  feature_id: story_drift_value
+  output_feature: story_drift_value
+  readiness_status: LOCKED_CHECK_NOT_ALLOWED
+  source_families:
+  - story_drifts
+  required_source_fields:
+  - Story
+  - OutputCase
+  - Direction
+  - Drift
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: observed story drift source locked for checks
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Source exists but drift check verdict remains locked.
+  quantity_kind: drift_ratio
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: ratio
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: story_drift_max_locked
+  domain: story
+  feature_id: story_drift_max_mm
+  output_feature: story_drift_max_mm
+  readiness_status: LOCKED_CHECK_NOT_ALLOWED
+  source_families:
+  - story_drifts
+  required_source_fields:
+  - Story
+  - OutputCase
+  - Direction
+  - Drift
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: observed max drift source locked for checks
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - No drift compliance check unlocked.
+  quantity_kind: deformation_displacement_or_drift_context
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: mm
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: story_drift_avg_locked
+  domain: story
+  feature_id: story_drift_avg_mm
+  output_feature: story_drift_avg_mm
+  readiness_status: LOCKED_CHECK_NOT_ALLOWED
+  source_families:
+  - story_max_over_avg_drifts
+  required_source_fields:
+  - Story
+  - OutputCase
+  - Direction
+  - AvgDrift
+  supporting_source_fields:
+  - Ratio
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: observed average drift context locked for checks
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - No torsion/drift check unlocked.
+  quantity_kind: deformation_displacement_or_drift_context
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: mm
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: story_torsion_a1_locked
+  domain: story
+  feature_id: story_torsion_a1_coefficient
+  output_feature: story_torsion_a1_coefficient
+  readiness_status: LOCKED_CHECK_NOT_ALLOWED
+  source_families:
+  - story_max_over_avg_drifts
+  required_source_fields:
+  - Story
+  - OutputCase
+  - Direction
+  - Ratio
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: observed torsion source locked for checks
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - A1/torsion candidate source exists, but check semantics remain locked.
+  quantity_kind: drift_ratio
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: ratio
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: story_forces_semantic_review
+  domain: story
+  feature_id: null
+  output_feature: story_force_check_inputs
+  readiness_status: BLOCKED_SEMANTIC_REVIEW
+  source_families:
+  - OUT_OF_SCOPE
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: story force/result semantics pending
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Story force checks require later live proof and semantic classification.
+  quantity_kind: force
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: kN
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: pier_geometry_width_direct
+  domain: wall_pier
+  feature_id: wall_length_mm
+  output_feature: wall_length_mm
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - pier_section_properties
+  required_source_fields:
+  - Story
+  - Pier
+  - Width
+  supporting_source_fields:
+  - Width Bottom
+  - Width Top
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: pier direct width/length geometry source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Mapped to existing wall_length_mm feature readiness; literal Section column is
+    not required.
+  quantity_kind: section_dimension
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: mm
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: pier_geometry_thickness_direct
+  domain: wall_pier
+  feature_id: wall_thickness_mm
+  output_feature: wall_thickness_mm
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - pier_section_properties
+  required_source_fields:
+  - Story
+  - Pier
+  - Thickness
+  supporting_source_fields:
+  - Thickness Bottom
+  - Thickness Top
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: pier direct thickness geometry source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Direct geometry present; literal Section column absence is explicitly allowed.
+  quantity_kind: section_dimension
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: mm
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: pier_material_direct
+  domain: wall_pier
+  feature_id: null
+  output_feature: pier_material_source_capability
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - pier_section_properties
+  - material_properties
+  required_source_fields:
+  - Story
+  - Pier
+  - Material
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: pier material source capability
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - No existing pier material feature id is added; source capability only.
+  quantity_kind: material_identity
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: pier_identity_supporting_context
+  domain: wall_pier
+  feature_id: null
+  output_feature: pier_identity_context
+  readiness_status: READY_SUPPORTING_CONTEXT_ONLY
+  source_families:
+  - pier_assignments
+  - area_assignments_summary
+  required_source_fields:
+  - Story
+  - Pier
+  supporting_source_fields:
+  - Area
+  - Label
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: pier label/identity context only
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Identity/context only, not a final engineering feature.
+  quantity_kind: identity_context
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: wall_object_connectivity_supporting_context
+  domain: wall_pier
+  feature_id: null
+  output_feature: wall_object_mapping_context
+  readiness_status: READY_SUPPORTING_CONTEXT_ONLY
+  source_families:
+  - wall_object_connectivity
+  - wall_bays
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: wall topology/connectivity context only
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Wall connectivity/topology is supporting context only.
+  quantity_kind: identity_context
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: pier_forces_semantic_review
+  domain: wall_pier
+  feature_id: wall_Vd_kN
+  output_feature: wall_Vd_kN
+  readiness_status: BLOCKED_SEMANTIC_REVIEW
+  source_families:
+  - pier_forces
+  required_source_fields:
+  - Story
+  - Pier
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: pier/wall force semantics pending
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Force source requires semantic review before FeatureSnapshot/check use.
+  quantity_kind: force
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: kN
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: wall_capacity_detailing_locked
+  domain: wall_pier
+  feature_id: null
+  output_feature: wall_pier_capacity_detailing_checks
+  readiness_status: LOCKED_CHECK_NOT_ALLOWED
+  source_families:
+  - pier_section_properties
+  - pier_forces
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: wall/pier capacity/detailing checks locked
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - No shear/flexure/axial/confinement/detailing verdict is unlocked.
+  quantity_kind: wall_check_policy
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: beam_label_direct
+  domain: beam
+  feature_id: beam_label
+  output_feature: beam_label
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - frame_assignments_summary
+  required_source_fields:
+  - UniqueName
+  - Label
+  - Story
+  - DesignSect
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: beam identity source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Beam identity source is stable.
+  quantity_kind: identity_context
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: beam_story_direct
+  domain: beam
+  feature_id: beam_story
+  output_feature: beam_story
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - frame_assignments_summary
+  required_source_fields:
+  - Story
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: beam story source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Beam story source is stable.
+  quantity_kind: identity_context
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: beam_section_name_direct
+  domain: beam
+  feature_id: beam_section_name
+  output_feature: beam_section_name
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - frame_assignments_summary
+  required_source_fields:
+  - DesignSect
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: beam section assignment source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Beam section assignment source is stable.
+  quantity_kind: identity_context
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: beam_unique_name_direct
+  domain: beam
+  feature_id: beam_unique_name
+  output_feature: beam_unique_name
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - frame_assignments_summary
+  required_source_fields:
+  - UniqueName
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: beam unique ETABS object id source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Beam unique name source is stable.
+  quantity_kind: identity_context
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: beam_width_direct
+  domain: beam
+  feature_id: beam_width_mm
+  output_feature: beam_width_mm
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - concrete_rectangular_frame_sections
+  required_source_fields:
+  - Name
+  - t2
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: rectangular frame width source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Direct source exists, but actual FeatureResolver wiring is not changed in P5.
+  quantity_kind: section_dimension
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: mm
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: beam_depth_direct
+  domain: beam
+  feature_id: beam_depth_mm
+  output_feature: beam_depth_mm
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - concrete_rectangular_frame_sections
+  required_source_fields:
+  - Name
+  - t3
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: rectangular frame depth source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Direct source exists, but actual FeatureResolver wiring is not changed in P5.
+  quantity_kind: section_dimension
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: mm
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: beam_length_direct
+  domain: beam
+  feature_id: beam_length_mm
+  output_feature: beam_length_mm
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - frame_assignments_summary
+  required_source_fields:
+  - Length
+  supporting_source_fields:
+  - UniqueName
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: beam length/geometry context source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Direct source/readiness only; no deflection/capacity check unlock.
+  quantity_kind: global_length
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: m
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: beam_effective_depth_missing_contract
+  domain: beam
+  feature_id: beam_effective_depth_mm
+  output_feature: beam_effective_depth_mm
+  readiness_status: BLOCKED_FEATURE_CONTRACT_MISSING
+  source_families:
+  - NONE
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: effective depth requires detailing policy
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Existing feature id has no safe stable source path yet.
+  quantity_kind: section_dimension
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: mm
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: beam_flexure_design_semantic_review
+  domain: beam
+  feature_id: beam_Md_left_neg_kNm
+  output_feature: beam_Md_left_neg_kNm
+  readiness_status: BLOCKED_SEMANTIC_REVIEW
+  source_families:
+  - beam_forces
+  - concrete_beam_design_summary
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: beam flexure/design-result semantics pending
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Moment/envelope/governing semantics require later review.
+  quantity_kind: moment
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: kN.m
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: beam_shear_design_semantic_review
+  domain: beam
+  feature_id: beam_Vd_left_kN
+  output_feature: beam_Vd_left_kN
+  readiness_status: BLOCKED_SEMANTIC_REVIEW
+  source_families:
+  - beam_forces
+  - concrete_beam_design_summary
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: beam shear/design-result semantics pending
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Shear/envelope/governing semantics require later review.
+  quantity_kind: force
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: kN
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: beam_rebar_design_semantic_review
+  domain: beam
+  feature_id: beam_As_top_etabs_required_mm2
+  output_feature: beam_As_top_etabs_required_mm2
+  readiness_status: BLOCKED_SEMANTIC_REVIEW
+  source_families:
+  - concrete_beam_design_summary
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: beam ETABS rebar output semantics pending
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - ETABS required vs governing/selected/provided rebar semantics remain locked.
+  quantity_kind: area_rebar
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: mm2
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: beam_user_provided_rebar_out_of_scope
+  domain: beam
+  feature_id: beam_As_top_user_provided_mm2
+  output_feature: beam_As_top_user_provided_mm2
+  readiness_status: OUT_OF_SCOPE_UNSUPPORTED
+  source_families:
+  - NONE
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: manual user-provided rebar explicit input only
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - No production manual rebar input path is introduced in P5.
+  quantity_kind: area_rebar
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: mm2
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: column_width_direct
+  domain: column
+  feature_id: column_width_mm
+  output_feature: column_width_mm
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - concrete_rectangular_frame_sections
+  required_source_fields:
+  - Name
+  - t2
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: column rectangular width source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Column geometry source ready; no capacity check unlock.
+  quantity_kind: section_dimension
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: mm
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: column_depth_direct
+  domain: column
+  feature_id: column_depth_mm
+  output_feature: column_depth_mm
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - concrete_rectangular_frame_sections
+  required_source_fields:
+  - Name
+  - t3
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: column rectangular depth source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Column geometry source ready; no capacity check unlock.
+  quantity_kind: section_dimension
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: mm
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: column_axial_load_semantic_review
+  domain: column
+  feature_id: column_Nd_max_kN
+  output_feature: column_Nd_max_kN
+  readiness_status: BLOCKED_SEMANTIC_REVIEW
+  source_families:
+  - concrete_column_design_summary
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: column axial/design result semantics pending
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - PMM/axial design semantics require later review.
+  quantity_kind: force
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: kN
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: column_longitudinal_rebar_semantic_review
+  domain: column
+  feature_id: column_rho_longitudinal_value
+  output_feature: column_rho_longitudinal_value
+  readiness_status: BLOCKED_SEMANTIC_REVIEW
+  source_families:
+  - concrete_column_design_summary
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: column rebar/design result semantics pending
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Longitudinal rebar ratio/source semantics remain blocked.
+  quantity_kind: reinforcement_ratio
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: ratio
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: modal_sum_ux_direct
+  domain: modal
+  feature_id: modal_sum_ux
+  output_feature: modal_sum_ux
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - modal_participating_mass
+  required_source_fields:
+  - Mode
+  - Period
+  - SumUX
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: modal cumulative UX source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Report/readiness source only; modal mass check unlock remains false.
+  quantity_kind: modal_participation_ratio
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: ratio
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: modal_sum_uy_direct
+  domain: modal
+  feature_id: modal_sum_uy
+  output_feature: modal_sum_uy
+  readiness_status: READY_DIRECT_SOURCE
+  source_families:
+  - modal_participating_mass
+  required_source_fields:
+  - Mode
+  - Period
+  - SumUY
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: modal cumulative UY source
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Report/readiness source only; modal mass check unlock remains false.
+  quantity_kind: modal_participation_ratio
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_FEATURESNAPSHOT_MUST_CARRY_RAW_AND_NORMALIZED_UNIT_METADATA
+  default_report_unit: ratio
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: base_reaction_fx_direct_locked
+  domain: global
+  feature_id: base_reaction_fx
+  output_feature: base_reaction_fx
+  readiness_status: LOCKED_CHECK_NOT_ALLOWED
+  source_families:
+  - base_reactions
+  required_source_fields:
+  - OutputCase
+  - FX
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: base reaction FX source locked for checks
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Observed source exists but base shear/check semantics remain locked.
+  quantity_kind: force
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: kN
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: base_reaction_fy_direct_locked
+  domain: global
+  feature_id: base_reaction_fy
+  output_feature: base_reaction_fy
+  readiness_status: LOCKED_CHECK_NOT_ALLOWED
+  source_families:
+  - base_reactions
+  required_source_fields:
+  - OutputCase
+  - FY
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: base reaction FY source locked for checks
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Observed source exists but base shear/check semantics remain locked.
+  quantity_kind: force
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: kN
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: base_reaction_x_direct_locked
+  domain: global
+  feature_id: base_reaction_x_kN
+  output_feature: base_reaction_x_kN
+  readiness_status: LOCKED_CHECK_NOT_ALLOWED
+  source_families:
+  - base_reactions
+  required_source_fields:
+  - OutputCase
+  - FX
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: base reaction X source locked for checks
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Observed source exists but base shear/check semantics remain locked.
+  quantity_kind: force
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: kN
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: base_reaction_y_direct_locked
+  domain: global
+  feature_id: base_reaction_y_kN
+  output_feature: base_reaction_y_kN
+  readiness_status: LOCKED_CHECK_NOT_ALLOWED
+  source_families:
+  - base_reactions
+  required_source_fields:
+  - OutputCase
+  - FY
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: base reaction Y source locked for checks
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Observed source exists but base shear/check semantics remain locked.
+  quantity_kind: force
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: kN
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: design_base_shear_semantic_review
+  domain: global
+  feature_id: design_base_shear_kN
+  output_feature: design_base_shear_kN
+  readiness_status: BLOCKED_SEMANTIC_REVIEW
+  source_families:
+  - base_reactions
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: design base shear policy semantics pending
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Design base shear derivation/combo policy not ready for check use.
+  quantity_kind: force
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: kN
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: source_family_material_list_supporting
+  domain: source_family_closure
+  feature_id: null
+  output_feature: material_list_context
+  readiness_status: READY_SUPPORTING_CONTEXT_ONLY
+  source_families:
+  - material_list_by_story
+  required_source_fields:
+  - Story
+  - ObjectType
+  - Material
+  - Weight
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: quantity/inventory context only
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Inventory/quantity context is not proof of mechanical constants.
+  quantity_kind: quantity_context
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: source_family_frame_section_assignment_supporting
+  domain: source_family_closure
+  feature_id: null
+  output_feature: frame_section_assignment_context
+  readiness_status: READY_SUPPORTING_CONTEXT_ONLY
+  source_families:
+  - frame_section_assignments
+  - frame_section_material_assignments
+  required_source_fields:
+  - Story
+  - Label
+  - UniqueName
+  - SectProp
+  supporting_source_fields:
+  - Material
+  - Shape
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: section assignment/material mapping context
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Context only; not a final engineering check.
+  quantity_kind: identity_context
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: source_family_area_wall_context_supporting
+  domain: source_family_closure
+  feature_id: null
+  output_feature: area_wall_context
+  readiness_status: READY_SUPPORTING_CONTEXT_ONLY
+  source_families:
+  - area_assignments_summary
+  - wall_section_properties
+  - pier_assignments
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: area/wall identity context
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Area/wall identity context only.
+  quantity_kind: identity_context
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: source_family_design_outputs_semantic_review
+  domain: source_family_closure
+  feature_id: null
+  output_feature: design_output_semantic_review
+  readiness_status: BLOCKED_SEMANTIC_REVIEW
+  source_families:
+  - concrete_beam_design_summary
+  - concrete_column_design_summary
+  - pier_design_summary
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: design output/rebar semantics pending
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Design/result/rebar interpretation requires separate semantic review before FeatureSnapshot/check
+    use.
+  quantity_kind: semantic_review_policy
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: source_family_force_outputs_semantic_review
+  domain: source_family_closure
+  feature_id: null
+  output_feature: force_output_semantic_review
+  readiness_status: BLOCKED_SEMANTIC_REVIEW
+  source_families:
+  - beam_forces
+  - pier_forces
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: force/envelope/governing semantics pending
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Force, envelope and governing-result semantics remain blocked.
+  quantity_kind: force
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: FUTURE_NORMALIZATION_REQUIRED_BEFORE_CHECK_USE_NO_CURRENT_CONSUMPTION
+  default_report_unit: kN
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: source_family_needs_live_probe_none_remaining_after_p4
+  domain: source_family_closure
+  feature_id: null
+  output_feature: future_needs_live_probe_queue
+  readiness_status: BLOCKED_NEEDS_LIVE_PROBE
+  source_families:
+  - NONE
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: no P4 core promoted blocked sources remain needs-live
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Placeholder row documents taxonomy; future source families may enter this class.
+  quantity_kind: live_probe_policy
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: source_family_unsupported_sections_out_of_scope
+  domain: source_family_closure
+  feature_id: null
+  output_feature: unsupported_section_policy
+  readiness_status: OUT_OF_SCOPE_UNSUPPORTED
+  source_families:
+  - OUT_OF_SCOPE
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: unsupported section/product slice policy
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - Unsupported sections remain out of scope, not FAIL.
+  quantity_kind: scope_policy
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
+- row_id: engineering_check_unlock_global_lock
+  domain: source_family_closure
+  feature_id: null
+  output_feature: engineering_check_unlock_policy
+  readiness_status: LOCKED_CHECK_NOT_ALLOWED
+  source_families:
+  - NONE
+  required_source_fields: []
+  supporting_source_fields: []
+  evidence_kind: LIVE_SOURCE_CONTRACT
+  semantic_role: global CheckEngine unlock lock
+  derivation_policy: null
+  semantic_guardrail: No CheckEngine unlock; no engineering verdict; no Excel production
+    source.
+  check_unlock_allowed: false
+  safe_to_implement_checks_now: false
+  excel_production_input: false
+  notes:
+  - P5 closes contract readiness only; CheckEngine remains locked.
+  quantity_kind: check_unlock_policy
+  source_unit_policy: ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED
+  normalized_unit_policy: NOT_UNIT_SENSITIVE_CONTEXT_BUT_METADATA_REQUIRED
+  default_report_unit: unitless
+  unit_guardrail: Source contracts preserve raw live ETABS unit context; report display
+    may convert only with explicit unit metadata; CheckEngine remains locked.
