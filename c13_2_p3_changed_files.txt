@@ -1,4 +1,7 @@
 tools/probe_c13_2_p3_blocked_sources.py
 tests/c13_2_p3/test_c13_2_p3_blocked_source_probe.py
 docs/audit/C13_2_P3_BLOCKED_SOURCE_LIVE_PROOF.md
+tools/inventory_c13_2_p3_full_input_export.py
+tests/c13_2_p3/test_c13_2_p3_full_input_export_inventory.py
+docs/audit/C13_2_P3_FULL_INPUT_EXPORT_SOURCE_INVENTORY_AND_POLICY.md
 c13_2_p3_changed_files.txt
