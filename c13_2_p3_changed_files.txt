@@ -1,0 +1,4 @@
+tools/probe_c13_2_p3_blocked_sources.py
+tests/c13_2_p3/test_c13_2_p3_blocked_source_probe.py
+docs/audit/C13_2_P3_BLOCKED_SOURCE_LIVE_PROOF.md
+c13_2_p3_changed_files.txt
