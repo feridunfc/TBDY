@@ -1,4 +1,4 @@
-"""Canonical CheckResult DTO for C6 minimal CheckEngine."""
+"""Canonical CheckResult DTO for C13.4-P1 minimal CheckEngine."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -14,6 +14,8 @@ class CheckStatus(StrEnum):
     FAIL = "FAIL"
     WARNING = "WARNING"
     NO_DATA = "NO_DATA"
+    BLOCKED = "BLOCKED"
+    OUT_OF_SCOPE = "OUT_OF_SCOPE"
 
 
 class EvaluationLevel(StrEnum):
@@ -37,6 +39,7 @@ _ALLOWED_RATIO_TYPES = {
     "boolean",
 }
 _FORBIDDEN_EXTRA = {"id", "check_type"}
+_NO_DATA_LEVEL_STATUSES = {CheckStatus.NO_DATA, CheckStatus.BLOCKED, CheckStatus.OUT_OF_SCOPE}
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,7 +99,7 @@ class CheckResult:
             raise ValueError(f"Unknown ratio_type for CheckResult: {ratio_type}")
         normalized_status = CheckStatus(str(status))
         normalized_level = EvaluationLevel(str(evaluation_level))
-        if normalized_status == CheckStatus.NO_DATA and normalized_level != EvaluationLevel.NO_DATA:
+        if normalized_status in _NO_DATA_LEVEL_STATUSES and normalized_level != EvaluationLevel.NO_DATA:
             normalized_level = EvaluationLevel.NO_DATA
         object.__setattr__(self, "check_id", check_id)
         object.__setattr__(self, "component", component)
@@ -138,6 +141,7 @@ class CheckResult:
             "evidence": list(self.evidence),
             "messages": list(self.messages),
             "code_ref": self.code_ref,
+            "diagnostics": [diagnostic.as_dict() for diagnostic in self.diagnostics],
         }
 
 
