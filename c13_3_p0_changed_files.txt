@@ -1,0 +1,7 @@
+tbdy_engine/features/unit_metadata.py
+tbdy_engine/features/readiness.py
+tbdy_engine/features/source_feature_snapshot_builder.py
+tools/smoke_c13_3_p0_live_feature_snapshot.py
+tests/c13_3_p0/test_live_feature_snapshot_proof.py
+docs/audit/C13_3_P0_LIVE_FEATURE_SNAPSHOT_PROOF.md
+c13_3_p0_changed_files.txt
