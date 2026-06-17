@@ -1,6 +1,12 @@
 """FeatureSnapshot foundation exports for C4/C13 proof layers."""
 from tbdy_engine.features.diagnostics import FeatureDiagnostic, FeatureDiagnosticCode, FeatureDiagnosticSeverity
 from tbdy_engine.features.evidence import FeatureEvidence, FeatureEvidenceStatus
+from tbdy_engine.features.feature_snapshot_artifacts import (
+    build_feature_snapshot_artifact_manifest,
+    build_feature_snapshot_report_payload,
+    render_feature_snapshot_html_report,
+    render_feature_snapshot_markdown_report,
+)
 from tbdy_engine.features.readiness import FeatureProofStatus, ReadinessStatus
 from tbdy_engine.features.resolver_feature_snapshot import (
     build_c13_3_p1_feature_snapshot,
@@ -26,7 +32,11 @@ __all__ = [
     "UnitNormalization",
     "build_c13_3_p0_feature_snapshot",
     "build_c13_3_p1_feature_snapshot",
+    "build_feature_snapshot_artifact_manifest",
     "build_feature_snapshot_from_source_rows",
+    "build_feature_snapshot_report_payload",
     "normalize_value",
+    "render_feature_snapshot_html_report",
+    "render_feature_snapshot_markdown_report",
     "source_family_projection_report",
 ]

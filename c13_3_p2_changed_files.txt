@@ -1,0 +1,6 @@
+tbdy_engine/features/__init__.py
+tbdy_engine/features/feature_snapshot_artifacts.py
+tools/smoke_c13_3_p2_feature_snapshot_artifacts.py
+tests/c13_3_p2/test_feature_snapshot_artifacts.py
+docs/audit/C13_3_P2_FEATURE_SNAPSHOT_ARTIFACT_CONTRACT.md
+c13_3_p2_changed_files.txt
