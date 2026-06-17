@@ -51,6 +51,16 @@ RAW_SOURCE_PAYLOAD_KEYS = {
     "raw_value",
     "columns",
 }
+INTERNAL_DIAGNOSTIC_PAYLOAD_KEYS = {
+    "fetch_diagnostics",
+    "parser_debug",
+    "parser_diagnostics",
+    "selected_signature",
+    "selected_signature_reason",
+    "signature_attempts",
+    "fetch_debug",
+    "internal_diagnostics",
+}
 
 TARGET_FAMILIES = (
     "base_reactions",
@@ -173,7 +183,12 @@ def _scan_generated_and_raw(value: Any, *, path: tuple[Any, ...] = (), raw_sourc
         raw_hits: list[dict[str, Any]] = []
         for key, item in value.items():
             key_text = str(key)
-            if key_text in SELF_SCAN_REPORT_KEYS or key_text in SELF_SCAN_PAYLOAD_KEYS or key_text in STATIC_FORBIDDEN_DEFINITION_KEYS:
+            if (
+                key_text in SELF_SCAN_REPORT_KEYS
+                or key_text in SELF_SCAN_PAYLOAD_KEYS
+                or key_text in STATIC_FORBIDDEN_DEFINITION_KEYS
+                or key_text in INTERNAL_DIAGNOSTIC_PAYLOAD_KEYS
+            ):
                 continue
             item_raw_context = raw_source_context or key_text in RAW_SOURCE_PAYLOAD_KEYS
             child_generated, child_raw = _scan_generated_and_raw(item, path=(*path, key_text), raw_source_context=item_raw_context)
@@ -398,6 +413,7 @@ def candidate_tables_for_target(target_family: str) -> list[tuple[str, str]]:
 
 __all__ = [
     "CANDIDATE_TABLES",
+    "FORBIDDEN_ENGINEERING_VERDICT_TERMS",
     "SPRINT",
     "TARGET_FAMILIES",
     "build_combo_semantic_review",
