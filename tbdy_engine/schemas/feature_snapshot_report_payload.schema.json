@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "feature_snapshot_report_payload.schema.json",
+  "title": "C13.3 FeatureSnapshot Report Payload",
+  "type": "object",
+  "required": [
+    "sprint",
+    "feature_record_count",
+    "numeric_feature_count",
+    "source_family_counts",
+    "source_families",
+    "blocked_guardrails",
+    "safe_to_implement_checks_now",
+    "check_unlock_allowed"
+  ],
+  "properties": {
+    "sprint": {"type": "string"},
+    "feature_record_count": {"type": "integer", "minimum": 0},
+    "numeric_feature_count": {"type": "integer", "minimum": 0},
+    "source_family_counts": {
+      "type": "object",
+      "required": ["material_properties", "story_definitions", "pier_section_properties"],
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    },
+    "source_families": {"type": "array"},
+    "blocked_guardrails": {"type": "array"},
+    "safe_to_implement_checks_now": {"const": false},
+    "check_unlock_allowed": {"const": false}
+  },
+  "additionalProperties": true
+}
