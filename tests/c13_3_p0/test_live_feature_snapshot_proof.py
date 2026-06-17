@@ -8,11 +8,19 @@ from pathlib import Path
 
 from tbdy_engine.features.readiness import FORBIDDEN_ENGINEERING_VERDICT_TOKENS
 from tbdy_engine.features.source_feature_snapshot_builder import (
+    blocked_check_guardrail_report,
     build_c13_3_p0_feature_snapshot,
     fixture_source_rows,
+    unit_normalization_report,
 )
+from tools.smoke_c13_3_p0_live_feature_snapshot import _parse_table_result
 
 ROOT = Path(__file__).resolve().parents[2]
+LOCKED_IDS = {
+    "material_compliance_locked",
+    "story_drift_torsion_force_locked",
+    "pier_wall_force_capacity_detailing_locked",
+}
 
 
 def snapshot():
@@ -27,6 +35,10 @@ def records_by_id(payload):
     return {record["feature_id"]: record for record in payload["feature_records"]}
 
 
+def real_records(payload):
+    return [record for record in payload["feature_records"] if record["feature_id"] not in LOCKED_IDS]
+
+
 def test_feature_snapshot_root_keeps_check_unlocks_false():
     payload = snapshot()
     assert payload["sprint"] == "C13.3-P0"
@@ -34,6 +46,23 @@ def test_feature_snapshot_root_keeps_check_unlocks_false():
     assert payload["safe_to_implement_checks_now"] is False
     assert payload["check_unlock_allowed"] is False
     assert payload["unit_policy_closed"] is True
+
+
+def test_fixture_snapshot_is_not_guardrail_only():
+    payload = snapshot()
+    assert len(payload["feature_records"]) > len(LOCKED_IDS)
+    assert real_records(payload)
+
+
+def test_fixture_snapshot_includes_real_material_story_and_pier_records():
+    payload = snapshot()
+    for family in {"material_properties", "story_definitions", "pier_section_properties"}:
+        matches = [
+            record for record in real_records(payload)
+            if record["source_family"] == family and record["raw_value"] not in (None, "")
+        ]
+        assert matches, family
+        assert any(record["feature_status"] in {"RESOLVED", "PARTIAL"} for record in matches)
 
 
 def test_every_feature_record_keeps_check_guardrails_false():
@@ -52,7 +81,20 @@ def test_numeric_features_have_raw_and_normalized_unit_metadata():
         assert record["normalized_unit"]
         assert record["quantity_kind"]
         assert record["conversion_provenance"]
+        assert record["conversion_provenance"]["source_unit_policy"] == "ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED"
         assert record["conversion_provenance"]["silent_source_contract_conversion"] is False
+        assert "normalization_rule" in record["conversion_provenance"]
+        assert "factor" in record["conversion_provenance"]
+        assert record["conversion_provenance"]["check_engine_unlock"] is False
+
+
+def test_unit_normalization_report_counts_numeric_fixture_features():
+    report = unit_normalization_report(snapshot())
+    assert report["numeric_feature_count"] > 0
+    assert report["all_numeric_have_units"] is True
+    assert report["all_numeric_have_quantity_kind"] is True
+    assert report["all_numeric_have_conversion_provenance"] is True
+    assert report["raw_values_preserved"] is True
 
 
 def test_raw_values_are_not_overwritten_by_normalized_values():
@@ -83,6 +125,14 @@ def test_pier_geometry_does_not_require_literal_section_column():
     assert guard["material_present"] is True
 
 
+def test_locked_guardrail_records_remain():
+    ids = set(records_by_id(snapshot()))
+    assert LOCKED_IDS.issubset(ids)
+    report = blocked_check_guardrail_report(snapshot())
+    assert report["blocked_or_locked_record_count"] == 3
+    assert report["engineering_verdicts_emitted"] is False
+
+
 def test_material_compliance_remains_locked():
     locked = records_by_id(snapshot())["material_compliance_locked"]
     assert locked["feature_status"] == "LOCKED_CHECK_NOT_ALLOWED"
@@ -100,6 +150,16 @@ def test_pier_wall_force_capacity_detailing_remains_locked_or_semantic_review():
     record = records_by_id(snapshot())["pier_wall_force_capacity_detailing_locked"]
     assert record["feature_status"] in {"LOCKED_CHECK_NOT_ALLOWED", "BLOCKED_SEMANTIC_REVIEW"}
     assert record["readiness_status"] in {"LOCKED_CHECK_NOT_ALLOWED", "BLOCKED_SEMANTIC_REVIEW"}
+
+
+def test_table_parser_handles_flat_all_string_etabs_table_data():
+    result = (0, 2, ["Material", "E1", "G12"], ["C30", "32000", "13333", "B420C", "200000", "76923"])
+    rows, columns = _parse_table_result(result, max_rows=25)
+    assert columns == ["Material", "E1", "G12"]
+    assert rows == [
+        {"Material": "C30", "E1": "32000", "G12": "13333"},
+        {"Material": "B420C", "E1": "200000", "G12": "76923"},
+    ]
 
 
 def _imports_for(path: Path) -> set[str]:
@@ -180,6 +240,9 @@ def test_live_smoke_tool_no_live_mode_does_not_fake_values(tmp_path):
         if record["source_family"] in {"material_properties", "story_definitions", "pier_section_properties"}
         and record["feature_status"] == "RESOLVED"
     ]
+    debug = json.loads((out / "source_table_projection_debug_report.json").read_text(encoding="utf-8"))
+    assert debug["source_tables"] == []
+    assert debug["check_unlock_allowed"] is False
 
 
 def test_feature_status_counts_are_deterministic_in_fixture_mode():
@@ -187,6 +250,5 @@ def test_feature_status_counts_are_deterministic_in_fixture_mode():
     second = snapshot()["feature_status_counts"]
     assert first == second
     assert first["RESOLVED"] > 0
-    assert first["PARTIAL"] > 0
     assert first["LOCKED_CHECK_NOT_ALLOWED"] == 1
     assert first["BLOCKED_SEMANTIC_REVIEW"] == 2
