@@ -20,6 +20,7 @@ from tbdy_engine.features.source_feature_snapshot_builder import (  # noqa: E402
     summarize_snapshot,
     unit_normalization_report,
 )
+from tbdy_engine.providers.etabs_display_table_fetcher import fetch_display_table  # noqa: E402
 
 LIVE_TABLES = {
     "material_properties": [
@@ -63,12 +64,10 @@ def _rows_from_fields_and_data(fields: list[str], data: list[Any], max_rows: int
 
 
 def _parse_table_result(result: Any, max_rows: int) -> tuple[list[dict[str, Any]], list[str]]:
-    """Parse ETABS GetTableForDisplayArray outputs across COM wrappers.
+    """Fallback parser retained for unit tests and non-standard fake results.
 
-    The previous implementation treated the longest all-string array as the
-    fields list.  ETABS table data is also usually a flat all-string array, so
-    real rows were discarded.  This parser scores field/data pairs and prefers a
-    shorter all-string field list plus a longer flat data array.
+    Live ETABS reads use ``fetch_display_table`` below because it probes all known
+    GetTableForDisplayArray signatures and scans mutated COM out-arguments.
     """
     if isinstance(result, list) and result and all(isinstance(item, dict) for item in result):
         rows = [dict(item) for item in result[:max_rows]]
@@ -110,12 +109,33 @@ def _parse_table_result(result: Any, max_rows: int) -> tuple[list[dict[str, Any]
     return [], []
 
 
-def _fetch_live_table(database_tables: Any, table_name: str, max_rows: int) -> tuple[list[dict[str, Any]], list[str]]:
-    try:
-        result = database_tables.GetTableForDisplayArray(table_name, [], "", 0, [], 0, [])
-    except TypeError:
-        result = database_tables.GetTableForDisplayArray(table_name, "", [])
-    return _parse_table_result(result, max_rows)
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return repr(value)
+
+
+def _fetch_live_table(database_tables: Any, table_name: str, max_rows: int) -> tuple[list[dict[str, Any]], list[str], dict[str, Any]]:
+    """Fetch one live ETABS display table through the shared robust fetcher."""
+    result = fetch_display_table(database_tables, table_name, max_rows=max_rows)
+    parsed = result.parsed
+    rows = [dict(row) for row in parsed.rows[:max_rows]]
+    diagnostics = {
+        "actual_table_name": parsed.actual_table_name,
+        "parsed_fetch_status": parsed.fetch_status,
+        "row_count_reported": parsed.row_count_reported,
+        "return_code": parsed.return_code,
+        "parser_debug": _json_safe(dict(parsed.debug or {})),
+        "parser_diagnostics": _json_safe(list(parsed.diagnostics)),
+        "selected_signature": _json_safe(dict(result.selected_signature or {})),
+        "selected_signature_reason": result.selected_signature_reason,
+        "signature_attempts": _json_safe([dict(item) for item in result.signature_attempts]),
+    }
+    return rows, list(parsed.field_keys), diagnostics
 
 
 def _empty_projection_debug(generated_at: str) -> dict[str, Any]:
@@ -180,7 +200,7 @@ def _collect_live_rows(
                 "projection_blocker": None,
             }
             try:
-                fetched, columns = _fetch_live_table(database_tables, table_name, max_rows_per_table)
+                fetched, columns, fetch_diagnostics = _fetch_live_table(database_tables, table_name, max_rows_per_table)
                 stamped = [dict(row, **{INTERNAL_SOURCE_TABLE_KEY: table_name}) for row in fetched[:max_rows_per_table]]
                 rows[family].extend(stamped)
                 table_debug.update(
@@ -189,6 +209,7 @@ def _collect_live_rows(
                         "row_count": len(stamped),
                         "columns": columns or (list(stamped[0].keys()) if stamped else []),
                         "sample_rows": [{key: value for key, value in row.items() if key != INTERNAL_SOURCE_TABLE_KEY} for row in stamped],
+                        "fetch_diagnostics": fetch_diagnostics,
                     }
                 )
             except Exception as exc:  # pragma: no cover - requires local ETABS/COM
@@ -228,7 +249,7 @@ def _source_table_projection_debug_report(
             table["projection_blocker"] = "source rows were fetched but no known C13.3-P0 feature aliases matched"
         elif table.get("fetch_status") == "FETCHED":
             table["projection_status"] = "NO_SOURCE_ROWS"
-            table["projection_blocker"] = "table fetch returned zero rows"
+            table["projection_blocker"] = "table fetch returned zero rows; inspect fetch_diagnostics for signature/parser details"
     return {
         "sprint": "C13.3-P0",
         "generated_at": generated_at,
