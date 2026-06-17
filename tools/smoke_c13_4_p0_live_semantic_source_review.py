@@ -142,8 +142,9 @@ def _review_live_sources(target_family: str, max_rows: int) -> tuple[list[dict[s
                 fetch_status="FETCHED",
                 rows=rows,
                 columns=columns,
-                notes=[f"bounded live fetch max_rows={max_rows}", f"fetch_diagnostics={json.dumps(diagnostics, sort_keys=True)}"],
+                notes=[f"bounded live fetch max_rows={max_rows}", "fetch diagnostics captured separately"],
             )
+            classification["fetch_diagnostics"] = diagnostics
         except Exception as exc:  # pragma: no cover - requires local ETABS/COM
             connection["table_errors"][table_name] = str(exc)
             classification = classify_semantic_source_table(
@@ -152,8 +153,9 @@ def _review_live_sources(target_family: str, max_rows: int) -> tuple[list[dict[s
                 fetch_status="FETCH_ERROR",
                 rows=[],
                 columns=[],
-                notes=[str(exc)],
+                notes=["fetch error captured separately"],
             )
+            classification["fetch_diagnostics"] = {"error": str(exc)}
         classifications.append(classification)
     return classifications, connection
 
