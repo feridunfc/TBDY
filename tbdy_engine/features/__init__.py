@@ -2,6 +2,11 @@
 from tbdy_engine.features.diagnostics import FeatureDiagnostic, FeatureDiagnosticCode, FeatureDiagnosticSeverity
 from tbdy_engine.features.evidence import FeatureEvidence, FeatureEvidenceStatus
 from tbdy_engine.features.readiness import FeatureProofStatus, ReadinessStatus
+from tbdy_engine.features.resolver_feature_snapshot import (
+    build_c13_3_p1_feature_snapshot,
+    build_feature_snapshot_from_source_rows,
+    source_family_projection_report,
+)
 from tbdy_engine.features.snapshot import FeatureSnapshot
 from tbdy_engine.features.source_feature_snapshot_builder import build_c13_3_p0_feature_snapshot
 from tbdy_engine.features.unit_metadata import UnitNormalization, normalize_value
@@ -20,5 +25,8 @@ __all__ = [
     "ReadinessStatus",
     "UnitNormalization",
     "build_c13_3_p0_feature_snapshot",
+    "build_c13_3_p1_feature_snapshot",
+    "build_feature_snapshot_from_source_rows",
     "normalize_value",
+    "source_family_projection_report",
 ]
