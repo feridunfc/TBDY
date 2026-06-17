@@ -28,6 +28,30 @@ FORBIDDEN_ENGINEERING_VERDICT_TERMS = (
     "capacity ratio",
 )
 
+SELF_SCAN_REPORT_KEYS = {
+    "forbidden_verdict_scan_report.json",
+    "semantic_source_review_summary.json",
+}
+SELF_SCAN_PAYLOAD_KEYS = {
+    "forbidden_terms_found",
+    "raw_source_forbidden_like_terms",
+    "raw_source_terms_are_not_generated_verdicts",
+}
+STATIC_FORBIDDEN_DEFINITION_KEYS = {
+    "FORBIDDEN_ENGINEERING_VERDICT_TERMS",
+    "forbidden_engineering_verdict_terms",
+    "forbidden_verdict_terms",
+    "forbidden_terms",
+}
+RAW_SOURCE_PAYLOAD_KEYS = {
+    "sample_rows_limited",
+    "sample_rows",
+    "source_rows",
+    "raw_rows",
+    "raw_value",
+    "columns",
+}
+
 TARGET_FAMILIES = (
     "base_reactions",
     "story_drifts",
@@ -122,17 +146,75 @@ def _root_guardrails() -> dict[str, Any]:
     }
 
 
-def _as_text(obj_or_text: Any) -> str:
-    if isinstance(obj_or_text, str):
-        return obj_or_text
-    return json.dumps(obj_or_text, sort_keys=True, ensure_ascii=False)
+def _is_static_forbidden_definition(value: Any) -> bool:
+    if not isinstance(value, (list, tuple, set)):
+        return False
+    return set(str(item) for item in value) == set(FORBIDDEN_ENGINEERING_VERDICT_TERMS)
+
+
+def _path_text(path: Sequence[Any]) -> str:
+    return ".".join(str(item) for item in path)
+
+
+def _hit_records(text: str, path: Sequence[Any]) -> list[dict[str, Any]]:
+    lowered = text.casefold()
+    hits: list[dict[str, Any]] = []
+    for term in FORBIDDEN_ENGINEERING_VERDICT_TERMS:
+        count = lowered.count(term.casefold())
+        if count:
+            preview = text if len(text) <= 120 else text[:117] + "..."
+            hits.append({"term": term, "count": count, "path": _path_text(path), "preview": preview})
+    return hits
+
+
+def _scan_generated_and_raw(value: Any, *, path: tuple[Any, ...] = (), raw_source_context: bool = False) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    if isinstance(value, Mapping):
+        generated_hits: list[dict[str, Any]] = []
+        raw_hits: list[dict[str, Any]] = []
+        for key, item in value.items():
+            key_text = str(key)
+            if key_text in SELF_SCAN_REPORT_KEYS or key_text in SELF_SCAN_PAYLOAD_KEYS or key_text in STATIC_FORBIDDEN_DEFINITION_KEYS:
+                continue
+            item_raw_context = raw_source_context or key_text in RAW_SOURCE_PAYLOAD_KEYS
+            child_generated, child_raw = _scan_generated_and_raw(item, path=(*path, key_text), raw_source_context=item_raw_context)
+            generated_hits.extend(child_generated)
+            raw_hits.extend(child_raw)
+        return generated_hits, raw_hits
+    if isinstance(value, (list, tuple, set)):
+        if _is_static_forbidden_definition(value):
+            return [], []
+        generated_hits = []
+        raw_hits = []
+        for index, item in enumerate(value):
+            child_generated, child_raw = _scan_generated_and_raw(item, path=(*path, index), raw_source_context=raw_source_context)
+            generated_hits.extend(child_generated)
+            raw_hits.extend(child_raw)
+        return generated_hits, raw_hits
+    if isinstance(value, str):
+        hits = _hit_records(value, path)
+        return ([], hits) if raw_source_context else (hits, [])
+    return [], []
 
 
 def scan_semantic_outputs_for_forbidden_verdicts(obj_or_text: Any) -> dict[str, Any]:
-    text = _as_text(obj_or_text)
-    lowered = text.casefold()
-    found = [{"term": term, "count": lowered.count(term.casefold())} for term in FORBIDDEN_ENGINEERING_VERDICT_TERMS if lowered.count(term.casefold())]
-    return {"sprint": SPRINT, "forbidden_terms_found": found, **_root_guardrails()}
+    """Scan generated semantic-review output without self-scanning scanner artifacts.
+
+    ``forbidden_terms_found`` means generated engineering-verdict-like text emitted
+    by semantic review code. Raw ETABS sample rows/column values are reported
+    separately because they are source evidence, not generated verdicts.
+    """
+    if isinstance(obj_or_text, str):
+        generated_hits, raw_hits = _hit_records(obj_or_text, ("<text>",)), []
+    else:
+        generated_hits, raw_hits = _scan_generated_and_raw(obj_or_text)
+    return {
+        "sprint": SPRINT,
+        "forbidden_terms_found": generated_hits,
+        "raw_source_forbidden_like_terms": raw_hits,
+        "raw_source_terms_are_not_generated_verdicts": True,
+        **_root_guardrails(),
+        "engineering_verdicts_emitted": bool(generated_hits),
+    }
 
 
 def classify_semantic_source_table(
@@ -254,6 +336,7 @@ def build_semantic_source_review_report(
     generated_at = generated_at or datetime.now(timezone.utc).isoformat()
     classifications = list(classifications)
     status_counts = Counter(str(item.get("semantic_review_status")) for item in classifications)
+    scan = scan_semantic_outputs_for_forbidden_verdicts(classifications)
     summary = {
         "sprint": SPRINT,
         "generated_at": generated_at,
@@ -271,8 +354,11 @@ def build_semantic_source_review_report(
         "design_role_policy_required_count": sum(1 for item in classifications if item.get("semantic_review_status") == "BLOCKED_DESIGN_OUTPUT_ROLE_POLICY"),
         "rebar_role_policy_required_count": sum(1 for item in classifications if item.get("semantic_review_status") == "BLOCKED_REBAR_ROLE_POLICY"),
         "source_tables_unavailable_count": sum(1 for item in classifications if item.get("semantic_review_status") == "SOURCE_TABLE_UNAVAILABLE"),
-        "forbidden_terms_found": scan_semantic_outputs_for_forbidden_verdicts(classifications)["forbidden_terms_found"],
+        "forbidden_terms_found": scan["forbidden_terms_found"],
+        "raw_source_forbidden_like_terms": scan["raw_source_forbidden_like_terms"],
+        "raw_source_terms_are_not_generated_verdicts": True,
         **_root_guardrails(),
+        "engineering_verdicts_emitted": bool(scan["forbidden_terms_found"]),
     }
     return summary
 
