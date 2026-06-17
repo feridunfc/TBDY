@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "feature_snapshot_artifact_manifest.schema.json",
+  "title": "C13.3 FeatureSnapshot Artifact Manifest",
+  "type": "object",
+  "required": [
+    "artifact_contract_version",
+    "output_files",
+    "artifact_roles",
+    "engineering_verdicts_emitted",
+    "check_results_emitted",
+    "excel_production_input_used",
+    "safe_to_implement_checks_now",
+    "check_unlock_allowed"
+  ],
+  "properties": {
+    "artifact_contract_version": {"type": "string"},
+    "output_files": {"type": "array", "items": {"type": "string"}},
+    "artifact_roles": {"type": "object", "additionalProperties": {"type": "string"}},
+    "engineering_verdicts_emitted": {"const": false},
+    "check_results_emitted": {"const": false},
+    "excel_production_input_used": {"const": false},
+    "safe_to_implement_checks_now": {"const": false},
+    "check_unlock_allowed": {"const": false}
+  },
+  "additionalProperties": true
+}
