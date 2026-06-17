@@ -58,6 +58,10 @@ numeric normalized value carries:
 - `quantity_kind`
 - `conversion_provenance`
 
+`conversion_provenance` records the normalization rule, factor, source unit
+policy, `silent_source_contract_conversion: false`, and `check_engine_unlock:
+false`.
+
 Default display units follow the C13.2-P5 unit policy:
 
 | Quantity | Display unit |
@@ -78,6 +82,12 @@ FeatureSnapshot-shaped payload from bounded source rows. It creates feature
 records for materials, stories, and pier section properties while preserving raw
 and normalized unit metadata.
 
+The hotfix after the first PR validation hardens live projection so a connected
+ETABS smoke run cannot pass with only the three locked guardrail records. The
+builder now projects alias-tolerant real source rows for materials, stories, and
+pier section properties. The smoke tool parser also handles ETABS COM outputs
+where both field keys and table data are flat all-string arrays.
+
 `tools/smoke_c13_3_p0_live_feature_snapshot.py` provides the smoke CLI:
 
 ```bash
@@ -96,21 +106,41 @@ The tool writes:
 - `unit_normalization_report.json`
 - `readiness_projection_report.json`
 - `blocked_check_guardrail_report.json`
+- `source_table_projection_debug_report.json`
 
 If `--live-etabs` is not provided, it writes a diagnostic connection report,
-keeps the snapshot disconnected, and does not fake live values.
+keeps the snapshot disconnected, writes an empty source-table projection debug
+report, and does not fake live values.
+
+## Source-table projection debug report
+
+`source_table_projection_debug_report.json` is bounded proof diagnostics only.
+It is not production input. For each attempted source table it records:
+
+- `table_name`
+- `source_family`
+- `fetch_status`
+- `row_count`
+- `columns`
+- capped `sample_rows`
+- `projected_feature_count`
+- `projection_status`
+- `projection_blocker` when rows are fetched but no feature aliases project
+
+If a table fetch succeeds and `row_count > 0` but `projected_feature_count == 0`,
+the report marks `projection_status: ZERO_PROJECTED_FROM_FETCHED_ROWS`.
 
 ## Material proof
 
-Material rows project material identity and direct raw source fields such as
-`E1`, `G12`, `U12`, `Fc`, and `Fy` when present. Missing fields become `PARTIAL`.
-Material compliance concepts remain `LOCKED_CHECK_NOT_ALLOWED`.
+Material rows project material identity, material type when present, and direct
+raw source fields such as `E1`, `G12`, `U12`, `Fc`, `Fy`, `Fu`, `Fye`, and `Fys`
+when present. Material compliance concepts remain `LOCKED_CHECK_NOT_ALLOWED`.
 
 ## Story proof
 
-Story rows project story identity and height as direct source features. Story
-elevation is represented as a derived feature using `BSElev` plus cumulative
-story heights.
+Story rows project story identity and height as direct source features. Base
+elevation is projected from `BSElev` when present. Story elevation is represented
+as a derived feature using `BSElev` plus cumulative story heights.
 
 The derivation policy is explicit:
 
