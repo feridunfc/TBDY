@@ -1,9 +1,4 @@
-"""C13.4-P1 boundary-safe minimal CheckEngine.
-
-The engine consumes already-resolved FeatureSnapshot and CoverageRow objects.
-It does not import providers, resolver internals, ETABS adapters, table fetchers,
-combo policies, runner_v2, runtime, archx, old adapters, or legacy design code.
-"""
+"""C13.4-P1 boundary-safe minimal CheckEngine."""
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
@@ -30,6 +25,10 @@ _GEOMETRY_LIMITS = {
     "beam_geometry_min_depth": 300.0,
     "beam_depth_width_ratio": 3.5,
 }
+
+
+def _component_type_norm(value: Any) -> str:
+    return str(value or "").strip().casefold()
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,12 +59,11 @@ class MinimalCheckEngine:
                 snapshot=snapshot,
                 coverage=coverage,
                 message=coverage.reason or "Coverage policy is not ready; check not executed",
-                diagnostics=(
-                    CheckDiagnostic(CheckDiagnosticSeverity.ERROR, CheckDiagnosticCode.COVERAGE_BLOCKED, "Coverage policy blocks execution", coverage.as_dict()),
-                ),
+                diagnostics=(CheckDiagnostic(CheckDiagnosticSeverity.ERROR, CheckDiagnosticCode.COVERAGE_BLOCKED, "Coverage policy blocks execution", coverage.as_dict()),),
             )
-        expected_type = str(definition.get("element_type") or coverage.component_type or "")
-        if expected_type and snapshot.component_type != expected_type:
+        expected_type = _component_type_norm(definition.get("element_type") or coverage.component_type)
+        actual_type = _component_type_norm(snapshot.component_type)
+        if expected_type and actual_type != expected_type:
             return self._out_of_scope(
                 check_id=check_id,
                 snapshot=snapshot,
@@ -78,9 +76,7 @@ class MinimalCheckEngine:
                 snapshot=snapshot,
                 coverage=coverage,
                 message=coverage.reason or "Coverage is partial; result is screening only",
-                diagnostics=(
-                    CheckDiagnostic(CheckDiagnosticSeverity.WARNING, CheckDiagnosticCode.COVERAGE_PARTIAL, "Partial coverage never silently emits OK", coverage.as_dict()),
-                ),
+                diagnostics=(CheckDiagnostic(CheckDiagnosticSeverity.WARNING, CheckDiagnosticCode.COVERAGE_PARTIAL, "Partial coverage never silently emits OK", coverage.as_dict()),),
             )
         return self._evaluate_geometry_check(check_id, definition, snapshot, coverage)
 
@@ -190,53 +186,17 @@ class MinimalCheckEngine:
         }
 
     def _no_data(self, *, check_id: str, snapshot: FeatureSnapshot, coverage: CoverageRow, message: str, diagnostics: Sequence[CheckDiagnostic] = ()) -> CheckResult:
-        return CheckResult(
-            check_id=check_id,
-            **self._base_identity(snapshot),
-            status=CheckStatus.NO_DATA,
-            evaluation_level=EvaluationLevel.NO_DATA,
-            evidence=[coverage.as_dict()],
-            messages=(message,),
-            code_ref="contract",
-            diagnostics=diagnostics,
-        )
+        return CheckResult(check_id=check_id, **self._base_identity(snapshot), status=CheckStatus.NO_DATA, evaluation_level=EvaluationLevel.NO_DATA, evidence=[coverage.as_dict()], messages=(message,), code_ref="contract", diagnostics=diagnostics)
 
     def _blocked(self, *, check_id: str, snapshot: FeatureSnapshot, coverage: CoverageRow, message: str, diagnostics: Sequence[CheckDiagnostic] = ()) -> CheckResult:
-        return CheckResult(
-            check_id=check_id,
-            **self._base_identity(snapshot),
-            status=CheckStatus.BLOCKED,
-            evaluation_level=EvaluationLevel.NO_DATA,
-            evidence=[coverage.as_dict()],
-            messages=(message,),
-            code_ref="contract",
-            diagnostics=diagnostics,
-        )
+        return CheckResult(check_id=check_id, **self._base_identity(snapshot), status=CheckStatus.BLOCKED, evaluation_level=EvaluationLevel.NO_DATA, evidence=[coverage.as_dict()], messages=(message,), code_ref="contract", diagnostics=diagnostics)
 
     def _out_of_scope(self, *, check_id: str, snapshot: FeatureSnapshot, coverage: CoverageRow, message: str) -> CheckResult:
-        return CheckResult(
-            check_id=check_id,
-            **self._base_identity(snapshot),
-            status=CheckStatus.OUT_OF_SCOPE,
-            evaluation_level=EvaluationLevel.NO_DATA,
-            evidence=[coverage.as_dict()],
-            messages=(message,),
-            code_ref="contract",
-            diagnostics=(CheckDiagnostic(CheckDiagnosticSeverity.INFO, CheckDiagnosticCode.CHECK_NOT_ALLOWED, "Component is outside this check scope"),),
-        )
+        return CheckResult(check_id=check_id, **self._base_identity(snapshot), status=CheckStatus.OUT_OF_SCOPE, evaluation_level=EvaluationLevel.NO_DATA, evidence=[coverage.as_dict()], messages=(message,), code_ref="contract", diagnostics=(CheckDiagnostic(CheckDiagnosticSeverity.INFO, CheckDiagnosticCode.CHECK_NOT_ALLOWED, "Component is outside this check scope"),))
 
     def _warning(self, *, check_id: str, snapshot: FeatureSnapshot, coverage: CoverageRow, message: str, diagnostics: Sequence[CheckDiagnostic] = (), evidence: Sequence[Any] = ()) -> CheckResult:
         combined_evidence = list(evidence) + [coverage.as_dict()]
-        return CheckResult(
-            check_id=check_id,
-            **self._base_identity(snapshot),
-            status=CheckStatus.WARNING,
-            evaluation_level=EvaluationLevel.SCREENING,
-            evidence=combined_evidence,
-            messages=(message,),
-            code_ref="contract",
-            diagnostics=diagnostics,
-        )
+        return CheckResult(check_id=check_id, **self._base_identity(snapshot), status=CheckStatus.WARNING, evaluation_level=EvaluationLevel.SCREENING, evidence=combined_evidence, messages=(message,), code_ref="contract", diagnostics=diagnostics)
 
 
 __all__ = ["MinimalCheckEngine", "_ALLOWED_CHECKS"]
