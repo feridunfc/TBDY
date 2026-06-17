@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tbdy_engine.features.source_feature_snapshot_builder import (  # noqa: E402
+    INTERNAL_SOURCE_TABLE_KEY,
     SOURCE_FAMILIES,
     blocked_check_guardrail_report,
     build_c13_3_p0_feature_snapshot,
@@ -36,22 +37,24 @@ def _write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
-def _parse_table_result(result: Any, max_rows: int) -> list[dict[str, Any]]:
-    if not isinstance(result, tuple):
-        return []
-    fields = None
-    table_data = None
-    for item in result:
-        if isinstance(item, (list, tuple)) and item and all(isinstance(value, str) for value in item):
-            if fields is None or len(item) > len(fields):
-                fields = list(item)
-        elif isinstance(item, (list, tuple)) and item:
-            table_data = list(item)
-    if not fields or not table_data:
+def _is_scalar(value: Any) -> bool:
+    return not isinstance(value, (list, tuple, dict))
+
+
+def _is_field_list(value: Any) -> bool:
+    return (
+        isinstance(value, (list, tuple))
+        and 0 < len(value) <= 200
+        and all(isinstance(item, str) and item.strip() for item in value)
+    )
+
+
+def _rows_from_fields_and_data(fields: list[str], data: list[Any], max_rows: int) -> list[dict[str, Any]]:
+    if not fields:
         return []
     width = len(fields)
-    rows = []
-    flat = list(table_data)
+    rows: list[dict[str, Any]] = []
+    flat = list(data)
     for offset in range(0, min(len(flat), width * max_rows), width):
         chunk = flat[offset : offset + width]
         if len(chunk) == width:
@@ -59,7 +62,55 @@ def _parse_table_result(result: Any, max_rows: int) -> list[dict[str, Any]]:
     return rows
 
 
-def _fetch_live_table(database_tables: Any, table_name: str, max_rows: int) -> list[dict[str, Any]]:
+def _parse_table_result(result: Any, max_rows: int) -> tuple[list[dict[str, Any]], list[str]]:
+    """Parse ETABS GetTableForDisplayArray outputs across COM wrappers.
+
+    The previous implementation treated the longest all-string array as the
+    fields list.  ETABS table data is also usually a flat all-string array, so
+    real rows were discarded.  This parser scores field/data pairs and prefers a
+    shorter all-string field list plus a longer flat data array.
+    """
+    if isinstance(result, list) and result and all(isinstance(item, dict) for item in result):
+        rows = [dict(item) for item in result[:max_rows]]
+        columns = list(rows[0]) if rows else []
+        return rows, columns
+    if not isinstance(result, tuple):
+        return [], []
+
+    sequence_items = [list(item) for item in result if isinstance(item, (list, tuple))]
+    field_candidates = [item for item in sequence_items if _is_field_list(item)]
+    data_candidates = [item for item in sequence_items if item and all(_is_scalar(value) for value in item)]
+
+    best_rows: list[dict[str, Any]] = []
+    best_fields: list[str] = []
+    best_score = -1
+    for fields in field_candidates:
+        for data in data_candidates:
+            if data == fields or len(data) < len(fields):
+                continue
+            if len(data) % len(fields) != 0:
+                continue
+            rows = _rows_from_fields_and_data(fields, data, max_rows)
+            score = len(rows) * 1000 - len(fields)
+            if rows and score > best_score:
+                best_rows = rows
+                best_fields = list(fields)
+                best_score = score
+
+    if best_rows:
+        return best_rows, best_fields
+
+    if len(field_candidates) >= 2:
+        ordered = sorted(field_candidates, key=len)
+        fields = ordered[0]
+        data = ordered[-1]
+        if len(data) >= len(fields):
+            return _rows_from_fields_and_data(fields, data, max_rows), list(fields)
+
+    return [], []
+
+
+def _fetch_live_table(database_tables: Any, table_name: str, max_rows: int) -> tuple[list[dict[str, Any]], list[str]]:
     try:
         result = database_tables.GetTableForDisplayArray(table_name, [], "", 0, [], 0, [])
     except TypeError:
@@ -67,9 +118,23 @@ def _fetch_live_table(database_tables: Any, table_name: str, max_rows: int) -> l
     return _parse_table_result(result, max_rows)
 
 
-def _collect_live_rows(target_family: str, max_rows_per_table: int) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any]]:
+def _empty_projection_debug(generated_at: str) -> dict[str, Any]:
+    return {
+        "sprint": "C13.3-P0",
+        "generated_at": generated_at,
+        "source_tables": [],
+        "check_unlock_allowed": False,
+        "safe_to_implement_checks_now": False,
+    }
+
+
+def _collect_live_rows(
+    target_family: str,
+    max_rows_per_table: int,
+) -> tuple[dict[str, list[dict[str, Any]]], dict[str, Any], list[dict[str, Any]]]:
     families = SOURCE_FAMILIES if target_family == "all" else (target_family,)
     rows: dict[str, list[dict[str, Any]]] = {family: [] for family in families}
+    debug_tables: list[dict[str, Any]] = []
     diagnostics: dict[str, Any] = {"tables_attempted": [], "table_errors": {}}
     try:
         try:
@@ -98,16 +163,38 @@ def _collect_live_rows(target_family: str, max_rows_per_table: int) -> tuple[dic
             "model_path": None,
             "etabs_version": None,
             **diagnostics,
-        }
+        }, debug_tables
 
     for family in families:
         for table_name in LIVE_TABLES.get(family, []):
             diagnostics["tables_attempted"].append(table_name)
+            table_debug = {
+                "table_name": table_name,
+                "source_family": family,
+                "fetch_status": "NOT_FETCHED",
+                "row_count": 0,
+                "columns": [],
+                "sample_rows": [],
+                "projected_feature_count": 0,
+                "projection_status": "NOT_PROJECTED",
+                "projection_blocker": None,
+            }
             try:
-                fetched = _fetch_live_table(database_tables, table_name, max_rows_per_table)
-                rows[family].extend(fetched[:max_rows_per_table])
+                fetched, columns = _fetch_live_table(database_tables, table_name, max_rows_per_table)
+                stamped = [dict(row, **{INTERNAL_SOURCE_TABLE_KEY: table_name}) for row in fetched[:max_rows_per_table]]
+                rows[family].extend(stamped)
+                table_debug.update(
+                    {
+                        "fetch_status": "FETCHED",
+                        "row_count": len(stamped),
+                        "columns": columns or (list(stamped[0].keys()) if stamped else []),
+                        "sample_rows": [{key: value for key, value in row.items() if key != INTERNAL_SOURCE_TABLE_KEY} for row in stamped],
+                    }
+                )
             except Exception as exc:  # pragma: no cover - requires local ETABS/COM
                 diagnostics["table_errors"][table_name] = str(exc)
+                table_debug.update({"fetch_status": "FETCH_ERROR", "projection_blocker": str(exc)})
+            debug_tables.append(table_debug)
 
     return rows, {
         "live_etabs_connected": True,
@@ -115,7 +202,56 @@ def _collect_live_rows(target_family: str, max_rows_per_table: int) -> tuple[dic
         "model_path": model_path,
         "etabs_version": etabs_version,
         **diagnostics,
+    }, debug_tables
+
+
+def _source_table_projection_debug_report(
+    *,
+    generated_at: str,
+    debug_tables: list[dict[str, Any]],
+    snapshot: dict[str, Any],
+) -> dict[str, Any]:
+    for table in debug_tables:
+        table_name = table["table_name"]
+        family = table["source_family"]
+        count = sum(
+            1
+            for record in snapshot.get("feature_records", [])
+            if record.get("source_family") == family and table_name in record.get("source_tables", [])
+        )
+        table["projected_feature_count"] = count
+        if count > 0:
+            table["projection_status"] = "PROJECTED"
+            table["projection_blocker"] = None
+        elif table.get("fetch_status") == "FETCHED" and table.get("row_count", 0) > 0:
+            table["projection_status"] = "ZERO_PROJECTED_FROM_FETCHED_ROWS"
+            table["projection_blocker"] = "source rows were fetched but no known C13.3-P0 feature aliases matched"
+        elif table.get("fetch_status") == "FETCHED":
+            table["projection_status"] = "NO_SOURCE_ROWS"
+            table["projection_blocker"] = "table fetch returned zero rows"
+    return {
+        "sprint": "C13.3-P0",
+        "generated_at": generated_at,
+        "source_tables": debug_tables,
+        "check_unlock_allowed": False,
+        "safe_to_implement_checks_now": False,
     }
+
+
+def _write_all_reports(
+    out: Path,
+    *,
+    connection_report: dict[str, Any],
+    snapshot: dict[str, Any],
+    source_debug_report: dict[str, Any],
+) -> None:
+    _write_json(out / "connection_report.json", connection_report)
+    _write_json(out / "feature_snapshot.json", snapshot)
+    _write_json(out / "feature_snapshot_summary.json", summarize_snapshot(snapshot))
+    _write_json(out / "unit_normalization_report.json", unit_normalization_report(snapshot))
+    _write_json(out / "readiness_projection_report.json", readiness_projection_report(snapshot))
+    _write_json(out / "blocked_check_guardrail_report.json", blocked_check_guardrail_report(snapshot))
+    _write_json(out / "source_table_projection_debug_report.json", source_debug_report)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -150,15 +286,15 @@ def main(argv: list[str] | None = None) -> int:
             target_family=args.target_family,
             generated_at=generated_at,
         )
-        _write_json(out / "connection_report.json", connection_report)
-        _write_json(out / "feature_snapshot.json", snapshot)
-        _write_json(out / "feature_snapshot_summary.json", summarize_snapshot(snapshot))
-        _write_json(out / "unit_normalization_report.json", unit_normalization_report(snapshot))
-        _write_json(out / "readiness_projection_report.json", readiness_projection_report(snapshot))
-        _write_json(out / "blocked_check_guardrail_report.json", blocked_check_guardrail_report(snapshot))
+        _write_all_reports(
+            out,
+            connection_report=connection_report,
+            snapshot=snapshot,
+            source_debug_report=_empty_projection_debug(generated_at),
+        )
         return 2
 
-    rows, connection_report = _collect_live_rows(args.target_family, args.max_rows_per_table)
+    rows, connection_report, debug_tables = _collect_live_rows(args.target_family, args.max_rows_per_table)
     connection_report.update(
         {
             "sprint": "C13.3-P0",
@@ -179,12 +315,17 @@ def main(argv: list[str] | None = None) -> int:
         target_family=args.target_family,
         generated_at=generated_at,
     )
-    _write_json(out / "connection_report.json", connection_report)
-    _write_json(out / "feature_snapshot.json", snapshot)
-    _write_json(out / "feature_snapshot_summary.json", summarize_snapshot(snapshot))
-    _write_json(out / "unit_normalization_report.json", unit_normalization_report(snapshot))
-    _write_json(out / "readiness_projection_report.json", readiness_projection_report(snapshot))
-    _write_json(out / "blocked_check_guardrail_report.json", blocked_check_guardrail_report(snapshot))
+    source_debug_report = _source_table_projection_debug_report(
+        generated_at=generated_at,
+        debug_tables=debug_tables,
+        snapshot=snapshot,
+    )
+    _write_all_reports(
+        out,
+        connection_report=connection_report,
+        snapshot=snapshot,
+        source_debug_report=source_debug_report,
+    )
     return 0 if connection_report.get("live_etabs_connected") else 3
 
 
