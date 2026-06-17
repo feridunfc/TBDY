@@ -21,21 +21,39 @@ from tbdy_engine.features.unit_metadata import normalize_value
 SPRINT = "C13.3-P0"
 BASELINE = "c13.2-p5-contract-closure-source-feature-readiness"
 SOURCE_FAMILIES = ("material_properties", "story_definitions", "pier_section_properties")
+INTERNAL_SOURCE_TABLE_KEY = "__source_table"
 
-MATERIAL_NUMERIC_FIELDS = {
-    "E1": "material_mechanical_constants",
-    "G12": "material_mechanical_constants",
-    "U12": "unitless",
-    "Fc": "stress_material_strength",
-    "Fy": "stress_material_strength",
-    "Fye": "stress_material_strength",
-    "Fys": "stress_material_strength",
+MATERIAL_SOURCE_FIELDS: dict[str, tuple[str, str, str, tuple[str, ...]]] = {
+    "material_type": ("material_type", "identity_context", "unitless", ("Type", "MaterialType", "MatType")),
+    "material_e1": ("material_e1", "material_mechanical_constants", "MPa", ("E1", "E", "ModulusOfElasticity")),
+    "material_g12": ("material_g12", "material_mechanical_constants", "MPa", ("G12", "G", "ShearModulus")),
+    "material_u12": ("material_u12", "unitless", "unitless", ("U12", "Nu12", "Poisson", "PoissonRatio")),
+    "material_fc": ("material_fc", "stress_material_strength", "MPa", ("Fc", "fc", "Fck", "ConcreteStrength")),
+    "material_fy": ("material_fy", "stress_material_strength", "MPa", ("Fy", "fy", "Fyk", "YieldStress")),
+    "material_fu": ("material_fu", "stress_material_strength", "MPa", ("Fu", "fu", "TensileStress")),
+    "material_fye": ("material_fye", "stress_material_strength", "MPa", ("Fye",)),
+    "material_fys": ("material_fys", "stress_material_strength", "MPa", ("Fys",)),
 }
 
 BLOCKED_CHECK_RECORDS = (
-    ("material_compliance_locked", "material_properties", "LOCKED_CHECK_NOT_ALLOWED", "material/rebar compliance concepts are outside this proof"),
-    ("story_drift_torsion_force_locked", "story_definitions", "BLOCKED_SEMANTIC_REVIEW", "drift/torsion/story force result semantics remain blocked"),
-    ("pier_wall_force_capacity_detailing_locked", "pier_section_properties", "BLOCKED_SEMANTIC_REVIEW", "pier/wall force, capacity, and detailing semantics remain blocked"),
+    (
+        "material_compliance_locked",
+        "material_properties",
+        "LOCKED_CHECK_NOT_ALLOWED",
+        "material/rebar compliance concepts are outside this proof",
+    ),
+    (
+        "story_drift_torsion_force_locked",
+        "story_definitions",
+        "BLOCKED_SEMANTIC_REVIEW",
+        "drift/torsion/story force result semantics remain blocked",
+    ),
+    (
+        "pier_wall_force_capacity_detailing_locked",
+        "pier_section_properties",
+        "BLOCKED_SEMANTIC_REVIEW",
+        "pier/wall force, capacity, and detailing semantics remain blocked",
+    ),
 )
 
 
@@ -43,17 +61,48 @@ def fixture_source_rows() -> dict[str, list[dict[str, Any]]]:
     """Small deterministic offline fixture set; not an Excel production path."""
     return {
         "material_properties": [
-            {"Material": "C30", "Type": "Concrete", "E1": 32000.0, "G12": 13333.0, "U12": 0.20, "Fc": 30.0},
-            {"Material": "B420C", "Type": "Rebar", "E1": 200000.0, "G12": 76923.0, "U12": 0.30, "Fy": 420.0},
+            {
+                INTERNAL_SOURCE_TABLE_KEY: "Material Properties - Basic Mechanical Properties",
+                "Material": "C30",
+                "Type": "Concrete",
+                "E1": 32000.0,
+                "G12": 13333.0,
+                "U12": 0.20,
+                "Fc": 30.0,
+            },
+            {
+                INTERNAL_SOURCE_TABLE_KEY: "Material Properties - Rebar Data",
+                "Material": "B420C",
+                "Type": "Rebar",
+                "E1": 200000.0,
+                "G12": 76923.0,
+                "U12": 0.30,
+                "Fy": 420.0,
+            },
         ],
         "story_definitions": [
-            {"Story": "BASE", "Height": 0.0, "BSElev": 0.0},
-            {"Story": "+3.0", "Height": 3.0, "BSElev": 0.0},
-            {"Story": "+6.0", "Height": 3.0, "BSElev": 0.0},
+            {INTERNAL_SOURCE_TABLE_KEY: "Tower and Base Story Definitions", "Tower": "Tower 1", "BSElev": 0.0},
+            {INTERNAL_SOURCE_TABLE_KEY: "Story Definitions", "Story": "BASE", "Height": 0.0},
+            {INTERNAL_SOURCE_TABLE_KEY: "Story Definitions", "Story": "+3.0", "Height": 3.0},
+            {INTERNAL_SOURCE_TABLE_KEY: "Story Definitions", "Story": "+6.0", "Height": 3.0},
         ],
         "pier_section_properties": [
-            {"Story": "+3.0", "Pier": "P1", "Width": 1200.0, "Thickness": 250.0, "Material": "C30"},
-            {"Story": "+6.0", "Pier": "P1", "Width": 1200.0, "Thickness": 250.0, "Material": "C30"},
+            {
+                INTERNAL_SOURCE_TABLE_KEY: "Pier Section Properties",
+                "Story": "+3.0",
+                "Pier": "P1",
+                "Width": 1200.0,
+                "Thickness": 250.0,
+                "Material": "C30",
+            },
+            {
+                INTERNAL_SOURCE_TABLE_KEY: "Pier Section Properties",
+                "Story": "+6.0",
+                "Pier": "P1",
+                "Width": 1200.0,
+                "Thickness": 250.0,
+                "Material": "C30",
+            },
         ],
     }
 
@@ -62,8 +111,72 @@ def _as_list(source_rows: Mapping[str, Iterable[Mapping[str, Any]]] | None, fami
     return [dict(row) for row in (source_rows or {}).get(family, [])]
 
 
-def _status_from_value(row: Mapping[str, Any], column: str) -> str:
-    return FeatureProofStatus.RESOLVED.value if column in row and row.get(column) is not None else FeatureProofStatus.PARTIAL.value
+def _clean_key(value: str) -> str:
+    return "".join(char for char in value.casefold() if char.isalnum())
+
+
+def _key_index(row: Mapping[str, Any]) -> dict[str, str]:
+    return {_clean_key(str(key)): str(key) for key in row if str(key) != INTERNAL_SOURCE_TABLE_KEY}
+
+
+def _actual_key(row: Mapping[str, Any], aliases: Iterable[str]) -> str | None:
+    index = _key_index(row)
+    for alias in aliases:
+        key = index.get(_clean_key(alias))
+        if key is not None:
+            return key
+    return None
+
+
+def _value(row: Mapping[str, Any], aliases: Iterable[str]) -> tuple[str | None, Any]:
+    key = _actual_key(row, aliases)
+    if key is None:
+        return None, None
+    value = row.get(key)
+    if value == "":
+        return key, None
+    return key, value
+
+
+def _first_real_value(row: Mapping[str, Any]) -> tuple[str | None, Any]:
+    for key, value in row.items():
+        if key == INTERNAL_SOURCE_TABLE_KEY:
+            continue
+        if value not in (None, ""):
+            return str(key), value
+    return None, None
+
+
+def _source_table(row: Mapping[str, Any], default: str) -> str:
+    value = row.get(INTERNAL_SOURCE_TABLE_KEY)
+    return str(value) if value else default
+
+
+def _source_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {str(key): value for key, value in row.items() if str(key) != INTERNAL_SOURCE_TABLE_KEY}
+
+
+def _as_number(value: Any) -> Any:
+    if isinstance(value, (int, float)):
+        return value
+    if isinstance(value, str):
+        text = value.strip().replace(",", "")
+        if text:
+            try:
+                return float(text)
+            except ValueError:
+                return value
+    return value
+
+
+def _feature_value(value: Any, quantity_kind: str) -> Any:
+    if quantity_kind in {"identity_context", "unitless"}:
+        return _as_number(value) if quantity_kind == "unitless" else value
+    return _as_number(value)
+
+
+def _status_from_value(value: Any) -> str:
+    return FeatureProofStatus.RESOLVED.value if value not in (None, "") else FeatureProofStatus.PARTIAL.value
 
 
 def _record(
@@ -134,183 +247,227 @@ def _record(
 def _material_records(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
     for index, row in enumerate(rows):
-        material = row.get("Material") or row.get("Name") or f"material_{index}"
-        component_id = str(material)
-        records.append(_record(
-            feature_id=f"material_name::{component_id}",
-            feature_name="material_name",
-            component_type="MATERIAL",
-            component_id=component_id,
-            source_family="material_properties",
-            source_table="Material Properties",
-            source_columns=["Material"],
-            source_row=row,
-            readiness_status=ReadinessStatus.READY_DIRECT_SOURCE.value,
-            feature_status=_status_from_value(row, "Material"),
-            raw_value=material,
-            raw_unit="unitless",
-            quantity_kind="identity_context",
-        ))
-        for column, quantity_kind in MATERIAL_NUMERIC_FIELDS.items():
-            if column not in row:
-                records.append(_record(
-                    feature_id=f"material_{column.lower()}::{component_id}",
-                    feature_name=f"material_{column.lower()}",
-                    component_type="MATERIAL",
-                    component_id=component_id,
-                    source_family="material_properties",
-                    source_table="Material Properties",
-                    source_columns=[column],
-                    source_row=row,
-                    readiness_status=ReadinessStatus.READY_DIRECT_SOURCE.value,
-                    feature_status=FeatureProofStatus.PARTIAL.value,
-                    raw_value=None,
-                    raw_unit="MPa" if quantity_kind != "unitless" else "unitless",
-                    quantity_kind=quantity_kind,
-                    semantic_guardrails={"missing_source_field": column},
-                ))
-                continue
-            unit = "MPa" if quantity_kind != "unitless" else "unitless"
-            records.append(_record(
-                feature_id=f"material_{column.lower()}::{component_id}",
-                feature_name=f"material_{column.lower()}",
+        table_name = _source_table(row, "Material Properties")
+        material_key, material = _value(row, ("Material", "Name", "MaterialName", "MatProp", "PropName"))
+        if material is None:
+            material_key, material = _first_real_value(row)
+        component_id = str(material) if material not in (None, "") else f"material_row_{index}"
+        records.append(
+            _record(
+                feature_id=f"material_name::{component_id}",
+                feature_name="material_name",
                 component_type="MATERIAL",
                 component_id=component_id,
                 source_family="material_properties",
-                source_table="Material Properties",
-                source_columns=[column],
-                source_row=row,
+                source_table=table_name,
+                source_columns=[material_key] if material_key else [],
+                source_row=_source_row(row),
                 readiness_status=ReadinessStatus.READY_DIRECT_SOURCE.value,
-                feature_status=FeatureProofStatus.RESOLVED.value,
-                raw_value=row.get(column),
-                raw_unit=unit,
-                quantity_kind=quantity_kind,
-            ))
+                feature_status=_status_from_value(material),
+                raw_value=material,
+                raw_unit="unitless",
+                quantity_kind="identity_context",
+            )
+        )
+        for _, (feature_name, quantity_kind, unit, aliases) in MATERIAL_SOURCE_FIELDS.items():
+            actual_key, value = _value(row, aliases)
+            if actual_key is None:
+                continue
+            raw_value = _feature_value(value, quantity_kind)
+            records.append(
+                _record(
+                    feature_id=f"{feature_name}::{component_id}",
+                    feature_name=feature_name,
+                    component_type="MATERIAL",
+                    component_id=component_id,
+                    source_family="material_properties",
+                    source_table=table_name,
+                    source_columns=[actual_key],
+                    source_row=_source_row(row),
+                    readiness_status=ReadinessStatus.READY_DIRECT_SOURCE.value,
+                    feature_status=_status_from_value(raw_value),
+                    raw_value=raw_value,
+                    raw_unit=unit,
+                    quantity_kind=quantity_kind,
+                )
+            )
     return records
 
 
 def _story_records(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
-    base_elev = next((row.get("BSElev") for row in rows if row.get("BSElev") is not None), None)
+    base_candidates: list[tuple[dict[str, Any], str, Any]] = []
+    story_rows: list[dict[str, Any]] = []
+    for row in rows:
+        bselev_key, bselev = _value(row, ("BSElev", "BaseElevation", "BaseElev"))
+        if bselev_key is not None:
+            base_candidates.append((row, bselev_key, bselev))
+        story_key, story = _value(row, ("Story", "Name", "StoryName"))
+        height_key, height = _value(row, ("Height", "StoryHeight"))
+        if story_key is not None or height_key is not None:
+            story_rows.append(row)
+
+    base_elev = _as_number(base_candidates[0][2]) if base_candidates else 0.0
+    if base_candidates:
+        base_row, bselev_key, bselev = base_candidates[0]
+        tower_key, tower = _value(base_row, ("Tower", "TowerName", "Name"))
+        component_id = str(tower or "base_story")
+        records.append(
+            _record(
+                feature_id=f"story_base_elevation::{component_id}",
+                feature_name="story_base_elevation",
+                component_type="STORY_CONTEXT",
+                component_id=component_id,
+                source_family="story_definitions",
+                source_table=_source_table(base_row, "Tower and Base Story Definitions"),
+                source_columns=[bselev_key],
+                source_row=_source_row(base_row),
+                readiness_status=ReadinessStatus.READY_DIRECT_SOURCE.value,
+                feature_status=_status_from_value(bselev),
+                raw_value=_feature_value(bselev, "global_length_elevation"),
+                raw_unit="m",
+                quantity_kind="global_length_elevation",
+                semantic_guardrails={"base_elevation_column": bselev_key},
+            )
+        )
+
     cumulative = float(base_elev or 0.0)
-    for index, row in enumerate(rows):
-        story = row.get("Story") or row.get("Name") or f"story_{index}"
-        component_id = str(story)
-        records.append(_record(
-            feature_id=f"story_name::{component_id}",
-            feature_name="story_name",
-            component_type="STORY",
-            component_id=component_id,
-            source_family="story_definitions",
-            source_table="Story Definitions",
-            source_columns=["Story"],
-            source_row=row,
-            readiness_status=ReadinessStatus.READY_DIRECT_SOURCE.value,
-            feature_status=_status_from_value(row, "Story"),
-            raw_value=story,
-            raw_unit="unitless",
-            quantity_kind="identity_context",
-        ))
-        height = row.get("Height")
-        records.append(_record(
-            feature_id=f"story_height::{component_id}",
-            feature_name="story_height",
-            component_type="STORY",
-            component_id=component_id,
-            source_family="story_definitions",
-            source_table="Story Definitions",
-            source_columns=["Height"],
-            source_row=row,
-            readiness_status=ReadinessStatus.READY_DIRECT_SOURCE.value,
-            feature_status=_status_from_value(row, "Height"),
-            raw_value=height,
-            raw_unit="m",
-            quantity_kind="global_length_elevation",
-        ))
-        if height is not None:
-            cumulative += float(height)
-        derived_ok = base_elev is not None and height is not None
-        records.append(_record(
-            feature_id=f"story_derived_elevation::{component_id}",
-            feature_name="story_derived_elevation",
-            component_type="STORY",
-            component_id=component_id,
-            source_family="story_definitions",
-            source_table="Story Definitions + Tower and Base Story Definitions",
-            source_columns=["BSElev", "Height"],
-            source_row=row,
-            readiness_status=ReadinessStatus.READY_DERIVED_SOURCE.value,
-            feature_status=FeatureProofStatus.RESOLVED.value if derived_ok else FeatureProofStatus.PARTIAL.value,
-            raw_value=cumulative if derived_ok else None,
-            raw_unit="m",
-            quantity_kind="global_length_elevation",
-            derived=True,
-            derivation_policy={
-                "derived_elevation_supported": True,
-                "elevation_is_direct_column": False,
-                "base_elevation_column": "BSElev",
-                "input_fields": ["Story", "Height", "BSElev"],
-            },
-        ))
+    for index, row in enumerate(story_rows):
+        table_name = _source_table(row, "Story Definitions")
+        story_key, story = _value(row, ("Story", "Name", "StoryName"))
+        height_key, height = _value(row, ("Height", "StoryHeight"))
+        component_id = str(story) if story not in (None, "") else f"story_row_{index}"
+        records.append(
+            _record(
+                feature_id=f"story_name::{component_id}",
+                feature_name="story_name",
+                component_type="STORY",
+                component_id=component_id,
+                source_family="story_definitions",
+                source_table=table_name,
+                source_columns=[story_key] if story_key else [],
+                source_row=_source_row(row),
+                readiness_status=ReadinessStatus.READY_DIRECT_SOURCE.value,
+                feature_status=_status_from_value(story),
+                raw_value=story,
+                raw_unit="unitless",
+                quantity_kind="identity_context",
+            )
+        )
+        raw_height = _feature_value(height, "global_length_elevation")
+        records.append(
+            _record(
+                feature_id=f"story_height::{component_id}",
+                feature_name="story_height",
+                component_type="STORY",
+                component_id=component_id,
+                source_family="story_definitions",
+                source_table=table_name,
+                source_columns=[height_key] if height_key else [],
+                source_row=_source_row(row),
+                readiness_status=ReadinessStatus.READY_DIRECT_SOURCE.value,
+                feature_status=_status_from_value(raw_height),
+                raw_value=raw_height,
+                raw_unit="m",
+                quantity_kind="global_length_elevation",
+            )
+        )
+        derived_ok = isinstance(raw_height, (int, float)) and isinstance(base_elev, (int, float))
+        if derived_ok:
+            cumulative += float(raw_height)
+        records.append(
+            _record(
+                feature_id=f"story_derived_elevation::{component_id}",
+                feature_name="story_derived_elevation",
+                component_type="STORY",
+                component_id=component_id,
+                source_family="story_definitions",
+                source_table=table_name,
+                source_columns=[column for column in (base_candidates[0][1] if base_candidates else "BSElev", height_key) if column],
+                source_row=_source_row(row),
+                readiness_status=ReadinessStatus.READY_DERIVED_SOURCE.value,
+                feature_status=FeatureProofStatus.RESOLVED.value if derived_ok else FeatureProofStatus.PARTIAL.value,
+                raw_value=cumulative if derived_ok else None,
+                raw_unit="m",
+                quantity_kind="global_length_elevation",
+                derived=True,
+                derivation_policy={
+                    "derived_elevation_supported": True,
+                    "elevation_is_direct_column": False,
+                    "base_elevation_column": base_candidates[0][1] if base_candidates else "BSElev",
+                    "input_fields": ["Story", "Height", "BSElev"],
+                },
+            )
+        )
     return records
 
 
 def _pier_records(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     records: list[dict[str, Any]] = []
+    specs = (
+        ("pier_id", "identity_context", "unitless", ("Pier", "PierName", "PierID", "Name")),
+        ("pier_story", "identity_context", "unitless", ("Story", "StoryName")),
+        ("pier_width", "section_dimensions", "mm", ("Width", "PierWidth", "Length")),
+        ("pier_thickness", "section_dimensions", "mm", ("Thickness", "Thick", "T", "WallThickness")),
+        ("pier_material", "identity_context", "unitless", ("Material", "MatProp", "MaterialName")),
+    )
     for index, row in enumerate(rows):
-        pier = row.get("Pier") or row.get("PierName") or f"pier_{index}"
-        story = row.get("Story") or "UNKNOWN_STORY"
-        component_id = f"{story}:{pier}"
-        for column, feature_name, quantity_kind, unit in (
-            ("Pier", "pier_id", "identity_context", "unitless"),
-            ("Story", "pier_story", "identity_context", "unitless"),
-            ("Width", "pier_width", "section_dimensions", "mm"),
-            ("Thickness", "pier_thickness", "section_dimensions", "mm"),
-            ("Material", "pier_material", "identity_context", "unitless"),
-        ):
-            records.append(_record(
-                feature_id=f"{feature_name}::{component_id}",
-                feature_name=feature_name,
-                component_type="PIER_SECTION",
-                component_id=component_id,
-                source_family="pier_section_properties",
-                source_table="Pier Section Properties",
-                source_columns=[column],
-                source_row=row,
-                readiness_status=ReadinessStatus.READY_DIRECT_SOURCE.value,
-                feature_status=_status_from_value(row, column),
-                raw_value=row.get(column),
-                raw_unit=unit,
-                quantity_kind=quantity_kind,
-                semantic_guardrails={
-                    "direct_section_geometry_present": True,
-                    "section_name_column_required": False,
-                    "section_name_column_present": "Section" in row,
-                    "material_present": row.get("Material") is not None,
-                },
-            ))
+        table_name = _source_table(row, "Pier Section Properties")
+        _, pier = _value(row, ("Pier", "PierName", "PierID", "Name"))
+        _, story = _value(row, ("Story", "StoryName"))
+        component_id = f"{story or 'UNKNOWN_STORY'}:{pier or f'pier_row_{index}'}"
+        section_key = _actual_key(row, ("Section", "SectionName"))
+        material_key = _actual_key(row, ("Material", "MatProp", "MaterialName"))
+        for feature_name, quantity_kind, unit, aliases in specs:
+            actual_key, value = _value(row, aliases)
+            raw_value = _feature_value(value, quantity_kind)
+            records.append(
+                _record(
+                    feature_id=f"{feature_name}::{component_id}",
+                    feature_name=feature_name,
+                    component_type="PIER_SECTION",
+                    component_id=component_id,
+                    source_family="pier_section_properties",
+                    source_table=table_name,
+                    source_columns=[actual_key] if actual_key else [],
+                    source_row=_source_row(row),
+                    readiness_status=ReadinessStatus.READY_DIRECT_SOURCE.value,
+                    feature_status=_status_from_value(raw_value),
+                    raw_value=raw_value,
+                    raw_unit=unit,
+                    quantity_kind=quantity_kind,
+                    semantic_guardrails={
+                        "direct_section_geometry_present": True,
+                        "section_name_column_required": False,
+                        "section_name_column_present": section_key is not None,
+                        "material_present": material_key is not None,
+                    },
+                )
+            )
     return records
 
 
 def _blocked_records() -> list[dict[str, Any]]:
     records = []
     for feature_id, source_family, status, reason in BLOCKED_CHECK_RECORDS:
-        records.append(_record(
-            feature_id=feature_id,
-            feature_name=feature_id,
-            component_type=None,
-            component_id=None,
-            source_family=source_family,
-            source_table="source_feature_readiness_matrix",
-            source_columns=[],
-            source_row={"reason": reason},
-            readiness_status=status,
-            feature_status=status,
-            raw_value=None,
-            raw_unit="unitless",
-            quantity_kind="identity_context",
-            semantic_guardrails={"lock_reason": reason},
-        ))
+        records.append(
+            _record(
+                feature_id=feature_id,
+                feature_name=feature_id,
+                component_type=None,
+                component_id=None,
+                source_family=source_family,
+                source_table="source_feature_readiness_matrix",
+                source_columns=[],
+                source_row={"reason": reason},
+                readiness_status=status,
+                feature_status=status,
+                raw_value=None,
+                raw_unit="unitless",
+                quantity_kind="identity_context",
+                semantic_guardrails={"lock_reason": reason},
+            )
+        )
     return records
 
 
@@ -394,8 +551,10 @@ def readiness_projection_report(snapshot: Mapping[str, Any]) -> dict[str, Any]:
 
 def blocked_check_guardrail_report(snapshot: Mapping[str, Any]) -> dict[str, Any]:
     blocked = [
-        record for record in snapshot.get("feature_records", [])
-        if record["feature_status"] in {
+        record
+        for record in snapshot.get("feature_records", [])
+        if record["feature_status"]
+        in {
             FeatureProofStatus.LOCKED_CHECK_NOT_ALLOWED.value,
             FeatureProofStatus.BLOCKED_SEMANTIC_REVIEW.value,
             FeatureProofStatus.BLOCKED_NEEDS_LIVE_PROBE.value,
@@ -414,6 +573,7 @@ def blocked_check_guardrail_report(snapshot: Mapping[str, Any]) -> dict[str, Any
 
 __all__ = [
     "BASELINE",
+    "INTERNAL_SOURCE_TABLE_KEY",
     "SOURCE_FAMILIES",
     "SPRINT",
     "blocked_check_guardrail_report",
