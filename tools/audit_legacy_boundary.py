@@ -49,11 +49,18 @@ def _scan_files() -> list[Path]:
     return sorted(files)
 
 
-def _import_name(node: ast.AST) -> list[str]:
+def _import_names(node: ast.AST) -> list[str]:
     if isinstance(node, ast.Import):
         return [alias.name for alias in node.names]
     if isinstance(node, ast.ImportFrom):
-        return [node.module or ""]
+        module = node.module or ""
+        names = [module] if module else []
+        for alias in node.names:
+            if module:
+                names.append(f"{module}.{alias.name}")
+            else:
+                names.append(alias.name)
+        return names
     return []
 
 
@@ -71,7 +78,7 @@ def _scan_file(path: Path) -> list[dict[str, Any]]:
     blockers: list[dict[str, Any]] = []
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
-            for name in _import_name(node):
+            for name in _import_names(node):
                 prefix = _matches_prefix(name, FORBIDDEN_IMPORT_PREFIXES)
                 if prefix:
                     blockers.append({
