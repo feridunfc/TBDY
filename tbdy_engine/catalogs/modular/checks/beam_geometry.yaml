@@ -1,0 +1,81 @@
+metadata:
+  catalog_fragment: checks.beam_geometry
+  version: '1.0'
+checks:
+  beam_geometry_min_width:
+    title: Beam Geometry Min Width
+    element_type: beam
+    category: GEOMETRY
+    readiness:
+      status: ready
+      reason: C13.4-P1 geometry slice.
+    required_features:
+      - beam_width_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: mm
+    evidence_policy:
+      include_features:
+        - beam_width_mm
+      include_formula: false
+      include_source_refs: true
+    code_ref: contract
+  beam_geometry_min_depth:
+    title: Beam Geometry Min Depth
+    element_type: beam
+    category: GEOMETRY
+    readiness:
+      status: ready
+      reason: C13.4-P1 geometry slice.
+    required_features:
+      - beam_depth_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: mm
+    evidence_policy:
+      include_features:
+        - beam_depth_mm
+      include_formula: false
+      include_source_refs: true
+    code_ref: contract
+  beam_depth_width_ratio:
+    title: Beam Depth Width Ratio
+    element_type: beam
+    category: GEOMETRY
+    readiness:
+      status: ready
+      reason: C13.4-P1 geometry slice.
+    required_features:
+      - beam_depth_mm
+      - beam_width_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: ''
+    evidence_policy:
+      include_features:
+        - beam_depth_mm
+        - beam_width_mm
+      include_formula: false
+      include_source_refs: true
+    code_ref: contract
