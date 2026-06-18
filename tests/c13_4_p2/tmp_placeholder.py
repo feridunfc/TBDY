@@ -1,2 +1,1 @@
-def test_placeholder():
-    assert True
+# placeholder removed by follow-up cleanup
