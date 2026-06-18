@@ -15,6 +15,7 @@ PRODUCTION_GLOBS = (
     "tbdy_engine/check_inputs/*.py",
     "tbdy_engine/features/*.py",
     "tbdy_engine/reports/*.py",
+    "tbdy_engine/product/*.py",
     "tools/smoke_c13_4_p1_geometry_checkresult_slice.py",
 )
 
