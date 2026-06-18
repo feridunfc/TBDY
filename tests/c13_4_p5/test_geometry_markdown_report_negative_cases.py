@@ -29,7 +29,8 @@ def _copy_artifacts(tmp_path: Path) -> Path:
     return copied
 
 
-def test_adapter_diagnostics_with_engine_decision_status_raises_value_error(tmp_path: Path):
+@pytest.mark.parametrize("decision_status", ("OK", "FAIL"))
+def test_adapter_diagnostics_with_engine_decision_status_raises_value_error(tmp_path: Path, decision_status: str):
     artifact_dir = _copy_artifacts(tmp_path)
     diagnostics_path = artifact_dir / "adapter_diagnostics.json"
     diagnostics_path.write_text(
@@ -43,7 +44,7 @@ def test_adapter_diagnostics_with_engine_decision_status_raises_value_error(tmp_
                     "invalid_features": [],
                     "missing_features": [],
                     "reason": "invalid fixture status",
-                    "status": "OK",
+                    "status": decision_status,
                 }
             ]
         ),
