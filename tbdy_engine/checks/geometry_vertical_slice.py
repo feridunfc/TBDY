@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import Counter
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from enum import Enum
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
@@ -260,8 +261,25 @@ def _serialize_adapter_diagnostic(diagnostic: CheckInputBuildDiagnostic) -> dict
     }
 
 
+def _json_safe(value: object) -> Any:
+    if isinstance(value, Enum):
+        return value.value
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, Mapping):
+        return {
+            str(key): _json_safe(nested)
+            for key, nested in sorted(value.items(), key=lambda item: str(item[0]))
+        }
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [_json_safe(item) for item in value]
+    if hasattr(value, "as_dict"):
+        return _json_safe(value.as_dict())
+    raise TypeError(f"Object of type {type(value).__name__} is not JSON serializable")
+
+
 def _write_json(path: Path, payload: object) -> None:
-    path.write_text(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(_json_safe(payload), indent=2, sort_keys=True, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 __all__ = ["GeometryVerticalSliceResult", "run_geometry_vertical_slice_from_file"]
