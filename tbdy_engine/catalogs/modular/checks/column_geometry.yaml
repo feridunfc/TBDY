@@ -1,0 +1,31 @@
+metadata:
+  catalog_fragment: checks.column_geometry
+  version: '1.0'
+checks:
+  column_geometry_min_dimension:
+    title: Column Geometry Min Dimension
+    element_type: column
+    category: GEOMETRY
+    readiness:
+      status: ready
+      reason: C13.4-P1 geometry slice.
+    required_features:
+      - column_width_mm
+      - column_depth_mm
+    optional_features: []
+    formula_ref: contract_only_no_formula
+    pass_rule:
+      ratio_type: boolean
+      ok_if: 'true'
+    output:
+      value: contract_defined
+      limit: contract_defined
+      ratio: contract_defined
+      unit: mm
+    evidence_policy:
+      include_features:
+        - column_width_mm
+        - column_depth_mm
+      include_formula: false
+      include_source_refs: true
+    code_ref: contract
