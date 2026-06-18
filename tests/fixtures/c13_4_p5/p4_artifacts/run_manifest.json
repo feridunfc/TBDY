@@ -1,0 +1,28 @@
+{
+  "artifact_files": [
+    "check_results.json",
+    "adapter_diagnostics.json",
+    "run_summary.json",
+    "run_manifest.json"
+  ],
+  "catalog_dir": "tbdy_engine/catalogs",
+  "forbidden_scope": [
+    "beam_flexure",
+    "beam_shear",
+    "rebar_adequacy",
+    "capacity_design",
+    "governing_combo_selection",
+    "force_envelope_selection",
+    "SCWB",
+    "PMM",
+    "drift",
+    "ETABS_live_fetching",
+    "Excel_production_path",
+    "legacy_runtime_execution"
+  ],
+  "input_path": "tests/fixtures/c13_4_p4/geometry_feature_snapshots.json",
+  "input_sha256": "fixture_sha256",
+  "output_dir": "local_out/c13_4_p4_geometry_vertical_slice",
+  "runner": "C13.4-P4 Geometry Vertical Slice Runner",
+  "scope": "GEOMETRY_ONLY"
+}
