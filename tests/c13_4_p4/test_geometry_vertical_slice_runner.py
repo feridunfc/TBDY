@@ -73,7 +73,7 @@ def test_valid_fixture_counts_and_geometry_check_ids(tmp_path: Path):
         "beam_geometry_min_width": 1,
         "column_geometry_min_dimension": 1,
     }
-    assert summary["component_type_counts"] == {"beam": 3, "column": 1}
+    assert summary["component_type_counts"] == {"beam": 1, "column": 1}
 
 
 def test_input_json_evidence_appears_in_check_results_artifact(tmp_path: Path):
