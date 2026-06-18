@@ -1,0 +1,212 @@
+[
+  {
+    "capacity": null,
+    "check_id": "beam_depth_width_ratio",
+    "code_ref": "contract",
+    "component": "B1",
+    "component_type": "beam",
+    "demand": null,
+    "diagnostics": [],
+    "evaluation_level": "SCREENING",
+    "evidence": [
+      {
+        "actual_table_name": "ETABS Geometry Source",
+        "combo_family": null,
+        "ductility_class": null,
+        "evidence_status": "FULL",
+        "governing_combo": null,
+        "normalized_value": 600.0,
+        "output_case": null,
+        "raw_value": 600.0,
+        "reason": null,
+        "resolver": "c13_4_p4_fixture_resolver",
+        "section_state": null,
+        "source_column": "beam_depth_mm",
+        "source_row": {
+          "component": "B1"
+        },
+        "source_table": "source_geometry_table",
+        "unit": "mm"
+      },
+      {
+        "actual_table_name": "ETABS Geometry Source",
+        "combo_family": null,
+        "ductility_class": null,
+        "evidence_status": "FULL",
+        "governing_combo": null,
+        "normalized_value": 300.0,
+        "output_case": null,
+        "raw_value": 300.0,
+        "reason": null,
+        "resolver": "c13_4_p4_fixture_resolver",
+        "section_state": null,
+        "source_column": "beam_width_mm",
+        "source_row": {
+          "component": "B1"
+        },
+        "source_table": "source_geometry_table",
+        "unit": "mm"
+      }
+    ],
+    "limit": 3.5,
+    "messages": [
+      "C13.4-P1 geometry-only canonical CheckResult"
+    ],
+    "pass_rule": "value_over_maximum",
+    "ratio": 0.5714285714285714,
+    "ratio_type": "value_over_maximum",
+    "section": "B30x60",
+    "status": "OK",
+    "story": "+14.5",
+    "unit": "",
+    "value": 2.0
+  },
+  {
+    "capacity": null,
+    "check_id": "beam_geometry_min_depth",
+    "code_ref": "contract",
+    "component": "B1",
+    "component_type": "beam",
+    "demand": null,
+    "diagnostics": [],
+    "evaluation_level": "SCREENING",
+    "evidence": [
+      {
+        "actual_table_name": "ETABS Geometry Source",
+        "combo_family": null,
+        "ductility_class": null,
+        "evidence_status": "FULL",
+        "governing_combo": null,
+        "normalized_value": 600.0,
+        "output_case": null,
+        "raw_value": 600.0,
+        "reason": null,
+        "resolver": "c13_4_p4_fixture_resolver",
+        "section_state": null,
+        "source_column": "beam_depth_mm",
+        "source_row": {
+          "component": "B1"
+        },
+        "source_table": "source_geometry_table",
+        "unit": "mm"
+      }
+    ],
+    "limit": 300.0,
+    "messages": [
+      "C13.4-P1 geometry-only canonical CheckResult"
+    ],
+    "pass_rule": "actual_over_minimum",
+    "ratio": 2.0,
+    "ratio_type": "actual_over_minimum",
+    "section": "B30x60",
+    "status": "OK",
+    "story": "+14.5",
+    "unit": "mm",
+    "value": 600.0
+  },
+  {
+    "capacity": null,
+    "check_id": "beam_geometry_min_width",
+    "code_ref": "contract",
+    "component": "B1",
+    "component_type": "beam",
+    "demand": null,
+    "diagnostics": [],
+    "evaluation_level": "SCREENING",
+    "evidence": [
+      {
+        "actual_table_name": "ETABS Geometry Source",
+        "combo_family": null,
+        "ductility_class": null,
+        "evidence_status": "FULL",
+        "governing_combo": null,
+        "normalized_value": 300.0,
+        "output_case": null,
+        "raw_value": 300.0,
+        "reason": null,
+        "resolver": "c13_4_p4_fixture_resolver",
+        "section_state": null,
+        "source_column": "beam_width_mm",
+        "source_row": {
+          "component": "B1"
+        },
+        "source_table": "source_geometry_table",
+        "unit": "mm"
+      }
+    ],
+    "limit": 250.0,
+    "messages": [
+      "C13.4-P1 geometry-only canonical CheckResult"
+    ],
+    "pass_rule": "actual_over_minimum",
+    "ratio": 1.2,
+    "ratio_type": "actual_over_minimum",
+    "section": "B30x60",
+    "status": "OK",
+    "story": "+14.5",
+    "unit": "mm",
+    "value": 300.0
+  },
+  {
+    "capacity": null,
+    "check_id": "column_geometry_min_dimension",
+    "code_ref": "contract",
+    "component": "C1",
+    "component_type": "column",
+    "demand": null,
+    "diagnostics": [],
+    "evaluation_level": "SCREENING",
+    "evidence": [
+      {
+        "actual_table_name": "ETABS Geometry Source",
+        "combo_family": null,
+        "ductility_class": null,
+        "evidence_status": "FULL",
+        "governing_combo": null,
+        "normalized_value": 400.0,
+        "output_case": null,
+        "raw_value": 400.0,
+        "reason": null,
+        "resolver": "c13_4_p4_fixture_resolver",
+        "section_state": null,
+        "source_column": "column_width_mm",
+        "source_row": {
+          "component": "C1"
+        },
+        "source_table": "source_geometry_table",
+        "unit": "mm"
+      },
+      {
+        "actual_table_name": "ETABS Geometry Source",
+        "combo_family": null,
+        "ductility_class": null,
+        "evidence_status": "FULL",
+        "governing_combo": null,
+        "normalized_value": 500.0,
+        "output_case": null,
+        "raw_value": 500.0,
+        "reason": null,
+        "resolver": "c13_4_p4_fixture_resolver",
+        "section_state": null,
+        "source_column": "column_depth_mm",
+        "source_row": {
+          "component": "C1"
+        },
+        "source_table": "source_geometry_table",
+        "unit": "mm"
+      }
+    ],
+    "limit": 300.0,
+    "messages": [
+      "C13.4-P1 geometry-only canonical CheckResult"
+    ],
+    "pass_rule": "actual_over_minimum",
+    "ratio": 1.3333333333333333,
+    "ratio_type": "actual_over_minimum",
+    "section": "C40x50",
+    "status": "OK",
+    "story": "+14.5",
+    "unit": "mm",
+    "value": 400.0
+  }
+]
