@@ -99,7 +99,7 @@ def run_geometry_vertical_slice_from_file(
             check_results.append(engine.run_check(check_input.check_id, check_input.snapshot, check_input.coverage))
 
     summary = _build_summary(
-        snapshot_count=len(snapshots),
+        snapshots=snapshots,
         executable_input_count=executable_input_count,
         check_results=check_results,
         adapter_diagnostics=adapter_diagnostics,
@@ -177,14 +177,14 @@ def _load_check_definitions(catalog_dir: Path) -> Mapping[str, Mapping[str, Any]
 
 def _build_summary(
     *,
-    snapshot_count: int,
+    snapshots: Sequence[Mapping[str, object]],
     executable_input_count: int,
     check_results: Sequence[CheckResult],
     adapter_diagnostics: Sequence[CheckInputBuildDiagnostic],
 ) -> dict[str, object]:
     status_counts = Counter(result.status.value for result in check_results)
     check_id_counts = Counter(result.check_id for result in check_results)
-    component_type_counts = Counter(result.component_type for result in check_results)
+    component_type_counts = Counter(str(snapshot["component_type"]) for snapshot in snapshots)
     return {
         "adapter_diagnostic_count": len(adapter_diagnostics),
         "check_id_counts": _sorted_counter_dict(check_id_counts),
@@ -192,7 +192,7 @@ def _build_summary(
         "check_result_status_counts": _sorted_counter_dict(status_counts),
         "component_type_counts": _sorted_counter_dict(component_type_counts),
         "executable_input_count": executable_input_count,
-        "snapshot_count": snapshot_count,
+        "snapshot_count": len(snapshots),
         "status": "OK",
     }
 
