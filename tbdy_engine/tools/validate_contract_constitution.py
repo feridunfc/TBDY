@@ -15,6 +15,11 @@ import yaml
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tbdy_engine.catalogs.loader import CatalogLoadError, load_modular_catalog, summarize_master_catalog
+
 DEFAULT_CATALOG_DIR = ROOT / "tbdy_engine" / "catalogs"
 
 CATALOG_FILES = [
@@ -622,6 +627,31 @@ def validate_engine_boundary_docs(project_root: Path) -> None:
     if missing:
         raise ContractValidationError("ENGINE_BOUNDARY_SPEC_v1.md missing boundary phrase(s): " + ", ".join(missing))
 
+def validate_modular_catalogs(catalog_dir: Path = DEFAULT_CATALOG_DIR) -> dict[str, Any]:
+    modular_root = Path(catalog_dir) / "modular"
+    if not modular_root.exists():
+        return {
+            "enabled": False,
+            "checks": 0,
+            "features": 0,
+            "duplicate_ids": 0,
+            "missing_feature_references": 0,
+        }
+
+    try:
+        master = load_modular_catalog(modular_root)
+    except CatalogLoadError as exc:
+        detail = "; ".join(
+            f"{d.file_path}:{d.catalog_section}:{d.item_id or '-'}: {d.reason}"
+            for d in exc.diagnostics[:10]
+        )
+        raise ContractValidationError("Modular catalog validation failed: " + detail) from exc
+
+    summary = summarize_master_catalog(master)
+    summary["enabled"] = True
+    return summary
+
+
 def validate_contract_tree(catalog_dir: Path = DEFAULT_CATALOG_DIR, *, validate_architecture: bool = True) -> None:
     catalog_dir = Path(catalog_dir)
     project_root = catalog_dir.parents[1]
@@ -646,22 +676,38 @@ def validate_contract_tree(catalog_dir: Path = DEFAULT_CATALOG_DIR, *, validate_
         validate_architecture_import_quarantine(project_root)
 
 
-def validate_contract_constitution(catalog_dir: Path = DEFAULT_CATALOG_DIR, *, validate_architecture: bool = True) -> None:
+def validate_contract_constitution(catalog_dir: Path = DEFAULT_CATALOG_DIR, *, validate_architecture: bool = True) -> dict[str, Any]:
     """Callable validator used by CLI, contract loader, and tests.
 
-    This preserves the same validation semantics as the CLI entrypoint.
+    This preserves the same validation semantics as the CLI entrypoint and adds
+    the C13.4-P2 modular catalog validation gate.
     """
     validate_contract_tree(catalog_dir, validate_architecture=validate_architecture)
+    return validate_modular_catalogs(catalog_dir)
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate Contract Constitution catalog tree")
     parser.add_argument("--catalog-dir", type=Path, default=DEFAULT_CATALOG_DIR)
     args = parser.parse_args([] if argv is None else argv)
-    validate_contract_constitution(args.catalog_dir)
+    modular_summary = validate_contract_constitution(args.catalog_dir)
     schema_count = len(list((_schema_dir(args.catalog_dir)).glob("*.schema.json")))
     print("Contract Constitution v1.0 C5.6 validation: OK")
     print(f"Catalogs: {len(CATALOG_FILES)} | Schemas: {schema_count} | Examples: {len(EXAMPLE_SCHEMA_MAP)}")
+    if modular_summary.get("enabled"):
+        print("Modular Catalog validation: OK")
+        print(
+            "Modular checks: "
+            f"{modular_summary.get('checks', 0)} | "
+            "Modular features: "
+            f"{modular_summary.get('features', 0)} | "
+            "Duplicate IDs: "
+            f"{modular_summary.get('duplicate_ids', 0)} | "
+            "Missing feature references: "
+            f"{modular_summary.get('missing_feature_references', 0)}"
+        )
+    else:
+        print("Modular Catalog validation: SKIPPED")
     return 0
 
 

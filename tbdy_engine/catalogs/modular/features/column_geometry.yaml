@@ -1,0 +1,80 @@
+metadata:
+  catalog_fragment: features.column_geometry
+  version: '1.0'
+features:
+  column_width_mm:
+    element_type: column
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: frame_section_properties
+      field_aliases:
+        - Width
+        - t2
+        - b
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+      - source_table
+      - source_row
+      - source_column
+      - raw_value
+      - normalized_value
+      - unit
+      - output_case
+      - combo_family
+  column_depth_mm:
+    element_type: column
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability:
+      status: available
+      confidence: high
+    source:
+      table_key: frame_section_properties
+      field_aliases:
+        - Depth
+        - t3
+        - h
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: mm
+      target_unit: mm
+      conversion: none
+    fallback:
+      allowed: false
+      method: none
+      warning: ''
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: ''
+    evidence_fields:
+      - source_table
+      - source_row
+      - source_column
+      - raw_value
+      - normalized_value
+      - unit
+      - output_case
+      - combo_family
