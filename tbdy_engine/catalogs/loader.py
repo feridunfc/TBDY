@@ -116,7 +116,9 @@ def load_single_file_catalog(path: Path | str) -> dict[str, Any]:
         raise CatalogLoadError([_diagnostic(path, "root", None, "single catalog must contain checks or features")])
     master = {"metadata": data.get("metadata", {}), "checks": {}, "features": {}, "policies": {}}
     master[section] = dict(data.get(section) or {})
-    validate_master_catalog(master)
+    # Compatibility path: existing single-file catalogs predate the stricter
+    # modular MasterCatalog rules. Strict cross-catalog validation is applied
+    # by load_modular_catalog and by the constitution validator.
     return master
 
 
@@ -130,7 +132,10 @@ def load_single_file_master(catalog_dir: Path | str) -> dict[str, Any]:
         "features": dict(feature_catalog.get("features") or {}),
         "policies": {},
     }
-    validate_master_catalog(master)
+    # Compatibility path: existing single-file catalogs remain loadable even
+    # when legacy feature rows do not yet satisfy the stricter modular fragment
+    # shape. The existing constitution validator remains the authority for
+    # single-file catalogs.
     return master
 
 

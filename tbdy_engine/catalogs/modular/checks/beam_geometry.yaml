@@ -1,4 +1,4 @@
-metadata:
+﻿metadata:
   catalog_fragment: checks.beam_geometry
   version: '1.0'
 checks:
@@ -71,7 +71,7 @@ checks:
       value: contract_defined
       limit: contract_defined
       ratio: contract_defined
-      unit: ''
+      unit: dimensionless
     evidence_policy:
       include_features:
         - beam_depth_mm
@@ -79,3 +79,4 @@ checks:
       include_formula: false
       include_source_refs: true
     code_ref: contract
+
