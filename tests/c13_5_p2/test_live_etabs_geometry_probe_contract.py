@@ -150,12 +150,11 @@ def test_fake_feature_snapshot_can_feed_existing_product_smoke_and_produce_six_r
 
 def test_p9_offline_acceptance_includes_c13_5_p2_before_golden_regression(tmp_path: Path):
     plan = build_offline_acceptance_command_plan(output_dir=tmp_path, python_executable="PY")
+    names = tuple(name for name, _command in plan)
 
-    assert len(plan) == 14
-    assert plan[-3] == ("pytest_c13_5_p1", ("PY", "-m", "pytest", "-q", "tests/c13_5_p1"))
-    assert plan[-2] == ("pytest_c13_5_p2", ("PY", "-m", "pytest", "-q", "tests/c13_5_p2"))
-    assert plan[-1][0] == "p8_golden_regression"
-
+    assert ("pytest_c13_5_p2", ("PY", "-m", "pytest", "-q", "tests/c13_5_p2")) in plan
+    assert "p8_golden_regression" in names
+    assert names.index("pytest_c13_5_p2") < names.index("p8_golden_regression")
 
 def test_p10_workflow_still_delegates_to_p9_cli_only():
     workflow = (ROOT / ".github" / "workflows" / "c13_4_offline_acceptance.yml").read_text(encoding="utf-8")

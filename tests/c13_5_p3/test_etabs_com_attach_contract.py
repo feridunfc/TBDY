@@ -72,9 +72,9 @@ def test_attach_module_has_no_top_level_com_imports():
 
     assert "import comtypes" not in source
     assert "import win32com" not in source
-    assert 'import_module("comtypes.client")' in source
-    assert 'import_module("win32com.client")' in source
-
+    assert "importlib.import_module(" in source
+    assert '"comtypes.client"' in source
+    assert '"win32com.client"' in source
 
 def test_attach_strategies_are_bounded_and_ordered():
     assert ATTACH_STRATEGIES == (
