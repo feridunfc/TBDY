@@ -132,10 +132,10 @@ def test_actual_fingerprint_has_expected_semantic_shape(tmp_path: Path):
     )
     actual = result.actual_fingerprint
 
-    assert len(actual["checks"]) == 4
+    assert len(actual["checks"]) == 6
     assert actual["report"]["table_names"] == EXPECTED_TABLE_NAMES
     assert len(actual["report"]["table_names"]) == 9
-    assert actual["p6"]["check_result_count"] == 4
+    assert actual["p6"]["check_result_count"] == 6
     assert actual["p7"]["report_table_count"] == 9
     assert actual["guardrails"]["geometry_only"] is True
 
