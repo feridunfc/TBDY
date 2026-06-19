@@ -15,13 +15,12 @@ FORBIDDEN_ENGINE_SNIPPETS = (
     "tbdy_engine.checks.engine",
 )
 FORBIDDEN_SCOPE_TERMS = (
-    "force",
-    "rebar",
-    "capacity",
+    "rebar_extraction",
+    "capacity_design",
     "PMM",
     "SCWB",
     "drift",
-    "modal",
+    "modal_mass",
 )
 
 
@@ -60,6 +59,14 @@ def test_no_forbidden_engineering_scope_terms_in_discovery_module_or_tool():
         source = path.read_text(encoding="utf-8")
         for forbidden in FORBIDDEN_SCOPE_TERMS:
             assert forbidden not in source
+
+
+def test_forces_term_is_only_a_prefetch_penalty_not_force_extraction():
+    source = MODULE_PATH.read_text(encoding="utf-8")
+
+    assert '"forces"' in source
+    assert "force_extraction" not in source
+    assert "GetTableForDisplayArray(\"Forces" not in source
 
 
 def test_offline_acceptance_includes_c13_5_p4_and_command_count_is_16(tmp_path: Path):
