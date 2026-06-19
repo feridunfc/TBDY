@@ -78,9 +78,32 @@ Candidate scores are deterministic. Keyword matches provide the base score. Fetc
 
 Only a bounded number of candidates are fetched. Candidates beyond the cap are recorded with `SKIPPED_BY_CAP`.
 
+### C13.5-P4 hotfix scoring
+
+Default `candidate_fetch_cap` remains `5`. To prevent explicit geometry definition tables from being skipped behind assignment/reinforcing/load/design/result tables, pre-fetch scoring now adds deterministic bonuses for table names containing:
+
+```text
+frame section property definitions
+concrete rectangular
+```
+
+Pre-fetch scoring also applies deterministic penalties for table names containing:
+
+```text
+reinforcing
+assignments
+loads
+design
+forces
+```
+
+This is still table-name ranking only. It does not parse section names, infer dimensions, fetch unbounded tables, or run engineering logic.
+
 ## 6. Accepted mapping policy
 
 No accepted mapping is written unless a fetched candidate exposes explicit width/depth source columns. Tables that only expose section/property names remain candidates, but they are not accepted mappings.
+
+Columns `t2` and `t3` are accepted only as explicit table columns. They are not derived from section names.
 
 If no accepted mapping exists, diagnostics include:
 
@@ -121,6 +144,8 @@ implemented:
   - discovery negative scope tests
   - P9 offline acceptance update to include tests/c13_5_p4
   - command count update to 16
+  - hotfix pre-fetch scoring for concrete rectangular geometry definition tables
+  - hotfix accepted mapping test for explicit t2/t3 columns
 
 not_run_in_connector_session:
   - python -m compileall -q tbdy_engine tools tests
