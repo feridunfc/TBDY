@@ -129,6 +129,7 @@ def build_offline_acceptance_command_plan(
     commands.append(("pytest_c13_5_p2", (py, "-m", "pytest", "-q", "tests/c13_5_p2")))
     commands.append(("pytest_c13_5_p3", (py, "-m", "pytest", "-q", "tests/c13_5_p3")))
     commands.append(("pytest_c13_5_p4", (py, "-m", "pytest", "-q", "tests/c13_5_p4")))
+    commands.append(("pytest_c13_5_p5", (py, "-m", "pytest", "-q", "tests/c13_5_p5")))
     commands.append(
         (
             "p8_golden_regression",
