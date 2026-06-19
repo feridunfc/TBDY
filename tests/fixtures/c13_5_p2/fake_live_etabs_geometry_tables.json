@@ -1,0 +1,51 @@
+{
+  "rows": [
+    {
+      "actual_table_name": "Fake ETABS Frame Geometry",
+      "beam_depth_mm": 600.0,
+      "beam_width_mm": 300.0,
+      "component_id": "B1",
+      "component_type": "beam",
+      "label": "B1",
+      "section": "B40x70",
+      "source_table": "fake_frame_geometry_table",
+      "story": "+14.5",
+      "unit": "mm"
+    },
+    {
+      "actual_table_name": "Fake ETABS Frame Geometry",
+      "column_depth_mm": 500.0,
+      "column_width_mm": 400.0,
+      "component_id": "C1",
+      "component_type": "column",
+      "label": "C1",
+      "section": "C40x50",
+      "source_table": "fake_frame_geometry_table",
+      "story": "+14.5",
+      "unit": "mm"
+    },
+    {
+      "actual_table_name": "Fake ETABS Frame Geometry",
+      "beam_depth_mm": 550.0,
+      "component_id": "B_MISSING_WIDTH",
+      "component_type": "beam",
+      "label": "B_MISSING_WIDTH",
+      "section": "B30x55",
+      "source_table": "fake_frame_geometry_table",
+      "story": "+14.5",
+      "unit": "mm"
+    },
+    {
+      "actual_table_name": "Fake ETABS Frame Geometry",
+      "column_depth_mm": 50.0,
+      "column_width_mm": 40.0,
+      "component_id": "C_WRONG_UNIT",
+      "component_type": "column",
+      "label": "C_WRONG_UNIT",
+      "section": "C40x50",
+      "source_table": "fake_frame_geometry_table",
+      "story": "+14.5",
+      "unit": "cm"
+    }
+  ]
+}
