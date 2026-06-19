@@ -24,6 +24,50 @@
     },
     {
       "columns": [
+        "Name",
+        "t3",
+        "t2"
+      ],
+      "display_name": "Frame Section Property Definitions - Concrete Rectangular",
+      "import_type": "READ_ONLY",
+      "is_empty": false,
+      "table_key": "Frame Section Property Definitions - Concrete Rectangular"
+    },
+    {
+      "columns": [
+        "Frame",
+        "Section",
+        "RebarMaterial"
+      ],
+      "display_name": "Concrete Frame Reinforcing Data",
+      "import_type": "READ_ONLY",
+      "is_empty": false,
+      "table_key": "Concrete Frame Reinforcing Data"
+    },
+    {
+      "columns": [
+        "Frame",
+        "LoadPattern"
+      ],
+      "display_name": "Load Assignments - Frame",
+      "import_type": "READ_ONLY",
+      "is_empty": false,
+      "table_key": "Load Assignments - Frame"
+    },
+    {
+      "columns": [
+        "Frame",
+        "Station",
+        "P",
+        "M3"
+      ],
+      "display_name": "Frame Design Forces",
+      "import_type": "READ_ONLY",
+      "is_empty": false,
+      "table_key": "Frame Design Forces"
+    },
+    {
+      "columns": [
         "Object",
         "PropName"
       ],
