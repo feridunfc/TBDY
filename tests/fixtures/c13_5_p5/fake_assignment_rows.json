@@ -1,0 +1,18 @@
+{
+  "rows": [
+    {
+      "Story": "+14.5",
+      "Label": "B1",
+      "UniqueName": "297",
+      "SectProp": "B40x70",
+      "ComponentType": "beam"
+    },
+    {
+      "Story": "+11.0",
+      "Label": "C1",
+      "UniqueName": "301",
+      "SectProp": "C50x60",
+      "ComponentType": "column"
+    }
+  ]
+}

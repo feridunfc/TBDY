@@ -69,11 +69,12 @@ def test_forces_term_is_only_a_prefetch_penalty_not_force_extraction():
     assert "GetTableForDisplayArray(\"Forces" not in source
 
 
-def test_offline_acceptance_includes_c13_5_p4_and_command_count_is_16(tmp_path: Path):
+def test_offline_acceptance_includes_c13_5_p4_before_golden_regression(tmp_path: Path):
     plan = build_offline_acceptance_command_plan(output_dir=tmp_path, python_executable="PY")
+    p4_command = ("pytest_c13_5_p4", ("PY", "-m", "pytest", "-q", "tests/c13_5_p4"))
 
-    assert len(plan) == 16
-    assert ("pytest_c13_5_p4", ("PY", "-m", "pytest", "-q", "tests/c13_5_p4")) in plan
+    assert p4_command in plan
+    assert plan.index(p4_command) < len(plan) - 1
 
 
 def test_p10_workflow_delegates_to_p9_cli_only_and_does_not_mention_c13_5_p4():
@@ -92,3 +93,5 @@ def test_older_p9_tests_use_future_safe_expected_count_constant():
     assert "_expected_command_count" in p9_negative
     assert "assert result.command_count == 15" not in p9_positive
     assert "assert result.command_count == 15" not in p9_negative
+    assert "assert len(plan) == 16" not in p9_positive
+    assert "assert len(plan) == 16" not in p9_negative

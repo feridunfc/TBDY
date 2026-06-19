@@ -12,6 +12,7 @@ if str(ROOT) not in sys.path:
 from tbdy_engine.features.etabs_com_attach import EtabsAttachFailure
 from tbdy_engine.features.live_etabs_geometry_probe import (
     create_live_etabs_geometry_provider,
+    load_accepted_mapping_provider_from_json,
     load_mapping_provider_from_json,
     probe_geometry_feature_snapshots,
     write_com_attach_failure_probe_outputs,
@@ -19,7 +20,7 @@ from tbdy_engine.features.live_etabs_geometry_probe import (
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Create C13.5-P2 geometry FeatureSnapshot JSON from read-only ETABS geometry data")
+    parser = argparse.ArgumentParser(description="Create geometry FeatureSnapshot JSON from read-only ETABS geometry data")
     parser.add_argument("--live-etabs", action="store_true", help="Explicitly opt in to live ETABS probing")
     parser.add_argument("--out", required=True, help="Output directory for FeatureSnapshot and probe artifacts")
     parser.add_argument("--target-story", default=None, help="Optional story selector")
@@ -28,6 +29,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-rows", type=int, default=20, help="Maximum geometry rows to process")
     parser.add_argument("--max-candidate-tables", type=int, default=5, help="Maximum live ETABS candidate tables to inspect")
     parser.add_argument("--fake-provider-fixture", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--fake-assignment-rows-fixture", default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--fake-property-definition-rows-fixture", default=None, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
 
     if not args.live_etabs:
@@ -37,6 +40,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.fake_provider_fixture is not None:
             provider = load_mapping_provider_from_json(Path(args.fake_provider_fixture))
+        elif args.fake_assignment_rows_fixture is not None or args.fake_property_definition_rows_fixture is not None:
+            if args.fake_assignment_rows_fixture is None or args.fake_property_definition_rows_fixture is None:
+                raise ValueError("Both fake assignment and fake property definition fixtures are required for accepted mapping fixture mode")
+            provider = load_accepted_mapping_provider_from_json(
+                assignment_rows_path=Path(args.fake_assignment_rows_fixture),
+                property_rows_path=Path(args.fake_property_definition_rows_fixture),
+            )
         else:
             provider = create_live_etabs_geometry_provider(max_candidate_tables=args.max_candidate_tables)
         result = probe_geometry_feature_snapshots(
