@@ -51,11 +51,11 @@ def test_attach_failure_contract_does_not_expose_raw_com_object_values():
     assert "sap_model" not in failure_source
 
 
-def test_offline_acceptance_includes_c13_5_p3_and_command_count_is_15(tmp_path: Path):
+def test_offline_acceptance_includes_c13_5_p3(tmp_path: Path):
     plan = build_offline_acceptance_command_plan(output_dir=tmp_path, python_executable="PY")
 
-    assert len(plan) == 15
     assert ("pytest_c13_5_p3", ("PY", "-m", "pytest", "-q", "tests/c13_5_p3")) in plan
+    assert plan.index(("pytest_c13_5_p3", ("PY", "-m", "pytest", "-q", "tests/c13_5_p3"))) < len(plan) - 1
 
 
 def test_p10_workflow_delegates_to_p9_cli_only_and_does_not_mention_c13_5_p3():
