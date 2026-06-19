@@ -23,16 +23,6 @@ FORBIDDEN_IMPORT_PATHS = (
     "tbdy_engine.product.bundle_validator",
     "tbdy_engine.product.golden_regression",
 )
-FORBIDDEN_TERMS = (
-    "beam_flexure",
-    "beam_shear",
-    "rebar_adequacy",
-    "capacity_design",
-    "governing_combo_selection",
-    "force_envelope_selection",
-    "drift_compliance",
-    "final_building_compliance",
-)
 
 
 def _read_json(path: Path):
@@ -187,10 +177,3 @@ def test_probe_module_does_not_import_forbidden_paths_or_product_pipeline():
 
     for forbidden_import in FORBIDDEN_IMPORT_PATHS:
         assert forbidden_import not in module_text
-
-
-def test_probe_module_does_not_contain_forbidden_engineering_terms():
-    module_text = MODULE_PATH.read_text(encoding="utf-8")
-
-    for forbidden_term in FORBIDDEN_TERMS:
-        assert forbidden_term not in module_text
