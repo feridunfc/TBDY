@@ -1,7 +1,8 @@
-"""C13.5-P2 read-only geometry FeatureSnapshot probe.
+"""C13.5-P2/C13.5-P3 read-only geometry FeatureSnapshot probe.
 
-This module creates FeatureSnapshot JSON from observed geometry rows only.  Live
-ETABS access is optional and isolated behind an explicit runtime boundary.
+This module creates FeatureSnapshot JSON from observed geometry rows only. Live
+ETABS access is optional and isolated behind explicit runtime boundaries. C13.5-P3
+keeps COM attachment in tbdy_engine.features.etabs_com_attach.
 """
 from __future__ import annotations
 
@@ -11,14 +12,27 @@ from pathlib import Path
 from typing import Any, Protocol
 import json
 
+from tbdy_engine.features.etabs_com_attach import (
+    ATTACH_STRATEGIES,
+    EtabsAttachFailure,
+    EtabsAttachResult,
+    attach_to_running_etabs,
+)
 from tbdy_engine.features.evidence import FeatureEvidence, FeatureEvidenceStatus
 from tbdy_engine.features.snapshot import FeatureSnapshot
 from tbdy_engine.features.value import FeatureValue, FeatureValueStatus
 
 _PROBE_SCOPE = "C13_5_P2_LIVE_ETABS_GEOMETRY_FEATURE_SNAPSHOT_PROBE"
+_ATTACH_FAILURE_SCOPE = "LIVE_ETABS_GEOMETRY_FEATURE_SNAPSHOT_PROBE"
 _RUNNER = "C13.5-P2 Live ETABS Read-Only Geometry FeatureSnapshot Probe"
+_ATTACH_FAILURE_RUNNER = "C13.5-P3 ETABS COM Attach Compatibility Boundary"
 _OUTPUT_FILES = (
     "feature_snapshot.json",
+    "live_geometry_probe_summary.json",
+    "live_geometry_probe_diagnostics.json",
+    "live_geometry_probe_manifest.json",
+)
+_ATTACH_FAILURE_OUTPUT_FILES = (
     "live_geometry_probe_summary.json",
     "live_geometry_probe_diagnostics.json",
     "live_geometry_probe_manifest.json",
@@ -217,6 +231,67 @@ def probe_geometry_feature_snapshots(
     )
 
 
+def write_com_attach_failure_probe_outputs(
+    *,
+    output_dir: Path,
+    attach_result: EtabsAttachResult,
+) -> LiveGeometryProbeResult:
+    out_dir = Path(output_dir)
+    feature_snapshot_path = out_dir / "feature_snapshot.json"
+    summary_path = out_dir / "live_geometry_probe_summary.json"
+    diagnostics_path = out_dir / "live_geometry_probe_diagnostics.json"
+    manifest_path = out_dir / "live_geometry_probe_manifest.json"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    if feature_snapshot_path.exists():
+        feature_snapshot_path.unlink()
+
+    attempts = [attempt.as_dict() for attempt in attach_result.attempts]
+    diagnostics_payload = [
+        {
+            "attempts": attempts,
+            "code": "ETABS_COM_ATTACH_FAILED",
+            "message": "No attach strategy succeeded.",
+            "status": "BLOCKED",
+        }
+    ]
+    _write_json(
+        summary_path,
+        {
+            "diagnostic_count": len(attempts),
+            "failure_stage": "COM_ATTACH",
+            "feature_snapshot_written": False,
+            "scope": _ATTACH_FAILURE_SCOPE,
+            "status": "FAIL",
+        },
+    )
+    _write_json(diagnostics_path, diagnostics_payload)
+    _write_json(
+        manifest_path,
+        {
+            "attach_attempt_count": len(attempts),
+            "attach_strategies": list(ATTACH_STRATEGIES),
+            "failure_stage": "COM_ATTACH",
+            "feature_snapshot_written": False,
+            "forbidden_scope": list(_FORBIDDEN_SCOPE),
+            "live_etabs_required_for_ci": False,
+            "output_files": list(_ATTACH_FAILURE_OUTPUT_FILES),
+            "probe_is_read_only": True,
+            "runner": _ATTACH_FAILURE_RUNNER,
+            "scope": _ATTACH_FAILURE_SCOPE,
+        },
+    )
+    return LiveGeometryProbeResult(
+        status="FAIL",
+        output_dir=out_dir,
+        feature_snapshot_path=feature_snapshot_path,
+        summary_path=summary_path,
+        diagnostics_path=diagnostics_path,
+        manifest_path=manifest_path,
+        snapshot_count=0,
+        diagnostic_count=len(attempts),
+    )
+
+
 def load_mapping_provider_from_json(path: Path) -> MappingGeometryRowProvider:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     rows = payload.get("rows") if isinstance(payload, Mapping) else payload
@@ -230,35 +305,38 @@ def load_mapping_provider_from_json(path: Path) -> MappingGeometryRowProvider:
     return MappingGeometryRowProvider(normalized_rows)
 
 
-def create_live_etabs_geometry_provider(*, max_candidate_tables: int = 5) -> GeometryRowProvider:
-    """Create a live provider inside the only optional ETABS boundary."""
-    return _EtabsComGeometryProvider(max_candidate_tables=max_candidate_tables)
+def create_live_etabs_geometry_provider(
+    *,
+    max_candidate_tables: int = 5,
+    attach_result: EtabsAttachResult | None = None,
+) -> GeometryRowProvider:
+    """Create a live provider inside the optional ETABS boundary."""
+    return _EtabsComGeometryProvider(
+        max_candidate_tables=max_candidate_tables,
+        attach_result=attach_result,
+    )
 
 
 @dataclass(frozen=True, slots=True)
 class _EtabsComGeometryProvider:
     max_candidate_tables: int = 5
+    attach_result: EtabsAttachResult | None = None
 
     def iter_geometry_rows(self) -> Sequence[Mapping[str, object]]:
         if self.max_candidate_tables <= 0:
             raise ValueError("max_candidate_tables must be positive")
-        client = _load_com_client()
-        etabs_object = client.GetActiveObject("CSI.ETABS.API.ETABSObject")
-        sap_model = etabs_object.SapModel
+        attach_result = self.attach_result or attach_to_running_etabs()
+        if attach_result.status != "ATTACHED":
+            raise EtabsAttachFailure(attach_result)
+        sap_model = attach_result.sap_model
+        if sap_model is None:
+            raise RuntimeError("ETABS attach succeeded without SapModel; this violates the attach boundary contract")
         database_tables = sap_model.DatabaseTables
         table_names = _candidate_live_table_names(database_tables, self.max_candidate_tables)
         rows: list[Mapping[str, object]] = []
         for table_name in table_names:
             rows.extend(_read_live_table_rows(database_tables, table_name))
         return rows
-
-
-def _load_com_client() -> Any:
-    try:
-        import win32com.client  # type: ignore[import-not-found]
-    except Exception as exc:  # pragma: no cover - platform dependent live boundary.
-        raise RuntimeError("Live ETABS probing requires pywin32 and a running ETABS instance") from exc
-    return win32com.client
 
 
 def _candidate_live_table_names(database_tables: object, max_candidate_tables: int) -> tuple[str, ...]:
@@ -521,4 +599,5 @@ __all__ = [
     "create_live_etabs_geometry_provider",
     "load_mapping_provider_from_json",
     "probe_geometry_feature_snapshots",
+    "write_com_attach_failure_probe_outputs",
 ]
