@@ -131,8 +131,9 @@ def test_acceptance_gate_fails_if_c13_5_p1_suite_is_removed_from_command_plan(tm
     plan = build_offline_acceptance_command_plan(output_dir=tmp_path, python_executable="PY")
     without_c13_5 = tuple(item for item in plan if item[0] != "pytest_c13_5_p1")
 
-    assert len(without_c13_5) == 12
     assert any(name == "pytest_c13_5_p1" for name, _command in plan)
+    assert len(without_c13_5) == len(plan) - 1
+    assert all(name != "pytest_c13_5_p1" for name, _command in without_c13_5)
 
 
 def test_no_forbidden_legacy_imports_added_to_c13_5_implementation_paths():
