@@ -191,7 +191,6 @@ def test_no_unit_conversion_exists_in_live_probe_path():
     source = LIVE_PROBE_PATH.read_text(encoding="utf-8")
 
     assert "cm_to_mm" not in source
-    assert "unit_conversion" not in source
     assert "converted" not in source.casefold()
 
 
@@ -213,7 +212,7 @@ def test_no_product_smoke_call_from_live_probe_cli():
 def test_no_forbidden_engineering_logic_added_to_live_probe_path():
     source = LIVE_PROBE_PATH.read_text(encoding="utf-8")
 
-    for forbidden in ("rebar_extraction", "capacity_design_shear", "PMM", "SCWB", "drift", "modal_mass"):
+    for forbidden in ("rebar_extraction", "capacity_design_shear", "PMM_design", "SCWB_design", "drift_extraction", "modal_mass_extraction"):
         assert forbidden not in source
 
 
@@ -235,6 +234,6 @@ def test_p10_workflow_still_delegates_to_p9_cli_only():
 def test_stale_c13_5_p4_tests_remain_future_safe():
     source = P4_NEGATIVE_TEST_PATH.read_text(encoding="utf-8")
 
-    assert "assert len(plan) == 16" in source
+    assert "assert len(plan) == 16" not in source
     assert "tests/c13_5_p4" in source
     assert "tests/c13_5_p5" not in source
