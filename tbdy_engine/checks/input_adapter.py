@@ -33,6 +33,8 @@ _BEAM_GEOMETRY_CHECKS: Mapping[str, tuple[str, ...]] = MappingProxyType(
 _COLUMN_GEOMETRY_CHECKS: Mapping[str, tuple[str, ...]] = MappingProxyType(
     {
         "column_geometry_min_dimension": ("column_width_mm", "column_depth_mm"),
+        "column_geometry_min_width": ("column_width_mm",),
+        "column_geometry_min_depth": ("column_depth_mm",),
     }
 )
 _CHECKS_BY_COMPONENT_TYPE: Mapping[str, Mapping[str, tuple[str, ...]]] = MappingProxyType(
