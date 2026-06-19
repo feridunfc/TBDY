@@ -81,6 +81,15 @@ def test_t2_t3_produce_width_depth_feature_values(tmp_path: Path):
     assert column["features"]["column_depth_mm"]["value"] == 600.0
 
 
+def test_summary_contains_assignment_property_and_resolved_row_counts(tmp_path: Path):
+    probe_geometry_feature_snapshots(provider=_load_fixture_provider(), output_dir=tmp_path)
+    summary = json.loads((tmp_path / "live_geometry_probe_summary.json").read_text(encoding="utf-8"))
+
+    assert summary["assignment_table_row_count"] == 2
+    assert summary["property_table_row_count"] == 2
+    assert summary["resolved_geometry_row_count"] == 2
+
+
 def test_source_evidence_contains_assignment_and_property_table_provenance(tmp_path: Path):
     probe_geometry_feature_snapshots(provider=_load_fixture_provider(), output_dir=tmp_path)
     payload = json.loads((tmp_path / "feature_snapshot.json").read_text(encoding="utf-8"))
