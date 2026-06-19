@@ -4,7 +4,7 @@ metadata:
   status: geometry_overlay
   notes:
     - Geometry-only overlay for explicit column width and depth checks.
-    - No force, reinforcement, design combination, or live ETABS behavior.
+    - Geometry-only overlay; no non-geometry execution behavior.
 checks:
   column_geometry_min_width:
     title: Column Geometry Min Width
