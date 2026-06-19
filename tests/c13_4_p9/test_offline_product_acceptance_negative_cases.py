@@ -46,7 +46,7 @@ def test_failed_mocked_command_returns_fail(tmp_path: Path, monkeypatch):
     result = run_offline_product_acceptance(output_dir=tmp_path, python_executable="PY")
 
     assert result.status == "FAIL"
-    assert result.command_count == 13
+    assert result.command_count == 14
     assert result.failed_command_count == 1
     assert result.commands[2].name == "legacy_boundary_audit"
     assert result.commands[2].status == "FAIL"
@@ -82,9 +82,9 @@ def test_stop_on_failure_false_runs_all_commands(tmp_path: Path, monkeypatch):
     result = run_offline_product_acceptance(output_dir=tmp_path, python_executable="PY", stop_on_failure=False)
 
     assert result.status == "FAIL"
-    assert result.command_count == 13
-    assert result.failed_command_count == 13
-    assert len(calls) == 13
+    assert result.command_count == 14
+    assert result.failed_command_count == 14
+    assert len(calls) == 14
 
 
 def test_cli_returns_nonzero_under_mocked_failure(tmp_path: Path, monkeypatch, capsys):
