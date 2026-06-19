@@ -1,0 +1,36 @@
+name: C13.4 Offline Product Acceptance
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  offline-acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml jsonschema
+
+      - name: Run offline acceptance gate
+        run: python tools/run_offline_product_acceptance.py --out local_out/c13_4_ci_offline_acceptance
+
+      - name: Upload acceptance artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: c13-4-offline-acceptance
+          path: local_out/c13_4_ci_offline_acceptance
