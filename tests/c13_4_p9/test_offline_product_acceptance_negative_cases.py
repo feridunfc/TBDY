@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 from tbdy_engine.product import offline_acceptance
-from tbdy_engine.product.offline_acceptance import run_offline_product_acceptance
+from tbdy_engine.product.offline_acceptance import build_offline_acceptance_command_plan, run_offline_product_acceptance
 from tools import run_offline_product_acceptance as acceptance_cli
 from tools.audit_legacy_boundary import build_report
 
@@ -35,6 +35,10 @@ def _completed(command: tuple[str, ...], *, returncode: int = 0, stdout: str = "
     return subprocess.CompletedProcess(args=command, returncode=returncode, stdout=stdout, stderr=stderr)
 
 
+def _expected_command_count(tmp_path: Path) -> int:
+    return len(build_offline_acceptance_command_plan(output_dir=tmp_path, python_executable="PY"))
+
+
 def test_failed_mocked_command_returns_fail(tmp_path: Path, monkeypatch):
     def fake_run(command: tuple[str, ...], *, cwd: Path):
         if command[1:] == ("tools/audit_legacy_boundary.py",):
@@ -46,7 +50,7 @@ def test_failed_mocked_command_returns_fail(tmp_path: Path, monkeypatch):
     result = run_offline_product_acceptance(output_dir=tmp_path, python_executable="PY")
 
     assert result.status == "FAIL"
-    assert result.command_count == 15
+    assert result.command_count == _expected_command_count(tmp_path)
     assert result.failed_command_count == 1
     assert result.commands[2].name == "legacy_boundary_audit"
     assert result.commands[2].status == "FAIL"
@@ -80,11 +84,12 @@ def test_stop_on_failure_false_runs_all_commands(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(offline_acceptance, "_run_command", fake_run)
 
     result = run_offline_product_acceptance(output_dir=tmp_path, python_executable="PY", stop_on_failure=False)
+    expected_count = _expected_command_count(tmp_path)
 
     assert result.status == "FAIL"
-    assert result.command_count == 15
-    assert result.failed_command_count == 15
-    assert len(calls) == 15
+    assert result.command_count == expected_count
+    assert result.failed_command_count == expected_count
+    assert len(calls) == expected_count
 
 
 def test_cli_returns_nonzero_under_mocked_failure(tmp_path: Path, monkeypatch, capsys):
