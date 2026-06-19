@@ -61,15 +61,15 @@ def test_summary_json_has_required_p4_and_p5_counts(tmp_path: Path):
     summary = _read_json(out_dir / "product_smoke_summary.json")
 
     assert result.status == "OK"
-    assert result.p4_check_result_count == 4
+    assert result.p4_check_result_count == 6
     assert result.p4_adapter_diagnostic_count == 0
     assert result.p5_section_count == 9
     assert result.p5_table_count == 9
     assert summary["status"] == "OK"
     assert summary["scope"] == "GEOMETRY_ONLY_PRODUCT_SMOKE"
-    assert summary["p4"]["check_result_count"] == 4
+    assert summary["p4"]["check_result_count"] == 6
     assert summary["p4"]["adapter_diagnostic_count"] == 0
-    assert summary["p4"]["check_result_status_counts"] == {"OK": 4}
+    assert summary["p4"]["check_result_status_counts"] == {"OK": 6}
     assert summary["p5"]["section_count"] == 9
     assert summary["p5"]["table_count"] == 9
     assert summary["p5"]["table_names"] == [
@@ -135,7 +135,7 @@ def test_cli_script_runs_from_repo_root_and_writes_all_outputs(tmp_path: Path):
     assert "Geometry product smoke: OK" in completed.stdout
     assert f"Artifacts: {out_dir / 'artifacts'}" in completed.stdout
     assert f"Report: {out_dir / 'reports' / 'geometry_report.md'}" in completed.stdout
-    assert "CheckResults: 4" in completed.stdout
+    assert "CheckResults: 6" in completed.stdout
     assert "Adapter diagnostics: 0" in completed.stdout
     assert "Sections: 9" in completed.stdout
     assert "Tables: 9" in completed.stdout
