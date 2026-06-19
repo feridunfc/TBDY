@@ -43,7 +43,19 @@ POSSIBLE_GEOMETRY_COLUMNS: tuple[str, ...] = (
     "t3",
     "t2",
 )
-_REQUIRED_MAPPING_FIELDS = ("Width", "Depth")
+_PREFETCH_BONUS_PATTERNS: tuple[str, ...] = (
+    "frame section property definitions",
+    "concrete rectangular",
+)
+_PREFETCH_PENALTY_PATTERNS: tuple[str, ...] = (
+    "reinforcing",
+    "assignments",
+    "loads",
+    "design",
+    "forces",
+)
+_PREFETCH_BONUS_POINTS = 25
+_PREFETCH_PENALTY_POINTS = 20
 _WIDTH_COLUMN_ALIASES = ("width", "t2")
 _DEPTH_COLUMN_ALIASES = ("depth", "t3")
 _IDENTITY_COLUMN_NAMES = frozenset({"story", "label", "uniquename", "object", "frame", "section", "sectionname", "propname"})
@@ -271,6 +283,8 @@ def run_live_geometry_table_discovery(
             "live_etabs_required_for_ci": False,
             "output_files": list(_REQUIRED_OUTPUT_FILES),
             "possible_geometry_columns": list(POSSIBLE_GEOMETRY_COLUMNS),
+            "prefetch_bonus_patterns": list(_PREFETCH_BONUS_PATTERNS),
+            "prefetch_penalty_patterns": list(_PREFETCH_PENALTY_PATTERNS),
             "runner": _RUNNER,
             "scope": _SCOPE,
             "sidecar_only": True,
@@ -410,7 +424,7 @@ def _split_candidate_descriptors(
     for descriptor in descriptors:
         matched_keywords = _matched_keywords(descriptor)
         if matched_keywords:
-            candidates.append((_keyword_score(matched_keywords), descriptor))
+            candidates.append((_prefetch_score(descriptor, matched_keywords), descriptor))
         else:
             rejections.append(
                 {
@@ -432,12 +446,13 @@ def _build_candidates(
     candidates: list[GeometryTableCandidate] = []
     for index, descriptor in enumerate(descriptors):
         matched_keywords = _matched_keywords(descriptor)
-        reasons = tuple(f"matched keyword: {keyword}" for keyword in matched_keywords)
+        prefetch_score = _prefetch_score(descriptor, matched_keywords)
+        reasons = tuple(f"matched keyword: {keyword}" for keyword in matched_keywords) + _prefetch_reasons(descriptor)
         if index >= candidate_fetch_cap:
             candidates.append(
                 GeometryTableCandidate(
                     table_key=descriptor.table_key,
-                    score=_keyword_score(matched_keywords),
+                    score=prefetch_score,
                     reasons=reasons + ("candidate fetch skipped by cap",),
                     matched_keywords=matched_keywords,
                     available_columns=(),
@@ -451,7 +466,7 @@ def _build_candidates(
         candidates.append(
             GeometryTableCandidate(
                 table_key=descriptor.table_key,
-                score=_keyword_score(matched_keywords) + _column_score(columns),
+                score=prefetch_score + _column_score(columns),
                 reasons=reasons + _column_reasons(columns, fetch_result),
                 matched_keywords=matched_keywords,
                 available_columns=columns,
@@ -525,8 +540,28 @@ def _accepted_mapping(candidates: Sequence[GeometryTableCandidate]) -> dict[str,
 
 
 def _matched_keywords(descriptor: EtabsTableDescriptor) -> tuple[str, ...]:
-    haystack = f"{descriptor.table_key} {descriptor.display_name or ''}".casefold()
+    haystack = _descriptor_search_text(descriptor)
     return tuple(keyword for keyword in GEOMETRY_TABLE_KEYWORDS if keyword in haystack)
+
+
+def _prefetch_score(descriptor: EtabsTableDescriptor, matched_keywords: Sequence[str]) -> int:
+    score = _keyword_score(matched_keywords)
+    haystack = _descriptor_search_text(descriptor)
+    score += _PREFETCH_BONUS_POINTS * sum(1 for pattern in _PREFETCH_BONUS_PATTERNS if pattern in haystack)
+    score -= _PREFETCH_PENALTY_POINTS * sum(1 for pattern in _PREFETCH_PENALTY_PATTERNS if pattern in haystack)
+    return max(score, 0)
+
+
+def _prefetch_reasons(descriptor: EtabsTableDescriptor) -> tuple[str, ...]:
+    haystack = _descriptor_search_text(descriptor)
+    reasons: list[str] = []
+    reasons.extend(f"prefetch bonus: {pattern}" for pattern in _PREFETCH_BONUS_PATTERNS if pattern in haystack)
+    reasons.extend(f"prefetch penalty: {pattern}" for pattern in _PREFETCH_PENALTY_PATTERNS if pattern in haystack)
+    return tuple(reasons)
+
+
+def _descriptor_search_text(descriptor: EtabsTableDescriptor) -> str:
+    return f"{descriptor.table_key} {descriptor.display_name or ''}".casefold()
 
 
 def _keyword_score(matched_keywords: Sequence[str]) -> int:
