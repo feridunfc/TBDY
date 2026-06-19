@@ -1,0 +1,126 @@
+{
+  "snapshots": [
+    {
+      "component_id": "C_OK",
+      "component_type": "column",
+      "features": {
+        "column_depth_mm": {
+          "evidence": [
+            {
+              "actual_table_name": "ETABS Geometry Source",
+              "evidence_status": "FULL",
+              "normalized_value": 500.0,
+              "raw_value": 500.0,
+              "resolver": "c13_5_p1_fixture_resolver",
+              "source_column": "column_depth_mm",
+              "source_row": {"component": "C_OK"},
+              "source_table": "source_geometry_table",
+              "unit": "mm"
+            }
+          ],
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 500.0
+        },
+        "column_width_mm": {
+          "evidence": [
+            {
+              "actual_table_name": "ETABS Geometry Source",
+              "evidence_status": "FULL",
+              "normalized_value": 400.0,
+              "raw_value": 400.0,
+              "resolver": "c13_5_p1_fixture_resolver",
+              "source_column": "column_width_mm",
+              "source_row": {"component": "C_OK"},
+              "source_table": "source_geometry_table",
+              "unit": "mm"
+            }
+          ],
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 400.0
+        }
+      },
+      "identity": {"section": "C40x50", "story": "+14.5"}
+    },
+    {
+      "component_id": "C_BAD_WIDTH",
+      "component_type": "column",
+      "features": {
+        "column_depth_mm": {
+          "evidence": [{"actual_table_name": "ETABS Geometry Source", "evidence_status": "FULL", "normalized_value": 500.0, "raw_value": 500.0, "resolver": "c13_5_p1_fixture_resolver", "source_column": "column_depth_mm", "source_row": {"component": "C_BAD_WIDTH"}, "source_table": "source_geometry_table", "unit": "mm"}],
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 500.0
+        },
+        "column_width_mm": {
+          "evidence": [{"actual_table_name": "ETABS Geometry Source", "evidence_status": "FULL", "normalized_value": 250.0, "raw_value": 250.0, "resolver": "c13_5_p1_fixture_resolver", "source_column": "column_width_mm", "source_row": {"component": "C_BAD_WIDTH"}, "source_table": "source_geometry_table", "unit": "mm"}],
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 250.0
+        }
+      },
+      "identity": {"section": "C25x50", "story": "+14.5"}
+    },
+    {
+      "component_id": "C_BAD_DEPTH",
+      "component_type": "column",
+      "features": {
+        "column_depth_mm": {
+          "evidence": [{"actual_table_name": "ETABS Geometry Source", "evidence_status": "FULL", "normalized_value": 250.0, "raw_value": 250.0, "resolver": "c13_5_p1_fixture_resolver", "source_column": "column_depth_mm", "source_row": {"component": "C_BAD_DEPTH"}, "source_table": "source_geometry_table", "unit": "mm"}],
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 250.0
+        },
+        "column_width_mm": {
+          "evidence": [{"actual_table_name": "ETABS Geometry Source", "evidence_status": "FULL", "normalized_value": 400.0, "raw_value": 400.0, "resolver": "c13_5_p1_fixture_resolver", "source_column": "column_width_mm", "source_row": {"component": "C_BAD_DEPTH"}, "source_table": "source_geometry_table", "unit": "mm"}],
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 400.0
+        }
+      },
+      "identity": {"section": "C40x25", "story": "+14.5"}
+    },
+    {
+      "component_id": "C_MISSING_WIDTH",
+      "component_type": "column",
+      "features": {
+        "column_depth_mm": {
+          "evidence": [{"actual_table_name": "ETABS Geometry Source", "evidence_status": "FULL", "normalized_value": 500.0, "raw_value": 500.0, "resolver": "c13_5_p1_fixture_resolver", "source_column": "column_depth_mm", "source_row": {"component": "C_MISSING_WIDTH"}, "source_table": "source_geometry_table", "unit": "mm"}],
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 500.0
+        }
+      },
+      "identity": {"section": "C?x50", "story": "+14.5"}
+    },
+    {
+      "component_id": "C_WRONG_WIDTH_UNIT",
+      "component_type": "column",
+      "features": {
+        "column_depth_mm": {
+          "evidence": [{"actual_table_name": "ETABS Geometry Source", "evidence_status": "FULL", "normalized_value": 500.0, "raw_value": 500.0, "resolver": "c13_5_p1_fixture_resolver", "source_column": "column_depth_mm", "source_row": {"component": "C_WRONG_WIDTH_UNIT"}, "source_table": "source_geometry_table", "unit": "mm"}],
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "mm",
+          "value": 500.0
+        },
+        "column_width_mm": {
+          "evidence": [{"actual_table_name": "ETABS Geometry Source", "evidence_status": "FULL", "normalized_value": 40.0, "raw_value": 40.0, "resolver": "c13_5_p1_fixture_resolver", "source_column": "column_width_mm", "source_row": {"component": "C_WRONG_WIDTH_UNIT"}, "source_table": "source_geometry_table", "unit": "cm"}],
+          "semantic_role": "GEOMETRY",
+          "status": "RESOLVED",
+          "unit": "cm",
+          "value": 40.0
+        }
+      },
+      "identity": {"section": "C40cmx50", "story": "+14.5"}
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+metadata:
+  contract: C13.5-P1 Column Geometry Vertical Slice Expansion
+  catalog_name: check_catalog_c13_5_p1_column_geometry
+  status: geometry_overlay
+  notes:
+    - Geometry-only overlay for explicit column width and depth checks.
+    - Geometry-only overlay; no non-geometry execution behavior.
+checks:
+  column_geometry_min_width:
+    title: Column Geometry Min Width
+    element_type: column
+    category: GEOMETRY
+    readiness:
+      status: ready
+      reason: C13.5-P1 explicit observed column width minimum check.
+    required_features:
+      - column_width_mm
+    optional_features: []
+    formula_ref: geometry_minimum_observed_width_no_unit_conversion
+    pass_rule:
+      ratio_type: actual_over_minimum
+      ok_if: '>= 1.0'
+    status_logic:
+      OK: required feature resolved in mm and value is greater than or equal to 300.0
+      FAIL: required feature resolved in mm and value is less than 300.0
+      NO_DATA: required feature unavailable
+      BLOCKED: required feature partial, invalid, missing evidence, or wrong unit
+    evaluation_level_policy:
+      SCREENING: Observed geometry only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: column_width_mm
+      limit: 300.0
+      ratio: value_over_limit
+      unit: mm
+    evidence_policy:
+      include_features:
+        - column_width_mm
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract
+  column_geometry_min_depth:
+    title: Column Geometry Min Depth
+    element_type: column
+    category: GEOMETRY
+    readiness:
+      status: ready
+      reason: C13.5-P1 explicit observed column depth minimum check.
+    required_features:
+      - column_depth_mm
+    optional_features: []
+    formula_ref: geometry_minimum_observed_depth_no_unit_conversion
+    pass_rule:
+      ratio_type: actual_over_minimum
+      ok_if: '>= 1.0'
+    status_logic:
+      OK: required feature resolved in mm and value is greater than or equal to 300.0
+      FAIL: required feature resolved in mm and value is less than 300.0
+      NO_DATA: required feature unavailable
+      BLOCKED: required feature partial, invalid, missing evidence, or wrong unit
+    evaluation_level_policy:
+      SCREENING: Observed geometry only.
+      NO_DATA: Required feature missing or blocked.
+    output:
+      value: column_depth_mm
+      limit: 300.0
+      ratio: value_over_limit
+      unit: mm
+    evidence_policy:
+      include_features:
+        - column_depth_mm
+      include_formula: false
+      include_source_refs: true
+    tbdy_ref: review_required
+    code_ref: contract

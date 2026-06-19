@@ -14,6 +14,8 @@ from tbdy_engine.features.value import FeatureValueStatus
 
 _ALLOWED_CHECKS = {
     "column_geometry_min_dimension",
+    "column_geometry_min_width",
+    "column_geometry_min_depth",
     "beam_geometry_min_width",
     "beam_geometry_min_depth",
     "beam_depth_width_ratio",
@@ -21,6 +23,8 @@ _ALLOWED_CHECKS = {
 
 _GEOMETRY_LIMITS = {
     "column_geometry_min_dimension": 300.0,
+    "column_geometry_min_width": 300.0,
+    "column_geometry_min_depth": 300.0,
     "beam_geometry_min_width": 250.0,
     "beam_geometry_min_depth": 300.0,
     "beam_depth_width_ratio": 3.5,
@@ -151,6 +155,14 @@ class MinimalCheckEngine:
             width = self._number("column_width_mm", variables.get("column_width_mm"))
             depth = self._number("column_depth_mm", variables.get("column_depth_mm"))
             value = min(width, depth)
+            minimum = _GEOMETRY_LIMITS[check_id]
+            return value, minimum, value / minimum, "actual_over_minimum"
+        if check_id == "column_geometry_min_width":
+            value = self._number("column_width_mm", variables.get("column_width_mm"))
+            minimum = _GEOMETRY_LIMITS[check_id]
+            return value, minimum, value / minimum, "actual_over_minimum"
+        if check_id == "column_geometry_min_depth":
+            value = self._number("column_depth_mm", variables.get("column_depth_mm"))
             minimum = _GEOMETRY_LIMITS[check_id]
             return value, minimum, value / minimum, "actual_over_minimum"
         if check_id == "beam_geometry_min_width":

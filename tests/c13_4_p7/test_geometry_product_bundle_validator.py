@@ -43,7 +43,7 @@ def test_validator_passes_on_p6_generated_bundle(tmp_path: Path):
     assert result.error_count == 0
     assert result.required_file_count == 7
     assert result.checked_table_count == 9
-    assert result.check_result_count == 4
+    assert result.check_result_count == 6
     assert result.adapter_diagnostic_count == 0
 
 
@@ -67,7 +67,7 @@ def test_validator_writes_geometry_product_bundle_validation_json(tmp_path: Path
         "product_smoke_summary.json": "OK",
         "reports/geometry_report.md": "OK",
     }
-    assert payload["counts"]["check_result_count"] == 4
+    assert payload["counts"]["check_result_count"] == 6
     assert payload["counts"]["adapter_diagnostic_count"] == 0
     assert payload["counts"]["report_table_count"] == 9
     assert payload["counts"]["error_count"] == 0
@@ -88,7 +88,7 @@ def test_cli_validates_p6_generated_bundle(tmp_path: Path):
     assert "Geometry product bundle validation: OK" in completed.stdout
     assert f"Bundle: {bundle_dir}" in completed.stdout
     assert "Required files: 7" in completed.stdout
-    assert "CheckResults: 4" in completed.stdout
+    assert "CheckResults: 6" in completed.stdout
     assert "Adapter diagnostics: 0" in completed.stdout
     assert "Report tables: 9" in completed.stdout
     assert "Errors: 0" in completed.stdout
@@ -136,7 +136,7 @@ def test_counts_match_run_summary_and_product_smoke_summary(tmp_path: Path):
     run_summary = _read_json(bundle_dir / "artifacts" / "run_summary.json")
     product_summary = _read_json(bundle_dir / "product_smoke_summary.json")
 
-    assert len(check_results) == run_summary["check_result_count"] == product_summary["p4"]["check_result_count"] == 4
+    assert len(check_results) == run_summary["check_result_count"] == product_summary["p4"]["check_result_count"] == 6
     assert len(adapter_diagnostics) == run_summary["adapter_diagnostic_count"] == product_summary["p4"]["adapter_diagnostic_count"] == 0
     assert product_summary["p4"]["check_result_status_counts"] == run_summary["check_result_status_counts"]
 

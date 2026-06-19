@@ -22,10 +22,14 @@ from tbdy_engine.features.snapshot import FeatureSnapshot
 from tbdy_engine.features.value import FeatureValue, FeatureValueStatus
 
 ROOT = Path(__file__).resolve().parents[2]
+BASE_CHECK_CATALOG = ROOT / "tbdy_engine/catalogs/check_catalog.yaml"
+C13_5_CHECK_OVERLAY = ROOT / "tbdy_engine/catalogs/check_catalog_c13_5_p1_column_geometry.yaml"
 
 
 def _defs():
-    return yaml.safe_load((ROOT / "tbdy_engine/catalogs/check_catalog.yaml").read_text(encoding="utf-8"))["checks"]
+    definitions = yaml.safe_load(BASE_CHECK_CATALOG.read_text(encoding="utf-8"))["checks"]
+    definitions.update(yaml.safe_load(C13_5_CHECK_OVERLAY.read_text(encoding="utf-8"))["checks"])
+    return definitions
 
 
 def _evidence(name: str, value: float, unit: str = "mm") -> FeatureEvidence:
@@ -105,7 +109,7 @@ def test_beam_snapshot_with_resolved_mm_geometry_builds_three_inputs():
         assert item.coverage.evidence_status == CoverageEvidenceStatus.FULL
 
 
-def test_column_snapshot_with_resolved_mm_geometry_builds_one_input():
+def test_column_snapshot_with_resolved_mm_geometry_builds_three_inputs():
     snapshot = _snapshot(
         "column",
         "C1",
@@ -115,11 +119,19 @@ def test_column_snapshot_with_resolved_mm_geometry_builds_one_input():
 
     result = build_geometry_check_inputs_from_feature_snapshot(snapshot)
 
-    assert _ids(result) == ("column_geometry_min_dimension",)
+    assert _ids(result) == (
+        "column_geometry_min_dimension",
+        "column_geometry_min_width",
+        "column_geometry_min_depth",
+    )
     assert result.diagnostics == ()
-    item = result.check_inputs[0]
-    assert item.required_features == ("column_width_mm", "column_depth_mm")
-    assert item.coverage.coverage_status == CoverageStatus.RUNNABLE
+    required_by_check = {item.check_id: item.required_features for item in result.check_inputs}
+    assert required_by_check == {
+        "column_geometry_min_dimension": ("column_width_mm", "column_depth_mm"),
+        "column_geometry_min_width": ("column_width_mm",),
+        "column_geometry_min_depth": ("column_depth_mm",),
+    }
+    assert all(item.coverage.coverage_status == CoverageStatus.RUNNABLE for item in result.check_inputs)
 
 
 def test_adapter_output_is_typed_dataclass_not_plain_payload():
@@ -191,7 +203,7 @@ def test_beam_adapter_inputs_run_through_minimal_engine_and_preserve_evidence_tr
         assert evidence["unit"] == "mm"
 
 
-def test_column_adapter_input_runs_through_minimal_engine_and_preserves_evidence_trace():
+def test_column_adapter_inputs_run_through_minimal_engine_and_preserve_evidence_trace():
     snapshot = _snapshot(
         "column",
         "C1",
@@ -201,16 +213,18 @@ def test_column_adapter_input_runs_through_minimal_engine_and_preserves_evidence
     adapter_result = build_geometry_check_inputs_from_feature_snapshot(snapshot)
     engine = MinimalCheckEngine(_defs())
 
-    check_result = engine.run_check(
-        adapter_result.check_inputs[0].check_id,
-        adapter_result.check_inputs[0].snapshot,
-        adapter_result.check_inputs[0].coverage,
-    )
+    results = [engine.run_check(item.check_id, item.snapshot, item.coverage) for item in adapter_result.check_inputs]
 
-    assert isinstance(check_result, CheckResult)
-    assert check_result.check_id == "column_geometry_min_dimension"
-    assert check_result.evidence
-    evidence_payloads = list(check_result.evidence)
+    assert len(results) == 3
+    assert all(isinstance(item, CheckResult) for item in results)
+    assert {item.check_id for item in results} == {
+        "column_geometry_min_dimension",
+        "column_geometry_min_width",
+        "column_geometry_min_depth",
+    }
+    dimension_result = next(item for item in results if item.check_id == "column_geometry_min_dimension")
+    assert dimension_result.evidence
+    evidence_payloads = list(dimension_result.evidence)
     assert {item["source_column"] for item in evidence_payloads} == {"column_width_mm", "column_depth_mm"}
     assert {item["raw_value"] for item in evidence_payloads} == {400, 500}
     assert {item["normalized_value"] for item in evidence_payloads} == {400, 500}

@@ -51,7 +51,7 @@ def test_valid_fixture_writes_all_four_artifacts(tmp_path: Path):
     result = run_geometry_vertical_slice_from_file(feature_snapshot_path=FIXTURE, output_dir=out_dir)
 
     assert {path.name for path in out_dir.iterdir()} == ARTIFACT_FILES
-    assert len(result.check_results) == 4
+    assert len(result.check_results) == 6
     assert result.adapter_diagnostics == ()
 
 
@@ -63,15 +63,17 @@ def test_valid_fixture_counts_and_geometry_check_ids(tmp_path: Path):
 
     assert summary["status"] == "OK"
     assert summary["snapshot_count"] == 2
-    assert summary["executable_input_count"] == 4
-    assert summary["check_result_count"] == 4
+    assert summary["executable_input_count"] == 6
+    assert summary["check_result_count"] == 6
     assert summary["adapter_diagnostic_count"] == 0
-    assert summary["check_result_status_counts"] == {"OK": 4}
+    assert summary["check_result_status_counts"] == {"OK": 6}
     assert summary["check_id_counts"] == {
         "beam_depth_width_ratio": 1,
         "beam_geometry_min_depth": 1,
         "beam_geometry_min_width": 1,
+        "column_geometry_min_depth": 1,
         "column_geometry_min_dimension": 1,
+        "column_geometry_min_width": 1,
     }
     assert summary["component_type_counts"] == {"beam": 1, "column": 1}
 
@@ -143,7 +145,7 @@ def test_snapshot_list_input_shape_is_supported(tmp_path: Path):
 
     run_geometry_vertical_slice_from_file(feature_snapshot_path=input_path, output_dir=out_dir)
 
-    assert _read_json(out_dir / "run_summary.json")["check_result_count"] == 1
+    assert _read_json(out_dir / "run_summary.json")["check_result_count"] == 3
 
 
 def test_output_is_deterministic_across_repeated_runs_to_same_directory(tmp_path: Path):
@@ -178,5 +180,5 @@ def test_cli_script_runs_from_repo_root_and_writes_artifacts(tmp_path: Path):
     assert completed.returncode == 0, completed.stderr
     assert "Geometry vertical slice: OK" in completed.stdout
     assert "Snapshots: 2" in completed.stdout
-    assert "CheckResults: 4" in completed.stdout
+    assert "CheckResults: 6" in completed.stdout
     assert {path.name for path in out_dir.iterdir()} == ARTIFACT_FILES

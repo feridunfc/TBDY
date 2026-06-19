@@ -125,6 +125,7 @@ def build_offline_acceptance_command_plan(
     ]
     for sprint in range(1, 9):
         commands.append((f"pytest_c13_4_p{sprint}", (py, "-m", "pytest", "-q", f"tests/c13_4_p{sprint}")))
+    commands.append(("pytest_c13_5_p1", (py, "-m", "pytest", "-q", "tests/c13_5_p1")))
     commands.append(
         (
             "p8_golden_regression",
