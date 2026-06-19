@@ -24,6 +24,7 @@ EXPECTED_NAMES = (
     "pytest_c13_4_p7",
     "pytest_c13_4_p8",
     "pytest_c13_5_p1",
+    "pytest_c13_5_p2",
     "p8_golden_regression",
 )
 
@@ -32,10 +33,10 @@ def _completed(command: tuple[str, ...], *, returncode: int = 0, stdout: str = "
     return subprocess.CompletedProcess(args=command, returncode=returncode, stdout=stdout, stderr=stderr)
 
 
-def test_command_plan_contains_exactly_13_commands_in_required_order(tmp_path: Path):
+def test_command_plan_contains_exactly_14_commands_in_required_order(tmp_path: Path):
     plan = build_offline_acceptance_command_plan(output_dir=tmp_path, python_executable="PY")
 
-    assert len(plan) == 13
+    assert len(plan) == 14
     assert tuple(name for name, _command in plan) == EXPECTED_NAMES
 
 
@@ -50,10 +51,11 @@ def test_last_command_is_p8_golden_regression(tmp_path: Path):
     assert command[-2:] == ("--out", str(tmp_path / "golden_regression"))
 
 
-def test_c13_5_p1_runs_before_p8_golden_regression(tmp_path: Path):
+def test_c13_5_suites_run_before_p8_golden_regression(tmp_path: Path):
     plan = build_offline_acceptance_command_plan(output_dir=tmp_path, python_executable="PY")
 
-    assert plan[-2] == ("pytest_c13_5_p1", ("PY", "-m", "pytest", "-q", "tests/c13_5_p1"))
+    assert plan[-3] == ("pytest_c13_5_p1", ("PY", "-m", "pytest", "-q", "tests/c13_5_p1"))
+    assert plan[-2] == ("pytest_c13_5_p2", ("PY", "-m", "pytest", "-q", "tests/c13_5_p2"))
     assert plan[-1][0] == "p8_golden_regression"
 
 
@@ -87,12 +89,12 @@ def test_successful_mocked_execution_returns_ok_and_writes_report(tmp_path: Path
     report = json.loads((tmp_path / "offline_product_acceptance_report.json").read_text(encoding="utf-8"))
 
     assert result.status == "OK"
-    assert result.command_count == 13
+    assert result.command_count == 14
     assert result.failed_command_count == 0
-    assert len(calls) == 13
+    assert len(calls) == 14
     assert result.report_path == tmp_path / "offline_product_acceptance_report.json"
     assert report["status"] == "OK"
-    assert report["command_count"] == 13
+    assert report["command_count"] == 14
     assert report["failed_command_count"] == 0
     assert report["commands"][0]["stdout_tail"] == ["ok"]
 
@@ -155,7 +157,7 @@ def test_cli_prints_success_format_under_mocked_success(tmp_path: Path, monkeypa
         status="OK",
         output_dir=tmp_path,
         report_path=tmp_path / "offline_product_acceptance_report.json",
-        command_count=13,
+        command_count=14,
         failed_command_count=0,
     )
     monkeypatch.setattr(acceptance_cli, "run_offline_product_acceptance", lambda **_kwargs: fake_result)
@@ -167,5 +169,5 @@ def test_cli_prints_success_format_under_mocked_success(tmp_path: Path, monkeypa
     assert "Offline product acceptance: OK" in captured.out
     assert f"Output: {tmp_path}" in captured.out
     assert f"Report: {tmp_path / 'offline_product_acceptance_report.json'}" in captured.out
-    assert "Commands: 13" in captured.out
+    assert "Commands: 14" in captured.out
     assert "Failed: 0" in captured.out
