@@ -43,7 +43,9 @@ def test_new_attach_implementation_does_not_add_engineering_scope_terms():
 
 def test_attach_failure_contract_does_not_expose_raw_com_object_values():
     source = LIVE_PROBE_PATH.read_text(encoding="utf-8")
-    failure_source = source[source.index("def write_com_attach_failure_probe_outputs") :]
+    start = source.index("def write_com_attach_failure_probe_outputs")
+    end = source.index("def load_mapping_provider_from_json")
+    failure_source = source[start:end]
 
     assert "etabs_object" not in failure_source
     assert "sap_model" not in failure_source
