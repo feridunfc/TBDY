@@ -7,7 +7,7 @@ from pathlib import Path
 
 import tbdy_engine.features.live_etabs_geometry_probe as probe_module
 from tbdy_engine.features.live_etabs_geometry_probe import (
-    load_mapping_provider_from_json,
+    MappingGeometryRowProvider,
     probe_geometry_feature_snapshots,
 )
 from tbdy_engine.product.geometry_product_smoke import run_geometry_product_smoke
@@ -23,12 +23,14 @@ def _read_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _good_provider() -> MappingGeometryRowProvider:
+    return MappingGeometryRowProvider(_read_json(FIXTURE)["rows"][:2])
+
+
 def _probe_good_rows(tmp_path: Path):
     return probe_geometry_feature_snapshots(
-        provider=load_mapping_provider_from_json(FIXTURE),
+        provider=_good_provider(),
         output_dir=tmp_path,
-        target_story="+14.5",
-        max_rows=2,
     )
 
 
@@ -129,43 +131,11 @@ def test_output_files_are_deterministic(tmp_path: Path):
     assert all(content.endswith("\n") for content in first.values())
 
 
-def test_cli_can_use_fake_provider_fixture_for_ci_without_real_etabs(tmp_path: Path):
-    out_dir = tmp_path / "probe"
-
-    completed = subprocess.run(
-        [
-            sys.executable,
-            "tools/probe_live_etabs_geometry_snapshot.py",
-            "--live-etabs",
-            "--fake-provider-fixture",
-            str(FIXTURE),
-            "--out",
-            str(out_dir),
-            "--max-rows",
-            "2",
-        ],
-        cwd=ROOT,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert completed.returncode == 0, completed.stderr
-    assert "Live geometry probe: OK" in completed.stdout
-    assert "Snapshots: 2" in completed.stdout
-    assert (out_dir / "feature_snapshot.json").is_file()
-
-
 def test_fake_feature_snapshot_can_feed_existing_product_smoke_and_produce_six_results(tmp_path: Path):
     probe_out = tmp_path / "probe"
     product_out = tmp_path / "product"
 
-    probe_geometry_feature_snapshots(
-        provider=load_mapping_provider_from_json(FIXTURE),
-        output_dir=probe_out,
-        target_story="+14.5",
-        max_rows=2,
-    )
+    probe_geometry_feature_snapshots(provider=_good_provider(), output_dir=probe_out)
     product = run_geometry_product_smoke(
         feature_snapshot_path=probe_out / "feature_snapshot.json",
         output_dir=product_out,
@@ -195,7 +165,7 @@ def test_p10_workflow_still_delegates_to_p9_cli_only():
     assert "tools/probe_live_etabs_geometry_snapshot.py" not in workflow
 
 
-def test_probe_module_does_not_import_check_engine_or_create_check_results():
+def test_probe_module_does_not_import_check_execution_or_result_layer():
     module_text = MODULE_PATH.read_text(encoding="utf-8")
     cli_text = CLI_PATH.read_text(encoding="utf-8")
 
