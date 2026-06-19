@@ -137,7 +137,6 @@ def test_cli_without_live_etabs_refuses_explicit_opt_in(tmp_path: Path, capsys):
 
 def test_cli_attach_failure_writes_structured_failure_outputs(tmp_path: Path, monkeypatch, capsys):
     stale_feature_snapshot = tmp_path / "feature_snapshot.json"
-    tmp_path.mkdir()
     stale_feature_snapshot.write_text("{}", encoding="utf-8")
 
     def fail_to_create_provider(**_kwargs):
