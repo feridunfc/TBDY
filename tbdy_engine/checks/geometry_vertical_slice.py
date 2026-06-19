@@ -48,6 +48,7 @@ _FORBIDDEN_SCOPE = (
 )
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _DEFAULT_CATALOG_DIR = _REPO_ROOT / "tbdy_engine" / "catalogs"
+_C13_5_CHECK_OVERLAYS = ("check_catalog_c13_5_p1_column_geometry.yaml",)
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,10 +165,20 @@ def _validate_snapshot_mapping(snapshot: Mapping[str, object]) -> None:
 
 def _load_check_definitions(catalog_dir: Path) -> Mapping[str, Mapping[str, Any]]:
     catalog_path = catalog_dir / "check_catalog.yaml"
+    checks = _load_check_mapping(catalog_path)
+    for overlay_name in _C13_5_CHECK_OVERLAYS:
+        overlay_path = catalog_dir / overlay_name
+        if overlay_path.is_file():
+            for check_id, definition in _load_check_mapping(overlay_path).items():
+                checks[check_id] = definition
+    return checks
+
+
+def _load_check_mapping(catalog_path: Path) -> dict[str, Mapping[str, Any]]:
     with catalog_path.open("r", encoding="utf-8") as handle:
         catalog = yaml.safe_load(handle)
     if not isinstance(catalog, Mapping) or not isinstance(catalog.get("checks"), Mapping):
-        raise ValueError("check_catalog.yaml must contain a top-level checks mapping")
+        raise ValueError(f"{catalog_path.name} must contain a top-level checks mapping")
     checks: dict[str, Mapping[str, Any]] = {}
     for check_id, definition in catalog["checks"].items():
         if not isinstance(definition, Mapping):
