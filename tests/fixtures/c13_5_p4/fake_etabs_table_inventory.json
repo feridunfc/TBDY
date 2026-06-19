@@ -1,0 +1,66 @@
+{
+  "tables": [
+    {
+      "columns": [
+        "Story",
+        "Label",
+        "UniqueName",
+        "Section"
+      ],
+      "display_name": "Frame Assignments - Summary",
+      "import_type": "READ_ONLY",
+      "is_empty": false,
+      "table_key": "Frame Assignments - Summary"
+    },
+    {
+      "columns": [
+        "Frame",
+        "Section"
+      ],
+      "display_name": "Frame Section Assignments",
+      "import_type": "READ_ONLY",
+      "is_empty": false,
+      "table_key": "Frame Section Assignments"
+    },
+    {
+      "columns": [
+        "Object",
+        "PropName"
+      ],
+      "display_name": "Column Object Assignments",
+      "import_type": "READ_ONLY",
+      "is_empty": false,
+      "table_key": "Column Object Assignments"
+    },
+    {
+      "columns": [
+        "Label",
+        "SectionName"
+      ],
+      "display_name": "Beam Property Labels",
+      "import_type": "READ_ONLY",
+      "is_empty": false,
+      "table_key": "Beam Property Labels"
+    },
+    {
+      "columns": [
+        "Story",
+        "Elevation"
+      ],
+      "display_name": "Story Data",
+      "import_type": "READ_ONLY",
+      "is_empty": false,
+      "table_key": "Story Data"
+    },
+    {
+      "columns": [
+        "Name",
+        "Type"
+      ],
+      "display_name": "Named Sets",
+      "import_type": "READ_ONLY",
+      "is_empty": false,
+      "table_key": "Named Sets"
+    }
+  ]
+}
