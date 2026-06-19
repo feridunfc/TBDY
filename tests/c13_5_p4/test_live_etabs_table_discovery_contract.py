@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from tbdy_engine.features import live_etabs_table_discovery as discovery
+from tbdy_engine.features.etabs_com_attach import EtabsAttachAttempt, EtabsAttachFailure, EtabsAttachResult
 from tbdy_engine.features.live_etabs_table_discovery import (
     EtabsTableDescriptor,
     MappingEtabsTableDiscoverySource,
@@ -23,10 +24,34 @@ REQUIRED_OUTPUTS = {
     "live_geometry_table_discovery_diagnostics.json",
     "live_geometry_table_discovery_manifest.json",
 }
+ATTACH_FAILURE_OUTPUTS = {
+    "live_geometry_table_discovery_summary.json",
+    "live_geometry_table_discovery_diagnostics.json",
+    "live_geometry_table_discovery_manifest.json",
+}
 
 
 def _load_fixture_source():
     return load_mapping_table_discovery_source_from_json(FIXTURE)
+
+
+def _failed_attach_result() -> EtabsAttachResult:
+    return EtabsAttachResult(
+        status="FAILED",
+        strategy=None,
+        etabs_object=None,
+        sap_model=None,
+        attempts=(
+            EtabsAttachAttempt(
+                strategy="comtypes_get_active_object_etabs_api_object",
+                prog_id="CSI.ETABS.API.ETABSObject",
+                status="FAILED",
+                message="No such interface supported",
+                exception_type="COMError",
+                hresult="-2147467262",
+            ),
+        ),
+    )
 
 
 def test_discovery_module_imports_without_etabs():
@@ -159,6 +184,24 @@ def test_cli_with_fake_inventory_writes_required_outputs(tmp_path: Path, capsys)
     assert exit_code == 0
     assert "Live geometry table discovery: OK" in captured.out
     assert REQUIRED_OUTPUTS == {path.name for path in tmp_path.glob("*.json")}
+
+
+def test_cli_attach_failure_writes_summary_diagnostics_manifest_only(tmp_path: Path, monkeypatch, capsys):
+    stale_mapping = tmp_path / "accepted_geometry_table_mapping.json"
+    stale_mapping.write_text("{}", encoding="utf-8")
+
+    def fail_to_create_source(**_kwargs):
+        raise EtabsAttachFailure(_failed_attach_result())
+
+    monkeypatch.setattr(discovery_cli, "create_live_etabs_table_discovery_source", fail_to_create_source)
+
+    exit_code = discovery_cli.main(["--live-etabs", "--out", str(tmp_path)])
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert "Live geometry table discovery: FAIL" in captured.out
+    assert ATTACH_FAILURE_OUTPUTS == {path.name for path in tmp_path.glob("*.json")}
+    assert not stale_mapping.exists()
 
 
 def test_fixture_discovery_explains_why_c13_5_p3_snapshot_count_may_be_zero(tmp_path: Path):
