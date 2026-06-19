@@ -25,7 +25,23 @@
       "value": 300.0
     },
     {
+      "check_id": "column_geometry_min_depth",
+      "component_type": "column",
+      "limit": 300.0,
+      "status": "OK",
+      "unit": "mm",
+      "value": 500.0
+    },
+    {
       "check_id": "column_geometry_min_dimension",
+      "component_type": "column",
+      "limit": 300.0,
+      "status": "OK",
+      "unit": "mm",
+      "value": 400.0
+    },
+    {
+      "check_id": "column_geometry_min_width",
       "component_type": "column",
       "limit": 300.0,
       "status": "OK",
@@ -48,9 +64,9 @@
   },
   "p6": {
     "adapter_diagnostic_count": 0,
-    "check_result_count": 4,
+    "check_result_count": 6,
     "check_result_status_counts": {
-      "OK": 4
+      "OK": 6
     },
     "scope": "GEOMETRY_ONLY_PRODUCT_SMOKE",
     "status": "OK"
