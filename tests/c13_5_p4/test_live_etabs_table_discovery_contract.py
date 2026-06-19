@@ -35,6 +35,32 @@ def _load_fixture_source():
     return load_mapping_table_discovery_source_from_json(FIXTURE)
 
 
+def _section_only_source() -> MappingEtabsTableDiscoverySource:
+    descriptors = (
+        EtabsTableDescriptor(
+            table_key="Frame Assignments - Summary",
+            display_name="Frame Assignments - Summary",
+            import_type="READ_ONLY",
+            is_empty=False,
+            source="fake",
+        ),
+        EtabsTableDescriptor(
+            table_key="Frame Section Assignments",
+            display_name="Frame Section Assignments",
+            import_type="READ_ONLY",
+            is_empty=False,
+            source="fake",
+        ),
+    )
+    return MappingEtabsTableDiscoverySource(
+        descriptors=descriptors,
+        columns_by_table_key={
+            "Frame Assignments - Summary": ("Story", "Label", "UniqueName", "Section"),
+            "Frame Section Assignments": ("Frame", "Section"),
+        },
+    )
+
+
 def _failed_attach_result() -> EtabsAttachResult:
     return EtabsAttachResult(
         status="FAILED",
@@ -93,29 +119,60 @@ def test_candidate_strategy_list_is_bounded():
     )
 
 
-def test_fake_table_inventory_writes_all_required_artifacts(tmp_path: Path):
+def test_default_candidate_fetch_cap_remains_5(tmp_path: Path):
+    run_live_geometry_table_discovery(source=_load_fixture_source(), output_dir=tmp_path)
+    summary = json.loads((tmp_path / "live_geometry_table_discovery_summary.json").read_text(encoding="utf-8"))
+
+    assert summary["candidate_fetch_cap"] == 5
+    assert summary["fetched_candidate_count"] == 5
+
+
+def test_fake_table_inventory_writes_required_artifacts_and_mapping_when_t2_t3_present(tmp_path: Path):
     result = run_live_geometry_table_discovery(
         source=_load_fixture_source(),
         output_dir=tmp_path,
         candidate_fetch_cap=5,
     )
 
+    outputs = {path.name for path in tmp_path.glob("*.json")}
+    mapping = json.loads((tmp_path / "accepted_geometry_table_mapping.json").read_text(encoding="utf-8"))
+
     assert result.status == "OK"
-    assert REQUIRED_OUTPUTS == {path.name for path in tmp_path.glob("*.json")}
-    assert not (tmp_path / "accepted_geometry_table_mapping.json").exists()
+    assert REQUIRED_OUTPUTS < outputs
+    assert "accepted_geometry_table_mapping.json" in outputs
+    assert mapping == {
+        "depth_column": "t3",
+        "mapping_basis": "explicit_columns_only",
+        "table_key": "Frame Section Property Definitions - Concrete Rectangular",
+        "width_column": "t2",
+    }
 
 
-def test_candidate_scoring_is_deterministic(tmp_path: Path):
+def test_concrete_rectangular_table_is_fetched_with_default_cap_5(tmp_path: Path):
+    run_live_geometry_table_discovery(source=_load_fixture_source(), output_dir=tmp_path)
+    candidates = json.loads((tmp_path / "live_geometry_table_candidates.json").read_text(encoding="utf-8"))
+
+    concrete = next(candidate for candidate in candidates if candidate["table_key"] == "Frame Section Property Definitions - Concrete Rectangular")
+    assert concrete["fetch_status"] == "FETCHED"
+    assert concrete["available_columns"] == ["Name", "t3", "t2"]
+    assert concrete["missing_expected_columns"] == []
+
+
+def test_candidate_scoring_is_deterministic_after_prefetch_hotfix(tmp_path: Path):
     run_live_geometry_table_discovery(source=_load_fixture_source(), output_dir=tmp_path, candidate_fetch_cap=5)
     candidates = json.loads((tmp_path / "live_geometry_table_candidates.json").read_text(encoding="utf-8"))
 
     assert [candidate["table_key"] for candidate in candidates] == [
-        "Column Object Assignments",
-        "Frame Section Assignments",
-        "Frame Assignments - Summary",
+        "Frame Section Property Definitions - Concrete Rectangular",
         "Beam Property Labels",
+        "Frame Assignments - Summary",
+        "Column Object Assignments",
+        "Concrete Frame Reinforcing Data",
+        "Frame Design Forces",
+        "Frame Section Assignments",
+        "Load Assignments - Frame",
     ]
-    assert [candidate["score"] for candidate in candidates] == [22, 22, 19, 12]
+    assert [candidate["score"] for candidate in candidates] == [73, 12, 4, 2, 2, 0, 0, 0]
 
 
 def test_candidate_fetch_cap_is_enforced(tmp_path: Path):
@@ -125,7 +182,7 @@ def test_candidate_fetch_cap_is_enforced(tmp_path: Path):
 
     assert summary["candidate_fetch_cap"] == 2
     assert summary["fetched_candidate_count"] == 2
-    assert sum(1 for candidate in candidates if candidate["fetch_status"] == "SKIPPED_BY_CAP") == 2
+    assert sum(1 for candidate in candidates if candidate["fetch_status"] == "SKIPPED_BY_CAP") == 6
 
 
 def test_rejected_tables_are_recorded(tmp_path: Path):
@@ -160,7 +217,7 @@ def test_table_fetch_failure_is_diagnostic_not_crash(tmp_path: Path):
 
 
 def test_no_accepted_mapping_written_when_only_section_names_exist(tmp_path: Path):
-    run_live_geometry_table_discovery(source=_load_fixture_source(), output_dir=tmp_path, candidate_fetch_cap=5)
+    run_live_geometry_table_discovery(source=_section_only_source(), output_dir=tmp_path, candidate_fetch_cap=5)
     summary = json.loads((tmp_path / "live_geometry_table_discovery_summary.json").read_text(encoding="utf-8"))
     diagnostics = json.loads((tmp_path / "live_geometry_table_discovery_diagnostics.json").read_text(encoding="utf-8"))
 
@@ -183,7 +240,7 @@ def test_cli_with_fake_inventory_writes_required_outputs(tmp_path: Path, capsys)
     captured = capsys.readouterr()
     assert exit_code == 0
     assert "Live geometry table discovery: OK" in captured.out
-    assert REQUIRED_OUTPUTS == {path.name for path in tmp_path.glob("*.json")}
+    assert REQUIRED_OUTPUTS < {path.name for path in tmp_path.glob("*.json")}
 
 
 def test_cli_attach_failure_writes_summary_diagnostics_manifest_only(tmp_path: Path, monkeypatch, capsys):
@@ -204,8 +261,15 @@ def test_cli_attach_failure_writes_summary_diagnostics_manifest_only(tmp_path: P
     assert not stale_mapping.exists()
 
 
-def test_fixture_discovery_explains_why_c13_5_p3_snapshot_count_may_be_zero(tmp_path: Path):
+def test_fixture_discovery_does_not_emit_no_mapping_diagnostic_when_t2_t3_exist(tmp_path: Path):
     run_live_geometry_table_discovery(source=_load_fixture_source(), output_dir=tmp_path, candidate_fetch_cap=5)
+    diagnostics = json.loads((tmp_path / "live_geometry_table_discovery_diagnostics.json").read_text(encoding="utf-8"))
+
+    assert all(item["code"] != "NO_ACCEPTED_GEOMETRY_TABLE_MAPPING" for item in diagnostics)
+
+
+def test_section_only_discovery_explains_why_c13_5_p3_snapshot_count_may_be_zero(tmp_path: Path):
+    run_live_geometry_table_discovery(source=_section_only_source(), output_dir=tmp_path, candidate_fetch_cap=5)
     diagnostics = json.loads((tmp_path / "live_geometry_table_discovery_diagnostics.json").read_text(encoding="utf-8"))
 
     diagnostic = next(item for item in diagnostics if item["code"] == "NO_ACCEPTED_GEOMETRY_TABLE_MAPPING")
