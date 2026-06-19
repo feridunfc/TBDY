@@ -92,7 +92,8 @@ class AcceptedGeometryMapping:
             "depth_column",
             "mapping_basis",
         ):
-            if not _text(getattr(self, field_name)):
+            raw_value = getattr(self, field_name)
+            if raw_value is None or not str(raw_value).strip():
                 raise ValueError(f"AcceptedGeometryMapping.{field_name} is required")
         if self.mapping_basis != "explicit_columns_only":
             raise ValueError("AcceptedGeometryMapping.mapping_basis must be explicit_columns_only")

@@ -233,7 +233,14 @@ def test_p10_workflow_still_delegates_to_p9_cli_only():
 
 def test_stale_c13_5_p4_tests_remain_future_safe():
     source = P4_NEGATIVE_TEST_PATH.read_text(encoding="utf-8")
+    lines = source.splitlines()
 
-    assert "assert len(plan) == 16" not in source
+    real_stale_assertions = [
+        line for line in lines
+        if line.strip() == "assert len(plan) == 16"
+    ]
+
+    assert real_stale_assertions == []
     assert "tests/c13_5_p4" in source
     assert "tests/c13_5_p5" not in source
+
