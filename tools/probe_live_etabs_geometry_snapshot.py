@@ -9,10 +9,12 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from tbdy_engine.features.etabs_com_attach import EtabsAttachFailure
 from tbdy_engine.features.live_etabs_geometry_probe import (
     create_live_etabs_geometry_provider,
     load_mapping_provider_from_json,
     probe_geometry_feature_snapshots,
+    write_com_attach_failure_probe_outputs,
 )
 
 
@@ -45,8 +47,20 @@ def main(argv: list[str] | None = None) -> int:
             target_component=args.target_component,
             max_rows=args.max_rows,
         )
+    except EtabsAttachFailure as exc:
+        result = write_com_attach_failure_probe_outputs(
+            output_dir=Path(args.out),
+            attach_result=exc.attach_result,
+        )
+        print("Live geometry probe: FAIL")
+        print(f"Output: {result.output_dir}")
+        print(f"Summary: {result.summary_path}")
+        print(f"Diagnostics: {result.diagnostics_path}")
+        print(f"Manifest: {result.manifest_path}")
+        print("FeatureSnapshot: not written")
+        return 1
     except Exception as exc:
-        print(f"Live geometry probe: FAIL", file=sys.stderr)
+        print("Live geometry probe: FAIL", file=sys.stderr)
         print(str(exc), file=sys.stderr)
         return 1
 
