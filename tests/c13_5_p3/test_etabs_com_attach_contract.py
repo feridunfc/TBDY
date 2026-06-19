@@ -158,13 +158,14 @@ def test_cli_attach_failure_writes_structured_failure_outputs(tmp_path: Path, mo
     diagnostics = json.loads((tmp_path / "live_geometry_probe_diagnostics.json").read_text(encoding="utf-8"))
     manifest = json.loads((tmp_path / "live_geometry_probe_manifest.json").read_text(encoding="utf-8"))
 
-    assert summary == {
-        "diagnostic_count": 1,
-        "failure_stage": "COM_ATTACH",
-        "feature_snapshot_written": False,
-        "scope": "LIVE_ETABS_GEOMETRY_FEATURE_SNAPSHOT_PROBE",
-        "status": "FAIL",
-    }
+    assert summary["diagnostic_count"] == 1
+    assert summary["failure_stage"] == "COM_ATTACH"
+    assert summary["feature_snapshot_written"] is False
+    assert summary["scope"] == "LIVE_ETABS_GEOMETRY_FEATURE_SNAPSHOT_PROBE"
+    assert summary["status"] == "FAIL"
+    assert summary["assignment_table_row_count"] == 0
+    assert summary["property_table_row_count"] == 0
+    assert summary["resolved_geometry_row_count"] == 0
     assert diagnostics[0]["code"] == "ETABS_COM_ATTACH_FAILED"
     assert diagnostics[0]["status"] == "BLOCKED"
     assert diagnostics[0]["attempts"][0]["message"] == "No such interface supported"
