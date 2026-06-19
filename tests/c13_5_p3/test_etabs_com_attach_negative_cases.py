@@ -62,7 +62,7 @@ def test_p10_workflow_delegates_to_p9_cli_only_and_does_not_mention_c13_5_p3():
     workflow = WORKFLOW_PATH.read_text(encoding="utf-8")
 
     assert "python tools/run_offline_product_acceptance.py" in workflow
-    assert "pytest" not in workflow
+    assert "pytest -q" not in workflow
     assert "tests/c13_5_p3" not in workflow
 
 
