@@ -107,12 +107,7 @@ def attach_to_running_etabs(
     comtypes_client: Any | None = None,
     win32com_client: Any | None = None,
 ) -> EtabsAttachResult:
-    """Try bounded ETABS COM attach strategies and record every attempt.
-
-    Optional client arguments are test seams for fake COM clients. Production code
-    leaves them as None, which imports optional COM packages only inside this
-    explicit live boundary.
-    """
+    """Try bounded ETABS COM attach strategies and record every attempt."""
     attempts: list[EtabsAttachAttempt] = []
 
     result = _try_direct_active_object(
@@ -123,7 +118,7 @@ def attach_to_running_etabs(
     )
     attempts.extend(result.attempts)
     if result.status == ATTACH_STATUS_ATTACHED:
-        return result
+        return _with_attempts(result, attempts)
 
     result = _try_helper_get_object(
         client=comtypes_client,
@@ -133,7 +128,7 @@ def attach_to_running_etabs(
     )
     attempts.extend(result.attempts)
     if result.status == ATTACH_STATUS_ATTACHED:
-        return result
+        return _with_attempts(result, attempts)
 
     result = _try_direct_active_object(
         strategy="win32com_get_active_object_etabs_api_object",
@@ -143,13 +138,23 @@ def attach_to_running_etabs(
     )
     attempts.extend(result.attempts)
     if result.status == ATTACH_STATUS_ATTACHED:
-        return result
+        return _with_attempts(result, attempts)
 
     return EtabsAttachResult(
         status=ATTACH_STATUS_FAILED,
         strategy=None,
         etabs_object=None,
         sap_model=None,
+        attempts=tuple(attempts),
+    )
+
+
+def _with_attempts(result: EtabsAttachResult, attempts: Sequence[EtabsAttachAttempt]) -> EtabsAttachResult:
+    return EtabsAttachResult(
+        status=result.status,
+        strategy=result.strategy,
+        etabs_object=result.etabs_object,
+        sap_model=result.sap_model,
         attempts=tuple(attempts),
     )
 
