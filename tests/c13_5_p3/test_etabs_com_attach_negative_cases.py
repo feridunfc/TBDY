@@ -73,9 +73,11 @@ def test_cli_failure_path_does_not_run_product_smoke():
     assert "product_smoke" not in source
 
 
-def test_live_probe_boundary_keeps_existing_geometry_extraction_table_list_bounded():
+def test_live_probe_boundary_uses_accepted_mapping_instead_of_legacy_candidate_scan():
     source = LIVE_PROBE_PATH.read_text(encoding="utf-8")
 
-    assert "def _candidate_live_table_names" in source
-    assert "return preferred[:max_candidate_tables]" in source
-    assert "Registry" not in source
+    assert "DEFAULT_ACCEPTED_GEOMETRY_MAPPING" in source
+    assert "Frame Assignments - Section Properties" in source
+    assert "Frame Section Property Definitions - Concrete Rectangular" in source
+    assert "def _candidate_live_table_names" not in source
+

@@ -57,7 +57,7 @@ _FORBIDDEN_SCOPE = (
     "Excel_production_input",
     "Streamlit_UI",
     "final_building_compliance_verdict",
-    "silent_unit_change",
+    "implicit_unit_conversion",
     "section_name_parsing",
     "dimension_guessing",
 )
