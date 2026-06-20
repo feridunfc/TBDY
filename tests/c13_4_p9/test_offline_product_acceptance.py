@@ -28,6 +28,7 @@ EXPECTED_NAMES = (
     "pytest_c13_5_p3",
     "pytest_c13_5_p4",
     "pytest_c13_5_p5",
+    "pytest_c13_5_p6",
     "p8_golden_regression",
 )
 EXPECTED_COMMAND_COUNT = len(EXPECTED_NAMES)
@@ -58,11 +59,12 @@ def test_last_command_is_p8_golden_regression(tmp_path: Path):
 def test_c13_5_suites_run_before_p8_golden_regression(tmp_path: Path):
     plan = build_offline_acceptance_command_plan(output_dir=tmp_path, python_executable="PY")
 
-    assert plan[-6] == ("pytest_c13_5_p1", ("PY", "-m", "pytest", "-q", "tests/c13_5_p1"))
-    assert plan[-5] == ("pytest_c13_5_p2", ("PY", "-m", "pytest", "-q", "tests/c13_5_p2"))
-    assert plan[-4] == ("pytest_c13_5_p3", ("PY", "-m", "pytest", "-q", "tests/c13_5_p3"))
-    assert plan[-3] == ("pytest_c13_5_p4", ("PY", "-m", "pytest", "-q", "tests/c13_5_p4"))
-    assert plan[-2] == ("pytest_c13_5_p5", ("PY", "-m", "pytest", "-q", "tests/c13_5_p5"))
+    assert plan[-7] == ("pytest_c13_5_p1", ("PY", "-m", "pytest", "-q", "tests/c13_5_p1"))
+    assert plan[-6] == ("pytest_c13_5_p2", ("PY", "-m", "pytest", "-q", "tests/c13_5_p2"))
+    assert plan[-5] == ("pytest_c13_5_p3", ("PY", "-m", "pytest", "-q", "tests/c13_5_p3"))
+    assert plan[-4] == ("pytest_c13_5_p4", ("PY", "-m", "pytest", "-q", "tests/c13_5_p4"))
+    assert plan[-3] == ("pytest_c13_5_p5", ("PY", "-m", "pytest", "-q", "tests/c13_5_p5"))
+    assert plan[-2] == ("pytest_c13_5_p6", ("PY", "-m", "pytest", "-q", "tests/c13_5_p6"))
     assert plan[-1][0] == "p8_golden_regression"
 
 
