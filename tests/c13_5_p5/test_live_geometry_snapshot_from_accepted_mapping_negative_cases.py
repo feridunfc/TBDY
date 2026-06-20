@@ -21,8 +21,10 @@ WORKFLOW_PATH = ROOT / ".github" / "workflows" / "c13_4_offline_acceptance.yml"
 P4_NEGATIVE_TEST_PATH = ROOT / "tests" / "c13_5_p4" / "test_live_etabs_table_discovery_negative_cases.py"
 ASSIGNMENT_TABLE = "Frame Assignments - Section Properties"
 PROPERTY_TABLE = "Frame Section Property Definitions - Concrete Rectangular"
+COMPONENT_TYPE_TABLE = "Frame Assignments - Summary"
 ASSIGNMENT_COLUMNS = ["Story", "Label", "UniqueName", "Shape", "AutoSelect", "SectProp", "ComponentType"]
 PROPERTY_COLUMNS = ["Name", "t2", "t3", "unit"]
+COMPONENT_TYPE_COLUMNS = ["UniqueName", "ObjectType"]
 
 
 class _FakeDatabaseTables:
@@ -87,6 +89,24 @@ def _valid_property_display_array():
     )
 
 
+def _valid_component_type_display_array():
+    return (
+        0,
+        COMPONENT_TYPE_COLUMNS,
+        ["297", "Beam"],
+    )
+
+
+def _live_payloads(**overrides):
+    payloads = {
+        ASSIGNMENT_TABLE: _valid_assignment_display_array(),
+        PROPERTY_TABLE: _valid_property_display_array(),
+        COMPONENT_TYPE_TABLE: _valid_component_type_display_array(),
+    }
+    payloads.update(overrides)
+    return payloads
+
+
 def _codes(diagnostics):
     return {diagnostic.code for diagnostic in diagnostics}
 
@@ -140,12 +160,7 @@ def test_raw_display_array_parse_empty_returns_diagnostic_status():
 def test_assignment_table_fetch_failure_diagnostic(tmp_path: Path):
     provider = create_live_etabs_geometry_provider(
         attach_result=_attached_result(
-            _FakeDatabaseTables(
-                {
-                    ASSIGNMENT_TABLE: RuntimeError("assignment fetch failed"),
-                    PROPERTY_TABLE: _valid_property_display_array(),
-                }
-            )
+            _FakeDatabaseTables(_live_payloads(**{ASSIGNMENT_TABLE: RuntimeError("assignment fetch failed")}))
         )
     )
 
@@ -159,12 +174,7 @@ def test_assignment_table_fetch_failure_diagnostic(tmp_path: Path):
 def test_assignment_table_fetched_zero_rows_diagnostic(tmp_path: Path):
     provider = create_live_etabs_geometry_provider(
         attach_result=_attached_result(
-            _FakeDatabaseTables(
-                {
-                    ASSIGNMENT_TABLE: (0, ASSIGNMENT_COLUMNS, []),
-                    PROPERTY_TABLE: _valid_property_display_array(),
-                }
-            )
+            _FakeDatabaseTables(_live_payloads(**{ASSIGNMENT_TABLE: (0, ASSIGNMENT_COLUMNS, [])}))
         )
     )
 
@@ -178,12 +188,7 @@ def test_assignment_table_fetched_zero_rows_diagnostic(tmp_path: Path):
 def test_assignment_table_parse_empty_diagnostic(tmp_path: Path):
     provider = create_live_etabs_geometry_provider(
         attach_result=_attached_result(
-            _FakeDatabaseTables(
-                {
-                    ASSIGNMENT_TABLE: (1, ASSIGNMENT_COLUMNS, ["orphan-value"]),
-                    PROPERTY_TABLE: _valid_property_display_array(),
-                }
-            )
+            _FakeDatabaseTables(_live_payloads(**{ASSIGNMENT_TABLE: (1, ASSIGNMENT_COLUMNS, ["orphan-value"])}))
         )
     )
 
@@ -197,12 +202,7 @@ def test_assignment_table_parse_empty_diagnostic(tmp_path: Path):
 def test_property_table_fetch_failure_diagnostic(tmp_path: Path):
     provider = create_live_etabs_geometry_provider(
         attach_result=_attached_result(
-            _FakeDatabaseTables(
-                {
-                    ASSIGNMENT_TABLE: _valid_assignment_display_array(),
-                    PROPERTY_TABLE: RuntimeError("property fetch failed"),
-                }
-            )
+            _FakeDatabaseTables(_live_payloads(**{PROPERTY_TABLE: RuntimeError("property fetch failed")}))
         )
     )
 
@@ -215,14 +215,7 @@ def test_property_table_fetch_failure_diagnostic(tmp_path: Path):
 
 def test_summary_counts_for_live_table_read_results(tmp_path: Path):
     provider = create_live_etabs_geometry_provider(
-        attach_result=_attached_result(
-            _FakeDatabaseTables(
-                {
-                    ASSIGNMENT_TABLE: _valid_assignment_display_array(),
-                    PROPERTY_TABLE: _valid_property_display_array(),
-                }
-            )
-        )
+        attach_result=_attached_result(_FakeDatabaseTables(_live_payloads()))
     )
 
     result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
@@ -387,6 +380,7 @@ def test_no_unit_conversion_exists_in_live_probe_path():
 
     assert "cm_to_mm" not in source
     assert "converted" not in source.casefold()
+    assert "unit_conversion" not in source
 
 
 def test_no_checkresult_or_checkengine_appears_in_live_probe_path():
@@ -411,10 +405,10 @@ def test_no_forbidden_engineering_logic_added_to_live_probe_path():
         assert forbidden not in source
 
 
-def test_offline_acceptance_includes_c13_5_p5_and_command_count_is_17(tmp_path: Path):
+def test_offline_acceptance_includes_c13_5_p5_and_command_count_is_18(tmp_path: Path):
     plan = build_offline_acceptance_command_plan(output_dir=tmp_path, python_executable="PY")
 
-    assert len(plan) == 17
+    assert len(plan) == 18
     assert ("pytest_c13_5_p5", ("PY", "-m", "pytest", "-q", "tests/c13_5_p5")) in plan
 
 
