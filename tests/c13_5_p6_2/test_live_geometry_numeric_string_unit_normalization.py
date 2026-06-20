@@ -26,7 +26,7 @@ COMPONENT_TYPE_COLUMNS = ["Story", "Label", "UniqueName", "Type"]
 
 
 def _assignment_rows(section_name: str = "SEC"):
-    return ({"Story": "+14.5", "Label": "B1", "UniqueName": "297", "SectProp": section_name},)
+    return ({"Story": "+14.5", "Label": "B1", "UniqueName": "297", "SectProp": section_name, "ComponentType": "beam"},)
 
 
 def _component_type_rows():
@@ -52,16 +52,6 @@ def _unit_evidence(source_unit: str) -> LiveEtabsLengthUnitEvidence:
     )
 
 
-def _resolved_rows_for(width: object, depth: object, source_unit: str):
-    return resolve_geometry_rows_from_accepted_mapping(
-        assignment_rows=_assignment_rows(),
-        property_rows=_property_rows(width=width, depth=depth),
-        component_type_evidence_by_unique_name={},
-        length_unit_evidence=_unit_evidence(source_unit),
-        require_length_unit_evidence=True,
-    )
-
-
 def _codes(diagnostics):
     return {diagnostic.code for diagnostic in diagnostics}
 
@@ -81,7 +71,6 @@ def test_supported_runtime_length_units_normalize_numeric_strings_to_mm(source_u
     rows, diagnostics = resolve_geometry_rows_from_accepted_mapping(
         assignment_rows=_assignment_rows(),
         property_rows=_property_rows(width=raw_value, depth=raw_value),
-        component_type_evidence_by_unique_name={},
         length_unit_evidence=_unit_evidence(source_unit),
         require_length_unit_evidence=True,
     )
@@ -106,7 +95,6 @@ def test_integer_numeric_string_depth_is_parsed_and_normalized():
     rows, diagnostics = resolve_geometry_rows_from_accepted_mapping(
         assignment_rows=_assignment_rows(),
         property_rows=_property_rows(width="0.4", depth="1"),
-        component_type_evidence_by_unique_name={},
         length_unit_evidence=_unit_evidence("m"),
         require_length_unit_evidence=True,
     )
@@ -152,7 +140,6 @@ def test_non_plain_numeric_strings_are_rejected(bad_value: object):
     rows, diagnostics = resolve_geometry_rows_from_accepted_mapping(
         assignment_rows=_assignment_rows(),
         property_rows=_property_rows(width=bad_value, depth="0.7"),
-        component_type_evidence_by_unique_name={},
         length_unit_evidence=_unit_evidence("m"),
         require_length_unit_evidence=True,
     )
@@ -165,7 +152,6 @@ def test_missing_runtime_unit_evidence_blocks_numeric_string_normalization():
     rows, diagnostics = resolve_geometry_rows_from_accepted_mapping(
         assignment_rows=_assignment_rows(),
         property_rows=_property_rows(width="0.4", depth="0.7"),
-        component_type_evidence_by_unique_name={},
         length_unit_evidence=None,
         require_length_unit_evidence=True,
     )
@@ -188,7 +174,6 @@ def test_unknown_length_enum_reports_unsupported_unit():
     rows, diagnostics = resolve_geometry_rows_from_accepted_mapping(
         assignment_rows=_assignment_rows(),
         property_rows=_property_rows(width="0.4", depth="0.7"),
-        component_type_evidence_by_unique_name={},
         length_unit_evidence=evidence,
         require_length_unit_evidence=True,
     )
@@ -275,7 +260,6 @@ def test_section_name_only_is_not_parsed_for_dimensions():
     rows, diagnostics = resolve_geometry_rows_from_accepted_mapping(
         assignment_rows=_assignment_rows(section_name="B40x70"),
         property_rows=_property_rows(width=None, depth=None, section_name="B40x70"),
-        component_type_evidence_by_unique_name={},
         length_unit_evidence=_unit_evidence("m"),
         require_length_unit_evidence=True,
     )
