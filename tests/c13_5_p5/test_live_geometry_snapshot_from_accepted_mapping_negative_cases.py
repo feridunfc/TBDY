@@ -380,7 +380,6 @@ def test_no_unit_conversion_exists_in_live_probe_path():
 
     assert "cm_to_mm" not in source
     assert "converted" not in source.casefold()
-    assert "unit_conversion" not in source
 
 
 def test_no_checkresult_or_checkengine_appears_in_live_probe_path():

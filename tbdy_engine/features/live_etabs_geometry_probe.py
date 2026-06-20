@@ -58,7 +58,7 @@ _FORBIDDEN_SCOPE = (
     "Excel_production_input",
     "Streamlit_UI",
     "final_building_compliance_verdict",
-    "silent_unit_change",
+    "implicit_unit_conversion",
     "section_name_parsing",
     "dimension_guessing",
 )
@@ -1094,8 +1094,43 @@ def _component_type_source_from_fixture_rows(
             ),
         )
     columns = tuple(str(key) for row in row_tuple for key in row.keys())
+    column_set = set(columns)
     resolved_source_column = source_column or _first_available_column(columns, _COMPONENT_TYPE_COLUMN_CANDIDATES)
     resolved_join_column = join_key_column or _first_available_column(columns, _COMPONENT_TYPE_JOIN_KEY_CANDIDATES)
+    if resolved_source_column is not None and resolved_source_column not in column_set:
+        return LiveFrameComponentTypeSourceResult(
+            status="FETCHED",
+            source_table=table_name,
+            source_column=resolved_source_column,
+            join_key_column=resolved_join_column,
+            row_count=len(row_tuple),
+            evidence_by_unique_name={},
+            diagnostics=(
+                LiveGeometryProbeDiagnostic(
+                    status="BLOCKED",
+                    code="COMPONENT_TYPE_SOURCE_COLUMN_MISSING",
+                    message="Component type source fixture does not expose the configured explicit type column",
+                    source_table=table_name,
+                ),
+            ),
+        )
+    if resolved_join_column is not None and resolved_join_column not in column_set:
+        return LiveFrameComponentTypeSourceResult(
+            status="FETCHED",
+            source_table=table_name,
+            source_column=resolved_source_column,
+            join_key_column=resolved_join_column,
+            row_count=len(row_tuple),
+            evidence_by_unique_name={},
+            diagnostics=(
+                LiveGeometryProbeDiagnostic(
+                    status="BLOCKED",
+                    code="COMPONENT_TYPE_JOIN_KEY_MISSING",
+                    message="Component type source fixture does not expose the configured explicit join key column",
+                    source_table=table_name,
+                ),
+            ),
+        )
     if resolved_source_column is None:
         return LiveFrameComponentTypeSourceResult(
             status="FETCHED",

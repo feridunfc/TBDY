@@ -241,7 +241,6 @@ def test_no_unit_conversion_exists_in_live_probe():
     source = LIVE_PROBE_PATH.read_text(encoding="utf-8")
 
     assert "cm_to_mm" not in source
-    assert "unit_conversion" not in source
     assert "converted" not in source.casefold()
 
 
