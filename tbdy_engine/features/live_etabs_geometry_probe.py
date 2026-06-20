@@ -58,7 +58,7 @@ _FORBIDDEN_SCOPE = (
     "Excel_production_input",
     "Streamlit_UI",
     "final_building_compliance_verdict",
-    "silent_unit_change",
+    "implicit_unit_conversion",
     "section_name_parsing",
     "dimension_guessing",
 )
@@ -123,7 +123,8 @@ class AcceptedGeometryMapping:
             "depth_column",
             "mapping_basis",
         ):
-            if not _text(getattr(self, field_name)):
+            raw_value = getattr(self, field_name)
+            if raw_value is None or not str(raw_value).strip():
                 raise ValueError(f"AcceptedGeometryMapping.{field_name} is required")
         if self.mapping_basis != "explicit_columns_only":
             raise ValueError("AcceptedGeometryMapping.mapping_basis must be explicit_columns_only")
@@ -833,39 +834,189 @@ def read_live_frame_component_type_source(database_tables: object, *, max_candid
 
 
 def _component_type_source_from_table_read_results(results: Sequence[LiveEtabsTableReadResult]) -> LiveFrameComponentTypeSourceResult:
-    source_column_missing: list[LiveGeometryProbeDiagnostic] = []
-    join_key_missing: list[LiveGeometryProbeDiagnostic] = []
+    source_column_missing: list[tuple[LiveEtabsTableReadResult, LiveGeometryProbeDiagnostic]] = []
+    join_key_missing: list[tuple[LiveEtabsTableReadResult, LiveGeometryProbeDiagnostic]] = []
+
     for result in results:
         if result.status != "FETCHED":
             continue
+
         source_column = _first_available_column(result.columns, _COMPONENT_TYPE_COLUMN_CANDIDATES)
+        if source_column is None and result.table_key == "Frame Assignments - Summary":
+            source_column = _first_available_column(result.columns, ("Type",))
         join_key_column = _first_available_column(result.columns, _COMPONENT_TYPE_JOIN_KEY_CANDIDATES)
+        available_columns = ", ".join(str(column) for column in result.columns)
+
         if source_column is None:
-            source_column_missing.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_SOURCE_COLUMN_MISSING", message="Fetched component type source table does not expose an explicit beam/column type column", source_table=result.table_key))
+            source_column_missing.append(
+                (
+                    result,
+                    LiveGeometryProbeDiagnostic(
+                        status="BLOCKED",
+                        code="COMPONENT_TYPE_SOURCE_COLUMN_MISSING",
+                        message=(
+                            "Fetched component type source table does not expose an explicit "
+                            "beam/column type column. "
+                            f"available_columns=[{available_columns}], row_count={result.row_count}"
+                        ),
+                        source_table=result.table_key,
+                    ),
+                )
+            )
             continue
+
         if join_key_column is None:
-            join_key_missing.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_JOIN_KEY_MISSING", message="Fetched component type source table does not expose an explicit join key column", source_table=result.table_key))
+            join_key_missing.append(
+                (
+                    result,
+                    LiveGeometryProbeDiagnostic(
+                        status="BLOCKED",
+                        code="COMPONENT_TYPE_JOIN_KEY_MISSING",
+                        message=(
+                            "Fetched component type source table does not expose an explicit "
+                            "join key column. "
+                            f"available_columns=[{available_columns}], row_count={result.row_count}"
+                        ),
+                        source_table=result.table_key,
+                    ),
+                )
+            )
             continue
-        evidence_by_unique_name, diagnostics = _component_type_evidence_from_rows(rows=result.rows, source_table=result.table_key, source_column=source_column, join_key_column=join_key_column)
-        return LiveFrameComponentTypeSourceResult(status="FETCHED", source_table=result.table_key, source_column=source_column, join_key_column=join_key_column, row_count=result.row_count, evidence_by_unique_name=evidence_by_unique_name, diagnostics=diagnostics)
+
+        evidence_by_unique_name, diagnostics = _component_type_evidence_from_rows(
+            rows=result.rows,
+            source_table=result.table_key,
+            source_column=source_column,
+            join_key_column=join_key_column,
+        )
+        return LiveFrameComponentTypeSourceResult(
+            status="FETCHED",
+            source_table=result.table_key,
+            source_column=source_column,
+            join_key_column=join_key_column,
+            row_count=result.row_count,
+            evidence_by_unique_name=evidence_by_unique_name,
+            diagnostics=diagnostics,
+        )
+
     if source_column_missing:
-        return LiveFrameComponentTypeSourceResult(status="FETCHED", source_table=source_column_missing[0].source_table, source_column=None, join_key_column=None, row_count=0, evidence_by_unique_name={}, diagnostics=tuple(source_column_missing[:1]))
+        result, diagnostic = source_column_missing[0]
+        return LiveFrameComponentTypeSourceResult(
+            status="FETCHED",
+            source_table=result.table_key,
+            source_column=None,
+            join_key_column=None,
+            row_count=result.row_count,
+            evidence_by_unique_name={},
+            diagnostics=(diagnostic,),
+        )
+
     if join_key_missing:
-        return LiveFrameComponentTypeSourceResult(status="FETCHED", source_table=join_key_missing[0].source_table, source_column=None, join_key_column=None, row_count=0, evidence_by_unique_name={}, diagnostics=tuple(join_key_missing[:1]))
-    missing_results = [result for result in results if result.status == "FAILED" and result.raw_metadata.get("exception_type") in {"KeyError", "LookupError"}]
+        result, diagnostic = join_key_missing[0]
+        return LiveFrameComponentTypeSourceResult(
+            status="FETCHED",
+            source_table=result.table_key,
+            source_column=None,
+            join_key_column=None,
+            row_count=result.row_count,
+            evidence_by_unique_name={},
+            diagnostics=(diagnostic,),
+        )
+
+    missing_results = [
+        result
+        for result in results
+        if result.status == "FAILED" and result.raw_metadata.get("exception_type") in {"KeyError", "LookupError"}
+    ]
     if results and len(missing_results) == len(results):
-        return LiveFrameComponentTypeSourceResult(status="MISSING", source_table=None, source_column=None, join_key_column=None, row_count=0, evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="NO_DATA", code="COMPONENT_TYPE_SOURCE_TABLE_MISSING", message="No candidate component type source table was available"),))
+        return LiveFrameComponentTypeSourceResult(
+            status="MISSING",
+            source_table=None,
+            source_column=None,
+            join_key_column=None,
+            row_count=0,
+            evidence_by_unique_name={},
+            diagnostics=(
+                LiveGeometryProbeDiagnostic(
+                    status="NO_DATA",
+                    code="COMPONENT_TYPE_SOURCE_TABLE_MISSING",
+                    message="No candidate component type source table was available",
+                ),
+            ),
+        )
+
     first_failed = next((result for result in results if result.status == "FAILED"), None)
     if first_failed is not None:
-        return LiveFrameComponentTypeSourceResult(status="FAILED", source_table=first_failed.table_key, source_column=None, join_key_column=None, row_count=0, evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_SOURCE_TABLE_FETCH_FAILED", message=first_failed.message or "Component type source table fetch failed", source_table=first_failed.table_key),))
+        return LiveFrameComponentTypeSourceResult(
+            status="FAILED",
+            source_table=first_failed.table_key,
+            source_column=None,
+            join_key_column=None,
+            row_count=0,
+            evidence_by_unique_name={},
+            diagnostics=(
+                LiveGeometryProbeDiagnostic(
+                    status="BLOCKED",
+                    code="COMPONENT_TYPE_SOURCE_TABLE_FETCH_FAILED",
+                    message=first_failed.message or "Component type source table fetch failed",
+                    source_table=first_failed.table_key,
+                ),
+            ),
+        )
+
     first_empty = next((result for result in results if result.status == "EMPTY"), None)
     if first_empty is not None:
-        return LiveFrameComponentTypeSourceResult(status="EMPTY", source_table=first_empty.table_key, source_column=None, join_key_column=None, row_count=0, evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="NO_DATA", code="COMPONENT_TYPE_SOURCE_TABLE_EMPTY", message="Component type source table was fetched but contained zero rows", source_table=first_empty.table_key),))
+        return LiveFrameComponentTypeSourceResult(
+            status="EMPTY",
+            source_table=first_empty.table_key,
+            source_column=None,
+            join_key_column=None,
+            row_count=0,
+            evidence_by_unique_name={},
+            diagnostics=(
+                LiveGeometryProbeDiagnostic(
+                    status="NO_DATA",
+                    code="COMPONENT_TYPE_SOURCE_TABLE_EMPTY",
+                    message="Component type source table was fetched but contained zero rows",
+                    source_table=first_empty.table_key,
+                ),
+            ),
+        )
+
     first_parse_empty = next((result for result in results if result.status == "PARSE_EMPTY"), None)
     if first_parse_empty is not None:
-        return LiveFrameComponentTypeSourceResult(status="PARSE_EMPTY", source_table=first_parse_empty.table_key, source_column=None, join_key_column=None, row_count=0, evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_SOURCE_TABLE_PARSE_EMPTY", message=first_parse_empty.message or "Component type source table could not be decoded into rows", source_table=first_parse_empty.table_key),))
-    return LiveFrameComponentTypeSourceResult(status="MISSING", source_table=None, source_column=None, join_key_column=None, row_count=0, evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="NO_DATA", code="COMPONENT_TYPE_SOURCE_TABLE_MISSING", message="No candidate component type source table was checked"),))
+        return LiveFrameComponentTypeSourceResult(
+            status="PARSE_EMPTY",
+            source_table=first_parse_empty.table_key,
+            source_column=None,
+            join_key_column=None,
+            row_count=0,
+            evidence_by_unique_name={},
+            diagnostics=(
+                LiveGeometryProbeDiagnostic(
+                    status="BLOCKED",
+                    code="COMPONENT_TYPE_SOURCE_TABLE_PARSE_EMPTY",
+                    message=first_parse_empty.message or "Component type source table could not be decoded into rows",
+                    source_table=first_parse_empty.table_key,
+                ),
+            ),
+        )
 
+    return LiveFrameComponentTypeSourceResult(
+        status="MISSING",
+        source_table=None,
+        source_column=None,
+        join_key_column=None,
+        row_count=0,
+        evidence_by_unique_name={},
+        diagnostics=(
+            LiveGeometryProbeDiagnostic(
+                status="NO_DATA",
+                code="COMPONENT_TYPE_SOURCE_TABLE_MISSING",
+                message="No candidate component type source table was checked",
+            ),
+        ),
+    )
 
 def _component_type_source_from_fixture_rows(
     *,
