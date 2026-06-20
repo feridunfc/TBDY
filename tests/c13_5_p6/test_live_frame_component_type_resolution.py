@@ -24,7 +24,8 @@ PROPERTY_TABLE = "Frame Section Property Definitions - Concrete Rectangular"
 COMPONENT_TYPE_TABLE = "Frame Assignments - Summary"
 ASSIGNMENT_COLUMNS = ["Story", "Label", "UniqueName", "Shape", "AutoSelect", "SectProp"]
 PROPERTY_COLUMNS = ["Name", "t2", "t3", "unit"]
-COMPONENT_TYPE_COLUMNS = ["UniqueName", "ObjectType"]
+COMPONENT_TYPE_COLUMNS = ["UniqueName", "Design Type"]
+COMPACT_COMPONENT_TYPE_COLUMNS = ["UniqueName", "DesignType"]
 
 
 class _FakeDatabaseTables:
@@ -59,13 +60,13 @@ def _rows(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))["rows"]
 
 
-def _fixture_provider(component_type_rows=None) -> AcceptedMappingGeometryRowProvider:
+def _fixture_provider(component_type_rows=None, source_column: str = "ObjectType") -> AcceptedMappingGeometryRowProvider:
     return AcceptedMappingGeometryRowProvider(
         assignment_rows=_rows(ASSIGNMENT_FIXTURE),
         property_rows=_rows(PROPERTY_FIXTURE),
         component_type_rows=_rows(COMPONENT_TYPE_FIXTURE) if component_type_rows is None else component_type_rows,
         component_type_source_table=COMPONENT_TYPE_TABLE,
-        component_type_source_column="ObjectType",
+        component_type_source_column=source_column,
         component_type_join_key_column="UniqueName",
     )
 
@@ -97,6 +98,14 @@ def _valid_component_type_display_array():
     )
 
 
+def _compact_component_type_display_array():
+    return (
+        0,
+        COMPACT_COMPONENT_TYPE_COLUMNS,
+        ["297", "Beam", "301", "Column"],
+    )
+
+
 def _codes(result):
     return {diagnostic.code for diagnostic in result.iter_geometry_diagnostics()}
 
@@ -123,6 +132,101 @@ def test_fake_rows_emit_column_feature_snapshot_from_explicit_component_type_sou
     assert column["features"]["column_depth_mm"]["value"] == 600.0
 
 
+def test_design_type_spaced_column_resolves_beam_to_beam(tmp_path: Path):
+    provider = _fixture_provider(
+        component_type_rows=(
+            {"UniqueName": "297", "Design Type": " Beam "},
+            {"UniqueName": "301", "Design Type": "Column"},
+        ),
+        source_column="Design Type",
+    )
+
+    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
+    payload = json.loads((tmp_path / "feature_snapshot.json").read_text(encoding="utf-8"))
+
+    assert result.status == "OK"
+    assert any(snapshot["component_type"] == "beam" and snapshot["component_id"] == "297" for snapshot in payload["snapshots"])
+
+
+def test_design_type_spaced_column_resolves_column_to_column(tmp_path: Path):
+    provider = _fixture_provider(
+        component_type_rows=(
+            {"UniqueName": "297", "Design Type": "Beam"},
+            {"UniqueName": "301", "Design Type": " column "},
+        ),
+        source_column="Design Type",
+    )
+
+    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
+    payload = json.loads((tmp_path / "feature_snapshot.json").read_text(encoding="utf-8"))
+
+    assert result.status == "OK"
+    assert any(snapshot["component_type"] == "column" and snapshot["component_id"] == "301" for snapshot in payload["snapshots"])
+
+
+def test_design_type_compact_alias_still_works(tmp_path: Path):
+    provider = _fixture_provider(
+        component_type_rows=(
+            {"UniqueName": "297", "DesignType": "Beam"},
+            {"UniqueName": "301", "DesignType": "Column"},
+        ),
+        source_column="DesignType",
+    )
+
+    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
+
+    assert result.status == "OK"
+    assert result.snapshot_count == 2
+
+
+def test_brace_does_not_emit_beam_or_column_feature_snapshot(tmp_path: Path):
+    provider = _fixture_provider(
+        component_type_rows=(
+            {"UniqueName": "297", "Design Type": "Brace"},
+        ),
+        source_column="Design Type",
+    )
+
+    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
+
+    assert result.status == "FAIL"
+    assert result.snapshot_count == 0
+    assert "COMPONENT_TYPE_VALUE_UNSUPPORTED" in _codes(provider)
+
+
+def test_null_does_not_emit_beam_or_column_feature_snapshot(tmp_path: Path):
+    provider = _fixture_provider(
+        component_type_rows=(
+            {"UniqueName": "301", "Design Type": "Null"},
+        ),
+        source_column="Design Type",
+    )
+
+    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
+
+    assert result.status == "FAIL"
+    assert result.snapshot_count == 0
+    assert "COMPONENT_TYPE_VALUE_UNSUPPORTED" in _codes(provider)
+
+
+def test_unsupported_non_target_values_do_not_block_supported_rows(tmp_path: Path):
+    provider = _fixture_provider(
+        component_type_rows=(
+            {"UniqueName": "297", "Design Type": "Beam"},
+            {"UniqueName": "301", "Design Type": "Column"},
+            {"UniqueName": "BRACE_1", "Design Type": "Brace"},
+            {"UniqueName": "NULL_1", "Design Type": "Null"},
+        ),
+        source_column="Design Type",
+    )
+
+    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
+
+    assert result.status == "PARTIAL"
+    assert result.snapshot_count == 2
+    assert "COMPONENT_TYPE_VALUE_UNSUPPORTED" in _codes(provider)
+
+
 def test_summary_includes_component_type_source_status_and_counts(tmp_path: Path):
     probe_geometry_feature_snapshots(provider=_fixture_provider(), output_dir=tmp_path)
     summary = json.loads((tmp_path / "live_geometry_probe_summary.json").read_text(encoding="utf-8"))
@@ -138,19 +242,26 @@ def test_summary_includes_component_type_source_status_and_counts(tmp_path: Path
 
 
 def test_evidence_preserves_component_type_source_table_column_and_raw_row(tmp_path: Path):
-    probe_geometry_feature_snapshots(provider=_fixture_provider(), output_dir=tmp_path)
+    provider = _fixture_provider(
+        component_type_rows=(
+            {"UniqueName": "297", "Design Type": "Beam"},
+            {"UniqueName": "301", "Design Type": "Column"},
+        ),
+        source_column="Design Type",
+    )
+    probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
     payload = json.loads((tmp_path / "feature_snapshot.json").read_text(encoding="utf-8"))
     beam = next(snapshot for snapshot in payload["snapshots"] if snapshot["component_type"] == "beam")
     evidence = beam["features"]["beam_width_mm"]["evidence"][0]
     source_row = evidence["source_row"]
 
     assert source_row["component_type_source_table"] == COMPONENT_TYPE_TABLE
-    assert source_row["component_type_source_column"] == "ObjectType"
+    assert source_row["component_type_source_column"] == "Design Type"
     assert source_row["component_type_join_key_column"] == "UniqueName"
-    assert source_row["component_type_source_row"] == {"ObjectType": "Beam", "UniqueName": "297"}
+    assert source_row["component_type_source_row"] == {"Design Type": "Beam", "UniqueName": "297"}
 
 
-def test_live_fake_database_component_type_source_is_consumed(tmp_path: Path):
+def test_live_fake_database_component_type_source_consumes_spaced_design_type(tmp_path: Path):
     database_tables = _FakeDatabaseTables(
         {
             ASSIGNMENT_TABLE: _valid_assignment_display_array(),
@@ -167,6 +278,36 @@ def test_live_fake_database_component_type_source_is_consumed(tmp_path: Path):
     assert result.snapshot_count == 2
     assert summary["component_type_source_status"] == "FETCHED"
     assert summary["component_type_source_row_count"] == 2
+
+
+def test_live_fake_database_component_type_source_keeps_compact_design_type_alias(tmp_path: Path):
+    database_tables = _FakeDatabaseTables(
+        {
+            ASSIGNMENT_TABLE: _valid_assignment_display_array(),
+            PROPERTY_TABLE: _valid_property_display_array(),
+            COMPONENT_TYPE_TABLE: _compact_component_type_display_array(),
+        }
+    )
+    provider = create_live_etabs_geometry_provider(attach_result=_attached_result(database_tables), max_candidate_tables=1)
+
+    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
+
+    assert result.status == "OK"
+    assert result.snapshot_count == 2
+
+
+def test_read_live_frame_component_type_source_reports_spaced_design_type_column():
+    result = read_live_frame_component_type_source(
+        _FakeDatabaseTables({COMPONENT_TYPE_TABLE: _valid_component_type_display_array()}),
+        max_candidate_tables=1,
+    )
+
+    assert result.status == "FETCHED"
+    assert result.source_table == COMPONENT_TYPE_TABLE
+    assert result.source_column == "Design Type"
+    assert result.row_count == 2
+    assert result.evidence_by_unique_name["297"].component_type == "beam"
+    assert result.evidence_by_unique_name["301"].component_type == "column"
 
 
 def test_component_type_source_table_missing_produces_diagnostic(tmp_path: Path):
@@ -191,6 +332,18 @@ def test_component_type_source_table_missing_produces_diagnostic(tmp_path: Path)
 
 def test_component_type_source_column_missing_produces_diagnostic(tmp_path: Path):
     provider = _fixture_provider(component_type_rows=({"UniqueName": "297", "SomeOtherColumn": "Beam"},))
+
+    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
+
+    assert result.status == "FAIL"
+    assert "COMPONENT_TYPE_SOURCE_COLUMN_MISSING" in _codes(provider)
+
+
+def test_configured_source_column_must_exist_exactly(tmp_path: Path):
+    provider = _fixture_provider(
+        component_type_rows=({"UniqueName": "297", "DesignType": "Beam"},),
+        source_column="Design Type",
+    )
 
     result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
 
@@ -259,7 +412,8 @@ def test_no_product_smoke_auto_run_in_live_probe_cli():
     assert "product_smoke" not in source
 
 
-def test_offline_acceptance_includes_c13_5_p6(tmp_path: Path):
+def test_offline_acceptance_includes_c13_5_p6_and_command_count_remains_18(tmp_path: Path):
     plan = build_offline_acceptance_command_plan(output_dir=tmp_path, python_executable="PY")
 
+    assert len(plan) == 18
     assert ("pytest_c13_5_p6", ("PY", "-m", "pytest", "-q", "tests/c13_5_p6")) in plan
