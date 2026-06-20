@@ -58,7 +58,7 @@ _FORBIDDEN_SCOPE = (
     "Excel_production_input",
     "Streamlit_UI",
     "final_building_compliance_verdict",
-    "implicit_unit_conversion",
+    "silent_unit_change",
     "section_name_parsing",
     "dimension_guessing",
 )
@@ -75,6 +75,7 @@ _COMPONENT_TYPE_COLUMN_CANDIDATES = (
     "ObjectType",
     "FrameType",
     "DesignType",
+    "Design Type",
     "MemberType",
     "ElementType",
     "LineObjectType",
@@ -122,8 +123,7 @@ class AcceptedGeometryMapping:
             "depth_column",
             "mapping_basis",
         ):
-            raw_value = getattr(self, field_name)
-            if raw_value is None or not str(raw_value).strip():
+            if not _text(getattr(self, field_name)):
                 raise ValueError(f"AcceptedGeometryMapping.{field_name} is required")
         if self.mapping_basis != "explicit_columns_only":
             raise ValueError("AcceptedGeometryMapping.mapping_basis must be explicit_columns_only")
@@ -152,6 +152,36 @@ DEFAULT_ACCEPTED_GEOMETRY_MAPPING = AcceptedGeometryMapping(
 
 
 @dataclass(frozen=True, slots=True)
+class LiveGeometryProbeDiagnostic:
+    status: str
+    code: str
+    message: str
+    component_id: str | None = None
+    component_type: str | None = None
+    feature_id: str | None = None
+    source_table: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.status not in _ALLOWED_DIAGNOSTIC_STATUSES:
+            raise ValueError("Unsupported live geometry probe diagnostic status")
+        if not self.code:
+            raise ValueError("LiveGeometryProbeDiagnostic.code is required")
+        if not self.message:
+            raise ValueError("LiveGeometryProbeDiagnostic.message is required")
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "code": self.code,
+            "component_id": self.component_id,
+            "component_type": self.component_type,
+            "feature_id": self.feature_id,
+            "message": self.message,
+            "source_table": self.source_table,
+            "status": self.status,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class LiveFrameComponentTypeEvidence:
     unique_name: str
     component_type: str
@@ -161,9 +191,9 @@ class LiveFrameComponentTypeEvidence:
     join_key_column: str = "UniqueName"
 
     def __post_init__(self) -> None:
+        normalized = _normalize_component_type(self.component_type)
         if not _text(self.unique_name):
             raise ValueError("LiveFrameComponentTypeEvidence.unique_name is required")
-        normalized = _normalize_component_type(self.component_type)
         if normalized not in _FEATURES_BY_COMPONENT_TYPE:
             raise ValueError("LiveFrameComponentTypeEvidence.component_type must be beam or column")
         if not _text(self.source_table):
@@ -188,6 +218,25 @@ class LiveFrameComponentTypeEvidence:
             "source_table": self.source_table,
             "unique_name": self.unique_name,
         }
+
+
+@dataclass(frozen=True, slots=True)
+class LiveFrameComponentTypeSourceResult:
+    status: str
+    source_table: str | None
+    source_column: str | None
+    join_key_column: str | None
+    row_count: int
+    evidence_by_unique_name: Mapping[str, LiveFrameComponentTypeEvidence]
+    diagnostics: tuple[LiveGeometryProbeDiagnostic, ...]
+
+    def __post_init__(self) -> None:
+        if self.status not in _ALLOWED_COMPONENT_SOURCE_STATUSES:
+            raise ValueError("Unsupported component type source status")
+        if self.row_count < 0:
+            raise ValueError("LiveFrameComponentTypeSourceResult.row_count cannot be negative")
+        object.__setattr__(self, "evidence_by_unique_name", dict(self.evidence_by_unique_name))
+        object.__setattr__(self, "diagnostics", tuple(self.diagnostics))
 
 
 @dataclass(frozen=True, slots=True)
@@ -302,58 +351,9 @@ class LiveEtabsTableReadResult:
         object.__setattr__(self, "raw_metadata", dict(self.raw_metadata))
 
 
-@dataclass(frozen=True, slots=True)
-class LiveFrameComponentTypeSourceResult:
-    status: str
-    source_table: str | None
-    source_column: str | None
-    join_key_column: str | None
-    row_count: int
-    evidence_by_unique_name: Mapping[str, LiveFrameComponentTypeEvidence]
-    diagnostics: tuple["LiveGeometryProbeDiagnostic", ...]
-
-    def __post_init__(self) -> None:
-        if self.status not in _ALLOWED_COMPONENT_SOURCE_STATUSES:
-            raise ValueError("Unsupported component type source status")
-        if self.row_count < 0:
-            raise ValueError("LiveFrameComponentTypeSourceResult.row_count cannot be negative")
-        object.__setattr__(self, "evidence_by_unique_name", dict(self.evidence_by_unique_name))
-        object.__setattr__(self, "diagnostics", tuple(self.diagnostics))
-
-
 class GeometryRowProvider(Protocol):
     def iter_geometry_rows(self) -> Sequence[Mapping[str, object]]:
         """Return observed geometry rows without mutating the source model."""
-
-
-@dataclass(frozen=True, slots=True)
-class LiveGeometryProbeDiagnostic:
-    status: str
-    code: str
-    message: str
-    component_id: str | None = None
-    component_type: str | None = None
-    feature_id: str | None = None
-    source_table: str | None = None
-
-    def __post_init__(self) -> None:
-        if self.status not in _ALLOWED_DIAGNOSTIC_STATUSES:
-            raise ValueError("Unsupported live geometry probe diagnostic status")
-        if not self.code:
-            raise ValueError("LiveGeometryProbeDiagnostic.code is required")
-        if not self.message:
-            raise ValueError("LiveGeometryProbeDiagnostic.message is required")
-
-    def as_dict(self) -> dict[str, object]:
-        return {
-            "code": self.code,
-            "component_id": self.component_id,
-            "component_type": self.component_type,
-            "feature_id": self.feature_id,
-            "message": self.message,
-            "source_table": self.source_table,
-            "status": self.status,
-        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -396,7 +396,7 @@ class AcceptedMappingGeometryRowProvider:
     component_type_source_table: str | None
     component_type_source_column: str | None
     component_type_join_key_column: str | None
-    mapping: AcceptedGeometryMapping | None = DEFAULT_ACCEPTED_GEOMETRY_MAPPING
+    mapping: AcceptedGeometryMapping | None
 
     def __init__(
         self,
@@ -442,28 +442,22 @@ class AcceptedMappingGeometryRowProvider:
                 property_rows=self.property_rows,
                 mapping=self.mapping,
             )
-            return rows, diagnostics, {
-                "assignment_table_row_count": len(self.assignment_rows),
-                "component_type_resolved_row_count": len(rows),
-                "component_type_source_row_count": 0,
-                "component_type_source_status": "INLINE_ASSIGNMENT",
-                "component_type_source_table": None,
-                "component_type_unresolved_row_count": 0,
-                "property_table_row_count": len(self.property_rows),
-                "resolved_geometry_row_count": len(rows),
-            }
-        if component_source.diagnostics or component_source.status != "FETCHED":
-            return (), component_source.diagnostics, {
-                "assignment_table_row_count": len(self.assignment_rows),
-                "component_type_resolved_row_count": 0,
-                "component_type_source_row_count": component_source.row_count,
-                "component_type_source_status": component_source.status,
-                "component_type_source_table": component_source.source_table,
-                "component_type_unresolved_row_count": len(self.assignment_rows),
-                "property_table_row_count": len(self.property_rows),
-                "resolved_geometry_row_count": 0,
-            }
-        rows, diagnostics = resolve_geometry_rows_from_accepted_mapping(
+            return rows, diagnostics, _summary_fields(
+                assignment_count=len(self.assignment_rows),
+                property_count=len(self.property_rows),
+                component_source=component_source,
+                resolved_type_count=len(rows),
+                resolved_geometry_count=len(rows),
+            )
+        if component_source.status != "FETCHED" or not component_source.evidence_by_unique_name:
+            return (), component_source.diagnostics, _summary_fields(
+                assignment_count=len(self.assignment_rows),
+                property_count=len(self.property_rows),
+                component_source=component_source,
+                resolved_type_count=0,
+                resolved_geometry_count=0,
+            )
+        rows, resolver_diagnostics = resolve_geometry_rows_from_accepted_mapping(
             assignment_rows=self.assignment_rows,
             property_rows=self.property_rows,
             mapping=self.mapping,
@@ -473,16 +467,13 @@ class AcceptedMappingGeometryRowProvider:
             assignment_rows=self.assignment_rows,
             evidence_by_unique_name=component_source.evidence_by_unique_name,
         )
-        return rows, diagnostics, {
-            "assignment_table_row_count": len(self.assignment_rows),
-            "component_type_resolved_row_count": resolved_type_count,
-            "component_type_source_row_count": component_source.row_count,
-            "component_type_source_status": component_source.status,
-            "component_type_source_table": component_source.source_table,
-            "component_type_unresolved_row_count": max(len(self.assignment_rows) - resolved_type_count, 0),
-            "property_table_row_count": len(self.property_rows),
-            "resolved_geometry_row_count": len(rows),
-        }
+        return rows, component_source.diagnostics + resolver_diagnostics, _summary_fields(
+            assignment_count=len(self.assignment_rows),
+            property_count=len(self.property_rows),
+            component_source=component_source,
+            resolved_type_count=resolved_type_count,
+            resolved_geometry_count=len(rows),
+        )
 
 
 def probe_geometry_feature_snapshots(
@@ -605,16 +596,7 @@ def write_com_attach_failure_probe_outputs(
     out_dir.mkdir(parents=True, exist_ok=True)
     if feature_snapshot_path.exists():
         feature_snapshot_path.unlink()
-
     attempts = [attempt.as_dict() for attempt in attach_result.attempts]
-    diagnostics_payload = [
-        {
-            "attempts": attempts,
-            "code": "ETABS_COM_ATTACH_FAILED",
-            "message": "No attach strategy succeeded.",
-            "status": "BLOCKED",
-        }
-    ]
     _write_json(
         summary_path,
         {
@@ -633,7 +615,17 @@ def write_com_attach_failure_probe_outputs(
             "status": "FAIL",
         },
     )
-    _write_json(diagnostics_path, diagnostics_payload)
+    _write_json(
+        diagnostics_path,
+        [
+            {
+                "attempts": attempts,
+                "code": "ETABS_COM_ATTACH_FAILED",
+                "message": "No attach strategy succeeded.",
+                "status": "BLOCKED",
+            }
+        ],
+    )
     _write_json(
         manifest_path,
         {
@@ -662,16 +654,8 @@ def write_com_attach_failure_probe_outputs(
 
 
 def load_mapping_provider_from_json(path: Path) -> MappingGeometryRowProvider:
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    rows = payload.get("rows") if isinstance(payload, Mapping) else payload
-    if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes, bytearray)):
-        raise ValueError("Fake geometry provider fixture must be a row list or an object with a rows list")
-    normalized_rows: list[Mapping[str, object]] = []
-    for index, row in enumerate(rows):
-        if not isinstance(row, Mapping):
-            raise ValueError(f"Fake geometry provider row at index {index} must be an object")
-        normalized_rows.append(row)
-    return MappingGeometryRowProvider(normalized_rows)
+    rows = _load_payload_rows(path, field_name="rows")
+    return MappingGeometryRowProvider(rows)
 
 
 def load_accepted_mapping_provider_from_json(
@@ -681,8 +665,8 @@ def load_accepted_mapping_provider_from_json(
     mapping: AcceptedGeometryMapping | None = DEFAULT_ACCEPTED_GEOMETRY_MAPPING,
 ) -> AcceptedMappingGeometryRowProvider:
     return AcceptedMappingGeometryRowProvider(
-        assignment_rows=_load_rows_json(assignment_rows_path, field_name="assignment_rows"),
-        property_rows=_load_rows_json(property_rows_path, field_name="property_rows"),
+        assignment_rows=_load_payload_rows(assignment_rows_path, field_name="assignment_rows"),
+        property_rows=_load_payload_rows(property_rows_path, field_name="property_rows"),
         mapping=mapping,
     )
 
@@ -692,7 +676,6 @@ def create_live_etabs_geometry_provider(
     max_candidate_tables: int = 5,
     attach_result: EtabsAttachResult | None = None,
 ) -> GeometryRowProvider:
-    """Create a live provider inside the optional ETABS boundary."""
     return _EtabsComGeometryProvider(
         max_candidate_tables=max_candidate_tables,
         attach_result=attach_result,
@@ -735,37 +718,31 @@ class _EtabsComGeometryProvider:
             table_role="PROPERTY",
             result=property_result,
         )
-        diagnostics = table_diagnostics + component_source.diagnostics
-        summary = {
-            "assignment_table_read_status": assignment_result.status,
-            "assignment_table_row_count": assignment_result.row_count,
-            "component_type_resolved_row_count": _count_assignment_rows_with_component_type_evidence(
-                assignment_rows=assignment_result.rows,
-                evidence_by_unique_name=component_source.evidence_by_unique_name,
-            ),
-            "component_type_source_row_count": component_source.row_count,
-            "component_type_source_status": component_source.status,
-            "component_type_source_table": component_source.source_table,
-            "component_type_unresolved_row_count": max(
-                assignment_result.row_count
-                - _count_assignment_rows_with_component_type_evidence(
-                    assignment_rows=assignment_result.rows,
-                    evidence_by_unique_name=component_source.evidence_by_unique_name,
-                ),
-                0,
-            ),
-            "property_table_read_status": property_result.status,
-            "property_table_row_count": property_result.row_count,
-        }
-        if diagnostics:
-            return (), diagnostics, {**summary, "resolved_geometry_row_count": 0}
+        resolved_type_count = _count_assignment_rows_with_component_type_evidence(
+            assignment_rows=assignment_result.rows,
+            evidence_by_unique_name=component_source.evidence_by_unique_name,
+        )
+        summary = _summary_fields(
+            assignment_count=assignment_result.row_count,
+            property_count=property_result.row_count,
+            component_source=component_source,
+            resolved_type_count=resolved_type_count,
+            resolved_geometry_count=0,
+        )
+        if table_diagnostics:
+            return (), table_diagnostics + component_source.diagnostics, summary
+        if component_source.status != "FETCHED" or not component_source.evidence_by_unique_name:
+            return (), component_source.diagnostics, summary
         rows, resolver_diagnostics = resolve_geometry_rows_from_accepted_mapping(
             assignment_rows=assignment_result.rows,
             property_rows=property_result.rows,
             mapping=self.mapping,
             component_type_evidence_by_unique_name=component_source.evidence_by_unique_name,
         )
-        return rows, resolver_diagnostics, {**summary, "resolved_geometry_row_count": len(rows)}
+        return rows, component_source.diagnostics + resolver_diagnostics, {
+            **summary,
+            "resolved_geometry_row_count": len(rows),
+        }
 
 
 def resolve_geometry_rows_from_accepted_mapping(
@@ -777,55 +754,19 @@ def resolve_geometry_rows_from_accepted_mapping(
 ) -> tuple[tuple[Mapping[str, object], ...], tuple[LiveGeometryProbeDiagnostic, ...]]:
     diagnostics: list[LiveGeometryProbeDiagnostic] = []
     if mapping is None:
-        return (), (
-            LiveGeometryProbeDiagnostic(
-                status="BLOCKED",
-                code="ACCEPTED_GEOMETRY_MAPPING_MISSING",
-                message="Accepted geometry mapping is missing; no geometry values were guessed",
-            ),
-        )
+        return (), (LiveGeometryProbeDiagnostic(status="BLOCKED", code="ACCEPTED_GEOMETRY_MAPPING_MISSING", message="Accepted geometry mapping is missing; no geometry values were guessed"),)
     assignment_tuple = tuple(dict(row) for row in assignment_rows)
     property_tuple = tuple(dict(row) for row in property_rows)
     if not assignment_tuple:
-        return (), (
-            LiveGeometryProbeDiagnostic(
-                status="NO_DATA",
-                code="ASSIGNMENT_TABLE_MISSING_OR_EMPTY",
-                message="Assignment table rows are missing; no geometry values were guessed",
-                source_table=mapping.assignment_table_key,
-            ),
-        )
+        return (), (LiveGeometryProbeDiagnostic(status="NO_DATA", code="ASSIGNMENT_TABLE_MISSING_OR_EMPTY", message="Assignment table rows are missing; no geometry values were guessed", source_table=mapping.assignment_table_key),)
     if not property_tuple:
-        return (), (
-            LiveGeometryProbeDiagnostic(
-                status="NO_DATA",
-                code="PROPERTY_TABLE_MISSING_OR_EMPTY",
-                message="Property definition table rows are missing; no geometry values were guessed",
-                source_table=mapping.property_table_key,
-            ),
-        )
-    required_assignment_columns = ("Story", "Label", "UniqueName", mapping.assignment_section_column)
-    missing_assignment_columns = _missing_columns(assignment_tuple, required_assignment_columns)
+        return (), (LiveGeometryProbeDiagnostic(status="NO_DATA", code="PROPERTY_TABLE_MISSING_OR_EMPTY", message="Property definition table rows are missing; no geometry values were guessed", source_table=mapping.property_table_key),)
+    missing_assignment_columns = _missing_columns(assignment_tuple, ("Story", "Label", "UniqueName", mapping.assignment_section_column))
     if missing_assignment_columns:
-        return (), (
-            LiveGeometryProbeDiagnostic(
-                status="BLOCKED",
-                code="ASSIGNMENT_TABLE_REQUIRED_COLUMN_MISSING",
-                message=f"Assignment table is missing required columns: {', '.join(missing_assignment_columns)}",
-                source_table=mapping.assignment_table_key,
-            ),
-        )
-    required_property_columns = (mapping.property_name_column, mapping.width_column, mapping.depth_column)
-    missing_property_columns = _missing_columns(property_tuple, required_property_columns)
+        return (), (LiveGeometryProbeDiagnostic(status="BLOCKED", code="ASSIGNMENT_TABLE_REQUIRED_COLUMN_MISSING", message=f"Assignment table is missing required columns: {', '.join(missing_assignment_columns)}", source_table=mapping.assignment_table_key),)
+    missing_property_columns = _missing_columns(property_tuple, (mapping.property_name_column, mapping.width_column, mapping.depth_column))
     if missing_property_columns:
-        return (), (
-            LiveGeometryProbeDiagnostic(
-                status="BLOCKED",
-                code="PROPERTY_TABLE_REQUIRED_COLUMN_MISSING",
-                message=f"Property definition table is missing required columns: {', '.join(missing_property_columns)}",
-                source_table=mapping.property_table_key,
-            ),
-        )
+        return (), (LiveGeometryProbeDiagnostic(status="BLOCKED", code="PROPERTY_TABLE_REQUIRED_COLUMN_MISSING", message=f"Property definition table is missing required columns: {', '.join(missing_property_columns)}", source_table=mapping.property_table_key),)
 
     properties_by_section = _index_property_rows(property_tuple, mapping=mapping)
     resolved_rows: list[Mapping[str, object]] = []
@@ -840,16 +781,7 @@ def resolve_geometry_rows_from_accepted_mapping(
             continue
         property_row = properties_by_section.get(assignment.section_name)
         if property_row is None:
-            diagnostics.append(
-                LiveGeometryProbeDiagnostic(
-                    status="NO_DATA",
-                    code="SECTION_PROPERTY_NOT_FOUND",
-                    message="Assignment section property was not found in accepted property definition table",
-                    component_id=assignment.unique_name,
-                    component_type=assignment.component_type,
-                    source_table=mapping.property_table_key,
-                )
-            )
+            diagnostics.append(LiveGeometryProbeDiagnostic(status="NO_DATA", code="SECTION_PROPERTY_NOT_FOUND", message="Assignment section property was not found in accepted property definition table", component_id=assignment.unique_name, component_type=assignment.component_type, source_table=mapping.property_table_key))
             continue
         property_value = _property_from_row(property_row, mapping=mapping, diagnostics=diagnostics, assignment=assignment)
         if property_value is None:
@@ -870,13 +802,7 @@ def resolve_geometry_rows_from_accepted_mapping(
             component_type_source_row=assignment.component_type_source_row or {},
             component_type_join_key_column=assignment.component_type_join_key_column,
         )
-        resolved_rows.append(
-            resolved.as_feature_row(
-                mapping=mapping,
-                assignment_row=assignment.raw_row,
-                property_row=property_value.raw_row,
-            )
-        )
+        resolved_rows.append(resolved.as_feature_row(mapping=mapping, assignment_row=assignment.raw_row, property_row=property_value.raw_row))
     return tuple(resolved_rows), tuple(diagnostics)
 
 
@@ -915,146 +841,30 @@ def _component_type_source_from_table_read_results(results: Sequence[LiveEtabsTa
         source_column = _first_available_column(result.columns, _COMPONENT_TYPE_COLUMN_CANDIDATES)
         join_key_column = _first_available_column(result.columns, _COMPONENT_TYPE_JOIN_KEY_CANDIDATES)
         if source_column is None:
-            source_column_missing.append(
-                LiveGeometryProbeDiagnostic(
-                    status="BLOCKED",
-                    code="COMPONENT_TYPE_SOURCE_COLUMN_MISSING",
-                    message="Fetched component type source table does not expose an explicit beam/column type column",
-                    source_table=result.table_key,
-                )
-            )
+            source_column_missing.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_SOURCE_COLUMN_MISSING", message="Fetched component type source table does not expose an explicit beam/column type column", source_table=result.table_key))
             continue
         if join_key_column is None:
-            join_key_missing.append(
-                LiveGeometryProbeDiagnostic(
-                    status="BLOCKED",
-                    code="COMPONENT_TYPE_JOIN_KEY_MISSING",
-                    message="Fetched component type source table does not expose an explicit join key column",
-                    source_table=result.table_key,
-                )
-            )
+            join_key_missing.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_JOIN_KEY_MISSING", message="Fetched component type source table does not expose an explicit join key column", source_table=result.table_key))
             continue
-        evidence_by_unique_name, diagnostics = _component_type_evidence_from_rows(
-            rows=result.rows,
-            source_table=result.table_key,
-            source_column=source_column,
-            join_key_column=join_key_column,
-        )
-        return LiveFrameComponentTypeSourceResult(
-            status="FETCHED",
-            source_table=result.table_key,
-            source_column=source_column,
-            join_key_column=join_key_column,
-            row_count=result.row_count,
-            evidence_by_unique_name=evidence_by_unique_name,
-            diagnostics=diagnostics,
-        )
+        evidence_by_unique_name, diagnostics = _component_type_evidence_from_rows(rows=result.rows, source_table=result.table_key, source_column=source_column, join_key_column=join_key_column)
+        return LiveFrameComponentTypeSourceResult(status="FETCHED", source_table=result.table_key, source_column=source_column, join_key_column=join_key_column, row_count=result.row_count, evidence_by_unique_name=evidence_by_unique_name, diagnostics=diagnostics)
     if source_column_missing:
-        return LiveFrameComponentTypeSourceResult(
-            status="FETCHED",
-            source_table=source_column_missing[0].source_table,
-            source_column=None,
-            join_key_column=None,
-            row_count=0,
-            evidence_by_unique_name={},
-            diagnostics=tuple(source_column_missing[:1]),
-        )
+        return LiveFrameComponentTypeSourceResult(status="FETCHED", source_table=source_column_missing[0].source_table, source_column=None, join_key_column=None, row_count=0, evidence_by_unique_name={}, diagnostics=tuple(source_column_missing[:1]))
     if join_key_missing:
-        return LiveFrameComponentTypeSourceResult(
-            status="FETCHED",
-            source_table=join_key_missing[0].source_table,
-            source_column=None,
-            join_key_column=None,
-            row_count=0,
-            evidence_by_unique_name={},
-            diagnostics=tuple(join_key_missing[:1]),
-        )
+        return LiveFrameComponentTypeSourceResult(status="FETCHED", source_table=join_key_missing[0].source_table, source_column=None, join_key_column=None, row_count=0, evidence_by_unique_name={}, diagnostics=tuple(join_key_missing[:1]))
     missing_results = [result for result in results if result.status == "FAILED" and result.raw_metadata.get("exception_type") in {"KeyError", "LookupError"}]
     if results and len(missing_results) == len(results):
-        return LiveFrameComponentTypeSourceResult(
-            status="MISSING",
-            source_table=None,
-            source_column=None,
-            join_key_column=None,
-            row_count=0,
-            evidence_by_unique_name={},
-            diagnostics=(
-                LiveGeometryProbeDiagnostic(
-                    status="NO_DATA",
-                    code="COMPONENT_TYPE_SOURCE_TABLE_MISSING",
-                    message="No candidate component type source table was available",
-                ),
-            ),
-        )
+        return LiveFrameComponentTypeSourceResult(status="MISSING", source_table=None, source_column=None, join_key_column=None, row_count=0, evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="NO_DATA", code="COMPONENT_TYPE_SOURCE_TABLE_MISSING", message="No candidate component type source table was available"),))
     first_failed = next((result for result in results if result.status == "FAILED"), None)
     if first_failed is not None:
-        return LiveFrameComponentTypeSourceResult(
-            status="FAILED",
-            source_table=first_failed.table_key,
-            source_column=None,
-            join_key_column=None,
-            row_count=0,
-            evidence_by_unique_name={},
-            diagnostics=(
-                LiveGeometryProbeDiagnostic(
-                    status="BLOCKED",
-                    code="COMPONENT_TYPE_SOURCE_TABLE_FETCH_FAILED",
-                    message=first_failed.message or "Component type source table fetch failed",
-                    source_table=first_failed.table_key,
-                ),
-            ),
-        )
+        return LiveFrameComponentTypeSourceResult(status="FAILED", source_table=first_failed.table_key, source_column=None, join_key_column=None, row_count=0, evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_SOURCE_TABLE_FETCH_FAILED", message=first_failed.message or "Component type source table fetch failed", source_table=first_failed.table_key),))
     first_empty = next((result for result in results if result.status == "EMPTY"), None)
     if first_empty is not None:
-        return LiveFrameComponentTypeSourceResult(
-            status="EMPTY",
-            source_table=first_empty.table_key,
-            source_column=None,
-            join_key_column=None,
-            row_count=0,
-            evidence_by_unique_name={},
-            diagnostics=(
-                LiveGeometryProbeDiagnostic(
-                    status="NO_DATA",
-                    code="COMPONENT_TYPE_SOURCE_TABLE_EMPTY",
-                    message="Component type source table was fetched but contained zero rows",
-                    source_table=first_empty.table_key,
-                ),
-            ),
-        )
+        return LiveFrameComponentTypeSourceResult(status="EMPTY", source_table=first_empty.table_key, source_column=None, join_key_column=None, row_count=0, evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="NO_DATA", code="COMPONENT_TYPE_SOURCE_TABLE_EMPTY", message="Component type source table was fetched but contained zero rows", source_table=first_empty.table_key),))
     first_parse_empty = next((result for result in results if result.status == "PARSE_EMPTY"), None)
     if first_parse_empty is not None:
-        return LiveFrameComponentTypeSourceResult(
-            status="PARSE_EMPTY",
-            source_table=first_parse_empty.table_key,
-            source_column=None,
-            join_key_column=None,
-            row_count=0,
-            evidence_by_unique_name={},
-            diagnostics=(
-                LiveGeometryProbeDiagnostic(
-                    status="BLOCKED",
-                    code="COMPONENT_TYPE_SOURCE_TABLE_PARSE_EMPTY",
-                    message=first_parse_empty.message or "Component type source table could not be decoded into rows",
-                    source_table=first_parse_empty.table_key,
-                ),
-            ),
-        )
-    return LiveFrameComponentTypeSourceResult(
-        status="MISSING",
-        source_table=None,
-        source_column=None,
-        join_key_column=None,
-        row_count=0,
-        evidence_by_unique_name={},
-        diagnostics=(
-            LiveGeometryProbeDiagnostic(
-                status="NO_DATA",
-                code="COMPONENT_TYPE_SOURCE_TABLE_MISSING",
-                message="No candidate component type source table was checked",
-            ),
-        ),
-    )
+        return LiveFrameComponentTypeSourceResult(status="PARSE_EMPTY", source_table=first_parse_empty.table_key, source_column=None, join_key_column=None, row_count=0, evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_SOURCE_TABLE_PARSE_EMPTY", message=first_parse_empty.message or "Component type source table could not be decoded into rows", source_table=first_parse_empty.table_key),))
+    return LiveFrameComponentTypeSourceResult(status="MISSING", source_table=None, source_column=None, join_key_column=None, row_count=0, evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="NO_DATA", code="COMPONENT_TYPE_SOURCE_TABLE_MISSING", message="No candidate component type source table was checked"),))
 
 
 def _component_type_source_from_fixture_rows(
@@ -1065,121 +875,25 @@ def _component_type_source_from_fixture_rows(
     join_key_column: str | None,
 ) -> LiveFrameComponentTypeSourceResult:
     if rows is None:
-        return LiveFrameComponentTypeSourceResult(
-            status="MISSING",
-            source_table=source_table,
-            source_column=source_column,
-            join_key_column=join_key_column,
-            row_count=0,
-            evidence_by_unique_name={},
-            diagnostics=(),
-        )
+        return LiveFrameComponentTypeSourceResult(status="MISSING", source_table=source_table, source_column=source_column, join_key_column=join_key_column, row_count=0, evidence_by_unique_name={}, diagnostics=())
     table_name = source_table or "fake_component_type_source"
     row_tuple = tuple(dict(row) for row in rows)
     if not row_tuple:
-        return LiveFrameComponentTypeSourceResult(
-            status="EMPTY",
-            source_table=table_name,
-            source_column=source_column,
-            join_key_column=join_key_column,
-            row_count=0,
-            evidence_by_unique_name={},
-            diagnostics=(
-                LiveGeometryProbeDiagnostic(
-                    status="NO_DATA",
-                    code="COMPONENT_TYPE_SOURCE_TABLE_EMPTY",
-                    message="Component type source rows are empty",
-                    source_table=table_name,
-                ),
-            ),
-        )
+        return LiveFrameComponentTypeSourceResult(status="EMPTY", source_table=table_name, source_column=source_column, join_key_column=join_key_column, row_count=0, evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="NO_DATA", code="COMPONENT_TYPE_SOURCE_TABLE_EMPTY", message="Component type source rows are empty", source_table=table_name),))
     columns = tuple(str(key) for row in row_tuple for key in row.keys())
     column_set = set(columns)
     resolved_source_column = source_column or _first_available_column(columns, _COMPONENT_TYPE_COLUMN_CANDIDATES)
     resolved_join_column = join_key_column or _first_available_column(columns, _COMPONENT_TYPE_JOIN_KEY_CANDIDATES)
     if resolved_source_column is not None and resolved_source_column not in column_set:
-        return LiveFrameComponentTypeSourceResult(
-            status="FETCHED",
-            source_table=table_name,
-            source_column=resolved_source_column,
-            join_key_column=resolved_join_column,
-            row_count=len(row_tuple),
-            evidence_by_unique_name={},
-            diagnostics=(
-                LiveGeometryProbeDiagnostic(
-                    status="BLOCKED",
-                    code="COMPONENT_TYPE_SOURCE_COLUMN_MISSING",
-                    message="Component type source fixture does not expose the configured explicit type column",
-                    source_table=table_name,
-                ),
-            ),
-        )
+        return LiveFrameComponentTypeSourceResult(status="FETCHED", source_table=table_name, source_column=resolved_source_column, join_key_column=resolved_join_column, row_count=len(row_tuple), evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_SOURCE_COLUMN_MISSING", message="Component type source fixture does not expose the configured explicit type column", source_table=table_name),))
     if resolved_join_column is not None and resolved_join_column not in column_set:
-        return LiveFrameComponentTypeSourceResult(
-            status="FETCHED",
-            source_table=table_name,
-            source_column=resolved_source_column,
-            join_key_column=resolved_join_column,
-            row_count=len(row_tuple),
-            evidence_by_unique_name={},
-            diagnostics=(
-                LiveGeometryProbeDiagnostic(
-                    status="BLOCKED",
-                    code="COMPONENT_TYPE_JOIN_KEY_MISSING",
-                    message="Component type source fixture does not expose the configured explicit join key column",
-                    source_table=table_name,
-                ),
-            ),
-        )
+        return LiveFrameComponentTypeSourceResult(status="FETCHED", source_table=table_name, source_column=resolved_source_column, join_key_column=resolved_join_column, row_count=len(row_tuple), evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_JOIN_KEY_MISSING", message="Component type source fixture does not expose the configured explicit join key column", source_table=table_name),))
     if resolved_source_column is None:
-        return LiveFrameComponentTypeSourceResult(
-            status="FETCHED",
-            source_table=table_name,
-            source_column=None,
-            join_key_column=resolved_join_column,
-            row_count=len(row_tuple),
-            evidence_by_unique_name={},
-            diagnostics=(
-                LiveGeometryProbeDiagnostic(
-                    status="BLOCKED",
-                    code="COMPONENT_TYPE_SOURCE_COLUMN_MISSING",
-                    message="Component type source fixture does not expose an explicit type column",
-                    source_table=table_name,
-                ),
-            ),
-        )
+        return LiveFrameComponentTypeSourceResult(status="FETCHED", source_table=table_name, source_column=None, join_key_column=resolved_join_column, row_count=len(row_tuple), evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_SOURCE_COLUMN_MISSING", message="Component type source fixture does not expose an explicit type column", source_table=table_name),))
     if resolved_join_column is None:
-        return LiveFrameComponentTypeSourceResult(
-            status="FETCHED",
-            source_table=table_name,
-            source_column=resolved_source_column,
-            join_key_column=None,
-            row_count=len(row_tuple),
-            evidence_by_unique_name={},
-            diagnostics=(
-                LiveGeometryProbeDiagnostic(
-                    status="BLOCKED",
-                    code="COMPONENT_TYPE_JOIN_KEY_MISSING",
-                    message="Component type source fixture does not expose an explicit join key column",
-                    source_table=table_name,
-                ),
-            ),
-        )
-    evidence_by_unique_name, diagnostics = _component_type_evidence_from_rows(
-        rows=row_tuple,
-        source_table=table_name,
-        source_column=resolved_source_column,
-        join_key_column=resolved_join_column,
-    )
-    return LiveFrameComponentTypeSourceResult(
-        status="FETCHED",
-        source_table=table_name,
-        source_column=resolved_source_column,
-        join_key_column=resolved_join_column,
-        row_count=len(row_tuple),
-        evidence_by_unique_name=evidence_by_unique_name,
-        diagnostics=diagnostics,
-    )
+        return LiveFrameComponentTypeSourceResult(status="FETCHED", source_table=table_name, source_column=resolved_source_column, join_key_column=None, row_count=len(row_tuple), evidence_by_unique_name={}, diagnostics=(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_JOIN_KEY_MISSING", message="Component type source fixture does not expose an explicit join key column", source_table=table_name),))
+    evidence_by_unique_name, diagnostics = _component_type_evidence_from_rows(rows=row_tuple, source_table=table_name, source_column=resolved_source_column, join_key_column=resolved_join_column)
+    return LiveFrameComponentTypeSourceResult(status="FETCHED", source_table=table_name, source_column=resolved_source_column, join_key_column=resolved_join_column, row_count=len(row_tuple), evidence_by_unique_name=evidence_by_unique_name, diagnostics=diagnostics)
 
 
 def _component_type_evidence_from_rows(
@@ -1194,36 +908,14 @@ def _component_type_evidence_from_rows(
     for row in rows:
         unique_name = _text(row.get(join_key_column))
         if not unique_name:
-            diagnostics.append(
-                LiveGeometryProbeDiagnostic(
-                    status="BLOCKED",
-                    code="COMPONENT_TYPE_JOIN_KEY_MISSING",
-                    message="Component type source row does not contain an explicit join key value",
-                    source_table=source_table,
-                )
-            )
+            diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_JOIN_KEY_MISSING", message="Component type source row does not contain an explicit join key value", source_table=source_table))
             continue
         raw_type = row.get(source_column)
         component_type = _normalize_component_type(raw_type)
         if component_type not in _FEATURES_BY_COMPONENT_TYPE:
-            diagnostics.append(
-                LiveGeometryProbeDiagnostic(
-                    status="BLOCKED",
-                    code="COMPONENT_TYPE_VALUE_UNSUPPORTED",
-                    message="Component type source row value is not supported as beam or column",
-                    component_id=unique_name,
-                    source_table=source_table,
-                )
-            )
+            diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_VALUE_UNSUPPORTED", message="Component type source row value is not supported as beam or column", component_id=unique_name, source_table=source_table))
             continue
-        evidence_by_unique_name[unique_name] = LiveFrameComponentTypeEvidence(
-            unique_name=unique_name,
-            component_type=component_type,
-            source_table=source_table,
-            source_column=source_column,
-            raw_row=row,
-            join_key_column=join_key_column,
-        )
+        evidence_by_unique_name[unique_name] = LiveFrameComponentTypeEvidence(unique_name=unique_name, component_type=component_type, source_table=source_table, source_column=source_column, raw_row=row, join_key_column=join_key_column)
     return evidence_by_unique_name, tuple(diagnostics)
 
 
@@ -1232,92 +924,29 @@ def _table_read_result_from_raw(*, table_key: str, raw_result: object) -> LiveEt
     if isinstance(raw_result, Mapping):
         return _table_read_result_from_mapping(table_key=table_key, raw_result=raw_result, metadata=metadata)
     if not isinstance(raw_result, Sequence) or isinstance(raw_result, (str, bytes, bytearray)):
-        return LiveEtabsTableReadResult(
-            table_key=table_key,
-            status="PARSE_EMPTY",
-            columns=(),
-            row_count=0,
-            rows=(),
-            raw_metadata=metadata,
-            message="ETABS display array result was not a supported sequence or mapping shape",
-        )
+        return LiveEtabsTableReadResult(table_key=table_key, status="PARSE_EMPTY", columns=(), row_count=0, rows=(), raw_metadata=metadata, message="ETABS display array result was not a supported sequence or mapping shape")
     sequences = tuple(item for item in raw_result if isinstance(item, Sequence) and not isinstance(item, (str, bytes, bytearray)))
     string_sequences = tuple(tuple(str(value) for value in item) for item in sequences if all(isinstance(value, str) for value in item))
     columns = _select_column_sequence(table_key=table_key, string_sequences=string_sequences)
     if not columns:
-        return LiveEtabsTableReadResult(
-            table_key=table_key,
-            status="PARSE_EMPTY",
-            columns=(),
-            row_count=0,
-            rows=(),
-            raw_metadata=metadata,
-            message="No ETABS display-array field column sequence could be identified",
-        )
+        return LiveEtabsTableReadResult(table_key=table_key, status="PARSE_EMPTY", columns=(), row_count=0, rows=(), raw_metadata=metadata, message="No ETABS display-array field column sequence could be identified")
     data_candidate = _select_flat_data_sequence(columns=columns, sequences=sequences)
     if data_candidate is None:
-        return LiveEtabsTableReadResult(
-            table_key=table_key,
-            status="EMPTY" if _raw_result_declares_zero_rows(raw_result) else "PARSE_EMPTY",
-            columns=columns,
-            row_count=0,
-            rows=(),
-            raw_metadata={**metadata, "columns": list(columns)},
-            message="No flat data sequence could be identified after the field column sequence",
-        )
+        return LiveEtabsTableReadResult(table_key=table_key, status="EMPTY" if _raw_result_declares_zero_rows(raw_result) else "PARSE_EMPTY", columns=columns, row_count=0, rows=(), raw_metadata={**metadata, "columns": list(columns)}, message="No flat data sequence could be identified after the field column sequence")
     if len(data_candidate) == 0:
-        return LiveEtabsTableReadResult(
-            table_key=table_key,
-            status="EMPTY",
-            columns=columns,
-            row_count=0,
-            rows=(),
-            raw_metadata={**metadata, "columns": list(columns), "flat_data_length": 0},
-            message="ETABS returned a field list and zero data values",
-        )
+        return LiveEtabsTableReadResult(table_key=table_key, status="EMPTY", columns=columns, row_count=0, rows=(), raw_metadata={**metadata, "columns": list(columns), "flat_data_length": 0}, message="ETABS returned a field list and zero data values")
     if len(data_candidate) % len(columns) != 0:
-        return LiveEtabsTableReadResult(
-            table_key=table_key,
-            status="PARSE_EMPTY",
-            columns=columns,
-            row_count=0,
-            rows=(),
-            raw_metadata={**metadata, "columns": list(columns), "flat_data_length": len(data_candidate)},
-            message="Flat data length is not divisible by field column count",
-        )
+        return LiveEtabsTableReadResult(table_key=table_key, status="PARSE_EMPTY", columns=columns, row_count=0, rows=(), raw_metadata={**metadata, "columns": list(columns), "flat_data_length": len(data_candidate)}, message="Flat data length is not divisible by field column count")
     rows = _rows_from_flat_data(table_key=table_key, columns=columns, flat_data=data_candidate)
     if not rows:
-        return LiveEtabsTableReadResult(
-            table_key=table_key,
-            status="PARSE_EMPTY",
-            columns=columns,
-            row_count=0,
-            rows=(),
-            raw_metadata={**metadata, "columns": list(columns), "flat_data_length": len(data_candidate)},
-            message="Flat data sequence could not be decoded into rows",
-        )
-    return LiveEtabsTableReadResult(
-        table_key=table_key,
-        status="FETCHED",
-        columns=columns,
-        row_count=len(rows),
-        rows=tuple(rows),
-        raw_metadata={**metadata, "columns": list(columns), "flat_data_length": len(data_candidate)},
-    )
+        return LiveEtabsTableReadResult(table_key=table_key, status="PARSE_EMPTY", columns=columns, row_count=0, rows=(), raw_metadata={**metadata, "columns": list(columns), "flat_data_length": len(data_candidate)}, message="Flat data sequence could not be decoded into rows")
+    return LiveEtabsTableReadResult(table_key=table_key, status="FETCHED", columns=columns, row_count=len(rows), rows=tuple(rows), raw_metadata={**metadata, "columns": list(columns), "flat_data_length": len(data_candidate)})
 
 
 def _table_read_result_from_mapping(*, table_key: str, raw_result: Mapping[object, object], metadata: Mapping[str, object]) -> LiveEtabsTableReadResult:
     raw_columns = raw_result.get("columns") or raw_result.get("fields") or raw_result.get("field_names") or ()
     if not isinstance(raw_columns, Sequence) or isinstance(raw_columns, (str, bytes, bytearray)):
-        return LiveEtabsTableReadResult(
-            table_key=table_key,
-            status="PARSE_EMPTY",
-            columns=(),
-            row_count=0,
-            rows=(),
-            raw_metadata=metadata,
-            message="Mapping table result did not contain a supported columns sequence",
-        )
+        return LiveEtabsTableReadResult(table_key=table_key, status="PARSE_EMPTY", columns=(), row_count=0, rows=(), raw_metadata=metadata, message="Mapping table result did not contain a supported columns sequence")
     columns = tuple(str(column) for column in raw_columns)
     raw_rows = raw_result.get("rows")
     if isinstance(raw_rows, Sequence) and not isinstance(raw_rows, (str, bytes, bytearray)):
@@ -1344,39 +973,18 @@ def _table_read_result_from_mapping(*, table_key: str, raw_result: Mapping[objec
     return LiveEtabsTableReadResult(table_key=table_key, status="EMPTY", columns=columns, row_count=0, rows=(), raw_metadata=metadata)
 
 
-def _assignment_from_row(
-    row: Mapping[str, object],
-    *,
-    mapping: AcceptedGeometryMapping,
-    diagnostics: list[LiveGeometryProbeDiagnostic],
-    component_type_evidence_by_unique_name: Mapping[str, LiveFrameComponentTypeEvidence] | None = None,
-) -> LiveGeometryAssignmentRow | None:
+def _assignment_from_row(row: Mapping[str, object], *, mapping: AcceptedGeometryMapping, diagnostics: list[LiveGeometryProbeDiagnostic], component_type_evidence_by_unique_name: Mapping[str, LiveFrameComponentTypeEvidence] | None = None) -> LiveGeometryAssignmentRow | None:
     story = _text(row.get("Story"))
     label = _text(row.get("Label"))
     unique_name = _text(row.get("UniqueName"))
     section_name = _text(row.get(mapping.assignment_section_column))
     if component_type_evidence_by_unique_name is not None:
         if not unique_name:
-            diagnostics.append(
-                LiveGeometryProbeDiagnostic(
-                    status="BLOCKED",
-                    code="COMPONENT_TYPE_JOIN_KEY_MISSING",
-                    message="Assignment row does not contain UniqueName for explicit component type join",
-                    source_table=mapping.assignment_table_key,
-                )
-            )
+            diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_JOIN_KEY_MISSING", message="Assignment row does not contain UniqueName for explicit component type join", source_table=mapping.assignment_table_key))
             return None
         evidence = component_type_evidence_by_unique_name.get(unique_name)
         if evidence is None:
-            diagnostics.append(
-                LiveGeometryProbeDiagnostic(
-                    status="BLOCKED",
-                    code="COMPONENT_TYPE_JOIN_NOT_FOUND",
-                    message="No explicit component type evidence row matched the assignment UniqueName",
-                    component_id=unique_name,
-                    source_table=mapping.assignment_table_key,
-                )
-            )
+            diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_JOIN_NOT_FOUND", message="No explicit component type evidence row matched the assignment UniqueName", component_id=unique_name, source_table=mapping.assignment_table_key))
             return None
         component_type = evidence.component_type
         component_type_source_table = evidence.source_table
@@ -1387,111 +995,34 @@ def _assignment_from_row(
         component_type_source_column = _first_present_column(row, _COMPONENT_TYPE_COLUMN_CANDIDATES)
         component_type = _normalize_component_type(row.get(component_type_source_column) if component_type_source_column else None)
         if not component_type_source_column:
-            diagnostics.append(
-                LiveGeometryProbeDiagnostic(
-                    status="BLOCKED",
-                    code="COMPONENT_TYPE_NOT_EXPLICIT",
-                    message="Assignment row does not include explicit beam/column component type evidence",
-                    component_id=unique_name or None,
-                    source_table=mapping.assignment_table_key,
-                )
-            )
+            diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_NOT_EXPLICIT", message="Assignment row does not include explicit beam/column component type evidence", component_id=unique_name or None, source_table=mapping.assignment_table_key))
             return None
         if component_type not in _FEATURES_BY_COMPONENT_TYPE:
-            diagnostics.append(
-                LiveGeometryProbeDiagnostic(
-                    status="BLOCKED",
-                    code="COMPONENT_TYPE_VALUE_UNSUPPORTED",
-                    message="Assignment row component type value is not supported as beam or column",
-                    component_id=unique_name or None,
-                    source_table=mapping.assignment_table_key,
-                )
-            )
+            diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_VALUE_UNSUPPORTED", message="Assignment row component type value is not supported as beam or column", component_id=unique_name or None, source_table=mapping.assignment_table_key))
             return None
         component_type_source_table = mapping.assignment_table_key
         component_type_source_row = row
         component_type_join_key_column = "UniqueName"
     if not (story and label and unique_name and section_name):
-        diagnostics.append(
-            LiveGeometryProbeDiagnostic(
-                status="BLOCKED",
-                code="ASSIGNMENT_ROW_IDENTITY_INCOMPLETE",
-                message="Assignment row identity or section property is incomplete; no geometry value was guessed",
-                component_id=unique_name or None,
-                component_type=component_type,
-                source_table=mapping.assignment_table_key,
-            )
-        )
+        diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="ASSIGNMENT_ROW_IDENTITY_INCOMPLETE", message="Assignment row identity or section property is incomplete; no geometry value was guessed", component_id=unique_name or None, component_type=component_type, source_table=mapping.assignment_table_key))
         return None
-    return LiveGeometryAssignmentRow(
-        story=story,
-        label=label,
-        unique_name=unique_name,
-        section_name=section_name,
-        source_table=mapping.assignment_table_key,
-        component_type=component_type,
-        raw_row=row,
-        component_type_source_table=component_type_source_table,
-        component_type_source_column=component_type_source_column,
-        component_type_source_row=component_type_source_row,
-        component_type_join_key_column=component_type_join_key_column,
-    )
+    return LiveGeometryAssignmentRow(story=story, label=label, unique_name=unique_name, section_name=section_name, source_table=mapping.assignment_table_key, component_type=component_type, raw_row=row, component_type_source_table=component_type_source_table, component_type_source_column=component_type_source_column, component_type_source_row=component_type_source_row, component_type_join_key_column=component_type_join_key_column)
 
 
-def _property_from_row(
-    row: Mapping[str, object],
-    *,
-    mapping: AcceptedGeometryMapping,
-    diagnostics: list[LiveGeometryProbeDiagnostic],
-    assignment: LiveGeometryAssignmentRow,
-) -> LiveGeometryPropertyRow | None:
+def _property_from_row(row: Mapping[str, object], *, mapping: AcceptedGeometryMapping, diagnostics: list[LiveGeometryProbeDiagnostic], assignment: LiveGeometryAssignmentRow) -> LiveGeometryPropertyRow | None:
     width_value = row.get(mapping.width_column)
     depth_value = row.get(mapping.depth_column)
     if width_value is None or depth_value is None:
-        diagnostics.append(
-            LiveGeometryProbeDiagnostic(
-                status="NO_DATA",
-                code="GEOMETRY_DIMENSION_VALUE_MISSING",
-                message="Accepted property row is missing t2/t3 value; no geometry value was guessed",
-                component_id=assignment.unique_name,
-                component_type=assignment.component_type,
-                source_table=mapping.property_table_key,
-            )
-        )
+        diagnostics.append(LiveGeometryProbeDiagnostic(status="NO_DATA", code="GEOMETRY_DIMENSION_VALUE_MISSING", message="Accepted property row is missing t2/t3 value; no geometry value was guessed", component_id=assignment.unique_name, component_type=assignment.component_type, source_table=mapping.property_table_key))
         return None
     if not _is_numeric(width_value) or not _is_numeric(depth_value):
-        diagnostics.append(
-            LiveGeometryProbeDiagnostic(
-                status="BLOCKED",
-                code="GEOMETRY_DIMENSION_VALUE_NOT_NUMERIC",
-                message="Accepted property row t2/t3 value is not numeric",
-                component_id=assignment.unique_name,
-                component_type=assignment.component_type,
-                source_table=mapping.property_table_key,
-            )
-        )
+        diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="GEOMETRY_DIMENSION_VALUE_NOT_NUMERIC", message="Accepted property row t2/t3 value is not numeric", component_id=assignment.unique_name, component_type=assignment.component_type, source_table=mapping.property_table_key))
         return None
     unit = _unit_from_property_row(row, mapping=mapping)
     if unit != _REQUIRED_UNIT:
-        diagnostics.append(
-            LiveGeometryProbeDiagnostic(
-                status="BLOCKED",
-                code="GEOMETRY_UNIT_NOT_PROVEN_MM",
-                message="Accepted property row unit is not proven to be mm; no conversion was performed",
-                component_id=assignment.unique_name,
-                component_type=assignment.component_type,
-                source_table=mapping.property_table_key,
-            )
-        )
+        diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="GEOMETRY_UNIT_NOT_PROVEN_MM", message="Accepted property row unit is not proven to be mm; no unit change was performed", component_id=assignment.unique_name, component_type=assignment.component_type, source_table=mapping.property_table_key))
         return None
-    return LiveGeometryPropertyRow(
-        section_name=_text(row.get(mapping.property_name_column)),
-        width_value=width_value,
-        depth_value=depth_value,
-        source_table=mapping.property_table_key,
-        unit=unit,
-        raw_row=row,
-    )
+    return LiveGeometryPropertyRow(section_name=_text(row.get(mapping.property_name_column)), width_value=width_value, depth_value=depth_value, source_table=mapping.property_table_key, unit=unit, raw_row=row)
 
 
 def _table_read_diagnostics(*, table_role: str, result: LiveEtabsTableReadResult) -> tuple[LiveGeometryProbeDiagnostic, ...]:
@@ -1499,33 +1030,25 @@ def _table_read_diagnostics(*, table_role: str, result: LiveEtabsTableReadResult
     if result.status == "FETCHED":
         return ()
     if result.status == "FAILED":
-        return (
-            LiveGeometryProbeDiagnostic(
-                status="BLOCKED",
-                code=f"{role}_TABLE_FETCH_FAILED",
-                message=result.message or f"{role.title()} table fetch failed",
-                source_table=result.table_key,
-            ),
-        )
+        return (LiveGeometryProbeDiagnostic(status="BLOCKED", code=f"{role}_TABLE_FETCH_FAILED", message=result.message or f"{role.title()} table fetch failed", source_table=result.table_key),)
     if result.status == "EMPTY":
-        return (
-            LiveGeometryProbeDiagnostic(
-                status="NO_DATA",
-                code=f"{role}_TABLE_FETCHED_ZERO_ROWS",
-                message=f"{role.title()} table was fetched but contained zero rows",
-                source_table=result.table_key,
-            ),
-        )
+        return (LiveGeometryProbeDiagnostic(status="NO_DATA", code=f"{role}_TABLE_FETCHED_ZERO_ROWS", message=f"{role.title()} table was fetched but contained zero rows", source_table=result.table_key),)
     if result.status == "PARSE_EMPTY":
-        return (
-            LiveGeometryProbeDiagnostic(
-                status="BLOCKED",
-                code=f"{role}_TABLE_PARSE_EMPTY",
-                message=result.message or f"{role.title()} table display array could not be decoded into rows",
-                source_table=result.table_key,
-            ),
-        )
+        return (LiveGeometryProbeDiagnostic(status="BLOCKED", code=f"{role}_TABLE_PARSE_EMPTY", message=result.message or f"{role.title()} table display array could not be decoded into rows", source_table=result.table_key),)
     return ()
+
+
+def _summary_fields(*, assignment_count: int, property_count: int, component_source: LiveFrameComponentTypeSourceResult, resolved_type_count: int, resolved_geometry_count: int) -> dict[str, object]:
+    return {
+        "assignment_table_row_count": assignment_count,
+        "component_type_resolved_row_count": resolved_type_count,
+        "component_type_source_row_count": component_source.row_count,
+        "component_type_source_status": component_source.status,
+        "component_type_source_table": component_source.source_table,
+        "component_type_unresolved_row_count": max(assignment_count - resolved_type_count, 0),
+        "property_table_row_count": property_count,
+        "resolved_geometry_row_count": resolved_geometry_count,
+    }
 
 
 def _index_property_rows(rows: Sequence[Mapping[str, object]], *, mapping: AcceptedGeometryMapping) -> dict[str, Mapping[str, object]]:
@@ -1620,6 +1143,7 @@ def _looks_like_field_sequence(sequence: Sequence[str]) -> bool:
         "ObjectType",
         "FrameType",
         "DesignType",
+        "Design Type",
         "MemberType",
         "ElementType",
         "LineObjectType",
@@ -1634,16 +1158,9 @@ def _raw_result_declares_zero_rows(raw_result: Sequence[object]) -> bool:
 
 def _raw_table_metadata(raw_result: object) -> dict[str, object]:
     if isinstance(raw_result, Mapping):
-        return {
-            "mapping_keys": [str(key) for key in sorted(raw_result.keys(), key=str)],
-            "raw_type": type(raw_result).__name__,
-        }
+        return {"mapping_keys": [str(key) for key in sorted(raw_result.keys(), key=str)], "raw_type": type(raw_result).__name__}
     if isinstance(raw_result, Sequence) and not isinstance(raw_result, (str, bytes, bytearray)):
-        return {
-            "raw_sequence_length": len(raw_result),
-            "raw_type": type(raw_result).__name__,
-            "sequence_item_types": [type(item).__name__ for item in raw_result],
-        }
+        return {"raw_sequence_length": len(raw_result), "raw_type": type(raw_result).__name__, "sequence_item_types": [type(item).__name__ for item in raw_result]}
     return {"raw_type": type(raw_result).__name__}
 
 
@@ -1674,11 +1191,7 @@ def _normalize_component_type(value: object) -> str:
     return _COMPONENT_TYPE_VALUES.get(_text(value).casefold(), "")
 
 
-def _count_assignment_rows_with_component_type_evidence(
-    *,
-    assignment_rows: Sequence[Mapping[str, object]],
-    evidence_by_unique_name: Mapping[str, LiveFrameComponentTypeEvidence],
-) -> int:
+def _count_assignment_rows_with_component_type_evidence(*, assignment_rows: Sequence[Mapping[str, object]], evidence_by_unique_name: Mapping[str, LiveFrameComponentTypeEvidence]) -> int:
     count = 0
     for row in assignment_rows:
         unique_name = _text(row.get("UniqueName"))
@@ -1691,14 +1204,7 @@ def _is_numeric(value: object) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 
 
-def _select_rows(
-    rows: Sequence[Mapping[str, object]],
-    *,
-    target_story: str | None,
-    target_label: str | None,
-    target_component: str | None,
-    max_rows: int,
-) -> tuple[tuple[Mapping[str, object], ...], bool]:
+def _select_rows(rows: Sequence[Mapping[str, object]], *, target_story: str | None, target_label: str | None, target_component: str | None, max_rows: int) -> tuple[tuple[Mapping[str, object], ...], bool]:
     selected: list[Mapping[str, object]] = []
     for row in rows:
         if target_story is not None and str(row.get("story", "")) != target_story:
@@ -1717,132 +1223,33 @@ def _snapshot_from_row(row: Mapping[str, object]) -> tuple[FeatureSnapshot | Non
     component_type = _text(row.get("component_type")).casefold()
     component_id = _text(row.get("component_id"))
     if component_type not in _FEATURES_BY_COMPONENT_TYPE:
-        return None, (
-            LiveGeometryProbeDiagnostic(
-                status="WARNING",
-                code="COMPONENT_TYPE_OUT_OF_SCOPE",
-                message="Only beam and column geometry rows are supported",
-                component_id=component_id or None,
-                component_type=component_type or None,
-                source_table=_text_or_none(row.get("source_table")),
-            ),
-        )
+        return None, (LiveGeometryProbeDiagnostic(status="WARNING", code="COMPONENT_TYPE_OUT_OF_SCOPE", message="Only beam and column geometry rows are supported", component_id=component_id or None, component_type=component_type or None, source_table=_text_or_none(row.get("source_table"))),)
     if not component_id:
-        return None, (
-            LiveGeometryProbeDiagnostic(
-                status="BLOCKED",
-                code="COMPONENT_ID_MISSING",
-                message="Geometry row does not include component_id",
-                component_type=component_type,
-                source_table=_text_or_none(row.get("source_table")),
-            ),
-        )
-
+        return None, (LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_ID_MISSING", message="Geometry row does not include component_id", component_type=component_type, source_table=_text_or_none(row.get("source_table"))),)
     width_feature, depth_feature = _FEATURES_BY_COMPONENT_TYPE[component_type]
-    features: dict[str, FeatureValue] = {}
-    features[width_feature] = _feature_from_dimension_row(
-        row,
-        component_id=component_id,
-        component_type=component_type,
-        feature_id=width_feature,
-        value_keys=_WIDTH_KEYS,
-        diagnostics=diagnostics,
-    )
-    features[depth_feature] = _feature_from_dimension_row(
-        row,
-        component_id=component_id,
-        component_type=component_type,
-        feature_id=depth_feature,
-        value_keys=_DEPTH_KEYS,
-        diagnostics=diagnostics,
-    )
+    features = {
+        width_feature: _feature_from_dimension_row(row, component_id=component_id, component_type=component_type, feature_id=width_feature, value_keys=_WIDTH_KEYS, diagnostics=diagnostics),
+        depth_feature: _feature_from_dimension_row(row, component_id=component_id, component_type=component_type, feature_id=depth_feature, value_keys=_DEPTH_KEYS, diagnostics=diagnostics),
+    }
     identity = {key: row.get(key) for key in _IDENTITY_KEYS if row.get(key) is not None}
-    return (
-        FeatureSnapshot(
-            component_type=component_type,
-            component_id=component_id,
-            identity=identity,
-            features=features,
-        ),
-        tuple(diagnostics),
-    )
+    return FeatureSnapshot(component_type=component_type, component_id=component_id, identity=identity, features=features), tuple(diagnostics)
 
 
-def _feature_from_dimension_row(
-    row: Mapping[str, object],
-    *,
-    component_id: str,
-    component_type: str,
-    feature_id: str,
-    value_keys: Sequence[str],
-    diagnostics: list[LiveGeometryProbeDiagnostic],
-) -> FeatureValue:
+def _feature_from_dimension_row(row: Mapping[str, object], *, component_id: str, component_type: str, feature_id: str, value_keys: Sequence[str], diagnostics: list[LiveGeometryProbeDiagnostic]) -> FeatureValue:
     source_table = _text_or_none(row.get("source_table")) or "live_geometry_provider"
     source_column, raw_value = _first_present(row, value_keys)
     unit = _text(row.get(f"{source_column}_unit")) if source_column else ""
     if not unit:
         unit = _text(row.get("unit"))
     if source_column is None or raw_value is None:
-        diagnostics.append(
-            LiveGeometryProbeDiagnostic(
-                status="NO_DATA",
-                code="GEOMETRY_FEATURE_MISSING",
-                message="Required observed geometry feature is missing; no value was guessed",
-                component_id=component_id,
-                component_type=component_type,
-                feature_id=feature_id,
-                source_table=source_table,
-            )
-        )
-        return FeatureValue(
-            feature_name=feature_id,
-            value=None,
-            unit=unit,
-            semantic_role="GEOMETRY",
-            status=FeatureValueStatus.MISSING,
-            evidence=(),
-        )
+        diagnostics.append(LiveGeometryProbeDiagnostic(status="NO_DATA", code="GEOMETRY_FEATURE_MISSING", message="Required observed geometry feature is missing; no value was guessed", component_id=component_id, component_type=component_type, feature_id=feature_id, source_table=source_table))
+        return FeatureValue(feature_name=feature_id, value=None, unit=unit, semantic_role="GEOMETRY", status=FeatureValueStatus.MISSING, evidence=())
     if unit != _REQUIRED_UNIT:
-        diagnostics.append(
-            LiveGeometryProbeDiagnostic(
-                status="BLOCKED",
-                code="GEOMETRY_UNIT_NOT_MM",
-                message="Observed geometry unit is not proven to be mm; no conversion was performed",
-                component_id=component_id,
-                component_type=component_type,
-                feature_id=feature_id,
-                source_table=source_table,
-            )
-        )
-        return FeatureValue(
-            feature_name=feature_id,
-            value=None,
-            unit=unit,
-            semantic_role="GEOMETRY",
-            status=FeatureValueStatus.PARTIAL,
-            evidence=(),
-        )
-    if not isinstance(raw_value, (int, float)) or isinstance(raw_value, bool):
-        diagnostics.append(
-            LiveGeometryProbeDiagnostic(
-                status="BLOCKED",
-                code="GEOMETRY_VALUE_NOT_NUMERIC",
-                message="Observed geometry value is not numeric",
-                component_id=component_id,
-                component_type=component_type,
-                feature_id=feature_id,
-                source_table=source_table,
-            )
-        )
-        return FeatureValue(
-            feature_name=feature_id,
-            value=None,
-            unit=unit,
-            semantic_role="GEOMETRY",
-            status=FeatureValueStatus.PARTIAL,
-            evidence=(),
-        )
-
+        diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="GEOMETRY_UNIT_NOT_MM", message="Observed geometry unit is not proven to be mm; no unit change was performed", component_id=component_id, component_type=component_type, feature_id=feature_id, source_table=source_table))
+        return FeatureValue(feature_name=feature_id, value=None, unit=unit, semantic_role="GEOMETRY", status=FeatureValueStatus.PARTIAL, evidence=())
+    if not _is_numeric(raw_value):
+        diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="GEOMETRY_VALUE_NOT_NUMERIC", message="Observed geometry value is not numeric", component_id=component_id, component_type=component_type, feature_id=feature_id, source_table=source_table))
+        return FeatureValue(feature_name=feature_id, value=None, unit=unit, semantic_role="GEOMETRY", status=FeatureValueStatus.PARTIAL, evidence=())
     value = float(raw_value)
     evidence_source_column = _text_or_none(row.get(f"{source_column}_source_column")) or source_column
     evidence = FeatureEvidence(
@@ -1854,16 +1261,9 @@ def _feature_from_dimension_row(
         raw_value=raw_value,
         normalized_value=value,
         unit=unit,
-        resolver="c13_5_p6_explicit_component_type_probe",
+        resolver="c13_5_p6_1_design_type_alias_probe",
     )
-    return FeatureValue(
-        feature_name=feature_id,
-        value=value,
-        unit=unit,
-        semantic_role="GEOMETRY",
-        status=FeatureValueStatus.RESOLVED,
-        evidence=(evidence,),
-    )
+    return FeatureValue(feature_name=feature_id, value=value, unit=unit, semantic_role="GEOMETRY", status=FeatureValueStatus.RESOLVED, evidence=(evidence,))
 
 
 def _provider_diagnostics(provider: GeometryRowProvider) -> tuple[LiveGeometryProbeDiagnostic, ...]:
@@ -1875,30 +1275,22 @@ def _provider_diagnostics(provider: GeometryRowProvider) -> tuple[LiveGeometryPr
 
 
 def _provider_summary_fields(provider: GeometryRowProvider, *, resolved_row_count: int) -> Mapping[str, object]:
+    default = {
+        "assignment_table_row_count": 0,
+        "component_type_resolved_row_count": 0,
+        "component_type_source_row_count": 0,
+        "component_type_source_status": "UNKNOWN",
+        "component_type_source_table": None,
+        "component_type_unresolved_row_count": 0,
+        "property_table_row_count": 0,
+        "resolved_geometry_row_count": resolved_row_count,
+    }
     summary_reader = getattr(provider, "live_geometry_probe_summary_fields", None)
     if not callable(summary_reader):
-        return {
-            "assignment_table_row_count": 0,
-            "component_type_resolved_row_count": 0,
-            "component_type_source_row_count": 0,
-            "component_type_source_status": "UNKNOWN",
-            "component_type_source_table": None,
-            "component_type_unresolved_row_count": 0,
-            "property_table_row_count": 0,
-            "resolved_geometry_row_count": resolved_row_count,
-        }
+        return default
     summary = summary_reader()
     if not isinstance(summary, Mapping):
-        return {
-            "assignment_table_row_count": 0,
-            "component_type_resolved_row_count": 0,
-            "component_type_source_row_count": 0,
-            "component_type_source_status": "UNKNOWN",
-            "component_type_source_table": None,
-            "component_type_unresolved_row_count": 0,
-            "property_table_row_count": 0,
-            "resolved_geometry_row_count": resolved_row_count,
-        }
+        return default
     return dict(summary)
 
 
@@ -1909,7 +1301,7 @@ def _first_present(row: Mapping[str, object], keys: Sequence[str]) -> tuple[str 
     return None, None
 
 
-def _load_rows_json(path: Path, *, field_name: str) -> tuple[Mapping[str, object], ...]:
+def _load_payload_rows(path: Path, *, field_name: str) -> tuple[Mapping[str, object], ...]:
     payload = json.loads(Path(path).read_text(encoding="utf-8"))
     rows = payload.get("rows") if isinstance(payload, Mapping) else payload
     if not isinstance(rows, Sequence) or isinstance(rows, (str, bytes, bytearray)):
