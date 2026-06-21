@@ -619,7 +619,24 @@ def write_com_attach_failure_probe_outputs(*, output_dir: Path, attach_result: E
     if feature_snapshot_path.exists():
         feature_snapshot_path.unlink()
     attempts = [attempt.as_dict() for attempt in attach_result.attempts]
-    _write_json(summary_path, {"diagnostic_count": len(attempts), "failure_stage": "COM_ATTACH", "feature_snapshot_written": False, "status": "FAIL"})
+    _write_json(
+        summary_path,
+        {
+            "assignment_table_row_count": 0,
+            "component_type_resolved_row_count": 0,
+            "component_type_source_row_count": 0,
+            "component_type_source_status": "NOT_ATTEMPTED",
+            "component_type_source_table": None,
+            "component_type_unresolved_row_count": 0,
+            "diagnostic_count": len(attempts),
+            "failure_stage": "COM_ATTACH",
+            "feature_snapshot_written": False,
+            "property_table_row_count": 0,
+            "resolved_geometry_row_count": 0,
+            "scope": _ATTACH_FAILURE_SCOPE,
+            "status": "FAIL",
+        },
+    )
     _write_json(diagnostics_path, [{"attempts": attempts, "code": "ETABS_COM_ATTACH_FAILED", "message": "No attach strategy succeeded.", "status": "BLOCKED"}])
     _write_json(manifest_path, {"attach_attempt_count": len(attempts), "attach_strategies": list(ATTACH_STRATEGIES), "failure_stage": "COM_ATTACH", "feature_snapshot_written": False, "live_etabs_required_for_ci": False, "output_files": list(_ATTACH_FAILURE_OUTPUT_FILES), "probe_is_read_only": True, "runner": _ATTACH_FAILURE_RUNNER, "scope": _ATTACH_FAILURE_SCOPE})
     return LiveGeometryProbeResult(status="FAIL", output_dir=out_dir, feature_snapshot_path=feature_snapshot_path, summary_path=summary_path, diagnostics_path=diagnostics_path, manifest_path=manifest_path, snapshot_count=0, diagnostic_count=len(attempts))
@@ -1175,28 +1192,49 @@ def _snapshot_from_row(row: Mapping[str, object]) -> tuple[FeatureSnapshot | Non
         return None, (LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_ID_MISSING", message="Geometry row does not include component_id", component_type=component_type, source_table=_text_or_none(row.get("source_table"))),)
     width_feature, depth_feature = _FEATURES_BY_COMPONENT_TYPE[component_type]
     features = {
-        width_feature: _feature_from_dimension_row(row, component_id=component_id, component_type=component_type, feature_id=width_feature, value_key="width_mm", details_key="width_normalization", diagnostics=diagnostics),
-        depth_feature: _feature_from_dimension_row(row, component_id=component_id, component_type=component_type, feature_id=depth_feature, value_key="depth_mm", details_key="depth_normalization", diagnostics=diagnostics),
+        width_feature: _feature_from_dimension_row(row, component_id=component_id, component_type=component_type, feature_id=width_feature, value_keys=_WIDTH_KEYS, details_key="width_normalization", diagnostics=diagnostics),
+        depth_feature: _feature_from_dimension_row(row, component_id=component_id, component_type=component_type, feature_id=depth_feature, value_keys=_DEPTH_KEYS, details_key="depth_normalization", diagnostics=diagnostics),
     }
     identity = {key: row.get(key) for key in _IDENTITY_KEYS if row.get(key) is not None}
     return FeatureSnapshot(component_type=component_type, component_id=component_id, identity=identity, features=features), tuple(diagnostics)
 
 
-def _feature_from_dimension_row(row: Mapping[str, object], *, component_id: str, component_type: str, feature_id: str, value_key: str, details_key: str, diagnostics: list[LiveGeometryProbeDiagnostic]) -> FeatureValue:
+def _feature_from_dimension_row(row: Mapping[str, object], *, component_id: str, component_type: str, feature_id: str, value_keys: Sequence[str], details_key: str, diagnostics: list[LiveGeometryProbeDiagnostic]) -> FeatureValue:
     source_table = _text_or_none(row.get("source_table")) or "live_geometry_provider"
-    value = row.get(value_key)
-    details = dict(row.get(details_key) or {})
-    source_column = _text_or_none(row.get(f"{value_key}_source_column")) or value_key
-    unit = _text(row.get(f"{value_key}_unit")) or _REQUIRED_UNIT
-    if value is None or not _is_numeric(value):
+    selected_source_key, raw_value = _first_present(row, value_keys)
+    unit = _text(row.get(f"{selected_source_key}_unit")) if selected_source_key else ""
+    if not unit:
+        unit = _text(row.get("unit"))
+    if selected_source_key is None or raw_value is None:
         diagnostics.append(LiveGeometryProbeDiagnostic(status="NO_DATA", code="GEOMETRY_FEATURE_MISSING", message="Required observed geometry feature is missing; no value was guessed", component_id=component_id, component_type=component_type, feature_id=feature_id, source_table=source_table))
         return FeatureValue(feature_name=feature_id, value=None, unit=unit, semantic_role="GEOMETRY", status=FeatureValueStatus.MISSING, evidence=())
+    if unit != _REQUIRED_UNIT:
+        diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="GEOMETRY_UNIT_NOT_MM", message="Observed geometry unit is not proven to be mm; no unit change was performed", component_id=component_id, component_type=component_type, feature_id=feature_id, source_table=source_table))
+        return FeatureValue(feature_name=feature_id, value=None, unit=unit, semantic_role="GEOMETRY", status=FeatureValueStatus.PARTIAL, evidence=())
+    if not _is_numeric(raw_value):
+        diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="GEOMETRY_VALUE_NOT_NUMERIC", message="Observed geometry value is not numeric", component_id=component_id, component_type=component_type, feature_id=feature_id, source_table=source_table))
+        return FeatureValue(feature_name=feature_id, value=None, unit=unit, semantic_role="GEOMETRY", status=FeatureValueStatus.PARTIAL, evidence=())
+    value = float(raw_value)
+    details = dict(row.get(details_key) or {})
+    evidence_source_column = _text_or_none(row.get(f"{selected_source_key}_source_column")) or selected_source_key
     evidence_source_row = {key: _json_safe(item) for key, item in sorted(row.items())}
     evidence_source_row.update(details)
-    evidence_source_row["source_column"] = source_column
+    evidence_source_row["source_column"] = evidence_source_column
     evidence_source_row["source_table"] = source_table
-    evidence = FeatureEvidence(evidence_status=FeatureEvidenceStatus.FULL, source_table=source_table, actual_table_name=_text_or_none(row.get("actual_table_name")) or source_table, source_column=source_column, source_row=evidence_source_row, raw_value=details.get("raw_value"), normalized_value=float(value), unit=unit, resolver="c13_5_p6_2_runtime_length_unit_normalizer")
-    return FeatureValue(feature_name=feature_id, value=float(value), unit=unit, semantic_role="GEOMETRY", status=FeatureValueStatus.RESOLVED, evidence=(evidence,))
+    evidence_raw_value = details.get("raw_value", raw_value)
+    evidence_normalized_value = details.get("normalized_value", value)
+    evidence = FeatureEvidence(
+        evidence_status=FeatureEvidenceStatus.FULL,
+        source_table=source_table,
+        actual_table_name=_text_or_none(row.get("actual_table_name")) or source_table,
+        source_column=evidence_source_column,
+        source_row=evidence_source_row,
+        raw_value=evidence_raw_value,
+        normalized_value=float(evidence_normalized_value),
+        unit=unit,
+        resolver="c13_5_p6_2_runtime_length_unit_normalizer" if details else "c13_5_p6_1_design_type_alias_probe",
+    )
+    return FeatureValue(feature_name=feature_id, value=value, unit=unit, semantic_role="GEOMETRY", status=FeatureValueStatus.RESOLVED, evidence=(evidence,))
 
 
 def _provider_diagnostics(provider: GeometryRowProvider) -> tuple[LiveGeometryProbeDiagnostic, ...]:
@@ -1216,6 +1254,13 @@ def _provider_summary_fields(provider: GeometryRowProvider, *, resolved_row_coun
     if not isinstance(summary, Mapping):
         return default
     return dict(summary)
+
+
+def _first_present(row: Mapping[str, object], keys: Sequence[str]) -> tuple[str | None, object | None]:
+    for key in keys:
+        if key in row:
+            return key, row[key]
+    return None, None
 
 
 def _load_payload_rows(path: Path, *, field_name: str) -> tuple[Mapping[str, object], ...]:
