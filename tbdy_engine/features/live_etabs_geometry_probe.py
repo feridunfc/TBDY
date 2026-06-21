@@ -499,6 +499,7 @@ class AcceptedMappingGeometryRowProvider:
             property_rows=self.property_rows,
             mapping=self.mapping,
             component_type_evidence_by_unique_name=component_source.evidence_by_unique_name,
+            component_type_unsupported_unique_names=_unsupported_component_ids(component_source.diagnostics),
             length_unit_evidence=self.length_unit_evidence,
             require_length_unit_evidence=self.require_length_unit_evidence,
         )
@@ -676,11 +677,28 @@ class _EtabsComGeometryProvider:
             return (), table_diagnostics + component_source.diagnostics, summary
         if component_source.status != "FETCHED" or not component_source.evidence_by_unique_name:
             return (), component_source.diagnostics, summary
-        rows, resolver_diagnostics = resolve_geometry_rows_from_accepted_mapping(assignment_rows=assignment_result.rows, property_rows=property_result.rows, mapping=self.mapping, component_type_evidence_by_unique_name=component_source.evidence_by_unique_name, length_unit_evidence=length_unit_evidence, require_length_unit_evidence=need_unit_evidence)
+        rows, resolver_diagnostics = resolve_geometry_rows_from_accepted_mapping(
+            assignment_rows=assignment_result.rows,
+            property_rows=property_result.rows,
+            mapping=self.mapping,
+            component_type_evidence_by_unique_name=component_source.evidence_by_unique_name,
+            component_type_unsupported_unique_names=_unsupported_component_ids(component_source.diagnostics),
+            length_unit_evidence=length_unit_evidence,
+            require_length_unit_evidence=need_unit_evidence,
+        )
         return rows, component_source.diagnostics + unit_diagnostics + resolver_diagnostics, {**summary, "resolved_geometry_row_count": len(rows)}
 
 
-def resolve_geometry_rows_from_accepted_mapping(*, assignment_rows: Sequence[Mapping[str, object]], property_rows: Sequence[Mapping[str, object]], mapping: AcceptedGeometryMapping | None = DEFAULT_ACCEPTED_GEOMETRY_MAPPING, component_type_evidence_by_unique_name: Mapping[str, LiveFrameComponentTypeEvidence] | None = None, length_unit_evidence: LiveEtabsLengthUnitEvidence | None = None, require_length_unit_evidence: bool = False) -> tuple[tuple[Mapping[str, object], ...], tuple[LiveGeometryProbeDiagnostic, ...]]:
+def resolve_geometry_rows_from_accepted_mapping(
+    *,
+    assignment_rows: Sequence[Mapping[str, object]],
+    property_rows: Sequence[Mapping[str, object]],
+    mapping: AcceptedGeometryMapping | None = DEFAULT_ACCEPTED_GEOMETRY_MAPPING,
+    component_type_evidence_by_unique_name: Mapping[str, LiveFrameComponentTypeEvidence] | None = None,
+    component_type_unsupported_unique_names: frozenset[str] | None = None,
+    length_unit_evidence: LiveEtabsLengthUnitEvidence | None = None,
+    require_length_unit_evidence: bool = False,
+) -> tuple[tuple[Mapping[str, object], ...], tuple[LiveGeometryProbeDiagnostic, ...]]:
     diagnostics: list[LiveGeometryProbeDiagnostic] = []
     if mapping is None:
         return (), (LiveGeometryProbeDiagnostic(status="BLOCKED", code="ACCEPTED_GEOMETRY_MAPPING_MISSING", message="Accepted geometry mapping is missing; no geometry values were guessed"),)
@@ -700,7 +718,13 @@ def resolve_geometry_rows_from_accepted_mapping(*, assignment_rows: Sequence[Map
     properties_by_section = _index_property_rows(property_tuple, mapping=mapping)
     resolved_rows: list[Mapping[str, object]] = []
     for assignment_row in assignment_tuple:
-        assignment = _assignment_from_row(assignment_row, mapping=mapping, diagnostics=diagnostics, component_type_evidence_by_unique_name=component_type_evidence_by_unique_name)
+        assignment = _assignment_from_row(
+            assignment_row,
+            mapping=mapping,
+            diagnostics=diagnostics,
+            component_type_evidence_by_unique_name=component_type_evidence_by_unique_name,
+            component_type_unsupported_unique_names=component_type_unsupported_unique_names,
+        )
         if assignment is None:
             continue
         property_row = properties_by_section.get(assignment.section_name)
@@ -805,6 +829,14 @@ def _component_type_evidence_from_rows(*, rows: Sequence[Mapping[str, object]], 
     return evidence_by_unique_name, tuple(diagnostics)
 
 
+def _unsupported_component_ids(diagnostics: Sequence[LiveGeometryProbeDiagnostic]) -> frozenset[str]:
+    return frozenset(
+        diagnostic.component_id
+        for diagnostic in diagnostics
+        if diagnostic.code == "COMPONENT_TYPE_VALUE_UNSUPPORTED" and diagnostic.component_id
+    )
+
+
 def _table_read_result_from_raw(*, table_key: str, raw_result: object) -> LiveEtabsTableReadResult:
     metadata = _raw_table_metadata(raw_result)
     if isinstance(raw_result, Mapping):
@@ -850,7 +882,14 @@ def _table_read_result_from_mapping(*, table_key: str, raw_result: Mapping[objec
     return LiveEtabsTableReadResult(table_key=table_key, status="EMPTY", columns=columns, row_count=0, rows=(), raw_metadata=metadata)
 
 
-def _assignment_from_row(row: Mapping[str, object], *, mapping: AcceptedGeometryMapping, diagnostics: list[LiveGeometryProbeDiagnostic], component_type_evidence_by_unique_name: Mapping[str, LiveFrameComponentTypeEvidence] | None = None) -> LiveGeometryAssignmentRow | None:
+def _assignment_from_row(
+    row: Mapping[str, object],
+    *,
+    mapping: AcceptedGeometryMapping,
+    diagnostics: list[LiveGeometryProbeDiagnostic],
+    component_type_evidence_by_unique_name: Mapping[str, LiveFrameComponentTypeEvidence] | None = None,
+    component_type_unsupported_unique_names: frozenset[str] | None = None,
+) -> LiveGeometryAssignmentRow | None:
     story = _text(row.get("Story"))
     label = _text(row.get("Label"))
     unique_name = _text(row.get("UniqueName"))
@@ -858,6 +897,8 @@ def _assignment_from_row(row: Mapping[str, object], *, mapping: AcceptedGeometry
     if component_type_evidence_by_unique_name is not None:
         evidence = component_type_evidence_by_unique_name.get(unique_name)
         if evidence is None:
+            if unique_name in (component_type_unsupported_unique_names or frozenset()):
+                return None
             diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_JOIN_NOT_FOUND", message="No explicit component type evidence row matched the assignment UniqueName", component_id=unique_name, source_table=mapping.assignment_table_key))
             return None
         component_type = evidence.component_type
@@ -892,23 +933,25 @@ def _property_from_row(row: Mapping[str, object], *, mapping: AcceptedGeometryMa
 
 
 def _normalize_geometry_dimension(*, raw_value: object, source_column: str, row: Mapping[str, object], mapping: AcceptedGeometryMapping, assignment: LiveGeometryAssignmentRow, length_unit_evidence: LiveEtabsLengthUnitEvidence | None, require_length_unit_evidence: bool, diagnostics: list[LiveGeometryProbeDiagnostic]) -> NormalizedGeometryDimension | None:
-    if raw_value is None:
-        diagnostics.append(_dimension_not_numeric_diagnostic(assignment=assignment, mapping=mapping, source_column=source_column))
-        return None
-    if length_unit_evidence is None:
-        if require_length_unit_evidence:
-            diagnostics.append(_unit_evidence_missing_diagnostic(assignment=assignment, mapping=mapping, source_column=source_column))
-            return None
-        row_unit = _unit_from_property_row(row, mapping=mapping)
-        if row_unit == _REQUIRED_UNIT and _is_numeric(raw_value):
-            parsed = float(raw_value)
-            return NormalizedGeometryDimension(raw_value=raw_value, raw_value_type=type(raw_value).__name__, parsed_value=parsed, source_unit=_REQUIRED_UNIT, target_unit=_REQUIRED_UNIT, normalization_factor_to_mm=1.0, normalized_value=parsed, normalized_unit=_REQUIRED_UNIT, normalization_basis="PROPERTY_ROW_UNIT_MM", unit_evidence=None)
-        diagnostics.append(_dimension_not_numeric_diagnostic(assignment=assignment, mapping=mapping, source_column=source_column))
-        return None
-    parsed_value = _parse_plain_numeric(raw_value)
+    is_native_numeric = _is_numeric(raw_value)
+    parsed_value = float(raw_value) if is_native_numeric else _parse_plain_numeric(raw_value)
     if parsed_value is None:
         diagnostics.append(_dimension_not_numeric_diagnostic(assignment=assignment, mapping=mapping, source_column=source_column))
         return None
+
+    explicit_row_unit = _unit_from_property_row(row, mapping=mapping)
+    if explicit_row_unit == _REQUIRED_UNIT and is_native_numeric:
+        return NormalizedGeometryDimension(raw_value=raw_value, raw_value_type=type(raw_value).__name__, parsed_value=parsed_value, source_unit=_REQUIRED_UNIT, target_unit=_REQUIRED_UNIT, normalization_factor_to_mm=1.0, normalized_value=parsed_value, normalized_unit=_REQUIRED_UNIT, normalization_basis="PROPERTY_ROW_UNIT_MM", unit_evidence=None)
+
+    if length_unit_evidence is None:
+        if require_length_unit_evidence:
+            diagnostics.append(_unit_evidence_missing_diagnostic(assignment=assignment, mapping=mapping, source_column=source_column))
+        elif is_native_numeric:
+            diagnostics.append(_unit_not_proven_mm_diagnostic(assignment=assignment, mapping=mapping, source_column=source_column))
+        else:
+            diagnostics.append(_dimension_not_numeric_diagnostic(assignment=assignment, mapping=mapping, source_column=source_column))
+        return None
+
     source_unit = length_unit_evidence.present_length_unit
     factor = LENGTH_TO_MM_FACTOR.get(source_unit)
     if factor is None:
@@ -935,6 +978,10 @@ def _dimension_not_numeric_diagnostic(*, assignment: LiveGeometryAssignmentRow, 
 
 def _unit_evidence_missing_diagnostic(*, assignment: LiveGeometryAssignmentRow, mapping: AcceptedGeometryMapping, source_column: str) -> LiveGeometryProbeDiagnostic:
     return LiveGeometryProbeDiagnostic(status="BLOCKED", code="GEOMETRY_UNIT_EVIDENCE_MISSING", message="ETABS present length unit evidence is required before geometry normalization to mm", component_id=assignment.unique_name, component_type=assignment.component_type, feature_id=source_column, source_table=mapping.property_table_key)
+
+
+def _unit_not_proven_mm_diagnostic(*, assignment: LiveGeometryAssignmentRow, mapping: AcceptedGeometryMapping, source_column: str) -> LiveGeometryProbeDiagnostic:
+    return LiveGeometryProbeDiagnostic(status="BLOCKED", code="GEOMETRY_UNIT_NOT_PROVEN_MM", message="Numeric geometry value has no explicit mm unit and no runtime ETABS unit evidence", component_id=assignment.unique_name, component_type=assignment.component_type, feature_id=source_column, source_table=mapping.property_table_key)
 
 
 def _unit_values_from_raw(raw: tuple[object, ...], *, role: str) -> tuple[Mapping[str, str] | None, tuple[LiveGeometryProbeDiagnostic, ...]]:
