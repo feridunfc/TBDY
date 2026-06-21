@@ -28,6 +28,31 @@ def _read_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _collect_owned_files(root: Path) -> dict[str, str]:
+    owned_paths = (
+        root / "live_probe",
+        root / "product",
+        root / "live_geometry_product_summary.json",
+        root / "live_geometry_product_manifest.json",
+    )
+    collected: dict[str, str] = {}
+    for owned_path in owned_paths:
+        if owned_path.is_file():
+            collected[owned_path.relative_to(root).as_posix()] = owned_path.read_text(encoding="utf-8")
+        elif owned_path.is_dir():
+            for path in sorted(owned_path.rglob("*")):
+                if path.is_file():
+                    collected[path.relative_to(root).as_posix()] = path.read_text(encoding="utf-8")
+    return collected
+
+
+def _seed_stale_product_artifacts(root: Path) -> None:
+    for relative in REQUIRED_PRODUCT_FILES:
+        path = root / "product" / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(f"STALE:{relative}\n", encoding="utf-8")
+
+
 def _probe_runner(*, status: str, snapshot_count: int, diagnostic_count: int = 0, capture: dict | None = None):
     def run(**kwargs):
         if capture is not None:
@@ -170,6 +195,26 @@ def test_provider_creation_failure_writes_structured_failure_and_skips_product(t
     assert summary["product_status"] is None
 
 
+def test_stale_probe_snapshot_is_removed_before_provider_creation_failure(tmp_path: Path):
+    stale_snapshot = tmp_path / "live_probe" / "feature_snapshot.json"
+    stale_snapshot.parent.mkdir(parents=True, exist_ok=True)
+    stale_snapshot.write_text("STALE\n", encoding="utf-8")
+
+    def provider_factory():
+        assert not stale_snapshot.exists()
+        raise RuntimeError("provider creation failed")
+
+    result = run_live_geometry_product(
+        output_dir=tmp_path,
+        provider_factory=provider_factory,
+        probe_runner=_probe_runner(status="OK", snapshot_count=1),
+        product_runner=_successful_product_runner(),
+    )
+
+    assert result.status == "FAIL"
+    assert not stale_snapshot.exists()
+
+
 def test_probe_fail_skips_product_stage(tmp_path: Path):
     product_called = False
 
@@ -188,6 +233,23 @@ def test_probe_fail_skips_product_stage(tmp_path: Path):
     assert result.status == "FAIL"
     assert product_called is False
     assert _read_json(result.summary_path)["live_probe_status"] == "FAIL"
+
+
+def test_stale_product_artifacts_do_not_remain_after_probe_failure(tmp_path: Path):
+    _seed_stale_product_artifacts(tmp_path)
+    stale_check_results = tmp_path / "product" / "artifacts" / "check_results.json"
+    assert stale_check_results.is_file()
+
+    result = run_live_geometry_product(
+        output_dir=tmp_path,
+        provider_factory=lambda: object(),
+        probe_runner=_probe_runner(status="FAIL", snapshot_count=1, diagnostic_count=1),
+        product_runner=_successful_product_runner(),
+    )
+
+    assert result.status == "FAIL"
+    assert not stale_check_results.exists()
+    assert not (tmp_path / "product").exists()
 
 
 def test_zero_snapshot_probe_fails_and_skips_product(tmp_path: Path):
@@ -233,6 +295,44 @@ def test_missing_product_artifact_forces_fail(tmp_path: Path):
     assert result.status == "FAIL"
     assert summary["failure_stage"] == "PRODUCT_ARTIFACT_VALIDATION"
     assert summary["missing_product_files"]
+
+
+def test_stale_product_artifacts_cannot_satisfy_current_validation(tmp_path: Path):
+    _seed_stale_product_artifacts(tmp_path)
+    user_note = tmp_path / "user_note.txt"
+    user_note.write_text("preserve me\n", encoding="utf-8")
+
+    def incomplete_product_runner(*, feature_snapshot_path: Path, output_dir: Path):
+        root = Path(output_dir)
+        root.mkdir(parents=True, exist_ok=True)
+        summary_path = root / "product_smoke_summary.json"
+        summary_path.write_text('{"status":"OK"}\n', encoding="utf-8")
+        return SimpleNamespace(
+            status="OK",
+            product_smoke_summary_path=summary_path,
+            p4_check_result_count=1,
+            p4_adapter_diagnostic_count=0,
+        )
+
+    result = run_live_geometry_product(
+        output_dir=tmp_path,
+        provider_factory=lambda: object(),
+        probe_runner=_probe_runner(status="OK", snapshot_count=1),
+        product_runner=incomplete_product_runner,
+    )
+    summary = _read_json(result.summary_path)
+    manifest = _read_json(result.manifest_path)
+    expected_missing = [
+        relative
+        for relative in REQUIRED_PRODUCT_FILES
+        if relative != "product_smoke_summary.json"
+    ]
+
+    assert result.status == "FAIL"
+    assert summary["missing_product_files"] == expected_missing
+    assert not (tmp_path / "product" / "artifacts" / "check_results.json").exists()
+    assert user_note.read_text(encoding="utf-8") == "preserve me\n"
+    assert "user_note.txt" not in manifest["output_files"]
 
 
 def test_partial_probe_with_snapshots_runs_product_and_stays_partial(tmp_path: Path):
@@ -300,6 +400,33 @@ def test_orchestrator_does_not_rewrite_existing_product_artifacts(tmp_path: Path
     assert (tmp_path / "product" / "artifacts" / "check_results.json").read_text(encoding="utf-8") == marker
 
 
+def test_unrelated_root_file_is_preserved_and_excluded_from_manifest(tmp_path: Path):
+    user_note = tmp_path / "user_note.txt"
+    user_note.write_text("user-owned\n", encoding="utf-8")
+
+    result = run_live_geometry_product(
+        output_dir=tmp_path,
+        provider_factory=lambda: object(),
+        probe_runner=_probe_runner(status="OK", snapshot_count=1),
+        product_runner=_successful_product_runner(),
+    )
+    manifest = _read_json(result.manifest_path)
+
+    assert result.status == "OK"
+    assert user_note.read_text(encoding="utf-8") == "user-owned\n"
+    assert "user_note.txt" not in manifest["output_files"]
+    assert manifest["output_files"] == sorted(manifest["output_files"])
+    assert all(
+        path in {
+            "live_geometry_product_summary.json",
+            "live_geometry_product_manifest.json",
+        }
+        or path.startswith("live_probe/")
+        or path.startswith("product/")
+        for path in manifest["output_files"]
+    )
+
+
 def test_summary_and_manifest_are_deterministic_and_relative(tmp_path: Path):
     outputs = []
     for name in ("first", "second"):
@@ -320,6 +447,35 @@ def test_summary_and_manifest_are_deterministic_and_relative(tmp_path: Path):
     assert manifest["source_probe_manifest"] == "live_probe/live_geometry_probe_manifest.json"
     assert manifest["source_product_manifest"] == "product/product_smoke_manifest.json"
     assert manifest["feature_snapshot_consumed_without_rewrite"] is True
+
+
+def test_repeated_runs_into_same_output_directory_are_deterministic(tmp_path: Path):
+    root = tmp_path / "same-output"
+    user_note = root / "user_note.txt"
+    root.mkdir(parents=True, exist_ok=True)
+    user_note.write_text("persistent user file\n", encoding="utf-8")
+
+    first_result = run_live_geometry_product(
+        output_dir=root,
+        provider_factory=lambda: object(),
+        probe_runner=_probe_runner(status="OK", snapshot_count=1),
+        product_runner=_successful_product_runner(),
+    )
+    first_owned = _collect_owned_files(root)
+
+    second_result = run_live_geometry_product(
+        output_dir=root,
+        provider_factory=lambda: object(),
+        probe_runner=_probe_runner(status="OK", snapshot_count=1),
+        product_runner=_successful_product_runner(),
+    )
+    second_owned = _collect_owned_files(root)
+
+    assert first_result.status == "OK"
+    assert second_result.status == "OK"
+    assert first_owned == second_owned
+    assert user_note.read_text(encoding="utf-8") == "persistent user file\n"
+    assert "user_note.txt" not in _read_json(second_result.manifest_path)["output_files"]
 
 
 def test_selectors_and_max_rows_are_propagated_unchanged(tmp_path: Path):
