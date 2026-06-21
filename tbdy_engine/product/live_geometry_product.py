@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 import json
+import shutil
 
 from tbdy_engine.features.etabs_com_attach import EtabsAttachFailure
 from tbdy_engine.features.live_etabs_geometry_probe import (
@@ -29,6 +30,10 @@ _ALLOWED_STATUSES = frozenset({"OK", "PARTIAL", "FAIL"})
 _TOP_LEVEL_FILES = (
     "live_geometry_product_summary.json",
     "live_geometry_product_manifest.json",
+)
+_OWNED_DIRECTORIES = (
+    "live_probe",
+    "product",
 )
 _REQUIRED_PRODUCT_FILES = (
     "artifacts/check_results.json",
@@ -91,7 +96,7 @@ def run_live_geometry_product(
         "target_story": target_story,
         "max_rows": max_rows,
     }
-    root.mkdir(parents=True, exist_ok=True)
+    _prepare_owned_output_paths(root)
 
     provider_factory = provider_factory or create_live_etabs_geometry_provider
     probe_runner = probe_runner or probe_geometry_feature_snapshots
@@ -291,6 +296,21 @@ def run_live_geometry_product(
     )
 
 
+def _prepare_owned_output_paths(root: Path) -> None:
+    root.mkdir(parents=True, exist_ok=True)
+    for directory_name in _OWNED_DIRECTORIES:
+        _remove_owned_path(root / directory_name)
+    for file_name in _TOP_LEVEL_FILES:
+        _remove_owned_path(root / file_name)
+
+
+def _remove_owned_path(path: Path) -> None:
+    if path.is_symlink() or path.is_file():
+        path.unlink()
+    elif path.is_dir():
+        shutil.rmtree(path)
+
+
 def _finish(
     *,
     root: Path,
@@ -359,7 +379,13 @@ def _finish(
         "feature_snapshot_consumed_without_rewrite": True,
         "source_probe_manifest": _relative(root, probe_manifest if probe_manifest.is_file() else None),
         "source_product_manifest": _relative(root, product_manifest if product_manifest.is_file() else None),
-        "output_files": _output_files(root, manifest_path),
+        "output_files": _output_files(
+            root=root,
+            probe_dir=probe_dir,
+            product_dir=product_dir,
+            summary_path=summary_path,
+            manifest_path=manifest_path,
+        ),
         "selectors": dict(selectors),
     }
     _write_json(manifest_path, manifest)
@@ -427,13 +453,26 @@ def _relative(root: Path, path: Path | None) -> str | None:
         return str(Path(path))
 
 
-def _output_files(root: Path, manifest_path: Path) -> list[str]:
+def _output_files(
+    *,
+    root: Path,
+    probe_dir: Path,
+    product_dir: Path,
+    summary_path: Path,
+    manifest_path: Path,
+) -> list[str]:
     files = {
-        path.relative_to(root).as_posix()
-        for path in root.rglob("*")
-        if path.is_file()
+        summary_path.relative_to(root).as_posix(),
+        manifest_path.relative_to(root).as_posix(),
     }
-    files.add(manifest_path.relative_to(root).as_posix())
+    for owned_directory in (probe_dir, product_dir):
+        if not owned_directory.is_dir():
+            continue
+        files.update(
+            path.relative_to(root).as_posix()
+            for path in owned_directory.rglob("*")
+            if path.is_file()
+        )
     return sorted(files)
 
 
