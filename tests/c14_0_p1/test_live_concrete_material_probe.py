@@ -7,6 +7,7 @@ import subprocess
 import sys
 
 import pytest
+import yaml
 
 from tbdy_engine.features import live_etabs_concrete_material_probe as material_probe
 from tbdy_engine.features.etabs_com_attach import EtabsAttachAttempt, EtabsAttachResult
@@ -398,6 +399,19 @@ def test_exact_one_to_one_material_join_resolves(tmp_path: Path):
     assert summary["material_join_missing_count"] == 0
     assert summary["material_join_duplicate_count"] == 0
     assert summary["fc_resolved_count"] == 1
+
+
+def test_concrete_fck_semantic_role_matches_feature_catalog(tmp_path: Path):
+    result = _run(tmp_path)
+    payload = _read_json(result.feature_snapshot_path)
+    serialized_feature = payload["snapshots"][0]["features"]["concrete_fck_mpa"]
+    catalog = yaml.safe_load(
+        (ROOT / "tbdy_engine/catalogs/feature_catalog.yaml").read_text(encoding="utf-8")
+    )
+    catalog_role = catalog["features"]["concrete_fck_mpa"]["semantic_role"]
+
+    assert catalog_role == "DESIGN_BASIS"
+    assert serialized_feature["semantic_role"] == catalog_role
 
 
 @pytest.mark.parametrize(
