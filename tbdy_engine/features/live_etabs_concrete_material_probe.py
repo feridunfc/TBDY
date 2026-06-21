@@ -1,7 +1,7 @@
 """C14.0-P1 live concrete-material FeatureSnapshot evidence probe.
 
-The production source is intentionally locked to three proven ETABS display
-arrays.  Direct material APIs are outside this module's production boundary.
+The production source is locked to proven ETABS display tables. Direct frame or
+material property APIs are outside this production boundary.
 """
 from __future__ import annotations
 
@@ -42,18 +42,14 @@ _OUTPUT_FILES = (
     "concrete_material_probe_diagnostics.json",
     "concrete_material_probe_manifest.json",
 )
-_ATTACH_FAILURE_OUTPUT_FILES = (
-    "concrete_material_probe_summary.json",
-    "concrete_material_probe_diagnostics.json",
-    "concrete_material_probe_manifest.json",
-)
+_ATTACH_FAILURE_OUTPUT_FILES = _OUTPUT_FILES[1:]
 _ASSIGNMENT_TABLE = "Frame Assignments - Section Properties"
 _SECTION_TABLE = "Frame Section Property Definitions - Concrete Rectangular"
 _MATERIAL_TABLE = "Material Properties - Concrete Data"
 _COMPONENT_TYPE_TABLE = "Frame Assignments - Summary"
 _FEATURE_ID = "concrete_fck_mpa"
-_SOURCE_STRESS_UNIT = "kN/m²"
 _TARGET_STRENGTH_UNIT = "MPa"
+_SOURCE_STRESS_UNIT = "kN/m²"
 _NORMALIZATION_FACTOR_TO_MPA = 0.001
 _NORMALIZATION_BASIS = "EXPLICIT_LIVE_SOURCE_LOCK_FC_KN_PER_M2_TO_MPA"
 _NUMERIC_LITERAL_RE = re.compile(r"^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$")
@@ -184,7 +180,7 @@ class ConcreteMaterialProbeInput:
     material_columns: tuple[str, ...]
     material_table_status: str
     unit_evidence: LiveEtabsLengthUnitEvidence | None
-    source_diagnostics: tuple[ConcreteMaterialProbeDiagnostic, ...] = ()
+    source_diagnostics: tuple[ConcreteMaterialProbeDiagnostic, ...]
 
     def __init__(
         self,
@@ -193,8 +189,8 @@ class ConcreteMaterialProbeInput:
         section_columns: Sequence[str],
         material_rows: Sequence[Mapping[str, object]],
         material_columns: Sequence[str],
-        material_table_status: str = "FETCHED",
         unit_evidence: LiveEtabsLengthUnitEvidence | None,
+        material_table_status: str = "FETCHED",
         source_diagnostics: Sequence[ConcreteMaterialProbeDiagnostic] = (),
     ) -> None:
         object.__setattr__(self, "geometry_rows", tuple(dict(row) for row in geometry_rows))
@@ -257,6 +253,17 @@ class _ResolvedConcreteFeature:
     raw_material_name: object
 
 
+class _LockedMaterialTableAdapter:
+    """Expose the exact material table as a mapping to the existing row parser."""
+
+    def __init__(self, database_tables: object) -> None:
+        self._database_tables = database_tables
+
+    def GetTableForDisplayArray(self, table_key: str, *args: object) -> object:
+        raw_result = self._database_tables.GetTableForDisplayArray(table_key, *args)
+        return _locked_material_table_mapping(raw_result)
+
+
 class _LiveEtabsConcreteMaterialProvider:
     def __init__(
         self,
@@ -291,7 +298,7 @@ class _LiveEtabsConcreteMaterialProvider:
             self._mapping.section_table_key,
         )
         material_result = read_live_etabs_table_for_geometry(
-            database_tables,
+            _LockedMaterialTableAdapter(database_tables),
             self._mapping.material_table_key,
         )
         component_source = read_live_frame_component_type_source(database_tables)
@@ -313,9 +320,7 @@ class _LiveEtabsConcreteMaterialProvider:
                 message=section_result.message,
             )
         )
-        source_diagnostics.extend(
-            _convert_geometry_diagnostics(component_source.diagnostics)
-        )
+        source_diagnostics.extend(_convert_geometry_diagnostics(component_source.diagnostics))
 
         unsupported_component_ids = frozenset(
             diagnostic.component_id
@@ -401,11 +406,13 @@ def probe_concrete_material_feature_snapshots(
         mapping=mapping,
         diagnostics=diagnostics,
     )
-    unit_blocked = _validate_material_units(
-        unit_evidence=probe_input.unit_evidence,
-        mapping=mapping,
-        diagnostics=diagnostics,
-    )
+    unit_blocked = False
+    if not schema_blocked:
+        unit_blocked = _validate_material_units(
+            unit_evidence=probe_input.unit_evidence,
+            mapping=mapping,
+            diagnostics=diagnostics,
+        )
 
     if not schema_blocked and not unit_blocked:
         for row in selected_rows:
@@ -417,15 +424,14 @@ def probe_concrete_material_feature_snapshots(
                 diagnostics=diagnostics,
                 counts=counts,
             )
-            if resolved is None:
-                continue
-            snapshots.append(
-                _snapshot_from_resolved_row(
-                    geometry_row=row,
-                    concrete_feature=resolved.feature,
-                    raw_material_name=resolved.raw_material_name,
+            if resolved is not None:
+                snapshots.append(
+                    _snapshot_from_resolved_row(
+                        geometry_row=row,
+                        concrete_feature=resolved.feature,
+                        raw_material_name=resolved.raw_material_name,
+                    )
                 )
-            )
     elif selected_rows:
         counts.fc_blocked_count += len(selected_rows)
 
@@ -456,14 +462,8 @@ def probe_concrete_material_feature_snapshots(
     )
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    _write_json(
-        feature_snapshot_path,
-        {"snapshots": [snapshot.as_dict() for snapshot in snapshots]},
-    )
-    _write_json(
-        diagnostics_path,
-        [diagnostic.as_dict() for diagnostic in diagnostics],
-    )
+    _write_json(feature_snapshot_path, {"snapshots": [item.as_dict() for item in snapshots]})
+    _write_json(diagnostics_path, [item.as_dict() for item in diagnostics])
     _write_json(
         summary_path,
         {
@@ -516,7 +516,6 @@ def probe_concrete_material_feature_snapshots(
             },
         },
     )
-
     return ConcreteMaterialProbeResult(
         status=status,
         output_dir=out_dir,
@@ -616,6 +615,31 @@ def write_concrete_material_attach_failure_outputs(
     )
 
 
+def _locked_material_table_mapping(raw_result: object) -> object:
+    if isinstance(raw_result, Mapping):
+        return raw_result
+    if not isinstance(raw_result, Sequence) or isinstance(raw_result, (str, bytes, bytearray)):
+        return raw_result
+    sequences = tuple(
+        item
+        for item in raw_result
+        if isinstance(item, Sequence) and not isinstance(item, (str, bytes, bytearray))
+    )
+    required = {"Material", "Fc", "SFc"}
+    for index, sequence in enumerate(sequences):
+        if not all(isinstance(value, str) for value in sequence):
+            continue
+        columns = tuple(str(value) for value in sequence)
+        if not required.issubset(set(columns)):
+            continue
+        for data_sequence in sequences[index + 1 :]:
+            if tuple(data_sequence) == columns:
+                continue
+            return {"columns": list(columns), "flat_data": list(data_sequence)}
+        return {"columns": list(columns), "flat_data": []}
+    return raw_result
+
+
 def _validate_locked_source_schema(
     *,
     probe_input: ConcreteMaterialProbeInput,
@@ -635,34 +659,40 @@ def _validate_locked_source_schema(
         )
         blocked = True
 
-    if mapping.section_material_column not in probe_input.section_columns:
+    missing_section_columns = [
+        column
+        for column in (mapping.section_name_column, mapping.section_material_column)
+        if column not in probe_input.section_columns
+    ]
+    if missing_section_columns:
         diagnostics.append(
             ConcreteMaterialProbeDiagnostic(
                 status="BLOCKED",
                 code="MATERIAL_TABLE_REQUIRED_COLUMN_MISSING",
-                message="Locked section definition table is missing the Material column",
+                message="Locked section definition table is missing required material columns",
                 source_table=mapping.section_table_key,
-                details={"missing_columns": [mapping.section_material_column]},
+                details={"missing_columns": missing_section_columns},
             )
         )
         blocked = True
 
-    missing_material_columns = [
-        column
-        for column in (mapping.material_name_column, mapping.concrete_strength_column)
-        if column not in probe_input.material_columns
-    ]
-    if missing_material_columns:
-        diagnostics.append(
-            ConcreteMaterialProbeDiagnostic(
-                status="BLOCKED",
-                code="MATERIAL_TABLE_REQUIRED_COLUMN_MISSING",
-                message="Locked concrete material table is missing required columns",
-                source_table=mapping.material_table_key,
-                details={"missing_columns": missing_material_columns},
+    if probe_input.material_table_status == "FETCHED":
+        missing_material_columns = [
+            column
+            for column in (mapping.material_name_column, mapping.concrete_strength_column)
+            if column not in probe_input.material_columns
+        ]
+        if missing_material_columns:
+            diagnostics.append(
+                ConcreteMaterialProbeDiagnostic(
+                    status="BLOCKED",
+                    code="MATERIAL_TABLE_REQUIRED_COLUMN_MISSING",
+                    message="Locked concrete material table is missing required columns",
+                    source_table=mapping.material_table_key,
+                    details={"missing_columns": missing_material_columns},
+                )
             )
-        )
-        blocked = True
+            blocked = True
     return blocked
 
 
@@ -682,22 +712,30 @@ def _validate_material_units(
             )
         )
         return True
-    if (
-        unit_evidence.present_force_unit != mapping.source_force_unit
-        or unit_evidence.present_length_unit != mapping.source_length_unit
-    ):
+    actual_pairs = (
+        (unit_evidence.present_force_unit, unit_evidence.present_length_unit),
+        (unit_evidence.database_force_unit, unit_evidence.database_length_unit),
+    )
+    expected_pair = (mapping.source_force_unit, mapping.source_length_unit)
+    if any(pair != expected_pair for pair in actual_pairs):
         diagnostics.append(
             ConcreteMaterialProbeDiagnostic(
                 status="BLOCKED",
                 code="MATERIAL_STRESS_UNIT_UNSUPPORTED",
-                message="Runtime ETABS force/length unit pair is not supported for Fc normalization",
+                message="Runtime ETABS force/length unit evidence is not the locked kN/m pair",
                 source_table=mapping.material_table_key,
                 details={
-                    "source_force_unit": unit_evidence.present_force_unit,
-                    "source_length_unit": unit_evidence.present_length_unit,
-                    "source_stress_unit": _stress_unit(
+                    "present_force_unit": unit_evidence.present_force_unit,
+                    "present_length_unit": unit_evidence.present_length_unit,
+                    "present_stress_unit": _stress_unit(
                         unit_evidence.present_force_unit,
                         unit_evidence.present_length_unit,
+                    ),
+                    "database_force_unit": unit_evidence.database_force_unit,
+                    "database_length_unit": unit_evidence.database_length_unit,
+                    "database_stress_unit": _stress_unit(
+                        unit_evidence.database_force_unit,
+                        unit_evidence.database_length_unit,
                     ),
                     "supported_force_unit": mapping.source_force_unit,
                     "supported_length_unit": mapping.source_length_unit,
@@ -719,9 +757,35 @@ def _resolve_concrete_feature(
 ) -> _ResolvedConcreteFeature | None:
     component_id = _optional_text(geometry_row.get("component_id"))
     component_type = _optional_text(geometry_row.get("component_type"))
+    assignment_row = geometry_row.get("assignment_source_row")
     section_row = geometry_row.get("property_source_row")
+    if not isinstance(assignment_row, Mapping):
+        assignment_row = {}
     if not isinstance(section_row, Mapping):
         section_row = {}
+
+    assignment_section_column = geometry_row.get("assignment_section_column") or "SectProp"
+    raw_assigned_section = assignment_row.get(assignment_section_column)
+    raw_defined_section = section_row.get(mapping.section_name_column)
+    if raw_assigned_section != raw_defined_section:
+        diagnostics.append(
+            ConcreteMaterialProbeDiagnostic(
+                status="NO_DATA",
+                code="SECTION_DEFINITION_EXACT_JOIN_MISMATCH",
+                message="Assignment SectProp and section Name are not exactly equal as raw values",
+                component_id=component_id,
+                component_type=component_type,
+                feature_id=_FEATURE_ID,
+                source_table=mapping.section_table_key,
+                details={
+                    "raw_assigned_section": raw_assigned_section,
+                    "raw_defined_section": raw_defined_section,
+                },
+            )
+        )
+        counts.fc_blocked_count += 1
+        return None
+
     raw_material_name = section_row.get(mapping.section_material_column)
     if raw_material_name is None or raw_material_name == "":
         diagnostics.append(
@@ -851,9 +915,9 @@ def _resolve_concrete_feature(
 
     evidence_details = {
         "assignment_source_table": geometry_row.get("source_table_assignment"),
-        "assignment_source_row": dict(geometry_row.get("assignment_source_row") or {}),
-        "assignment_section_column": geometry_row.get("assignment_section_column"),
-        "assigned_section_name": geometry_row.get("section_name"),
+        "assignment_source_row": dict(assignment_row),
+        "assignment_section_column": assignment_section_column,
+        "assigned_section_name": raw_assigned_section,
         "section_definition_source_table": mapping.section_table_key,
         "section_definition_source_row": dict(section_row),
         "section_name_column": mapping.section_name_column,
@@ -948,7 +1012,7 @@ def _geometry_feature(
     value = float(geometry_row[value_key])
     details = dict(geometry_row.get(details_key) or {})
     source_column = geometry_row.get(f"{value_key}_source_column") or value_key
-    source_table = geometry_row.get("source_table_property") or geometry_row.get("source_table")
+    source_table = geometry_row.get("source_table_property") or geometry_row.get("source_table") or _SECTION_TABLE
     source_row = dict(geometry_row.get("property_source_row") or {})
     source_row.update(details)
     evidence = FeatureEvidence(
@@ -1002,10 +1066,9 @@ def _source_table_diagnostics(
 ) -> tuple[ConcreteMaterialProbeDiagnostic, ...]:
     if status == "FETCHED":
         return ()
-    diagnostic_status = "NO_DATA" if status == "EMPTY" else "BLOCKED"
     return (
         ConcreteMaterialProbeDiagnostic(
-            status=diagnostic_status,
+            status="NO_DATA" if status == "EMPTY" else "BLOCKED",
             code=f"{role}_TABLE_SOURCE_UNAVAILABLE",
             message=message or f"{role.title()} source table could not be read",
             source_table=table_key,
@@ -1019,15 +1082,15 @@ def _convert_geometry_diagnostics(
 ) -> tuple[ConcreteMaterialProbeDiagnostic, ...]:
     return tuple(
         ConcreteMaterialProbeDiagnostic(
-            status=diagnostic.status,
-            code=diagnostic.code,
-            message=diagnostic.message,
-            component_id=diagnostic.component_id,
-            component_type=diagnostic.component_type,
-            feature_id=diagnostic.feature_id,
-            source_table=diagnostic.source_table,
+            status=item.status,
+            code=item.code,
+            message=item.message,
+            component_id=item.component_id,
+            component_type=item.component_type,
+            feature_id=item.feature_id,
+            source_table=item.source_table,
         )
-        for diagnostic in diagnostics
+        for item in diagnostics
     )
 
 
@@ -1077,6 +1140,8 @@ def _prepare_owned_output_files(output_dir: Path) -> None:
 
 
 def _json_safe(value: object) -> object:
+    if isinstance(value, float) and not math.isfinite(value):
+        return str(value)
     if value is None or isinstance(value, (str, int, float, bool)):
         return value
     if isinstance(value, Mapping):
