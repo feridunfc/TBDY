@@ -12,9 +12,11 @@ from tbdy_engine.features.live_etabs_geometry_probe import (
     LENGTH_TO_MM_FACTOR,
     LENGTH_UNITS,
     LiveEtabsLengthUnitEvidence,
+    MappingGeometryRowProvider,
     create_live_etabs_geometry_provider,
     probe_geometry_feature_snapshots,
     resolve_geometry_rows_from_accepted_mapping,
+    write_com_attach_failure_probe_outputs,
 )
 
 ASSIGNMENT_TABLE = "Frame Assignments - Section Properties"
@@ -243,6 +245,129 @@ def test_unsupported_explicit_component_type_does_not_emit_join_not_found(tmp_pa
     assert result.snapshot_count == 1
     assert "COMPONENT_TYPE_VALUE_UNSUPPORTED" in _codes(diagnostics)
     assert "COMPONENT_TYPE_JOIN_NOT_FOUND" not in _codes(diagnostics)
+
+
+def test_direct_beam_aliases_resolve_and_preserve_raw_provenance(tmp_path: Path):
+    provider = MappingGeometryRowProvider(
+        (
+            {
+                "component_type": "beam",
+                "component_id": "B1",
+                "beam_width_mm": 400.0,
+                "beam_depth_mm": 700.0,
+                "beam_width_mm_unit": "mm",
+                "beam_depth_mm_unit": "mm",
+                "beam_width_mm_source_column": "BeamWidthFixture",
+                "beam_depth_mm_source_column": "BeamDepthFixture",
+                "source_table": "direct_fixture",
+            },
+        )
+    )
+
+    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
+    payload = json.loads((tmp_path / "feature_snapshot.json").read_text(encoding="utf-8"))
+    features = payload["snapshots"][0]["features"]
+    width_evidence = features["beam_width_mm"]["evidence"][0]
+    depth_evidence = features["beam_depth_mm"]["evidence"][0]
+
+    assert result.status == "OK"
+    assert features["beam_width_mm"]["status"] == "RESOLVED"
+    assert features["beam_depth_mm"]["status"] == "RESOLVED"
+    assert features["beam_width_mm"]["value"] == 400.0
+    assert features["beam_depth_mm"]["value"] == 700.0
+    assert width_evidence["source_column"] == "BeamWidthFixture"
+    assert depth_evidence["source_column"] == "BeamDepthFixture"
+    assert width_evidence["raw_value"] == 400.0
+    assert depth_evidence["raw_value"] == 700.0
+
+
+def test_direct_column_aliases_resolve(tmp_path: Path):
+    provider = MappingGeometryRowProvider(
+        (
+            {
+                "component_type": "column",
+                "component_id": "C1",
+                "column_width_mm": 500.0,
+                "column_depth_mm": 600.0,
+                "unit": "mm",
+                "source_table": "direct_fixture",
+            },
+        )
+    )
+
+    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
+    payload = json.loads((tmp_path / "feature_snapshot.json").read_text(encoding="utf-8"))
+    features = payload["snapshots"][0]["features"]
+
+    assert result.status == "OK"
+    assert features["column_width_mm"]["value"] == 500.0
+    assert features["column_depth_mm"]["value"] == 600.0
+    assert features["column_width_mm"]["evidence"][0]["source_column"] == "column_width_mm"
+    assert features["column_depth_mm"]["evidence"][0]["source_column"] == "column_depth_mm"
+
+
+def test_direct_provider_cm_unit_remains_partial_without_conversion(tmp_path: Path):
+    provider = MappingGeometryRowProvider(
+        (
+            {
+                "component_type": "beam",
+                "component_id": "B1",
+                "beam_width_mm": 40.0,
+                "beam_depth_mm": 70.0,
+                "unit": "cm",
+                "source_table": "direct_fixture",
+            },
+        )
+    )
+
+    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
+    payload = json.loads((tmp_path / "feature_snapshot.json").read_text(encoding="utf-8"))
+    diagnostics = json.loads((tmp_path / "live_geometry_probe_diagnostics.json").read_text(encoding="utf-8"))
+    features = payload["snapshots"][0]["features"]
+
+    assert result.status == "PARTIAL"
+    assert features["beam_width_mm"]["status"] == "PARTIAL"
+    assert features["beam_depth_mm"]["status"] == "PARTIAL"
+    assert features["beam_width_mm"]["unit"] == "cm"
+    assert features["beam_depth_mm"]["unit"] == "cm"
+    assert {item["code"] for item in diagnostics} == {"GEOMETRY_UNIT_NOT_MM"}
+
+
+def test_attach_failure_summary_retains_stable_p3_fields(tmp_path: Path):
+    attach_result = EtabsAttachResult(
+        status="FAILED",
+        strategy=None,
+        etabs_object=None,
+        sap_model=None,
+        attempts=(
+            EtabsAttachAttempt(
+                strategy="comtypes_get_active_object_etabs_api_object",
+                status="FAILED",
+                message="No running ETABS instance",
+                prog_id="CSI.ETABS.API.ETABSObject",
+            ),
+        ),
+    )
+
+    result = write_com_attach_failure_probe_outputs(output_dir=tmp_path, attach_result=attach_result)
+    summary = json.loads((tmp_path / "live_geometry_probe_summary.json").read_text(encoding="utf-8"))
+
+    assert result.status == "FAIL"
+    assert summary == {
+        "assignment_table_row_count": 0,
+        "component_type_resolved_row_count": 0,
+        "component_type_source_row_count": 0,
+        "component_type_source_status": "NOT_ATTEMPTED",
+        "component_type_source_table": None,
+        "component_type_unresolved_row_count": 0,
+        "diagnostic_count": 1,
+        "failure_stage": "COM_ATTACH",
+        "feature_snapshot_written": False,
+        "property_table_row_count": 0,
+        "resolved_geometry_row_count": 0,
+        "scope": "LIVE_ETABS_GEOMETRY_FEATURE_SNAPSHOT_PROBE",
+        "status": "FAIL",
+    }
 
 
 class _FakeDatabaseTables:
