@@ -104,6 +104,43 @@ def test_integer_numeric_string_depth_is_parsed_and_normalized():
     assert rows[0]["depth_mm"] == 1000.0
 
 
+def test_native_numeric_with_runtime_unit_normalizes_to_mm():
+    rows, diagnostics = resolve_geometry_rows_from_accepted_mapping(
+        assignment_rows=_assignment_rows(),
+        property_rows=_property_rows(width=0.4, depth=0.7),
+        length_unit_evidence=_unit_evidence("m"),
+        require_length_unit_evidence=True,
+    )
+
+    assert diagnostics == ()
+    assert rows[0]["width_mm"] == 400.0
+    assert rows[0]["depth_mm"] == 700.0
+
+
+def test_native_numeric_without_unit_legacy_path_preserves_p5_diagnostic():
+    rows, diagnostics = resolve_geometry_rows_from_accepted_mapping(
+        assignment_rows=_assignment_rows(),
+        property_rows=_property_rows(width=400.0, depth=700.0),
+        length_unit_evidence=None,
+        require_length_unit_evidence=False,
+    )
+
+    assert rows == ()
+    assert _codes(diagnostics) == {"GEOMETRY_UNIT_NOT_PROVEN_MM"}
+
+
+def test_native_numeric_without_unit_live_required_path_reports_missing_evidence():
+    rows, diagnostics = resolve_geometry_rows_from_accepted_mapping(
+        assignment_rows=_assignment_rows(),
+        property_rows=_property_rows(width=0.4, depth=0.7),
+        length_unit_evidence=None,
+        require_length_unit_evidence=True,
+    )
+
+    assert rows == ()
+    assert _codes(diagnostics) == {"GEOMETRY_UNIT_EVIDENCE_MISSING"}
+
+
 def test_feature_evidence_preserves_raw_value_unit_factor_and_normalized_value(tmp_path: Path):
     provider = AcceptedMappingGeometryRowProvider(
         assignment_rows=_assignment_rows(),
@@ -180,6 +217,32 @@ def test_unknown_length_enum_reports_unsupported_unit():
 
     assert rows == ()
     assert "GEOMETRY_UNIT_NORMALIZATION_UNSUPPORTED" in _codes(diagnostics)
+
+
+def test_unsupported_explicit_component_type_does_not_emit_join_not_found(tmp_path: Path):
+    assignment_rows = (
+        {"Story": "+14.5", "Label": "BR1", "UniqueName": "297", "SectProp": "SEC"},
+        {"Story": "+14.5", "Label": "B1", "UniqueName": "301", "SectProp": "SEC"},
+    )
+    component_type_rows = (
+        {"UniqueName": "297", "Type": "Brace"},
+        {"UniqueName": "301", "Type": "Beam"},
+    )
+    provider = AcceptedMappingGeometryRowProvider(
+        assignment_rows=assignment_rows,
+        property_rows=_property_rows(),
+        component_type_rows=component_type_rows,
+        length_unit_evidence=_unit_evidence("m"),
+        require_length_unit_evidence=True,
+    )
+
+    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
+    diagnostics = tuple(provider.iter_geometry_diagnostics())
+
+    assert result.status == "PARTIAL"
+    assert result.snapshot_count == 1
+    assert "COMPONENT_TYPE_VALUE_UNSUPPORTED" in _codes(diagnostics)
+    assert "COMPONENT_TYPE_JOIN_NOT_FOUND" not in _codes(diagnostics)
 
 
 class _FakeDatabaseTables:
