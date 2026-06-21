@@ -956,7 +956,7 @@ def _resolve_concrete_feature(
         feature_name=_FEATURE_ID,
         value=normalized_fc,
         unit=mapping.target_strength_unit,
-        semantic_role="MATERIAL",
+        semantic_role="DESIGN_BASIS",
         status=FeatureValueStatus.RESOLVED,
         evidence=(evidence,),
     )
