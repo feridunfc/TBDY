@@ -625,7 +625,7 @@ def _locked_material_table_mapping(raw_result: object) -> object:
         for item in raw_result
         if isinstance(item, Sequence) and not isinstance(item, (str, bytes, bytearray))
     )
-    required = {"Material", "Fc", "SFc"}
+    required = {"Material", "Fc"}
     for index, sequence in enumerate(sequences):
         if not all(isinstance(value, str) for value in sequence):
             continue
@@ -1046,12 +1046,11 @@ def _parse_plain_finite_numeric(raw_value: object) -> tuple[float | None, str | 
         return parsed, None
     if not isinstance(raw_value, str):
         return None, "CONCRETE_FC_VALUE_NOT_NUMERIC"
-    text = raw_value.strip()
-    if text.casefold() in _NON_FINITE_TOKENS:
+    if raw_value.casefold() in _NON_FINITE_TOKENS:
         return None, "CONCRETE_FC_VALUE_NON_FINITE"
-    if not _NUMERIC_LITERAL_RE.fullmatch(text):
+    if not _NUMERIC_LITERAL_RE.fullmatch(raw_value):
         return None, "CONCRETE_FC_VALUE_NOT_NUMERIC"
-    parsed = float(text)
+    parsed = float(raw_value)
     if not math.isfinite(parsed):
         return None, "CONCRETE_FC_VALUE_NON_FINITE"
     return parsed, None
