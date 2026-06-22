@@ -13,6 +13,30 @@ _ASSIGNMENT_TABLE = "Frame Assignments - Section Properties"
 _SECTION_TABLE = "Frame Section Property Definitions - Concrete Rectangular"
 _CONNECTIVITY_TABLE = "Beam Object Connectivity"
 _OFFSET_TABLE = "Frame Assignments - End Length Offsets"
+class _ExactColumnsAdapter:
+    def __init__(self, database_tables: object, required_columns: frozenset[str]) -> None:
+        self._database_tables = database_tables
+        self._required_columns = required_columns
+    def GetTableForDisplayArray(self, table_key: str, *args: object) -> object:
+        raw_result = self._database_tables.GetTableForDisplayArray(table_key, *args)
+        return _exact_table_mapping(raw_result, self._required_columns)
+def _exact_table_mapping(raw_result: object, required_columns: frozenset[str]) -> object:
+    if isinstance(raw_result, Mapping):
+        return raw_result
+    if not isinstance(raw_result, Sequence) or isinstance(raw_result, (str, bytes, bytearray)):
+        return raw_result
+    sequences = tuple(item for item in raw_result if isinstance(item, Sequence) and not isinstance(item, (str, bytes, bytearray)))
+    for index, sequence in enumerate(sequences):
+        if not all(isinstance(value, str) for value in sequence):
+            continue
+        columns = tuple(str(value) for value in sequence)
+        if not required_columns.issubset(set(columns)):
+            continue
+        for flat_data in sequences[index + 1:]:
+            if tuple(flat_data) != columns:
+                return {"columns": list(columns), "flat_data": list(flat_data)}
+        return {"columns": list(columns), "flat_data": []}
+    return raw_result
 def _load_live_source(attach_result: EtabsAttachResult, work_dir: Path) -> Mapping[str, object]:
     sap_model = attach_result.sap_model
     if sap_model is None:
@@ -30,8 +54,16 @@ def _load_live_source(attach_result: EtabsAttachResult, work_dir: Path) -> Mappi
     payload = _read_json(probe_result.feature_snapshot_path)
     diagnostics = _read_json(probe_result.diagnostics_path)
     table_rows = {}
-    for key, table_name in (("component_rows", _COMPONENT_TABLE), ("assignment_rows", _ASSIGNMENT_TABLE), ("section_rows", _SECTION_TABLE), ("connectivity_rows", _CONNECTIVITY_TABLE), ("offset_rows", _OFFSET_TABLE)):
-        result = read_live_etabs_table_for_geometry(database_tables, table_name)
+    table_specs = (
+        ("component_rows", _COMPONENT_TABLE, frozenset()),
+        ("assignment_rows", _ASSIGNMENT_TABLE, frozenset()),
+        ("section_rows", _SECTION_TABLE, frozenset()),
+        ("connectivity_rows", _CONNECTIVITY_TABLE, frozenset({"UniqueName", "Length"})),
+        ("offset_rows", _OFFSET_TABLE, frozenset({"UniqueName", "OffsetI", "OffsetJ"})),
+    )
+    for key, table_name, required_columns in table_specs:
+        table_source = _ExactColumnsAdapter(database_tables, required_columns) if required_columns else database_tables
+        result = read_live_etabs_table_for_geometry(table_source, table_name)
         table_rows[key] = [dict(row) for row in result.rows]
         if result.status != "FETCHED":
             diagnostics.append({"status": "NO_DATA" if result.status == "EMPTY" else "BLOCKED", "code": "PRODUCT_SOURCE_TABLE_UNAVAILABLE", "source_table": table_name, "message": result.message or f"{table_name} is unavailable"})
