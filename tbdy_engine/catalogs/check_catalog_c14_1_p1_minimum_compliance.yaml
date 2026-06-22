@@ -12,6 +12,14 @@ checks:
     tbdy_ref: TBDY 2018 7.4.1.1(a)
     review_status: LOCKED
   beam_geometry_min_depth:
+    title: Internal engine compatibility definition for absolute beam depth
+    element_type: beam
+    required_features: [beam_depth_mm]
+    limit: 300.0
+    unit: mm
+    tbdy_ref: TBDY 2018 7.4.1.1(b)
+    review_status: LOCKED_INTERNAL_ALIAS
+  beam_geometry_min_depth_absolute:
     title: Beam absolute minimum depth
     element_type: beam
     required_features: [beam_depth_mm]
@@ -19,12 +27,12 @@ checks:
     unit: mm
     tbdy_ref: TBDY 2018 7.4.1.1(b)
     review_status: LOCKED
-  beam_depth_vs_slab_thickness:
-    title: Beam depth versus slab thickness
+  beam_geometry_depth_ge_three_times_slab_thickness:
+    title: Beam depth versus adjacent slab thickness
     element_type: beam
-    required_features: [beam_depth_mm, beam_slab_thickness_mm]
+    required_features: [beam_depth_mm, adjacent_slab_thickness_mm]
     tbdy_ref: TBDY 2018 7.4.1.1(b)
-    review_status: LOCKED_RULE_MISSING_FEATURE_BLOCKED
+    review_status: LOCKED_RULE_SOURCE_PATH_BLOCKED
   beam_depth_width_ratio:
     title: Beam depth-to-width ratio
     element_type: beam
@@ -33,6 +41,13 @@ checks:
     unit: ratio
     tbdy_ref: TBDY 2018 7.4.1.1(b)
     review_status: LOCKED
+  beam_web_reinforcement_detailing_trigger:
+    title: Beam web reinforcement detailing trigger
+    element_type: beam
+    required_features: [beam_depth_mm, beam_clear_span_mm]
+    result_domain: [REQUIRED, NOT_REQUIRED, NO_DATA, BLOCKED]
+    tbdy_ref: TBDY 2018 7.4.1.1(c)
+    review_status: LOCKED_RULE_CLEAR_SPAN_SEMANTICS_BLOCKED
   beam_span_depth_ratio:
     title: Beam span-depth ratio
     element_type: beam
@@ -43,7 +58,7 @@ checks:
     title: Beam minimum concrete strength
     element_type: beam
     required_features: [concrete_fck_mpa]
-    limit: 25.0
+    candidate_limit: 25.0
     unit: MPa
     tbdy_ref: null
     review_status: BLOCKED_EXACT_TBDY_CLAUSE_NOT_LOCKED
@@ -58,7 +73,7 @@ checks:
   column_geometry_min_area:
     title: Column minimum gross area
     element_type: column
-    required_features: [column_area_mm2]
+    required_features: [column_width_mm, column_depth_mm]
     limit: 75000.0
     unit: mm2
     tbdy_ref: TBDY 2018 7.3.1.1
@@ -66,7 +81,7 @@ checks:
   column_geometry_aspect_ratio:
     title: Column minimum aspect ratio
     element_type: column
-    required_features: [column_aspect_ratio]
+    required_features: [column_width_mm, column_depth_mm]
     limit: 0.40
     unit: ratio
     tbdy_ref: TBDY 2018 7.3.1.2
@@ -75,7 +90,7 @@ checks:
     title: Column minimum concrete strength
     element_type: column
     required_features: [concrete_fck_mpa]
-    limit: 25.0
+    candidate_limit: 25.0
     unit: MPa
     tbdy_ref: null
     review_status: BLOCKED_EXACT_TBDY_CLAUSE_NOT_LOCKED
