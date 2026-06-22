@@ -9,10 +9,12 @@ from tbdy_engine.product._minimum_compliance_checks import (
     _evaluate_depth_vs_slab,
     _evaluate_web_detailing_trigger,
 )
+from tbdy_engine.product._minimum_compliance_summary import _summary
 
 __all__ = [
     "run_live_beam_column_minimum_compliance",
     "_evaluate_absolute_beam_depth",
     "_evaluate_depth_vs_slab",
     "_evaluate_web_detailing_trigger",
+    "_summary",
 ]
