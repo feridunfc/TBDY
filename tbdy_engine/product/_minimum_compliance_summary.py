@@ -19,13 +19,14 @@ _REPORT_FILES = ("minimum_compliance_report.md", "executive_summary.csv", "beam_
 _ARTIFACT_FILES = ("enriched_feature_snapshots.json", "check_results.json", "adapter_diagnostics.json", "product_summary.json", "product_manifest.json")
 def _summary(tables: Mapping[str, list[dict[str, object]]], inventory: Sequence[Mapping[str, object]], classifications: Sequence[Mapping[str, object]], check_records: Sequence[Mapping[str, object]]) -> dict[str, object]:
     fail_records = [row for row in check_records if row.get("status") == "FAIL"]
+    executable_records = [row for row in check_records if row.get("status") in {"OK", "FAIL"}]
     blocked_count = sum(row.get("status") == "BLOCKED" for row in check_records)
     no_data_count = sum(row.get("status") == "NO_DATA" for row in check_records)
     out_scope_count = sum(item.get("status") == "OUT_OF_SCOPE" for item in classifications)
     required_count = sum(row.get("result_status") == "REQUIRED" for row in check_records)
     not_required_count = sum(row.get("result_status") == "NOT_REQUIRED" for row in check_records)
-    coverage_partial = bool(blocked_count or no_data_count or out_scope_count or any(item.get("status") != "SUPPORTED" for item in classifications))
-    engineering_status = "FAIL" if fail_records else "OK"
+    coverage_partial = bool(blocked_count or no_data_count or out_scope_count or not executable_records or any(item.get("status") != "SUPPORTED" for item in classifications))
+    engineering_status = "FAIL" if fail_records else "OK" if executable_records else "NO_DATA"
     coverage_status = "PARTIAL" if coverage_partial else "COMPLETE"
     product_status = "FAIL" if fail_records else "PARTIAL" if coverage_partial else "OK"
     supported = [item for item in classifications if item.get("status") == "SUPPORTED"]
