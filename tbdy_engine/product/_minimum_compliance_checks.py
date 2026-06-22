@@ -82,10 +82,4 @@ def _blocked_result(snapshot: Mapping[str, object], check_id: str, code: str, me
 def _copy_result(result: CheckResult, check_id: str, code_ref: str | None) -> CheckResult:
     return CheckResult(check_id=check_id, component=result.component, component_type=result.component_type, story=result.story, section=result.section, status=result.status, value=result.value, limit=result.limit, demand=result.demand, capacity=result.capacity, ratio=result.ratio, ratio_type=result.ratio_type, pass_rule=result.pass_rule, unit=result.unit, evaluation_level=result.evaluation_level, evidence=result.evidence, messages=result.messages, code_ref=code_ref, diagnostics=result.diagnostics)
 
-def _record(result: CheckResult, *, result_status: str | None=None, candidate: Mapping[str, object] | None=None) -> dict[str, object]:
-    payload = result.as_dict()
-    payload['result_status'] = result_status or result.status.value
-    if candidate is not None:
-        payload['candidate_clear_span)] = dict(candidate)
-    return payload
-__all__ = ['_column_derived_results', '_evaluate_absolute_beam_depth', '_evaluate_depth_vs_slab', '_evaluate_web_detailing_trigger', '_web_trigger_result', '_clear_span_candidate', '_blocked_result', '_copy_result', '_record', '_feature_value', '_feature_evidence']
+__all__ = ['_column_derived_results', '_evaluate_absolute_beam_depth', '_evaluate_depth_vs_slab', '_evaluate_web_detailing_trigger', '_web_trigger_result', '_clear_span_candidate', '_blocked_result', '_copy_result', '_feature_value', '_feature_evidence']
