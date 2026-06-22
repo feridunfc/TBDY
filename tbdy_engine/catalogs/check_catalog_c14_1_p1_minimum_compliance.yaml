@@ -1,3 +1,81 @@
 metadata:
-  contract: C14.1-P1
-checks: {}
+  contract: C14.1-P1 Live Beam and Column Minimum Compliance
+  catalog_name: check_catalog_c14_1_p1_minimum_compliance
+  status: bounded_product_overlay
+checks:
+  beam_geometry_min_width:
+    title: Beam minimum web width
+    element_type: beam
+    required_features: [beam_width_mm]
+    limit: 250.0
+    unit: mm
+    tbdy_ref: TBDY 2018 7.4.1.1(a)
+    review_status: LOCKED
+  beam_geometry_min_depth:
+    title: Beam absolute minimum depth
+    element_type: beam
+    required_features: [beam_depth_mm]
+    limit: 300.0
+    unit: mm
+    tbdy_ref: TBDY 2018 7.4.1.1(b)
+    review_status: LOCKED
+  beam_depth_vs_slab_thickness:
+    title: Beam depth versus slab thickness
+    element_type: beam
+    required_features: [beam_depth_mm, beam_slab_thickness_mm]
+    tbdy_ref: TBDY 2018 7.4.1.1(b)
+    review_status: LOCKED_RULE_MISSING_FEATURE_BLOCKED
+  beam_depth_width_ratio:
+    title: Beam depth-to-width ratio
+    element_type: beam
+    required_features: [beam_depth_mm, beam_width_mm]
+    limit: 3.5
+    unit: ratio
+    tbdy_ref: TBDY 2018 7.4.1.1(b)
+    review_status: LOCKED
+  beam_span_depth_ratio:
+    title: Beam span-depth ratio
+    element_type: beam
+    required_features: [beam_clear_span_mm, beam_depth_mm]
+    tbdy_ref: null
+    review_status: BLOCKED_RULE_NOT_LOCKED
+  beam_material_min_concrete_strength:
+    title: Beam minimum concrete strength
+    element_type: beam
+    required_features: [concrete_fck_mpa]
+    limit: 25.0
+    unit: MPa
+    tbdy_ref: null
+    review_status: BLOCKED_EXACT_TBDY_CLAUSE_NOT_LOCKED
+  column_geometry_min_dimension:
+    title: Column minimum dimension
+    element_type: column
+    required_features: [column_width_mm, column_depth_mm]
+    limit: 300.0
+    unit: mm
+    tbdy_ref: TBDY 2018 7.3.1.1
+    review_status: LOCKED
+  column_geometry_min_area:
+    title: Column minimum gross area
+    element_type: column
+    required_features: [column_area_mm2]
+    limit: 75000.0
+    unit: mm2
+    tbdy_ref: TBDY 2018 7.3.1.1
+    review_status: LOCKED
+  column_geometry_aspect_ratio:
+    title: Column minimum aspect ratio
+    element_type: column
+    required_features: [column_aspect_ratio]
+    limit: 0.40
+    unit: ratio
+    tbdy_ref: TBDY 2018 7.3.1.2
+    review_status: LOCKED
+  column_material_min_concrete_strength:
+    title: Column minimum concrete strength
+    element_type: column
+    required_features: [concrete_fck_mpa]
+    limit: 25.0
+    unit: MPa
+    tbdy_ref: null
+    review_status: BLOCKED_EXACT_TBDY_CLAUSE_NOT_LOCKED
