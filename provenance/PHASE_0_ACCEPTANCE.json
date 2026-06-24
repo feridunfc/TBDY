@@ -1,0 +1,28 @@
+{
+  "result": "PASS",
+  "generated_at_utc": "2026-06-24T20:56:54.990953Z",
+  "repository_root": ".",
+  "checks": {
+    "vendor_directory_exists": true,
+    "expected_file_count": 51,
+    "actual_file_count": 51,
+    "missing_files": [],
+    "extra_files": [],
+    "changed_files": [],
+    "hash_inventory_matches": true,
+    "nested_git_entries": [],
+    "sentinel_managed_by": "tbdy-next-phase0-genesis-v3",
+    "sentinel_target": "vendor/etabs-mcp",
+    "inventory_upstream_sha": "642750da9fe3b8857098b6ab9006a039f5228c32",
+    "sentinel_upstream_sha": "642750da9fe3b8857098b6ab9006a039f5228c32",
+    "manifest_upstream_sha": "642750da9fe3b8857098b6ab9006a039f5228c32",
+    "upstream_sha_consistent": true,
+    "integration_status": "NONE",
+    "gateway_python_files": [],
+    "forbidden_runtime_references": [],
+    "snapshot_policy": "TRACKED_SOURCE_WITH_EXPLICIT_GENERATED_ARTIFACT_EXCLUSIONS",
+    "excluded_file_count": 20
+  },
+  "errors": [],
+  "warnings": []
+}
