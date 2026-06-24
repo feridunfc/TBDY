@@ -1,0 +1,38 @@
+{
+  "schema_version": "1.0",
+  "phase": "PHASE_1_TYPED_GATEWAY_CONTRACT_FOUNDATION",
+  "scope": "P1_0_CONTRACT_BOUNDARY",
+  "status": "ACTIVE",
+  "created_at_utc": "2026-06-24T21:39:51.211380Z",
+  "base_commit_sha": "ca5e3f45354c34645dbcf02583a75568f9bf6158",
+  "development_branch": "sprint/p1-typed-etabs-gateway-foundation",
+  "integration_status": "CONTRACTS_ONLY",
+  "runtime_wiring_status": "NONE",
+  "com_implementation_status": "NONE",
+  "vendor_runtime_status": "REFERENCE_ONLY",
+  "vendor_runtime_import_allowed": false,
+  "generic_execute_code_allowed": false,
+  "engineering_verdict_emission_allowed": false,
+  "implemented_scope": [
+    "immutable typed contracts",
+    "typed gateway error hierarchy",
+    "pure model context normalization",
+    "pure diagnostic event construction",
+    "offline boundary tests"
+  ],
+  "explicitly_not_implemented": [
+    "COM attachment",
+    "STA worker lifecycle",
+    "ETABS runtime calls",
+    "model mutation",
+    "table extraction",
+    "FeatureSnapshot integration",
+    "CheckEngine integration",
+    "report generation"
+  ],
+  "acceptance_commands": [
+    "python -m pytest packages/etabs_gateway/tests -q",
+    "python tools/verify_etabs_mcp_vendor.py",
+    "git diff --check"
+  ]
+}
