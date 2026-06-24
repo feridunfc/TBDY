@@ -1,17 +1,24 @@
 # Typed ETABS Gateway
 
-Reserved for the future production ETABS gateway.
+Phase-1 contract foundation is active.
 
-Phase-0 intentionally contains no Python implementation.
+## Current implementation
 
-The future gateway must:
+- immutable typed gateway contracts,
+- typed deterministic gateway errors,
+- pure model-context normalization,
+- pure diagnostic event construction,
+- offline contract and boundary tests.
 
-- expose explicit typed read methods,
-- isolate COM/STA lifecycle,
-- preserve ETABS version and unit provenance,
-- represent ambiguity and failures deterministically,
-- default to read-only operation,
-- reject generic code execution,
-- never emit an engineering verdict.
+## Current runtime status
 
-Do not import or activate code from `vendor/etabs-mcp`.
+- COM implementation: none,
+- STA worker implementation: none,
+- ETABS runtime wiring: none,
+- model write operations: forbidden,
+- generic code execution: forbidden,
+- engineering verdict generation: forbidden.
+
+The production gateway must remain read-only by default, isolate all future
+COM activity on a dedicated STA worker, preserve ETABS version and unit
+provenance, and never import or activate code from `vendor/etabs-mcp`.
