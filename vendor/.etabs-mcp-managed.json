@@ -1,0 +1,10 @@
+{
+    "schema_version":  "2.0",
+    "managed_by":  "tbdy-next-phase0-genesis-v3",
+    "generated_at_utc":  "2026-06-24T20:56:54.5390723Z",
+    "managed_target":  "vendor/etabs-mcp",
+    "upstream_repository":  "https://github.com/Shekh-Muhsen/ETABS-MCP.git",
+    "upstream_commit_sha":  "642750da9fe3b8857098b6ab9006a039f5228c32",
+    "immutable_reference":  true,
+    "refresh_supported_by_genesis_script":  false
+}

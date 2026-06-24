@@ -1,0 +1,185 @@
+{
+    "schema_version":  "2.0",
+    "phase":  "PHASE_0_UPSTREAM_QUARANTINE_BOOTSTRAP",
+    "generated_at_utc":  "2026-06-24T20:56:54.5390723Z",
+    "integration_status":  "NONE",
+    "runtime_wiring_status":  "NONE",
+    "existing_tbdy_source_code_modified":  false,
+    "full_upstream_git_history_embedded":  false,
+    "existing_tbdy_repository":  {
+                                     "root":  ".",
+                                     "origin":  "https://github.com/feridunfc/TBDY.git",
+                                     "baseline_branch":  "main",
+                                     "baseline_commit_sha":  "23e0643e1c0eb5daa9642e274f23154e7f7dcfd9",
+                                     "origin_baseline_commit_sha":  "23e0643e1c0eb5daa9642e274f23154e7f7dcfd9",
+                                     "role":  "engineering_source_authority",
+                                     "layout_changed":  false
+                                 },
+    "etabs_mcp_upstream":  {
+                               "repository":  "https://github.com/Shekh-Muhsen/ETABS-MCP.git",
+                               "requested_ref":  "main",
+                               "resolved_commit_sha":  "642750da9fe3b8857098b6ab9006a039f5228c32",
+                               "commit_date":  "2026-06-10T23:36:54+06:00",
+                               "commit_subject":  "Add files via upload",
+                               "destination":  "vendor/etabs-mcp",
+                               "role":  "external_reference_only",
+                               "runtime_status":  "NOT_ACTIVE",
+                               "snapshot_policy":  "TRACKED_SOURCE_WITH_EXPLICIT_GENERATED_ARTIFACT_EXCLUSIONS",
+                               "upstream_tracked_file_count":  71,
+                               "included_source_file_count":  51,
+                               "excluded_generated_artifact_count":  20,
+                               "excluded_generated_artifacts":  [
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/__pycache__/__init__.cpython-314.pyc",
+                                                                        "size_bytes":  237,
+                                                                        "sha256":  "08953f3979efa310ae7ad5de1350f977e7df84e8c9be9790afd3a3796f919dbd",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/__pycache__/connection.cpython-314.pyc",
+                                                                        "size_bytes":  14593,
+                                                                        "sha256":  "1fbf252d38c1ee2b4bacab6be9c54f78e9803275e8b873a61262fb97fa47f775",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/__pycache__/server.cpython-314.pyc",
+                                                                        "size_bytes":  20379,
+                                                                        "sha256":  "52910997d3a7972cf93e78e1eb0eb45d50261cc68d0b888dece99f9af6159d1e",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/__pycache__/skills.cpython-314.pyc",
+                                                                        "size_bytes":  10753,
+                                                                        "sha256":  "c2fc03586a8951468c77c843211ba71366211241552a6fdec80d94197225919a",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/__pycache__/version.cpython-314.pyc",
+                                                                        "size_bytes":  1504,
+                                                                        "sha256":  "f80b5be001b48e40383845906631105c71511070e2a32eba21fc6fa2fedf6e0f",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/file_io/__pycache__/__init__.cpython-314.pyc",
+                                                                        "size_bytes":  757,
+                                                                        "sha256":  "33aa0563daf0a36d02584dd226c37f0bb936f48cb744c9f9939a2f406ac2bae7",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/file_io/__pycache__/const.cpython-314.pyc",
+                                                                        "size_bytes":  962,
+                                                                        "sha256":  "c148230b45e23c7e2fab05496b694af692664a091b2fcd683c1dc24fe588309a",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/file_io/__pycache__/helpers.cpython-314.pyc",
+                                                                        "size_bytes":  6196,
+                                                                        "sha256":  "dbb25e1e00ddf7df2121e03a8153b30c875ede75432aaa1a5da7370c71a39840",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/file_io/__pycache__/models.cpython-314.pyc",
+                                                                        "size_bytes":  8658,
+                                                                        "sha256":  "e12a87ccf65e494b4be360db933f570b115a400247f8b1bf073b9408d2b90907",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/file_io/__pycache__/path_validator.cpython-314.pyc",
+                                                                        "size_bytes":  4792,
+                                                                        "sha256":  "97a4a61d0f200a39ecf7cbba1186e97d79b514ac1ebb60219eeeadec800f5d93",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/file_io/__pycache__/readers.cpython-314.pyc",
+                                                                        "size_bytes":  17409,
+                                                                        "sha256":  "10ea9e785e92cb584cb1aade7ed1a76ed60c78d08e56560cd6babaacc2e347e3",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/file_io/__pycache__/validation.cpython-314.pyc",
+                                                                        "size_bytes":  5207,
+                                                                        "sha256":  "f167568dc87fe24101431b8455b9add6a347d151a5257d18a0cfb3e3baff72e9",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/file_io/__pycache__/writers.cpython-314.pyc",
+                                                                        "size_bytes":  8482,
+                                                                        "sha256":  "38d0e4e50e74cf20c233f41b90697aec4c8ea783ca5c500892079b3d7450f52a",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/sandbox/__pycache__/__init__.cpython-314.pyc",
+                                                                        "size_bytes":  231,
+                                                                        "sha256":  "115a69452d1048b77eaa013d21170f978033d637ce2a7fa5412a05c9ddba6d1e",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/sandbox/__pycache__/ast.cpython-314.pyc",
+                                                                        "size_bytes":  15950,
+                                                                        "sha256":  "5c5900a5349f24390a2b262165912bf5f4b34427160ec43971f92edc7eef681a",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/sandbox/__pycache__/com_proxy.cpython-314.pyc",
+                                                                        "size_bytes":  15653,
+                                                                        "sha256":  "ec559f0c98524da601bdae528a34061376b23ece5beeab8ce491973ae7f796a5",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/sandbox/__pycache__/const.cpython-314.pyc",
+                                                                        "size_bytes":  6296,
+                                                                        "sha256":  "f5341c724dab3757c34d56c4f18067721213ace8c13dc04da3956fa269ff307a",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/sandbox/__pycache__/executor.cpython-314.pyc",
+                                                                        "size_bytes":  7022,
+                                                                        "sha256":  "a82428e25cc89ee7d36eebcf26d21aeb72ead75b538b22cd320ef09eacdad270",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/sandbox/__pycache__/module_proxy.cpython-314.pyc",
+                                                                        "size_bytes":  3662,
+                                                                        "sha256":  "136b98fecc4651a6736727a420c59f27163d0c8eb6bf56854a0625efbd078b08",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    },
+                                                                    {
+                                                                        "path":  "src/etabs_mcp/sandbox/__pycache__/stdio_helpers.cpython-314.pyc",
+                                                                        "size_bytes":  4484,
+                                                                        "sha256":  "3eae2e52189486e27523faff407f396e3398b0077b5057e17dd0da28cc4ab001",
+                                                                        "exclusion_reason":  "generated_python_bytecode"
+                                                                    }
+                                                                ],
+                               "tracked_file_count":  51,
+                               "total_size_bytes":  4218106,
+                               "detected_license_files":  [
+                                                              "LICENSE"
+                                                          ],
+                               "license_review_status":  "FILES_DETECTED_REVIEW_REQUIRED"
+                           },
+    "vendor_inventory":  {
+                             "file_count":  51,
+                             "total_size_bytes":  4218106,
+                             "files_over_10_mb":  [
+
+                                                  ],
+                             "executable_or_binary_artifacts":  [
+
+                                                                ],
+                             "archive_artifacts":  [
+
+                                                   ]
+                         },
+    "verifier":  {
+                     "path":  "tools/verify_etabs_mcp_vendor.py",
+                     "source_sha256":  "653711731fc5d000446f47a5e511b8bbc37adba5b59d56251b747ef389b72209",
+                     "normal_mode_mutates_repository":  false
+                 },
+    "boundaries":  {
+                       "future_etabs_gateway":  "packages/etabs_gateway",
+                       "external_reference":  "vendor/etabs-mcp",
+                       "production_import_from_vendor_allowed":  false,
+                       "generic_execute_code_allowed":  false,
+                       "integration_performed":  false
+                   }
+}
