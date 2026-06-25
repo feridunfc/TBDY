@@ -13,6 +13,15 @@ def iter_source_files() -> list[Path]:
     return sorted(SOURCE_ROOT.glob("*.py"))
 
 
+def dotted_name(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        parent = dotted_name(node.value)
+        return f"{parent}.{node.attr}" if parent else node.attr
+    return ""
+
+
 def test_production_gateway_does_not_import_vendor_runtime() -> None:
     forbidden_roots = {"etabs_mcp", "vendor"}
 
@@ -27,49 +36,51 @@ def test_production_gateway_does_not_import_vendor_runtime() -> None:
                 assert root not in forbidden_roots, path
 
 
-def test_p1_source_contains_no_write_attach_or_generic_execution_surface() -> None:
+def test_write_and_generic_execution_calls_remain_forbidden() -> None:
     forbidden_call_names = {
         "execute_code",
         "SetSection",
         "RunAnalysis",
-        "GetActiveObject",
         "GetObject",
+        "CreateObject",
     }
 
-    def dotted_name(node: ast.AST) -> str:
-        if isinstance(node, ast.Name):
-            return node.id
-        if isinstance(node, ast.Attribute):
-            parent = dotted_name(node.value)
-            return f"{parent}.{node.attr}" if parent else node.attr
-        return ""
+    for path in iter_source_files():
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+
+            target = dotted_name(node.func)
+            final_name = target.rsplit(".", 1)[-1]
+            assert final_name not in forbidden_call_names, (
+                f"Forbidden runtime call {target!r} found in {path}"
+            )
+
+
+def test_active_object_and_model_acquisition_are_scoped_to_connection() -> None:
+    connection_path = SOURCE_ROOT / "connection.py"
 
     for path in iter_source_files():
-        tree = ast.parse(
-            path.read_text(encoding="utf-8"),
-            filename=str(path),
-        )
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
-                target = dotted_name(node.func)
-                final_name = target.rsplit(".", 1)[-1]
+                final_name = dotted_name(node.func).rsplit(".", 1)[-1]
+                if final_name == "GetActiveObject":
+                    assert path == connection_path, path
 
-                assert final_name not in forbidden_call_names, (
-                    f"Forbidden runtime call {target!r} found in {path}"
-                )
+            if isinstance(node, ast.Attribute) and node.attr == "SapModel":
+                assert path == connection_path, path
 
-            if isinstance(node, ast.Attribute):
-                target = dotted_name(node)
-                segments = target.split(".")
+        if path not in {connection_path, SOURCE_ROOT / "contracts.py"}:
+            assert '"SapModel"' not in path.read_text(encoding="utf-8"), path
 
-                assert "SapModel" not in segments, (
-                    f"Runtime SapModel access {target!r} found in {path}"
-                )
 
-def test_platform_com_dependency_is_lazy_and_scoped_to_adapter() -> None:
+def test_platform_dependencies_are_lazy_and_scoped() -> None:
     forbidden_import_roots = {"pythoncom", "win32com", "comtypes"}
-    adapter_path = SOURCE_ROOT / "com_apartment.py"
+    apartment_path = SOURCE_ROOT / "com_apartment.py"
+    connection_path = SOURCE_ROOT / "connection.py"
 
     for path in iter_source_files():
         text = path.read_text(encoding="utf-8")
@@ -83,14 +94,20 @@ def test_platform_com_dependency_is_lazy_and_scoped_to_adapter() -> None:
                 root = node.module.split(".", 1)[0]
                 assert root not in forbidden_import_roots, path
 
-        if path != adapter_path:
+        if path != apartment_path:
             assert "pythoncom" not in text, path
+        if path != connection_path:
+            assert "win32com.client" not in text, path
 
-    adapter_text = adapter_path.read_text(encoding="utf-8")
-    assert 'import_module("pythoncom")' in adapter_text
+    assert 'import_module("pythoncom")' in apartment_path.read_text(
+        encoding="utf-8"
+    )
+    assert 'import_module("win32com.client")' in connection_path.read_text(
+        encoding="utf-8"
+    )
 
 
-def test_source_manifest_declares_com_apartment_binding_phase() -> None:
+def test_source_manifest_declares_read_only_attach_phase() -> None:
     repo_root = Path(__file__).resolve().parents[3]
     manifest = json.loads(
         (repo_root / "provenance" / "SOURCE_MANIFEST.json").read_text(
@@ -98,9 +115,12 @@ def test_source_manifest_declares_com_apartment_binding_phase() -> None:
         )
     )
 
-    assert manifest["phase"] == "PHASE_1_2_WINDOWS_COM_APARTMENT_BINDING"
-    assert manifest["integration_status"] == "PLATFORM_BINDING_ONLY"
-    assert manifest["runtime_wiring_status"] == "NONE"
+    assert manifest["phase"] == "PHASE_1_3_READ_ONLY_ETABS_ATTACH"
+    assert manifest["integration_status"] == "READ_ONLY_ATTACH_IMPLEMENTED"
+    assert (
+        manifest["runtime_wiring_status"]
+        == "ATTACH_ONLY_NOT_LIVE_VERIFIED"
+    )
     assert manifest["boundaries"]["integration_performed"] is False
     assert manifest["boundaries"]["production_import_from_vendor_allowed"] is False
     assert manifest["boundaries"]["generic_execute_code_allowed"] is False

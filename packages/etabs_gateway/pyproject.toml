@@ -7,7 +7,7 @@ name = "tbdy-etabs-gateway"
 version = "0.1.0"
 description = "Typed, read-only ETABS gateway boundary for TBDY-NEXT"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = ["pywin32; platform_system == 'Windows'"]
 
 [tool.setuptools]
 package-dir = {"" = "src"}

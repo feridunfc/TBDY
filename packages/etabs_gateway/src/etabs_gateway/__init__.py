@@ -1,12 +1,17 @@
 """Public contract surface for the typed ETABS gateway."""
 
 from .com_apartment import WindowsCOMApartment
+from .connection import (
+    DEFAULT_ETABS_PROG_IDS,
+    ReadOnlyETABSConnection,
+)
 from .contracts import (
     AttachMode,
     ConnectionDiagnostics,
     ConnectionRequest,
     DiagnosticEvent,
     DiagnosticSeverity,
+    ETABSAttachment,
     ETABSApplicationInfo,
     ETABSModelContext,
     ETABSUnitContext,
@@ -31,12 +36,15 @@ from .errors import (
 from .worker import DedicatedSTAWorker, WorkerState
 
 __all__ = [
+    "DEFAULT_ETABS_PROG_IDS",
+    "ReadOnlyETABSConnection",
     "WindowsCOMApartment",
     "AttachMode",
     "ConnectionDiagnostics",
     "ConnectionRequest",
     "DiagnosticEvent",
     "DiagnosticSeverity",
+    "ETABSAttachment",
     "ETABSApplicationInfo",
     "ETABSModelContext",
     "ETABSUnitContext",
