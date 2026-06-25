@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "phase": "PHASE_1_1_DEDICATED_STA_WORKER",
+  "scope": "P1_1_WORKER_LIFECYCLE",
+  "status": "ACTIVE",
+  "created_at_utc": "2026-06-25T04:05:28.434021Z",
+  "base_commit_sha": "98fae0cde72cb94af1f95b334cebf7e431d34a6e",
+  "development_branch": "sprint/p1-1-dedicated-sta-worker",
+  "integration_status": "INFRASTRUCTURE_ONLY",
+  "runtime_wiring_status": "NONE",
+  "platform_com_binding_status": "NONE",
+  "etabs_attachment_status": "NONE",
+  "vendor_runtime_status": "REFERENCE_ONLY",
+  "vendor_runtime_import_allowed": false,
+  "generic_execute_code_allowed": false,
+  "engineering_verdict_emission_allowed": false,
+  "implemented_scope": [
+    "single dedicated worker thread",
+    "serialized task queue",
+    "injectable initializer and finalizer callbacks",
+    "typed startup and call failures",
+    "queued-task cancellation on timeout",
+    "worker poisoning after running-task timeout",
+    "deterministic and idempotent close",
+    "thread-affinity assertion",
+    "offline lifecycle tests"
+  ],
+  "explicitly_not_implemented": [
+    "platform COM initialization",
+    "ETABS attachment",
+    "ETABS object acquisition",
+    "SapModel calls",
+    "model mutation",
+    "FeatureSnapshot integration",
+    "CheckEngine integration",
+    "report generation"
+  ],
+  "acceptance_commands": [
+    "python -m pytest packages/etabs_gateway/tests -q",
+    "python tools/verify_etabs_mcp_vendor.py",
+    "git diff --check"
+  ]
+}

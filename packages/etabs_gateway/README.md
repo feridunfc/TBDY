@@ -1,6 +1,6 @@
 # Typed ETABS Gateway
 
-Phase-1 contract foundation is active.
+Phase-1.1 dedicated worker infrastructure is active.
 
 ## Current implementation
 
@@ -8,17 +8,24 @@ Phase-1 contract foundation is active.
 - typed deterministic gateway errors,
 - pure model-context normalization,
 - pure diagnostic event construction,
-- offline contract and boundary tests.
+- a single-thread task worker,
+- injectable apartment initializer and finalizer callbacks,
+- deterministic startup, timeout, failure, and shutdown behavior,
+- offline contract and architecture boundary tests.
 
 ## Current runtime status
 
-- COM implementation: none,
-- STA worker implementation: none,
+- platform COM binding: none,
+- ETABS attachment: none,
 - ETABS runtime wiring: none,
 - model write operations: forbidden,
 - generic code execution: forbidden,
 - engineering verdict generation: forbidden.
 
-The production gateway must remain read-only by default, isolate all future
-COM activity on a dedicated STA worker, preserve ETABS version and unit
-provenance, and never import or activate code from `vendor/etabs-mcp`.
+The worker owns exactly one thread and serializes all submitted operations on
+that thread. A running-task timeout poisons the worker so execution cannot
+silently continue as if the operation had completed successfully.
+
+The production gateway must remain read-only by default, preserve ETABS version
+and unit provenance, and never import or activate code from
+`vendor/etabs-mcp`.
