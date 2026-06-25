@@ -47,6 +47,18 @@ class ETABSVersionReadError(ETABSGatewayError):
     code = "ETABS_VERSION_READ_FAILED"
 
 
+class ETABSModelPathReadError(ETABSGatewayError):
+    code = "ETABS_MODEL_PATH_READ_FAILED"
+
+
+class ETABSModelLockReadError(ETABSGatewayError):
+    code = "ETABS_MODEL_LOCK_READ_FAILED"
+
+
+class ETABSUnitsReadError(ETABSGatewayError):
+    code = "ETABS_UNITS_READ_FAILED"
+
+
 class ETABSModelUnavailableError(ETABSGatewayError):
     code = "ETABS_MODEL_UNAVAILABLE"
 

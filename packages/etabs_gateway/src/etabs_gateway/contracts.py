@@ -141,6 +141,28 @@ class ETABSModelContext:
 
 
 @dataclass(frozen=True, slots=True)
+class ETABSGatewayContext:
+    attachment: ETABSAttachment
+    application: ETABSApplicationInfo
+    model: ETABSModelContext
+    observed_at_utc: datetime
+
+    def __post_init__(self) -> None:
+        _require_aware_utc(self.observed_at_utc, "observed_at_utc")
+        if (
+            self.application.attached_at_utc
+            != self.attachment.attached_at_utc
+        ):
+            raise ValueError(
+                "application and attachment timestamps must match."
+            )
+        if self.observed_at_utc < self.attachment.attached_at_utc:
+            raise ValueError(
+                "observed_at_utc cannot precede attachment time."
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class DiagnosticEvent:
     code: str
     message: str

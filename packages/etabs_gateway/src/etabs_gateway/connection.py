@@ -15,6 +15,7 @@ from typing import Any, Protocol, cast
 from .contracts import (
     AttachMode,
     ConnectionRequest,
+    ETABSGatewayContext,
     ETABSAttachment,
     utc_now,
 )
@@ -23,6 +24,7 @@ from .errors import (
     ETABSModelUnavailableError,
     ETABSNotRunningError,
 )
+from .context_reader import read_gateway_context
 from .worker import DedicatedSTAWorker
 
 
@@ -96,6 +98,20 @@ class ReadOnlyETABSConnection:
             lambda: self._attach_on_worker(resolved_request),
             operation="etabs_attach",
             timeout_seconds=resolved_request.timeout_seconds,
+        )
+
+    def read_context(
+        self,
+        *,
+        timeout_seconds: float = 10.0,
+    ) -> ETABSGatewayContext:
+        if timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be greater than zero.")
+
+        return self._worker.call(
+            self._read_context_on_worker,
+            operation="etabs_context_read",
+            timeout_seconds=timeout_seconds,
         )
 
     def detach(self, *, timeout_seconds: float = 5.0) -> bool:
@@ -195,6 +211,25 @@ class ReadOnlyETABSConnection:
                 "attempted_prog_ids": list(self._prog_ids),
                 "attempts": attempts,
             },
+        )
+
+    def _read_context_on_worker(self) -> ETABSGatewayContext:
+        self._worker.assert_worker_thread()
+
+        with self._state_lock:
+            attachment = self._attachment
+            model_api = self._model_api
+
+        if attachment is None or model_api is None:
+            raise ETABSAttachError(
+                "ETABS context cannot be read before attachment.",
+                operation="etabs_context_read",
+                details={"stage": "connection_state"},
+            )
+
+        return read_gateway_context(
+            model_api=model_api,
+            attachment=attachment,
         )
 
     def _detach_on_worker(self) -> bool:
