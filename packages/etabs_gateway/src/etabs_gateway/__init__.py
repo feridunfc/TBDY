@@ -1,5 +1,6 @@
 """Public contract surface for the typed ETABS gateway."""
 
+from .com_apartment import WindowsCOMApartment
 from .contracts import (
     AttachMode,
     ConnectionDiagnostics,
@@ -14,6 +15,8 @@ from .contracts import (
     HealthStatus,
 )
 from .errors import (
+    ETABSCOMFinalizationError,
+    ETABSCOMInitializationError,
     ETABSAttachError,
     ETABSCallError,
     ETABSGatewayError,
@@ -28,6 +31,7 @@ from .errors import (
 from .worker import DedicatedSTAWorker, WorkerState
 
 __all__ = [
+    "WindowsCOMApartment",
     "AttachMode",
     "ConnectionDiagnostics",
     "ConnectionRequest",
@@ -39,6 +43,8 @@ __all__ = [
     "GatewayHealth",
     "GatewayState",
     "HealthStatus",
+    "ETABSCOMFinalizationError",
+    "ETABSCOMInitializationError",
     "ETABSAttachError",
     "ETABSCallError",
     "ETABSGatewayError",

@@ -1,8 +1,8 @@
 {
     "schema_version":  "2.0",
-    "phase":  "PHASE_1_1_DEDICATED_STA_WORKER",
-    "generated_at_utc":  "2026-06-25T04:05:28.434021Z",
-    "integration_status":  "INFRASTRUCTURE_ONLY",
+    "phase":  "PHASE_1_2_WINDOWS_COM_APARTMENT_BINDING",
+    "generated_at_utc":  "2026-06-25T04:23:56.775730Z",
+    "integration_status":  "PLATFORM_BINDING_ONLY",
     "runtime_wiring_status":  "NONE",
     "existing_tbdy_source_code_modified":  false,
     "full_upstream_git_history_embedded":  false,
@@ -170,7 +170,7 @@
 
                                                    ]
                          },
-    "active_phase_record":  "provenance/PHASE_1_1_STA_WORKER.json",
+    "active_phase_record":  "provenance/PHASE_1_2_COM_APARTMENT.json",
     "verifier":  {
                      "path":  "tools/verify_etabs_mcp_vendor.py",
                      "source_sha256":  "653711731fc5d000446f47a5e511b8bbc37adba5b59d56251b747ef389b72209",

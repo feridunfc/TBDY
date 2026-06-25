@@ -1,6 +1,6 @@
 # Typed ETABS Gateway
 
-Phase-1.1 dedicated worker infrastructure is active.
+Phase-1.2 Windows COM apartment binding is active.
 
 ## Current implementation
 
@@ -9,22 +9,26 @@ Phase-1.1 dedicated worker infrastructure is active.
 - pure model-context normalization,
 - pure diagnostic event construction,
 - a single-thread task worker,
-- injectable apartment initializer and finalizer callbacks,
-- deterministic startup, timeout, failure, and shutdown behavior,
-- offline contract and architecture boundary tests.
+- deterministic worker startup, timeout, failure, and shutdown behavior,
+- lazy Windows COM apartment initialization,
+- same-thread COM finalization enforcement,
+- offline fake-runtime lifecycle and boundary tests.
 
 ## Current runtime status
 
-- platform COM binding: none,
+- Windows COM apartment lifecycle: implemented,
+- eager platform dependency import: forbidden,
 - ETABS attachment: none,
+- ETABS application or `SapModel` acquisition: none,
 - ETABS runtime wiring: none,
 - model write operations: forbidden,
 - generic code execution: forbidden,
 - engineering verdict generation: forbidden.
 
-The worker owns exactly one thread and serializes all submitted operations on
-that thread. A running-task timeout poisons the worker so execution cannot
-silently continue as if the operation had completed successfully.
+`WindowsCOMApartment` loads `pythoncom` only when initialization is requested.
+It calls `CoInitializeEx(COINIT_APARTMENTTHREADED)` and requires
+`CoUninitialize()` to execute on the same owner thread. It is designed to be
+injected into `DedicatedSTAWorker`; it does not attach to ETABS.
 
 The production gateway must remain read-only by default, preserve ETABS version
 and unit provenance, and never import or activate code from

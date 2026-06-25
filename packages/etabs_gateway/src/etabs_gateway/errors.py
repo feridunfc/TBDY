@@ -59,6 +59,14 @@ class ETABSTimeoutError(ETABSGatewayError):
     code = "ETABS_TIMEOUT"
 
 
+class ETABSCOMInitializationError(ETABSGatewayError):
+    code = "ETABS_COM_INITIALIZATION_FAILED"
+
+
+class ETABSCOMFinalizationError(ETABSGatewayError):
+    code = "ETABS_COM_FINALIZATION_FAILED"
+
+
 class ETABSWorkerStartError(ETABSGatewayError):
     code = "ETABS_WORKER_START_FAILED"
 

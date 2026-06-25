@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "phase": "PHASE_1_2_WINDOWS_COM_APARTMENT_BINDING",
+  "scope": "P1_2_PLATFORM_COM_LIFECYCLE",
+  "status": "ACTIVE",
+  "created_at_utc": "2026-06-25T04:23:56.775730Z",
+  "base_commit_sha": "89e66838a4e8a69ac7a5007c545c08fe4e57d00b",
+  "development_branch": "sprint/p1-2-windows-com-apartment-binding",
+  "integration_status": "PLATFORM_BINDING_ONLY",
+  "runtime_wiring_status": "NONE",
+  "platform_com_binding_status": "IMPLEMENTED",
+  "etabs_attachment_status": "NONE",
+  "vendor_runtime_status": "REFERENCE_ONLY",
+  "vendor_runtime_import_allowed": false,
+  "generic_execute_code_allowed": false,
+  "engineering_verdict_emission_allowed": false,
+  "implemented_scope": [
+    "lazy pythoncom module loading",
+    "CoInitializeEx with COINIT_APARTMENTTHREADED",
+    "same-thread CoUninitialize enforcement",
+    "double-initialize protection",
+    "idempotent finalization",
+    "typed COM initialization and finalization failures",
+    "DedicatedSTAWorker lifecycle integration",
+    "offline fake pythoncom tests"
+  ],
+  "explicitly_not_implemented": [
+    "ETABS process attachment",
+    "GetActiveObject or Helper.GetObject",
+    "ETABS application object acquisition",
+    "SapModel acquisition",
+    "ETABS version or model metadata reads",
+    "ETABS unit reads",
+    "model mutation",
+    "FeatureSnapshot integration",
+    "CheckEngine integration",
+    "report generation"
+  ],
+  "acceptance_commands": [
+    "python -m pytest packages/etabs_gateway/tests -q",
+    "python tools/verify_etabs_mcp_vendor.py",
+    "git diff --check"
+  ]
+}
