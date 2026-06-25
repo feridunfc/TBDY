@@ -59,6 +59,10 @@ class ETABSTimeoutError(ETABSGatewayError):
     code = "ETABS_TIMEOUT"
 
 
+class ETABSWorkerStartError(ETABSGatewayError):
+    code = "ETABS_WORKER_START_FAILED"
+
+
 class ETABSWorkerClosedError(ETABSGatewayError):
     code = "ETABS_WORKER_CLOSED"
 

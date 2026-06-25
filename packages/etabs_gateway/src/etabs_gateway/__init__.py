@@ -23,7 +23,9 @@ from .errors import (
     ETABSTimeoutError,
     ETABSVersionReadError,
     ETABSWorkerClosedError,
+    ETABSWorkerStartError,
 )
+from .worker import DedicatedSTAWorker, WorkerState
 
 __all__ = [
     "AttachMode",
@@ -46,4 +48,7 @@ __all__ = [
     "ETABSTimeoutError",
     "ETABSVersionReadError",
     "ETABSWorkerClosedError",
+    "ETABSWorkerStartError",
+    "DedicatedSTAWorker",
+    "WorkerState",
 ]

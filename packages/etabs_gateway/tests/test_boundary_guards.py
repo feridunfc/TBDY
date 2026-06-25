@@ -41,7 +41,7 @@ def test_p1_source_contains_no_write_or_generic_execution_surface() -> None:
             assert token not in text, f"{token!r} found in {path}"
 
 
-def test_p1_source_has_no_pywin32_dependency_yet() -> None:
+def test_p1_1_source_has_no_platform_com_dependency_yet() -> None:
     forbidden_tokens = ("win32com", "pythoncom", "comtypes")
 
     for path in iter_source_files():
@@ -50,7 +50,7 @@ def test_p1_source_has_no_pywin32_dependency_yet() -> None:
             assert token not in text, f"{token!r} found in {path}"
 
 
-def test_source_manifest_declares_contract_only_phase() -> None:
+def test_source_manifest_declares_worker_infrastructure_phase() -> None:
     repo_root = Path(__file__).resolve().parents[3]
     manifest = json.loads(
         (repo_root / "provenance" / "SOURCE_MANIFEST.json").read_text(
@@ -58,8 +58,8 @@ def test_source_manifest_declares_contract_only_phase() -> None:
         )
     )
 
-    assert manifest["phase"] == "PHASE_1_TYPED_GATEWAY_CONTRACT_FOUNDATION"
-    assert manifest["integration_status"] == "CONTRACTS_ONLY"
+    assert manifest["phase"] == "PHASE_1_1_DEDICATED_STA_WORKER"
+    assert manifest["integration_status"] == "INFRASTRUCTURE_ONLY"
     assert manifest["runtime_wiring_status"] == "NONE"
     assert manifest["boundaries"]["integration_performed"] is False
     assert manifest["boundaries"]["production_import_from_vendor_allowed"] is False
