@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "phase": "PHASE_1_10_COVERAGE_AUTHORITATIVE_CHECK_INPUT_ASSEMBLY",
+  "scope": "P1_10_COVERAGE_AUTHORITATIVE_GEOMETRY_CHECK_INPUT",
+  "status": "ACTIVE",
+  "created_at_utc": "2026-06-25T14:37:13.274856Z",
+  "base_commit_sha": "d70462df5304dbd19da76cfcfa3ba6e11e155527",
+  "development_branch": "sprint/p1-2-windows-com-apartment-binding",
+  "integration_status": "COVERAGE_AUTHORITATIVE_CHECK_INPUT_IMPLEMENTED",
+  "runtime_wiring_status": "OFFLINE_COVERAGE_HANDOFF_VERIFIED_NOT_LIVE",
+  "coverage_authority": "CoverageBuilder_or_external_CoverageRow",
+  "adapter_may_upgrade_coverage": false,
+  "synthetic_coverage_compatibility_path_retained": true,
+  "new_engineering_formula_added": false,
+  "implemented_scope": [
+    "coverage-authoritative geometry CheckInput assembly",
+    "snapshot and coverage identity validation",
+    "required-feature contract validation",
+    "RUNNABLE and FULL coverage enforcement",
+    "policy status validation",
+    "authoritative CoverageRow identity preservation",
+    "legacy compatibility path retention",
+    "MinimalCheckEngine integration regression"
+  ],
+  "explicitly_not_implemented": [
+    "live ETABS verification",
+    "new engineering checks",
+    "new engineering formulas",
+    "coverage inference in authoritative path",
+    "building compliance aggregation",
+    "report publication"
+  ]
+}

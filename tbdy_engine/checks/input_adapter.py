@@ -190,12 +190,182 @@ def build_geometry_check_inputs_from_feature_snapshot(
     return CheckInputBuildResult(check_inputs=tuple(check_inputs), diagnostics=tuple(diagnostics))
 
 
+
+def build_geometry_check_inputs_from_feature_snapshot_and_coverage(
+    snapshot: FeatureSnapshot,
+    coverage_rows: Sequence[CoverageRow],
+) -> CheckInputBuildResult:
+    """Build geometry inputs only from externally assessed CoverageRow objects."""
+
+    if not isinstance(snapshot, FeatureSnapshot):
+        raise TypeError("snapshot must be a FeatureSnapshot")
+
+    component_type = _normalize_component_type(snapshot.component_type)
+    component_checks = _CHECKS_BY_COMPONENT_TYPE.get(component_type)
+    if component_checks is None:
+        return CheckInputBuildResult(
+            check_inputs=(),
+            diagnostics=(
+                CheckInputBuildDiagnostic(
+                    check_id=_GEOMETRY_ADAPTER_CHECK_ID,
+                    component_id=snapshot.component_id,
+                    component_type=snapshot.component_type,
+                    status="OUT_OF_SCOPE",
+                    reason=(
+                        "No geometry adapter checks for "
+                        f"component_type={snapshot.component_type!r}"
+                    ),
+                ),
+            ),
+        )
+
+    rows = tuple(coverage_rows)
+    if any(not isinstance(row, CoverageRow) for row in rows):
+        raise TypeError("coverage_rows must contain CoverageRow objects")
+
+    check_ids = [row.check_id for row in rows]
+    if len(check_ids) != len(set(check_ids)):
+        raise ValueError(
+            "coverage_rows must not contain duplicate check_id values"
+        )
+
+    if not rows:
+        return CheckInputBuildResult(
+            check_inputs=(),
+            diagnostics=(
+                CheckInputBuildDiagnostic(
+                    check_id=_GEOMETRY_ADAPTER_CHECK_ID,
+                    component_id=snapshot.component_id,
+                    component_type=snapshot.component_type,
+                    status="NO_DATA",
+                    reason="No authoritative coverage rows were supplied",
+                ),
+            ),
+        )
+
+    check_inputs: list[GeometryCheckInput] = []
+    diagnostics: list[CheckInputBuildDiagnostic] = []
+
+    for coverage in rows:
+        expected_features = component_checks.get(coverage.check_id)
+        if expected_features is None:
+            diagnostics.append(
+                CheckInputBuildDiagnostic(
+                    check_id=coverage.check_id,
+                    component_id=snapshot.component_id,
+                    component_type=snapshot.component_type,
+                    status="OUT_OF_SCOPE",
+                    reason=(
+                        "Coverage row check_id is outside the geometry "
+                        "adapter allowlist for this component type"
+                    ),
+                )
+            )
+            continue
+
+        mismatch_reasons: list[str] = []
+        if coverage.component_id != snapshot.component_id:
+            mismatch_reasons.append(
+                "coverage component_id does not match snapshot component_id"
+            )
+        if (
+            _normalize_component_type(coverage.component_type)
+            != component_type
+        ):
+            mismatch_reasons.append(
+                "coverage component_type does not match snapshot component_type"
+            )
+        if tuple(coverage.required_features) != expected_features:
+            mismatch_reasons.append(
+                "coverage required_features do not match the canonical "
+                "geometry adapter requirement"
+            )
+
+        if mismatch_reasons:
+            diagnostics.append(
+                CheckInputBuildDiagnostic(
+                    check_id=coverage.check_id,
+                    component_id=snapshot.component_id,
+                    component_type=snapshot.component_type,
+                    status="BLOCKED",
+                    reason="; ".join(mismatch_reasons),
+                )
+            )
+            continue
+
+        if coverage.coverage_status != CoverageStatus.RUNNABLE:
+            diagnostics.append(
+                CheckInputBuildDiagnostic(
+                    check_id=coverage.check_id,
+                    component_id=snapshot.component_id,
+                    component_type=snapshot.component_type,
+                    status="BLOCKED",
+                    reason=(
+                        coverage.reason
+                        or "Authoritative coverage row is not RUNNABLE"
+                    ),
+                )
+            )
+            continue
+
+        if coverage.evidence_status != CoverageEvidenceStatus.FULL:
+            diagnostics.append(
+                CheckInputBuildDiagnostic(
+                    check_id=coverage.check_id,
+                    component_id=snapshot.component_id,
+                    component_type=snapshot.component_type,
+                    status="BLOCKED",
+                    reason=(
+                        "Authoritative coverage evidence_status must be FULL"
+                    ),
+                )
+            )
+            continue
+
+        policy_statuses = (
+            coverage.combo_policy_status,
+            coverage.section_state_status,
+            coverage.ductility_context_status,
+        )
+        if CoveragePolicyStatus.MISSING in policy_statuses:
+            diagnostics.append(
+                CheckInputBuildDiagnostic(
+                    check_id=coverage.check_id,
+                    component_id=snapshot.component_id,
+                    component_type=snapshot.component_type,
+                    status="BLOCKED",
+                    reason=(
+                        "Authoritative coverage contains a missing policy "
+                        "or design-context status"
+                    ),
+                )
+            )
+            continue
+
+        built = _build_single_geometry_check_input(
+            check_id=coverage.check_id,
+            required_features=expected_features,
+            snapshot=snapshot,
+            invalid_fixture_status_by_feature={},
+            coverage_override=coverage,
+        )
+        if isinstance(built, GeometryCheckInput):
+            check_inputs.append(built)
+        else:
+            diagnostics.append(built)
+
+    return CheckInputBuildResult(
+        check_inputs=tuple(check_inputs),
+        diagnostics=tuple(diagnostics),
+    )
+
 def _build_single_geometry_check_input(
     *,
     check_id: str,
     required_features: tuple[str, ...],
     snapshot: FeatureSnapshot,
     invalid_fixture_status_by_feature: Mapping[str, str],
+    coverage_override: CoverageRow | None = None,
 ) -> GeometryCheckInput | CheckInputBuildDiagnostic:
     missing_features: list[str] = []
     invalid_features: list[str] = []
@@ -263,11 +433,15 @@ def _build_single_geometry_check_input(
         section=_optional_identity_text(snapshot, "section"),
         required_features=required_features,
         snapshot=snapshot,
-        coverage=_build_runnable_coverage_row(
-            check_id=check_id,
-            component_type=snapshot.component_type,
-            component_id=snapshot.component_id,
-            required_features=required_features,
+        coverage=(
+            coverage_override
+            if coverage_override is not None
+            else _build_runnable_coverage_row(
+                check_id=check_id,
+                component_type=snapshot.component_type,
+                component_id=snapshot.component_id,
+                required_features=required_features,
+            )
         ),
         evidence_by_feature=evidence_by_feature,
     )
@@ -451,4 +625,5 @@ __all__ = [
     "CheckInputBuildResult",
     "GeometryCheckInput",
     "build_geometry_check_inputs_from_feature_snapshot",
+    "build_geometry_check_inputs_from_feature_snapshot_and_coverage",
 ]

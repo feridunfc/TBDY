@@ -308,9 +308,9 @@ def validate_phase_manifest(
     failures: list[str] = []
 
     expected_values = {
-        "phase": "PHASE_1_9_CHECK_INPUT_PREFLIGHT",
-        "integration_status": "CHECK_INPUT_PREFLIGHT_IMPLEMENTED",
-        "runtime_wiring_status": "OFFLINE_PREFLIGHT_VERIFIED_NOT_LIVE",
+        "phase": "PHASE_1_10_COVERAGE_AUTHORITATIVE_CHECK_INPUT_ASSEMBLY",
+        "integration_status": "COVERAGE_AUTHORITATIVE_CHECK_INPUT_IMPLEMENTED",
+        "runtime_wiring_status": "OFFLINE_COVERAGE_HANDOFF_VERIFIED_NOT_LIVE",
     }
     for key, expected in expected_values.items():
         if payload.get(key) != expected:

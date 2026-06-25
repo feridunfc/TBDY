@@ -309,7 +309,7 @@ def test_acceptance_layer_does_not_attach_or_mutate_etabs() -> None:
                 node.attr
             )
 
-def test_source_manifest_declares_check_input_preflight_phase() -> None:
+def test_source_manifest_declares_coverage_authoritative_adapter_phase() -> None:
     repo_root = Path(__file__).resolve().parents[3]
     manifest = json.loads(
         (repo_root / "provenance" / "SOURCE_MANIFEST.json").read_text(
@@ -317,16 +317,18 @@ def test_source_manifest_declares_check_input_preflight_phase() -> None:
         )
     )
 
-    assert manifest["phase"] == "PHASE_1_9_CHECK_INPUT_PREFLIGHT"
+    assert (
+        manifest["phase"]
+        == "PHASE_1_10_COVERAGE_AUTHORITATIVE_CHECK_INPUT_ASSEMBLY"
+    )
     assert (
         manifest["integration_status"]
-        == "CHECK_INPUT_PREFLIGHT_IMPLEMENTED"
+        == "COVERAGE_AUTHORITATIVE_CHECK_INPUT_IMPLEMENTED"
     )
     assert (
         manifest["runtime_wiring_status"]
-        == "OFFLINE_PREFLIGHT_VERIFIED_NOT_LIVE"
+        == "OFFLINE_COVERAGE_HANDOFF_VERIFIED_NOT_LIVE"
     )
-    assert manifest["existing_tbdy_source_code_modified"] is True
     assert manifest["boundaries"]["integration_performed"] is True
     assert manifest["boundaries"]["production_import_from_vendor_allowed"] is False
     assert manifest["boundaries"]["generic_execute_code_allowed"] is False
