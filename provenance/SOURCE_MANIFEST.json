@@ -1,9 +1,9 @@
 {
     "schema_version":  "2.0",
-    "phase":  "PHASE_1_10_COVERAGE_AUTHORITATIVE_CHECK_INPUT_ASSEMBLY",
-    "generated_at_utc":  "2026-06-25T14:37:13.274856Z",
-    "integration_status":  "COVERAGE_AUTHORITATIVE_CHECK_INPUT_IMPLEMENTED",
-    "runtime_wiring_status":  "OFFLINE_COVERAGE_HANDOFF_VERIFIED_NOT_LIVE",
+    "phase":  "PHASE_1_11_COVERAGE_BUILDER_ORCHESTRATION",
+    "generated_at_utc":  "2026-06-25T14:57:45.312851Z",
+    "integration_status":  "COVERAGE_BUILDER_ORCHESTRATION_IMPLEMENTED",
+    "runtime_wiring_status":  "OFFLINE_AUTHORITATIVE_ORCHESTRATION_VERIFIED",
     "existing_tbdy_source_code_modified":  true,
     "full_upstream_git_history_embedded":  false,
     "existing_tbdy_repository":  {
@@ -170,7 +170,7 @@
 
                                                    ]
                          },
-    "active_phase_record":  "provenance/PHASE_1_10_COVERAGE_AUTHORITATIVE_CHECK_INPUT_ASSEMBLY.json",
+    "active_phase_record":  "provenance/PHASE_1_11_COVERAGE_BUILDER_ORCHESTRATION.json",
     "verifier":  {
                      "path":  "tools/verify_etabs_mcp_vendor.py",
                      "source_sha256":  "653711731fc5d000446f47a5e511b8bbc37adba5b59d56251b747ef389b72209",

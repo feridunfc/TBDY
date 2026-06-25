@@ -147,6 +147,13 @@ class _NormalizedSnapshotInput:
         )
 
 
+
+def normalize_geometry_feature_snapshot_input(
+    snapshot: FeatureSnapshot | Mapping[str, object],
+) -> FeatureSnapshot:
+    """Normalize the fixture boundary without creating coverage."""
+    return _normalize_snapshot_input(snapshot).snapshot
+
 def build_geometry_check_inputs_from_feature_snapshot(
     snapshot: FeatureSnapshot | Mapping[str, object],
 ) -> CheckInputBuildResult:
@@ -358,6 +365,16 @@ def build_geometry_check_inputs_from_feature_snapshot_and_coverage(
         check_inputs=tuple(check_inputs),
         diagnostics=tuple(diagnostics),
     )
+
+
+def geometry_check_ids_for_component_type(
+    component_type: str,
+) -> tuple[str, ...]:
+    """Return canonical geometry check ids in adapter order."""
+    checks = _CHECKS_BY_COMPONENT_TYPE.get(
+        _normalize_component_type(component_type)
+    )
+    return () if checks is None else tuple(checks)
 
 def _build_single_geometry_check_input(
     *,
@@ -626,4 +643,6 @@ __all__ = [
     "GeometryCheckInput",
     "build_geometry_check_inputs_from_feature_snapshot",
     "build_geometry_check_inputs_from_feature_snapshot_and_coverage",
+    "geometry_check_ids_for_component_type",
+    "normalize_geometry_feature_snapshot_input",
 ]

@@ -61,7 +61,7 @@ def test_missing_beam_depth_writes_adapter_diagnostics_without_depth_or_ratio_re
             "component_id": "B1",
             "component_type": "beam",
             "features": {"beam_width_mm": _feature("beam_width_mm", 300.0)},
-            "identity": {},
+            "identity": {"ductility_class": "HIGH"},
         },
     )
     out_dir = tmp_path / "out"
@@ -88,7 +88,7 @@ def test_wrong_unit_cm_writes_adapter_diagnostics_and_does_not_convert(tmp_path:
                 "beam_width_mm": _feature("beam_width_mm", 30.0, unit="cm"),
                 "beam_depth_mm": _feature("beam_depth_mm", 600.0),
             },
-            "identity": {},
+            "identity": {"ductility_class": "HIGH"},
         },
     )
     out_dir = tmp_path / "out"
@@ -112,7 +112,7 @@ def test_unsupported_component_type_writes_out_of_scope_diagnostic(tmp_path: Pat
             "component_id": "W1",
             "component_type": "wall",
             "features": {"wall_thickness_mm": _feature("wall_thickness_mm", 300.0)},
-            "identity": {},
+            "identity": {"ductility_class": "HIGH"},
         },
     )
     out_dir = tmp_path / "out"
@@ -157,7 +157,7 @@ def test_adapter_diagnostics_artifact_contains_no_engine_decision_statuses(tmp_p
     input_path = tmp_path / "wall.json"
     _write_payload(
         input_path,
-        {"component_id": "W1", "component_type": "wall", "features": {}, "identity": {}},
+        {"component_id": "W1", "component_type": "wall", "features": {}, "identity": {"ductility_class": "HIGH"}},
     )
     out_dir = tmp_path / "out"
 

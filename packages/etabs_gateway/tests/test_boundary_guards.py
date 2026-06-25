@@ -309,7 +309,7 @@ def test_acceptance_layer_does_not_attach_or_mutate_etabs() -> None:
                 node.attr
             )
 
-def test_source_manifest_declares_coverage_authoritative_adapter_phase() -> None:
+def test_source_manifest_declares_coverage_orchestration_phase() -> None:
     repo_root = Path(__file__).resolve().parents[3]
     manifest = json.loads(
         (repo_root / "provenance" / "SOURCE_MANIFEST.json").read_text(
@@ -319,15 +319,15 @@ def test_source_manifest_declares_coverage_authoritative_adapter_phase() -> None
 
     assert (
         manifest["phase"]
-        == "PHASE_1_10_COVERAGE_AUTHORITATIVE_CHECK_INPUT_ASSEMBLY"
+        == "PHASE_1_11_COVERAGE_BUILDER_ORCHESTRATION"
     )
     assert (
         manifest["integration_status"]
-        == "COVERAGE_AUTHORITATIVE_CHECK_INPUT_IMPLEMENTED"
+        == "COVERAGE_BUILDER_ORCHESTRATION_IMPLEMENTED"
     )
     assert (
         manifest["runtime_wiring_status"]
-        == "OFFLINE_COVERAGE_HANDOFF_VERIFIED_NOT_LIVE"
+        == "OFFLINE_AUTHORITATIVE_ORCHESTRATION_VERIFIED"
     )
     assert manifest["boundaries"]["integration_performed"] is True
     assert manifest["boundaries"]["production_import_from_vendor_allowed"] is False

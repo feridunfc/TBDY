@@ -111,7 +111,7 @@ def test_single_snapshot_input_shape_is_supported(tmp_path: Path):
                     "beam_width_mm": _feature("beam_width_mm", 300.0),
                     "beam_depth_mm": _feature("beam_depth_mm", 600.0),
                 },
-                "identity": {},
+                "identity": {"ductility_class": "HIGH"},
             }
         ),
         encoding="utf-8",
@@ -135,7 +135,7 @@ def test_snapshot_list_input_shape_is_supported(tmp_path: Path):
                         "column_width_mm": _feature("column_width_mm", 400.0),
                         "column_depth_mm": _feature("column_depth_mm", 500.0),
                     },
-                    "identity": {},
+                    "identity": {"ductility_class": "HIGH"},
                 }
             ]
         ),

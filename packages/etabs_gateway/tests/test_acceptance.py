@@ -43,7 +43,7 @@ def test_repository_offline_acceptance_passes() -> None:
     assert report.status is AcceptanceStatus.PASS
     assert report.passed is True
     assert report.fixture_sha256 is not None
-    assert report.manifest_phase == "PHASE_1_10_COVERAGE_AUTHORITATIVE_CHECK_INPUT_ASSEMBLY"
+    assert report.manifest_phase == "PHASE_1_11_COVERAGE_BUILDER_ORCHESTRATION"
     assert [item.check_id for item in report.checks] == [
         "fixture_integrity",
         "fixture_canonical_json",
