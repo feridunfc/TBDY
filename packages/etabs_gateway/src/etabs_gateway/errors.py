@@ -79,6 +79,14 @@ class ETABSCOMFinalizationError(ETABSGatewayError):
     code = "ETABS_COM_FINALIZATION_FAILED"
 
 
+class ETABSSessionStateError(ETABSGatewayError):
+    code = "ETABS_SESSION_STATE_INVALID"
+
+
+class ETABSSessionCloseError(ETABSGatewayError):
+    code = "ETABS_SESSION_CLOSE_FAILED"
+
+
 class ETABSWorkerStartError(ETABSGatewayError):
     code = "ETABS_WORKER_START_FAILED"
 

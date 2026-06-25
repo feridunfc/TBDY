@@ -168,7 +168,30 @@ def test_platform_dependencies_are_lazy_and_scoped() -> None:
     )
 
 
-def test_source_manifest_declares_read_only_context_phase() -> None:
+def test_session_layer_contains_no_direct_etabs_com_calls() -> None:
+    session_path = SOURCE_ROOT / "session.py"
+    tree = ast.parse(
+        session_path.read_text(encoding="utf-8"),
+        filename=str(session_path),
+    )
+    forbidden = {
+        "GetActiveObject",
+        "SapModel",
+        "GetVersion",
+        "GetModelFilename",
+        "GetModelIsLocked",
+        "GetPresentUnits",
+    }
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            final_name = dotted_name(node.func).rsplit(".", 1)[-1]
+            assert final_name not in forbidden, final_name
+        if isinstance(node, ast.Attribute):
+            assert node.attr not in forbidden, node.attr
+
+
+def test_source_manifest_declares_session_orchestration_phase() -> None:
     repo_root = Path(__file__).resolve().parents[3]
     manifest = json.loads(
         (repo_root / "provenance" / "SOURCE_MANIFEST.json").read_text(
@@ -176,11 +199,11 @@ def test_source_manifest_declares_read_only_context_phase() -> None:
         )
     )
 
-    assert manifest["phase"] == "PHASE_1_4_READ_ONLY_CONTEXT"
-    assert manifest["integration_status"] == "READ_ONLY_CONTEXT_IMPLEMENTED"
+    assert manifest["phase"] == "PHASE_1_5_GATEWAY_SESSION"
+    assert manifest["integration_status"] == "SESSION_ORCHESTRATION_IMPLEMENTED"
     assert (
         manifest["runtime_wiring_status"]
-        == "CONTEXT_READS_NOT_LIVE_VERIFIED"
+        == "OFFLINE_SESSION_VERIFIED_NOT_LIVE"
     )
     assert manifest["boundaries"]["integration_performed"] is False
     assert manifest["boundaries"]["production_import_from_vendor_allowed"] is False

@@ -31,12 +31,15 @@ from .errors import (
     ETABSUnitsReadError,
     ETABSModelUnavailableError,
     ETABSNotRunningError,
+    ETABSSessionCloseError,
+    ETABSSessionStateError,
     ETABSThreadViolationError,
     ETABSTimeoutError,
     ETABSVersionReadError,
     ETABSWorkerClosedError,
     ETABSWorkerStartError,
 )
+from .session import ETABSGatewaySession
 from .worker import DedicatedSTAWorker, WorkerState
 
 __all__ = [
@@ -66,11 +69,14 @@ __all__ = [
     "ETABSUnitsReadError",
     "ETABSModelUnavailableError",
     "ETABSNotRunningError",
+    "ETABSSessionCloseError",
+    "ETABSSessionStateError",
     "ETABSThreadViolationError",
     "ETABSTimeoutError",
     "ETABSVersionReadError",
     "ETABSWorkerClosedError",
     "ETABSWorkerStartError",
+    "ETABSGatewaySession",
     "DedicatedSTAWorker",
     "WorkerState",
 ]

@@ -1,6 +1,6 @@
 # Typed ETABS Gateway
 
-Phase-1.4 read-only application/model/unit context extraction is active.
+Phase-1.5 deterministic gateway-session orchestration is active.
 
 ## Current implementation
 
@@ -8,20 +8,19 @@ Phase-1.4 read-only application/model/unit context extraction is active.
 - dedicated single-thread worker infrastructure,
 - lazy Windows COM apartment lifecycle binding,
 - lazy read-only attachment to a running ETABS application,
-- private application and model API reference ownership,
-- ETABS version read,
-- model filename read,
-- model lock-state read,
-- present-unit code read,
-- immutable gateway/application/model/unit context,
-- typed per-operation read failures,
-- offline fake-runtime lifecycle and boundary tests.
+- read-only application/model/unit context extraction,
+- one deterministic session owner for apartment, worker, and connection,
+- startup rollback after attach or context-read failure,
+- idempotent shutdown and typed close failures,
+- immutable health and diagnostic snapshots,
+- offline fake-runtime lifecycle and failure-path tests.
 
 ## Current runtime status
 
 - Windows COM apartment lifecycle: implemented,
-- running ETABS attachment: implemented, not live-verified in this phase,
+- running ETABS attachment: implemented, not live-verified,
 - application/model/unit context reads: implemented, not live-verified,
+- gateway session lifecycle: implemented and offline-verified,
 - exact process identity: not implemented,
 - table or result extraction: none,
 - model write operations: forbidden,
@@ -29,14 +28,15 @@ Phase-1.4 read-only application/model/unit context extraction is active.
 - FeatureSnapshot and CheckEngine integration: none,
 - engineering verdict generation: forbidden.
 
-`ReadOnlyETABSConnection.read_context()` executes all metadata reads through
-`DedicatedSTAWorker`. Parsing and typed error mapping live in
-`context_reader.py`; raw COM references remain private to the connection.
+`ETABSGatewaySession` is the sole lifecycle owner for
+`WindowsCOMApartment`, `DedicatedSTAWorker`, and
+`ReadOnlyETABSConnection`. Construction remains offline-safe and does not
+load platform modules. `start()` performs attach plus initial context read;
+any failure triggers best-effort component cleanup before the typed error is
+re-raised.
 
-When `GetModelFilename(True)` returns an empty value, the gateway emits an
-explicit no-open-model context and does not attempt lock-state or unit reads.
-No human-readable unit-name mapping is guessed in this phase; the authoritative
-raw present-unit code is preserved.
+The session never exposes raw COM references. Public state is limited to
+immutable context, health, and diagnostic contracts.
 
 The production gateway must remain read-only by default and must never import
 or activate code from `vendor/etabs-mcp`.

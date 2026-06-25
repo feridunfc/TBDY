@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "phase": "PHASE_1_5_GATEWAY_SESSION",
+  "scope": "P1_5_OFFLINE_SESSION_ORCHESTRATION",
+  "status": "ACTIVE",
+  "created_at_utc": "2026-06-25T11:31:23.188876Z",
+  "base_commit_sha": "3cd8bebb478d6486a344346ac9d55eb922720059",
+  "development_branch": "sprint/p1-2-windows-com-apartment-binding",
+  "integration_status": "SESSION_ORCHESTRATION_IMPLEMENTED",
+  "runtime_wiring_status": "OFFLINE_SESSION_VERIFIED_NOT_LIVE",
+  "platform_com_binding_status": "IMPLEMENTED",
+  "etabs_attachment_status": "IMPLEMENTED_NOT_LIVE_VERIFIED",
+  "context_read_status": "IMPLEMENTED_NOT_LIVE_VERIFIED",
+  "session_status": "OFFLINE_VERIFIED",
+  "vendor_runtime_status": "REFERENCE_ONLY",
+  "vendor_runtime_import_allowed": false,
+  "generic_execute_code_allowed": false,
+  "engineering_verdict_emission_allowed": false,
+  "implemented_scope": [
+    "single lifecycle owner for apartment worker and connection",
+    "lazy offline-safe construction",
+    "attach plus initial context startup orchestration",
+    "startup rollback after partial failure",
+    "idempotent deterministic shutdown",
+    "typed session state and close failures",
+    "immutable health and diagnostic snapshots",
+    "offline success and failure-path tests"
+  ],
+  "explicitly_not_implemented": [
+    "live ETABS verification",
+    "exact process-ID selection",
+    "table or result extraction",
+    "analysis or design execution",
+    "model mutation",
+    "FeatureSnapshot integration",
+    "CheckEngine integration",
+    "report generation"
+  ],
+  "acceptance_commands": [
+    "python -m pytest packages/etabs_gateway/tests -q",
+    "python tools/verify_etabs_mcp_vendor.py",
+    "git diff --check"
+  ]
+}
