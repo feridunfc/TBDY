@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.0",
+  "phase": "PHASE_1_4_READ_ONLY_CONTEXT",
+  "scope": "P1_4_APPLICATION_MODEL_UNIT_CONTEXT",
+  "status": "ACTIVE",
+  "created_at_utc": "2026-06-25T11:23:59.873412Z",
+  "base_commit_sha": "8160c4a84d88ece9c5271f2f92824c02dc9c093c",
+  "development_branch": "sprint/p1-2-windows-com-apartment-binding",
+  "integration_status": "READ_ONLY_CONTEXT_IMPLEMENTED",
+  "runtime_wiring_status": "CONTEXT_READS_NOT_LIVE_VERIFIED",
+  "platform_com_binding_status": "IMPLEMENTED",
+  "etabs_attachment_status": "IMPLEMENTED_NOT_LIVE_VERIFIED",
+  "context_read_status": "IMPLEMENTED_NOT_LIVE_VERIFIED",
+  "vendor_runtime_status": "REFERENCE_ONLY",
+  "vendor_runtime_import_allowed": false,
+  "generic_execute_code_allowed": false,
+  "engineering_verdict_emission_allowed": false,
+  "implemented_scope": [
+    "ETABS version read",
+    "model filename read",
+    "model lock-state read",
+    "present-unit code read",
+    "immutable gateway context",
+    "typed per-operation read failures",
+    "non-zero ETABS return-code validation",
+    "all reads on the dedicated worker thread",
+    "offline fake model API tests"
+  ],
+  "explicitly_not_implemented": [
+    "exact process-ID selection",
+    "human-readable unit-name mapping",
+    "table or result extraction",
+    "analysis or design execution",
+    "model mutation",
+    "FeatureSnapshot integration",
+    "CheckEngine integration",
+    "report generation",
+    "live ETABS verification"
+  ],
+  "acceptance_commands": [
+    "python -m pytest packages/etabs_gateway/tests -q",
+    "python tools/verify_etabs_mcp_vendor.py",
+    "git diff --check"
+  ]
+}

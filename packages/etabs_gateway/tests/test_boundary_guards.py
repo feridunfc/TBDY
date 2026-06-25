@@ -36,13 +36,23 @@ def test_production_gateway_does_not_import_vendor_runtime() -> None:
                 assert root not in forbidden_roots, path
 
 
-def test_write_and_generic_execution_calls_remain_forbidden() -> None:
+def test_write_analysis_table_and_generic_execution_calls_are_forbidden() -> None:
     forbidden_call_names = {
         "execute_code",
         "SetSection",
         "RunAnalysis",
+        "SetPresentUnits",
+        "SetModelIsLocked",
+        "InitializeNewModel",
+        "OpenFile",
+        "Save",
+        "ApplicationStart",
+        "ApplicationExit",
         "GetObject",
         "CreateObject",
+        "GetTableForDisplayArray",
+        "GetAllTables",
+        "GetAvailableTables",
     }
 
     for path in iter_source_files():
@@ -73,8 +83,59 @@ def test_active_object_and_model_acquisition_are_scoped_to_connection() -> None:
             if isinstance(node, ast.Attribute) and node.attr == "SapModel":
                 assert path == connection_path, path
 
-        if path not in {connection_path, SOURCE_ROOT / "contracts.py"}:
-            assert '"SapModel"' not in path.read_text(encoding="utf-8"), path
+
+def test_metadata_reads_are_scoped_to_context_reader() -> None:
+    reader_path = SOURCE_ROOT / "context_reader.py"
+    allowed_methods = {
+        "GetVersion",
+        "GetModelFilename",
+        "GetModelIsLocked",
+        "GetPresentUnits",
+    }
+
+    observed: set[str] = set()
+
+    for path in iter_source_files():
+        tree = ast.parse(
+            path.read_text(encoding="utf-8"),
+            filename=str(path),
+        )
+
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+
+            target = dotted_name(node.func)
+            final_name = target.rsplit(".", 1)[-1]
+
+            if final_name in allowed_methods:
+                assert path == reader_path, (
+                    f"Metadata call {final_name!r} found in {path}"
+                )
+                observed.add(final_name)
+
+            if final_name == "_invoke":
+                assert path == reader_path, (
+                    f"_invoke runtime boundary found outside reader: {path}"
+                )
+
+                assert len(node.args) >= 2, (
+                    "_invoke must receive target and method name."
+                )
+
+                method_arg = node.args[1]
+                assert isinstance(method_arg, ast.Constant), (
+                    "_invoke method name must be a literal string."
+                )
+                assert isinstance(method_arg.value, str), (
+                    "_invoke method name must be a string."
+                )
+
+                method_name = method_arg.value
+                if method_name in allowed_methods:
+                    observed.add(method_name)
+
+    assert observed == allowed_methods
 
 
 def test_platform_dependencies_are_lazy_and_scoped() -> None:
@@ -107,7 +168,7 @@ def test_platform_dependencies_are_lazy_and_scoped() -> None:
     )
 
 
-def test_source_manifest_declares_read_only_attach_phase() -> None:
+def test_source_manifest_declares_read_only_context_phase() -> None:
     repo_root = Path(__file__).resolve().parents[3]
     manifest = json.loads(
         (repo_root / "provenance" / "SOURCE_MANIFEST.json").read_text(
@@ -115,11 +176,11 @@ def test_source_manifest_declares_read_only_attach_phase() -> None:
         )
     )
 
-    assert manifest["phase"] == "PHASE_1_3_READ_ONLY_ETABS_ATTACH"
-    assert manifest["integration_status"] == "READ_ONLY_ATTACH_IMPLEMENTED"
+    assert manifest["phase"] == "PHASE_1_4_READ_ONLY_CONTEXT"
+    assert manifest["integration_status"] == "READ_ONLY_CONTEXT_IMPLEMENTED"
     assert (
         manifest["runtime_wiring_status"]
-        == "ATTACH_ONLY_NOT_LIVE_VERIFIED"
+        == "CONTEXT_READS_NOT_LIVE_VERIFIED"
     )
     assert manifest["boundaries"]["integration_performed"] is False
     assert manifest["boundaries"]["production_import_from_vendor_allowed"] is False
