@@ -40,6 +40,16 @@ from .errors import (
     ETABSWorkerClosedError,
     ETABSWorkerStartError,
 )
+from .acceptance import (
+    AcceptanceCheckResult,
+    AcceptanceStatus,
+    OfflineAcceptanceReport,
+    SourceBoundaryFinding,
+    canonical_offline_acceptance_report_json,
+    run_offline_acceptance,
+    scan_source_boundaries,
+    validate_phase_manifest,
+)
 from .replay import (
     ETABSGatewayFixture,
     FIXTURE_SCHEMA_VERSION,
@@ -91,6 +101,14 @@ __all__ = [
     "ETABSVersionReadError",
     "ETABSWorkerClosedError",
     "ETABSWorkerStartError",
+    "AcceptanceCheckResult",
+    "AcceptanceStatus",
+    "OfflineAcceptanceReport",
+    "SourceBoundaryFinding",
+    "canonical_offline_acceptance_report_json",
+    "run_offline_acceptance",
+    "scan_source_boundaries",
+    "validate_phase_manifest",
     "ETABSGatewayFixture",
     "FIXTURE_SCHEMA_VERSION",
     "FIXTURE_TYPE",

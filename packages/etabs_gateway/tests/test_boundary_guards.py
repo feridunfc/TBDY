@@ -143,30 +143,58 @@ def test_platform_dependencies_are_lazy_and_scoped() -> None:
     apartment_path = SOURCE_ROOT / "com_apartment.py"
     connection_path = SOURCE_ROOT / "connection.py"
 
+    expected_lazy_modules = {
+        "pythoncom": apartment_path,
+        "win32com.client": connection_path,
+    }
+    observed_lazy_modules: set[str] = set()
+
     for path in iter_source_files():
-        text = path.read_text(encoding="utf-8")
-        tree = ast.parse(text, filename=str(path))
+        tree = ast.parse(
+            path.read_text(encoding="utf-8"),
+            filename=str(path),
+        )
 
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                roots = {alias.name.split(".", 1)[0] for alias in node.names}
-                assert not roots.intersection(forbidden_import_roots), path
+                roots = {
+                    alias.name.split(".", 1)[0]
+                    for alias in node.names
+                }
+                assert not roots.intersection(
+                    forbidden_import_roots
+                ), path
+
             elif isinstance(node, ast.ImportFrom) and node.module:
                 root = node.module.split(".", 1)[0]
                 assert root not in forbidden_import_roots, path
 
-        if path != apartment_path:
-            assert "pythoncom" not in text, path
-        if path != connection_path:
-            assert "win32com.client" not in text, path
+            elif isinstance(node, ast.Call):
+                final_name = dotted_name(
+                    node.func
+                ).rsplit(".", 1)[-1]
 
-    assert 'import_module("pythoncom")' in apartment_path.read_text(
-        encoding="utf-8"
-    )
-    assert 'import_module("win32com.client")' in connection_path.read_text(
-        encoding="utf-8"
-    )
+                if final_name != "import_module":
+                    continue
 
+                assert node.args, (
+                    f"import_module call without module name in {path}"
+                )
+                module_arg = node.args[0]
+                assert isinstance(module_arg, ast.Constant), path
+                assert isinstance(module_arg.value, str), path
+
+                module_name = module_arg.value
+
+                if module_name in expected_lazy_modules:
+                    observed_lazy_modules.add(module_name)
+                    assert path == expected_lazy_modules[module_name], (
+                        f"{module_name!r} lazy-loaded from {path}"
+                    )
+
+                assert not module_name.startswith("comtypes"), path
+
+    assert observed_lazy_modules == set(expected_lazy_modules)
 
 def test_session_layer_contains_no_direct_etabs_com_calls() -> None:
     session_path = SOURCE_ROOT / "session.py"
@@ -218,7 +246,70 @@ def test_replay_layer_contains_no_com_or_live_etabs_calls() -> None:
     assert "comtypes" not in text
 
 
-def test_source_manifest_declares_fixture_replay_phase() -> None:
+def test_acceptance_layer_does_not_attach_or_mutate_etabs() -> None:
+    path = SOURCE_ROOT / "acceptance.py"
+    tree = ast.parse(
+        path.read_text(encoding="utf-8"),
+        filename=str(path),
+    )
+
+    forbidden_runtime_names = {
+        "GetActiveObject",
+        "SapModel",
+        "GetVersion",
+        "GetModelFilename",
+        "GetModelIsLocked",
+        "GetPresentUnits",
+        "RunAnalysis",
+        "SetPresentUnits",
+        "GetTableForDisplayArray",
+    }
+    forbidden_import_roots = {
+        "pythoncom",
+        "win32com",
+        "comtypes",
+        "etabs_mcp",
+        "vendor",
+    }
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            roots = {
+                alias.name.split(".", 1)[0]
+                for alias in node.names
+            }
+            assert not roots.intersection(
+                forbidden_import_roots
+            ), roots
+
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            root = node.module.split(".", 1)[0]
+            assert root not in forbidden_import_roots, root
+
+        elif isinstance(node, ast.Call):
+            final_name = dotted_name(
+                node.func
+            ).rsplit(".", 1)[-1]
+
+            assert final_name not in forbidden_runtime_names, (
+                final_name
+            )
+
+            if final_name == "import_module" and node.args:
+                module_arg = node.args[0]
+                if (
+                    isinstance(module_arg, ast.Constant)
+                    and isinstance(module_arg.value, str)
+                ):
+                    root = module_arg.value.split(".", 1)[0]
+                    assert root not in forbidden_import_roots, root
+
+        elif isinstance(node, ast.Attribute):
+            assert node.attr not in forbidden_runtime_names, (
+                node.attr
+            )
+
+def test_source_manifest_declares_offline_acceptance_phase() -> None:
     repo_root = Path(__file__).resolve().parents[3]
     manifest = json.loads(
         (repo_root / "provenance" / "SOURCE_MANIFEST.json").read_text(
@@ -226,11 +317,14 @@ def test_source_manifest_declares_fixture_replay_phase() -> None:
         )
     )
 
-    assert manifest["phase"] == "PHASE_1_6_FIXTURE_REPLAY"
-    assert manifest["integration_status"] == "FIXTURE_REPLAY_IMPLEMENTED"
+    assert manifest["phase"] == "PHASE_1_7_OFFLINE_ACCEPTANCE"
+    assert (
+        manifest["integration_status"]
+        == "OFFLINE_ACCEPTANCE_GATE_IMPLEMENTED"
+    )
     assert (
         manifest["runtime_wiring_status"]
-        == "OFFLINE_REPLAY_VERIFIED_NOT_LIVE"
+        == "OFFLINE_GATE_VERIFIED_NOT_LIVE"
     )
     assert manifest["boundaries"]["integration_performed"] is False
     assert manifest["boundaries"]["production_import_from_vendor_allowed"] is False

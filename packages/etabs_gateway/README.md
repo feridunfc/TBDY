@@ -1,6 +1,6 @@
 # Typed ETABS Gateway
 
-Phase-1.6 deterministic offline fixture/replay support is active.
+Phase-1.7 deterministic offline acceptance gate is active.
 
 ## Current implementation
 
@@ -9,23 +9,29 @@ Phase-1.6 deterministic offline fixture/replay support is active.
 - read-only running-instance attachment,
 - application/model/unit context extraction,
 - deterministic session orchestration,
-- strict canonical JSON fixture schema,
-- SHA-256 fixture integrity verification,
-- immutable offline replay provider,
-- deterministic UTF-8 serialization,
-- strict unknown-key, enum, type, and UTC validation,
-- offline replay and tamper-detection tests.
+- canonical fixture/replay with SHA-256 integrity,
+- repository-level offline acceptance report,
+- source architecture boundary scanning,
+- phase-manifest validation,
+- vendor checksum verification,
+- one-command JSON-capable acceptance CLI.
 
-## Runtime boundaries
+Run the complete ETABS-free gate from the repository root:
 
-The replay provider never loads COM, attaches to ETABS, reads tables, runs
-analysis or design, mutates a model, or exposes raw platform references.
-It reconstructs only `ETABSGatewayContext` contracts from validated fixtures.
+```powershell
+python tools/verify_etabs_gateway_offline.py `
+  --json-out local_out/etabs_gateway_offline_acceptance.json
+```
 
-A fixture is signed over its canonical JSON payload using SHA-256. Unknown
-fields are rejected rather than ignored. Timestamps must be explicit UTC
-values using the `Z` suffix. Human-readable unit names are not guessed.
+The command checks:
 
-Live ETABS behavior remains unverified in this phase. Fixture/replay is for
-offline tests, deterministic regression reproduction, and contract validation;
-it is not production evidence that a live model satisfies TBDY.
+1. fixture schema and SHA-256 integrity,
+2. canonical deterministic fixture JSON,
+3. production source import/call ownership boundaries,
+4. active phase and fail-closed manifest boundaries,
+5. immutable vendored ETABS-MCP checksums.
+
+A PASS proves only that the offline gateway contracts, deterministic replay,
+source boundaries, provenance, and vendor integrity are internally consistent.
+It does not prove live ETABS compatibility, model correctness, analysis/design
+result correctness, or TBDY compliance.

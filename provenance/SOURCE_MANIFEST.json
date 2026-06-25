@@ -1,9 +1,9 @@
 {
     "schema_version":  "2.0",
-    "phase":  "PHASE_1_6_FIXTURE_REPLAY",
-    "generated_at_utc":  "2026-06-25T11:36:36.135483Z",
-    "integration_status":  "FIXTURE_REPLAY_IMPLEMENTED",
-    "runtime_wiring_status":  "OFFLINE_REPLAY_VERIFIED_NOT_LIVE",
+    "phase":  "PHASE_1_7_OFFLINE_ACCEPTANCE",
+    "generated_at_utc":  "2026-06-25T11:42:33.884118Z",
+    "integration_status":  "OFFLINE_ACCEPTANCE_GATE_IMPLEMENTED",
+    "runtime_wiring_status":  "OFFLINE_GATE_VERIFIED_NOT_LIVE",
     "existing_tbdy_source_code_modified":  false,
     "full_upstream_git_history_embedded":  false,
     "existing_tbdy_repository":  {
@@ -170,7 +170,7 @@
 
                                                    ]
                          },
-    "active_phase_record":  "provenance/PHASE_1_6_FIXTURE_REPLAY.json",
+    "active_phase_record":  "provenance/PHASE_1_7_OFFLINE_ACCEPTANCE.json",
     "verifier":  {
                      "path":  "tools/verify_etabs_mcp_vendor.py",
                      "source_sha256":  "653711731fc5d000446f47a5e511b8bbc37adba5b59d56251b747ef389b72209",

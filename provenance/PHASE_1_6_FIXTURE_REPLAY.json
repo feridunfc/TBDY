@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "phase": "PHASE_1_6_FIXTURE_REPLAY",
   "scope": "P1_6_DETERMINISTIC_FIXTURE_REPLAY",
-  "status": "ACTIVE",
+  "status": "COMPLETED",
   "created_at_utc": "2026-06-25T11:36:36.135483Z",
   "base_commit_sha": "c09032e7fd8fe6fed885341042d69e16c20283a9",
   "development_branch": "sprint/p1-2-windows-com-apartment-binding",
@@ -38,5 +38,7 @@
     "python -m pytest packages/etabs_gateway/tests -q",
     "python tools/verify_etabs_mcp_vendor.py",
     "git diff --check"
-  ]
+  ],
+  "completed_at_utc": "2026-06-25T11:42:33.884118Z",
+  "completed_by_base_commit_sha": "db61bb5d8c28fb800a18e6ef399915b03ac84d07"
 }
