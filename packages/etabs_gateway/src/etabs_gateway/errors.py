@@ -47,6 +47,18 @@ class ETABSVersionReadError(ETABSGatewayError):
     code = "ETABS_VERSION_READ_FAILED"
 
 
+class ETABSModelPathReadError(ETABSGatewayError):
+    code = "ETABS_MODEL_PATH_READ_FAILED"
+
+
+class ETABSModelLockReadError(ETABSGatewayError):
+    code = "ETABS_MODEL_LOCK_READ_FAILED"
+
+
+class ETABSUnitsReadError(ETABSGatewayError):
+    code = "ETABS_UNITS_READ_FAILED"
+
+
 class ETABSModelUnavailableError(ETABSGatewayError):
     code = "ETABS_MODEL_UNAVAILABLE"
 
@@ -57,6 +69,26 @@ class ETABSCallError(ETABSGatewayError):
 
 class ETABSTimeoutError(ETABSGatewayError):
     code = "ETABS_TIMEOUT"
+
+
+class ETABSCOMInitializationError(ETABSGatewayError):
+    code = "ETABS_COM_INITIALIZATION_FAILED"
+
+
+class ETABSCOMFinalizationError(ETABSGatewayError):
+    code = "ETABS_COM_FINALIZATION_FAILED"
+
+
+class ETABSFixtureValidationError(ETABSGatewayError):
+    code = "ETABS_FIXTURE_VALIDATION_FAILED"
+
+
+class ETABSSessionStateError(ETABSGatewayError):
+    code = "ETABS_SESSION_STATE_INVALID"
+
+
+class ETABSSessionCloseError(ETABSGatewayError):
+    code = "ETABS_SESSION_CLOSE_FAILED"
 
 
 class ETABSWorkerStartError(ETABSGatewayError):

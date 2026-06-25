@@ -31,6 +31,7 @@ def _probe_good_rows(tmp_path: Path):
     return probe_geometry_feature_snapshots(
         provider=_good_provider(),
         output_dir=tmp_path,
+        design_context={"ductility_class": "HIGH"},
     )
 
 
@@ -65,6 +66,10 @@ def test_fake_provider_produces_beam_and_column_feature_snapshots(tmp_path: Path
     assert result.status == "OK"
     assert result.snapshot_count == 2
     assert set(snapshots) == {"B1", "C1"}
+    assert {
+        snapshots["B1"]["identity"]["ductility_class"],
+        snapshots["C1"]["identity"]["ductility_class"],
+    } == {"HIGH"}
     assert set(snapshots["B1"]["features"]) == {"beam_width_mm", "beam_depth_mm"}
     assert set(snapshots["C1"]["features"]) == {"column_width_mm", "column_depth_mm"}
 
@@ -135,7 +140,11 @@ def test_fake_feature_snapshot_can_feed_existing_product_smoke_and_produce_six_r
     probe_out = tmp_path / "probe"
     product_out = tmp_path / "product"
 
-    probe_geometry_feature_snapshots(provider=_good_provider(), output_dir=probe_out)
+    probe_geometry_feature_snapshots(
+        provider=_good_provider(),
+        output_dir=probe_out,
+        design_context={"ductility_class": "HIGH"},
+    )
     product = run_geometry_product_smoke(
         feature_snapshot_path=probe_out / "feature_snapshot.json",
         output_dir=product_out,

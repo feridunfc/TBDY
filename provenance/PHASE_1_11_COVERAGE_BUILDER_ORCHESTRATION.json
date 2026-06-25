@@ -1,0 +1,36 @@
+{
+    "schema_version":  "1.0",
+    "phase":  "PHASE_1_11_COVERAGE_BUILDER_ORCHESTRATION",
+    "scope":  "P1_11_GEOMETRY_COVERAGE_BUILDER_ORCHESTRATION",
+    "status":  "ACTIVE",
+    "created_at_utc":  "2026-06-25T14:57:45.312851Z",
+    "base_commit_sha":  "13e540489eeb00b32fe6057ef844a3fc97dd01ee",
+    "development_branch":  "sprint/p1-2-windows-com-apartment-binding",
+    "integration_status":  "COVERAGE_BUILDER_ORCHESTRATION_IMPLEMENTED",
+    "runtime_wiring_status":  "OFFLINE_AUTHORITATIVE_ORCHESTRATION_VERIFIED",
+    "production_coverage_authority":  "CoverageBuilder",
+    "synthetic_coverage_used_by_vertical_slice":  false,
+    "legacy_compatibility_adapter_retained":  true,
+    "new_engineering_check_added":  false,
+    "new_engineering_formula_added":  false,
+    "implemented_scope":  [
+                              "validated contract bundle loading",
+                              "column geometry overlay merge",
+                              "canonical geometry check-id selection",
+                              "CoverageBuilder row generation",
+                              "exact CoverageRow handoff to authoritative adapter",
+                              "vertical-slice migration from synthetic coverage",
+                              "coverage authority manifest evidence",
+                              "existing geometry behavior regression preservation"
+                          ],
+    "explicitly_not_implemented":  [
+                                       "live ETABS verification",
+                                       "new engineering checks",
+                                       "new engineering formulas",
+                                       "building compliance aggregation",
+                                       "legacy compatibility adapter removal",
+                                       "report schema redesign"
+                                   ],
+    "design_context_source":  "FeatureSnapshot.identity",
+    "silent_design_context_default_allowed":  false
+}

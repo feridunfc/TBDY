@@ -27,6 +27,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target-label", default=None, help="Optional frame label selector")
     parser.add_argument("--target-component", default=None, help="Optional component id selector")
     parser.add_argument("--max-rows", type=int, default=20, help="Maximum geometry rows to process")
+    parser.add_argument(
+        "--ductility-class",
+        default=None,
+        help="Optional explicit ductility class stored in FeatureSnapshot.identity",
+    )
     parser.add_argument("--max-candidate-tables", type=int, default=5, help="Maximum live ETABS candidate tables to inspect")
     parser.add_argument("--fake-provider-fixture", default=None, help=argparse.SUPPRESS)
     parser.add_argument("--fake-assignment-rows-fixture", default=None, help=argparse.SUPPRESS)
@@ -55,6 +60,12 @@ def main(argv: list[str] | None = None) -> int:
             target_story=args.target_story,
             target_label=args.target_label,
             target_component=args.target_component,
+            design_context=(
+                {"ductility_class": args.ductility_class.strip()}
+                if args.ductility_class
+                and args.ductility_class.strip()
+                else None
+            ),
             max_rows=args.max_rows,
         )
     except EtabsAttachFailure as exc:

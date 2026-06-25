@@ -18,9 +18,13 @@ import json
 import yaml
 
 from tbdy_engine.checks.engine import MinimalCheckEngine
+from tbdy_engine.checks.geometry_coverage_orchestration import (
+    assemble_geometry_check_inputs,
+    load_geometry_contract_bundle,
+)
 from tbdy_engine.checks.input_adapter import (
     CheckInputBuildDiagnostic,
-    build_geometry_check_inputs_from_feature_snapshot,
+    normalize_geometry_feature_snapshot_input,
 )
 from tbdy_engine.checks.result import CheckResult
 
@@ -81,28 +85,54 @@ def run_geometry_vertical_slice_from_file(
 ) -> GeometryVerticalSliceResult:
     input_path = Path(feature_snapshot_path)
     out_dir = Path(output_dir)
-    effective_catalog_dir = Path(catalog_dir) if catalog_dir is not None else _DEFAULT_CATALOG_DIR
+    effective_catalog_dir = (
+        Path(catalog_dir)
+        if catalog_dir is not None
+        else _DEFAULT_CATALOG_DIR
+    )
 
     input_bytes = input_path.read_bytes()
     input_payload = json.loads(input_bytes.decode("utf-8"))
     snapshots = _normalize_input_payload(input_payload)
-    check_definitions = _load_check_definitions(effective_catalog_dir)
+    check_definitions = _load_check_definitions(
+        effective_catalog_dir
+    )
+    contract_bundle = load_geometry_contract_bundle(
+        effective_catalog_dir
+    )
     engine = MinimalCheckEngine(check_definitions)
 
     check_results: list[CheckResult] = []
     adapter_diagnostics: list[CheckInputBuildDiagnostic] = []
     executable_input_count = 0
+    coverage_row_count = 0
 
     for snapshot_payload in snapshots:
-        adapter_result = build_geometry_check_inputs_from_feature_snapshot(snapshot_payload)
+        snapshot = normalize_geometry_feature_snapshot_input(
+            snapshot_payload
+        )
+        assembly = assemble_geometry_check_inputs(
+            snapshot=snapshot,
+            contract_bundle=contract_bundle,
+        )
+        adapter_result = assembly.build_result
+        coverage_row_count += len(assembly.coverage_rows)
         adapter_diagnostics.extend(adapter_result.diagnostics)
         executable_input_count += len(adapter_result.check_inputs)
+
         for check_input in adapter_result.check_inputs:
-            check_results.append(engine.run_check(check_input.check_id, check_input.snapshot, check_input.coverage))
+            check_results.append(
+                engine.run_check(
+                    check_input.check_id,
+                    check_input.snapshot,
+                    check_input.coverage,
+                )
+            )
 
     summary = _build_summary(
         snapshots=snapshots,
         executable_input_count=executable_input_count,
+        coverage_row_count=coverage_row_count,
         check_results=check_results,
         adapter_diagnostics=adapter_diagnostics,
     )
@@ -114,8 +144,17 @@ def run_geometry_vertical_slice_from_file(
     )
 
     out_dir.mkdir(parents=True, exist_ok=True)
-    _write_json(out_dir / "check_results.json", [_serialize_check_result(item) for item in check_results])
-    _write_json(out_dir / "adapter_diagnostics.json", [_serialize_adapter_diagnostic(item) for item in adapter_diagnostics])
+    _write_json(
+        out_dir / "check_results.json",
+        [_serialize_check_result(item) for item in check_results],
+    )
+    _write_json(
+        out_dir / "adapter_diagnostics.json",
+        [
+            _serialize_adapter_diagnostic(item)
+            for item in adapter_diagnostics
+        ],
+    )
     _write_json(out_dir / "run_summary.json", summary)
     _write_json(out_dir / "run_manifest.json", manifest)
 
@@ -125,7 +164,6 @@ def run_geometry_vertical_slice_from_file(
         run_summary=summary,
         manifest=manifest,
     )
-
 
 def _normalize_input_payload(payload: object) -> tuple[Mapping[str, object], ...]:
     if isinstance(payload, Mapping):
@@ -191,6 +229,7 @@ def _build_summary(
     *,
     snapshots: Sequence[Mapping[str, object]],
     executable_input_count: int,
+    coverage_row_count: int,
     check_results: Sequence[CheckResult],
     adapter_diagnostics: Sequence[CheckInputBuildDiagnostic],
 ) -> dict[str, object]:
@@ -203,6 +242,7 @@ def _build_summary(
         "check_result_count": len(check_results),
         "check_result_status_counts": _sorted_counter_dict(status_counts),
         "component_type_counts": _sorted_counter_dict(component_type_counts),
+        "coverage_row_count": coverage_row_count,
         "executable_input_count": executable_input_count,
         "snapshot_count": len(snapshots),
         "status": "OK",
@@ -213,12 +253,14 @@ def _build_manifest(*, input_path: Path, input_sha256: str, output_dir: Path, ca
     return {
         "artifact_files": list(_ARTIFACT_FILES),
         "catalog_dir": str(catalog_dir),
+        "coverage_authority": "CoverageBuilder",
         "forbidden_scope": list(_FORBIDDEN_SCOPE),
         "input_path": str(input_path),
         "input_sha256": input_sha256,
         "output_dir": str(output_dir),
         "runner": _RUNNER_NAME,
         "scope": _SCOPE,
+        "synthetic_coverage_path_used": False,
     }
 
 

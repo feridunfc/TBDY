@@ -1,31 +1,37 @@
 # Typed ETABS Gateway
 
-Phase-1.1 dedicated worker infrastructure is active.
+Phase-1.7 deterministic offline acceptance gate is active.
 
 ## Current implementation
 
 - immutable typed gateway contracts,
-- typed deterministic gateway errors,
-- pure model-context normalization,
-- pure diagnostic event construction,
-- a single-thread task worker,
-- injectable apartment initializer and finalizer callbacks,
-- deterministic startup, timeout, failure, and shutdown behavior,
-- offline contract and architecture boundary tests.
+- dedicated STA worker and lazy COM apartment lifecycle,
+- read-only running-instance attachment,
+- application/model/unit context extraction,
+- deterministic session orchestration,
+- canonical fixture/replay with SHA-256 integrity,
+- repository-level offline acceptance report,
+- source architecture boundary scanning,
+- phase-manifest validation,
+- vendor checksum verification,
+- one-command JSON-capable acceptance CLI.
 
-## Current runtime status
+Run the complete ETABS-free gate from the repository root:
 
-- platform COM binding: none,
-- ETABS attachment: none,
-- ETABS runtime wiring: none,
-- model write operations: forbidden,
-- generic code execution: forbidden,
-- engineering verdict generation: forbidden.
+```powershell
+python tools/verify_etabs_gateway_offline.py `
+  --json-out local_out/etabs_gateway_offline_acceptance.json
+```
 
-The worker owns exactly one thread and serializes all submitted operations on
-that thread. A running-task timeout poisons the worker so execution cannot
-silently continue as if the operation had completed successfully.
+The command checks:
 
-The production gateway must remain read-only by default, preserve ETABS version
-and unit provenance, and never import or activate code from
-`vendor/etabs-mcp`.
+1. fixture schema and SHA-256 integrity,
+2. canonical deterministic fixture JSON,
+3. production source import/call ownership boundaries,
+4. active phase and fail-closed manifest boundaries,
+5. immutable vendored ETABS-MCP checksums.
+
+A PASS proves only that the offline gateway contracts, deterministic replay,
+source boundaries, provenance, and vendor integrity are internally consistent.
+It does not prove live ETABS compatibility, model correctness, analysis/design
+result correctness, or TBDY compliance.

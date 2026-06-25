@@ -153,7 +153,7 @@ def _successful_product_runner(capture: dict | None = None, *, check_results_tex
     return run
 
 
-def test_cli_refuses_without_live_opt_in_and_writes_nothing(tmp_path: Path):
+def test_cli_refuses_missing_live_opt_in_or_design_context(tmp_path: Path):
     out = tmp_path / "refused"
     completed = subprocess.run(
         [sys.executable, "tools/run_live_geometry_product.py", "--out", str(out)],
@@ -165,6 +165,24 @@ def test_cli_refuses_without_live_opt_in_and_writes_nothing(tmp_path: Path):
 
     assert completed.returncode != 0
     assert "--live-etabs" in completed.stderr
+    assert not out.exists()
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "tools/run_live_geometry_product.py",
+            "--live-etabs",
+            "--out",
+            str(out),
+        ],
+        cwd=ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert "--ductility-class" in completed.stderr
     assert not out.exists()
 
 
@@ -486,6 +504,7 @@ def test_selectors_and_max_rows_are_propagated_unchanged(tmp_path: Path):
         target_label="B1",
         target_component="297",
         max_rows=7,
+        design_context={"ductility_class": "HIGH"},
         provider_factory=lambda: object(),
         probe_runner=_probe_runner(status="OK", snapshot_count=1, capture=capture),
         product_runner=_successful_product_runner(),
@@ -496,11 +515,13 @@ def test_selectors_and_max_rows_are_propagated_unchanged(tmp_path: Path):
     assert capture["target_label"] == "B1"
     assert capture["target_component"] == "297"
     assert capture["max_rows"] == 7
+    assert capture["design_context"] == {"ductility_class": "HIGH"}
     assert manifest["selectors"] == {
         "target_component": "297",
         "target_label": "B1",
         "target_story": "+14.5",
         "max_rows": 7,
+        "design_context": {"ductility_class": "HIGH"},
     }
 
 

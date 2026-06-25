@@ -1,0 +1,47 @@
+{
+  "schema_version": "1.0",
+  "phase": "PHASE_1_3_READ_ONLY_ETABS_ATTACH",
+  "scope": "P1_3_RUNNING_INSTANCE_ATTACH",
+  "status": "COMPLETED",
+  "created_at_utc": "2026-06-25T04:35:05.467777Z",
+  "base_commit_sha": "62606202ef43285268f64f7fa2d452938016ad80",
+  "development_branch": "sprint/p1-2-windows-com-apartment-binding",
+  "integration_status": "READ_ONLY_ATTACH_IMPLEMENTED",
+  "runtime_wiring_status": "ATTACH_ONLY_NOT_LIVE_VERIFIED",
+  "platform_com_binding_status": "IMPLEMENTED",
+  "etabs_attachment_status": "IMPLEMENTED_NOT_LIVE_VERIFIED",
+  "vendor_runtime_status": "REFERENCE_ONLY",
+  "vendor_runtime_import_allowed": false,
+  "generic_execute_code_allowed": false,
+  "engineering_verdict_emission_allowed": false,
+  "implemented_scope": [
+    "lazy win32com.client loading",
+    "running-instance active-object discovery",
+    "ordered ETABS ProgID candidates",
+    "private application reference ownership",
+    "private model API reference acquisition",
+    "immutable attachment result",
+    "same-thread deterministic detachment",
+    "typed runtime, discovery, and model acquisition failures",
+    "offline fake active-object tests"
+  ],
+  "explicitly_not_implemented": [
+    "exact process-ID selection",
+    "ETABS version reads",
+    "model filename or lock-state reads",
+    "ETABS unit reads",
+    "table or result extraction",
+    "model mutation",
+    "FeatureSnapshot integration",
+    "CheckEngine integration",
+    "report generation",
+    "live ETABS verification"
+  ],
+  "acceptance_commands": [
+    "python -m pytest packages/etabs_gateway/tests -q",
+    "python tools/verify_etabs_mcp_vendor.py",
+    "git diff --check"
+  ],
+  "completed_at_utc": "2026-06-25T11:23:59.873412Z",
+  "completed_by_base_commit_sha": "8160c4a84d88ece9c5271f2f92824c02dc9c093c"
+}

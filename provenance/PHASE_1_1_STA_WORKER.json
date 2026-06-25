@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "phase": "PHASE_1_1_DEDICATED_STA_WORKER",
   "scope": "P1_1_WORKER_LIFECYCLE",
-  "status": "ACTIVE",
+  "status": "COMPLETED",
   "created_at_utc": "2026-06-25T04:05:28.434021Z",
   "base_commit_sha": "98fae0cde72cb94af1f95b334cebf7e431d34a6e",
   "development_branch": "sprint/p1-1-dedicated-sta-worker",
@@ -39,5 +39,7 @@
     "python -m pytest packages/etabs_gateway/tests -q",
     "python tools/verify_etabs_mcp_vendor.py",
     "git diff --check"
-  ]
+  ],
+  "completed_at_utc": "2026-06-25T04:23:56.775730Z",
+  "completed_by_base_commit_sha": "89e66838a4e8a69ac7a5007c545c08fe4e57d00b"
 }

@@ -48,6 +48,7 @@
         }
       },
       "identity": {
+        "ductility_class": "HIGH",
         "section": "B30x60",
         "story": "+14.5"
       }
@@ -100,6 +101,7 @@
         }
       },
       "identity": {
+        "ductility_class": "HIGH",
         "section": "C40x50",
         "story": "+14.5"
       }

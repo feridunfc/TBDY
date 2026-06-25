@@ -66,6 +66,21 @@ class ConnectionRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class ETABSAttachment:
+    prog_id: str
+    attach_mode: AttachMode
+    attached_at_utc: datetime
+    worker_thread_id: int
+
+    def __post_init__(self) -> None:
+        if not self.prog_id.strip():
+            raise ValueError("prog_id must not be empty.")
+        if self.worker_thread_id <= 0:
+            raise ValueError("worker_thread_id must be a positive integer.")
+        _require_aware_utc(self.attached_at_utc, "attached_at_utc")
+
+
+@dataclass(frozen=True, slots=True)
 class ETABSUnitContext:
     present_units_code: int
     display_name: str | None = None
@@ -123,6 +138,28 @@ class ETABSModelContext:
         if self.model_path is None:
             return None
         return PureWindowsPath(self.model_path).name
+
+
+@dataclass(frozen=True, slots=True)
+class ETABSGatewayContext:
+    attachment: ETABSAttachment
+    application: ETABSApplicationInfo
+    model: ETABSModelContext
+    observed_at_utc: datetime
+
+    def __post_init__(self) -> None:
+        _require_aware_utc(self.observed_at_utc, "observed_at_utc")
+        if (
+            self.application.attached_at_utc
+            != self.attachment.attached_at_utc
+        ):
+            raise ValueError(
+                "application and attachment timestamps must match."
+            )
+        if self.observed_at_utc < self.attachment.attached_at_utc:
+            raise ValueError(
+                "observed_at_utc cannot precede attachment time."
+            )
 
 
 @dataclass(frozen=True, slots=True)

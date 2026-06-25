@@ -26,6 +26,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--target-label", default=None, help="Optional frame label selector")
     parser.add_argument("--target-component", default=None, help="Optional component id selector")
     parser.add_argument("--max-rows", type=int, default=20, help="Maximum geometry rows to process")
+    parser.add_argument(
+        "--ductility-class",
+        default=None,
+        help="Explicit ductility class propagated into FeatureSnapshot.identity",
+    )
     args = parser.parse_args(argv)
 
     if not args.live_etabs:
@@ -36,12 +41,23 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 2
 
+    ductility_class = (args.ductility_class or "").strip()
+    if not ductility_class:
+        print(
+            "Live geometry product execution requires explicit "
+            "--ductility-class; no ETABS connection was attempted "
+            "and no output was written.",
+            file=sys.stderr,
+        )
+        return 2
+
     result = run_live_geometry_product(
         output_dir=Path(args.out),
         target_story=args.target_story,
         target_label=args.target_label,
         target_component=args.target_component,
         max_rows=args.max_rows,
+        design_context={"ductility_class": ductility_class},
     )
 
     print(f"Live geometry product: {result.status}")

@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "phase": "PHASE_1_6_FIXTURE_REPLAY",
+  "scope": "P1_6_DETERMINISTIC_FIXTURE_REPLAY",
+  "status": "COMPLETED",
+  "created_at_utc": "2026-06-25T11:36:36.135483Z",
+  "base_commit_sha": "c09032e7fd8fe6fed885341042d69e16c20283a9",
+  "development_branch": "sprint/p1-2-windows-com-apartment-binding",
+  "integration_status": "FIXTURE_REPLAY_IMPLEMENTED",
+  "runtime_wiring_status": "OFFLINE_REPLAY_VERIFIED_NOT_LIVE",
+  "fixture_schema_version": "1.0",
+  "fixture_integrity": "SHA256_CANONICAL_JSON",
+  "vendor_runtime_status": "REFERENCE_ONLY",
+  "vendor_runtime_import_allowed": false,
+  "generic_execute_code_allowed": false,
+  "engineering_verdict_emission_allowed": false,
+  "implemented_scope": [
+    "strict canonical JSON context fixture",
+    "SHA-256 integrity verification",
+    "deterministic UTF-8 serialization",
+    "immutable replay provider",
+    "strict unknown-key rejection",
+    "strict enum type and UTC validation",
+    "offline fixture round-trip tests",
+    "tamper detection tests"
+  ],
+  "explicitly_not_implemented": [
+    "live ETABS verification",
+    "raw COM serialization",
+    "table or result extraction",
+    "analysis or design execution",
+    "model mutation",
+    "FeatureSnapshot integration",
+    "CheckEngine integration",
+    "report generation"
+  ],
+  "acceptance_commands": [
+    "python -m pytest packages/etabs_gateway/tests -q",
+    "python tools/verify_etabs_mcp_vendor.py",
+    "git diff --check"
+  ],
+  "completed_at_utc": "2026-06-25T11:42:33.884118Z",
+  "completed_by_base_commit_sha": "db61bb5d8c28fb800a18e6ef399915b03ac84d07"
+}
