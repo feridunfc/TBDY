@@ -524,10 +524,19 @@ def probe_geometry_feature_snapshots(
     target_story: str | None = None,
     target_label: str | None = None,
     target_component: str | None = None,
+    design_context: Mapping[str, object] | None = None,
     max_rows: int = _DEFAULT_MAX_ROWS,
 ) -> LiveGeometryProbeResult:
     if max_rows <= 0:
         raise ValueError("max_rows must be positive")
+    context = {
+        str(key): value
+        for key, value in sorted(
+            (design_context or {}).items(),
+            key=lambda item: str(item[0]),
+        )
+        if value is not None
+    }
 
     out_dir = Path(output_dir)
     feature_snapshot_path = out_dir / "feature_snapshot.json"
@@ -548,7 +557,10 @@ def probe_geometry_feature_snapshots(
     provider_summary = _provider_summary_fields(provider, resolved_row_count=len(rows))
 
     for row in selected_rows:
-        snapshot, row_diagnostics = _snapshot_from_row(row)
+        snapshot, row_diagnostics = _snapshot_from_row(
+            row,
+            design_context=context,
+        )
         diagnostics.extend(row_diagnostics)
         if snapshot is not None:
             snapshots.append(snapshot)
@@ -593,6 +605,7 @@ def probe_geometry_feature_snapshots(
         {
             "accepted_geometry_mapping": DEFAULT_ACCEPTED_GEOMETRY_MAPPING.as_dict(),
             "component_type_source_table": _LOCKED_COMPONENT_TYPE_SOURCE_TABLE,
+            "design_context": context,
             "length_unit_maps": {"length_units": LENGTH_UNITS, "length_to_mm_factor": LENGTH_TO_MM_FACTOR},
             "live_etabs_required_for_ci": False,
             "output_files": list(_OUTPUT_FILES),
@@ -1182,7 +1195,11 @@ def _select_rows(rows: Sequence[Mapping[str, object]], *, target_story: str | No
     return tuple(selected[:max_rows]), len(selected) > max_rows
 
 
-def _snapshot_from_row(row: Mapping[str, object]) -> tuple[FeatureSnapshot | None, tuple[LiveGeometryProbeDiagnostic, ...]]:
+def _snapshot_from_row(
+    row: Mapping[str, object],
+    *,
+    design_context: Mapping[str, object],
+) -> tuple[FeatureSnapshot | None, tuple[LiveGeometryProbeDiagnostic, ...]]:
     diagnostics: list[LiveGeometryProbeDiagnostic] = []
     component_type = _text(row.get("component_type")).casefold()
     component_id = _text(row.get("component_id"))
@@ -1195,8 +1212,18 @@ def _snapshot_from_row(row: Mapping[str, object]) -> tuple[FeatureSnapshot | Non
         width_feature: _feature_from_dimension_row(row, component_id=component_id, component_type=component_type, feature_id=width_feature, value_keys=_WIDTH_KEYS, details_key="width_normalization", diagnostics=diagnostics),
         depth_feature: _feature_from_dimension_row(row, component_id=component_id, component_type=component_type, feature_id=depth_feature, value_keys=_DEPTH_KEYS, details_key="depth_normalization", diagnostics=diagnostics),
     }
-    identity = {key: row.get(key) for key in _IDENTITY_KEYS if row.get(key) is not None}
-    return FeatureSnapshot(component_type=component_type, component_id=component_id, identity=identity, features=features), tuple(diagnostics)
+    identity = {
+        key: row.get(key)
+        for key in _IDENTITY_KEYS
+        if row.get(key) is not None
+    }
+    identity.update(design_context)
+    return FeatureSnapshot(
+        component_type=component_type,
+        component_id=component_id,
+        identity=identity,
+        features=features,
+    ), tuple(diagnostics)
 
 
 def _feature_from_dimension_row(row: Mapping[str, object], *, component_id: str, component_type: str, feature_id: str, value_keys: Sequence[str], details_key: str, diagnostics: list[LiveGeometryProbeDiagnostic]) -> FeatureValue:

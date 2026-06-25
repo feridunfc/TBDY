@@ -80,6 +80,7 @@ def run_live_geometry_product(
     target_label: str | None = None,
     target_component: str | None = None,
     max_rows: int = 20,
+    design_context: Mapping[str, Any] | None = None,
     provider_factory: ProviderFactory | None = None,
     probe_runner: ProbeRunner | None = None,
     product_runner: ProductRunner | None = None,
@@ -90,11 +91,20 @@ def run_live_geometry_product(
     product_dir = root / "product"
     summary_path = root / _TOP_LEVEL_FILES[0]
     manifest_path = root / _TOP_LEVEL_FILES[1]
+    context = {
+        str(key): value
+        for key, value in sorted(
+            (design_context or {}).items(),
+            key=lambda item: str(item[0]),
+        )
+        if value is not None
+    }
     selectors = {
         "target_component": target_component,
         "target_label": target_label,
         "target_story": target_story,
         "max_rows": max_rows,
+        "design_context": context,
     }
     _prepare_owned_output_paths(root)
 
@@ -146,14 +156,17 @@ def run_live_geometry_product(
         )
 
     try:
-        probe_result = probe_runner(
-            provider=provider,
-            output_dir=probe_dir,
-            target_story=target_story,
-            target_label=target_label,
-            target_component=target_component,
-            max_rows=max_rows,
-        )
+        probe_kwargs: dict[str, object] = {
+            "provider": provider,
+            "output_dir": probe_dir,
+            "target_story": target_story,
+            "target_label": target_label,
+            "target_component": target_component,
+            "max_rows": max_rows,
+        }
+        if context:
+            probe_kwargs["design_context"] = context
+        probe_result = probe_runner(**probe_kwargs)
     except EtabsAttachFailure as exc:
         probe_result = write_com_attach_failure_probe_outputs(
             output_dir=probe_dir,
