@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "phase": "PHASE_1_5_GATEWAY_SESSION",
   "scope": "P1_5_OFFLINE_SESSION_ORCHESTRATION",
-  "status": "ACTIVE",
+  "status": "COMPLETED",
   "created_at_utc": "2026-06-25T11:31:23.188876Z",
   "base_commit_sha": "3cd8bebb478d6486a344346ac9d55eb922720059",
   "development_branch": "sprint/p1-2-windows-com-apartment-binding",
@@ -40,5 +40,7 @@
     "python -m pytest packages/etabs_gateway/tests -q",
     "python tools/verify_etabs_mcp_vendor.py",
     "git diff --check"
-  ]
+  ],
+  "completed_at_utc": "2026-06-25T11:36:36.135483Z",
+  "completed_by_base_commit_sha": "c09032e7fd8fe6fed885341042d69e16c20283a9"
 }

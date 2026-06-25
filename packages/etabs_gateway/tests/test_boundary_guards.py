@@ -191,7 +191,34 @@ def test_session_layer_contains_no_direct_etabs_com_calls() -> None:
             assert node.attr not in forbidden, node.attr
 
 
-def test_source_manifest_declares_session_orchestration_phase() -> None:
+def test_replay_layer_contains_no_com_or_live_etabs_calls() -> None:
+    replay_path = SOURCE_ROOT / "replay.py"
+    text = replay_path.read_text(encoding="utf-8")
+    tree = ast.parse(text, filename=str(replay_path))
+    forbidden_names = {
+        "GetActiveObject",
+        "SapModel",
+        "GetVersion",
+        "GetModelFilename",
+        "GetModelIsLocked",
+        "GetPresentUnits",
+        "RunAnalysis",
+        "GetTableForDisplayArray",
+    }
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            final_name = dotted_name(node.func).rsplit(".", 1)[-1]
+            assert final_name not in forbidden_names, final_name
+        if isinstance(node, ast.Attribute):
+            assert node.attr not in forbidden_names, node.attr
+
+    assert "pythoncom" not in text
+    assert "win32com" not in text
+    assert "comtypes" not in text
+
+
+def test_source_manifest_declares_fixture_replay_phase() -> None:
     repo_root = Path(__file__).resolve().parents[3]
     manifest = json.loads(
         (repo_root / "provenance" / "SOURCE_MANIFEST.json").read_text(
@@ -199,11 +226,11 @@ def test_source_manifest_declares_session_orchestration_phase() -> None:
         )
     )
 
-    assert manifest["phase"] == "PHASE_1_5_GATEWAY_SESSION"
-    assert manifest["integration_status"] == "SESSION_ORCHESTRATION_IMPLEMENTED"
+    assert manifest["phase"] == "PHASE_1_6_FIXTURE_REPLAY"
+    assert manifest["integration_status"] == "FIXTURE_REPLAY_IMPLEMENTED"
     assert (
         manifest["runtime_wiring_status"]
-        == "OFFLINE_SESSION_VERIFIED_NOT_LIVE"
+        == "OFFLINE_REPLAY_VERIFIED_NOT_LIVE"
     )
     assert manifest["boundaries"]["integration_performed"] is False
     assert manifest["boundaries"]["production_import_from_vendor_allowed"] is False

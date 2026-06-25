@@ -1,42 +1,31 @@
 # Typed ETABS Gateway
 
-Phase-1.5 deterministic gateway-session orchestration is active.
+Phase-1.6 deterministic offline fixture/replay support is active.
 
 ## Current implementation
 
 - immutable typed gateway contracts,
-- dedicated single-thread worker infrastructure,
-- lazy Windows COM apartment lifecycle binding,
-- lazy read-only attachment to a running ETABS application,
-- read-only application/model/unit context extraction,
-- one deterministic session owner for apartment, worker, and connection,
-- startup rollback after attach or context-read failure,
-- idempotent shutdown and typed close failures,
-- immutable health and diagnostic snapshots,
-- offline fake-runtime lifecycle and failure-path tests.
+- dedicated STA worker and lazy COM apartment lifecycle,
+- read-only running-instance attachment,
+- application/model/unit context extraction,
+- deterministic session orchestration,
+- strict canonical JSON fixture schema,
+- SHA-256 fixture integrity verification,
+- immutable offline replay provider,
+- deterministic UTF-8 serialization,
+- strict unknown-key, enum, type, and UTC validation,
+- offline replay and tamper-detection tests.
 
-## Current runtime status
+## Runtime boundaries
 
-- Windows COM apartment lifecycle: implemented,
-- running ETABS attachment: implemented, not live-verified,
-- application/model/unit context reads: implemented, not live-verified,
-- gateway session lifecycle: implemented and offline-verified,
-- exact process identity: not implemented,
-- table or result extraction: none,
-- model write operations: forbidden,
-- generic code execution: forbidden,
-- FeatureSnapshot and CheckEngine integration: none,
-- engineering verdict generation: forbidden.
+The replay provider never loads COM, attaches to ETABS, reads tables, runs
+analysis or design, mutates a model, or exposes raw platform references.
+It reconstructs only `ETABSGatewayContext` contracts from validated fixtures.
 
-`ETABSGatewaySession` is the sole lifecycle owner for
-`WindowsCOMApartment`, `DedicatedSTAWorker`, and
-`ReadOnlyETABSConnection`. Construction remains offline-safe and does not
-load platform modules. `start()` performs attach plus initial context read;
-any failure triggers best-effort component cleanup before the typed error is
-re-raised.
+A fixture is signed over its canonical JSON payload using SHA-256. Unknown
+fields are rejected rather than ignored. Timestamps must be explicit UTC
+values using the `Z` suffix. Human-readable unit names are not guessed.
 
-The session never exposes raw COM references. Public state is limited to
-immutable context, health, and diagnostic contracts.
-
-The production gateway must remain read-only by default and must never import
-or activate code from `vendor/etabs-mcp`.
+Live ETABS behavior remains unverified in this phase. Fixture/replay is for
+offline tests, deterministic regression reproduction, and contract validation;
+it is not production evidence that a live model satisfies TBDY.

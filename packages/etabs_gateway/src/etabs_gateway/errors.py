@@ -79,6 +79,10 @@ class ETABSCOMFinalizationError(ETABSGatewayError):
     code = "ETABS_COM_FINALIZATION_FAILED"
 
 
+class ETABSFixtureValidationError(ETABSGatewayError):
+    code = "ETABS_FIXTURE_VALIDATION_FAILED"
+
+
 class ETABSSessionStateError(ETABSGatewayError):
     code = "ETABS_SESSION_STATE_INVALID"
 
