@@ -309,7 +309,7 @@ def test_acceptance_layer_does_not_attach_or_mutate_etabs() -> None:
                 node.attr
             )
 
-def test_source_manifest_declares_offline_acceptance_phase() -> None:
+def test_source_manifest_declares_feature_snapshot_handoff_phase() -> None:
     repo_root = Path(__file__).resolve().parents[3]
     manifest = json.loads(
         (repo_root / "provenance" / "SOURCE_MANIFEST.json").read_text(
@@ -317,15 +317,16 @@ def test_source_manifest_declares_offline_acceptance_phase() -> None:
         )
     )
 
-    assert manifest["phase"] == "PHASE_1_7_OFFLINE_ACCEPTANCE"
+    assert manifest["phase"] == "PHASE_1_8_FEATURE_SNAPSHOT_HANDOFF"
     assert (
         manifest["integration_status"]
-        == "OFFLINE_ACCEPTANCE_GATE_IMPLEMENTED"
+        == "FEATURE_SNAPSHOT_HANDOFF_IMPLEMENTED"
     )
     assert (
         manifest["runtime_wiring_status"]
-        == "OFFLINE_GATE_VERIFIED_NOT_LIVE"
+        == "OFFLINE_HANDOFF_VERIFIED_NOT_LIVE"
     )
-    assert manifest["boundaries"]["integration_performed"] is False
+    assert manifest["existing_tbdy_source_code_modified"] is True
+    assert manifest["boundaries"]["integration_performed"] is True
     assert manifest["boundaries"]["production_import_from_vendor_allowed"] is False
     assert manifest["boundaries"]["generic_execute_code_allowed"] is False

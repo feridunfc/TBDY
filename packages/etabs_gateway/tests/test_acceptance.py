@@ -43,7 +43,7 @@ def test_repository_offline_acceptance_passes() -> None:
     assert report.status is AcceptanceStatus.PASS
     assert report.passed is True
     assert report.fixture_sha256 is not None
-    assert report.manifest_phase == "PHASE_1_7_OFFLINE_ACCEPTANCE"
+    assert report.manifest_phase == "PHASE_1_8_FEATURE_SNAPSHOT_HANDOFF"
     assert [item.check_id for item in report.checks] == [
         "fixture_integrity",
         "fixture_canonical_json",
@@ -151,6 +151,20 @@ def test_source_boundary_rejects_vendor_import(tmp_path) -> None:
 
     assert findings[0].code == "FORBIDDEN_IMPORT"
 
+
+
+def test_source_boundary_rejects_reverse_tbdy_engine_import(
+    tmp_path,
+) -> None:
+    (tmp_path / "bad.py").write_text(
+        "from tbdy_engine.features import FeatureSnapshot\n",
+        encoding="utf-8",
+    )
+
+    findings = scan_source_boundaries(tmp_path)
+
+    assert findings[0].code == "FORBIDDEN_IMPORT"
+    assert findings[0].message.startswith("tbdy_engine")
 
 def test_source_boundary_rejects_forbidden_call(tmp_path) -> None:
     (tmp_path / "bad.py").write_text(

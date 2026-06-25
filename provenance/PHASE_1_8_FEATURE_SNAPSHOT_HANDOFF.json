@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0",
+  "phase": "PHASE_1_8_FEATURE_SNAPSHOT_HANDOFF",
+  "scope": "P1_8_TYPED_GATEWAY_TO_FEATURE_SNAPSHOT_HANDOFF",
+  "status": "ACTIVE",
+  "created_at_utc": "2026-06-25T14:17:50.522691Z",
+  "base_commit_sha": "c2035f5d2d8fd2b0b47eefa68d7bff3829d66104",
+  "development_branch": "sprint/p1-2-windows-com-apartment-binding",
+  "integration_status": "FEATURE_SNAPSHOT_HANDOFF_IMPLEMENTED",
+  "runtime_wiring_status": "OFFLINE_HANDOFF_VERIFIED_NOT_LIVE",
+  "dependency_direction": "tbdy_engine_to_etabs_gateway_only",
+  "gateway_reverse_dependency_allowed": false,
+  "vendor_runtime_import_allowed": false,
+  "generic_execute_code_allowed": false,
+  "engineering_verdict_emission_allowed": false,
+  "implemented_scope": [
+    "typed ETABSGatewayContext handoff input",
+    "explicit live versus fixture replay provenance",
+    "strict fixture SHA-256 provenance validation",
+    "deterministic ETABS model-context component identity",
+    "data-only FeatureValue projection",
+    "field-level FeatureEvidence projection",
+    "resolved and missing metadata semantics",
+    "gateway reverse-dependency boundary enforcement",
+    "offline fixture-to-FeatureSnapshot tests"
+  ],
+  "explicitly_not_implemented": [
+    "live ETABS verification",
+    "table or result extraction",
+    "analysis or design execution",
+    "model mutation",
+    "CheckInput construction",
+    "CheckEngine execution",
+    "TBDY verdict generation",
+    "report publication"
+  ],
+  "acceptance_commands": [
+    "python -m pytest packages/etabs_gateway/tests -q",
+    "python tools/verify_etabs_mcp_vendor.py",
+    "python tools/verify_etabs_gateway_offline.py",
+    "git diff --check"
+  ]
+}

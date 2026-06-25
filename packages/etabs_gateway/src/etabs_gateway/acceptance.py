@@ -160,6 +160,7 @@ def scan_source_boundaries(
         "pythoncom",
         "win32com",
         "comtypes",
+        "tbdy_engine",
     }
     forbidden_calls = {
         "execute_code",
@@ -307,9 +308,9 @@ def validate_phase_manifest(
     failures: list[str] = []
 
     expected_values = {
-        "phase": "PHASE_1_7_OFFLINE_ACCEPTANCE",
-        "integration_status": "OFFLINE_ACCEPTANCE_GATE_IMPLEMENTED",
-        "runtime_wiring_status": "OFFLINE_GATE_VERIFIED_NOT_LIVE",
+        "phase": "PHASE_1_8_FEATURE_SNAPSHOT_HANDOFF",
+        "integration_status": "FEATURE_SNAPSHOT_HANDOFF_IMPLEMENTED",
+        "runtime_wiring_status": "OFFLINE_HANDOFF_VERIFIED_NOT_LIVE",
     }
     for key, expected in expected_values.items():
         if payload.get(key) != expected:
@@ -321,15 +322,15 @@ def validate_phase_manifest(
     if not isinstance(boundaries, dict):
         failures.append("boundaries:missing_or_invalid")
     else:
-        false_keys = {
-            "integration_performed",
-            "production_import_from_vendor_allowed",
-            "generic_execute_code_allowed",
+        expected_boundaries = {
+            "integration_performed": True,
+            "production_import_from_vendor_allowed": False,
+            "generic_execute_code_allowed": False,
         }
-        for key in sorted(false_keys):
-            if boundaries.get(key) is not False:
+        for key, expected in sorted(expected_boundaries.items()):
+            if boundaries.get(key) is not expected:
                 failures.append(
-                    f"boundaries.{key}:expected=false:"
+                    f"boundaries.{key}:expected={str(expected).lower()}:"
                     f"observed={boundaries.get(key)}"
                 )
 

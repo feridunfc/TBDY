@@ -1,10 +1,10 @@
 {
     "schema_version":  "2.0",
-    "phase":  "PHASE_1_7_OFFLINE_ACCEPTANCE",
-    "generated_at_utc":  "2026-06-25T11:42:33.884118Z",
-    "integration_status":  "OFFLINE_ACCEPTANCE_GATE_IMPLEMENTED",
-    "runtime_wiring_status":  "OFFLINE_GATE_VERIFIED_NOT_LIVE",
-    "existing_tbdy_source_code_modified":  false,
+    "phase":  "PHASE_1_8_FEATURE_SNAPSHOT_HANDOFF",
+    "generated_at_utc":  "2026-06-25T14:17:50.522691Z",
+    "integration_status":  "FEATURE_SNAPSHOT_HANDOFF_IMPLEMENTED",
+    "runtime_wiring_status":  "OFFLINE_HANDOFF_VERIFIED_NOT_LIVE",
+    "existing_tbdy_source_code_modified":  true,
     "full_upstream_git_history_embedded":  false,
     "existing_tbdy_repository":  {
                                      "root":  ".",
@@ -170,7 +170,7 @@
 
                                                    ]
                          },
-    "active_phase_record":  "provenance/PHASE_1_7_OFFLINE_ACCEPTANCE.json",
+    "active_phase_record":  "provenance/PHASE_1_8_FEATURE_SNAPSHOT_HANDOFF.json",
     "verifier":  {
                      "path":  "tools/verify_etabs_mcp_vendor.py",
                      "source_sha256":  "653711731fc5d000446f47a5e511b8bbc37adba5b59d56251b747ef389b72209",
@@ -181,6 +181,6 @@
                        "external_reference":  "vendor/etabs-mcp",
                        "production_import_from_vendor_allowed":  false,
                        "generic_execute_code_allowed":  false,
-                       "integration_performed":  false
+                       "integration_performed":  true
                    }
 }

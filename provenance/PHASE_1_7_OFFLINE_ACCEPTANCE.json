@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "phase": "PHASE_1_7_OFFLINE_ACCEPTANCE",
   "scope": "P1_7_REPOSITORY_OFFLINE_ACCEPTANCE_GATE",
-  "status": "ACTIVE",
+  "status": "COMPLETED",
   "created_at_utc": "2026-06-25T11:42:33.884118Z",
   "base_commit_sha": "db61bb5d8c28fb800a18e6ef399915b03ac84d07",
   "development_branch": "sprint/p1-2-windows-com-apartment-binding",
@@ -38,5 +38,7 @@
     "python tools/verify_etabs_mcp_vendor.py",
     "python tools/verify_etabs_gateway_offline.py",
     "git diff --check"
-  ]
+  ],
+  "completed_at_utc": "2026-06-25T14:17:50.522691Z",
+  "completed_by_base_commit_sha": "c2035f5d2d8fd2b0b47eefa68d7bff3829d66104"
 }
