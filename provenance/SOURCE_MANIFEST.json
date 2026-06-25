@@ -1,9 +1,9 @@
 {
     "schema_version":  "2.0",
-    "phase":  "PHASE_1_8_FEATURE_SNAPSHOT_HANDOFF",
-    "generated_at_utc":  "2026-06-25T14:17:50.522691Z",
-    "integration_status":  "FEATURE_SNAPSHOT_HANDOFF_IMPLEMENTED",
-    "runtime_wiring_status":  "OFFLINE_HANDOFF_VERIFIED_NOT_LIVE",
+    "phase":  "PHASE_1_9_CHECK_INPUT_PREFLIGHT",
+    "generated_at_utc":  "2026-06-25T14:29:30.800113Z",
+    "integration_status":  "CHECK_INPUT_PREFLIGHT_IMPLEMENTED",
+    "runtime_wiring_status":  "OFFLINE_PREFLIGHT_VERIFIED_NOT_LIVE",
     "existing_tbdy_source_code_modified":  true,
     "full_upstream_git_history_embedded":  false,
     "existing_tbdy_repository":  {
@@ -170,7 +170,7 @@
 
                                                    ]
                          },
-    "active_phase_record":  "provenance/PHASE_1_8_FEATURE_SNAPSHOT_HANDOFF.json",
+    "active_phase_record":  "provenance/PHASE_1_9_CHECK_INPUT_PREFLIGHT.json",
     "verifier":  {
                      "path":  "tools/verify_etabs_mcp_vendor.py",
                      "source_sha256":  "653711731fc5d000446f47a5e511b8bbc37adba5b59d56251b747ef389b72209",

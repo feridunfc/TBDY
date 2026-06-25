@@ -1,0 +1,41 @@
+{
+  "schema_version": "1.0",
+  "phase": "PHASE_1_9_CHECK_INPUT_PREFLIGHT",
+  "scope": "P1_9_GATEWAY_FEATURE_SNAPSHOT_CHECK_INPUT_PREFLIGHT",
+  "status": "ACTIVE",
+  "created_at_utc": "2026-06-25T14:29:30.800113Z",
+  "base_commit_sha": "68dde518f50b598d1d975cf86811a9dd8151b813",
+  "development_branch": "sprint/p1-2-windows-com-apartment-binding",
+  "integration_status": "CHECK_INPUT_PREFLIGHT_IMPLEMENTED",
+  "runtime_wiring_status": "OFFLINE_PREFLIGHT_VERIFIED_NOT_LIVE",
+  "diagnostic_only": true,
+  "check_input_construction_allowed": false,
+  "check_engine_invocation_allowed": false,
+  "engineering_calculation_allowed": false,
+  "engineering_verdict_emission_allowed": false,
+  "implemented_scope": [
+    "typed future CheckInput consumer requirements",
+    "explicit required feature declarations",
+    "resolved partial missing and absent feature inspection",
+    "explicit evidence quality requirements",
+    "fail-closed READY or BLOCKED readiness",
+    "deterministic blocked feature diagnostics",
+    "batch preflight evaluation",
+    "offline fixture-derived preflight tests"
+  ],
+  "explicitly_not_implemented": [
+    "live ETABS verification",
+    "CheckInput construction",
+    "CheckEngine execution",
+    "CheckResult generation",
+    "engineering formulas",
+    "TBDY verdict generation",
+    "report publication"
+  ],
+  "acceptance_commands": [
+    "python -m pytest packages/etabs_gateway/tests -q",
+    "python tools/verify_etabs_mcp_vendor.py",
+    "python tools/verify_etabs_gateway_offline.py",
+    "git diff --check"
+  ]
+}

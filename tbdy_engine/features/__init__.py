@@ -15,6 +15,16 @@ from tbdy_engine.features.feature_snapshot_artifacts import (
     render_feature_snapshot_html_report,
     render_feature_snapshot_markdown_report,
 )
+from tbdy_engine.features.gateway_check_input_preflight import (
+    CheckInputFeatureRequirement,
+    CheckInputPreflightAssessment,
+    CheckInputPreflightSpec,
+    CheckInputReadiness,
+    FeatureRequirementAssessment,
+    FeatureRequirementState,
+    evaluate_check_input_preflight,
+    evaluate_check_input_preflights,
+)
 from tbdy_engine.features.readiness import FeatureProofStatus, ReadinessStatus
 from tbdy_engine.features.resolver_feature_snapshot import (
     build_c13_3_p1_feature_snapshot,
@@ -42,12 +52,20 @@ __all__ = [
     "FeatureDiagnosticSeverity",
     "FeatureEvidence",
     "FeatureEvidenceStatus",
+    "CheckInputFeatureRequirement",
+    "CheckInputPreflightAssessment",
+    "CheckInputPreflightSpec",
+    "CheckInputReadiness",
+    "FeatureRequirementAssessment",
+    "FeatureRequirementState",
     "FeatureProofStatus",
     "FeatureSnapshot",
     "FeatureValue",
     "FeatureValueStatus",
     "ReadinessStatus",
     "UnitNormalization",
+    "evaluate_check_input_preflight",
+    "evaluate_check_input_preflights",
     "build_c13_3_p0_feature_snapshot",
     "build_c13_3_p1_feature_snapshot",
     "build_check_preflight_diagnostic_report",
