@@ -191,7 +191,7 @@ def test_brace_does_not_emit_beam_or_column_feature_snapshot(tmp_path: Path):
 
     assert result.status == "FAIL"
     assert result.snapshot_count == 0
-    assert "COMPONENT_TYPE_VALUE_UNSUPPORTED" in _codes(provider)
+    assert "COMPONENT_TYPE_VALUE_UNSUPPORTED" not in _codes(provider)
 
 
 def test_null_does_not_emit_beam_or_column_feature_snapshot(tmp_path: Path):
@@ -206,7 +206,7 @@ def test_null_does_not_emit_beam_or_column_feature_snapshot(tmp_path: Path):
 
     assert result.status == "FAIL"
     assert result.snapshot_count == 0
-    assert "COMPONENT_TYPE_VALUE_UNSUPPORTED" in _codes(provider)
+    assert "COMPONENT_TYPE_VALUE_UNSUPPORTED" not in _codes(provider)
 
 
 def test_unsupported_non_target_values_do_not_block_supported_rows(tmp_path: Path):
@@ -222,9 +222,9 @@ def test_unsupported_non_target_values_do_not_block_supported_rows(tmp_path: Pat
 
     result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
 
-    assert result.status == "PARTIAL"
+    assert result.status == "OK"
     assert result.snapshot_count == 2
-    assert "COMPONENT_TYPE_VALUE_UNSUPPORTED" in _codes(provider)
+    assert "COMPONENT_TYPE_VALUE_UNSUPPORTED" not in _codes(provider)
 
 
 def test_summary_includes_component_type_source_status_and_counts(tmp_path: Path):

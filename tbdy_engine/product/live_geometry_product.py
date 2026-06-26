@@ -348,6 +348,7 @@ def _finish(
 ) -> LiveGeometryProductResult:
     probe_summary = probe_summary or _read_json_mapping(probe_dir / "live_geometry_probe_summary.json")
     product_summary = product_summary or _read_json_mapping(product_dir / "product_smoke_summary.json")
+    population_audit_path = probe_dir / "probe_population_audit.json"
     summary = {
         "status": status,
         "live_probe_status": live_probe_status,
@@ -373,6 +374,7 @@ def _finish(
         "live_probe_output_dir": _relative(root, probe_dir),
         "product_output_dir": _relative(root, product_dir),
         "feature_snapshot_path": _relative(root, feature_snapshot_path),
+        "population_audit_path": _relative(root, population_audit_path if population_audit_path.is_file() else None),
         "feature_snapshot_consumed_by_product": feature_snapshot_consumed,
         "failure_stage": failure_stage,
         "error_type": type(error).__name__ if error is not None else None,
@@ -391,6 +393,7 @@ def _finish(
         "probe_is_read_only": True,
         "feature_snapshot_consumed_without_rewrite": True,
         "source_probe_manifest": _relative(root, probe_manifest if probe_manifest.is_file() else None),
+        "source_population_audit": _relative(root, population_audit_path if population_audit_path.is_file() else None),
         "source_product_manifest": _relative(root, product_manifest if product_manifest.is_file() else None),
         "output_files": _output_files(
             root=root,
