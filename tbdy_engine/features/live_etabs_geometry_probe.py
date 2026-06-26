@@ -15,6 +15,16 @@ from tbdy_engine.features.etabs_com_attach import (
     attach_to_running_etabs,
 )
 from tbdy_engine.features.evidence import FeatureEvidence, FeatureEvidenceStatus
+from tbdy_engine.features.population_audit import (
+    BLOCKED_COMPONENT_TYPE_AMBIGUOUS,
+    BLOCKED_COMPONENT_TYPE_MISSING,
+    IN_SCOPE_CONCRETE_RECTANGULAR_BEAM,
+    IN_SCOPE_CONCRETE_RECTANGULAR_COLUMN,
+    PopulationAudit,
+    PopulationAuditRow,
+    PopulationDisposition,
+    build_population_audit,
+)
 from tbdy_engine.features.snapshot import FeatureSnapshot
 from tbdy_engine.features.value import FeatureValue, FeatureValueStatus
 
@@ -24,11 +34,13 @@ _RUNNER = "C13.5 Live ETABS Read-Only Geometry FeatureSnapshot Probe"
 _ATTACH_FAILURE_RUNNER = "C13.5-P3 ETABS COM Attach Compatibility Boundary"
 _OUTPUT_FILES = (
     "feature_snapshot.json",
+    "probe_population_audit.json",
     "live_geometry_probe_summary.json",
     "live_geometry_probe_diagnostics.json",
     "live_geometry_probe_manifest.json",
 )
 _ATTACH_FAILURE_OUTPUT_FILES = (
+    "probe_population_audit.json",
     "live_geometry_probe_summary.json",
     "live_geometry_probe_diagnostics.json",
     "live_geometry_probe_manifest.json",
@@ -393,6 +405,7 @@ class LiveGeometryProbeResult:
     manifest_path: Path
     snapshot_count: int
     diagnostic_count: int
+    population_audit_path: Path | None = None
 
     def __post_init__(self) -> None:
         if self.status not in _ALLOWED_PROBE_STATUSES:
@@ -402,6 +415,8 @@ class LiveGeometryProbeResult:
         object.__setattr__(self, "summary_path", Path(self.summary_path))
         object.__setattr__(self, "diagnostics_path", Path(self.diagnostics_path))
         object.__setattr__(self, "manifest_path", Path(self.manifest_path))
+        if self.population_audit_path is not None:
+            object.__setattr__(self, "population_audit_path", Path(self.population_audit_path))
 
 
 @dataclass(frozen=True, slots=True)
@@ -451,18 +466,39 @@ class AcceptedMappingGeometryRowProvider:
         object.__setattr__(self, "mapping", mapping)
 
     def iter_geometry_rows(self) -> Sequence[Mapping[str, object]]:
-        rows, _diagnostics, _summary = self._resolved_probe_data()
+        rows, _diagnostics, _summary, _population_audit = self._resolved_probe_data()
         return rows
 
     def iter_geometry_diagnostics(self) -> Sequence[LiveGeometryProbeDiagnostic]:
-        _rows, diagnostics, _summary = self._resolved_probe_data()
+        _rows, diagnostics, _summary, _population_audit = self._resolved_probe_data()
         return diagnostics
 
     def live_geometry_probe_summary_fields(self) -> Mapping[str, object]:
-        _rows, _diagnostics, summary = self._resolved_probe_data()
+        _rows, _diagnostics, summary, _population_audit = self._resolved_probe_data()
         return summary
 
-    def _resolved_probe_data(self) -> tuple[tuple[Mapping[str, object], ...], tuple[LiveGeometryProbeDiagnostic, ...], Mapping[str, object]]:
+    def live_population_audit(self) -> PopulationAudit:
+        _rows, _diagnostics, _summary, population_audit = self._resolved_probe_data()
+        return population_audit
+
+    def live_geometry_probe_data(
+        self,
+    ) -> tuple[
+        tuple[Mapping[str, object], ...],
+        tuple[LiveGeometryProbeDiagnostic, ...],
+        Mapping[str, object],
+        PopulationAudit,
+    ]:
+        return self._resolved_probe_data()
+
+    def _resolved_probe_data(
+        self,
+    ) -> tuple[
+        tuple[Mapping[str, object], ...],
+        tuple[LiveGeometryProbeDiagnostic, ...],
+        Mapping[str, object],
+        PopulationAudit,
+    ]:
         component_source = _component_type_source_from_fixture_rows(
             rows=self.component_type_rows,
             source_table=self.component_type_source_table,
@@ -484,38 +520,80 @@ class AcceptedMappingGeometryRowProvider:
                 resolved_type_count=len(rows),
                 resolved_geometry_count=len(rows),
                 length_unit_evidence=self.length_unit_evidence,
-            )
-        if component_source.status != "FETCHED" or not component_source.evidence_by_unique_name:
-            return (), component_source.diagnostics, _summary_fields(
-                assignment_count=len(self.assignment_rows),
-                property_count=len(self.property_rows),
-                component_source=component_source,
-                resolved_type_count=0,
-                resolved_geometry_count=0,
-                length_unit_evidence=self.length_unit_evidence,
-            )
+            ), _population_audit_from_resolved_rows(rows)
+
+        source_rows = tuple(self.component_type_rows or ())
+        component_type_column = (
+            component_source.source_column
+            or self.component_type_source_column
+            or "Type"
+        )
+        join_key_column = (
+            component_source.join_key_column
+            or self.component_type_join_key_column
+            or "UniqueName"
+        )
+        preliminary_audit = _build_population_audit_for_provider(
+            source_rows=source_rows,
+            assignment_rows=self.assignment_rows,
+            property_rows=self.property_rows,
+            mapping=self.mapping,
+            source_table=component_source.source_table or _LOCKED_COMPONENT_TYPE_SOURCE_TABLE,
+            component_type_column=component_type_column,
+            join_key_column=join_key_column,
+        )
+        candidate_ids = _population_ids(preliminary_audit, PopulationDisposition.IN_SCOPE)
+        candidate_evidence = {
+            component_id: evidence
+            for component_id, evidence in component_source.evidence_by_unique_name.items()
+            if component_id in candidate_ids
+        }
+        summary = _summary_fields(
+            assignment_count=len(self.assignment_rows),
+            property_count=len(self.property_rows),
+            component_source=component_source,
+            resolved_type_count=len(candidate_evidence),
+            resolved_geometry_count=0,
+            length_unit_evidence=self.length_unit_evidence,
+        )
+        if component_source.status != "FETCHED":
+            return (), component_source.diagnostics, summary, preliminary_audit
+        if not candidate_ids and not component_source.evidence_by_unique_name:
+            return (), component_source.diagnostics, summary, preliminary_audit
+
+        non_candidate_ids = frozenset(
+            row.component_id
+            for row in preliminary_audit.rows
+            if row.component_id and row.component_id not in candidate_ids
+        )
         rows, resolver_diagnostics = resolve_geometry_rows_from_accepted_mapping(
             assignment_rows=self.assignment_rows,
             property_rows=self.property_rows,
             mapping=self.mapping,
-            component_type_evidence_by_unique_name=component_source.evidence_by_unique_name,
-            component_type_unsupported_unique_names=_unsupported_component_ids(component_source.diagnostics),
+            component_type_evidence_by_unique_name=candidate_evidence,
+            component_type_unsupported_unique_names=non_candidate_ids,
             length_unit_evidence=self.length_unit_evidence,
             require_length_unit_evidence=self.require_length_unit_evidence,
         )
-        resolved_type_count = _count_assignment_rows_with_component_type_evidence(
+        resolved_ids = frozenset(
+            _text(row.get("component_id"))
+            for row in rows
+            if _text(row.get("component_id"))
+        )
+        population_audit = _build_population_audit_for_provider(
+            source_rows=source_rows,
             assignment_rows=self.assignment_rows,
-            evidence_by_unique_name=component_source.evidence_by_unique_name,
+            property_rows=self.property_rows,
+            mapping=self.mapping,
+            source_table=component_source.source_table or _LOCKED_COMPONENT_TYPE_SOURCE_TABLE,
+            component_type_column=component_type_column,
+            join_key_column=join_key_column,
+            resolved_geometry_component_ids=resolved_ids,
         )
-        return rows, component_source.diagnostics + resolver_diagnostics, _summary_fields(
-            assignment_count=len(self.assignment_rows),
-            property_count=len(self.property_rows),
-            component_source=component_source,
-            resolved_type_count=resolved_type_count,
-            resolved_geometry_count=len(rows),
-            length_unit_evidence=self.length_unit_evidence,
-        )
-
+        return rows, component_source.diagnostics + resolver_diagnostics, {
+            **summary,
+            "resolved_geometry_row_count": len(rows),
+        }, population_audit
 
 def probe_geometry_feature_snapshots(
     *,
@@ -540,11 +618,12 @@ def probe_geometry_feature_snapshots(
 
     out_dir = Path(output_dir)
     feature_snapshot_path = out_dir / "feature_snapshot.json"
+    population_audit_path = out_dir / "probe_population_audit.json"
     summary_path = out_dir / "live_geometry_probe_summary.json"
     diagnostics_path = out_dir / "live_geometry_probe_diagnostics.json"
     manifest_path = out_dir / "live_geometry_probe_manifest.json"
 
-    rows = tuple(provider.iter_geometry_rows())
+    rows, provider_diagnostics, provider_summary, population_audit = _provider_probe_data(provider)
     selected_rows, truncation_applied = _select_rows(
         rows,
         target_story=target_story,
@@ -553,8 +632,7 @@ def probe_geometry_feature_snapshots(
         max_rows=max_rows,
     )
     snapshots: list[FeatureSnapshot] = []
-    diagnostics: list[LiveGeometryProbeDiagnostic] = list(_provider_diagnostics(provider))
-    provider_summary = _provider_summary_fields(provider, resolved_row_count=len(rows))
+    diagnostics: list[LiveGeometryProbeDiagnostic] = list(provider_diagnostics)
 
     for row in selected_rows:
         snapshot, row_diagnostics = _snapshot_from_row(
@@ -566,21 +644,31 @@ def probe_geometry_feature_snapshots(
             snapshots.append(snapshot)
 
     if truncation_applied:
-        diagnostics.append(LiveGeometryProbeDiagnostic(status="WARNING", code="ROW_LIMIT_TRUNCATED", message=f"Probe row selection was capped at max_rows={max_rows}"))
-    if not snapshots and diagnostics:
-        status = "FAIL"
-    elif diagnostics:
-        status = "PARTIAL"
-    else:
-        status = "OK"
+        diagnostics.append(
+            LiveGeometryProbeDiagnostic(
+                status="WARNING",
+                code="ROW_LIMIT_TRUNCATED",
+                message=f"Probe row selection was capped at max_rows={max_rows}",
+            )
+        )
+
+    blocking_diagnostic_count = _blocking_diagnostic_count(diagnostics)
+    warning_diagnostic_count = _warning_diagnostic_count(diagnostics)
+    status = calculate_live_probe_status(
+        snapshot_count=len(snapshots),
+        population_blocked_row_count=population_audit.blocked_row_count,
+        blocking_diagnostic_count=blocking_diagnostic_count,
+    )
 
     out_dir.mkdir(parents=True, exist_ok=True)
     _write_json(feature_snapshot_path, {"snapshots": [snapshot.as_dict() for snapshot in snapshots]})
+    _write_json(population_audit_path, population_audit.as_dict())
     _write_json(diagnostics_path, [diagnostic.as_dict() for diagnostic in diagnostics])
     _write_json(
         summary_path,
         {
             "assignment_table_row_count": _int_summary_value(provider_summary.get("assignment_table_row_count"), default=0),
+            "blocking_diagnostic_count": blocking_diagnostic_count,
             "candidate_row_count": len(rows),
             "component_type_resolved_row_count": _int_summary_value(provider_summary.get("component_type_resolved_row_count"), default=0),
             "component_type_source_row_count": _int_summary_value(provider_summary.get("component_type_source_row_count"), default=0),
@@ -591,6 +679,12 @@ def probe_geometry_feature_snapshots(
             "feature_status_counts": _feature_status_counts(snapshots),
             "length_unit_source": _text_or_none(provider_summary.get("length_unit_source")),
             "max_rows": max_rows,
+            "population_blocked_row_count": population_audit.blocked_row_count,
+            "population_disposition_counts": dict(population_audit.disposition_counts),
+            "population_in_scope_row_count": population_audit.in_scope_row_count,
+            "population_out_of_scope_row_count": population_audit.out_of_scope_row_count,
+            "population_reason_counts": dict(population_audit.reason_counts),
+            "population_source_row_count": population_audit.source_row_count,
             "property_table_row_count": _int_summary_value(provider_summary.get("property_table_row_count"), default=0),
             "resolved_geometry_row_count": _int_summary_value(provider_summary.get("resolved_geometry_row_count"), default=len(rows)),
             "selected_row_count": len(selected_rows),
@@ -598,6 +692,7 @@ def probe_geometry_feature_snapshots(
             "status": status,
             "target_report_length_unit": _REQUIRED_UNIT,
             "truncation_applied": truncation_applied,
+            "warning_diagnostic_count": warning_diagnostic_count,
         },
     )
     _write_json(
@@ -609,6 +704,7 @@ def probe_geometry_feature_snapshots(
             "length_unit_maps": {"length_units": LENGTH_UNITS, "length_to_mm_factor": LENGTH_TO_MM_FACTOR},
             "live_etabs_required_for_ci": False,
             "output_files": list(_OUTPUT_FILES),
+            "population_audit_file": "probe_population_audit.json",
             "probe_is_read_only": True,
             "property_source_table": _LOCKED_PROPERTY_SOURCE_TABLE,
             "runner": _RUNNER,
@@ -619,23 +715,56 @@ def probe_geometry_feature_snapshots(
         },
     )
 
-    return LiveGeometryProbeResult(status=status, output_dir=out_dir, feature_snapshot_path=feature_snapshot_path, summary_path=summary_path, diagnostics_path=diagnostics_path, manifest_path=manifest_path, snapshot_count=len(snapshots), diagnostic_count=len(diagnostics))
+    return LiveGeometryProbeResult(
+        status=status,
+        output_dir=out_dir,
+        feature_snapshot_path=feature_snapshot_path,
+        summary_path=summary_path,
+        diagnostics_path=diagnostics_path,
+        manifest_path=manifest_path,
+        snapshot_count=len(snapshots),
+        diagnostic_count=len(diagnostics),
+        population_audit_path=population_audit_path,
+    )
 
+
+def calculate_live_probe_status(
+    *,
+    snapshot_count: int,
+    population_blocked_row_count: int,
+    blocking_diagnostic_count: int,
+) -> str:
+    for name, value in (
+        ("snapshot_count", snapshot_count),
+        ("population_blocked_row_count", population_blocked_row_count),
+        ("blocking_diagnostic_count", blocking_diagnostic_count),
+    ):
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise ValueError(f"{name} must be a non-negative integer")
+    if snapshot_count == 0:
+        return "FAIL"
+    if population_blocked_row_count > 0 or blocking_diagnostic_count > 0:
+        return "PARTIAL"
+    return "OK"
 
 def write_com_attach_failure_probe_outputs(*, output_dir: Path, attach_result: EtabsAttachResult) -> LiveGeometryProbeResult:
     out_dir = Path(output_dir)
     feature_snapshot_path = out_dir / "feature_snapshot.json"
+    population_audit_path = out_dir / "probe_population_audit.json"
     summary_path = out_dir / "live_geometry_probe_summary.json"
     diagnostics_path = out_dir / "live_geometry_probe_diagnostics.json"
     manifest_path = out_dir / "live_geometry_probe_manifest.json"
     out_dir.mkdir(parents=True, exist_ok=True)
     if feature_snapshot_path.exists():
         feature_snapshot_path.unlink()
+    population_audit = PopulationAudit(())
     attempts = [attempt.as_dict() for attempt in attach_result.attempts]
+    _write_json(population_audit_path, population_audit.as_dict())
     _write_json(
         summary_path,
         {
             "assignment_table_row_count": 0,
+            "blocking_diagnostic_count": 1,
             "component_type_resolved_row_count": 0,
             "component_type_source_row_count": 0,
             "component_type_source_status": "NOT_ATTEMPTED",
@@ -644,16 +773,22 @@ def write_com_attach_failure_probe_outputs(*, output_dir: Path, attach_result: E
             "diagnostic_count": len(attempts),
             "failure_stage": "COM_ATTACH",
             "feature_snapshot_written": False,
+            "population_blocked_row_count": 0,
+            "population_disposition_counts": dict(population_audit.disposition_counts),
+            "population_in_scope_row_count": 0,
+            "population_out_of_scope_row_count": 0,
+            "population_reason_counts": {},
+            "population_source_row_count": 0,
             "property_table_row_count": 0,
             "resolved_geometry_row_count": 0,
             "scope": _ATTACH_FAILURE_SCOPE,
             "status": "FAIL",
+            "warning_diagnostic_count": 0,
         },
     )
     _write_json(diagnostics_path, [{"attempts": attempts, "code": "ETABS_COM_ATTACH_FAILED", "message": "No attach strategy succeeded.", "status": "BLOCKED"}])
-    _write_json(manifest_path, {"attach_attempt_count": len(attempts), "attach_strategies": list(ATTACH_STRATEGIES), "failure_stage": "COM_ATTACH", "feature_snapshot_written": False, "live_etabs_required_for_ci": False, "output_files": list(_ATTACH_FAILURE_OUTPUT_FILES), "probe_is_read_only": True, "runner": _ATTACH_FAILURE_RUNNER, "scope": _ATTACH_FAILURE_SCOPE})
-    return LiveGeometryProbeResult(status="FAIL", output_dir=out_dir, feature_snapshot_path=feature_snapshot_path, summary_path=summary_path, diagnostics_path=diagnostics_path, manifest_path=manifest_path, snapshot_count=0, diagnostic_count=len(attempts))
-
+    _write_json(manifest_path, {"attach_attempt_count": len(attempts), "attach_strategies": list(ATTACH_STRATEGIES), "failure_stage": "COM_ATTACH", "feature_snapshot_written": False, "live_etabs_required_for_ci": False, "output_files": list(_ATTACH_FAILURE_OUTPUT_FILES), "population_audit_file": "probe_population_audit.json", "probe_is_read_only": True, "runner": _ATTACH_FAILURE_RUNNER, "scope": _ATTACH_FAILURE_SCOPE})
+    return LiveGeometryProbeResult(status="FAIL", output_dir=out_dir, feature_snapshot_path=feature_snapshot_path, summary_path=summary_path, diagnostics_path=diagnostics_path, manifest_path=manifest_path, snapshot_count=0, diagnostic_count=len(attempts), population_audit_path=population_audit_path)
 
 def load_mapping_provider_from_json(path: Path) -> MappingGeometryRowProvider:
     return MappingGeometryRowProvider(_load_payload_rows(path, field_name="rows"))
@@ -674,18 +809,39 @@ class _EtabsComGeometryProvider:
     mapping: AcceptedGeometryMapping = DEFAULT_ACCEPTED_GEOMETRY_MAPPING
 
     def iter_geometry_rows(self) -> Sequence[Mapping[str, object]]:
-        rows, _diagnostics, _summary = self._resolved_probe_data()
+        rows, _diagnostics, _summary, _population_audit = self._resolved_probe_data()
         return rows
 
     def iter_geometry_diagnostics(self) -> Sequence[LiveGeometryProbeDiagnostic]:
-        _rows, diagnostics, _summary = self._resolved_probe_data()
+        _rows, diagnostics, _summary, _population_audit = self._resolved_probe_data()
         return diagnostics
 
     def live_geometry_probe_summary_fields(self) -> Mapping[str, object]:
-        _rows, _diagnostics, summary = self._resolved_probe_data()
+        _rows, _diagnostics, summary, _population_audit = self._resolved_probe_data()
         return summary
 
-    def _resolved_probe_data(self) -> tuple[tuple[Mapping[str, object], ...], tuple[LiveGeometryProbeDiagnostic, ...], Mapping[str, object]]:
+    def live_population_audit(self) -> PopulationAudit:
+        _rows, _diagnostics, _summary, population_audit = self._resolved_probe_data()
+        return population_audit
+
+    def live_geometry_probe_data(
+        self,
+    ) -> tuple[
+        tuple[Mapping[str, object], ...],
+        tuple[LiveGeometryProbeDiagnostic, ...],
+        Mapping[str, object],
+        PopulationAudit,
+    ]:
+        return self._resolved_probe_data()
+
+    def _resolved_probe_data(
+        self,
+    ) -> tuple[
+        tuple[Mapping[str, object], ...],
+        tuple[LiveGeometryProbeDiagnostic, ...],
+        Mapping[str, object],
+        PopulationAudit,
+    ]:
         if self.max_candidate_tables <= 0:
             raise ValueError("max_candidate_tables must be positive")
         attach_result = self.attach_result or attach_to_running_etabs()
@@ -697,27 +853,74 @@ class _EtabsComGeometryProvider:
         database_tables = sap_model.DatabaseTables
         assignment_result = read_live_etabs_table_for_geometry(database_tables, self.mapping.assignment_table_key)
         property_result = read_live_etabs_table_for_geometry(database_tables, self.mapping.property_table_key)
-        component_source = read_live_frame_component_type_source(database_tables, max_candidate_tables=self.max_candidate_tables)
+        component_result = read_live_etabs_table_for_geometry(database_tables, _LOCKED_COMPONENT_TYPE_SOURCE_TABLE)
+        component_source = _component_type_source_from_table_read_results((component_result,))
         need_unit_evidence = _rows_need_runtime_units(property_result.rows, mapping=self.mapping)
         length_unit_evidence, unit_diagnostics = read_live_etabs_length_unit_evidence(sap_model) if need_unit_evidence else (None, ())
         table_diagnostics = _table_read_diagnostics(table_role="ASSIGNMENT", result=assignment_result) + _table_read_diagnostics(table_role="PROPERTY", result=property_result)
-        resolved_type_count = _count_assignment_rows_with_component_type_evidence(assignment_rows=assignment_result.rows, evidence_by_unique_name=component_source.evidence_by_unique_name)
-        summary = _summary_fields(assignment_count=assignment_result.row_count, property_count=property_result.row_count, component_source=component_source, resolved_type_count=resolved_type_count, resolved_geometry_count=0, length_unit_evidence=length_unit_evidence)
+        preliminary_audit = _build_population_audit_for_provider(
+            source_rows=component_result.rows,
+            assignment_rows=assignment_result.rows,
+            property_rows=property_result.rows,
+            mapping=self.mapping,
+            source_table=_LOCKED_COMPONENT_TYPE_SOURCE_TABLE,
+            component_type_column=component_source.source_column or "Type",
+            join_key_column=component_source.join_key_column or "UniqueName",
+            property_definition_read_failed=property_result.status in {"FAILED", "PARSE_EMPTY"},
+        )
+        candidate_ids = _population_ids(preliminary_audit, PopulationDisposition.IN_SCOPE)
+        summary = _summary_fields(
+            assignment_count=assignment_result.row_count,
+            property_count=property_result.row_count,
+            component_source=component_source,
+            resolved_type_count=len(candidate_ids),
+            resolved_geometry_count=0,
+            length_unit_evidence=length_unit_evidence,
+        )
         if table_diagnostics:
-            return (), table_diagnostics + component_source.diagnostics, summary
+            return (), table_diagnostics + component_source.diagnostics, summary, preliminary_audit
         if component_source.status != "FETCHED" or not component_source.evidence_by_unique_name:
-            return (), component_source.diagnostics, summary
+            return (), component_source.diagnostics, summary, preliminary_audit
+
+        non_candidate_ids = frozenset(
+            row.component_id
+            for row in preliminary_audit.rows
+            if row.component_id and row.component_id not in candidate_ids
+        )
+        candidate_evidence = {
+            component_id: evidence
+            for component_id, evidence in component_source.evidence_by_unique_name.items()
+            if component_id in candidate_ids
+        }
         rows, resolver_diagnostics = resolve_geometry_rows_from_accepted_mapping(
             assignment_rows=assignment_result.rows,
             property_rows=property_result.rows,
             mapping=self.mapping,
-            component_type_evidence_by_unique_name=component_source.evidence_by_unique_name,
-            component_type_unsupported_unique_names=_unsupported_component_ids(component_source.diagnostics),
+            component_type_evidence_by_unique_name=candidate_evidence,
+            component_type_unsupported_unique_names=non_candidate_ids,
             length_unit_evidence=length_unit_evidence,
             require_length_unit_evidence=need_unit_evidence,
         )
-        return rows, component_source.diagnostics + unit_diagnostics + resolver_diagnostics, {**summary, "resolved_geometry_row_count": len(rows)}
-
+        resolved_ids = frozenset(
+            _text(row.get("component_id"))
+            for row in rows
+            if _text(row.get("component_id"))
+        )
+        population_audit = _build_population_audit_for_provider(
+            source_rows=component_result.rows,
+            assignment_rows=assignment_result.rows,
+            property_rows=property_result.rows,
+            mapping=self.mapping,
+            source_table=_LOCKED_COMPONENT_TYPE_SOURCE_TABLE,
+            component_type_column=component_source.source_column or "Type",
+            join_key_column=component_source.join_key_column or "UniqueName",
+            property_definition_read_failed=False,
+            resolved_geometry_component_ids=resolved_ids,
+        )
+        return rows, component_source.diagnostics + unit_diagnostics + resolver_diagnostics, {
+            **summary,
+            "resolved_geometry_row_count": len(rows),
+        }, population_audit
 
 def resolve_geometry_rows_from_accepted_mapping(
     *,
@@ -851,13 +1054,19 @@ def _component_type_evidence_from_rows(*, rows: Sequence[Mapping[str, object]], 
         if not unique_name:
             diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_JOIN_KEY_MISSING", message="Component type source row does not contain an explicit join key value", source_table=source_table))
             continue
-        component_type = _normalize_component_type(row.get(source_column))
+        raw_component_type = _text(row.get(source_column))
+        raw_type_key = raw_component_type.casefold()
+        if not raw_component_type:
+            diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_VALUE_MISSING", message="Component type source row value is missing", component_id=unique_name, source_table=source_table))
+            continue
+        if raw_type_key in {"null", "brace"}:
+            continue
+        component_type = _normalize_component_type(raw_component_type)
         if component_type not in _FEATURES_BY_COMPONENT_TYPE:
-            diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_VALUE_UNSUPPORTED", message="Component type source row value is not supported as beam or column", component_id=unique_name, source_table=source_table))
+            diagnostics.append(LiveGeometryProbeDiagnostic(status="BLOCKED", code="COMPONENT_TYPE_VALUE_UNSUPPORTED", message="Component type source row value is not authoritatively recognized", component_id=unique_name, source_table=source_table))
             continue
         evidence_by_unique_name[unique_name] = LiveFrameComponentTypeEvidence(unique_name=unique_name, component_type=component_type, source_table=source_table, source_column=source_column, raw_row=row, join_key_column=join_key_column)
     return evidence_by_unique_name, tuple(diagnostics)
-
 
 def _unsupported_component_ids(diagnostics: Sequence[LiveGeometryProbeDiagnostic]) -> frozenset[str]:
     return frozenset(
@@ -1264,13 +1473,135 @@ def _feature_from_dimension_row(row: Mapping[str, object], *, component_id: str,
     return FeatureValue(feature_name=feature_id, value=value, unit=unit, semantic_role="GEOMETRY", status=FeatureValueStatus.RESOLVED, evidence=(evidence,))
 
 
+def _provider_probe_data(
+    provider: GeometryRowProvider,
+) -> tuple[
+    tuple[Mapping[str, object], ...],
+    tuple[LiveGeometryProbeDiagnostic, ...],
+    Mapping[str, object],
+    PopulationAudit,
+]:
+    bundle_reader = getattr(provider, "live_geometry_probe_data", None)
+    if callable(bundle_reader):
+        bundle = bundle_reader()
+        if not isinstance(bundle, tuple) or len(bundle) != 4:
+            raise TypeError("live_geometry_probe_data must return rows, diagnostics, summary, and population audit")
+        rows, diagnostics, summary, population_audit = bundle
+        if not isinstance(population_audit, PopulationAudit):
+            raise TypeError("live_geometry_probe_data population audit has an unsupported type")
+        return (
+            tuple(dict(row) for row in rows),
+            tuple(diagnostic for diagnostic in diagnostics if isinstance(diagnostic, LiveGeometryProbeDiagnostic)),
+            dict(summary) if isinstance(summary, Mapping) else {},
+            population_audit,
+        )
+
+    rows = tuple(dict(row) for row in provider.iter_geometry_rows())
+    diagnostics = _provider_diagnostics(provider)
+    summary = _provider_summary_fields(provider, resolved_row_count=len(rows))
+    audit_reader = getattr(provider, "live_population_audit", None)
+    population_audit = audit_reader() if callable(audit_reader) else _population_audit_from_resolved_rows(rows)
+    if not isinstance(population_audit, PopulationAudit):
+        raise TypeError("live_population_audit must return PopulationAudit")
+    return rows, diagnostics, summary, population_audit
+
+
+def _build_population_audit_for_provider(
+    *,
+    source_rows: Sequence[Mapping[str, object]],
+    assignment_rows: Sequence[Mapping[str, object]],
+    property_rows: Sequence[Mapping[str, object]],
+    mapping: AcceptedGeometryMapping | None,
+    source_table: str,
+    component_type_column: str = "Type",
+    join_key_column: str = "UniqueName",
+    property_definition_read_failed: bool = False,
+    resolved_geometry_component_ids: frozenset[str] | None = None,
+) -> PopulationAudit:
+    accepted_mapping = mapping or DEFAULT_ACCEPTED_GEOMETRY_MAPPING
+    return build_population_audit(
+        source_rows=source_rows,
+        assignment_rows=assignment_rows,
+        property_rows=property_rows,
+        source_table=source_table,
+        join_key_column=join_key_column,
+        component_type_column=component_type_column,
+        assignment_section_column=accepted_mapping.assignment_section_column,
+        property_name_column=accepted_mapping.property_name_column,
+        property_width_column=accepted_mapping.width_column,
+        property_depth_column=accepted_mapping.depth_column,
+        property_definition_read_failed=property_definition_read_failed,
+        resolved_geometry_component_ids=resolved_geometry_component_ids,
+    )
+
+
+def _population_audit_from_resolved_rows(
+    rows: Sequence[Mapping[str, object]],
+) -> PopulationAudit:
+    audit_rows: list[PopulationAuditRow] = []
+    for row in rows:
+        raw_component_type = _text_or_none(row.get("component_type"))
+        normalized_type = (raw_component_type or "").casefold()
+        if normalized_type == "beam":
+            disposition = PopulationDisposition.IN_SCOPE
+            reason_code = IN_SCOPE_CONCRETE_RECTANGULAR_BEAM
+        elif normalized_type == "column":
+            disposition = PopulationDisposition.IN_SCOPE
+            reason_code = IN_SCOPE_CONCRETE_RECTANGULAR_COLUMN
+        elif not normalized_type:
+            disposition = PopulationDisposition.BLOCKED
+            reason_code = BLOCKED_COMPONENT_TYPE_MISSING
+        else:
+            disposition = PopulationDisposition.BLOCKED
+            reason_code = BLOCKED_COMPONENT_TYPE_AMBIGUOUS
+        section = _text_or_none(row.get("section")) or _text_or_none(row.get("section_name"))
+        audit_rows.append(
+            PopulationAuditRow(
+                component_id=_text(row.get("component_id")),
+                label=_text_or_none(row.get("label")),
+                story=_text_or_none(row.get("story")),
+                raw_component_type=raw_component_type,
+                assigned_section=section,
+                analysis_section=_text_or_none(row.get("analysis_section")) or section,
+                design_section=_text_or_none(row.get("design_section")) or section,
+                section_shape="Concrete Rectangular" if normalized_type in {"beam", "column"} else _text_or_none(row.get("section_shape")),
+                disposition=disposition,
+                reason_code=reason_code,
+                source_table=_text(row.get("source_table")) or "live_geometry_provider",
+            )
+        )
+    return PopulationAudit(audit_rows)
+
+
+def _population_ids(
+    audit: PopulationAudit,
+    disposition: PopulationDisposition,
+) -> frozenset[str]:
+    return frozenset(
+        row.component_id
+        for row in audit.rows
+        if row.component_id and row.disposition is disposition
+    )
+
+
+def _blocking_diagnostic_count(
+    diagnostics: Sequence[LiveGeometryProbeDiagnostic],
+) -> int:
+    return sum(diagnostic.status in {"NO_DATA", "BLOCKED"} for diagnostic in diagnostics)
+
+
+def _warning_diagnostic_count(
+    diagnostics: Sequence[LiveGeometryProbeDiagnostic],
+) -> int:
+    return sum(diagnostic.status == "WARNING" for diagnostic in diagnostics)
+
+
 def _provider_diagnostics(provider: GeometryRowProvider) -> tuple[LiveGeometryProbeDiagnostic, ...]:
     diagnostic_reader = getattr(provider, "iter_geometry_diagnostics", None)
     if not callable(diagnostic_reader):
         return ()
     diagnostics = diagnostic_reader()
     return tuple(diagnostic for diagnostic in diagnostics if isinstance(diagnostic, LiveGeometryProbeDiagnostic))
-
 
 def _provider_summary_fields(provider: GeometryRowProvider, *, resolved_row_count: int) -> Mapping[str, object]:
     default = {"assignment_table_row_count": 0, "component_type_resolved_row_count": 0, "component_type_source_row_count": 0, "component_type_source_status": "UNKNOWN", "component_type_source_table": None, "component_type_unresolved_row_count": 0, "length_unit_source": None, "property_table_row_count": 0, "resolved_geometry_row_count": resolved_row_count}
@@ -1359,6 +1690,7 @@ __all__ = [
     "LiveGeometryResolvedRow",
     "MappingGeometryRowProvider",
     "TEMP_UNITS",
+    "calculate_live_probe_status",
     "create_live_etabs_geometry_provider",
     "load_accepted_mapping_provider_from_json",
     "load_mapping_provider_from_json",

@@ -115,11 +115,13 @@ def test_output_files_are_written_with_expected_contract(tmp_path: Path):
     result = _probe_good_rows(tmp_path)
 
     assert result.feature_snapshot_path == tmp_path / "feature_snapshot.json"
+    assert result.population_audit_path == tmp_path / "probe_population_audit.json"
     assert result.summary_path == tmp_path / "live_geometry_probe_summary.json"
     assert result.diagnostics_path == tmp_path / "live_geometry_probe_diagnostics.json"
     assert result.manifest_path == tmp_path / "live_geometry_probe_manifest.json"
     assert {path.name for path in tmp_path.iterdir()} == {
         "feature_snapshot.json",
+        "probe_population_audit.json",
         "live_geometry_probe_summary.json",
         "live_geometry_probe_diagnostics.json",
         "live_geometry_probe_manifest.json",

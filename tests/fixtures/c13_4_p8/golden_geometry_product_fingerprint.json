@@ -74,7 +74,7 @@
   "p7": {
     "error_count": 0,
     "report_table_count": 9,
-    "required_file_count": 7,
+    "required_file_count": 9,
     "scope": "GEOMETRY_PRODUCT_BUNDLE_VALIDATION",
     "status": "OK"
   },

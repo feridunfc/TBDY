@@ -165,7 +165,7 @@ def test_row_limit_truncation_is_recorded_as_warning(tmp_path: Path):
     summary = _read_json(result.summary_path)
     diagnostics = _read_json(result.diagnostics_path)
 
-    assert result.status == "PARTIAL"
+    assert result.status == "OK"
     assert summary["candidate_row_count"] == 3
     assert summary["selected_row_count"] == 2
     assert summary["truncation_applied"] is True

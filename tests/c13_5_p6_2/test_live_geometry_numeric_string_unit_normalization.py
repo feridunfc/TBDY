@@ -241,9 +241,9 @@ def test_unsupported_explicit_component_type_does_not_emit_join_not_found(tmp_pa
     result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
     diagnostics = tuple(provider.iter_geometry_diagnostics())
 
-    assert result.status == "PARTIAL"
+    assert result.status == "OK"
     assert result.snapshot_count == 1
-    assert "COMPONENT_TYPE_VALUE_UNSUPPORTED" in _codes(diagnostics)
+    assert "COMPONENT_TYPE_VALUE_UNSUPPORTED" not in _codes(diagnostics)
     assert "COMPONENT_TYPE_JOIN_NOT_FOUND" not in _codes(diagnostics)
 
 
@@ -355,6 +355,7 @@ def test_attach_failure_summary_retains_stable_p3_fields(tmp_path: Path):
     assert result.status == "FAIL"
     assert summary == {
         "assignment_table_row_count": 0,
+        "blocking_diagnostic_count": 1,
         "component_type_resolved_row_count": 0,
         "component_type_source_row_count": 0,
         "component_type_source_status": "NOT_ATTEMPTED",
@@ -363,10 +364,17 @@ def test_attach_failure_summary_retains_stable_p3_fields(tmp_path: Path):
         "diagnostic_count": 1,
         "failure_stage": "COM_ATTACH",
         "feature_snapshot_written": False,
+        "population_blocked_row_count": 0,
+        "population_disposition_counts": {"BLOCKED": 0, "IN_SCOPE": 0, "OUT_OF_SCOPE": 0},
+        "population_in_scope_row_count": 0,
+        "population_out_of_scope_row_count": 0,
+        "population_reason_counts": {},
+        "population_source_row_count": 0,
         "property_table_row_count": 0,
         "resolved_geometry_row_count": 0,
         "scope": "LIVE_ETABS_GEOMETRY_FEATURE_SNAPSHOT_PROBE",
         "status": "FAIL",
+        "warning_diagnostic_count": 0,
     }
 
 

@@ -84,6 +84,7 @@ def test_output_directory_contains_required_regression_bundle_files(tmp_path: Pa
 
     assert (out_dir / "product_smoke").is_dir()
     assert (out_dir / "product_smoke" / "artifacts" / "check_results.json").is_file()
+    assert (out_dir / "product_smoke" / "artifacts" / "coverage_execution_trace.json").is_file()
     assert (out_dir / "product_smoke" / "reports" / "geometry_report.md").is_file()
     assert (out_dir / "product_smoke" / "product_smoke_summary.json").is_file()
     assert (out_dir / "product_smoke" / "product_smoke_manifest.json").is_file()

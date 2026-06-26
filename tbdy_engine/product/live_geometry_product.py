@@ -36,6 +36,8 @@ _OWNED_DIRECTORIES = (
     "product",
 )
 _REQUIRED_PRODUCT_FILES = (
+    "artifacts/coverage_rows.json",
+    "artifacts/coverage_execution_trace.json",
     "artifacts/check_results.json",
     "artifacts/adapter_diagnostics.json",
     "artifacts/run_summary.json",
@@ -348,6 +350,7 @@ def _finish(
 ) -> LiveGeometryProductResult:
     probe_summary = probe_summary or _read_json_mapping(probe_dir / "live_geometry_probe_summary.json")
     product_summary = product_summary or _read_json_mapping(product_dir / "product_smoke_summary.json")
+    population_audit_path = probe_dir / "probe_population_audit.json"
     summary = {
         "status": status,
         "live_probe_status": live_probe_status,
@@ -370,9 +373,70 @@ def _finish(
             attribute="p4_adapter_diagnostic_count",
             summary_key="adapter_diagnostic_count",
         ),
+        "product_coverage_row_count": _product_count(
+            product_result,
+            product_summary,
+            attribute="p4_coverage_row_count",
+            summary_key="coverage_row_count",
+        ),
+        "product_coverage_status_counts": _product_mapping(
+            product_summary,
+            summary_key="coverage_status_counts",
+        ),
+        "product_coverage_execution_trace_count": _product_count(
+            product_result,
+            product_summary,
+            attribute="p4_coverage_execution_trace_count",
+            summary_key="coverage_execution_trace_count",
+        ),
+        "product_check_input_emitted_count": _product_count(
+            product_result,
+            product_summary,
+            attribute="p4_check_input_emitted_count",
+            summary_key="check_input_emitted_count",
+        ),
+        "product_check_input_not_emitted_count": _product_count(
+            product_result,
+            product_summary,
+            attribute="p4_check_input_not_emitted_count",
+            summary_key="check_input_not_emitted_count",
+        ),
+        "product_check_result_emitted_count": _product_count(
+            product_result,
+            product_summary,
+            attribute="p4_check_result_emitted_count",
+            summary_key="check_result_emitted_count",
+        ),
+        "product_check_result_not_emitted_count": _product_count(
+            product_result,
+            product_summary,
+            attribute="p4_check_result_not_emitted_count",
+            summary_key="check_result_not_emitted_count",
+        ),
+        "product_trace_adapter_status_counts": _product_mapping(
+            product_summary,
+            summary_key="trace_adapter_status_counts",
+        ),
+        "product_trace_result_status_counts": _product_mapping(
+            product_summary,
+            summary_key="trace_result_status_counts",
+        ),
+        "coverage_rows_path": _relative(
+            root,
+            product_dir / "artifacts" / "coverage_rows.json"
+            if (product_dir / "artifacts" / "coverage_rows.json").is_file()
+            else None,
+        ),
+        "coverage_execution_trace_path": _relative(
+            root,
+            product_dir / "artifacts" / "coverage_execution_trace.json"
+            if (product_dir / "artifacts" / "coverage_execution_trace.json").is_file()
+            else None,
+        ),
         "live_probe_output_dir": _relative(root, probe_dir),
         "product_output_dir": _relative(root, product_dir),
         "feature_snapshot_path": _relative(root, feature_snapshot_path),
+        "population_audit_path": _relative(root, population_audit_path if population_audit_path.is_file() else None),
         "feature_snapshot_consumed_by_product": feature_snapshot_consumed,
         "failure_stage": failure_stage,
         "error_type": type(error).__name__ if error is not None else None,
@@ -391,6 +455,7 @@ def _finish(
         "probe_is_read_only": True,
         "feature_snapshot_consumed_without_rewrite": True,
         "source_probe_manifest": _relative(root, probe_manifest if probe_manifest.is_file() else None),
+        "source_population_audit": _relative(root, population_audit_path if population_audit_path.is_file() else None),
         "source_product_manifest": _relative(root, product_manifest if product_manifest.is_file() else None),
         "output_files": _output_files(
             root=root,
@@ -430,6 +495,20 @@ def _product_count(
     if isinstance(p4, Mapping):
         return _optional_int(p4.get(summary_key))
     return None
+
+
+def _product_mapping(
+    summary: Mapping[str, object],
+    *,
+    summary_key: str,
+) -> Mapping[str, object] | None:
+    p4 = summary.get("p4")
+    if not isinstance(p4, Mapping):
+        return None
+    value = p4.get(summary_key)
+    if not isinstance(value, Mapping):
+        return None
+    return {str(key): value[key] for key in sorted(value, key=str)}
 
 
 def _mapping_value_or_none(mapping: Mapping[str, object], key: str) -> object | None:
