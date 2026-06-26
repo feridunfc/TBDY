@@ -10,6 +10,7 @@ from tbdy_engine.product.geometry_product_smoke import run_geometry_product_smok
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests" / "fixtures" / "c13_4_p4" / "geometry_feature_snapshots.json"
 REQUIRED_OUTPUTS = {
+    "artifacts/coverage_rows.json",
     "artifacts/check_results.json",
     "artifacts/adapter_diagnostics.json",
     "artifacts/run_summary.json",
@@ -70,6 +71,9 @@ def test_summary_json_has_required_p4_and_p5_counts(tmp_path: Path):
     assert summary["p4"]["check_result_count"] == 6
     assert summary["p4"]["adapter_diagnostic_count"] == 0
     assert summary["p4"]["check_result_status_counts"] == {"OK": 6}
+    assert summary["p4"]["coverage_row_count"] == 6
+    assert summary["p4"]["coverage_status_counts"] == {"RUNNABLE": 6}
+    assert summary["outputs"]["coverage_rows_json"] == str(out_dir / "artifacts" / "coverage_rows.json")
     assert summary["p5"]["section_count"] == 9
     assert summary["p5"]["table_count"] == 9
     assert summary["p5"]["table_names"] == [

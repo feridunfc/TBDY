@@ -41,7 +41,7 @@ def test_validator_passes_on_p6_generated_bundle(tmp_path: Path):
 
     assert result.status == "OK"
     assert result.error_count == 0
-    assert result.required_file_count == 7
+    assert result.required_file_count == 8
     assert result.checked_table_count == 9
     assert result.check_result_count == 6
     assert result.adapter_diagnostic_count == 0
@@ -61,6 +61,7 @@ def test_validator_writes_geometry_product_bundle_validation_json(tmp_path: Path
     assert payload["required_files"] == {
         "artifacts/adapter_diagnostics.json": "OK",
         "artifacts/check_results.json": "OK",
+        "artifacts/coverage_rows.json": "OK",
         "artifacts/run_manifest.json": "OK",
         "artifacts/run_summary.json": "OK",
         "product_smoke_manifest.json": "OK",
@@ -87,7 +88,7 @@ def test_cli_validates_p6_generated_bundle(tmp_path: Path):
     assert completed.returncode == 0, completed.stderr
     assert "Geometry product bundle validation: OK" in completed.stdout
     assert f"Bundle: {bundle_dir}" in completed.stdout
-    assert "Required files: 7" in completed.stdout
+    assert "Required files: 8" in completed.stdout
     assert "CheckResults: 6" in completed.stdout
     assert "Adapter diagnostics: 0" in completed.stdout
     assert "Report tables: 9" in completed.stdout

@@ -16,6 +16,7 @@ from tbdy_engine.product.live_geometry_product import run_live_geometry_product
 
 
 REQUIRED_PRODUCT_FILES = (
+    "artifacts/coverage_rows.json",
     "artifacts/check_results.json",
     "artifacts/adapter_diagnostics.json",
     "artifacts/run_summary.json",
@@ -80,7 +81,7 @@ def _successful_product_runner(*, feature_snapshot_path: Path, output_dir: Path)
         path.parent.mkdir(parents=True, exist_ok=True)
         if relative == "product_smoke_summary.json":
             path.write_text(
-                '{"p4":{"adapter_diagnostic_count":0,"check_result_count":1},"status":"OK"}\n',
+                '{"p4":{"adapter_diagnostic_count":0,"check_result_count":1,"coverage_row_count":1,"coverage_status_counts":{"RUNNABLE":1}},"status":"OK"}\n',
                 encoding="utf-8",
             )
         else:

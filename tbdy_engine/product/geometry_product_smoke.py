@@ -21,6 +21,7 @@ _SOURCE_STEPS = (
     "C13.4-P5 Geometry Markdown Report Renderer",
 )
 _ARTIFACT_FILES = (
+    "artifacts/coverage_rows.json",
     "artifacts/check_results.json",
     "artifacts/adapter_diagnostics.json",
     "artifacts/run_summary.json",
@@ -158,6 +159,7 @@ def _build_summary(
         "outputs": {
             "adapter_diagnostics_json": str(artifact_dir / "adapter_diagnostics.json"),
             "check_results_json": str(artifact_dir / "check_results.json"),
+            "coverage_rows_json": str(artifact_dir / "coverage_rows.json"),
             "geometry_report_md": str(report_path),
             "product_smoke_manifest_json": str(manifest_path),
             "product_smoke_summary_json": str(summary_path),
@@ -168,6 +170,13 @@ def _build_summary(
             "adapter_diagnostic_count": _int_value(p4_run_summary.get("adapter_diagnostic_count", 0)),
             "check_result_count": _int_value(p4_run_summary.get("check_result_count", 0)),
             "check_result_status_counts": {str(key): _int_value(value) for key, value in sorted(status_counts.items())},
+            "coverage_row_count": _int_value(p4_run_summary.get("coverage_row_count", 0)),
+            "coverage_status_counts": {
+                str(key): _int_value(value)
+                for key, value in sorted(
+                    _mapping_value(p4_run_summary.get("coverage_status_counts", {})).items()
+                )
+            },
             "executable_input_count": _int_value(p4_run_summary.get("executable_input_count", 0)),
             "snapshot_count": _int_value(p4_run_summary.get("snapshot_count", 0)),
         },

@@ -10,6 +10,7 @@ from tbdy_engine.checks.geometry_vertical_slice import run_geometry_vertical_sli
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests" / "fixtures" / "c13_4_p4" / "geometry_feature_snapshots.json"
 ARTIFACT_FILES = {
+    "coverage_rows.json",
     "check_results.json",
     "adapter_diagnostics.json",
     "run_summary.json",
@@ -45,7 +46,7 @@ def _feature(feature_name: str, value: float, *, unit: str = "mm") -> dict[str, 
     }
 
 
-def test_valid_fixture_writes_all_four_artifacts(tmp_path: Path):
+def test_valid_fixture_writes_all_five_artifacts(tmp_path: Path):
     out_dir = tmp_path / "out"
 
     result = run_geometry_vertical_slice_from_file(feature_snapshot_path=FIXTURE, output_dir=out_dir)

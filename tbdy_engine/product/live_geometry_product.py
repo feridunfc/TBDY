@@ -36,6 +36,7 @@ _OWNED_DIRECTORIES = (
     "product",
 )
 _REQUIRED_PRODUCT_FILES = (
+    "artifacts/coverage_rows.json",
     "artifacts/check_results.json",
     "artifacts/adapter_diagnostics.json",
     "artifacts/run_summary.json",
@@ -371,6 +372,22 @@ def _finish(
             attribute="p4_adapter_diagnostic_count",
             summary_key="adapter_diagnostic_count",
         ),
+        "product_coverage_row_count": _product_count(
+            product_result,
+            product_summary,
+            attribute="p4_coverage_row_count",
+            summary_key="coverage_row_count",
+        ),
+        "product_coverage_status_counts": _product_mapping(
+            product_summary,
+            summary_key="coverage_status_counts",
+        ),
+        "coverage_rows_path": _relative(
+            root,
+            product_dir / "artifacts" / "coverage_rows.json"
+            if (product_dir / "artifacts" / "coverage_rows.json").is_file()
+            else None,
+        ),
         "live_probe_output_dir": _relative(root, probe_dir),
         "product_output_dir": _relative(root, product_dir),
         "feature_snapshot_path": _relative(root, feature_snapshot_path),
@@ -433,6 +450,20 @@ def _product_count(
     if isinstance(p4, Mapping):
         return _optional_int(p4.get(summary_key))
     return None
+
+
+def _product_mapping(
+    summary: Mapping[str, object],
+    *,
+    summary_key: str,
+) -> Mapping[str, object] | None:
+    p4 = summary.get("p4")
+    if not isinstance(p4, Mapping):
+        return None
+    value = p4.get(summary_key)
+    if not isinstance(value, Mapping):
+        return None
+    return {str(key): value[key] for key in sorted(value, key=str)}
 
 
 def _mapping_value_or_none(mapping: Mapping[str, object], key: str) -> object | None:

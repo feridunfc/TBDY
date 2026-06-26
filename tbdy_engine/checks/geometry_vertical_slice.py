@@ -17,6 +17,7 @@ import json
 
 import yaml
 
+from tbdy_engine.checks.coverage_artifact import canonicalize_coverage_rows
 from tbdy_engine.checks.engine import MinimalCheckEngine
 from tbdy_engine.checks.geometry_coverage_orchestration import (
     assemble_geometry_check_inputs,
@@ -27,10 +28,12 @@ from tbdy_engine.checks.input_adapter import (
     normalize_geometry_feature_snapshot_input,
 )
 from tbdy_engine.checks.result import CheckResult
+from tbdy_engine.coverage.models import CoverageRow
 
 _RUNNER_NAME = "C13.4-P4 Geometry Vertical Slice Runner"
 _SCOPE = "GEOMETRY_ONLY"
 _ARTIFACT_FILES = (
+    "coverage_rows.json",
     "check_results.json",
     "adapter_diagnostics.json",
     "run_summary.json",
@@ -57,20 +60,25 @@ _C13_5_CHECK_OVERLAYS = ("check_catalog_c13_5_p1_column_geometry.yaml",)
 
 @dataclass(frozen=True, slots=True)
 class GeometryVerticalSliceResult:
+    coverage_rows: tuple[CoverageRow, ...]
     check_results: tuple[CheckResult, ...]
     adapter_diagnostics: tuple[CheckInputBuildDiagnostic, ...]
     run_summary: Mapping[str, object]
     manifest: Mapping[str, object]
 
     def __post_init__(self) -> None:
+        coverage_rows = tuple(self.coverage_rows)
         check_results = tuple(self.check_results)
         adapter_diagnostics = tuple(self.adapter_diagnostics)
+        if any(not isinstance(item, CoverageRow) for item in coverage_rows):
+            raise TypeError("GeometryVerticalSliceResult.coverage_rows must contain CoverageRow objects")
         if any(not isinstance(item, CheckResult) for item in check_results):
             raise TypeError("GeometryVerticalSliceResult.check_results must contain CheckResult objects")
         if any(not isinstance(item, CheckInputBuildDiagnostic) for item in adapter_diagnostics):
             raise TypeError(
                 "GeometryVerticalSliceResult.adapter_diagnostics must contain CheckInputBuildDiagnostic objects"
             )
+        object.__setattr__(self, "coverage_rows", coverage_rows)
         object.__setattr__(self, "check_results", check_results)
         object.__setattr__(self, "adapter_diagnostics", adapter_diagnostics)
         object.__setattr__(self, "run_summary", dict(self.run_summary))
@@ -102,10 +110,10 @@ def run_geometry_vertical_slice_from_file(
     )
     engine = MinimalCheckEngine(check_definitions)
 
+    coverage_rows: list[CoverageRow] = []
     check_results: list[CheckResult] = []
     adapter_diagnostics: list[CheckInputBuildDiagnostic] = []
     executable_input_count = 0
-    coverage_row_count = 0
 
     for snapshot_payload in snapshots:
         snapshot = normalize_geometry_feature_snapshot_input(
@@ -116,7 +124,7 @@ def run_geometry_vertical_slice_from_file(
             contract_bundle=contract_bundle,
         )
         adapter_result = assembly.build_result
-        coverage_row_count += len(assembly.coverage_rows)
+        coverage_rows.extend(assembly.coverage_rows)
         adapter_diagnostics.extend(adapter_result.diagnostics)
         executable_input_count += len(adapter_result.check_inputs)
 
@@ -129,10 +137,11 @@ def run_geometry_vertical_slice_from_file(
                 )
             )
 
+    canonical_coverage_rows = canonicalize_coverage_rows(coverage_rows)
     summary = _build_summary(
         snapshots=snapshots,
         executable_input_count=executable_input_count,
-        coverage_row_count=coverage_row_count,
+        coverage_rows=canonical_coverage_rows,
         check_results=check_results,
         adapter_diagnostics=adapter_diagnostics,
     )
@@ -144,6 +153,10 @@ def run_geometry_vertical_slice_from_file(
     )
 
     out_dir.mkdir(parents=True, exist_ok=True)
+    _write_json(
+        out_dir / "coverage_rows.json",
+        [row.as_dict() for row in canonical_coverage_rows],
+    )
     _write_json(
         out_dir / "check_results.json",
         [_serialize_check_result(item) for item in check_results],
@@ -159,6 +172,7 @@ def run_geometry_vertical_slice_from_file(
     _write_json(out_dir / "run_manifest.json", manifest)
 
     return GeometryVerticalSliceResult(
+        coverage_rows=canonical_coverage_rows,
         check_results=tuple(check_results),
         adapter_diagnostics=tuple(adapter_diagnostics),
         run_summary=summary,
@@ -229,11 +243,12 @@ def _build_summary(
     *,
     snapshots: Sequence[Mapping[str, object]],
     executable_input_count: int,
-    coverage_row_count: int,
+    coverage_rows: Sequence[CoverageRow],
     check_results: Sequence[CheckResult],
     adapter_diagnostics: Sequence[CheckInputBuildDiagnostic],
 ) -> dict[str, object]:
     status_counts = Counter(result.status.value for result in check_results)
+    coverage_status_counts = Counter(row.coverage_status.value for row in coverage_rows)
     check_id_counts = Counter(result.check_id for result in check_results)
     component_type_counts = Counter(str(snapshot["component_type"]) for snapshot in snapshots)
     return {
@@ -242,7 +257,8 @@ def _build_summary(
         "check_result_count": len(check_results),
         "check_result_status_counts": _sorted_counter_dict(status_counts),
         "component_type_counts": _sorted_counter_dict(component_type_counts),
-        "coverage_row_count": coverage_row_count,
+        "coverage_row_count": len(coverage_rows),
+        "coverage_status_counts": _sorted_counter_dict(coverage_status_counts),
         "executable_input_count": executable_input_count,
         "snapshot_count": len(snapshots),
         "status": "OK",
@@ -253,7 +269,9 @@ def _build_manifest(*, input_path: Path, input_sha256: str, output_dir: Path, ca
     return {
         "artifact_files": list(_ARTIFACT_FILES),
         "catalog_dir": str(catalog_dir),
+        "coverage_artifact_source": "authoritative_runtime_objects",
         "coverage_authority": "CoverageBuilder",
+        "coverage_reconstructed_from_check_results": False,
         "forbidden_scope": list(_FORBIDDEN_SCOPE),
         "input_path": str(input_path),
         "input_sha256": input_sha256,

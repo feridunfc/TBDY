@@ -14,6 +14,7 @@ from tbdy_engine.product.live_geometry_product import run_live_geometry_product
 
 ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_PRODUCT_FILES = (
+    "artifacts/coverage_rows.json",
     "artifacts/check_results.json",
     "artifacts/adapter_diagnostics.json",
     "artifacts/run_summary.json",
@@ -130,6 +131,8 @@ def _successful_product_runner(capture: dict | None = None, *, check_results_tex
                             "p4": {
                                 "check_result_count": 2,
                                 "adapter_diagnostic_count": 1,
+                                "coverage_row_count": 3,
+                                "coverage_status_counts": {"RUNNABLE": 3},
                             },
                         },
                         sort_keys=True,
@@ -313,6 +316,7 @@ def test_missing_product_artifact_forces_fail(tmp_path: Path):
     assert result.status == "FAIL"
     assert summary["failure_stage"] == "PRODUCT_ARTIFACT_VALIDATION"
     assert summary["missing_product_files"]
+    assert "artifacts/coverage_rows.json" in summary["missing_product_files"]
 
 
 def test_stale_product_artifacts_cannot_satisfy_current_validation(tmp_path: Path):

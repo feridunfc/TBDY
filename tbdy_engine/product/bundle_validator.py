@@ -14,6 +14,7 @@ import json
 
 _SCOPE = "GEOMETRY_PRODUCT_BUNDLE_VALIDATION"
 _REQUIRED_FILES = (
+    "artifacts/coverage_rows.json",
     "artifacts/check_results.json",
     "artifacts/adapter_diagnostics.json",
     "artifacts/run_summary.json",
@@ -23,6 +24,7 @@ _REQUIRED_FILES = (
     "product_smoke_manifest.json",
 )
 _REQUIRED_JSON_FILES = (
+    "artifacts/coverage_rows.json",
     "artifacts/check_results.json",
     "artifacts/adapter_diagnostics.json",
     "artifacts/run_summary.json",
@@ -76,11 +78,25 @@ _FORBIDDEN_SUMMARY_TERMS = (
     "Excel_production_path",
     "legacy_runtime_execution",
 )
+_FORBIDDEN_COVERAGE_FIELD_NAMES = frozenset({
+    "check_result",
+    "result_status",
+    "ratio",
+    "value",
+    "limit",
+    "formula",
+    "pass_rule",
+    "utilization",
+    "governing_combo",
+    "engineering_verdict",
+})
+_COVERAGE_IDENTITY_FIELDS = ("check_id", "component_type", "component_id", "coverage_status")
 _CHECK_NAMES = (
     "json_parse",
     "summary_contract",
     "manifest_contract",
     "p4_artifact_consistency",
+    "coverage_artifact_contract",
     "p5_report_contract",
     "guardrail_contract",
     "forbidden_scope_contract",
@@ -125,11 +141,13 @@ def validate_geometry_product_bundle(
     _validate_summary_contract(parsed_json.get("product_smoke_summary.json"), errors, check_states)
     _validate_manifest_contract(parsed_json.get("product_smoke_manifest.json"), errors, check_states)
     _validate_p4_consistency(parsed_json, errors, check_states)
+    _validate_coverage_artifact(parsed_json, errors, check_states)
     checked_table_count = _validate_report_contract(report_text, errors, check_states)
     _validate_guardrails(parsed_json.get("product_smoke_manifest.json"), errors, check_states)
     _validate_forbidden_scope(root, required_file_status, errors, check_states)
     _validate_extra_files(root, warnings)
 
+    coverage_rows = parsed_json.get("artifacts/coverage_rows.json")
     check_results = parsed_json.get("artifacts/check_results.json")
     adapter_diagnostics = parsed_json.get("artifacts/adapter_diagnostics.json")
     check_result_count = len(check_results) if isinstance(check_results, list) else 0
@@ -142,6 +160,7 @@ def validate_geometry_product_bundle(
         "counts": {
             "adapter_diagnostic_count": adapter_diagnostic_count,
             "check_result_count": check_result_count,
+            "coverage_row_count": len(coverage_rows) if isinstance(coverage_rows, list) else 0,
             "error_count": len(errors),
             "report_section_count": checked_table_count,
             "report_table_count": checked_table_count,
@@ -229,12 +248,15 @@ def _validate_summary_contract(summary: object, errors: list[str], check_states:
         errors.append("product_smoke_summary.p4 must be a JSON object")
         check_states["summary_contract"] = "FAIL"
     else:
-        for key in ("check_result_count", "adapter_diagnostic_count"):
+        for key in ("check_result_count", "adapter_diagnostic_count", "coverage_row_count"):
             if not isinstance(p4.get(key), int):
                 errors.append(f"product_smoke_summary.p4.{key} must be an integer")
                 check_states["summary_contract"] = "FAIL"
         if not isinstance(p4.get("check_result_status_counts"), Mapping):
             errors.append("product_smoke_summary.p4.check_result_status_counts must be a mapping")
+            check_states["summary_contract"] = "FAIL"
+        if not isinstance(p4.get("coverage_status_counts"), Mapping):
+            errors.append("product_smoke_summary.p4.coverage_status_counts must be a mapping")
             check_states["summary_contract"] = "FAIL"
     if not isinstance(p5, Mapping):
         errors.append("product_smoke_summary.p5 must be a JSON object")
@@ -277,19 +299,66 @@ def _validate_manifest_contract(manifest: object, errors: list[str], check_state
         check_states,
         "manifest_contract",
     )
+    artifact_files = manifest.get("artifact_files")
+    _expect(
+        isinstance(artifact_files, list) and "artifacts/coverage_rows.json" in artifact_files,
+        "product_smoke_manifest.artifact_files must include artifacts/coverage_rows.json",
+        errors,
+        check_states,
+        "manifest_contract",
+    )
 
 
 def _validate_p4_consistency(parsed_json: Mapping[str, object], errors: list[str], check_states: dict[str, str]) -> None:
+    coverage_rows = parsed_json.get("artifacts/coverage_rows.json")
     check_results = parsed_json.get("artifacts/check_results.json")
     adapter_diagnostics = parsed_json.get("artifacts/adapter_diagnostics.json")
     run_summary = parsed_json.get("artifacts/run_summary.json")
     run_manifest = parsed_json.get("artifacts/run_manifest.json")
     summary = parsed_json.get("product_smoke_summary.json")
 
+    _expect(isinstance(coverage_rows, list), "artifacts/coverage_rows.json must contain a JSON array", errors, check_states, "p4_artifact_consistency")
     _expect(isinstance(check_results, list), "artifacts/check_results.json must contain a JSON array", errors, check_states, "p4_artifact_consistency")
     _expect(isinstance(adapter_diagnostics, list), "artifacts/adapter_diagnostics.json must contain a JSON array", errors, check_states, "p4_artifact_consistency")
     _expect(isinstance(run_summary, Mapping), "artifacts/run_summary.json must contain a JSON object", errors, check_states, "p4_artifact_consistency")
     _expect(isinstance(run_manifest, Mapping), "artifacts/run_manifest.json must contain a JSON object", errors, check_states, "p4_artifact_consistency")
+
+    if isinstance(run_manifest, Mapping):
+        _expect(
+            run_manifest.get("coverage_authority") == "CoverageBuilder",
+            "run_manifest.coverage_authority must be CoverageBuilder",
+            errors,
+            check_states,
+            "p4_artifact_consistency",
+        )
+        _expect(
+            run_manifest.get("coverage_artifact_source") == "authoritative_runtime_objects",
+            "run_manifest.coverage_artifact_source must be authoritative_runtime_objects",
+            errors,
+            check_states,
+            "p4_artifact_consistency",
+        )
+        _expect(
+            run_manifest.get("coverage_reconstructed_from_check_results") is False,
+            "run_manifest.coverage_reconstructed_from_check_results must be false",
+            errors,
+            check_states,
+            "p4_artifact_consistency",
+        )
+        _expect(
+            run_manifest.get("synthetic_coverage_path_used") is False,
+            "run_manifest.synthetic_coverage_path_used must be false",
+            errors,
+            check_states,
+            "p4_artifact_consistency",
+        )
+        _expect(
+            "coverage_rows.json" in tuple(run_manifest.get("artifact_files", ())),
+            "run_manifest.artifact_files must include coverage_rows.json",
+            errors,
+            check_states,
+            "p4_artifact_consistency",
+        )
 
     if isinstance(check_results, list):
         for index, item in enumerate(check_results):
@@ -352,6 +421,20 @@ def _validate_p4_consistency(parsed_json: Mapping[str, object], errors: list[str
                 check_states,
                 "p4_artifact_consistency",
             )
+            _expect(
+                p4.get("coverage_row_count") == run_summary.get("coverage_row_count"),
+                "product_smoke_summary.p4.coverage_row_count must equal run_summary.coverage_row_count",
+                errors,
+                check_states,
+                "p4_artifact_consistency",
+            )
+            _expect(
+                p4.get("coverage_status_counts") == run_summary.get("coverage_status_counts"),
+                "product_smoke_summary.p4.coverage_status_counts must equal run_summary.coverage_status_counts",
+                errors,
+                check_states,
+                "p4_artifact_consistency",
+            )
         else:
             errors.append("product_smoke_summary.p4 must be present for P4 consistency validation")
             check_states["p4_artifact_consistency"] = "FAIL"
@@ -366,6 +449,109 @@ def _validate_p4_consistency(parsed_json: Mapping[str, object], errors: list[str
                 check_states,
                 "p4_artifact_consistency",
             )
+
+
+def _validate_coverage_artifact(
+    parsed_json: Mapping[str, object],
+    errors: list[str],
+    check_states: dict[str, str],
+) -> None:
+    rows = parsed_json.get("artifacts/coverage_rows.json")
+    run_summary = parsed_json.get("artifacts/run_summary.json")
+    check_name = "coverage_artifact_contract"
+    if not isinstance(rows, list):
+        errors.append("artifacts/coverage_rows.json must contain a JSON array")
+        check_states[check_name] = "FAIL"
+        return
+
+    canonical_keys: list[tuple[str, str, str]] = []
+    seen_keys: set[tuple[str, str, str]] = set()
+    status_counts: Counter[str] = Counter()
+    for index, item in enumerate(rows):
+        if not isinstance(item, Mapping):
+            errors.append(f"CoverageRow entry at index {index} must be a JSON object")
+            check_states[check_name] = "FAIL"
+            continue
+        missing_fields = [field for field in _COVERAGE_IDENTITY_FIELDS if field not in item]
+        if missing_fields:
+            errors.append(
+                f"CoverageRow entry at index {index} missing required identity fields: "
+                + ", ".join(missing_fields)
+            )
+            check_states[check_name] = "FAIL"
+            continue
+        identity_values = {field: item.get(field) for field in _COVERAGE_IDENTITY_FIELDS}
+        invalid_fields = [
+            field
+            for field, value in identity_values.items()
+            if not isinstance(value, str) or not value
+        ]
+        if invalid_fields:
+            errors.append(
+                f"CoverageRow entry at index {index} has invalid identity fields: "
+                + ", ".join(invalid_fields)
+            )
+            check_states[check_name] = "FAIL"
+            continue
+
+        key = (
+            str(item["component_type"]),
+            str(item["component_id"]),
+            str(item["check_id"]),
+        )
+        canonical_keys.append(key)
+        if key in seen_keys:
+            errors.append(f"Duplicate CoverageRow canonical key at index {index}: {key!r}")
+            check_states[check_name] = "FAIL"
+        seen_keys.add(key)
+        status_counts[str(item["coverage_status"])] += 1
+
+        for field_path in _forbidden_coverage_field_paths(item):
+            errors.append(
+                f"Forbidden engineering-result field in coverage artifact at index {index}: {field_path}"
+            )
+            check_states[check_name] = "FAIL"
+
+    if canonical_keys != sorted(canonical_keys):
+        errors.append("CoverageRow entries must be in canonical component_type/component_id/check_id order")
+        check_states[check_name] = "FAIL"
+
+    if not isinstance(run_summary, Mapping):
+        errors.append("run_summary.json must be available for coverage artifact validation")
+        check_states[check_name] = "FAIL"
+        return
+    _expect(
+        run_summary.get("coverage_row_count") == len(rows),
+        "run_summary.coverage_row_count must equal len(coverage_rows.json)",
+        errors,
+        check_states,
+        check_name,
+    )
+    expected_status_counts = run_summary.get("coverage_status_counts")
+    actual_status_counts = {key: int(status_counts[key]) for key in sorted(status_counts)}
+    _expect(
+        isinstance(expected_status_counts, Mapping)
+        and {str(key): value for key, value in expected_status_counts.items()} == actual_status_counts,
+        "run_summary.coverage_status_counts must match authoritative CoverageRow statuses",
+        errors,
+        check_states,
+        check_name,
+    )
+
+
+def _forbidden_coverage_field_paths(value: object, *, path: str = "$") -> tuple[str, ...]:
+    found: list[str] = []
+    if isinstance(value, Mapping):
+        for key, nested in value.items():
+            key_text = str(key)
+            child_path = f"{path}.{key_text}"
+            if key_text.casefold() in _FORBIDDEN_COVERAGE_FIELD_NAMES:
+                found.append(child_path)
+            found.extend(_forbidden_coverage_field_paths(nested, path=child_path))
+    elif isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        for index, nested in enumerate(value):
+            found.extend(_forbidden_coverage_field_paths(nested, path=f"{path}[{index}]"))
+    return tuple(found)
 
 
 def _validate_report_contract(report_text: str | None, errors: list[str], check_states: dict[str, str]) -> int:
