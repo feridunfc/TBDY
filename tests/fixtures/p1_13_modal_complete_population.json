@@ -1,0 +1,71 @@
+{
+  "metadata": {
+    "fixture": "P1.13 modal complete fixture population",
+    "population_scope": "complete_fixture_population",
+    "row_population_complete": true,
+    "live_100_row_evidence_claim": false,
+    "engineering_verdict_emitted": false
+  },
+  "unit_context": {
+    "source": "fixture_declared_units",
+    "force_unit": "kN",
+    "length_unit": "mm",
+    "temperature_unit": "C",
+    "unit_query_succeeded": true,
+    "unit_query_status": "RESOLVED",
+    "unit_basis_confidence": "high"
+  },
+  "tables": [
+    {
+      "actual_table_name": "Modal Participating Mass Ratios",
+      "headers": [
+        "Case",
+        "Mode",
+        "Period",
+        "UX",
+        "UY",
+        "SumUX",
+        "SumUY"
+      ],
+      "row_count_reported": 4,
+      "rows": [
+        {
+          "Case": "Modal",
+          "Mode": 1,
+          "Period": 0.56,
+          "UX": 0.5441,
+          "UY": 0.122,
+          "SumUX": 0.5441,
+          "SumUY": 0.122
+        },
+        {
+          "Case": "Modal",
+          "Mode": 50,
+          "Period": 0.02,
+          "UX": 0.01,
+          "UY": 0.02,
+          "SumUX": 0.8,
+          "SumUY": 0.7
+        },
+        {
+          "Case": "Modal",
+          "Mode": 99,
+          "Period": 0.0071,
+          "UX": 0.0001,
+          "UY": 0.0001,
+          "SumUX": 0.9999,
+          "SumUY": 0.9989
+        },
+        {
+          "Case": "Modal",
+          "Mode": 100,
+          "Period": 0.007,
+          "UX": 0.0,
+          "UY": 0.001,
+          "SumUX": 0.9998,
+          "SumUY": 0.9999
+        }
+      ]
+    }
+  ]
+}

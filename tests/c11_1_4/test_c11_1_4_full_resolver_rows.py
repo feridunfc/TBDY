@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from copy import deepcopy
 from pathlib import Path
 
 from tbdy_engine.contracts.loader import load_contracts
@@ -238,18 +237,22 @@ def test_selector_called_by_feature_resolution_path(monkeypatch):
     assert calls == {"drift": 1, "torsion": 1, "base": 1}
 
 
-def test_c8_3_live_style_counts_28_resolved_no_partials_with_full_rows():
+def test_c8_3_historical_sample_modal_rows_remain_fail_closed():
     payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
-    # Keep fixture behavior, but ensure ingestion can also consume explicit full-row fields.
-    for item in payload["tables"]:
-        if item.get("sample_rows_limited"):
-            item["rows"] = deepcopy(item["sample_rows_limited"])
     outputs = _resolver(payload).build_all()
     counts = {}
     for row in outputs.feature_resolution_report:
         counts[row["status"]] = counts.get(row["status"], 0) + 1
-    assert counts == {"RESOLVED": 28}
-    assert outputs.missing_features_report == ()
+    assert counts == {"RESOLVED": 26, "PARTIAL": 2}
+    modal_rows = {
+        row["feature_name"]: row
+        for row in outputs.missing_features_report
+        if row["feature_name"] in {"modal_sum_ux", "modal_sum_uy"}
+    }
+    assert set(modal_rows) == {"modal_sum_ux", "modal_sum_uy"}
+    for row in modal_rows.values():
+        assert row["status"] == "PARTIAL"
+        assert {item["code"] for item in row["diagnostics"]} == {"MODAL_SOURCE_INCOMPLETE"}
 
 
 def _sequence_response(headers: list[str], rows: list[list[str]] | None, number_records: int, return_code: int = 0):

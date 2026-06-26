@@ -133,23 +133,22 @@ def test_base_reactions_prefer_valid_numeric_rows():
     assert fy.evidence[0].output_case == "Crack_SeisY_UpSoil"
 
 
-def test_c8_3_live_style_counts_28_resolved_no_partials():
+def test_c8_3_live_style_counts_preserve_sample_only_modal_partials():
     outputs = _resolver().build_all()
     counts = {}
     for row in outputs.feature_resolution_report:
         counts[row["status"]] = counts.get(row["status"], 0) + 1
-    assert counts == {"RESOLVED": 28}
-    assert outputs.missing_features_report == ()
+    assert counts == {"RESOLVED": 26, "PARTIAL": 2}
+    assert {row["feature_name"] for row in outputs.missing_features_report} == {"modal_sum_ux", "modal_sum_uy"}
 
 
-def test_modal_max_cumulative_preserved():
+def test_historical_modal_sample_rows_are_not_aggregated_as_complete_population():
     global_snapshot = _resolver().build_global_snapshot()
-    ux = _feature(global_snapshot, "modal_sum_ux")
-    uy = _feature(global_snapshot, "modal_sum_uy")
-    assert ux.evidence[0].source_row["aggregation_method"] == "max_cumulative"
-    assert uy.evidence[0].source_row["aggregation_method"] == "max_cumulative"
-    assert ux.value >= 0.90
-    assert uy.value >= 0.90
+    for feature_name in ("modal_sum_ux", "modal_sum_uy"):
+        feature = _feature(global_snapshot, feature_name)
+        assert feature.status == FeatureValueStatus.PARTIAL
+        assert feature.value is None
+        assert any(diagnostic.code.value == "MODAL_SOURCE_INCOMPLETE" for diagnostic in feature.diagnostics)
 
 
 def test_no_checkresult_before_c11(tmp_path):

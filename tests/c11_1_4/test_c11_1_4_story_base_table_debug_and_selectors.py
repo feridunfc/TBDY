@@ -162,20 +162,25 @@ def test_base_selector_reports_partial_when_tabledata_empty_despite_records():
     assert feature.value is None
 
 
-def test_c8_3_live_style_counts_28_resolved_no_partials():
+def test_c8_3_historical_sample_modal_rows_remain_partial():
     outputs = _resolver().build_all()
     counts = {}
     for row in outputs.feature_resolution_report:
         counts[row["status"]] = counts.get(row["status"], 0) + 1
-    assert counts == {"RESOLVED": 28}
-    assert outputs.missing_features_report == ()
+    assert counts == {"RESOLVED": 26, "PARTIAL": 2}
     assert outputs.story_base_table_debug_report["story_drifts"]["parser_status"] == "PARSED_ROWS"
 
 
-def test_modal_max_cumulative_preserved():
+def test_historical_sample_modal_source_does_not_emit_cumulative_evidence():
     snapshot = _resolver().build_global_snapshot()
-    assert snapshot.features["modal_sum_ux"].evidence[0].source_row["aggregation_method"] == "max_cumulative"
-    assert snapshot.features["modal_sum_uy"].evidence[0].source_row["aggregation_method"] == "max_cumulative"
+    for feature_name in ("modal_sum_ux", "modal_sum_uy"):
+        feature = snapshot.features[feature_name]
+        assert feature.status == FeatureValueStatus.PARTIAL
+        assert feature.value is None
+        assert len(feature.evidence) == 1
+        assert feature.evidence[0].evidence_status.value == "PARTIAL"
+        assert feature.evidence[0].normalized_value is None
+        assert {diagnostic.code.value for diagnostic in feature.diagnostics} == {"MODAL_SOURCE_INCOMPLETE"}
 
 
 def test_no_checkresult_before_c11(tmp_path):

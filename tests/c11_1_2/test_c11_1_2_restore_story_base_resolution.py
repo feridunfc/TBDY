@@ -92,33 +92,22 @@ def test_c11_1_2_restores_base_reaction_resolution():
         assert feature.unit == "kN"
 
 
-def test_c11_1_2_feature_snapshot_counts_28_resolved():
+def test_c11_1_2_feature_snapshot_counts_preserve_sample_only_modal_partials():
     outputs = _resolver().build_all()
     counts = {}
     for row in outputs.feature_resolution_report:
         counts[row["status"]] = counts.get(row["status"], 0) + 1
-    assert counts == {"RESOLVED": 28}
-    assert outputs.missing_features_report == ()
+    assert counts == {"RESOLVED": 26, "PARTIAL": 2}
+    assert {row["feature_name"] for row in outputs.missing_features_report} == {"modal_sum_ux", "modal_sum_uy"}
 
 
-def test_modal_mass_max_cumulative_still_passes():
+def test_historical_modal_sample_rows_fail_closed():
     global_snapshot = _resolver().build_global_snapshot()
-    ux = _feature(global_snapshot, "modal_sum_ux")
-    uy = _feature(global_snapshot, "modal_sum_uy")
-    assert ux.evidence[0].source_row["aggregation_method"] == "max_cumulative"
-    assert uy.evidence[0].source_row["aggregation_method"] == "max_cumulative"
-    row = CoverageRow(
-        check_id="modal_mass_participation",
-        component_type="global",
-        component_id="GLOBAL",
-        required_features=("modal_sum_ux", "modal_sum_uy"),
-        resolved_features=("modal_sum_ux", "modal_sum_uy"),
-        coverage_status="RUNNABLE",
-        evidence_status="FULL",
-        reason="C11.1.2 regression fixture",
-    )
-    result = MinimalCheckEngine(C11_CHECK_DEFINITIONS).run_check("modal_mass_participation", global_snapshot, row)
-    assert result.status.value == "OK"
+    for feature_name in ("modal_sum_ux", "modal_sum_uy"):
+        feature = _feature(global_snapshot, feature_name)
+        assert feature.status == FeatureValueStatus.PARTIAL
+        assert feature.value is None
+        assert any(diagnostic.code.value == "MODAL_SOURCE_INCOMPLETE" for diagnostic in feature.diagnostics)
 
 
 @pytest.mark.parametrize("safe_value", ["STORY_SMOKE", "STORY_SAMPLE", "OKUL", "B40x70"])

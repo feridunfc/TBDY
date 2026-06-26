@@ -11,6 +11,7 @@ FeatureResolver smoke only.
 from __future__ import annotations
 
 import json
+import math
 import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
@@ -180,6 +181,14 @@ def _to_number(value: Any) -> Any:
         return value
 
 
+def _to_finite_float(value: Any) -> float | None:
+    if isinstance(value, bool) or value is None:
+        return None
+    numeric = _to_number(value)
+    if not isinstance(numeric, (int, float)) or isinstance(numeric, bool):
+        return None
+    parsed = float(numeric)
+    return parsed if math.isfinite(parsed) else None
 
 
 def _norm_story_value(value: Any) -> str:
@@ -672,10 +681,12 @@ class C8LiveFeatureResolverSmoke:
         table_extraction_debug: Mapping[str, Any] | None = None,
     ) -> None:
         self.contract_bundle = contract_bundle
+        table_registry_catalog = contract_bundle.catalog("table_registry.yaml")
+        self.table_registry = table_registry_catalog.get("tables", {})
+        self._table_registry_contract = TableRegistry.from_dict(table_registry_catalog)
         self.tables = self._normalize_tables(tables)
         self.feature_catalog = contract_bundle.catalog("feature_catalog.yaml").get("features", {})
         self.load_combo_policy = contract_bundle.catalog("load_combo_policy.yaml")
-        self.table_registry = contract_bundle.catalog("table_registry.yaml").get("tables", {})
         if isinstance(unit_context, UnitContext):
             self.unit_context = unit_context
         elif isinstance(unit_context, Mapping):
@@ -716,18 +727,41 @@ class C8LiveFeatureResolverSmoke:
         self._geometry_debug: dict[str, Any] = {}
         self._geometry_direct_api_report: dict[str, Any] = {"used": False, "diagnostics": []}
 
-    @staticmethod
-    def _normalize_tables(tables: Mapping[str, CanonicalTable] | Sequence[CanonicalTable]) -> dict[str, CanonicalTable]:
+    def _normalize_tables(self, tables: Mapping[str, CanonicalTable] | Sequence[CanonicalTable]) -> dict[str, CanonicalTable]:
+        """Index one CanonicalTable object under primary, legacy, and observed names.
+
+        Compatibility keys come only from the existing table catalog's
+        ``compatibility_alias_for`` relationships.  No CanonicalTable is cloned
+        and conflicting objects for the same compatibility family fail closed.
+        """
         if isinstance(tables, Mapping):
             base = dict(tables)
         else:
             base = {t.table_key: t for t in tables}
         out: dict[str, CanonicalTable] = {}
-        for key, table in base.items():
-            out[str(key)] = table
-            out[table.table_key] = table
+
+        def register(alias: Any, table: CanonicalTable) -> None:
+            if alias in (None, ""):
+                return
+            key = str(alias)
+            existing = out.get(key)
+            if existing is not None and existing is not table:
+                raise ValueError(f"Conflicting CanonicalTable objects for table alias {key!r}")
+            out[key] = table
+
+        for input_key, table in base.items():
+            direct_keys = (str(input_key), table.table_key)
+            for key in direct_keys:
+                register(key, table)
+                for compatibility_key in self._table_registry_contract.compatibility_keys_for_key(key):
+                    register(compatibility_key, table)
+
             if table.actual_table_name:
-                out[table.actual_table_name] = table
+                register(table.actual_table_name, table)
+                primary_key = self._table_registry_contract.canonical_key_for_alias(table.actual_table_name)
+                if primary_key:
+                    for compatibility_key in self._table_registry_contract.compatibility_keys_for_key(primary_key):
+                        register(compatibility_key, table)
         return out
 
     def _table(self, table_key: str) -> CanonicalTable | None:
@@ -1072,13 +1106,20 @@ class C8LiveFeatureResolverSmoke:
             combo_col, output_case = _first_present(row, output_case_aliases)
         return self._resolved(feature_name, value, unit=unit, table_key=table_key, row=row, column=column, output_case=output_case, combo_column=combo_col, extra_diagnostics=diagnostics, reason=reason)
 
-    def _resolve_modal_cumulative_feature(self, feature_name: str, source_column: str) -> FeatureValue:
-        """Resolve modal cumulative participation using max over all rows.
+    def _modal_column_aliases(self, column_name: str) -> tuple[str, ...]:
+        registry_row = self.table_registry.get("modal_participating_mass", {}) if isinstance(self.table_registry, Mapping) else {}
+        required_columns = registry_row.get("required_columns", {}) if isinstance(registry_row, Mapping) else {}
+        column_contract = required_columns.get(column_name, {}) if isinstance(required_columns, Mapping) else {}
+        aliases = column_contract.get("aliases", ()) if isinstance(column_contract, Mapping) else ()
+        return tuple(dict.fromkeys((column_name, *(str(alias) for alias in aliases or ()))))
 
-        Modal participating mass cumulative columns are observed ETABS data.  The
-        resolver may aggregate these observed rows, but it does not make an
-        engineering verdict.  Max-cumulative is deliberately used instead of an
-        arbitrary row such as mode 10 or the first/last parsed sample.
+    def _resolve_modal_cumulative_feature(self, feature_name: str, source_column: str) -> FeatureValue:
+        """Resolve one modal cumulative ratio from the complete display table.
+
+        The display table is the production authority.  Resolution is
+        fail-closed for truncated/partial population, missing required columns,
+        invalid numeric values, and multiple modal cases because no
+        authoritative case-selection policy exists yet.
         """
         table_key = "modal_participating_mass"
         table = self._table(table_key)
@@ -1091,6 +1132,66 @@ class C8LiveFeatureResolverSmoke:
                 table_key=table_key,
                 diagnostics=(self._diag(FeatureDiagnosticCode.TABLE_MISSING, "Modal participating mass table missing", feature_name=feature_name),),
             )
+
+        raw_table_diagnostics = _raw_table_diagnostics_from_table(table)
+        resolver_row_count = len(table.rows)
+        reported_row_count = _int_or_none(raw_table_diagnostics.get("number_records"))
+        parser_status = str(raw_table_diagnostics.get("parser_status") or "UNKNOWN").strip().upper()
+        ingestion_diagnostics = tuple(
+            item for item in (table.units.get("resolver_ingestion_diagnostics", ()) if isinstance(table.units, Mapping) else ())
+            if isinstance(item, Mapping)
+        )
+        source_row_storage = str(table.units.get("source_row_storage_field_used") or "") if isinstance(table.units, Mapping) else ""
+        sample_only = source_row_storage in {"sample_rows", "sample_rows_limited"} or any(
+            str(item.get("code") or "") == "RESOLVER_ONLY_HAS_SAMPLE_ROWS" for item in ingestion_diagnostics
+        )
+        incomplete_parser_statuses = {
+            "EMPTY",
+            "FAILED",
+            "PARTIAL",
+            "ROW_PARSE_PARTIAL",
+            "HEADER_ONLY",
+            "TABLEDATA_EMPTY_DESPITE_RECORDS",
+            "COM_CALL_FAILED",
+            "RESOLVER_ONLY_HAS_SAMPLE_ROWS",
+            "FIXTURE_SAMPLE_ROWS",
+        }
+
+        if sample_only or parser_status in incomplete_parser_statuses:
+            return self._partial(
+                feature_name,
+                "Modal source is incomplete or sample-only; complete display-table rows are required",
+                unit=unit,
+                table_key=table_key,
+                actual_table_name=table.actual_table_name,
+                diagnostics=(self._diag(
+                    FeatureDiagnosticCode.MODAL_SOURCE_INCOMPLETE,
+                    "Modal participating mass source was not a complete parsed table",
+                    feature_name=feature_name,
+                    parser_status=parser_status,
+                    source_row_storage_field_used=source_row_storage or None,
+                    resolver_row_count=resolver_row_count,
+                    reported_row_count=reported_row_count,
+                ),),
+            )
+
+        if reported_row_count is not None and reported_row_count != resolver_row_count:
+            return self._partial(
+                feature_name,
+                "Modal reported row count does not equal the complete resolver row population",
+                unit=unit,
+                table_key=table_key,
+                actual_table_name=table.actual_table_name,
+                diagnostics=(self._diag(
+                    FeatureDiagnosticCode.MODAL_ROW_COUNT_MISMATCH,
+                    "Modal participating mass row cardinality mismatch",
+                    feature_name=feature_name,
+                    reported_row_count=reported_row_count,
+                    resolver_row_count=resolver_row_count,
+                    parser_status=parser_status,
+                ),),
+            )
+
         if not table.rows:
             return self._partial(
                 feature_name,
@@ -1101,116 +1202,190 @@ class C8LiveFeatureResolverSmoke:
                 diagnostics=(self._diag(FeatureDiagnosticCode.MODAL_TABLE_EMPTY, "Modal participating mass table has no usable rows", feature_name=feature_name),),
             )
 
-        selected: dict[str, Any] | None = None
-        invalid_rows = 0
-        missing_sum_rows = 0
-        mode_missing_rows = 0
-        first_mode = None
-        last_mode = None
-        max_mode = None
-        selected_column = source_column
-        considered = 0
-
-        for idx, row in enumerate(table.rows):
-            col, raw_value = _first_present(row, (source_column, source_column.replace("Sum", "Sum ")))
-            if col is None:
-                missing_sum_rows += 1
-                continue
-            numeric = _to_number(raw_value)
-            if not isinstance(numeric, (int, float)):
-                invalid_rows += 1
-                continue
-            mode_col, mode_value = _first_present(row, ("Mode", "ModeNum", "ModeNo", "Mode Number", "StepNum"))
-            mode_number = _to_number(mode_value)
-            if mode_col is None or not isinstance(mode_number, (int, float)):
-                mode_missing_rows += 1
-                mode_number = None
-            if first_mode is None and mode_number is not None:
-                first_mode = mode_number
-            if mode_number is not None:
-                last_mode = mode_number
-                max_mode = mode_number if max_mode is None else max(max_mode, mode_number)
-            considered += 1
-            selected_column = col
-            if selected is None or float(numeric) > float(selected["value"]):
-                selected = {
-                    "row": row,
-                    "row_index": idx,
-                    "value": float(numeric),
-                    "mode": mode_number,
-                    "source_column": col,
-                }
-
-        diagnostics: list[FeatureDiagnostic] = []
-        if missing_sum_rows == len(table.rows):
+        required_fields = ("Mode", "Period", "UX", "UY", "SumUX", "SumUY")
+        aliases_by_field = {name: self._modal_column_aliases(name) for name in required_fields}
+        available_columns = {_norm_key(column) for column in table.columns}
+        missing_columns = [
+            name for name, aliases in aliases_by_field.items()
+            if not any(_norm_key(alias) in available_columns for alias in aliases)
+        ]
+        if missing_columns:
+            code = FeatureDiagnosticCode.MODAL_SUM_COLUMN_MISSING if source_column in missing_columns else FeatureDiagnosticCode.MODAL_REQUIRED_COLUMN_MISSING
             return self._partial(
                 feature_name,
-                f"Modal cumulative source column {source_column} is missing from all rows",
+                "Modal participating mass table is missing required source columns",
                 unit=unit,
                 table_key=table_key,
                 actual_table_name=table.actual_table_name,
-                diagnostics=(self._diag(FeatureDiagnosticCode.MODAL_SUM_COLUMN_MISSING, "Modal cumulative SumUX/SumUY column missing", feature_name=feature_name, source_column=source_column),),
+                column=source_column,
+                diagnostics=(self._diag(
+                    code,
+                    "Modal participating mass required column set is incomplete",
+                    feature_name=feature_name,
+                    missing_columns=missing_columns,
+                    required_columns=list(required_fields),
+                    available_columns=list(table.columns),
+                ),),
             )
-        if selected is None:
+
+        case_aliases = ("Case", "OutputCase", "Output Case")
+        case_column_present = any(_norm_key(alias) in available_columns for alias in case_aliases)
+        parsed_rows: list[dict[str, Any]] = []
+        invalid_rows: list[dict[str, Any]] = []
+        missing_case_rows: list[int] = []
+        case_values: dict[str, str] = {}
+
+        for row_index, row in enumerate(table.rows):
+            parsed: dict[str, Any] = {"row": row, "row_index": row_index}
+            invalid_fields: list[str] = []
+            for field_name, aliases in aliases_by_field.items():
+                source_name, raw_value = _first_present(row, aliases)
+                numeric_value = _to_finite_float(raw_value)
+                if source_name is None or numeric_value is None:
+                    invalid_fields.append(field_name)
+                    continue
+                parsed[field_name] = numeric_value
+                parsed[f"{field_name}_raw"] = raw_value
+                parsed[f"{field_name}_source_column"] = source_name
+
+            case_column, case_value = _first_present(row, case_aliases)
+            case_text = _norm(case_value)
+            parsed["case"] = case_text or None
+            parsed["case_source_column"] = case_column
+            if case_column_present and not case_text:
+                missing_case_rows.append(row_index)
+            elif case_text:
+                case_values.setdefault(case_text.casefold(), case_text)
+
+            if invalid_fields:
+                invalid_rows.append({"row_index": row_index, "invalid_fields": invalid_fields})
+            else:
+                parsed_rows.append(parsed)
+
+        if invalid_rows:
             return self._partial(
                 feature_name,
-                "Modal cumulative values were missing or invalid in all rows",
+                "Modal required values contain missing, non-numeric, or non-finite data",
                 unit=unit,
                 table_key=table_key,
                 actual_table_name=table.actual_table_name,
-                column=selected_column,
-                diagnostics=(self._diag(FeatureDiagnosticCode.MODAL_CUMULATIVE_VALUE_INVALID, "No valid numeric modal cumulative values were found", feature_name=feature_name, source_column=source_column, invalid_rows=invalid_rows),),
+                column=source_column,
+                diagnostics=(self._diag(
+                    FeatureDiagnosticCode.MODAL_CUMULATIVE_VALUE_INVALID,
+                    "Every modal row must contain finite numeric required values",
+                    feature_name=feature_name,
+                    invalid_row_count=len(invalid_rows),
+                    invalid_rows=invalid_rows[:20],
+                    resolver_row_count=resolver_row_count,
+                ),),
             )
-        if mode_missing_rows:
-            diagnostics.append(self._diag(FeatureDiagnosticCode.MODAL_MODE_COLUMN_MISSING, "Some modal rows did not expose a usable mode column; row index preserved", feature_name=feature_name, rows_without_mode=mode_missing_rows))
-        diagnostics.append(
+
+        if missing_case_rows:
+            return self._partial(
+                feature_name,
+                "Modal case values are incomplete within the authoritative row population",
+                unit=unit,
+                table_key=table_key,
+                actual_table_name=table.actual_table_name,
+                diagnostics=(self._diag(
+                    FeatureDiagnosticCode.MODAL_CASE_VALUE_INCOMPLETE,
+                    "Case column is present but one or more modal rows have no case value",
+                    feature_name=feature_name,
+                    missing_case_row_indices=missing_case_rows[:20],
+                    missing_case_row_count=len(missing_case_rows),
+                ),),
+            )
+
+        if len(case_values) > 1:
+            return self._partial(
+                feature_name,
+                "Multiple modal cases are present and no authoritative case-selection policy is locked",
+                unit=unit,
+                table_key=table_key,
+                actual_table_name=table.actual_table_name,
+                diagnostics=(self._diag(
+                    FeatureDiagnosticCode.MODAL_MULTIPLE_CASES_UNSUPPORTED,
+                    "Modal rows from unrelated cases must not be silently aggregated",
+                    feature_name=feature_name,
+                    modal_cases=sorted(case_values.values(), key=str.casefold),
+                    modal_case_count=len(case_values),
+                ),),
+            )
+
+        selected = parsed_rows[0]
+        for candidate in parsed_rows[1:]:
+            if candidate[source_column] > selected[source_column]:
+                selected = candidate
+
+        selected_mode_value = selected["Mode"]
+        selected_mode: int | float = int(selected_mode_value) if selected_mode_value.is_integer() else selected_mode_value
+        selected_period = selected["Period"]
+        selected_case = next(iter(case_values.values()), None)
+        selected_column = str(selected[f"{source_column}_source_column"])
+        selected_value = float(selected[source_column])
+        selected_raw_value = selected[f"{source_column}_raw"]
+
+        diagnostics = [
             self._diag(
                 FeatureDiagnosticCode.MODAL_AGGREGATION_MAX_CUMULATIVE_USED,
-                "Modal cumulative participation resolved using max_cumulative over all available rows",
+                "Modal cumulative participation resolved using max_cumulative over the complete authoritative row population",
                 feature_name=feature_name,
                 source_column=selected_column,
-                selected_mode=selected["mode"],
+                selected_mode=selected_mode,
+                selected_period=selected_period,
+                selected_case=selected_case,
                 selected_row_index=selected["row_index"],
-                selected_value=selected["value"],
-                mode_count=len(table.rows),
-                source_rows_considered_count=considered,
+                selected_value=selected_value,
+                source_rows_considered_count=resolver_row_count,
+                reported_row_count=reported_row_count,
+                resolver_row_count=resolver_row_count,
             )
-        )
-        if invalid_rows:
-            diagnostics.append(self._diag(FeatureDiagnosticCode.MODAL_CUMULATIVE_VALUE_INVALID, "Some modal cumulative rows contained invalid values and were ignored", feature_name=feature_name, invalid_rows=invalid_rows))
+        ]
 
         aggregation_source_row = {
             **_row_identity(selected["row"]),
+            "aggregation": "max_cumulative",
             "aggregation_method": "max_cumulative",
-            "selected_mode_for_ux" if source_column == "SumUX" else "selected_mode_for_uy": selected["mode"],
+            "case": selected_case,
+            "governing_mode": selected_mode,
+            "governing_period": selected_period,
+            "governing_row_index": selected["row_index"],
+            "governing_row_reference": (
+                f"{table_key}|case={selected_case or '<unspecified>'}|"
+                f"mode={selected_mode}|period={selected_period}|row_index={selected['row_index']}"
+            ),
+            "governing_source_row_items": tuple(
+                (str(key), _json_safe(value)) for key, value in selected["row"].items()
+            ),
+            "full_row_population_count": resolver_row_count,
+            "reported_row_count": reported_row_count,
+            "resolver_row_count": resolver_row_count,
+            "source_rows_considered_count": resolver_row_count,
+            "mode_count": resolver_row_count,
+            "selected_mode_for_ux" if source_column == "SumUX" else "selected_mode_for_uy": selected_mode,
             "selected_row_index_for_ux" if source_column == "SumUX" else "selected_row_index_for_uy": selected["row_index"],
-            "selected_sum_ux" if source_column == "SumUX" else "selected_sum_uy": selected["value"],
-            "mode_count": len(table.rows),
-            "source_rows_considered_count": considered,
-            "first_mode": first_mode,
-            "last_mode": last_mode,
-            "max_mode": max_mode,
+            "selected_sum_ux" if source_column == "SumUX" else "selected_sum_uy": selected_value,
         }
-        output_col, output_case = _first_present(selected["row"], ("Case", "OutputCase", "Output Case"))
-        combo_family, combo_diags = classify_combo(output_case, source_column=output_col, policy=self.load_combo_policy)
+        output_col = selected.get("case_source_column")
+        combo_family, combo_diags = classify_combo(selected_case, source_column=output_col, policy=self.load_combo_policy)
         evidence = FeatureEvidence(
             evidence_status=FeatureEvidenceStatus.FULL,
             source_table=table_key,
             actual_table_name=table.actual_table_name,
             source_column=selected_column,
             source_row=aggregation_source_row,
-            output_case=_norm(output_case) if output_case not in (None, "") else None,
+            output_case=selected_case,
             combo_family=combo_family or "MODAL",
-            raw_value=selected["value"],
-            normalized_value=selected["value"],
+            raw_value=selected_raw_value,
+            normalized_value=selected_value,
             unit=unit,
             resolver=RESOLVER_NAME,
-            reason="resolved by max_cumulative aggregation over all modal participating mass rows",
+            reason="resolved by max_cumulative aggregation over the complete modal participating mass row population",
         )
         self._unit_evidence[feature_name] = {
-            "raw_value": selected["value"],
+            "raw_value": selected_raw_value,
             "raw_unit": unit,
-            "normalized_value": selected["value"],
+            "normalized_value": selected_value,
             "normalized_unit": unit,
             "unit_context_source": self.unit_context.source,
             "unit_normalization_status": "NOT_APPLICABLE",
@@ -1218,10 +1393,12 @@ class C8LiveFeatureResolverSmoke:
             "conversion_formula": None,
             "diagnostics": [],
             "aggregation_method": "max_cumulative",
+            "reported_row_count": reported_row_count,
+            "resolver_row_count": resolver_row_count,
         }
         return FeatureValue(
             feature_name=feature_name,
-            value=selected["value"],
+            value=selected_value,
             unit=unit,
             semantic_role=self._semantic_role(feature_name),
             status=FeatureValueStatus.RESOLVED,

@@ -33,15 +33,70 @@ class TableRegistry:
         return tuple(self.tables.keys())
 
     def aliases_for_key(self, table_key: str, *, provider: str = "etabs") -> tuple[str, ...]:
+        """Return deterministic provider aliases without crossing source boundaries.
+
+        The production ETABS catalog evolved from ``provider_sources.etabs`` to
+        the explicit ``live_table_name`` field.  Both remain supported, while
+        Excel inventory aliases are available only through an explicit Excel
+        provider namespace and never leak into live ETABS resolution.
+        """
         row = self.tables.get(table_key)
         if not row:
             return tuple()
+
+        provider_name = str(provider or "").strip().casefold()
         provider_sources = row.get("provider_sources", {})
-        aliases = tuple(str(v) for v in provider_sources.get(provider, ()) or ())
-        logical = row.get("logical_name")
-        if logical and logical not in aliases:
-            aliases = (str(logical),) + aliases
-        return aliases
+        provider_sources = provider_sources if isinstance(provider_sources, Mapping) else {}
+        candidates: list[Any] = []
+
+        if provider_name == "etabs":
+            candidates.append(row.get("live_table_name"))
+            candidates.extend(_alias_values(provider_sources.get("etabs")))
+            candidates.append(row.get("logical_name"))
+        elif provider_name in {"excel", "excel_inventory"}:
+            candidates.extend(_alias_values(row.get("excel_inventory_aliases")))
+            candidates.extend(_alias_values(provider_sources.get(provider_name)))
+            candidates.append(row.get("logical_name"))
+        else:
+            candidates.extend(_alias_values(provider_sources.get(provider_name)))
+            candidates.append(row.get("logical_name"))
+
+        return _ordered_unique_aliases(candidates)
+
+    def primary_key_for_key(self, table_key: str) -> str | None:
+        """Return the primary catalog key for a primary or legacy compatibility key."""
+        if table_key not in self.tables:
+            return None
+        current = str(table_key)
+        seen: set[str] = set()
+        while current not in seen:
+            seen.add(current)
+            row = self.tables.get(current)
+            if not isinstance(row, Mapping):
+                break
+            if row.get("legacy_compatibility_alias") is not True:
+                return current
+            target = row.get("compatibility_alias_for")
+            if target in (None, ""):
+                return current
+            target_key = str(target)
+            if target_key not in self.tables:
+                return current
+            current = target_key
+        raise ValueError(f"Cyclic table compatibility alias chain detected for {table_key!r}")
+
+    def compatibility_keys_for_key(self, table_key: str) -> tuple[str, ...]:
+        """Return deterministic primary/legacy keys belonging to one catalog table family."""
+        primary = self.primary_key_for_key(table_key)
+        if primary is None:
+            return tuple()
+        keys = [primary]
+        for candidate in self.tables:
+            if candidate == primary:
+                continue
+            if self.primary_key_for_key(str(candidate)) == primary:
+                keys.append(str(candidate))
+        return tuple(keys)
 
     def preferred_actual_name(self, table_key: str, *, provider: str = "etabs") -> str | None:
         aliases = self.aliases_for_key(table_key, provider=provider)
@@ -59,9 +114,10 @@ class TableRegistry:
         for table_key in self.tables:
             if normalize_table_name(table_key) == normalized:
                 return table_key
+        for table_key in self.tables:
             for alias in self.aliases_for_key(table_key, provider=provider):
                 if normalize_table_name(alias) == normalized:
-                    return table_key
+                    return self.primary_key_for_key(str(table_key)) or str(table_key)
         return None
 
     def diagnostic_for_unknown_alias(self, actual_table_name: str) -> ProviderDiagnostic:
@@ -71,6 +127,33 @@ class TableRegistry:
             message=f"No canonical table_key found for alias: {actual_table_name}",
             details={"actual_table_name": actual_table_name},
         )
+
+
+def _alias_values(value: Any) -> tuple[Any, ...]:
+    if value in (None, ""):
+        return tuple()
+    if isinstance(value, str):
+        return (value,)
+    if isinstance(value, (list, tuple)):
+        return tuple(value)
+    return (value,)
+
+
+def _ordered_unique_aliases(values: list[Any]) -> tuple[str, ...]:
+    aliases: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if value in (None, ""):
+            continue
+        alias = str(value).strip()
+        if not alias:
+            continue
+        normalized = normalize_table_name(alias)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        aliases.append(alias)
+    return tuple(aliases)
 
 
 def normalize_table_name(name: str) -> str:
