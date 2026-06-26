@@ -22,6 +22,7 @@ _SOURCE_STEPS = (
 )
 _ARTIFACT_FILES = (
     "artifacts/coverage_rows.json",
+    "artifacts/coverage_execution_trace.json",
     "artifacts/check_results.json",
     "artifacts/adapter_diagnostics.json",
     "artifacts/run_summary.json",
@@ -68,6 +69,7 @@ class GeometryProductSmokeResult:
     status: str
     p4_check_result_count: int
     p4_adapter_diagnostic_count: int
+    p4_coverage_execution_trace_count: int
     p5_section_count: int
     p5_table_count: int
 
@@ -136,6 +138,9 @@ def run_geometry_product_smoke(
         status="OK",
         p4_check_result_count=_int_value(p4_result.run_summary.get("check_result_count", 0)),
         p4_adapter_diagnostic_count=_int_value(p4_result.run_summary.get("adapter_diagnostic_count", 0)),
+        p4_coverage_execution_trace_count=_int_value(
+            p4_result.run_summary.get("coverage_execution_trace_count", 0)
+        ),
         p5_section_count=p5_result.section_count,
         p5_table_count=len(p5_result.table_names),
     )
@@ -160,6 +165,7 @@ def _build_summary(
             "adapter_diagnostics_json": str(artifact_dir / "adapter_diagnostics.json"),
             "check_results_json": str(artifact_dir / "check_results.json"),
             "coverage_rows_json": str(artifact_dir / "coverage_rows.json"),
+            "coverage_execution_trace_json": str(artifact_dir / "coverage_execution_trace.json"),
             "geometry_report_md": str(report_path),
             "product_smoke_manifest_json": str(manifest_path),
             "product_smoke_summary_json": str(summary_path),
@@ -175,6 +181,33 @@ def _build_summary(
                 str(key): _int_value(value)
                 for key, value in sorted(
                     _mapping_value(p4_run_summary.get("coverage_status_counts", {})).items()
+                )
+            },
+            "coverage_execution_trace_count": _int_value(
+                p4_run_summary.get("coverage_execution_trace_count", 0)
+            ),
+            "check_input_emitted_count": _int_value(
+                p4_run_summary.get("check_input_emitted_count", 0)
+            ),
+            "check_input_not_emitted_count": _int_value(
+                p4_run_summary.get("check_input_not_emitted_count", 0)
+            ),
+            "check_result_emitted_count": _int_value(
+                p4_run_summary.get("check_result_emitted_count", 0)
+            ),
+            "check_result_not_emitted_count": _int_value(
+                p4_run_summary.get("check_result_not_emitted_count", 0)
+            ),
+            "trace_adapter_status_counts": {
+                str(key): _int_value(value)
+                for key, value in sorted(
+                    _mapping_value(p4_run_summary.get("trace_adapter_status_counts", {})).items()
+                )
+            },
+            "trace_result_status_counts": {
+                str(key): _int_value(value)
+                for key, value in sorted(
+                    _mapping_value(p4_run_summary.get("trace_result_status_counts", {})).items()
                 )
             },
             "executable_input_count": _int_value(p4_run_summary.get("executable_input_count", 0)),

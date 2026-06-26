@@ -18,6 +18,11 @@ import json
 import yaml
 
 from tbdy_engine.checks.coverage_artifact import canonicalize_coverage_rows
+from tbdy_engine.checks.coverage_execution_trace import (
+    CoverageExecutionTraceRow,
+    canonicalize_coverage_execution_trace,
+    coverage_row_identity,
+)
 from tbdy_engine.checks.engine import MinimalCheckEngine
 from tbdy_engine.checks.geometry_coverage_orchestration import (
     assemble_geometry_check_inputs,
@@ -25,6 +30,7 @@ from tbdy_engine.checks.geometry_coverage_orchestration import (
 )
 from tbdy_engine.checks.input_adapter import (
     CheckInputBuildDiagnostic,
+    GeometryCheckInput,
     normalize_geometry_feature_snapshot_input,
 )
 from tbdy_engine.checks.result import CheckResult
@@ -34,6 +40,7 @@ _RUNNER_NAME = "C13.4-P4 Geometry Vertical Slice Runner"
 _SCOPE = "GEOMETRY_ONLY"
 _ARTIFACT_FILES = (
     "coverage_rows.json",
+    "coverage_execution_trace.json",
     "check_results.json",
     "adapter_diagnostics.json",
     "run_summary.json",
@@ -61,6 +68,7 @@ _C13_5_CHECK_OVERLAYS = ("check_catalog_c13_5_p1_column_geometry.yaml",)
 @dataclass(frozen=True, slots=True)
 class GeometryVerticalSliceResult:
     coverage_rows: tuple[CoverageRow, ...]
+    coverage_execution_trace: tuple[CoverageExecutionTraceRow, ...]
     check_results: tuple[CheckResult, ...]
     adapter_diagnostics: tuple[CheckInputBuildDiagnostic, ...]
     run_summary: Mapping[str, object]
@@ -68,10 +76,16 @@ class GeometryVerticalSliceResult:
 
     def __post_init__(self) -> None:
         coverage_rows = tuple(self.coverage_rows)
+        coverage_execution_trace = tuple(self.coverage_execution_trace)
         check_results = tuple(self.check_results)
         adapter_diagnostics = tuple(self.adapter_diagnostics)
         if any(not isinstance(item, CoverageRow) for item in coverage_rows):
             raise TypeError("GeometryVerticalSliceResult.coverage_rows must contain CoverageRow objects")
+        if any(not isinstance(item, CoverageExecutionTraceRow) for item in coverage_execution_trace):
+            raise TypeError(
+                "GeometryVerticalSliceResult.coverage_execution_trace must contain "
+                "CoverageExecutionTraceRow objects"
+            )
         if any(not isinstance(item, CheckResult) for item in check_results):
             raise TypeError("GeometryVerticalSliceResult.check_results must contain CheckResult objects")
         if any(not isinstance(item, CheckInputBuildDiagnostic) for item in adapter_diagnostics):
@@ -79,6 +93,7 @@ class GeometryVerticalSliceResult:
                 "GeometryVerticalSliceResult.adapter_diagnostics must contain CheckInputBuildDiagnostic objects"
             )
         object.__setattr__(self, "coverage_rows", coverage_rows)
+        object.__setattr__(self, "coverage_execution_trace", coverage_execution_trace)
         object.__setattr__(self, "check_results", check_results)
         object.__setattr__(self, "adapter_diagnostics", adapter_diagnostics)
         object.__setattr__(self, "run_summary", dict(self.run_summary))
@@ -111,8 +126,10 @@ def run_geometry_vertical_slice_from_file(
     engine = MinimalCheckEngine(check_definitions)
 
     coverage_rows: list[CoverageRow] = []
+    coverage_execution_trace: list[CoverageExecutionTraceRow] = []
     check_results: list[CheckResult] = []
     adapter_diagnostics: list[CheckInputBuildDiagnostic] = []
+    seen_coverage_keys: set[tuple[str, str, str]] = set()
     executable_input_count = 0
 
     for snapshot_payload in snapshots:
@@ -124,24 +141,40 @@ def run_geometry_vertical_slice_from_file(
             contract_bundle=contract_bundle,
         )
         adapter_result = assembly.build_result
-        coverage_rows.extend(assembly.coverage_rows)
-        adapter_diagnostics.extend(adapter_result.diagnostics)
-        executable_input_count += len(adapter_result.check_inputs)
-
-        for check_input in adapter_result.check_inputs:
-            check_results.append(
-                engine.run_check(
-                    check_input.check_id,
-                    check_input.snapshot,
-                    check_input.coverage,
+        assembly_rows = tuple(assembly.coverage_rows)
+        for coverage_row in assembly_rows:
+            key = coverage_row_identity(coverage_row)
+            if key in seen_coverage_keys:
+                raise ValueError(
+                    "Duplicate authoritative CoverageRow canonical key: "
+                    f"component_type={key[0]!r}, component_id={key[1]!r}, check_id={key[2]!r}"
                 )
+            seen_coverage_keys.add(key)
+        coverage_rows.extend(assembly_rows)
+        executable_input_count += len(adapter_result.check_inputs)
+        coverage_execution_trace.extend(
+            _execute_coverage_assembly(
+                coverage_rows=assembly_rows,
+                check_inputs=adapter_result.check_inputs,
+                diagnostics=adapter_result.diagnostics,
+                engine=engine,
+                check_results=check_results,
+                adapter_diagnostics=adapter_diagnostics,
             )
+        )
 
     canonical_coverage_rows = canonicalize_coverage_rows(coverage_rows)
+    canonical_execution_trace = canonicalize_coverage_execution_trace(
+        coverage_execution_trace,
+        coverage_rows=canonical_coverage_rows,
+        check_results=check_results,
+        adapter_diagnostics=adapter_diagnostics,
+    )
     summary = _build_summary(
         snapshots=snapshots,
         executable_input_count=executable_input_count,
         coverage_rows=canonical_coverage_rows,
+        coverage_execution_trace=canonical_execution_trace,
         check_results=check_results,
         adapter_diagnostics=adapter_diagnostics,
     )
@@ -156,6 +189,10 @@ def run_geometry_vertical_slice_from_file(
     _write_json(
         out_dir / "coverage_rows.json",
         [row.as_dict() for row in canonical_coverage_rows],
+    )
+    _write_json(
+        out_dir / "coverage_execution_trace.json",
+        [row.as_dict() for row in canonical_execution_trace],
     )
     _write_json(
         out_dir / "check_results.json",
@@ -173,11 +210,154 @@ def run_geometry_vertical_slice_from_file(
 
     return GeometryVerticalSliceResult(
         coverage_rows=canonical_coverage_rows,
+        coverage_execution_trace=canonical_execution_trace,
         check_results=tuple(check_results),
         adapter_diagnostics=tuple(adapter_diagnostics),
         run_summary=summary,
         manifest=manifest,
     )
+
+
+def _execute_coverage_assembly(
+    *,
+    coverage_rows: Sequence[CoverageRow],
+    check_inputs: Sequence[GeometryCheckInput],
+    diagnostics: Sequence[CheckInputBuildDiagnostic],
+    engine: MinimalCheckEngine,
+    check_results: list[CheckResult],
+    adapter_diagnostics: list[CheckInputBuildDiagnostic],
+) -> tuple[CoverageExecutionTraceRow, ...]:
+    authoritative_by_key = {
+        coverage_row_identity(row): row
+        for row in coverage_rows
+    }
+    if len(authoritative_by_key) != len(coverage_rows):
+        raise ValueError("Duplicate authoritative CoverageRow canonical key within assembly")
+
+    input_by_key: dict[tuple[str, str, str], GeometryCheckInput] = {}
+    for check_input in check_inputs:
+        if not isinstance(check_input, GeometryCheckInput):
+            raise TypeError("check_inputs must contain GeometryCheckInput objects")
+        key = (
+            check_input.component_type,
+            check_input.component_id,
+            check_input.check_id,
+        )
+        coverage_row = authoritative_by_key.get(key)
+        if coverage_row is None:
+            raise ValueError(f"GeometryCheckInput identity has no authoritative CoverageRow: {key!r}")
+        if check_input.coverage is not coverage_row:
+            raise ValueError(
+                "GeometryCheckInput must retain the exact authoritative CoverageRow object"
+            )
+        if (
+            check_input.check_id != coverage_row.check_id
+            or check_input.component_type != coverage_row.component_type
+            or check_input.component_id != coverage_row.component_id
+        ):
+            raise ValueError("GeometryCheckInput identity does not match authoritative CoverageRow")
+        if key in input_by_key:
+            raise ValueError(f"More than one GeometryCheckInput matched CoverageRow: {key!r}")
+        input_by_key[key] = check_input
+
+    diagnostic_base_index = len(adapter_diagnostics)
+    diagnostic_link_by_key: dict[tuple[str, str, str], tuple[int, CheckInputBuildDiagnostic]] = {}
+    for local_index, diagnostic in enumerate(diagnostics):
+        if not isinstance(diagnostic, CheckInputBuildDiagnostic):
+            raise TypeError("diagnostics must contain CheckInputBuildDiagnostic objects")
+        if diagnostic.check_id == "geometry_check_input_adapter":
+            if coverage_rows:
+                raise ValueError(
+                    "Adapter-level geometry diagnostic is only valid when no CoverageRows exist"
+                )
+            continue
+        if diagnostic.component_id is None:
+            raise ValueError("Coverage-specific adapter diagnostic requires component_id")
+        key = (
+            diagnostic.component_type,
+            diagnostic.component_id,
+            diagnostic.check_id,
+        )
+        if key not in authoritative_by_key:
+            raise ValueError(f"Adapter diagnostic identity has no authoritative CoverageRow: {key!r}")
+        if key in diagnostic_link_by_key:
+            raise ValueError(f"More than one adapter diagnostic matched CoverageRow: {key!r}")
+        diagnostic_link_by_key[key] = (diagnostic_base_index + local_index, diagnostic)
+
+    for coverage_row in coverage_rows:
+        key = coverage_row_identity(coverage_row)
+        has_input = key in input_by_key
+        has_diagnostic = key in diagnostic_link_by_key
+        if has_input and has_diagnostic:
+            raise ValueError(f"CoverageRow matched both a CheckInput and adapter diagnostic: {key!r}")
+        if not has_input and not has_diagnostic:
+            raise ValueError(f"CoverageRow has no terminal adapter outcome: {key!r}")
+
+    adapter_diagnostics.extend(diagnostics)
+    result_link_by_key: dict[tuple[str, str, str], tuple[int, CheckResult]] = {}
+    for check_input in check_inputs:
+        key = (
+            check_input.component_type,
+            check_input.component_id,
+            check_input.check_id,
+        )
+        coverage_row = authoritative_by_key[key]
+        result_index = len(check_results)
+        result = engine.run_check(
+            check_input.check_id,
+            check_input.snapshot,
+            check_input.coverage,
+        )
+        if not isinstance(result, CheckResult):
+            raise TypeError("MinimalCheckEngine.run_check must return CheckResult")
+        if (
+            result.check_id != coverage_row.check_id
+            or result.component_type != coverage_row.component_type
+            or result.component != coverage_row.component_id
+        ):
+            raise ValueError("CheckResult identity does not match authoritative CoverageRow")
+        check_results.append(result)
+        result_link_by_key[key] = (result_index, result)
+
+    trace_rows: list[CoverageExecutionTraceRow] = []
+    for coverage_row in coverage_rows:
+        key = coverage_row_identity(coverage_row)
+        result_link = result_link_by_key.get(key)
+        if result_link is not None:
+            result_index, result = result_link
+            trace_rows.append(
+                CoverageExecutionTraceRow(
+                    component_type=coverage_row.component_type,
+                    component_id=coverage_row.component_id,
+                    check_id=coverage_row.check_id,
+                    coverage_status=coverage_row.coverage_status.value,
+                    check_input_emitted=True,
+                    adapter_status="READY",
+                    adapter_reason=None,
+                    adapter_diagnostic_index=None,
+                    check_result_emitted=True,
+                    check_result_index=result_index,
+                    check_result_status=result.status.value,
+                )
+            )
+        else:
+            diagnostic_index, diagnostic = diagnostic_link_by_key[key]
+            trace_rows.append(
+                CoverageExecutionTraceRow(
+                    component_type=coverage_row.component_type,
+                    component_id=coverage_row.component_id,
+                    check_id=coverage_row.check_id,
+                    coverage_status=coverage_row.coverage_status.value,
+                    check_input_emitted=False,
+                    adapter_status=diagnostic.status,
+                    adapter_reason=diagnostic.reason,
+                    adapter_diagnostic_index=diagnostic_index,
+                    check_result_emitted=False,
+                    check_result_index=None,
+                    check_result_status=None,
+                )
+            )
+    return tuple(trace_rows)
 
 def _normalize_input_payload(payload: object) -> tuple[Mapping[str, object], ...]:
     if isinstance(payload, Mapping):
@@ -244,11 +424,20 @@ def _build_summary(
     snapshots: Sequence[Mapping[str, object]],
     executable_input_count: int,
     coverage_rows: Sequence[CoverageRow],
+    coverage_execution_trace: Sequence[CoverageExecutionTraceRow],
     check_results: Sequence[CheckResult],
     adapter_diagnostics: Sequence[CheckInputBuildDiagnostic],
 ) -> dict[str, object]:
     status_counts = Counter(result.status.value for result in check_results)
     coverage_status_counts = Counter(row.coverage_status.value for row in coverage_rows)
+    trace_adapter_status_counts = Counter(row.adapter_status for row in coverage_execution_trace)
+    trace_result_status_counts = Counter(
+        row.check_result_status
+        for row in coverage_execution_trace
+        if row.check_result_status is not None
+    )
+    check_input_emitted_count = sum(row.check_input_emitted for row in coverage_execution_trace)
+    check_result_emitted_count = sum(row.check_result_emitted for row in coverage_execution_trace)
     check_id_counts = Counter(result.check_id for result in check_results)
     component_type_counts = Counter(str(snapshot["component_type"]) for snapshot in snapshots)
     return {
@@ -257,9 +446,16 @@ def _build_summary(
         "check_result_count": len(check_results),
         "check_result_status_counts": _sorted_counter_dict(status_counts),
         "component_type_counts": _sorted_counter_dict(component_type_counts),
+        "coverage_execution_trace_count": len(coverage_execution_trace),
         "coverage_row_count": len(coverage_rows),
         "coverage_status_counts": _sorted_counter_dict(coverage_status_counts),
+        "check_input_emitted_count": check_input_emitted_count,
+        "check_input_not_emitted_count": len(coverage_execution_trace) - check_input_emitted_count,
+        "check_result_emitted_count": check_result_emitted_count,
+        "check_result_not_emitted_count": len(coverage_execution_trace) - check_result_emitted_count,
         "executable_input_count": executable_input_count,
+        "trace_adapter_status_counts": _sorted_counter_dict(trace_adapter_status_counts),
+        "trace_result_status_counts": _sorted_counter_dict(trace_result_status_counts),
         "snapshot_count": len(snapshots),
         "status": "OK",
     }
@@ -272,6 +468,11 @@ def _build_manifest(*, input_path: Path, input_sha256: str, output_dir: Path, ca
         "coverage_artifact_source": "authoritative_runtime_objects",
         "coverage_authority": "CoverageBuilder",
         "coverage_reconstructed_from_check_results": False,
+        "execution_trace_authority": "runtime_coverage_adapter_engine_chain",
+        "execution_trace_artifact_source": "authoritative_runtime_objects",
+        "execution_trace_reconstructed_from_serialized_artifacts": False,
+        "execution_trace_covers_every_coverage_row": True,
+        "check_input_coverage_object_identity_required": True,
         "forbidden_scope": list(_FORBIDDEN_SCOPE),
         "input_path": str(input_path),
         "input_sha256": input_sha256,

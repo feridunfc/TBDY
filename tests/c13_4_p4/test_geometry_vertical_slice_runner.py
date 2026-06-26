@@ -11,6 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests" / "fixtures" / "c13_4_p4" / "geometry_feature_snapshots.json"
 ARTIFACT_FILES = {
     "coverage_rows.json",
+    "coverage_execution_trace.json",
     "check_results.json",
     "adapter_diagnostics.json",
     "run_summary.json",

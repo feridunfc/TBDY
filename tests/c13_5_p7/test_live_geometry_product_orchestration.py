@@ -15,6 +15,7 @@ from tbdy_engine.product.live_geometry_product import run_live_geometry_product
 ROOT = Path(__file__).resolve().parents[2]
 REQUIRED_PRODUCT_FILES = (
     "artifacts/coverage_rows.json",
+    "artifacts/coverage_execution_trace.json",
     "artifacts/check_results.json",
     "artifacts/adapter_diagnostics.json",
     "artifacts/run_summary.json",
@@ -133,6 +134,13 @@ def _successful_product_runner(capture: dict | None = None, *, check_results_tex
                                 "adapter_diagnostic_count": 1,
                                 "coverage_row_count": 3,
                                 "coverage_status_counts": {"RUNNABLE": 3},
+                                "coverage_execution_trace_count": 3,
+                                "check_input_emitted_count": 2,
+                                "check_input_not_emitted_count": 1,
+                                "check_result_emitted_count": 2,
+                                "check_result_not_emitted_count": 1,
+                                "trace_adapter_status_counts": {"BLOCKED": 1, "READY": 2},
+                                "trace_result_status_counts": {"OK": 2},
                             },
                         },
                         sort_keys=True,
@@ -151,6 +159,7 @@ def _successful_product_runner(capture: dict | None = None, *, check_results_tex
             product_smoke_manifest_path=root / "product_smoke_manifest.json",
             p4_check_result_count=2,
             p4_adapter_diagnostic_count=1,
+            p4_coverage_execution_trace_count=3,
         )
 
     return run
@@ -317,6 +326,7 @@ def test_missing_product_artifact_forces_fail(tmp_path: Path):
     assert summary["failure_stage"] == "PRODUCT_ARTIFACT_VALIDATION"
     assert summary["missing_product_files"]
     assert "artifacts/coverage_rows.json" in summary["missing_product_files"]
+    assert "artifacts/coverage_execution_trace.json" in summary["missing_product_files"]
 
 
 def test_stale_product_artifacts_cannot_satisfy_current_validation(tmp_path: Path):
@@ -388,6 +398,14 @@ def test_ok_probe_with_snapshots_and_product_is_ok(tmp_path: Path):
     assert result.status == "OK"
     assert summary["status"] == "OK"
     assert summary["product_check_result_count"] == 2
+    assert summary["product_coverage_execution_trace_count"] == 3
+    assert summary["product_check_input_emitted_count"] == 2
+    assert summary["product_check_input_not_emitted_count"] == 1
+    assert summary["product_check_result_emitted_count"] == 2
+    assert summary["product_check_result_not_emitted_count"] == 1
+    assert summary["product_trace_adapter_status_counts"] == {"BLOCKED": 1, "READY": 2}
+    assert summary["product_trace_result_status_counts"] == {"OK": 2}
+    assert summary["coverage_execution_trace_path"] == "product/artifacts/coverage_execution_trace.json"
     assert summary["product_adapter_diagnostic_count"] == 1
     assert summary["resolved_geometry_row_count"] == 2
     assert summary["length_unit_source"] == "m"

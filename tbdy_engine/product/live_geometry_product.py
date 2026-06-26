@@ -37,6 +37,7 @@ _OWNED_DIRECTORIES = (
 )
 _REQUIRED_PRODUCT_FILES = (
     "artifacts/coverage_rows.json",
+    "artifacts/coverage_execution_trace.json",
     "artifacts/check_results.json",
     "artifacts/adapter_diagnostics.json",
     "artifacts/run_summary.json",
@@ -382,10 +383,54 @@ def _finish(
             product_summary,
             summary_key="coverage_status_counts",
         ),
+        "product_coverage_execution_trace_count": _product_count(
+            product_result,
+            product_summary,
+            attribute="p4_coverage_execution_trace_count",
+            summary_key="coverage_execution_trace_count",
+        ),
+        "product_check_input_emitted_count": _product_count(
+            product_result,
+            product_summary,
+            attribute="p4_check_input_emitted_count",
+            summary_key="check_input_emitted_count",
+        ),
+        "product_check_input_not_emitted_count": _product_count(
+            product_result,
+            product_summary,
+            attribute="p4_check_input_not_emitted_count",
+            summary_key="check_input_not_emitted_count",
+        ),
+        "product_check_result_emitted_count": _product_count(
+            product_result,
+            product_summary,
+            attribute="p4_check_result_emitted_count",
+            summary_key="check_result_emitted_count",
+        ),
+        "product_check_result_not_emitted_count": _product_count(
+            product_result,
+            product_summary,
+            attribute="p4_check_result_not_emitted_count",
+            summary_key="check_result_not_emitted_count",
+        ),
+        "product_trace_adapter_status_counts": _product_mapping(
+            product_summary,
+            summary_key="trace_adapter_status_counts",
+        ),
+        "product_trace_result_status_counts": _product_mapping(
+            product_summary,
+            summary_key="trace_result_status_counts",
+        ),
         "coverage_rows_path": _relative(
             root,
             product_dir / "artifacts" / "coverage_rows.json"
             if (product_dir / "artifacts" / "coverage_rows.json").is_file()
+            else None,
+        ),
+        "coverage_execution_trace_path": _relative(
+            root,
+            product_dir / "artifacts" / "coverage_execution_trace.json"
+            if (product_dir / "artifacts" / "coverage_execution_trace.json").is_file()
             else None,
         ),
         "live_probe_output_dir": _relative(root, probe_dir),

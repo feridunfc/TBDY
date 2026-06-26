@@ -17,6 +17,7 @@ from tbdy_engine.product.live_geometry_product import run_live_geometry_product
 
 REQUIRED_PRODUCT_FILES = (
     "artifacts/coverage_rows.json",
+    "artifacts/coverage_execution_trace.json",
     "artifacts/check_results.json",
     "artifacts/adapter_diagnostics.json",
     "artifacts/run_summary.json",
@@ -91,6 +92,7 @@ def _successful_product_runner(*, feature_snapshot_path: Path, output_dir: Path)
         product_smoke_summary_path=root / "product_smoke_summary.json",
         p4_check_result_count=1,
         p4_adapter_diagnostic_count=0,
+        p4_coverage_execution_trace_count=1,
     )
 
 
