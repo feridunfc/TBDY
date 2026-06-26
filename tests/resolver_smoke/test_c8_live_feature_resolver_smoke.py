@@ -114,11 +114,13 @@ def test_story_drifts_drift_and_story_max_over_avg_ratio_are_separated():
     assert torsion.evidence[0].source_column == "Ratio"
 
 
-def test_modal_sumux_sumuy_resolve():
+def test_historical_sample_only_modal_source_fails_closed():
     global_snapshot = _resolver().build_global_snapshot()
-    assert _feature(global_snapshot, "modal_sum_ux").value == 0.96
-    assert _feature(global_snapshot, "modal_sum_uy").value == 0.95
-    assert _feature(global_snapshot, "modal_sum_ux").evidence[0].combo_family == "MODAL"
+    for feature_name in ("modal_sum_ux", "modal_sum_uy"):
+        feature = _feature(global_snapshot, feature_name)
+        assert feature.status == FeatureValueStatus.PARTIAL
+        assert feature.value is None
+        assert any(diagnostic.code.value == "MODAL_SOURCE_INCOMPLETE" for diagnostic in feature.diagnostics)
 
 
 def test_base_reactions_fx_fy_resolve():

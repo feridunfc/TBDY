@@ -14,10 +14,11 @@ def test_table_registry_resolves_canonical_key_to_actual_alias():
     assert "Frame" in actual
 
 
-def test_table_registry_resolves_actual_alias_to_canonical_key():
+def test_table_registry_resolves_actual_alias_to_primary_canonical_key():
     registry = TableRegistry.from_catalog_dir(CATALOG_DIR)
     actual = registry.preferred_actual_name("frame_assignments")
-    assert registry.canonical_key_for_alias(actual) == "frame_assignments"
+    assert actual == "Frame Assignments - Summary"
+    assert registry.canonical_key_for_alias(actual) == "frame_assignments_summary"
 
 
 def test_table_registry_unknown_alias_does_not_crash_and_has_diagnostic():

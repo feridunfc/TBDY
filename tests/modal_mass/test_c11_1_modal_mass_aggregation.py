@@ -15,11 +15,24 @@ from tbdy_engine.features.value import FeatureValue, FeatureValueStatus
 
 
 def _modal_table(rows):
+    normalized_rows = []
+    for index, source_row in enumerate(rows, start=1):
+        row = {
+            "Case": "Modal",
+            "Mode": index,
+            "Period": 1.0 / index,
+            "UX": 0.01,
+            "UY": 0.01,
+            "SumUX": 0.01,
+            "SumUY": 0.01,
+        }
+        row.update(dict(source_row))
+        normalized_rows.append(row)
     return CanonicalTable(
         table_key="modal_participating_mass",
         actual_table_name="Modal Participating Mass Ratios",
-        columns=("Mode", "Case", "SumUX", "SumUY"),
-        rows=tuple(dict(row) for row in rows),
+        columns=("Case", "Mode", "Period", "UX", "UY", "SumUX", "SumUY"),
+        rows=tuple(normalized_rows),
         units={},
         source="C11_1_TEST_FIXTURE",
     )
@@ -92,7 +105,7 @@ def test_modal_sum_aggregation_uses_max_cumulative_not_mode_10():
     assert snapshot.features["modal_sum_uy"].value == 0.9999
 
 
-def test_modal_mass_check_ok_when_later_modes_exceed_90():
+def test_modal_resolution_does_not_unlock_engineering_check():
     resolver = _resolver(
         [
             {"Mode": 10, "Case": "Modal", "SumUX": 0.7235, "SumUY": 0.7503},
@@ -100,24 +113,26 @@ def test_modal_mass_check_ok_when_later_modes_exceed_90():
         ]
     )
     snapshot = resolver.build_global_snapshot()
+    assert snapshot.features["modal_sum_ux"].value == 0.9999
+    assert snapshot.features["modal_sum_uy"].value == 0.9999
+
     result = MinimalCheckEngine(C11_CHECK_DEFINITIONS).run_check("modal_mass_participation", snapshot, _runnable_modal_row())
-    assert result.status.value == "OK"
-    assert result.value >= 0.90
+    assert result.status.value == "BLOCKED"
+    assert result.value is None
+    assert any(diagnostic.code.value == "CHECK_NOT_ALLOWED" for diagnostic in result.diagnostics)
 
 
-def test_modal_mass_false_fail_regression():
-    old_mode_10_result = _run_modal_check(0.7235, 0.7503)
-    assert old_mode_10_result.status.value == "FAIL"
-
+def test_modal_max_cumulative_regression_stays_feature_only():
     resolver = _resolver(
         [
             {"Mode": 10, "Case": "Modal", "SumUX": 0.7235, "SumUY": 0.7503},
             {"Mode": 100, "Case": "Modal", "SumUX": 0.9999, "SumUY": 0.9999},
         ]
     )
-    fixed_snapshot = resolver.build_global_snapshot()
-    fixed_result = MinimalCheckEngine(C11_CHECK_DEFINITIONS).run_check("modal_mass_participation", fixed_snapshot, _runnable_modal_row())
-    assert fixed_result.status.value == "OK"
+    snapshot = resolver.build_global_snapshot()
+    assert snapshot.features["modal_sum_ux"].value == 0.9999
+    assert snapshot.features["modal_sum_uy"].value == 0.9999
+    assert _run_modal_check(0.9999, 0.9999).status.value == "BLOCKED"
 
 
 def test_modal_evidence_records_selected_modes_and_aggregation_method():
@@ -169,16 +184,18 @@ def test_modal_table_empty_blocks_check():
     assert result.status.value != "OK"
 
 
-def test_c11_modal_check_uses_controlling_min_of_ux_uy():
+def test_modal_check_threshold_is_not_used_in_this_slice():
     result = _run_modal_check(0.95, 0.88)
-    assert result.value == 0.88
-    assert result.status.value == "FAIL"
+    assert result.status.value == "BLOCKED"
+    assert result.value is None
+    assert result.limit is None
 
 
-def test_c11_modal_check_passes_when_both_ux_uy_ge_90():
+def test_modal_check_does_not_emit_ok_when_features_exceed_catalog_value():
     result = _run_modal_check(0.91, 0.92)
-    assert result.value == 0.91
-    assert result.status.value == "OK"
+    assert result.status.value == "BLOCKED"
+    assert result.value is None
+    assert result.limit is None
 
 
 def test_no_checkengine_boundary_change(tmp_path):
