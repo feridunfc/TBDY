@@ -80,6 +80,31 @@ _STORY_BASE_BAD_PARSER_STATUSES = {
     "RESOLVER_ONLY_HAS_SAMPLE_ROWS",
 }
 _STORY_BASE_SAMPLE_SOURCE_FIELDS = {"sample_rows", "sample_rows_limited"}
+_MATERIAL_TABLE_KEYS = (
+    "frame_assignments",
+    "frame_section_properties",
+    "material_concrete_data",
+    "material_rebar_data",
+)
+_MATERIAL_SOURCE_TABLE_KEYS = {"material_concrete_data", "material_rebar_data"}
+_MATERIAL_SAMPLE_SOURCE_FIELDS = {"sample_rows", "sample_rows_limited"}
+_MATERIAL_BAD_PARSER_STATUSES = {
+    "",
+    "EMPTY",
+    "FAILED",
+    "PARTIAL",
+    "MALFORMED",
+    "TABLE_MISSING",
+    "TABLE_EMPTY",
+    "EMPTY_TABLE",
+    "HEADER_ONLY",
+    "COM_CALL_FAILED",
+    "TABLEDATA_EMPTY_DESPITE_RECORDS",
+    "RESOLVER_ONLY_HAS_SAMPLE_ROWS",
+}
+_SECTION_NAME_ALIASES = ("DesignSect", "AnalysisSect", "Section", "Name", "SectProp")
+_SECTION_MATERIAL_ALIASES = ("Material", "MatProp", "ConcreteMaterial", "ConcMaterial", "MatPropName")
+_REBAR_MATERIAL_ALIASES = ("RebarMaterial", "Rebar Material", "Material", "MatProp", "LongitudinalBarMaterial", "TieMaterial")
 
 _ETABS_FORCE_UNITS = {
     1: "lb",
@@ -2165,15 +2190,545 @@ class C8LiveFeatureResolverSmoke:
                 )
         return FeatureSnapshot(component_type="beam", component_id=component, identity=identity, features=features, diagnostics=tuple(identity_diags))
 
-    def build_material_snapshot(self) -> FeatureSnapshot:
-        concrete_row = self._first_row("material_concrete_data")
-        rebar_row = self._first_row("material_rebar_data")
-        features = {
-            "concrete_fck_mpa": self._resolve_from_row("concrete_fck_mpa", "material_concrete_data", concrete_row, ("Fc", "fc", "Concrete Strength")),
-            "rebar_fyk_mpa": self._resolve_from_row("rebar_fyk_mpa", "material_rebar_data", rebar_row, ("Fy", "fy", "Yield Strength")),
+    def _material_table_incomplete_diagnostic(self, table_key: str, feature_name: str) -> FeatureDiagnostic | None:
+        table = self._table(table_key)
+        if table is None:
+            return self._diag(
+                FeatureDiagnosticCode.TABLE_MISSING,
+                "Material source table is missing",
+                feature_name=feature_name,
+                table_key=table_key,
+            )
+        raw = _raw_table_diagnostics_from_table(table)
+        resolver_row_count = len(table.rows)
+        reported_row_count = _int_or_none(raw.get("number_records"))
+        parser_status = str(raw.get("parser_status") or "UNKNOWN").strip().upper()
+        ingestion_diagnostics = tuple(
+            item for item in (table.units.get("resolver_ingestion_diagnostics", ()) if isinstance(table.units, Mapping) else ())
+            if isinstance(item, Mapping)
+        )
+        source_row_storage = str(table.units.get("source_row_storage_field_used") or "") if isinstance(table.units, Mapping) else ""
+        sample_only = source_row_storage in _MATERIAL_SAMPLE_SOURCE_FIELDS and any(
+            str(item.get("code") or "") == "RESOLVER_ONLY_HAS_SAMPLE_ROWS" for item in ingestion_diagnostics
+        )
+        if sample_only or parser_status in _MATERIAL_BAD_PARSER_STATUSES:
+            return self._diag(
+                FeatureDiagnosticCode.MATERIAL_SOURCE_INCOMPLETE,
+                "Material source is incomplete, empty, malformed, or sample-only; complete source rows are required for P1.15 evidence",
+                feature_name=feature_name,
+                table_key=table_key,
+                parser_status=parser_status,
+                source_row_storage_field_used=source_row_storage or None,
+                resolver_row_count=resolver_row_count,
+                reported_row_count=reported_row_count,
+            )
+        if reported_row_count is not None and reported_row_count != resolver_row_count:
+            return self._diag(
+                FeatureDiagnosticCode.MATERIAL_SOURCE_INCOMPLETE,
+                "Material reported row count does not equal the resolver row population",
+                feature_name=feature_name,
+                table_key=table_key,
+                reported_row_count=reported_row_count,
+                resolver_row_count=resolver_row_count,
+            )
+        if not table.rows:
+            return self._diag(
+                FeatureDiagnosticCode.MATERIAL_SOURCE_INCOMPLETE,
+                "Material source table has no usable rows",
+                feature_name=feature_name,
+                table_key=table_key,
+                resolver_row_count=resolver_row_count,
+                reported_row_count=reported_row_count,
+            )
+        return None
+
+    def _material_row_index(self, table_key: str, row: Mapping[str, Any] | None) -> int | None:
+        table = self._table(table_key)
+        if table is None or row is None:
+            return None
+        for index, candidate in enumerate(table.rows):
+            if candidate is row or dict(candidate) == dict(row):
+                return index
+        return None
+
+    def _material_source_reference(self, table_key: str, row: Mapping[str, Any] | None, *, column: str | None = None) -> str:
+        table = self._table(table_key)
+        actual = table.actual_table_name if table else table_key
+        row_index = self._material_row_index(table_key, row)
+        material = _first_present(row, ("Material", "Name"))[1] if row else None
+        parts = ["LIVE_ETABS_DISPLAY_TABLE", str(actual or table_key), f"row={row_index if row_index is not None else 'unresolved'}"]
+        if material not in (None, ""):
+            parts.append(f"material={material}")
+        if column:
+            parts.append(f"column={column}")
+        return ":".join(parts)
+
+    def _material_context_source_row(
+        self,
+        table_key: str,
+        row: Mapping[str, Any] | None,
+        *,
+        column: str | None = None,
+        selection_reason: str,
+        component_context: Mapping[str, Any],
+        section_context: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        table = self._table(table_key)
+        raw = _raw_table_diagnostics_from_table(table)
+        row_index = self._material_row_index(table_key, row)
+        return {
+            "source_reference": self._material_source_reference(table_key, row, column=column),
+            "source_kind": table.source if table else None,
+            "source_table": table_key,
+            "actual_table_name": table.actual_table_name if table else None,
+            "source_column": column,
+            "row_index": row_index,
+            "stable_row_reference": {
+                "table_key": table_key,
+                "actual_table_name": table.actual_table_name if table else None,
+                "row_index": row_index,
+                "material": _first_present(row, ("Material", "Name"))[1] if row else None,
+            },
+            "reported_row_count": _int_or_none(raw.get("number_records")),
+            "resolver_row_count": len(table.rows) if table else 0,
+            "parser_status": raw.get("parser_status"),
+            "selection_reason": selection_reason,
+            "selected_component_identity_context": dict(component_context),
+            "selected_section_context": dict(section_context),
+            "complete_source_row": dict(row or {}),
         }
-        identity = {"component": "MATERIALS", "material_name": _first_present(concrete_row, ("Material", "Name"))[1]}
-        return FeatureSnapshot(component_type="material", component_id="MATERIALS", identity=identity, features=features)
+
+    def _material_feature_partial(
+        self,
+        feature_name: str,
+        reason: str,
+        *,
+        table_key: str | None = None,
+        row: Mapping[str, Any] | None = None,
+        column: str | None = None,
+        diagnostics: Sequence[FeatureDiagnostic] = (),
+        component_context: Mapping[str, Any] | None = None,
+        section_context: Mapping[str, Any] | None = None,
+    ) -> FeatureValue:
+        unit = self._unit(feature_name)
+        table = self._table(table_key) if table_key else None
+        evidence = FeatureEvidence(
+            evidence_status=FeatureEvidenceStatus.PARTIAL,
+            source_table=table_key,
+            actual_table_name=table.actual_table_name if table else None,
+            source_column=column,
+            source_row=self._material_context_source_row(
+                table_key,
+                row,
+                column=column,
+                selection_reason=reason,
+                component_context=component_context or {},
+                section_context=section_context or {},
+            ) if table_key else {"selection_reason": reason, "selected_component_identity_context": dict(component_context or {}), "selected_section_context": dict(section_context or {})},
+            unit=unit,
+            resolver=RESOLVER_NAME,
+            reason=reason,
+        )
+        return FeatureValue(
+            feature_name=feature_name,
+            value=None,
+            unit=unit,
+            semantic_role=self._semantic_role(feature_name),
+            status=FeatureValueStatus.PARTIAL,
+            evidence=[evidence],
+            diagnostics=tuple(diagnostics),
+        )
+
+    def _material_feature_resolved(
+        self,
+        feature_name: str,
+        value: Any,
+        *,
+        table_key: str,
+        row: Mapping[str, Any],
+        column: str,
+        component_context: Mapping[str, Any],
+        section_context: Mapping[str, Any],
+        selection_reason: str,
+        force_unit: str | None = None,
+    ) -> FeatureValue:
+        unit = force_unit if force_unit is not None else self._unit(feature_name)
+        role = self._semantic_role(feature_name).upper()
+        if unit and role not in {"IDENTITY", "GEOMETRY_ID", "OUTPUT_CASE_NAME", "DIRECTION"}:
+            normalized, unit_evidence, unit_diags, safe = self._normalize_value(feature_name, value, unit)
+        else:
+            normalized = value
+            unit_evidence = {
+                "raw_value": value,
+                "raw_unit": unit,
+                "normalized_value": value,
+                "normalized_unit": unit,
+                "unit_context_source": self.unit_context.source,
+                "unit_normalization_status": "NOT_APPLICABLE" if not unit else "RESOLVED",
+                "conversion_applied": False,
+                "conversion_formula": None,
+                "diagnostics": [],
+            }
+            unit_diags = tuple()
+            safe = True
+        unit_evidence.update({
+            "source_reference": self._material_source_reference(table_key, row, column=column),
+            "selected_component_identity_context": dict(component_context),
+            "selected_section_context": dict(section_context),
+            "selection_reason": selection_reason,
+        })
+        self._unit_evidence[feature_name] = unit_evidence
+        if not safe:
+            return self._material_feature_partial(
+                feature_name,
+                "Material unit normalization is missing or unverified; feature kept partial rather than silently resolved",
+                table_key=table_key,
+                row=row,
+                column=column,
+                diagnostics=tuple(unit_diags),
+                component_context=component_context,
+                section_context=section_context,
+            )
+        evidence = FeatureEvidence(
+            evidence_status=FeatureEvidenceStatus.FULL,
+            source_table=table_key,
+            actual_table_name=self._table(table_key).actual_table_name if self._table(table_key) else table_key,
+            source_column=column,
+            source_row=self._material_context_source_row(
+                table_key,
+                row,
+                column=column,
+                selection_reason=selection_reason,
+                component_context=component_context,
+                section_context=section_context,
+            ),
+            raw_value=value,
+            normalized_value=normalized,
+            unit=unit,
+            resolver=RESOLVER_NAME,
+            reason=selection_reason,
+        )
+        return FeatureValue(
+            feature_name=feature_name,
+            value=normalized,
+            unit=unit,
+            semantic_role=self._semantic_role(feature_name),
+            status=FeatureValueStatus.RESOLVED,
+            evidence=[evidence],
+            diagnostics=tuple(unit_diags),
+        )
+
+    def _match_material_row(self, table_key: str, material_name: Any) -> tuple[Mapping[str, Any] | None, str]:
+        table = self._table(table_key)
+        if table is None or not table.rows:
+            return None, "material source table unavailable or empty"
+        if material_name not in (None, ""):
+            for row in table.rows:
+                _, row_material = _first_present(row, ("Material", "Name"))
+                if _norm(row_material).casefold() == _norm(material_name).casefold():
+                    return row, "matched material row by selected section material name"
+        if len(table.rows) == 1:
+            return table.rows[0], "single material row available in source table"
+        return None, "no material row matched selected section material name and source has multiple rows"
+
+    def _material_design_basis_context(self) -> dict[str, Any]:
+        seed = build_seed_identity_from_target(
+            self.target.get("component"),
+            self.target.get("label"),
+            self.target.get("story"),
+            self.target.get("section"),
+        )
+        design_row, design_attempts = self._select_design_row(seed)
+        if not any(value not in (None, "") for value in seed.values()):
+            seed.update(_seed_identity_from_row(design_row))
+        assignment, assignment_attempts, assignment_diags, _ = self._frame_assignment_match(seed)
+        section_name = _first_present(assignment, ("DesignSect", "AnalysisSect", "Section"))[1] if assignment else None
+        if section_name in (None, ""):
+            section_name = self.target.get("section") or _first_present(design_row, ("DesignSect", "AnalysisSect", "Section"))[1]
+        section_row, section_attempts = self._section_match(section_name)
+        _, concrete_material = _first_present(section_row, _SECTION_MATERIAL_ALIASES)
+        _, section_type = _first_present(assignment, ("Type", "Design Type", "ObjectType"))
+        if section_type in (None, ""):
+            _, section_type = _first_present(section_row, ("Shape", "Type", "SectionType"))
+        concrete_row, concrete_reason = self._match_material_row("material_concrete_data", concrete_material)
+        _, rebar_name_from_section = _first_present(section_row, _REBAR_MATERIAL_ALIASES)
+        rebar_row, rebar_reason = self._match_material_row("material_rebar_data", rebar_name_from_section)
+        _, rebar_material = _first_present(rebar_row, ("Material", "Name"))
+        component_context = {
+            "target_component": self.target.get("component"),
+            "target_label": self.target.get("label"),
+            "target_story": self.target.get("story"),
+            "target_section": self.target.get("section"),
+            "selected_component": _first_present(assignment, ("UniqueName", "Frame", "Beam"))[1] if assignment else None,
+            "selected_label": _first_present(assignment, ("Label", "Frame", "Beam"))[1] if assignment else None,
+            "selected_story": _first_present(assignment, _STORY_ALIASES)[1] if assignment else None,
+            "component_type": section_type,
+        }
+        section_context = {
+            "selected_section_name": section_name,
+            "selected_section_type": section_type,
+            "selected_concrete_material_name": concrete_material,
+            "selected_rebar_material_name": rebar_material,
+            "frame_assignment_row_index": self._material_row_index("frame_assignments", assignment),
+            "frame_section_row_index": self._material_row_index("frame_section_properties", section_row),
+        }
+        return {
+            "seed": seed,
+            "design_row": design_row,
+            "design_attempts": design_attempts,
+            "assignment": assignment,
+            "assignment_attempts": assignment_attempts,
+            "assignment_diagnostics": assignment_diags,
+            "section_name": section_name,
+            "section_row": section_row,
+            "section_attempts": section_attempts,
+            "section_type": section_type,
+            "concrete_material_name": concrete_material,
+            "concrete_row": concrete_row,
+            "concrete_reason": concrete_reason,
+            "rebar_material_name": rebar_material,
+            "rebar_row": rebar_row,
+            "rebar_reason": rebar_reason,
+            "component_context": component_context,
+            "section_context": section_context,
+        }
+
+    def _material_table_feature(
+        self,
+        feature_name: str,
+        table_key: str,
+        row: Mapping[str, Any] | None,
+        aliases: Sequence[str],
+        *,
+        component_context: Mapping[str, Any],
+        section_context: Mapping[str, Any],
+        selection_reason: str,
+        allow_partial_if_missing: bool = False,
+    ) -> FeatureValue:
+        table_diag = self._material_table_incomplete_diagnostic(table_key, feature_name)
+        if table_diag is not None:
+            return self._material_feature_partial(
+                feature_name,
+                "Material source table is unavailable or incomplete",
+                table_key=table_key,
+                row=row,
+                diagnostics=(table_diag,),
+                component_context=component_context,
+                section_context=section_context,
+            )
+        if row is None:
+            return self._material_feature_partial(
+                feature_name,
+                "Material source row could not be selected for the component section context",
+                table_key=table_key,
+                diagnostics=(self._diag(FeatureDiagnosticCode.ROW_MISSING, "No material row matched selected material context", feature_name=feature_name, table_key=table_key),),
+                component_context=component_context,
+                section_context=section_context,
+            )
+        column, value = _first_present(row, aliases)
+        if column is None or value in (None, ""):
+            return self._material_feature_partial(
+                feature_name,
+                "Material source row exists but the required source column is absent",
+                table_key=table_key,
+                row=row,
+                diagnostics=(self._diag(FeatureDiagnosticCode.MATERIAL_REQUIRED_COLUMN_MISSING, "Material required source column missing", feature_name=feature_name, aliases=list(aliases)),),
+                component_context=component_context,
+                section_context=section_context,
+            )
+        if self._unit(feature_name) and _to_finite_float(value) is None:
+            return self._material_feature_partial(
+                feature_name,
+                "Material source value is missing, non-numeric, or non-finite",
+                table_key=table_key,
+                row=row,
+                column=column,
+                diagnostics=(self._diag(FeatureDiagnosticCode.MATERIAL_VALUE_INVALID, "Material numeric value is not finite", feature_name=feature_name, raw_value=value),),
+                component_context=component_context,
+                section_context=section_context,
+            )
+        return self._material_feature_resolved(
+            feature_name,
+            value,
+            table_key=table_key,
+            row=row,
+            column=column,
+            component_context=component_context,
+            section_context=section_context,
+            selection_reason=selection_reason,
+        )
+
+    def build_material_snapshot(self) -> FeatureSnapshot:
+        context = self._material_design_basis_context()
+        assignment = context["assignment"]
+        section_row = context["section_row"]
+        concrete_row = context["concrete_row"]
+        rebar_row = context["rebar_row"]
+        component_context = context["component_context"]
+        section_context = context["section_context"]
+        features: dict[str, FeatureValue] = {}
+        features["component_section_name"] = self._material_feature_resolved(
+            "component_section_name",
+            context.get("section_name"),
+            table_key="frame_assignments" if assignment else "frame_section_properties",
+            row=assignment or section_row or {},
+            column="DesignSect" if assignment else "Name",
+            component_context=component_context,
+            section_context=section_context,
+            selection_reason="selected component section from frame assignment and section definition context",
+        ) if context.get("section_name") not in (None, "") and (assignment or section_row) else self._material_feature_partial(
+            "component_section_name",
+            "Selected component section name could not be resolved from frame assignment or section properties",
+            table_key="frame_assignments",
+            diagnostics=(self._diag(FeatureDiagnosticCode.MATERIAL_COMPONENT_CONTEXT_MISSING, "Component section context missing"),),
+            component_context=component_context,
+            section_context=section_context,
+        )
+        features["component_section_type"] = self._material_feature_resolved(
+            "component_section_type",
+            context.get("section_type"),
+            table_key="frame_assignments" if assignment else "frame_section_properties",
+            row=assignment or section_row or {},
+            column="Type" if assignment else "Shape",
+            component_context=component_context,
+            section_context=section_context,
+            selection_reason="selected component/section type from live source context",
+        ) if context.get("section_type") not in (None, "") and (assignment or section_row) else self._material_feature_partial(
+            "component_section_type",
+            "Selected component/section type could not be resolved from live source context",
+            table_key="frame_assignments",
+            diagnostics=(self._diag(FeatureDiagnosticCode.MATERIAL_COMPONENT_CONTEXT_MISSING, "Component section type context missing"),),
+            component_context=component_context,
+            section_context=section_context,
+        )
+        features["section_concrete_material_name"] = self._material_feature_resolved(
+            "section_concrete_material_name",
+            context.get("concrete_material_name"),
+            table_key="frame_section_properties",
+            row=section_row or {},
+            column="Material",
+            component_context=component_context,
+            section_context=section_context,
+            selection_reason="selected concrete material from matched frame section property row",
+        ) if context.get("concrete_material_name") not in (None, "") and section_row else self._material_feature_partial(
+            "section_concrete_material_name",
+            "Concrete material name could not be selected from matched section property row",
+            table_key="frame_section_properties",
+            diagnostics=(self._diag(FeatureDiagnosticCode.MATERIAL_SECTION_CONTEXT_MISSING, "Section concrete material context missing"),),
+            component_context=component_context,
+            section_context=section_context,
+        )
+        if context.get("rebar_material_name") not in (None, "") and rebar_row:
+            features["section_rebar_material_name"] = self._material_feature_resolved(
+                "section_rebar_material_name",
+                context.get("rebar_material_name"),
+                table_key="material_rebar_data",
+                row=rebar_row,
+                column="Material",
+                component_context=component_context,
+                section_context=section_context,
+                selection_reason=context.get("rebar_reason") or "selected rebar material from rebar material source",
+            )
+        else:
+            features["section_rebar_material_name"] = self._material_feature_partial(
+                "section_rebar_material_name",
+                "Section-specific rebar material name is not available from current source tables",
+                table_key="material_rebar_data",
+                row=rebar_row,
+                diagnostics=(self._diag(FeatureDiagnosticCode.MATERIAL_SECTION_CONTEXT_MISSING, "Section rebar material context not available; feature remains source evidence only"),),
+                component_context=component_context,
+                section_context=section_context,
+            )
+        features["concrete_fck_mpa"] = self._material_table_feature(
+            "concrete_fck_mpa",
+            "material_concrete_data",
+            concrete_row,
+            ("Fc", "fc", "fck", "Concrete Strength"),
+            component_context=component_context,
+            section_context=section_context,
+            selection_reason=context.get("concrete_reason") or "matched concrete material row",
+        )
+        features["rebar_fyk_mpa"] = self._material_table_feature(
+            "rebar_fyk_mpa",
+            "material_rebar_data",
+            rebar_row,
+            ("Fy", "fy", "Fye", "Yield Strength"),
+            component_context=component_context,
+            section_context=section_context,
+            selection_reason=context.get("rebar_reason") or "matched rebar material row",
+        )
+        if concrete_row is not None:
+            features["concrete_material_source_reference"] = self._material_feature_resolved(
+                "concrete_material_source_reference",
+                self._material_source_reference("material_concrete_data", concrete_row),
+                table_key="material_concrete_data",
+                row=concrete_row,
+                column="Material",
+                component_context=component_context,
+                section_context=section_context,
+                selection_reason="stable source reference for selected concrete material row",
+            )
+        else:
+            features["concrete_material_source_reference"] = self._material_feature_partial(
+                "concrete_material_source_reference",
+                "Concrete material source reference could not be created because no source row was selected",
+                table_key="material_concrete_data",
+                component_context=component_context,
+                section_context=section_context,
+            )
+        if rebar_row is not None:
+            features["rebar_material_source_reference"] = self._material_feature_resolved(
+                "rebar_material_source_reference",
+                self._material_source_reference("material_rebar_data", rebar_row),
+                table_key="material_rebar_data",
+                row=rebar_row,
+                column="Material",
+                component_context=component_context,
+                section_context=section_context,
+                selection_reason="stable source reference for selected rebar material row",
+            )
+        else:
+            features["rebar_material_source_reference"] = self._material_feature_partial(
+                "rebar_material_source_reference",
+                "Rebar material source reference could not be created because no source row was selected",
+                table_key="material_rebar_data",
+                component_context=component_context,
+                section_context=section_context,
+            )
+        unit_basis_value = {
+            "force_unit": self.unit_context.force_unit,
+            "length_unit": self.unit_context.length_unit,
+            "temperature_unit": self.unit_context.temperature_unit,
+            "unit_query_status": self.unit_context.unit_query_status,
+            "unit_basis_confidence": self.unit_context.unit_basis_confidence,
+            "normalization_basis": "ETABS present units; stress values normalized to MPa when unit context is resolved",
+        }
+        features["material_unit_basis"] = self._material_feature_resolved(
+            "material_unit_basis",
+            unit_basis_value,
+            table_key="material_concrete_data" if concrete_row is not None else "material_rebar_data",
+            row=concrete_row or rebar_row or {},
+            column="unit_context",
+            component_context=component_context,
+            section_context=section_context,
+            selection_reason="material unit basis captured from read-only ETABS unit context",
+            force_unit="",
+        ) if (concrete_row or rebar_row) else self._material_feature_partial(
+            "material_unit_basis",
+            "Material unit basis could not be attached to a material source row",
+            component_context=component_context,
+            section_context=section_context,
+        )
+        identity = {
+            "component": component_context.get("selected_component") or self.target.get("component") or "MATERIALS",
+            "label": component_context.get("selected_label") or self.target.get("label"),
+            "story": component_context.get("selected_story") or self.target.get("story"),
+            "section": section_context.get("selected_section_name"),
+            "material_name": context.get("concrete_material_name") or _first_present(concrete_row, ("Material", "Name"))[1],
+            "rebar_material_name": context.get("rebar_material_name"),
+        }
+        component_id = str(identity.get("component") or "MATERIALS")
+        return FeatureSnapshot(component_type="material", component_id=component_id, identity=identity, features=features)
 
     def build_story_snapshot(self) -> FeatureSnapshot:
         drift_row = self._select_story_drift_row()
@@ -2265,6 +2820,8 @@ class C8LiveFeatureResolverSmoke:
             "story_drifts",
             "story_max_over_avg_drifts",
             "base_reactions",
+            "material_concrete_data",
+            "material_rebar_data",
         )
         tables: dict[str, Any] = {}
         for key in keys:
