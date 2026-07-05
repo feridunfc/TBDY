@@ -40,6 +40,9 @@ FULL_ROW_CAPTURE_TABLES: frozenset[str] = frozenset({
     "Story Drifts",
     "Story Max Over Avg Drifts",
     "Base Reactions",
+    "Material Properties - Concrete Data",
+    "Material Properties - Rebar Data",
+    "Material Properties - Basic Mechanical Properties",
 })
 
 OUTPUT_DEPENDENT_DISPLAY_TABLES: frozenset[str] = frozenset({

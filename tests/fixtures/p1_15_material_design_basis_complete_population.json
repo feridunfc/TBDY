@@ -1,0 +1,67 @@
+{
+  "fixture_metadata": {
+    "sprint": "P1.15",
+    "purpose": "Complete compact fixture population for live material design-basis source evidence replay.",
+    "complete_fixture_population": true,
+    "not_full_live_etabs_population": true,
+    "check_engine_executed": false,
+    "check_result_emitted": false,
+    "engineering_verdict_emitted": false,
+    "analysis_run": false,
+    "design_run": false,
+    "etabs_model_mutated": false
+  },
+  "unit_context": {
+    "source": "fixture_declared_units",
+    "etabs_present_units_raw": [4, 6, 2, 0],
+    "force_unit": "kN",
+    "length_unit": "m",
+    "temperature_unit": "C",
+    "etabs_present_units_return_code": 0,
+    "unit_query_succeeded": true,
+    "unit_query_status": "RESOLVED",
+    "unit_basis_confidence": "high"
+  },
+  "tables": [
+    {
+      "canonical_table_key": "frame_assignments_summary",
+      "actual_table_name": "Frame Assignments - Summary",
+      "field_keys": ["UniqueName", "Label", "Story", "Type", "AnalysisSect", "DesignSect", "Length"],
+      "row_count_reported": 1,
+      "rows": [
+        {"UniqueName": "297", "Label": "B1", "Story": "+14.5", "Type": "Beam", "AnalysisSect": "B40x70", "DesignSect": "B40x70", "Length": 6.2}
+      ],
+      "raw_table_diagnostics": {"parser_status": "FETCHED", "number_records": 1, "table_data_length": 7, "expected_flat_length": 7}
+    },
+    {
+      "canonical_table_key": "concrete_rectangular_frame_sections",
+      "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+      "field_keys": ["Name", "Material", "t2", "t3"],
+      "row_count_reported": 1,
+      "rows": [
+        {"Name": "B40x70", "Material": "C30/37", "t2": 0.4, "t3": 0.7}
+      ],
+      "raw_table_diagnostics": {"parser_status": "FETCHED", "number_records": 1, "table_data_length": 4, "expected_flat_length": 4}
+    },
+    {
+      "canonical_table_key": "material_concrete_data",
+      "actual_table_name": "Material Properties - Concrete Data",
+      "field_keys": ["Material", "Fc", "LtWtConc"],
+      "row_count_reported": 1,
+      "rows": [
+        {"Material": "C30/37", "Fc": 30000, "LtWtConc": "No"}
+      ],
+      "raw_table_diagnostics": {"parser_status": "FETCHED", "number_records": 1, "table_data_length": 3, "expected_flat_length": 3}
+    },
+    {
+      "canonical_table_key": "material_rebar_data",
+      "actual_table_name": "Material Properties - Rebar Data",
+      "field_keys": ["Material", "Fy", "Fu", "Fye", "Fue"],
+      "row_count_reported": 1,
+      "rows": [
+        {"Material": "B420C", "Fy": 500000, "Fu": 550000, "Fye": 500000, "Fue": 550000}
+      ],
+      "raw_table_diagnostics": {"parser_status": "FETCHED", "number_records": 1, "table_data_length": 5, "expected_flat_length": 5}
+    }
+  ]
+}
