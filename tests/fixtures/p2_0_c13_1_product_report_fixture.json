@@ -1,0 +1,38 @@
+{
+  "metadata": {
+    "artifact": "product_report_source_tables",
+    "fixture": "p2_0_c13_1_product_report_fixture"
+  },
+  "tables": {
+    "frame_assignments": {
+      "actual_table_name": "Frame Assignments - Summary",
+      "columns": ["Story", "Label", "UniqueName", "Type", "Length", "AnalysisSect", "DesignSect"],
+      "rows": [
+        {"Story": "+14.5", "Label": "B1", "UniqueName": "297", "Type": "Beam", "Length": "7.0", "AnalysisSect": "B40x70", "DesignSect": "B40x70"},
+        {"Story": "+14.5", "Label": "B2", "UniqueName": "298", "Type": "Beam", "Length": "6.0", "AnalysisSect": "B40x70", "DesignSect": "B40x70"},
+        {"Story": "+10.5", "Label": "B8", "UniqueName": "401", "Type": "Beam", "Length": "5.0", "AnalysisSect": "B60x70", "DesignSect": "B60x70"},
+        {"Story": "+4.50", "Label": "B290", "UniqueName": "760", "Type": "Beam", "Length": "3.7", "AnalysisSect": "HE160A", "DesignSect": "HE160A"},
+        {"Story": "+0.00", "Label": "C1", "UniqueName": "901", "Type": "Column", "Length": "4.5", "AnalysisSect": "C40x80", "DesignSect": "C40x80"},
+        {"Story": "+4.50", "Label": "C2", "UniqueName": "902", "Type": "Column", "Length": "4.5", "AnalysisSect": "C40x80", "DesignSect": "C40x80"},
+        {"Story": "+9.00", "Label": "SC1", "UniqueName": "903", "Type": "Column", "Length": "4.5", "AnalysisSect": "STEEL_COL", "DesignSect": "STEEL_COL"}
+      ]
+    },
+    "frame_section_properties": {
+      "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+      "columns": ["Name", "t2", "t3"],
+      "rows": [
+        {"Name": "B40x70", "t2": "0.4", "t3": "0.7"},
+        {"Name": "B60x70", "t2": "0.6", "t3": "0.7"},
+        {"Name": "C40x80", "t2": "0.4", "t3": "0.8"}
+      ]
+    },
+    "modal_participating_mass": {
+      "actual_table_name": "Modal Participating Mass Ratios",
+      "columns": ["Case", "Mode", "Period", "UX", "UY", "UZ", "RX", "RY", "RZ", "SumUX", "SumUY", "SumUZ", "SumRX", "SumRY", "SumRZ"],
+      "rows": [
+        {"Case": "Modal", "Mode": 1, "Period": 1.1, "UX": 0.2, "UY": 0.3, "UZ": 0.0, "RX": 0.0, "RY": 0.0, "RZ": 0.1, "SumUX": 0.2, "SumUY": 0.3, "SumUZ": 0.0, "SumRX": 0.0, "SumRY": 0.0, "SumRZ": 0.1},
+        {"Case": "Modal", "Mode": 2, "Period": 0.7, "UX": 0.7999, "UY": 0.6999, "UZ": 0.0, "RX": 0.0, "RY": 0.0, "RZ": 0.1, "SumUX": 0.9999, "SumUY": 0.9999, "SumUZ": 0.0, "SumRX": 0.0, "SumRY": 0.0, "SumRZ": 0.2}
+      ]
+    }
+  }
+}
