@@ -60,6 +60,26 @@ _RATIO_ALIASES = ("Ratio", "ratio")
 _FX_ALIASES = ("FX", "Fx", "fx", "base_reaction_fx")
 _FY_ALIASES = ("FY", "Fy", "fy", "base_reaction_fy")
 _STORY_BASE_TABLE_KEYS = ("story_drifts", "story_max_over_avg_drifts", "base_reactions")
+_STORY_BASE_TABLE_ALIASES = {
+    "story_drifts": "Story Drifts",
+    "story_max_over_avg_drifts": "Story Max Over Avg Drifts",
+    "base_reactions": "Base Reactions",
+}
+_STORY_BASE_BAD_PARSER_STATUSES = {
+    "",
+    "EMPTY",
+    "FAILED",
+    "PARTIAL",
+    "MALFORMED",
+    "TABLE_MISSING",
+    "TABLE_EMPTY",
+    "EMPTY_TABLE",
+    "HEADER_ONLY",
+    "COM_CALL_FAILED",
+    "TABLEDATA_EMPTY_DESPITE_RECORDS",
+    "RESOLVER_ONLY_HAS_SAMPLE_ROWS",
+}
+_STORY_BASE_SAMPLE_SOURCE_FIELDS = {"sample_rows", "sample_rows_limited"}
 
 _ETABS_FORCE_UNITS = {
     1: "lb",
@@ -802,6 +822,209 @@ class C8LiveFeatureResolverSmoke:
         column, value = _first_present(row, aliases)
         return column is not None and _is_numeric(value)
 
+    def _row_has_finite_numeric_alias(self, row: Mapping[str, Any], aliases: Sequence[str]) -> bool:
+        column, value = _first_present(row, aliases)
+        return column is not None and _to_finite_float(value) is not None
+
+    def _table_row_index(self, table_key: str, row: Mapping[str, Any] | None) -> int | None:
+        table = self._table(table_key)
+        if table is None or row is None:
+            return None
+        for index, candidate in enumerate(table.rows):
+            if candidate is row or dict(candidate) == dict(row):
+                return index
+        return None
+
+    def _stable_source_row_reference(self, table_key: str, row: Mapping[str, Any] | None) -> str | None:
+        index = self._table_row_index(table_key, row)
+        if index is None:
+            return None
+        table = self._table(table_key)
+        actual = table.actual_table_name if table else table_key
+        return f"{table_key}|actual={actual}|row_index={index}"
+
+    def _story_base_required_alias_groups(self, table_key: str) -> tuple[tuple[str, tuple[str, ...], bool], ...]:
+        if table_key == "story_drifts":
+            return (
+                ("story", tuple(_STORY_ALIASES), False),
+                ("output_case", tuple(_OUTPUT_CASE_ALIASES), False),
+                ("direction", tuple(_DIRECTION_ALIASES), False),
+                ("drift", tuple(_DRIFT_ALIASES), True),
+            )
+        if table_key == "story_max_over_avg_drifts":
+            return (
+                ("story", tuple(_STORY_ALIASES), False),
+                ("output_case", tuple(_OUTPUT_CASE_ALIASES), False),
+                ("ratio", tuple(_RATIO_ALIASES), True),
+            )
+        if table_key == "base_reactions":
+            return (
+                ("output_case", tuple(_OUTPUT_CASE_ALIASES), False),
+                ("fx", tuple(_FX_ALIASES), True),
+                ("fy", tuple(_FY_ALIASES), True),
+            )
+        return tuple()
+
+    def _story_base_table_readiness_diagnostics(self, table_key: str) -> tuple[FeatureDiagnostic, ...]:
+        table = self._table(table_key)
+        if table is None:
+            return tuple()
+        diagnostics: list[FeatureDiagnostic] = []
+        units = table.units if isinstance(table.units, Mapping) else {}
+        raw = _raw_table_diagnostics_from_table(table)
+        source_field = str(units.get("source_row_storage_field_used") or "")
+        parser_status = str(raw.get("parser_status") or units.get("parser_status") or "").strip().upper()
+        resolver_row_count = len(table.rows)
+        reported_row_count = _int_or_none(raw.get("number_records"))
+
+        ingestion_diagnostics = tuple(
+            item for item in units.get("resolver_ingestion_diagnostics", ())
+            if isinstance(item, Mapping)
+        )
+        sample_only = source_field in _STORY_BASE_SAMPLE_SOURCE_FIELDS or any(
+            str(item.get("code") or "") == "RESOLVER_ONLY_HAS_SAMPLE_ROWS" for item in ingestion_diagnostics
+        )
+        if sample_only:
+            diagnostics.append(self._diag(
+                FeatureDiagnosticCode.STORY_BASE_SOURCE_INCOMPLETE,
+                "Story/base resolver source exposes only debug sample rows; complete production rows are required",
+                table_key=table_key,
+                actual_table_name=table.actual_table_name,
+                source_row_storage_field_used=source_field,
+                reported_row_count=reported_row_count,
+                resolver_row_count=resolver_row_count,
+            ))
+            for item in ingestion_diagnostics:
+                if str(item.get("code") or "") == "RESOLVER_ONLY_HAS_SAMPLE_ROWS":
+                    diagnostics.append(self._diag(
+                        FeatureDiagnosticCode.RESOLVER_ONLY_HAS_SAMPLE_ROWS,
+                        str(item.get("message") or "Resolver only has debug sample rows"),
+                        **dict(item.get("details") or {}),
+                    ))
+
+        if parser_status in _STORY_BASE_BAD_PARSER_STATUSES:
+            diagnostics.append(self._diag(
+                FeatureDiagnosticCode.STORY_BASE_SOURCE_INCOMPLETE,
+                "Story/base source table parser status is not a complete parsed-row status",
+                table_key=table_key,
+                actual_table_name=table.actual_table_name,
+                parser_status=parser_status,
+                reported_row_count=reported_row_count,
+                resolver_row_count=resolver_row_count,
+            ))
+        if resolver_row_count <= 0:
+            diagnostics.append(self._diag(
+                FeatureDiagnosticCode.STORY_BASE_SOURCE_INCOMPLETE,
+                "Story/base source table has no resolver rows",
+                table_key=table_key,
+                actual_table_name=table.actual_table_name,
+                parser_status=parser_status,
+                reported_row_count=reported_row_count,
+                resolver_row_count=resolver_row_count,
+            ))
+        if reported_row_count is not None and reported_row_count != resolver_row_count:
+            diagnostics.append(self._diag(
+                FeatureDiagnosticCode.STORY_BASE_SOURCE_INCOMPLETE,
+                "Story/base reported row count does not match resolver row count",
+                table_key=table_key,
+                actual_table_name=table.actual_table_name,
+                reported_row_count=reported_row_count,
+                resolver_row_count=resolver_row_count,
+            ))
+
+        required_groups = self._story_base_required_alias_groups(table_key)
+        headers = tuple(str(h) for h in table.columns)
+        missing_columns: list[str] = []
+        for name, aliases, _numeric in required_groups:
+            header_present = any(_norm_key(header) in {_norm_key(alias) for alias in aliases} for header in headers)
+            row_present = any(_first_present(row, aliases)[0] is not None for row in table.rows)
+            if not header_present and not row_present:
+                missing_columns.append(name)
+        if missing_columns:
+            diagnostics.append(self._diag(
+                FeatureDiagnosticCode.STORY_BASE_REQUIRED_COLUMN_MISSING,
+                "Story/base source table is missing required columns",
+                table_key=table_key,
+                actual_table_name=table.actual_table_name,
+                missing_columns=missing_columns,
+                headers=list(headers),
+            ))
+
+        invalid_rows: list[dict[str, Any]] = []
+        for index, row in enumerate(table.rows):
+            invalid_fields: list[str] = []
+            for name, aliases, numeric in required_groups:
+                column, value = _first_present(row, aliases)
+                if column is None or value in (None, ""):
+                    invalid_fields.append(name)
+                elif numeric and _to_finite_float(value) is None:
+                    invalid_fields.append(name)
+            if invalid_fields:
+                invalid_rows.append({"row_index": index, "invalid_fields": invalid_fields})
+        if invalid_rows:
+            diagnostics.append(self._diag(
+                FeatureDiagnosticCode.STORY_BASE_VALUE_INVALID,
+                "Every story/base source row must contain finite numeric required values and required identity fields",
+                table_key=table_key,
+                actual_table_name=table.actual_table_name,
+                invalid_row_count=len(invalid_rows),
+                invalid_rows=invalid_rows[:20],
+                resolver_row_count=resolver_row_count,
+            ))
+
+        preferred = _norm(self.preferred_output_case)
+        if preferred and table.rows:
+            available_cases = [
+                _norm(_first_present(row, _OUTPUT_CASE_ALIASES)[1])
+                for row in table.rows
+                if _norm(_first_present(row, _OUTPUT_CASE_ALIASES)[1])
+            ]
+            if preferred.casefold() not in {case.casefold() for case in available_cases}:
+                diagnostics.append(self._diag(
+                    FeatureDiagnosticCode.STORY_BASE_OUTPUT_CASE_UNAVAILABLE,
+                    "Preferred story/base output case is unavailable; resolver will not silently fall back to another case",
+                    table_key=table_key,
+                    actual_table_name=table.actual_table_name,
+                    preferred_output_case=preferred,
+                    available_output_cases=sorted(set(available_cases), key=str.casefold),
+                ))
+        return tuple(diagnostics)
+
+    def _story_base_table_ready(self, table_key: str) -> bool:
+        return not self._story_base_table_readiness_diagnostics(table_key)
+
+    def _story_base_evidence_source_row(
+        self,
+        table_key: str,
+        row: Mapping[str, Any] | None,
+        *,
+        selection_reason: str | None = None,
+    ) -> Mapping[str, Any]:
+        if row is None:
+            return {}
+        table = self._table(table_key)
+        raw = _raw_table_diagnostics_from_table(table)
+        index = self._table_row_index(table_key, row)
+        _, output_case = _first_present(row, _OUTPUT_CASE_ALIASES)
+        _, story = _first_present(row, _STORY_ALIASES)
+        _, direction = _first_present(row, _DIRECTION_ALIASES)
+        source_row = {
+            **_row_identity(row),
+            "story": story if story not in (None, "") else _row_identity(row).get("story"),
+            "output_case": output_case if output_case not in (None, "") else _row_identity(row).get("output_case"),
+            "direction": direction if direction not in (None, "") else None,
+            "row_index": index,
+            "stable_row_reference": self._stable_source_row_reference(table_key, row),
+            "selection_reason": selection_reason or self._story_base_selected_reason(table_key, table, row),
+            "preferred_output_case": self.preferred_output_case,
+            "reported_row_count": _int_or_none(raw.get("number_records")),
+            "resolver_row_count": len(table.rows) if table else None,
+            "source_row_storage_field_used": table.units.get("source_row_storage_field_used") if table and isinstance(table.units, Mapping) else None,
+            "complete_source_row": _json_safe(dict(row)),
+            "complete_source_row_items": tuple((str(key), _json_safe(value)) for key, value in row.items()),
+        }
+        return {key: value for key, value in source_row.items() if value is not None}
+
     def _select_row(
         self,
         table_key: str,
@@ -833,50 +1056,55 @@ class C8LiveFeatureResolverSmoke:
         return candidates[0] if candidates else None
 
     def _select_story_drift_row(self) -> Mapping[str, Any] | None:
-        table = self._table("story_drifts")
-        if table is None or not table.rows:
+        table_key = "story_drifts"
+        table = self._table(table_key)
+        if table is None or not table.rows or not self._story_base_table_ready(table_key):
             return None
         required = (_STORY_ALIASES, _OUTPUT_CASE_ALIASES, _DIRECTION_ALIASES, _DRIFT_ALIASES)
         candidates = list(table.rows)
         target_story = self.target.get("story")
         if target_story not in (None, ""):
-            matched = [row for row in candidates if _story_values_match(_first_present(row, _STORY_ALIASES)[1], target_story)]
-            candidates = matched + [row for row in candidates if row not in matched]
+            candidates = [row for row in candidates if _story_values_match(_first_present(row, _STORY_ALIASES)[1], target_story)]
         preferred = self.preferred_output_case.casefold()
-        preferred_rows = [row for row in candidates if _norm(_first_present(row, _OUTPUT_CASE_ALIASES)[1]).casefold() == preferred]
-        candidates = preferred_rows + [row for row in candidates if row not in preferred_rows]
-        return next((row for row in candidates if self._row_has_all_alias_groups(row, required) and self._row_has_numeric_alias(row, _DRIFT_ALIASES)), None)
+        if preferred:
+            candidates = [row for row in candidates if _norm(_first_present(row, _OUTPUT_CASE_ALIASES)[1]).casefold() == preferred]
+        valid = [row for row in candidates if self._row_has_all_alias_groups(row, required) and self._row_has_finite_numeric_alias(row, _DRIFT_ALIASES)]
+        max_step = [row for row in valid if _norm(_first_present(row, ("StepType", "Step Type"))[1]).casefold() == "max"]
+        valid = max_step or valid
+        return max(valid, key=lambda row: _to_finite_float(_first_present(row, _DRIFT_ALIASES)[1]) or float("-inf")) if valid else None
 
     def _select_story_torsion_row(self) -> Mapping[str, Any] | None:
-        table = self._table("story_max_over_avg_drifts")
-        if table is None or not table.rows:
+        table_key = "story_max_over_avg_drifts"
+        table = self._table(table_key)
+        if table is None or not table.rows or not self._story_base_table_ready(table_key):
             return None
         required = (_STORY_ALIASES, _OUTPUT_CASE_ALIASES, _RATIO_ALIASES)
         candidates = list(table.rows)
         target_story = self.target.get("story")
         if target_story not in (None, ""):
-            matched = [row for row in candidates if _story_values_match(_first_present(row, _STORY_ALIASES)[1], target_story)]
-            candidates = matched + [row for row in candidates if row not in matched]
+            candidates = [row for row in candidates if _story_values_match(_first_present(row, _STORY_ALIASES)[1], target_story)]
         preferred = self.preferred_output_case.casefold()
-        preferred_rows = [row for row in candidates if _norm(_first_present(row, _OUTPUT_CASE_ALIASES)[1]).casefold() == preferred]
-        candidates = preferred_rows + [row for row in candidates if row not in preferred_rows]
-        return next((row for row in candidates if self._row_has_all_alias_groups(row, required) and self._row_has_numeric_alias(row, _RATIO_ALIASES)), None)
+        if preferred:
+            candidates = [row for row in candidates if _norm(_first_present(row, _OUTPUT_CASE_ALIASES)[1]).casefold() == preferred]
+        valid = [row for row in candidates if self._row_has_all_alias_groups(row, required) and self._row_has_finite_numeric_alias(row, _RATIO_ALIASES)]
+        max_step = [row for row in valid if _norm(_first_present(row, ("StepType", "Step Type"))[1]).casefold() == "max"]
+        return (max_step or valid)[0] if (max_step or valid) else None
 
     def _select_base_reaction_row(self) -> Mapping[str, Any] | None:
-        """Select base reactions without requiring story/component identity."""
-        table = self._table("base_reactions")
-        if table is None or not table.rows:
+        """Select base reactions for the explicit preferred output case only."""
+        table_key = "base_reactions"
+        table = self._table(table_key)
+        if table is None or not table.rows or not self._story_base_table_ready(table_key):
             return None
-        valid_rows = [row for row in table.rows if self._row_has_numeric_alias(row, _FX_ALIASES) and self._row_has_numeric_alias(row, _FY_ALIASES)]
-        if not valid_rows:
-            return None
-        preferred_cases = tuple(dict.fromkeys((self.preferred_output_case, "Crack_SeisY_UpSoil", "Crack_SeisY_Soil", "Crack_SeisY", "Crack_SeisX_Soil", "Crack_SeisX")))
-        for preferred in preferred_cases:
-            for row in valid_rows:
-                _, output_case = _first_present(row, _OUTPUT_CASE_ALIASES)
-                if _norm(output_case).casefold() == preferred.casefold():
-                    return row
-        return valid_rows[0]
+        preferred = self.preferred_output_case.casefold()
+        valid_rows = [
+            row for row in table.rows
+            if self._row_has_finite_numeric_alias(row, _FX_ALIASES)
+            and self._row_has_finite_numeric_alias(row, _FY_ALIASES)
+            and (not preferred or _norm(_first_present(row, _OUTPUT_CASE_ALIASES)[1]).casefold() == preferred)
+        ]
+        max_step = [row for row in valid_rows if _norm(_first_present(row, ("StepType", "Step Type"))[1]).casefold() == "max"]
+        return (max_step or valid_rows)[0] if (max_step or valid_rows) else None
 
     def _diag(self, code: FeatureDiagnosticCode | str, message: str, **details: Any) -> FeatureDiagnostic:
         return FeatureDiagnostic(severity=FeatureDiagnosticSeverity.WARNING, code=code, message=message, details=details)
@@ -1057,12 +1285,17 @@ class C8LiveFeatureResolverSmoke:
         if not safe:
             diagnostics = tuple(extra_diagnostics) + tuple(unit_diags) + tuple(combo_diags)
             return self._partial(feature_name, "Unit normalization is missing or unverified; feature kept partial rather than silently resolved", unit=unit, table_key=table_key, actual_table_name=table.actual_table_name if table else table_key, column=column, row=row, diagnostics=diagnostics)
+        evidence_source_row = (
+            self._story_base_evidence_source_row(table_key, row, selection_reason=reason)
+            if table_key in _STORY_BASE_TABLE_KEYS
+            else _row_identity(row)
+        )
         evidence = FeatureEvidence(
             evidence_status=FeatureEvidenceStatus.FULL,
             source_table=table_key,
             actual_table_name=table.actual_table_name if table else table_key,
             source_column=column,
-            source_row=_row_identity(row),
+            source_row=evidence_source_row,
             output_case=_norm(output_case) if output_case not in (None, "") else None,
             combo_family=combo_family,
             raw_value=value,
@@ -1948,21 +2181,25 @@ class C8LiveFeatureResolverSmoke:
         _, drift_story = _first_present(drift_row, _STORY_ALIASES)
         _, torsion_story = _first_present(torsion_row, _STORY_ALIASES)
         story = self.target.get("story") or drift_story or torsion_story
-        story_diag: tuple[FeatureDiagnostic, ...] = tuple()
+        story_fallback_diag: tuple[FeatureDiagnostic, ...] = tuple()
         if self.target.get("story") in (None, "") and story not in (None, ""):
-            story_diag = (
+            story_fallback_diag = (
                 self._diag(
                     FeatureDiagnosticCode.FILTER_NOT_MATCHED,
                     "No target_story was provided; selected deterministic valid story row as smoke fallback",
                     selected_story=story,
                 ),
             )
+        drift_diag = self._story_base_table_readiness_diagnostics("story_drifts") + story_fallback_diag
+        torsion_diag = self._story_base_table_readiness_diagnostics("story_max_over_avg_drifts") + story_fallback_diag
+        drift_reason = self._story_base_selected_reason("story_drifts", self._table("story_drifts"), drift_row) if drift_row else None
+        torsion_reason = self._story_base_selected_reason("story_max_over_avg_drifts", self._table("story_max_over_avg_drifts"), torsion_row) if torsion_row else None
         features = {
-            "story_drift_value": self._resolve_from_row("story_drift_value", "story_drifts", drift_row, _DRIFT_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES, diagnostics=story_diag),
-            "story_drift_max_mm": self._resolve_from_row("story_drift_max_mm", "story_drifts", drift_row, _DRIFT_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES, diagnostics=story_diag),
-            "story_drift_output_case": self._resolve_from_row("story_drift_output_case", "story_drifts", drift_row, _OUTPUT_CASE_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES, diagnostics=story_diag),
-            "story_drift_direction": self._resolve_from_row("story_drift_direction", "story_drifts", drift_row, _DIRECTION_ALIASES, diagnostics=story_diag),
-            "story_torsion_a1_coefficient": self._resolve_from_row("story_torsion_a1_coefficient", "story_max_over_avg_drifts", torsion_row, _RATIO_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES, diagnostics=story_diag),
+            "story_drift_value": self._resolve_from_row("story_drift_value", "story_drifts", drift_row, _DRIFT_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES, diagnostics=drift_diag, reason=drift_reason),
+            "story_drift_max_mm": self._resolve_from_row("story_drift_max_mm", "story_drifts", drift_row, _DRIFT_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES, diagnostics=drift_diag, reason=drift_reason),
+            "story_drift_output_case": self._resolve_from_row("story_drift_output_case", "story_drifts", drift_row, _OUTPUT_CASE_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES, diagnostics=drift_diag, reason=drift_reason),
+            "story_drift_direction": self._resolve_from_row("story_drift_direction", "story_drifts", drift_row, _DIRECTION_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES, diagnostics=drift_diag, reason=drift_reason),
+            "story_torsion_a1_coefficient": self._resolve_from_row("story_torsion_a1_coefficient", "story_max_over_avg_drifts", torsion_row, _RATIO_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES, diagnostics=torsion_diag, reason=torsion_reason),
         }
         story_component = _norm(story or "STORY_SAMPLE")
         identity = {"component": story_component, "story": story}
@@ -1970,13 +2207,15 @@ class C8LiveFeatureResolverSmoke:
 
     def build_global_snapshot(self) -> FeatureSnapshot:
         base_row = self._select_base_reaction_row()
+        base_diag = self._story_base_table_readiness_diagnostics("base_reactions")
+        base_reason = self._story_base_selected_reason("base_reactions", self._table("base_reactions"), base_row) if base_row else None
         features = {
             "modal_sum_ux": self._resolve_modal_cumulative_feature("modal_sum_ux", "SumUX"),
             "modal_sum_uy": self._resolve_modal_cumulative_feature("modal_sum_uy", "SumUY"),
-            "base_reaction_fx": self._resolve_from_row("base_reaction_fx", "base_reactions", base_row, _FX_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES),
-            "base_reaction_fy": self._resolve_from_row("base_reaction_fy", "base_reactions", base_row, _FY_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES),
-            "base_reaction_x_kN": self._resolve_from_row("base_reaction_x_kN", "base_reactions", base_row, _FX_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES),
-            "base_reaction_y_kN": self._resolve_from_row("base_reaction_y_kN", "base_reactions", base_row, _FY_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES),
+            "base_reaction_fx": self._resolve_from_row("base_reaction_fx", "base_reactions", base_row, _FX_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES, diagnostics=base_diag, reason=base_reason),
+            "base_reaction_fy": self._resolve_from_row("base_reaction_fy", "base_reactions", base_row, _FY_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES, diagnostics=base_diag, reason=base_reason),
+            "base_reaction_x_kN": self._resolve_from_row("base_reaction_x_kN", "base_reactions", base_row, _FX_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES, diagnostics=base_diag, reason=base_reason),
+            "base_reaction_y_kN": self._resolve_from_row("base_reaction_y_kN", "base_reactions", base_row, _FY_ALIASES, combo_column_aliases=_OUTPUT_CASE_ALIASES, diagnostics=base_diag, reason=base_reason),
         }
         return FeatureSnapshot(component_type="global", component_id="GLOBAL", identity={"component": "GLOBAL"}, features=features)
 
@@ -2023,6 +2262,9 @@ class C8LiveFeatureResolverSmoke:
             "frame_assignments",
             "frame_section_properties",
             "modal_participating_mass",
+            "story_drifts",
+            "story_max_over_avg_drifts",
+            "base_reactions",
         )
         tables: dict[str, Any] = {}
         for key in keys:
@@ -2052,7 +2294,7 @@ class C8LiveFeatureResolverSmoke:
                 "read_only": True,
                 "check_engine_executed": False,
                 "engineering_scope_unlocked": False,
-                "intended_use": "C13.0 all beam section type screening report",
+                "intended_use": "C13.0/C13.1 product source table reporting plus P1.14 story/base source evidence",
             },
             "tables": tables,
         }
@@ -2170,15 +2412,24 @@ class C8LiveFeatureResolverSmoke:
             return "only_debug_sample_rows_available" if sample_only else "no_resolver_rows"
         if selected is None:
             return "rows_present_but_required_alias_or_target_match_missing"
-        if table_key in {"story_drifts", "story_max_over_avg_drifts"} and self.target.get("story") not in (None, ""):
+        if table_key in {"story_drifts", "story_max_over_avg_drifts"}:
             _, story = _first_present(selected, _STORY_ALIASES)
-            if _story_values_match(story, self.target.get("story")):
+            _, output_case = _first_present(selected, _OUTPUT_CASE_ALIASES)
+            story_matches = self.target.get("story") in (None, "") or _story_values_match(story, self.target.get("story"))
+            output_case_matches = _norm(output_case).casefold() == self.preferred_output_case.casefold()
+            if story_matches and output_case_matches:
+                return "target_story_and_preferred_output_case_match_with_required_columns"
+            if story_matches:
                 return "target_story_match_with_required_columns"
         if table_key == "base_reactions":
             _, output_case = _first_present(selected, _OUTPUT_CASE_ALIASES)
-            if _norm(output_case).casefold() == "crack_seisy_upsoil":
+            if _norm(output_case).casefold() == self.preferred_output_case.casefold():
                 return "preferred_output_case_match_with_numeric_fx_fy"
-            return "first_valid_numeric_fx_fy_row"
+            return "no_silent_fallback_allowed"
+        if table_key in {"story_drifts", "story_max_over_avg_drifts"}:
+            _, output_case = _first_present(selected, _OUTPUT_CASE_ALIASES)
+            if _norm(output_case).casefold() == self.preferred_output_case.casefold():
+                return "target_story_and_preferred_output_case_match_with_required_columns"
         return "deterministic_valid_row"
 
     def _story_base_table_debug_report(self) -> dict[str, Any]:

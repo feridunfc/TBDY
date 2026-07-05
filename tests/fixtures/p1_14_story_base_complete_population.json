@@ -1,0 +1,295 @@
+{
+  "metadata": {
+    "fixture": "p1_14_story_base_complete_population",
+    "purpose": "Complete compact story/base fixture population derived from supplied P1.14 live evidence selected rows; not the full 100-row live evidence.",
+    "complete_fixture_population": true,
+    "not_full_live_etabs_population": true,
+    "source_evidence_archive": "p1_14_15_16_live_evidence_20260703_234035.zip"
+  },
+  "unit_context": {
+    "source": "fixture_declared_units",
+    "force_unit": "kN",
+    "length_unit": "m",
+    "temperature_unit": "C",
+    "unit_query_succeeded": true,
+    "unit_query_status": "RESOLVED",
+    "unit_basis_confidence": "high"
+  },
+  "tables": [
+    {
+      "actual_table_name": "Story Drifts",
+      "headers": [
+        "Story",
+        "OutputCase",
+        "CaseType",
+        "StepType",
+        "StepNumber",
+        "StepLabel",
+        "Direction",
+        "Drift",
+        "Drift/",
+        "Label",
+        "X",
+        "Y",
+        "Z"
+      ],
+      "row_count_reported": 4,
+      "rows": [
+        {
+          "Story": "+10.5",
+          "OutputCase": "Crack_SeisX_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Max",
+          "StepNumber": null,
+          "StepLabel": null,
+          "Direction": "X",
+          "Drift": "0.000800",
+          "Drift/": "1/1250",
+          "Label": "31",
+          "X": "74",
+          "Y": "59.8",
+          "Z": "10.5"
+        },
+        {
+          "Story": "+14.5",
+          "OutputCase": "Crack_SeisY_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Max",
+          "StepNumber": null,
+          "StepLabel": null,
+          "Direction": "X",
+          "Drift": "0.000534",
+          "Drift/": "1/1871",
+          "Label": "8",
+          "X": "74",
+          "Y": "22.3",
+          "Z": "14.5"
+        },
+        {
+          "Story": "+14.5",
+          "OutputCase": "Crack_SeisX_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Min",
+          "StepNumber": null,
+          "StepLabel": null,
+          "Direction": "X",
+          "Drift": "0.001099",
+          "Drift/": "1/910",
+          "Label": "59",
+          "X": "102",
+          "Y": "59.8",
+          "Z": "14.5"
+        },
+        {
+          "Story": "+14.5",
+          "OutputCase": "Crack_SeisX_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Max",
+          "StepNumber": null,
+          "StepLabel": null,
+          "Direction": "X",
+          "Drift": "0.001125",
+          "Drift/": "1/889",
+          "Label": "51",
+          "X": "74",
+          "Y": "59.8",
+          "Z": "14.5"
+        }
+      ]
+    },
+    {
+      "actual_table_name": "Story Max Over Avg Drifts",
+      "headers": [
+        "Story",
+        "OutputCase",
+        "CaseType",
+        "StepType",
+        "StepNumber",
+        "StepLabel",
+        "Direction",
+        "Max Drift",
+        "Avg Drift",
+        "Ratio"
+      ],
+      "row_count_reported": 4,
+      "rows": [
+        {
+          "Story": "+10.5",
+          "OutputCase": "Crack_SeisX_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Max",
+          "StepNumber": null,
+          "StepLabel": null,
+          "Direction": "X",
+          "Max Drift": "0.005000",
+          "Avg Drift": "0.004000",
+          "Ratio": "1.25"
+        },
+        {
+          "Story": "+14.5",
+          "OutputCase": "Crack_SeisY_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Max",
+          "StepNumber": null,
+          "StepLabel": null,
+          "Direction": "X",
+          "Max Drift": "0.002939",
+          "Avg Drift": "0.00254",
+          "Ratio": "1.157"
+        },
+        {
+          "Story": "+14.5",
+          "OutputCase": "Crack_SeisX_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Min",
+          "StepNumber": null,
+          "StepLabel": null,
+          "Direction": "X",
+          "Max Drift": "0.006042",
+          "Avg Drift": "0.00553",
+          "Ratio": "1.092"
+        },
+        {
+          "Story": "+14.5",
+          "OutputCase": "Crack_SeisX_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Max",
+          "StepNumber": null,
+          "StepLabel": null,
+          "Direction": "X",
+          "Max Drift": "0.006187",
+          "Avg Drift": "0.005786",
+          "Ratio": "1.069"
+        }
+      ]
+    },
+    {
+      "actual_table_name": "Base Reactions",
+      "headers": [
+        "OutputCase",
+        "CaseType",
+        "StepType",
+        "StepNumber",
+        "StepLabel",
+        "FX",
+        "FY",
+        "FZ",
+        "MX",
+        "MY",
+        "MZ",
+        "X",
+        "Y",
+        "Z"
+      ],
+      "row_count_reported": 4,
+      "rows": [
+        {
+          "OutputCase": "Crack_SeisY_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Max",
+          "StepNumber": null,
+          "StepLabel": null,
+          "FX": "12979.0527",
+          "FY": "12890.0006",
+          "FZ": "120303.739",
+          "MX": "4672383.1168",
+          "MY": "-9785995",
+          "MZ": "818850.1569",
+          "X": "0",
+          "Y": "0",
+          "Z": "-5.15"
+        },
+        {
+          "OutputCase": "Crack_SeisY_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Min",
+          "StepNumber": null,
+          "StepLabel": null,
+          "FX": "-3600.0000",
+          "FY": "-2300.0000",
+          "FZ": "119000.0000",
+          "MX": "0",
+          "MY": "0",
+          "MZ": "0",
+          "X": "0",
+          "Y": "0",
+          "Z": "-5.15"
+        },
+        {
+          "OutputCase": "Crack_SeisX_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Max",
+          "StepNumber": null,
+          "StepLabel": null,
+          "FX": "20396.1433",
+          "FY": "5360.3225",
+          "FZ": "120301.4673",
+          "MX": "4582923.4486",
+          "MY": "-9702999",
+          "MZ": "485019.8857",
+          "X": "0",
+          "Y": "0",
+          "Z": "-5.15"
+        },
+        {
+          "OutputCase": "Crack_SeisX_UpSoil",
+          "CaseType": "Combination",
+          "StepType": "Min",
+          "StepNumber": null,
+          "StepLabel": null,
+          "FX": "-2950.0493",
+          "FY": "-3248.2678",
+          "FZ": "119271.2507",
+          "MX": "4451161.0515",
+          "MY": "-10029156",
+          "MZ": "-1109435",
+          "X": "0",
+          "Y": "0",
+          "Z": "-5.15"
+        }
+      ]
+    },
+    {
+      "actual_table_name": "Frame Assignments - Summary",
+      "headers": [
+        "UniqueName",
+        "Label",
+        "Story",
+        "Type",
+        "AnalysisSect",
+        "DesignSect",
+        "Length"
+      ],
+      "row_count_reported": 1,
+      "rows": [
+        {
+          "UniqueName": "297",
+          "Label": "B1",
+          "Story": "+14.5",
+          "Type": "Beam",
+          "AnalysisSect": "B40x70",
+          "DesignSect": "B40x70",
+          "Length": "6.20"
+        }
+      ]
+    },
+    {
+      "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+      "headers": [
+        "Name",
+        "Material",
+        "t2",
+        "t3"
+      ],
+      "row_count_reported": 1,
+      "rows": [
+        {
+          "Name": "B40x70",
+          "Material": "C30",
+          "t2": "0.4",
+          "t3": "0.7"
+        }
+      ]
+    }
+  ]
+}

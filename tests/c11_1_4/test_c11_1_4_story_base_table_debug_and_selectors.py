@@ -17,10 +17,15 @@ from tbdy_engine.features.value import FeatureValueStatus
 from tools.probe_live_story_base_tables import build_table_debug
 
 FIXTURE = Path("tests/fixtures/c8_3_direct_api_geometry_fixture.json")
+P1_14_COMPLETE_FIXTURE = Path("tests/fixtures/p1_14_story_base_complete_population.json")
 
 
 def _payload() -> dict:
     return json.loads(FIXTURE.read_text(encoding="utf-8"))
+
+
+def _complete_payload() -> dict:
+    return json.loads(P1_14_COMPLETE_FIXTURE.read_text(encoding="utf-8"))
 
 
 def _table(payload: dict, canonical_key: str) -> dict:
@@ -89,14 +94,15 @@ def test_story_selector_accepts_normalized_lowercase_live_rows():
     payload = deepcopy(_payload())
     story = _table(payload, "story_drifts")
     story["headers"] = story["field_keys"] = ["story", "output_case", "direction", "drift"]
-    story["sample_rows_limited"] = [{"story": "14.5000", "output_case": "Crack_SeisY_UpSoil", "direction": "Y", "drift": 9.5}]
+    story["rows"] = [{"story": "14.5000", "output_case": "Crack_SeisY_UpSoil", "direction": "Y", "drift": 9.5}]
+    story["row_count_reported"] = 1
     snapshot = _resolver(payload).build_story_snapshot()
     for name in ("story_drift_value", "story_drift_max_mm", "story_drift_output_case", "story_drift_direction"):
         _assert_full_resolved(_feature(snapshot, name))
 
 
 def test_story_selector_accepts_raw_etabs_header_rows():
-    snapshot = _resolver().build_story_snapshot()
+    snapshot = _resolver(_complete_payload()).build_story_snapshot()
     for name in ("story_drift_value", "story_drift_max_mm", "story_drift_output_case", "story_drift_direction"):
         _assert_full_resolved(_feature(snapshot, name))
     assert _feature(snapshot, "story_drift_value").evidence[0].source_column == "Drift"
@@ -106,13 +112,14 @@ def test_story_torsion_selector_accepts_lowercase_rows():
     payload = deepcopy(_payload())
     torsion = _table(payload, "story_max_over_avg_drifts")
     torsion["headers"] = torsion["field_keys"] = ["story", "output_case", "ratio"]
-    torsion["sample_rows_limited"] = [{"story": "14.5", "output_case": "Crack_SeisY_UpSoil", "ratio": 1.33}]
+    torsion["rows"] = [{"story": "14.5", "output_case": "Crack_SeisY_UpSoil", "ratio": 1.33}]
+    torsion["row_count_reported"] = 1
     snapshot = _resolver(payload).build_story_snapshot()
     _assert_full_resolved(_feature(snapshot, "story_torsion_a1_coefficient"))
 
 
 def test_story_torsion_selector_accepts_raw_rows():
-    snapshot = _resolver().build_story_snapshot()
+    snapshot = _resolver(_complete_payload()).build_story_snapshot()
     torsion = _feature(snapshot, "story_torsion_a1_coefficient")
     _assert_full_resolved(torsion)
     assert torsion.evidence[0].source_column == "Ratio"
@@ -122,14 +129,15 @@ def test_base_selector_accepts_lowercase_rows_without_story():
     payload = deepcopy(_payload())
     base = _table(payload, "base_reactions")
     base["headers"] = base["field_keys"] = ["output_case", "fx", "fy"]
-    base["sample_rows_limited"] = [{"output_case": "Crack_SeisY_UpSoil", "fx": 1020.5, "fy": 2440.1}]
+    base["rows"] = [{"output_case": "Crack_SeisY_UpSoil", "fx": 1020.5, "fy": 2440.1}]
+    base["row_count_reported"] = 1
     snapshot = _resolver(payload).build_global_snapshot()
     for name in ("base_reaction_fx", "base_reaction_fy", "base_reaction_x_kN", "base_reaction_y_kN"):
         _assert_full_resolved(_feature(snapshot, name))
 
 
 def test_base_selector_accepts_raw_etabs_rows_without_story():
-    snapshot = _resolver().build_global_snapshot()
+    snapshot = _resolver(_complete_payload()).build_global_snapshot()
     for name, col in {
         "base_reaction_fx": "FX",
         "base_reaction_fy": "FY",
@@ -167,8 +175,9 @@ def test_c8_3_historical_sample_modal_rows_remain_partial():
     counts = {}
     for row in outputs.feature_resolution_report:
         counts[row["status"]] = counts.get(row["status"], 0) + 1
-    assert counts == {"RESOLVED": 26, "PARTIAL": 2}
+    assert counts == {"RESOLVED": 17, "PARTIAL": 11}
     assert outputs.story_base_table_debug_report["story_drifts"]["parser_status"] == "PARSED_ROWS"
+    assert outputs.story_base_table_debug_report["story_drifts"]["source_row_storage_field_used"] == "sample_rows_limited"
 
 
 def test_historical_sample_modal_source_does_not_emit_cumulative_evidence():

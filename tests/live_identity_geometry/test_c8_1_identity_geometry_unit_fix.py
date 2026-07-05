@@ -14,6 +14,7 @@ from tbdy_engine.features.value import FeatureValueStatus
 
 FIXTURE = Path("tests/fixtures/c8_1_live_units_fixture.json")
 BASE_FIXTURE = Path("tests/fixtures/c8_table_headers_fixture.json")
+P1_14_STORY_BASE_FIXTURE = Path("tests/fixtures/p1_14_story_base_complete_population.json")
 OUT_FILES = {
     "feature_snapshot.json",
     "feature_resolution_report.json",
@@ -236,7 +237,7 @@ def test_c8_1_combo_review_diagnostic_preserved():
 
 
 def test_c8_1_drift_torsion_semantic_lock_preserved():
-    story = _resolver().build_story_snapshot()
+    story = _resolver(P1_14_STORY_BASE_FIXTURE).build_story_snapshot()
     assert story.features["story_drift_value"].evidence[0].source_column == "Drift"
     assert story.features["story_torsion_a1_coefficient"].evidence[0].source_column == "Ratio"
     assert story.features["story_torsion_a1_coefficient"].feature_name != "story_drift_value"

@@ -12,6 +12,7 @@ from tbdy_engine.features.resolver.live_smoke import C8LiveFeatureResolverSmoke,
 from tbdy_engine.features.value import FeatureValueStatus
 
 FIXTURE = Path("tests/fixtures/c8_table_headers_fixture.json")
+P1_14_STORY_BASE_FIXTURE = Path("tests/fixtures/p1_14_story_base_complete_population.json")
 FORBIDDEN_IMPORT_TEXT = (
     "runner_v2",
     "runtime",
@@ -32,6 +33,22 @@ def _resolver():
 
 def _outputs():
     return _resolver().build_all()
+
+
+def _complete_story_base_resolver(preferred_output_case: str = "Crack_SeisX_UpSoil"):
+    bundle = load_contracts()
+    payload = json.loads(P1_14_STORY_BASE_FIXTURE.read_text(encoding="utf-8"))
+    tables = tables_from_probe_report(payload, bundle)
+    return C8LiveFeatureResolverSmoke(
+        bundle,
+        tables,
+        unit_context=payload["unit_context"],
+        target_component="297",
+        target_label="B1",
+        target_story="+14.5",
+        target_section="B40x70",
+        preferred_output_case=preferred_output_case,
+    )
 
 
 def _feature(snapshot, name):
@@ -103,13 +120,16 @@ def test_warnmsg_errmsg_are_evidence_diagnostics_not_checkresult_status():
 
 
 def test_story_drifts_drift_and_story_max_over_avg_ratio_are_separated():
-    story = _resolver().build_story_snapshot()
+    story = _complete_story_base_resolver().build_story_snapshot()
     drift = _feature(story, "story_drift_value")
     torsion = _feature(story, "story_torsion_a1_coefficient")
-    assert drift.value == 9.5
+    assert drift.status == FeatureValueStatus.RESOLVED
+    assert drift.value == 1.125
     assert drift.evidence[0].source_table == "story_drifts"
     assert drift.evidence[0].source_column == "Drift"
-    assert torsion.value == 1.33
+    assert drift.evidence[0].source_row["source_row_storage_field_used"] == "rows"
+    assert torsion.status == FeatureValueStatus.RESOLVED
+    assert torsion.value == 1.069
     assert torsion.evidence[0].source_table == "story_max_over_avg_drifts"
     assert torsion.evidence[0].source_column == "Ratio"
 
@@ -124,11 +144,12 @@ def test_historical_sample_only_modal_source_fails_closed():
 
 
 def test_base_reactions_fx_fy_resolve():
-    global_snapshot = _resolver().build_global_snapshot()
-    assert _feature(global_snapshot, "base_reaction_fx").value == 1.0205
-    assert _feature(global_snapshot, "base_reaction_fy").value == pytest.approx(2.4401)
+    global_snapshot = _complete_story_base_resolver().build_global_snapshot()
+    assert _feature(global_snapshot, "base_reaction_fx").value == 20396.1433
+    assert _feature(global_snapshot, "base_reaction_fy").value == pytest.approx(5360.3225)
     assert _feature(global_snapshot, "base_reaction_fx").evidence[0].source_column == "FX"
     assert _feature(global_snapshot, "base_reaction_fy").evidence[0].source_column == "FY"
+    assert _feature(global_snapshot, "base_reaction_fx").evidence[0].source_row["source_row_storage_field_used"] == "rows"
 
 
 def test_missing_section_row_produces_partial_or_missing():
