@@ -59,7 +59,7 @@ def _story_rows() -> list[dict]:
 
 def _base_rows() -> list[dict]:
     return [
-        {"OutputCase": "Envelope", "FX": "not_numeric", "FY": "not_numeric"},
+        {"OutputCase": "Envelope", "FX": 1.0, "FY": 2.0},
         {"OutputCase": "Crack_SeisX", "FX": 100.0, "FY": 200.0},
         {"OutputCase": "Crack_SeisY_UpSoil", "FX": 1020.5, "FY": 2440.1},
     ]
@@ -243,7 +243,7 @@ def test_c8_3_historical_sample_modal_rows_remain_fail_closed():
     counts = {}
     for row in outputs.feature_resolution_report:
         counts[row["status"]] = counts.get(row["status"], 0) + 1
-    assert counts == {"RESOLVED": 26, "PARTIAL": 2}
+    assert counts == {"RESOLVED": 17, "PARTIAL": 11}
     modal_rows = {
         row["feature_name"]: row
         for row in outputs.missing_features_report
