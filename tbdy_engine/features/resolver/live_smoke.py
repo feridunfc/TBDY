@@ -26,6 +26,14 @@ from tbdy_engine.coverage.builder import CoverageBuilder
 from tbdy_engine.features.diagnostics import FeatureDiagnostic, FeatureDiagnosticCode, FeatureDiagnosticSeverity
 from tbdy_engine.features.evidence import FeatureEvidence, FeatureEvidenceStatus
 from tbdy_engine.features.snapshot import FeatureSnapshot
+from tbdy_engine.features.source_tables import (
+    raw_table_diagnostics_from_table as _source_raw_table_diagnostics_from_table,
+    row_index as _source_row_index,
+    source_reference as _source_reference,
+    source_row_evidence as _source_row_evidence,
+    stable_row_reference as _source_stable_row_reference,
+    stable_row_reference_object as _source_stable_row_reference_object,
+)
 from tbdy_engine.features.value import FeatureValue, FeatureValueStatus
 from tbdy_engine.providers.table_registry import TableRegistry
 from tbdy_engine.providers.etabs_display_table_parser import (
@@ -636,52 +644,7 @@ def _raw_table_diagnostics_from_item(item: Mapping[str, Any], *, headers: Sequen
 
 
 def _raw_table_diagnostics_from_table(table: CanonicalTable | None) -> dict[str, Any]:
-    if table is None:
-        return {
-            "table_name": None,
-            "return_code": None,
-            "number_fields": 0,
-            "number_records": 0,
-            "fields": [],
-            "table_data_length": 0,
-            "expected_flat_length": None,
-            "parser_status": "TABLE_MISSING",
-        }
-    raw = table.units.get("raw_table_diagnostics") if isinstance(table.units, Mapping) else None
-    if isinstance(raw, Mapping):
-        out = dict(raw)
-        out.setdefault("header_count", len(table.columns))
-        if out.get("number_fields_source") == "ambiguous":
-            out["number_fields"] = None
-            out["number_fields_detected"] = None
-        else:
-            out.setdefault("number_fields_detected", out.get("number_fields"))
-            out.setdefault("number_fields_source", "raw_table_diagnostics")
-        out.setdefault("signature_attempts", [])
-        out.setdefault("selected_signature", {})
-        out.setdefault("selected_signature_reason", None)
-        out.setdefault("parser_status_by_signature", {})
-        out.setdefault("table_data_length_by_signature", {})
-        out.setdefault("number_records_by_signature", {})
-        out.setdefault("preferred_output_kind_detected", "unknown")
-        out.setdefault("attempted_case_fallback", False)
-        out.setdefault("skipped_case_selection_because_combo_succeeded", False)
-        out.setdefault("display_selection_attempted", False)
-        out.setdefault("display_selection_attempts", [])
-        out.setdefault("display_selection_selected_method", None)
-        out.setdefault("display_selection_success", False)
-        out.setdefault("fetch_after_display_selection", False)
-        return out
-    return {
-        "table_name": table.actual_table_name,
-        "return_code": None,
-        "number_fields": len(table.columns),
-        "number_records": len(table.rows),
-        "fields": list(table.columns),
-        "table_data_length": len(table.rows) * len(table.columns),
-        "expected_flat_length": len(table.rows) * len(table.columns),
-        "parser_status": "FETCHED" if table.rows else "EMPTY",
-    }
+    return _source_raw_table_diagnostics_from_table(table)
 
 
 def _tabledata_empty_despite_records(raw: Mapping[str, Any]) -> bool:
@@ -852,21 +815,10 @@ class C8LiveFeatureResolverSmoke:
         return column is not None and _to_finite_float(value) is not None
 
     def _table_row_index(self, table_key: str, row: Mapping[str, Any] | None) -> int | None:
-        table = self._table(table_key)
-        if table is None or row is None:
-            return None
-        for index, candidate in enumerate(table.rows):
-            if candidate is row or dict(candidate) == dict(row):
-                return index
-        return None
+        return _source_row_index(self._table(table_key), row)
 
     def _stable_source_row_reference(self, table_key: str, row: Mapping[str, Any] | None) -> str | None:
-        index = self._table_row_index(table_key, row)
-        if index is None:
-            return None
-        table = self._table(table_key)
-        actual = table.actual_table_name if table else table_key
-        return f"{table_key}|actual={actual}|row_index={index}"
+        return _source_stable_row_reference(table_key, self._table(table_key), row)
 
     def _story_base_required_alias_groups(self, table_key: str) -> tuple[tuple[str, tuple[str, ...], bool], ...]:
         if table_key == "story_drifts":
@@ -1028,27 +980,27 @@ class C8LiveFeatureResolverSmoke:
         if row is None:
             return {}
         table = self._table(table_key)
-        raw = _raw_table_diagnostics_from_table(table)
-        index = self._table_row_index(table_key, row)
         _, output_case = _first_present(row, _OUTPUT_CASE_ALIASES)
         _, story = _first_present(row, _STORY_ALIASES)
         _, direction = _first_present(row, _DIRECTION_ALIASES)
-        source_row = {
-            **_row_identity(row),
-            "story": story if story not in (None, "") else _row_identity(row).get("story"),
-            "output_case": output_case if output_case not in (None, "") else _row_identity(row).get("output_case"),
+        identity = _row_identity(row)
+        extra = {
+            **identity,
+            "story": story if story not in (None, "") else identity.get("story"),
+            "output_case": output_case if output_case not in (None, "") else identity.get("output_case"),
             "direction": direction if direction not in (None, "") else None,
-            "row_index": index,
-            "stable_row_reference": self._stable_source_row_reference(table_key, row),
-            "selection_reason": selection_reason or self._story_base_selected_reason(table_key, table, row),
             "preferred_output_case": self.preferred_output_case,
-            "reported_row_count": _int_or_none(raw.get("number_records")),
-            "resolver_row_count": len(table.rows) if table else None,
             "source_row_storage_field_used": table.units.get("source_row_storage_field_used") if table and isinstance(table.units, Mapping) else None,
-            "complete_source_row": _json_safe(dict(row)),
             "complete_source_row_items": tuple((str(key), _json_safe(value)) for key, value in row.items()),
         }
-        return {key: value for key, value in source_row.items() if value is not None}
+        return _source_row_evidence(
+            table_key,
+            table,
+            row,
+            source_column=None,
+            selection_reason=selection_reason or self._story_base_selected_reason(table_key, table, row),
+            extra=extra,
+        )
 
     def _select_row(
         self,
@@ -2243,25 +2195,17 @@ class C8LiveFeatureResolverSmoke:
         return None
 
     def _material_row_index(self, table_key: str, row: Mapping[str, Any] | None) -> int | None:
-        table = self._table(table_key)
-        if table is None or row is None:
-            return None
-        for index, candidate in enumerate(table.rows):
-            if candidate is row or dict(candidate) == dict(row):
-                return index
-        return None
+        return _source_row_index(self._table(table_key), row)
 
     def _material_source_reference(self, table_key: str, row: Mapping[str, Any] | None, *, column: str | None = None) -> str:
-        table = self._table(table_key)
-        actual = table.actual_table_name if table else table_key
-        row_index = self._material_row_index(table_key, row)
-        material = _first_present(row, ("Material", "Name"))[1] if row else None
-        parts = ["LIVE_ETABS_DISPLAY_TABLE", str(actual or table_key), f"row={row_index if row_index is not None else 'unresolved'}"]
-        if material not in (None, ""):
-            parts.append(f"material={material}")
-        if column:
-            parts.append(f"column={column}")
-        return ":".join(parts)
+        return _source_reference(
+            "LIVE_ETABS_DISPLAY_TABLE",
+            table_key,
+            self._table(table_key),
+            row,
+            column=column,
+            identity_fields=("Material", "Name"),
+        )
 
     def _material_context_source_row(
         self,
@@ -2274,29 +2218,24 @@ class C8LiveFeatureResolverSmoke:
         section_context: Mapping[str, Any],
     ) -> dict[str, Any]:
         table = self._table(table_key)
-        raw = _raw_table_diagnostics_from_table(table)
-        row_index = self._material_row_index(table_key, row)
-        return {
-            "source_reference": self._material_source_reference(table_key, row, column=column),
-            "source_kind": table.source if table else None,
-            "source_table": table_key,
-            "actual_table_name": table.actual_table_name if table else None,
-            "source_column": column,
-            "row_index": row_index,
-            "stable_row_reference": {
-                "table_key": table_key,
-                "actual_table_name": table.actual_table_name if table else None,
-                "row_index": row_index,
-                "material": _first_present(row, ("Material", "Name"))[1] if row else None,
+        return _source_row_evidence(
+            table_key,
+            table,
+            row,
+            source_column=column,
+            selection_reason=selection_reason,
+            stable_reference=_source_stable_row_reference_object(
+                table_key,
+                table,
+                row,
+                identity_fields=("Material", "Name"),
+            ),
+            extra={
+                "source_reference": self._material_source_reference(table_key, row, column=column),
+                "selected_component_identity_context": dict(component_context),
+                "selected_section_context": dict(section_context),
             },
-            "reported_row_count": _int_or_none(raw.get("number_records")),
-            "resolver_row_count": len(table.rows) if table else 0,
-            "parser_status": raw.get("parser_status"),
-            "selection_reason": selection_reason,
-            "selected_component_identity_context": dict(component_context),
-            "selected_section_context": dict(section_context),
-            "complete_source_row": dict(row or {}),
-        }
+        )
 
     def _material_feature_partial(
         self,
