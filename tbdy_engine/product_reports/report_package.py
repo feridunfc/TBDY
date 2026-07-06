@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-SPRINT_ID = "P2.2_TRUTHFUL_REPORT_PACKAGE_SCOPE_MANIFEST"
-SPRINT_NAME = "P2.2 - Truthful Report Package + Scope Manifest"
+SPRINT_ID = "P2.3_SCOPE_MATERIAL_COMBINED_VERDICT"
+SPRINT_NAME = "P2.3 - Live Object Scope Ledger + Material Evidence + Combined Product Scope Verdict"
 DETERMINISTIC_GENERATED_AT = "DETERMINISTIC_NO_WALL_CLOCK"
 
 PACKAGE_INPUT_FILES: tuple[str, ...] = (
@@ -23,6 +23,10 @@ PACKAGE_INPUT_FILES: tuple[str, ...] = (
     "product_report_source_tables.json",
     "product_slice_manifest.json",
     "product_report.html",
+    "object_scope_ledger.json",
+    "object_scope_summary.json",
+    "material_evidence.json",
+    "material_summary.json",
     "README.md",
 )
 
@@ -66,6 +70,15 @@ def _truth_status_from_summary(summary: Mapping[str, Any]) -> dict[str, Any]:
         "frame_assignment_type_counts",
         "source_frame_assignment_row_count",
         "frame_assignment_type_counts_reconciled",
+        "object_scope_ledger_row_count",
+        "object_scope_reconciled",
+        "checked_concrete_beam_object_count",
+        "checked_concrete_column_object_count",
+        "excluded_brace_object_count",
+        "excluded_null_object_count",
+        "excluded_other_object_count",
+        "material_evidence_status",
+        "combined_product_scope_status",
     )
     return {key: summary.get(key) for key in keys if key in summary}
 
@@ -95,8 +108,10 @@ def build_package_readme(report: Mapping[str, Any], summary: Mapping[str, Any]) 
         f"checked_scope_status: {truth.get('checked_scope_status')}",
         f"model_scope_status: {truth.get('model_scope_status')}",
         "",
-        "The checked product scope is limited to the implemented live ETABS product slice: concrete rectangular beam/column geometry screening and modal mass participation reporting.",
+        "The checked product scope is limited to the implemented live ETABS product slice: concrete rectangular beam/column geometry screening, modal mass participation reporting, object-scope accounting, and material/fck evidence reporting.",
+        "Concrete material/fck evidence is evidence only; no fck adequacy or TBDY material sufficiency verdict is emitted.",
         "Unsupported or excluded frame objects are visible in the report and are not silently treated as checked TBDY compliance.",
+        "Full object_scope_ledger.json is JSON-only and is not rendered into Markdown/HTML.",
         "Legacy booleans such as product_slice_passed and report_product_passed are product-slice compatibility signals only, not full-model or full-code compliance certificates.",
         "",
         "## Packaged deliverables",
@@ -138,6 +153,8 @@ def write_report_package(report_dir: Path, report: Mapping[str, Any], summary: M
         "package_notes": {
             "full_tbdy_compliance_status_is_authoritative": "NOT_EVALUATED",
             "report_product_passed_is_legacy_product_slice_boolean": True,
+            "full_object_ledger_is_json_only": True,
+            "fck_adequacy_verdict_emitted": False,
         },
     }
     manifest_path = report_dir / "package_manifest.json"
