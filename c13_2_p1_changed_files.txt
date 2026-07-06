@@ -1,6 +1,0 @@
-tools/probe_excel_guided_live_contract_sources.py
-tests/c13_2_p1/test_excel_guided_live_source_probe.py
-docs/audit/C13_2_P1_EXCEL_GUIDED_LIVE_SOURCE_VERIFICATION.md
-docs/audit/C13_2_P1_ARCHITECTURE_GUARDRAIL_HOTFIX.md
-docs/audit/C13_2_P1_SEMANTIC_PROMOTION_HOTFIX.md
-c13_2_p1_changed_files.txt

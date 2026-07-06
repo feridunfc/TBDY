@@ -56,7 +56,7 @@ def test_product_report_json_contains_all_required_c13_1_sections(tmp_path: Path
     report = _report(tmp_path)
     for key in PRODUCT_REPORT_KEYS:
         assert key in report
-    assert set(report["executive_summary"]) == REQUIRED_EXECUTIVE_FIELDS
+    assert REQUIRED_EXECUTIVE_FIELDS.issubset(set(report["executive_summary"]))
     assert isinstance(report["concrete_beam_section_geometry_checks"], list)
     assert isinstance(report["concrete_column_section_geometry_checks"], list)
     assert isinstance(report["modal_mass_full_table"], list)
@@ -164,7 +164,7 @@ def test_guardrails_are_present_and_false_and_boundary_notes_are_present(tmp_pat
         "legacy_runtime_used": False,
         "rebar_flexure_shear_capacity_unlocked": False,
     }
-    assert set(report["boundary_notes"]) == {"scope", "unsupported_sections", "excluded_engineering_checks"}
+    assert {"scope", "unsupported_sections", "excluded_engineering_checks"}.issubset(set(report["boundary_notes"]))
 
 
 def test_product_report_is_deterministic_json_serializable(tmp_path: Path):

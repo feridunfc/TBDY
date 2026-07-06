@@ -108,6 +108,12 @@ def _prepare_live_input(args: argparse.Namespace, out_dir: Path, prepared_dir: P
 def _summary_for_stdout(report: Mapping[str, Any]) -> dict[str, Any]:
     summary = dict(report.get("executive_summary") or {})
     return {
+        "checked_scope_status": summary.get("checked_scope_status"),
+        "model_scope_status": summary.get("model_scope_status"),
+        "full_tbdy_compliance_status": summary.get("full_tbdy_compliance_status"),
+        "unsupported_object_count_total": summary.get("unsupported_object_count_total"),
+        "excluded_frame_object_count_total": summary.get("excluded_frame_object_count_total"),
+        "frame_assignment_type_counts": summary.get("frame_assignment_type_counts"),
         "product_slice_passed": summary.get("product_slice_passed"),
         "report_product_passed": summary.get("report_product_passed"),
         "concrete_beam_section_type_count": summary.get("concrete_beam_section_type_count"),
@@ -155,8 +161,23 @@ def main(argv: list[str] | None = None) -> int:
         report = write_c13_1_product_report(prepared_dir, out_dir)
         shutil.copy2(prepared_dir / "product_report_source_tables.json", out_dir / "product_report_source_tables.json")
         shutil.copy2(prepared_dir / "product_slice_manifest.json", out_dir / "product_slice_manifest.json")
-        print(f"Wrote P2.0 C13.1 product report to {out_dir}")
-        print(json.dumps(_summary_for_stdout(report), indent=2, ensure_ascii=False, sort_keys=True))
+        print(f"Wrote P2.2 C13.1 product report package to {out_dir}")
+        deliverables = [
+            "product_report.json",
+            "product_report.md",
+            "product_summary.json",
+            "product_evidence.json",
+            "product_report_source_tables.json",
+            "product_slice_manifest.json",
+            "product_report.html",
+            "package_manifest.json",
+            "README.md",
+            "product_report_package.zip",
+        ]
+        print(json.dumps({
+            "summary": _summary_for_stdout(report),
+            "deliverables": [name for name in deliverables if (out_dir / name).is_file()],
+        }, indent=2, ensure_ascii=False, sort_keys=True))
         return 0
     except Exception as exc:
         _write_json(out_dir / "product_report_error.json", {

@@ -9,17 +9,23 @@ uses the CheckEngine.
 P2.1 keeps the product behavior stable and polishes only deliverables: the full
 report remains canonical, the summary is concise, and heavy diagnostics are
 moved into a separate evidence file.
+
+P2.2 adds truthful scope/status language and a package manifest. It does not
+add engineering checks and it never recasts the product slice as full TBDY
+compliance.
 """
 from __future__ import annotations
 
 import html
 import json
+import shutil
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from tools.render_product_report import TABLE_COLUMNS, TABLE_TITLES, build_product_summary
+from tbdy_engine.product_reports.report_package import write_report_package
 
-SPRINT = "P2.1_REPORT_POLISH_STABLE_DELIVERABLES"
+SPRINT = "P2.2_TRUTHFUL_REPORT_PACKAGE_SCOPE_MANIFEST"
 CANONICAL_PRODUCT_SPRINT = "P2.0_C13_1_LIVE_PRODUCT_REPORT_PARITY"
 
 PRODUCT_REPORT_KEYS: tuple[str, ...] = (
@@ -37,6 +43,14 @@ PRODUCT_REPORT_KEYS: tuple[str, ...] = (
 )
 
 EXECUTIVE_SUMMARY_FIELDS: tuple[str, ...] = (
+    "checked_scope_status",
+    "model_scope_status",
+    "full_tbdy_compliance_status",
+    "unsupported_object_count_total",
+    "excluded_frame_object_count_total",
+    "frame_assignment_type_counts",
+    "source_frame_assignment_row_count",
+    "frame_assignment_type_counts_reconciled",
     "product_slice_passed",
     "report_product_passed",
     "concrete_beam_section_type_count",
@@ -118,6 +132,140 @@ def _rows_to_mapping(rows: Any, key_name: str, value_name: str) -> dict[str, Any
     return out
 
 
+def _copy_if_exists(src: Path, dst: Path) -> None:
+    if not src.is_file():
+        return
+    try:
+        if src.resolve() == dst.resolve():
+            return
+    except FileNotFoundError:
+        pass
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+
+
+def _source_tables_payload(input_dir: Path) -> Mapping[str, Any]:
+    path = Path(input_dir) / "product_report_source_tables.json"
+    if not path.is_file():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8-sig"))
+    return payload if isinstance(payload, Mapping) else {}
+
+
+def _source_table_rows(source: Mapping[str, Any], table_key: str) -> list[dict[str, Any]]:
+    tables = source.get("tables") if isinstance(source, Mapping) else None
+    table = tables.get(table_key) if isinstance(tables, Mapping) else None
+    if not isinstance(table, Mapping):
+        return []
+    rows = table.get("rows") or table.get("parsed_rows") or []
+    return [dict(row) for row in rows if isinstance(row, Mapping)]
+
+
+def _first_present_value(row: Mapping[str, Any], aliases: Sequence[str]) -> Any:
+    direct = {str(key): key for key in row.keys()}
+    folded = {str(key).replace(" ", "").replace("_", "").casefold(): key for key in row.keys()}
+    for alias in aliases:
+        if alias in direct:
+            value = row.get(direct[alias])
+            if value not in (None, ""):
+                return value
+        folded_key = folded.get(alias.replace(" ", "").replace("_", "").casefold())
+        if folded_key is not None:
+            value = row.get(folded_key)
+            if value not in (None, ""):
+                return value
+    return None
+
+
+def _frame_type_bucket(row: Mapping[str, Any]) -> str:
+    raw = _first_present_value(row, ("Type", "FrameType", "ObjectType"))
+    if raw in (None, ""):
+        return "Null"
+    normalized = str(raw).strip().casefold()
+    if normalized == "beam":
+        return "Beam"
+    if normalized == "column":
+        return "Column"
+    if normalized == "brace":
+        return "Brace"
+    if normalized in {"null", "none", "unassigned", ""}:
+        return "Null"
+    return "Other"
+
+
+def _frame_assignment_type_counts(source: Mapping[str, Any]) -> tuple[dict[str, int], int, bool]:
+    rows = _source_table_rows(source, "frame_assignments")
+    counts = {"Beam": 0, "Column": 0, "Brace": 0, "Null": 0, "Other": 0}
+    for row in rows:
+        counts[_frame_type_bucket(row)] += 1
+    row_count = len(rows)
+    return counts, row_count, sum(counts.values()) == row_count
+
+
+def _modal_fail_count(summary: Mapping[str, Any]) -> int:
+    count = 0
+    for key in ("modal_ux_status", "modal_uy_status"):
+        status = summary.get(key)
+        if status not in ("OK", None):
+            count += 1
+    return count
+
+
+def _truth_status_summary(summary: Mapping[str, Any], source: Mapping[str, Any]) -> dict[str, Any]:
+    frame_counts, source_row_count, reconciled = _frame_assignment_type_counts(source)
+    unsupported_object_count_total = int(summary.get("unsupported_beam_object_count") or 0) + int(summary.get("unsupported_column_object_count") or 0)
+    excluded_frame_object_count_total = (
+        unsupported_object_count_total
+        + int(frame_counts.get("Brace", 0))
+        + int(frame_counts.get("Null", 0))
+        + int(frame_counts.get("Other", 0))
+    )
+    checked_has_data = bool(summary.get("concrete_beam_section_type_count")) and bool(summary.get("concrete_column_section_type_count")) and bool(summary.get("modal_mass_table_rows"))
+    checked_fail_count = int(summary.get("beam_fail_count") or 0) + int(summary.get("column_fail_count") or 0) + _modal_fail_count(summary)
+    if checked_fail_count:
+        checked_scope_status = "FAIL"
+    elif not checked_has_data:
+        checked_scope_status = "NO_DATA"
+    else:
+        checked_scope_status = "PASS"
+
+    if checked_scope_status == "FAIL":
+        model_scope_status = "FAIL"
+    elif checked_scope_status == "NO_DATA":
+        model_scope_status = "NO_DATA"
+    elif excluded_frame_object_count_total:
+        model_scope_status = "PASS_WITH_EXCLUSIONS"
+    else:
+        model_scope_status = "PASS"
+
+    return {
+        "checked_scope_status": checked_scope_status,
+        "model_scope_status": model_scope_status,
+        "full_tbdy_compliance_status": "NOT_EVALUATED",
+        "unsupported_object_count_total": unsupported_object_count_total,
+        "excluded_frame_object_count_total": excluded_frame_object_count_total,
+        "frame_assignment_type_counts": frame_counts,
+        "source_frame_assignment_row_count": source_row_count,
+        "frame_assignment_type_counts_reconciled": reconciled,
+        "excluded_frame_object_count_basis": (
+            "unsupported beam/column section assignments plus Brace, Null, and Other frame assignment types "
+            "from product_report_source_tables.json; this is intentionally conservative when source inventory is incomplete"
+        ),
+    }
+
+
+def _truth_notice_lines(executive: Mapping[str, Any]) -> list[str]:
+    return [
+        "This report is NOT full TBDY compliance.",
+        f"full_tbdy_compliance_status = {executive.get('full_tbdy_compliance_status', 'NOT_EVALUATED')}",
+        f"checked_scope_status = {executive.get('checked_scope_status')}",
+        f"model_scope_status = {executive.get('model_scope_status')}",
+        "The checked product scope is limited to the implemented live ETABS product slice.",
+        "Unsupported/out-of-scope objects are visible and are not silently ignored.",
+        "Legacy booleans product_slice_passed and report_product_passed are product-slice compatibility signals only, not full TBDY compliance.",
+    ]
+
+
 def _stable_source_tables_path(summary: Mapping[str, Any]) -> str | None:
     raw = summary.get("source_tables_path")
     if raw in (None, ""):
@@ -177,12 +325,17 @@ def _md_table(headers: Sequence[str], rows: Sequence[Mapping[str, Any]]) -> str:
 
 
 def render_product_markdown(report: Mapping[str, Any], summary: Mapping[str, Any]) -> str:
+    executive = report.get("executive_summary") if isinstance(report.get("executive_summary"), Mapping) else {}
     lines = [
         "# TBDY Minimal Live Product Report - C13.1",
         "",
         "Concrete rectangular assigned beam and column geometry screening + unsupported section classification + full modal mass table.",
         "",
+        "## Truth and Scope Notice",
+        "",
     ]
+    lines.extend(f"- {line}" for line in _truth_notice_lines(executive))
+    lines.append("")
     for title, report_key, summary_key in _REPORT_TABLES:
         rows = _rows_for_table(report, summary_key, report_key)
         headers = _table_columns(report, summary, summary_key, report_key)
@@ -211,6 +364,8 @@ def _html_table(caption: str, headers: Sequence[str], rows: Sequence[Mapping[str
 
 def render_product_html(report: Mapping[str, Any], summary: Mapping[str, Any]) -> str:
     title = "TBDY Minimal Live Product Report - C13.1"
+    executive = report.get("executive_summary") if isinstance(report.get("executive_summary"), Mapping) else {}
+    truth_notice = "".join(f"<li>{html.escape(line)}</li>" for line in _truth_notice_lines(executive))
     sections = []
     for title_text, report_key, summary_key in _REPORT_TABLES:
         rows = _rows_for_table(report, summary_key, report_key)
@@ -235,10 +390,12 @@ def render_product_html(report: Mapping[str, Any], summary: Mapping[str, Any]) -
     th, td {{ border: 1px solid #ddd; padding: 6px 8px; vertical-align: top; }}
     th {{ background: #f3f3f3; }}
     code {{ background: #f7f7f7; padding: 2px 4px; border-radius: 4px; }}
+    .scope-warning {{ border: 2px solid #555; padding: 12px 16px; background: #fafafa; margin: 18px 0 28px; }}
   </style>
 </head>
 <body>
   <h1>{html.escape(title)}</h1>
+  <section class="scope-warning"><h2>Truth and Scope Notice</h2><ul>{truth_notice}</ul></section>
   {''.join(sections)}
 </body>
 </html>
@@ -255,7 +412,11 @@ def build_c13_1_product_report(input_dir: Path, out_dir: Path) -> dict[str, Any]
     output.
     """
     summary = build_product_summary(Path(input_dir), Path(out_dir))
-    executive_summary = {field: summary.get(field) for field in EXECUTIVE_SUMMARY_FIELDS}
+    source_payload = _source_tables_payload(Path(input_dir))
+    truth_summary = _truth_status_summary(summary, source_payload)
+    enriched_summary = dict(summary)
+    enriched_summary.update(truth_summary)
+    executive_summary = {field: enriched_summary.get(field) for field in EXECUTIVE_SUMMARY_FIELDS}
     guardrails = dict(summary.get("guardrails") or _rows_to_mapping(summary.get("guardrail_rows"), "guardrail", "value"))
     boundary_notes = _rows_to_mapping(summary.get("boundary_note_rows"), "item", "statement")
 
@@ -264,6 +425,8 @@ def build_c13_1_product_report(input_dir: Path, out_dir: Path) -> dict[str, Any]
             "sprint": CANONICAL_PRODUCT_SPRINT,
             "deliverable_sprint": SPRINT,
             "source_tables_path": _stable_source_tables_path(summary),
+            "full_tbdy_compliance_status": "NOT_EVALUATED",
+            "report_product_passed_semantics": "Legacy product-slice compatibility boolean only; not full TBDY compliance.",
             "excel_production_path_used": False,
             "streamlit_ui_used": False,
             "legacy_runtime_used": False,
@@ -284,8 +447,10 @@ def build_c13_1_product_report(input_dir: Path, out_dir: Path) -> dict[str, Any]
         "modal_mass_final_verdict": list(summary.get("modal_mass_final_verdict_rows") or []),
         "guardrails": guardrails,
         "boundary_notes": boundary_notes,
+        "scope_manifest": truth_summary,
         "compatibility": {
             "p2_0_product_report_shape_preserved": True,
+            "report_product_passed_semantics": "Product-slice compatibility boolean; not full-model or full-TBDY compliance.",
             "table_contract_keys": list(PRODUCT_REPORT_KEYS),
         },
     }
@@ -328,6 +493,7 @@ def build_product_evidence_deliverable(report: Mapping[str, Any], summary: Mappi
             "source_tables_path": _stable_source_tables_path(summary),
             "product_report_source_tables_file": "product_report_source_tables.json",
         },
+        "scope_status_summary": dict(report.get("scope_manifest") or {}),
     }
     # Keep a stable marker list so tests can reject accidental summary bloat.
     evidence["moved_from_product_summary"] = list(_EVIDENCE_KEYS)
@@ -335,11 +501,15 @@ def build_product_evidence_deliverable(report: Mapping[str, Any], summary: Mappi
 
 
 def write_c13_1_product_report(input_dir: Path, out_dir: Path) -> dict[str, Any]:
-    """Write stable P2.1 deliverables without changing P2.0 product behavior."""
+    """Write stable P2.2 deliverables without changing P2.0 product behavior."""
+    input_dir = Path(input_dir)
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    summary = build_product_summary(Path(input_dir), out_dir)
-    report = build_c13_1_product_report(Path(input_dir), out_dir)
+    _copy_if_exists(input_dir / "product_report_source_tables.json", out_dir / "product_report_source_tables.json")
+    _copy_if_exists(input_dir / "product_slice_manifest.json", out_dir / "product_slice_manifest.json")
+
+    summary = build_product_summary(input_dir, out_dir)
+    report = build_c13_1_product_report(input_dir, out_dir)
     summary_deliverable = build_product_summary_deliverable(report, summary)
     evidence_deliverable = build_product_evidence_deliverable(report, summary)
 
@@ -348,4 +518,5 @@ def write_c13_1_product_report(input_dir: Path, out_dir: Path) -> dict[str, Any]
     _write_json(out_dir / "product_evidence.json", evidence_deliverable)
     (out_dir / "product_report.md").write_text(render_product_markdown(report, summary), encoding="utf-8")
     (out_dir / "product_report.html").write_text(render_product_html(report, summary), encoding="utf-8")
+    write_report_package(out_dir, report, summary_deliverable)
     return report
