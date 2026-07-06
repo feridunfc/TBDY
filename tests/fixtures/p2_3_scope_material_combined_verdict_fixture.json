@@ -1,0 +1,230 @@
+{
+  "metadata": {
+    "artifact": "product_report_source_tables",
+    "fixture": "p2_0_c13_1_product_report_fixture"
+  },
+  "tables": {
+    "frame_assignments": {
+      "actual_table_name": "Frame Assignments - Summary",
+      "columns": [
+        "Story",
+        "Label",
+        "UniqueName",
+        "Type",
+        "Length",
+        "AnalysisSect",
+        "DesignSect"
+      ],
+      "rows": [
+        {
+          "AnalysisSect": "B40x70",
+          "DesignSect": "B40x70",
+          "Label": "B1",
+          "Length": "7.0",
+          "Story": "+14.5",
+          "Type": "Beam",
+          "UniqueName": "297"
+        },
+        {
+          "AnalysisSect": "B40x70",
+          "DesignSect": "B40x70",
+          "Label": "B2",
+          "Length": "6.0",
+          "Story": "+14.5",
+          "Type": "Beam",
+          "UniqueName": "298"
+        },
+        {
+          "AnalysisSect": "B60x70",
+          "DesignSect": "B60x70",
+          "Label": "B8",
+          "Length": "5.0",
+          "Story": "+10.5",
+          "Type": "Beam",
+          "UniqueName": "401"
+        },
+        {
+          "AnalysisSect": "HE160A",
+          "DesignSect": "HE160A",
+          "Label": "B290",
+          "Length": "3.7",
+          "Story": "+4.50",
+          "Type": "Beam",
+          "UniqueName": "760"
+        },
+        {
+          "AnalysisSect": "C40x80",
+          "DesignSect": "C40x80",
+          "Label": "C1",
+          "Length": "4.5",
+          "Story": "+0.00",
+          "Type": "Column",
+          "UniqueName": "901"
+        },
+        {
+          "AnalysisSect": "C40x80",
+          "DesignSect": "C40x80",
+          "Label": "C2",
+          "Length": "4.5",
+          "Story": "+4.50",
+          "Type": "Column",
+          "UniqueName": "902"
+        },
+        {
+          "AnalysisSect": "STEEL_COL",
+          "DesignSect": "STEEL_COL",
+          "Label": "SC1",
+          "Length": "4.5",
+          "Story": "+9.00",
+          "Type": "Column",
+          "UniqueName": "903"
+        },
+        {
+          "AnalysisSect": "BRACE_SEC",
+          "DesignSect": "BRACE_SEC",
+          "Label": "BR1",
+          "Length": "3.2",
+          "Story": "+4.50",
+          "Type": "Brace",
+          "UniqueName": "BRC-001"
+        },
+        {
+          "AnalysisSect": "",
+          "DesignSect": "",
+          "Label": "N1",
+          "Length": "0.0",
+          "Story": "+0.00",
+          "Type": "Null",
+          "UniqueName": "NULL-001"
+        }
+      ]
+    },
+    "frame_section_material_assignments": {
+      "actual_table_name": "Frame Section Property Definitions - Summary",
+      "columns": [
+        "Name",
+        "Material",
+        "Shape"
+      ],
+      "rows": [
+        {
+          "Material": "C30",
+          "Name": "B40x70",
+          "Shape": "Concrete Rectangular"
+        },
+        {
+          "Material": "C30",
+          "Name": "B60x70",
+          "Shape": "Concrete Rectangular"
+        },
+        {
+          "Material": "C35",
+          "Name": "C40x80",
+          "Shape": "Concrete Rectangular"
+        }
+      ]
+    },
+    "frame_section_properties": {
+      "actual_table_name": "Frame Section Property Definitions - Concrete Rectangular",
+      "columns": [
+        "Name",
+        "t2",
+        "t3",
+        "Material"
+      ],
+      "rows": [
+        {
+          "Material": "C30",
+          "Name": "B40x70",
+          "t2": "0.4",
+          "t3": "0.7"
+        },
+        {
+          "Material": "C30",
+          "Name": "B60x70",
+          "t2": "0.6",
+          "t3": "0.7"
+        },
+        {
+          "Material": "C35",
+          "Name": "C40x80",
+          "t2": "0.4",
+          "t3": "0.8"
+        }
+      ]
+    },
+    "material_concrete_data": {
+      "actual_table_name": "Material Properties - Concrete Data",
+      "columns": [
+        "Material",
+        "Fc"
+      ],
+      "rows": [
+        {
+          "Fc": 30,
+          "Material": "C30"
+        },
+        {
+          "Fc": "35000",
+          "Material": "C35"
+        }
+      ]
+    },
+    "modal_participating_mass": {
+      "actual_table_name": "Modal Participating Mass Ratios",
+      "columns": [
+        "Case",
+        "Mode",
+        "Period",
+        "UX",
+        "UY",
+        "UZ",
+        "RX",
+        "RY",
+        "RZ",
+        "SumUX",
+        "SumUY",
+        "SumUZ",
+        "SumRX",
+        "SumRY",
+        "SumRZ"
+      ],
+      "rows": [
+        {
+          "Case": "Modal",
+          "Mode": 1,
+          "Period": 1.1,
+          "RX": 0.0,
+          "RY": 0.0,
+          "RZ": 0.1,
+          "SumRX": 0.0,
+          "SumRY": 0.0,
+          "SumRZ": 0.1,
+          "SumUX": 0.2,
+          "SumUY": 0.3,
+          "SumUZ": 0.0,
+          "UX": 0.2,
+          "UY": 0.3,
+          "UZ": 0.0
+        },
+        {
+          "Case": "Modal",
+          "Mode": 2,
+          "Period": 0.7,
+          "RX": 0.0,
+          "RY": 0.0,
+          "RZ": 0.1,
+          "SumRX": 0.0,
+          "SumRY": 0.0,
+          "SumRZ": 0.2,
+          "SumUX": 0.9999,
+          "SumUY": 0.9999,
+          "SumUZ": 0.0,
+          "UX": 0.7999,
+          "UY": 0.6999,
+          "UZ": 0.0
+        }
+      ]
+    }
+  }
+}

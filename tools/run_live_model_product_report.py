@@ -39,7 +39,12 @@ def _write_json(path: Path, payload: Any) -> None:
 
 def _safe_manifest(*, live_etabs: bool, fixture_mode: bool) -> dict[str, Any]:
     return {
-        "sprint": "P2.0_C13_1_LIVE_PRODUCT_REPORT_PARITY",
+        "product_slice_id": "C13.1_MINIMAL_LIVE_PRODUCT_REPORT",
+        "product_slice_origin_sprint_id": "P2.0_C13_1_LIVE_PRODUCT_REPORT_PARITY",
+        "report_package_sprint_id": "P2.3_SCOPE_MATERIAL_COMBINED_VERDICT",
+        "report_package_sprint_name": "P2.3 - Live Object Scope Ledger + Material Evidence + Combined Product Scope Verdict",
+        "truth_model_version": "P2.3_TRUTH_MODEL_V1",
+        "full_tbdy_compliance_status": "NOT_EVALUATED",
         "live_etabs_requested": live_etabs,
         "fixture_mode": fixture_mode,
         "product_slice_passed": True,
@@ -160,8 +165,7 @@ def main(argv: list[str] | None = None) -> int:
             _prepare_fixture_input(Path(str(args.input)), prepared_dir)
         report = write_c13_1_product_report(prepared_dir, out_dir)
         shutil.copy2(prepared_dir / "product_report_source_tables.json", out_dir / "product_report_source_tables.json")
-        shutil.copy2(prepared_dir / "product_slice_manifest.json", out_dir / "product_slice_manifest.json")
-        print(f"Wrote P2.2 C13.1 product report package to {out_dir}")
+        print(f"Wrote P2.3 C13.1 product report package to {out_dir}")
         deliverables = [
             "product_report.json",
             "product_report.md",
@@ -170,6 +174,10 @@ def main(argv: list[str] | None = None) -> int:
             "product_report_source_tables.json",
             "product_slice_manifest.json",
             "product_report.html",
+            "object_scope_ledger.json",
+            "object_scope_summary.json",
+            "material_evidence.json",
+            "material_summary.json",
             "package_manifest.json",
             "README.md",
             "product_report_package.zip",

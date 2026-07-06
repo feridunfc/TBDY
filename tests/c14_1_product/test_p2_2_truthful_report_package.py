@@ -95,7 +95,7 @@ def test_package_manifest_and_zip_are_produced_with_matching_hashes(tmp_path: Pa
     assert manifest_path.is_file()
     assert package_path.is_file()
     manifest = _read_json(manifest_path)
-    assert manifest["sprint_id"] == "P2.2_TRUTHFUL_REPORT_PACKAGE_SCOPE_MANIFEST"
+    assert manifest["sprint_id"] == "P2.3_SCOPE_MATERIAL_COMBINED_VERDICT"
     assert manifest["guardrail_metadata"] == {
         "no_etabs_mutation": True,
         "no_analysis_run": True,
@@ -118,6 +118,10 @@ def test_package_manifest_and_zip_are_produced_with_matching_hashes(tmp_path: Pa
         "product_report_source_tables.json",
         "product_slice_manifest.json",
         "product_report.html",
+        "object_scope_ledger.json",
+        "object_scope_summary.json",
+        "material_evidence.json",
+        "material_summary.json",
         "README.md",
         "package_manifest.json",
     }.issubset(names)
