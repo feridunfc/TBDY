@@ -100,7 +100,7 @@ def test_no_mutation_or_analysis_design_indicators_are_introduced(tmp_path: Path
     assert metadata["analysis_run"] is False
     assert metadata["design_run"] is False
     assert metadata["check_engine_executed"] is False
-    assert metadata["check_result_emitted"] is False
+    assert metadata["check_result_emitted"] is True
     assert report["guardrails"] == {
         "excel_production_path_used": False,
         "streamlit_ui_used": False,

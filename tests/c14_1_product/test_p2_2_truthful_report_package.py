@@ -95,7 +95,7 @@ def test_package_manifest_and_zip_are_produced_with_matching_hashes(tmp_path: Pa
     assert manifest_path.is_file()
     assert package_path.is_file()
     manifest = _read_json(manifest_path)
-    assert manifest["sprint_id"] == "P2.3_SCOPE_MATERIAL_COMBINED_VERDICT"
+    assert manifest["sprint_id"] == "P2.6_FORMAL_CHECK_RESULT_CONTRACT_V1"
     assert manifest["guardrail_metadata"] == {
         "no_etabs_mutation": True,
         "no_analysis_run": True,

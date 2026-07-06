@@ -199,6 +199,6 @@ def test_product_slice_manifest_uses_explicit_p2_3_semantics(tmp_path: Path):
     assert "sprint" not in manifest
     assert manifest["product_slice_id"] == "C13.1_MINIMAL_LIVE_PRODUCT_REPORT"
     assert manifest["product_slice_origin_sprint_id"] == "P2.0_C13_1_LIVE_PRODUCT_REPORT_PARITY"
-    assert manifest["report_package_sprint_id"] == "P2.3_SCOPE_MATERIAL_COMBINED_VERDICT"
-    assert manifest["truth_model_version"] == "P2.3_TRUTH_MODEL_V1"
+    assert manifest["report_package_sprint_id"] == "P2.6_FORMAL_CHECK_RESULT_CONTRACT_V1"
+    assert manifest["truth_model_version"] == "P2.6_CHECK_RESULT_TRUTH_MODEL_V1"
     assert manifest["full_tbdy_compliance_status"] == "NOT_EVALUATED"
