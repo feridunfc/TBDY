@@ -225,6 +225,117 @@
           "UZ": 0.0
         }
       ]
+    },
+    "story_drifts": {
+      "actual_table_name": "Story Drifts",
+      "columns": [
+        "Story",
+        "OutputCase",
+        "CaseType",
+        "StepType",
+        "Direction",
+        "Drift",
+        "Drift/",
+        "Label",
+        "X",
+        "Y",
+        "Z"
+      ],
+      "rows": [
+        {
+          "CaseType": "Response Spectrum",
+          "Direction": "X",
+          "Drift": "0.004",
+          "Drift/": "1/250",
+          "Label": "37",
+          "OutputCase": "DD2-X",
+          "StepType": null,
+          "Story": "+14.5",
+          "X": "0",
+          "Y": "0",
+          "Z": "14.5"
+        },
+        {
+          "CaseType": "Seismic",
+          "Direction": "Y",
+          "Drift": "0.009",
+          "Drift/": "1/111",
+          "Label": "38",
+          "OutputCase": "DD2-Y",
+          "StepType": null,
+          "Story": "+10.5",
+          "X": "0",
+          "Y": "0",
+          "Z": "10.5"
+        },
+        {
+          "CaseType": "Response Spectrum",
+          "Direction": "X",
+          "Drift": "not-a-number",
+          "Drift/": "",
+          "Label": "39",
+          "OutputCase": "DD2-X",
+          "StepType": null,
+          "Story": "+7.5",
+          "X": "0",
+          "Y": "0",
+          "Z": "7.5"
+        },
+        {
+          "CaseType": "Wind",
+          "Direction": "X",
+          "Drift": "0.006",
+          "Label": "40",
+          "OutputCase": "WIND-X",
+          "StepType": null,
+          "Story": "+1.5"
+        }
+      ]
+    },
+    "story_max_over_avg_drifts": {
+      "actual_table_name": "Story Max Over Avg Drifts",
+      "columns": [
+        "Story",
+        "OutputCase",
+        "CaseType",
+        "StepType",
+        "Direction",
+        "Max Drift",
+        "Avg Drift",
+        "Ratio"
+      ],
+      "rows": [
+        {
+          "Avg Drift": "0.0040",
+          "CaseType": "Response Spectrum",
+          "Direction": "X",
+          "Max Drift": "0.0044",
+          "OutputCase": "EX",
+          "Ratio": "1.10",
+          "StepType": null,
+          "Story": "+14.5"
+        },
+        {
+          "Avg Drift": "0.0050",
+          "CaseType": "Seismic",
+          "Direction": "Y",
+          "Max Drift": "0.00625",
+          "OutputCase": "EY",
+          "Ratio": "1.25",
+          "StepType": null,
+          "Story": "+10.5"
+        },
+        {
+          "Avg Drift": "0.003",
+          "CaseType": "Response Spectrum",
+          "Direction": "X",
+          "Max Drift": "0.003",
+          "OutputCase": "EX",
+          "Ratio": "missing",
+          "StepType": null,
+          "Story": "+7.5"
+        }
+      ]
     }
   }
 }

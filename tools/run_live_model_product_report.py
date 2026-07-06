@@ -41,9 +41,9 @@ def _safe_manifest(*, live_etabs: bool, fixture_mode: bool) -> dict[str, Any]:
     return {
         "product_slice_id": "C13.1_MINIMAL_LIVE_PRODUCT_REPORT",
         "product_slice_origin_sprint_id": "P2.0_C13_1_LIVE_PRODUCT_REPORT_PARITY",
-        "report_package_sprint_id": "P2.6_FORMAL_CHECK_RESULT_CONTRACT_V1",
-        "report_package_sprint_name": "P2.6 - Formal CheckResult Contract v1",
-        "truth_model_version": "P2.6_CHECK_RESULT_TRUTH_MODEL_V1",
+        "report_package_sprint_id": "P2_7_P2_9_MATERIAL_DRIFT_TORSION_CHECKRESULTS",
+        "report_package_sprint_name": "P2.7-P2.9 - Material, Story Drift, and Torsional Irregularity CheckResults",
+        "truth_model_version": "P2_7_P2_9_CHECK_RESULT_TRUTH_MODEL_V1",
         "full_tbdy_compliance_status": "NOT_EVALUATED",
         "live_etabs_requested": live_etabs,
         "fixture_mode": fixture_mode,
@@ -165,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
             _prepare_fixture_input(Path(str(args.input)), prepared_dir)
         report = write_c13_1_product_report(prepared_dir, out_dir)
         shutil.copy2(prepared_dir / "product_report_source_tables.json", out_dir / "product_report_source_tables.json")
-        print(f"Wrote P2.6 C13.1 formal CheckResult report package to {out_dir}")
+        print(f"Wrote P2.7-P2.9 C13.1 formal CheckResult report package to {out_dir}")
         deliverables = [
             "product_report.json",
             "product_report.md",
@@ -183,6 +183,9 @@ def main(argv: list[str] | None = None) -> int:
             "check_results_concrete_beam_min_geometry.json",
             "check_results_concrete_column_min_geometry.json",
             "check_results_modal_mass_participation.json",
+            "check_results_concrete_material_min_strength.json",
+            "check_results_story_drift.json",
+            "check_results_torsional_irregularity_a1.json",
             "check_results_summary.json",
             "blocked_checks.json",
             "package_manifest.json",
