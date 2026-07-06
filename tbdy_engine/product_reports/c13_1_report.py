@@ -18,7 +18,9 @@ P2.3 adds object-scope ledger, concrete material/fck evidence, and a combined
 product-scope verdict while keeping full TBDY compliance NOT_EVALUATED.
 
 P2.6 promotes the already-running product logic into formal CheckResult
-artifacts without adding new TBDY engineering scope.
+artifacts without adding new TBDY engineering scope. P2.7-P2.9 extend
+that same package flow with material, story drift, and torsional irregularity
+CheckResult artifacts.
 """
 from __future__ import annotations
 
@@ -35,10 +37,10 @@ from tbdy_engine.product_reports.material_evidence import build_material_evidenc
 from tbdy_engine.product_reports.object_scope_ledger import build_object_scope_ledger
 from tbdy_engine.product_reports.report_package import write_report_package
 
-SPRINT = "P2.6_FORMAL_CHECK_RESULT_CONTRACT_V1"
+SPRINT = "P2_7_P2_9_MATERIAL_DRIFT_TORSION_CHECKRESULTS"
 CANONICAL_PRODUCT_SPRINT = "P2.0_C13_1_LIVE_PRODUCT_REPORT_PARITY"
-REPORT_PACKAGE_SPRINT_NAME = "P2.6 - Formal CheckResult Contract v1"
-TRUTH_MODEL_VERSION = "P2.6_CHECK_RESULT_TRUTH_MODEL_V1"
+REPORT_PACKAGE_SPRINT_NAME = "P2.7-P2.9 - Material, Story Drift, and Torsional Irregularity CheckResults"
+TRUTH_MODEL_VERSION = "P2_7_P2_9_CHECK_RESULT_TRUTH_MODEL_V1"
 
 PRODUCT_REPORT_KEYS: tuple[str, ...] = (
     "executive_summary",
@@ -292,7 +294,7 @@ def _truth_notice_lines(executive: Mapping[str, Any]) -> list[str]:
         f"model_scope_status = {executive.get('model_scope_status')}",
         "The checked product scope is limited to the implemented live ETABS product slice.",
         "Object scope ledger accounts for every available frame assignment row.",
-        "Concrete material/fck values are evidence only; fck adequacy is NOT_EVALUATED.",
+        "Concrete material/fck values are source input for the formal material strength check; full TBDY material compliance remains NOT_EVALUATED.",
         "Unsupported/out-of-scope objects are visible and are not silently ignored.",
         "Legacy booleans product_slice_passed and report_product_passed are product-slice compatibility signals only, not full TBDY compliance.",
     ]
@@ -676,7 +678,7 @@ def build_c13_1_product_report(input_dir: Path, out_dir: Path) -> dict[str, Any]
     report["object_scope_summary"] = object_scope_summary
     report["material_summary"] = material_summary
     report["combined_product_scope_verdict"] = combined
-    report["material_evidence_notice"] = "Concrete material/fck evidence is reported without fck adequacy or full TBDY compliance evaluation."
+    report["material_evidence_notice"] = "Concrete material/fck source input is reported without full TBDY material compliance evaluation."
     return report
 
 def build_product_summary_deliverable(report: Mapping[str, Any], summary: Mapping[str, Any]) -> dict[str, Any]:
@@ -774,6 +776,7 @@ def write_c13_1_product_report(input_dir: Path, out_dir: Path) -> dict[str, Any]
         object_scope_ledger=object_scope_ledger,
         material_evidence_rows=material_evidence_rows,
         product_summary=summary_deliverable,
+        source_tables=source_payload,
     )
     report["formal_check_results_summary"] = formal_check_artifacts["check_results_summary.json"]
     report["check_catalog"] = formal_check_artifacts["check_catalog.json"]

@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-SPRINT_ID = "P2.6_FORMAL_CHECK_RESULT_CONTRACT_V1"
-SPRINT_NAME = "P2.6 - Formal CheckResult Contract v1"
+SPRINT_ID = "P2_7_P2_9_MATERIAL_DRIFT_TORSION_CHECKRESULTS"
+SPRINT_NAME = "P2.7-P2.9 - Material, Story Drift, and Torsional Irregularity CheckResults"
 DETERMINISTIC_GENERATED_AT = "DETERMINISTIC_NO_WALL_CLOCK"
 
 PACKAGE_INPUT_FILES: tuple[str, ...] = (
@@ -32,6 +32,9 @@ PACKAGE_INPUT_FILES: tuple[str, ...] = (
     "check_results_concrete_beam_min_geometry.json",
     "check_results_concrete_column_min_geometry.json",
     "check_results_modal_mass_participation.json",
+    "check_results_concrete_material_min_strength.json",
+    "check_results_story_drift.json",
+    "check_results_torsional_irregularity_a1.json",
     "check_results_summary.json",
     "blocked_checks.json",
     "README.md",
@@ -116,8 +119,8 @@ def build_package_readme(report: Mapping[str, Any], summary: Mapping[str, Any]) 
         f"checked_scope_status: {truth.get('checked_scope_status')}",
         f"model_scope_status: {truth.get('model_scope_status')}",
         "",
-        "The checked product scope is limited to the implemented live ETABS product slice: concrete rectangular beam/column geometry screening, modal mass participation reporting, object-scope accounting, and material/fck evidence reporting.",
-        "Concrete material/fck evidence is evidence only; no fck adequacy or TBDY material sufficiency verdict is emitted.",
+        "The checked product scope is limited to the implemented live ETABS product slice: concrete rectangular beam/column geometry screening, modal mass participation reporting, object-scope accounting, material/fck source input reporting, and formal material/story/torsion CheckResult reporting.",
+        "Concrete material/fck source input is checked only against the frozen product minimum-strength contract; full TBDY material sufficiency remains NOT_EVALUATED.",
         "Unsupported or excluded frame objects are visible in the report and are not silently treated as checked TBDY compliance.",
         "Full object_scope_ledger.json is JSON-only and is not rendered into Markdown/HTML.",
         "Blocked checks are listed explicitly in blocked_checks.json instead of fabricating results.",
