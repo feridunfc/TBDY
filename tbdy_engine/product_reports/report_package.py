@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 from zipfile import ZIP_DEFLATED, ZipFile, ZipInfo
 
-SPRINT_ID = "P2.3_SCOPE_MATERIAL_COMBINED_VERDICT"
-SPRINT_NAME = "P2.3 - Live Object Scope Ledger + Material Evidence + Combined Product Scope Verdict"
+SPRINT_ID = "P2.6_FORMAL_CHECK_RESULT_CONTRACT_V1"
+SPRINT_NAME = "P2.6 - Formal CheckResult Contract v1"
 DETERMINISTIC_GENERATED_AT = "DETERMINISTIC_NO_WALL_CLOCK"
 
 PACKAGE_INPUT_FILES: tuple[str, ...] = (
@@ -27,6 +27,13 @@ PACKAGE_INPUT_FILES: tuple[str, ...] = (
     "object_scope_summary.json",
     "material_evidence.json",
     "material_summary.json",
+    "check_catalog.json",
+    "check_limit_contract.json",
+    "check_results_concrete_beam_min_geometry.json",
+    "check_results_concrete_column_min_geometry.json",
+    "check_results_modal_mass_participation.json",
+    "check_results_summary.json",
+    "blocked_checks.json",
     "README.md",
 )
 
@@ -103,6 +110,7 @@ def build_package_readme(report: Mapping[str, Any], summary: Mapping[str, Any]) 
         "## Scope warning",
         "",
         "This package is NOT full TBDY compliance.",
+        "Formal CheckResult files report only the checks executed by this product slice.",
         "",
         f"full_tbdy_compliance_status: {truth.get('full_tbdy_compliance_status', 'NOT_EVALUATED')}",
         f"checked_scope_status: {truth.get('checked_scope_status')}",
@@ -112,6 +120,7 @@ def build_package_readme(report: Mapping[str, Any], summary: Mapping[str, Any]) 
         "Concrete material/fck evidence is evidence only; no fck adequacy or TBDY material sufficiency verdict is emitted.",
         "Unsupported or excluded frame objects are visible in the report and are not silently treated as checked TBDY compliance.",
         "Full object_scope_ledger.json is JSON-only and is not rendered into Markdown/HTML.",
+        "Blocked checks are listed explicitly in blocked_checks.json instead of fabricating results.",
         "Legacy booleans such as product_slice_passed and report_product_passed are product-slice compatibility signals only, not full-model or full-code compliance certificates.",
         "",
         "## Packaged deliverables",

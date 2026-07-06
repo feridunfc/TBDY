@@ -16,6 +16,9 @@ compliance.
 
 P2.3 adds object-scope ledger, concrete material/fck evidence, and a combined
 product-scope verdict while keeping full TBDY compliance NOT_EVALUATED.
+
+P2.6 promotes the already-running product logic into formal CheckResult
+artifacts without adding new TBDY engineering scope.
 """
 from __future__ import annotations
 
@@ -27,14 +30,15 @@ from typing import Any, Mapping, Sequence
 
 from tools.render_product_report import TABLE_COLUMNS, TABLE_TITLES, build_product_summary
 from tbdy_engine.product_reports.combined_verdict import build_combined_product_scope_verdict
+from tbdy_engine.product_reports.check_results import build_formal_check_artifacts
 from tbdy_engine.product_reports.material_evidence import build_material_evidence
 from tbdy_engine.product_reports.object_scope_ledger import build_object_scope_ledger
 from tbdy_engine.product_reports.report_package import write_report_package
 
-SPRINT = "P2.3_SCOPE_MATERIAL_COMBINED_VERDICT"
+SPRINT = "P2.6_FORMAL_CHECK_RESULT_CONTRACT_V1"
 CANONICAL_PRODUCT_SPRINT = "P2.0_C13_1_LIVE_PRODUCT_REPORT_PARITY"
-REPORT_PACKAGE_SPRINT_NAME = "P2.3 - Live Object Scope Ledger + Material Evidence + Combined Product Scope Verdict"
-TRUTH_MODEL_VERSION = "P2.3_TRUTH_MODEL_V1"
+REPORT_PACKAGE_SPRINT_NAME = "P2.6 - Formal CheckResult Contract v1"
+TRUTH_MODEL_VERSION = "P2.6_CHECK_RESULT_TRUTH_MODEL_V1"
 
 PRODUCT_REPORT_KEYS: tuple[str, ...] = (
     "executive_summary",
@@ -457,6 +461,55 @@ def _p2_3_html_sections(report: Mapping[str, Any]) -> str:
     return "".join(out)
 
 
+
+def _formal_check_result_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
+    summary = report.get("formal_check_results_summary") if isinstance(report.get("formal_check_results_summary"), Mapping) else {}
+    rows = summary.get("check_results") if isinstance(summary.get("check_results"), list) else []
+    return [dict(row) for row in rows if isinstance(row, Mapping)]
+
+
+def _blocked_check_rows(report: Mapping[str, Any]) -> list[dict[str, Any]]:
+    blocked = report.get("blocked_checks") if isinstance(report.get("blocked_checks"), Mapping) else {}
+    rows = blocked.get("blocked_checks") if isinstance(blocked.get("blocked_checks"), list) else []
+    return [
+        {
+            "check_id": row.get("check_id"),
+            "check_family": row.get("check_family"),
+            "status": row.get("status"),
+            "input_status": row.get("input_status"),
+            "missing_inputs": row.get("missing_inputs"),
+            "reason": row.get("reason"),
+        }
+        for row in rows
+        if isinstance(row, Mapping)
+    ]
+
+
+def _p2_6_markdown_sections(report: Mapping[str, Any]) -> str:
+    lines: list[str] = []
+    sections = [
+        ("16. Formal Check Results", ["check_id", "status", "input_status", "checked_object_count", "pass_count", "fail_count", "unsupported_count", "result_file"], _formal_check_result_rows(report)),
+        ("17. Blocked Checks", ["check_id", "check_family", "status", "input_status", "missing_inputs", "reason"], _blocked_check_rows(report)),
+    ]
+    for title, headers, rows in sections:
+        lines.extend([f"## {title}", "", _md_table(headers, rows), ""])
+    lines.append("Formal CheckResult artifacts are machine-readable JSON files in this package.")
+    lines.append("Full TBDY compliance remains NOT_EVALUATED.")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def _p2_6_html_sections(report: Mapping[str, Any]) -> str:
+    sections = [
+        ("16. Formal Check Results", ["check_id", "status", "input_status", "checked_object_count", "pass_count", "fail_count", "unsupported_count", "result_file"], _formal_check_result_rows(report)),
+        ("17. Blocked Checks", ["check_id", "check_family", "status", "input_status", "missing_inputs", "reason"], _blocked_check_rows(report)),
+    ]
+    out = []
+    for title, headers, rows in sections:
+        out.append("<section>" f"<h2>{html.escape(title)}</h2>" f"{_html_table(title, headers, rows)}" "</section>")
+    out.append("<p><strong>Formal CheckResult artifacts are machine-readable JSON files in this package. Full TBDY compliance remains NOT_EVALUATED.</strong></p>")
+    return "".join(out)
+
 def render_product_markdown(report: Mapping[str, Any], summary: Mapping[str, Any]) -> str:
     executive = report.get("executive_summary") if isinstance(report.get("executive_summary"), Mapping) else {}
     lines = [
@@ -481,6 +534,7 @@ def render_product_markdown(report: Mapping[str, Any], summary: Mapping[str, Any
             "",
         ])
     lines.append(_p2_3_markdown_sections(report))
+    lines.append(_p2_6_markdown_sections(report))
     return "\n".join(lines)
 
 
@@ -532,6 +586,7 @@ def render_product_html(report: Mapping[str, Any], summary: Mapping[str, Any]) -
   <section class="scope-warning"><h2>Truth and Scope Notice</h2><ul>{truth_notice}</ul></section>
   {''.join(sections)}
   {_p2_3_html_sections(report)}
+  {_p2_6_html_sections(report)}
 </body>
 </html>
 """
@@ -568,7 +623,7 @@ def build_c13_1_product_report(input_dir: Path, out_dir: Path) -> dict[str, Any]
             "streamlit_ui_used": False,
             "legacy_runtime_used": False,
             "check_engine_executed": False,
-            "check_result_emitted": False,
+            "check_result_emitted": True,
             "etabs_model_mutated": False,
             "analysis_run": False,
             "design_run": False,
@@ -714,6 +769,16 @@ def write_c13_1_product_report(input_dir: Path, out_dir: Path) -> dict[str, Any]
     evidence_deliverable["object_scope_summary"] = dict(object_scope_summary)
     evidence_deliverable["material_summary"] = dict(material_summary)
     evidence_deliverable["combined_product_scope_verdict"] = dict(report.get("combined_product_scope_verdict") or {})
+    formal_check_artifacts = build_formal_check_artifacts(
+        report=report,
+        object_scope_ledger=object_scope_ledger,
+        material_evidence_rows=material_evidence_rows,
+        product_summary=summary_deliverable,
+    )
+    report["formal_check_results_summary"] = formal_check_artifacts["check_results_summary.json"]
+    report["check_catalog"] = formal_check_artifacts["check_catalog.json"]
+    report["blocked_checks"] = formal_check_artifacts["blocked_checks.json"]
+    evidence_deliverable["formal_check_results_summary"] = formal_check_artifacts["check_results_summary.json"]
 
     _write_json(out_dir / "product_report.json", report)
     _write_json(out_dir / "product_summary.json", summary_deliverable)
@@ -722,6 +787,8 @@ def write_c13_1_product_report(input_dir: Path, out_dir: Path) -> dict[str, Any]
     _write_json(out_dir / "object_scope_summary.json", object_scope_summary)
     _write_json(out_dir / "material_evidence.json", material_evidence_rows)
     _write_json(out_dir / "material_summary.json", material_summary)
+    for artifact_name, artifact_payload in formal_check_artifacts.items():
+        _write_json(out_dir / artifact_name, artifact_payload)
     _write_json(out_dir / "product_slice_manifest.json", build_product_slice_manifest(report))
     (out_dir / "product_report.md").write_text(render_product_markdown(report, summary), encoding="utf-8")
     (out_dir / "product_report.html").write_text(render_product_html(report, summary), encoding="utf-8")
