@@ -96,19 +96,14 @@ class ETABSConnection:
             except Exception:
                 model_raw = "unknown"
 
-            try:
-                ret_units = sap.SetPresentUnits(6)  # 6 = kN, m, C
-            except Exception as e:
-                return False, (
-                    f"SetPresentUnits(6) failed: {e}. "
-                    "SapModel pointer is not usable. Restart ETABS and ensure same admin privilege."
-                )
-
+            # Read-only compatibility connection: do not normalize ETABS present
+            # units by mutating the live session. Unit provenance is handled by
+            # tbdy_engine.etabs.safety / engine.unit_context.
             try:
                 tables_raw = sap.DatabaseTables.GetAvailableTables()
             except Exception as e:
                 return False, (
-                    f"GetAvailableTables failed after SetPresentUnits(6): {e}. "
+                    f"GetAvailableTables failed after read-only attach: {e}. "
                     "ETABS is connected but DatabaseTables API is not usable."
                 )
 
@@ -129,7 +124,7 @@ class ETABSConnection:
 
             return True, (
                 f"Connected to ETABS. Version: {version}. "
-                f"Model: {model}. Tables: {len(tables)}. Units ret={ret_units}"
+                f"Model: {model}. Tables: {len(tables)}. Present units preserved."
             )
 
         except ImportError:
@@ -162,7 +157,8 @@ class ETABSConnection:
         if sap is None:
             raise RuntimeError("SapModel is not available after connection.")
 
-        sap.SetPresentUnits(6)
+        # Do not call SetPresentUnits here. Canonical acquisition is read-only
+        # with explicit source-unit provenance.
         return sap
 
     def get_version(self) -> str:
