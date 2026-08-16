@@ -803,7 +803,7 @@ sources:
   - MZ
   row_selection_rule:
   - preserve ETABS row identity and select/filter downstream only
-  - observed base reaction FY source only; no check unlock
+  - observed base reaction FY source only; base shear check remains locked
   display_selection_required: true
   unit_expectation:
     unit: ''
