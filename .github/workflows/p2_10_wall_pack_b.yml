@@ -24,4 +24,12 @@ jobs:
           python -m pytest -q tests/wall_inventory/test_wall_inventory_slice_1.py
           python -m pytest -q tests/c13_4_p1/test_engine_catalog_check_id_alignment.py
       - name: Run existing offline regression gate
-        run: python tools/run_offline_product_acceptance.py --out local_out/p2_10_pack_b_offline_regression
+        shell: bash
+        run: |
+          set +e
+          python tools/run_offline_product_acceptance.py --out local_out/p2_10_pack_b_offline_regression
+          rc=$?
+          if [ -f local_out/p2_10_pack_b_offline_regression/offline_product_acceptance_report.json ]; then
+            cat local_out/p2_10_pack_b_offline_regression/offline_product_acceptance_report.json
+          fi
+          exit "$rc"
