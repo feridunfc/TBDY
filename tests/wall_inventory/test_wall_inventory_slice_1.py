@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
+import yaml
 
 from tbdy_engine.features.wall_inventory import (
     AREA_SOURCE, PIER_SOURCE, WallInventoryRecord, WallInventoryStatus,
@@ -8,6 +11,7 @@ from tbdy_engine.features.wall_inventory import (
 )
 
 PROPERTY = {"Name": "W25", "Material": "C30", "Thickness": 250}
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def area(unique="A100", story="Story 1", label="W1", prop="W25", kind="Wall"):
@@ -213,6 +217,36 @@ def test_excluded_and_anonymous_rows_remain_counted_and_nothing_disappears():
     assert inventory.reconciliation.unresolved_objects == 1
     assert inventory.reconciliation.input_area_source_row_count == 2
     assert inventory.reconciliation.accounted_area_source_row_count == 2
+
+
+def test_live_prop_type_header_positively_excludes_non_wall_area_without_altering_identifiers():
+    row = {"UniqueName": "01", "Story": "+14.5", "Label": "F01",
+           "SectProp": "Slab_d=15", "PropType": "Slab"}
+    record = build([row]).records[0]
+    assert record.classification_status == WallInventoryStatus.POSITIVELY_EXCLUDED
+    assert record.etabs_area_unique_name == "01"
+    assert record.story == "+14.5"
+    assert record.area_label == "F01"
+    assert record.assigned_area_property == "Slab_d=15"
+
+
+def test_canonical_property_type_header_remains_supported():
+    record = build([area(prop="Slab_d=15", kind="Slab")]).records[0]
+    assert record.classification_status == WallInventoryStatus.POSITIVELY_EXCLUDED
+
+
+def test_live_pier_name_header_remains_recognized():
+    pier = {"Story": "Story 1", "Label": "W1", "UniqueName": "A100", "PierName": "P1"}
+    assert build([area()], piers=[pier]).records[0].pier_assignment == "P1"
+
+
+def test_source_contract_accepts_live_proven_wall_inventory_headers():
+    tables = yaml.safe_load(
+        (ROOT / "tbdy_engine/catalogs/table_registry.yaml").read_text(encoding="utf-8")
+    )["tables"]
+    assert "PropType" in tables["area_assignments_summary"]["optional_columns"]["PropertyType"]["aliases"]
+    assert "ModelType" in tables["wall_section_properties"]["optional_columns"]["ModelingType"]["aliases"]
+    assert "PierName" in tables["pier_assignments"]["required_columns"]["Pier"]["aliases"]
 
 
 def _all_keys(value):

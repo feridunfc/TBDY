@@ -520,6 +520,7 @@ tables:
       PropertyType:
         aliases:
         - Property Type
+        - PropType
       Pier:
         aliases:
         - Pier
@@ -557,6 +558,7 @@ tables:
       ModelingType:
         aliases:
         - Modeling Type
+        - ModelType
     source_role: wall_section_geometry_context
     check_unlock_allowed: false
   pier_assignments:
@@ -585,6 +587,7 @@ tables:
         aliases:
         - Pier
         - Pier Label
+        - PierName
     optional_columns:
       UniqueName:
         aliases:

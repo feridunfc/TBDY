@@ -175,7 +175,7 @@ _PROPERTY = ("SectionProperty", "Section Property", "SectProp", "Property", "Pro
 _PROPERTY_NAME = ("Name", "SectionProperty", "Section Property", "SectProp", "Property")
 _MATERIAL = ("Material", "Material Name", "MatProp")
 _PIER = ("Pier", "Pier Label", "PierName", "Pier Name")
-_TYPE = ("PropertyType", "Property Type", "Type", "ObjectType", "Object Type", "Classification")
+_TYPE = ("PropertyType", "Property Type", "PropType", "Type", "ObjectType", "Object Type", "Classification")
 _WALL_TYPES = {"wall", "shear wall", "structural wall", "pier"}
 _EXCLUDED_TYPES = {"deck", "floor", "opening", "ramp", "slab", "nonstructural", "non-structural"}
 
