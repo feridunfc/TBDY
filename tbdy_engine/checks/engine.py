@@ -20,8 +20,8 @@ from tbdy_engine.checks.result import CheckResult, CheckStatus, EvaluationLevel
 from tbdy_engine.checks.wall_applicability import (
     WallCriticalHeightDerivation,
     critical_region_story_names,
+    DerivedQuantity,
     derive_highest_applicable_story_height_mm,
-    derive_ndm_n,
     derive_net_section_area_mm2,
     derive_wall_critical_height,
     resolve_special_branch_applicability,
@@ -327,9 +327,22 @@ class MinimalCheckEngine:
                     )
                 engineering_inputs["highest_applicable_story_height_mm"] = height.value
             if check_id == WALL_NET_SECTION_AXIAL_CAPACITY:
+                ndm_context = check_input.execution_context.values.get("ndm_demand")
+                if isinstance(ndm_context, DerivedQuantity):
+                    evidence_rows.extend(ndm_context.evidence)
                 derived = self._derive_axial_inputs(check_input)
-                if isinstance(derived, str):
-                    return self._blocked(check_id, snapshot, coverage, derived, code_ref=code_ref, evidence=evidence_rows)
+                if isinstance(derived, DerivedQuantity):
+                    if derived.status == "NO_DATA":
+                        return self._no_data(
+                            check_id, snapshot, coverage,
+                            derived.diagnostic or "Ndm factual lookup returned NO_DATA",
+                            code_ref=code_ref,
+                        )
+                    return self._blocked(
+                        check_id, snapshot, coverage,
+                        derived.diagnostic or "Ndm is unresolved",
+                        code_ref=code_ref, evidence=evidence_rows,
+                    )
                 engineering_inputs.update(derived)
             if check_id in PACK_C_CHECK_IDS:
                 facts = check_input.execution_context.evidence.get("wall_critical_height_facts")
@@ -421,23 +434,17 @@ class MinimalCheckEngine:
         return resolve_special_branch_applicability(check_input.execution_context.values.get("wall_system_context"))
 
     @staticmethod
-    def _derive_axial_inputs(check_input: GeometryCheckInput) -> Mapping[str, float] | str:
+    def _derive_axial_inputs(check_input: GeometryCheckInput) -> Mapping[str, float] | DerivedQuantity:
         context = check_input.execution_context
-        pier_bundle = context.evidence.get("pier_forces_result_bundle")
-        if pier_bundle is not None and not isinstance(pier_bundle, ResultRowEvidenceBundle):
-            return "Pier Forces execution evidence is not a canonical ResultRowEvidenceBundle"
-        pier_name = context.values.get("wall_to_pier_binding")
-        ndm = derive_ndm_n(
-            component_id=check_input.component_id,
-            pier_name=None if pier_name is None else str(pier_name),
-            pier_forces=pier_bundle,
-        )
+        ndm = context.values.get("ndm_demand")
+        if not isinstance(ndm, DerivedQuantity):
+            return DerivedQuantity(None, "BLOCKED", "Canonical preselected Ndm demand is unavailable from CheckInput")
         if ndm.status != "RESOLVED":
-            return ndm.diagnostic or "Ndm is unresolved"
+            return ndm
         topology = context.values.get("net_section_topology")
         ac = derive_net_section_area_mm2(check_input.component_id, topology if isinstance(topology, Mapping) else None)
         if ac.status != "RESOLVED":
-            return ac.diagnostic or "Net Ac is unresolved"
+            return ac
         return {"Ndm_N": float(ndm.value), "net_section_area_mm2": float(ac.value)}
 
     @staticmethod

@@ -9,7 +9,10 @@ from tbdy_engine.assessment.wall import WallAssessment, assess_wall_results
 from tbdy_engine.checks.engine import MinimalCheckEngine
 from tbdy_engine.checks.input_adapter import CheckExecutionContext, GeometryCheckInput
 from tbdy_engine.checks.result import CheckResult
-from tbdy_engine.checks.wall_applicability import ReviewedWallSystemContext, special_branch_context_readiness
+from tbdy_engine.checks.ndm_selection import ReviewedNdmLoadBinding, ReviewedNdmPolicy
+from tbdy_engine.checks.wall_applicability import (
+    ReviewedWallSystemContext, derive_ndm_n, special_branch_context_readiness,
+)
 from tbdy_engine.checks.wall_contract import WALL_CHECK_DEFINITIONS
 from tbdy_engine.contracts.models import ContractBundle, freeze_data
 from tbdy_engine.coverage.builder import CoverageBuilder
@@ -36,6 +39,8 @@ class WallExecutionEvidence:
     highest_applicable_story_height_mm_by_component: Mapping[str, float] = field(default_factory=dict)
     result_bundles: Mapping[str, ResultRowEvidenceBundle] = field(default_factory=dict)
     wall_to_pier: Mapping[str, str] = field(default_factory=dict)
+    ndm_load_binding: ReviewedNdmLoadBinding | None = None
+    ndm_policies_by_component_id: Mapping[str, ReviewedNdmPolicy] = field(default_factory=dict)
     net_section_topology_by_component: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     critical_height_facts_by_component: Mapping[str, WallCriticalHeightFactualEvidence] = field(default_factory=dict)
     pack_c_reference_facts: WallRegulatoryReferenceFacts | None = None
@@ -45,6 +50,16 @@ class WallExecutionEvidence:
             raise TypeError("wall_system_context must be ReviewedWallSystemContext or None")
         if self.pack_c_reference_facts is not None and not isinstance(self.pack_c_reference_facts, WallRegulatoryReferenceFacts):
             raise TypeError("pack_c_reference_facts must be WallRegulatoryReferenceFacts or None")
+        if self.ndm_load_binding is not None and not isinstance(self.ndm_load_binding, ReviewedNdmLoadBinding):
+            raise TypeError("ndm_load_binding must be ReviewedNdmLoadBinding or None")
+        policies = dict(self.ndm_policies_by_component_id or {})
+        for component_id, policy in policies.items():
+            if not isinstance(component_id, str) or not component_id:
+                raise TypeError("ndm_policies_by_component_id keys must be nonblank strings")
+            if not isinstance(policy, ReviewedNdmPolicy):
+                raise TypeError("ndm_policies_by_component_id values must be ReviewedNdmPolicy")
+            if component_id != policy.target_component_id:
+                raise ValueError("Ndm policy mapping key must equal policy.target_component_id")
         bundles = dict(self.result_bundles or {})
         if any(not isinstance(bundle, ResultRowEvidenceBundle) for bundle in bundles.values()):
             raise TypeError("result_bundles values must be ResultRowEvidenceBundle objects")
@@ -56,6 +71,7 @@ class WallExecutionEvidence:
                 raise ValueError("Pack C factual-evidence mapping key must equal bundle.component_id")
         object.__setattr__(self, "highest_applicable_story_height_mm_by_component", freeze_data(dict(self.highest_applicable_story_height_mm_by_component or {})))
         object.__setattr__(self, "result_bundles", MappingProxyType(bundles))
+        object.__setattr__(self, "ndm_policies_by_component_id", MappingProxyType(policies))
         object.__setattr__(self, "wall_to_pier", freeze_data(dict(self.wall_to_pier or {})))
         object.__setattr__(self, "net_section_topology_by_component", freeze_data(dict(self.net_section_topology_by_component or {})))
         object.__setattr__(self, "critical_height_facts_by_component", MappingProxyType(critical))
@@ -280,18 +296,35 @@ def _execution_materialization(
             else:
                 readiness[name] = CoverageExecutionContextReadiness(context_name=name, status=CoverageExecutionContextStatus.READY)
                 values[name] = pier
-        elif name == "ndm_policy_authority":
+        elif name == "ndm_demand":
             if _known_basement(snapshot):
                 readiness[name] = CoverageExecutionContextReadiness(context_name=name, status=CoverageExecutionContextStatus.READY)
                 continue
-            readiness[name] = CoverageExecutionContextReadiness(
-                context_name=name,
-                status=CoverageExecutionContextStatus.BLOCKED,
-                reason=(
-                    "Authoritative Ndm policy is not implemented: directional selection, response-spectrum, "
-                    "Max/Min, signed-envelope, and governing-location semantics remain unresolved"
-                ),
+            bundle = execution_evidence.result_bundles.get("pier_forces")
+            pier = execution_evidence.wall_to_pier.get(component_id)
+            story = snapshot.identity.get("story")
+            demand = derive_ndm_n(
+                component_id=component_id,
+                story_name=None if story is None else str(story),
+                pier_name=None if pier is None else str(pier),
+                pier_forces=bundle,
+                load_binding=execution_evidence.ndm_load_binding,
+                policy=execution_evidence.ndm_policies_by_component_id.get(component_id),
             )
+            if demand.status == "BLOCKED":
+                readiness[name] = CoverageExecutionContextReadiness(
+                    context_name=name, status=CoverageExecutionContextStatus.BLOCKED,
+                    reason=demand.diagnostic or "Ndm result selection is blocked",
+                )
+            else:
+                # RESOLVED and authoritative NO_DATA are both completed selection outcomes.
+                # The latter is propagated by CheckEngine as NO_DATA rather than guessed BLOCKED.
+                readiness[name] = CoverageExecutionContextReadiness(
+                    context_name=name, status=CoverageExecutionContextStatus.READY
+                )
+                values[name] = demand
+                if demand.evidence:
+                    evidence["ndm_selection_trace"] = demand.evidence[0]
         elif name == "net_section_topology":
             if _known_basement(snapshot):
                 readiness[name] = CoverageExecutionContextReadiness(context_name=name, status=CoverageExecutionContextStatus.READY)

@@ -10,6 +10,9 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 
+from tbdy_engine.checks.ndm_selection import (
+    EngineeringQuantityRequest, ReviewedNdmLoadBinding, ReviewedNdmPolicy, select_ndm_demand,
+)
 from tbdy_engine.features.result_evidence import ResultRowEvidenceBundle
 from tbdy_engine.features.wall_critical_evidence import (
     WallCriticalHeightFactualEvidence,
@@ -184,22 +187,47 @@ def derive_highest_applicable_story_height_mm(value: Any) -> DerivedQuantity:
 def derive_ndm_n(
     *, component_id: str, pier_name: str | None,
     pier_forces: ResultRowEvidenceBundle | None,
+    story_name: str | None = None,
+    load_binding: ReviewedNdmLoadBinding | None = None,
+    policy: ReviewedNdmPolicy | None = None,
     selection_policy: Mapping[str, Any] | None = None,
 ) -> DerivedQuantity:
-    """Keep Ndm blocked until a frozen authoritative result-selection policy exists."""
-    del component_id, pier_name, selection_policy
+    """Derive Ndm only through the reviewed B2 result-selection authority."""
     if pier_forces is None or pier_forces.table_key != "pier_forces":
         return DerivedQuantity(None, "BLOCKED", "VERIFIED_LIVE Pier Forces raw evidence is unavailable")
     if not pier_forces.is_full_capture:
         return DerivedQuantity(
-            None,
-            "BLOCKED",
-            "Ndm requires runtime FULL Pier Forces acquisition; truncated/sampled/partial evidence cannot form an envelope",
+            None, "BLOCKED",
+            "Ndm requires runtime FULL Pier Forces acquisition; truncated/sampled/partial evidence cannot be selected",
         )
+    if selection_policy is not None and policy is None:
+        return DerivedQuantity(
+            None, "BLOCKED",
+            "Legacy selection_policy mapping is not implemented as a ReviewedNdmPolicy authority",
+        )
+    if not isinstance(story_name, str) or not story_name.strip():
+        return DerivedQuantity(None, "BLOCKED", "Exact wall Story result identity is unavailable for Ndm selection")
+    if not isinstance(pier_name, str) or not pier_name.strip():
+        return DerivedQuantity(None, "BLOCKED", "Exact wall-to-pier result identity is unavailable for Ndm selection")
+    try:
+        request = EngineeringQuantityRequest(
+            request_id=f"Ndm:{component_id}",
+            component_id=component_id,
+            story=story_name,
+            pier=pier_name,
+        )
+        demand = select_ndm_demand(request, pier_forces, load_binding, policy)
+    except (TypeError, ValueError) as exc:
+        return DerivedQuantity(None, "BLOCKED", str(exc))
+    trace_evidence = ({
+        "selection_trace": demand.trace.as_dict(),
+        "provenance": list(demand.provenance),
+    },)
     return DerivedQuantity(
-        None,
-        "BLOCKED",
-        "Authoritative Ndm result-selection policy is not implemented: directional selection, response-spectrum handling, Max/Min, signed envelope, and governing-location semantics remain unresolved",
+        demand.ndm_n,
+        demand.availability.value,
+        demand.trace.reason,
+        evidence=trace_evidence,
     )
 
 
