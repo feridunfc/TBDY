@@ -298,10 +298,10 @@ def test_axial_formal_path_exists_but_coverage_is_blocked_by_missing_ndm_authori
     row = run.coverage_rows[0]
     readiness = {item.context_name: item for item in row.execution_context_readiness}
     assert readiness["pier_forces_result_bundle"].status == CoverageExecutionContextStatus.READY
-    assert readiness["ndm_policy_authority"].status == CoverageExecutionContextStatus.BLOCKED
+    assert readiness["ndm_demand"].status == CoverageExecutionContextStatus.BLOCKED
     assert row.coverage_status == CoverageStatus.BLOCKED
     assert run.check_results[0].status == CheckStatus.BLOCKED
-    assert "Authoritative Ndm policy is not implemented" in run.check_results[0].messages[0]
+    assert "Reviewed Ndm load binding is missing" in run.check_results[0].messages[0]
 
 
 def test_net_ac_rejects_shell_surface_area_and_does_not_subtract_unrelated_nulls():

@@ -47,7 +47,7 @@ checks:
     category: AXIAL
     readiness: {status: partial, reason: Formal rule exists; Ndm result selection and exact net-section topology must be authoritative.}
     required_features: [wall_is_basement, concrete_fck_mpa]
-    required_execution_context: [pier_forces_result_bundle, wall_to_pier_binding, ndm_policy_authority, net_section_topology]
+    required_execution_context: [pier_forces_result_bundle, wall_to_pier_binding, ndm_demand, net_section_topology]
     optional_features: []
     formula_ref: TBDY_7_6_1_1_AC_GE_NDM_DIV_0_35_FCK
     pass_rule: {ratio_type: actual_over_minimum, ok_if: '>= 1.0'}
