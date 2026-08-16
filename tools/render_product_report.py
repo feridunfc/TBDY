@@ -1,11 +1,16 @@
 #!/usr/bin/env python
-"""Serialize the C13.1 product report without beam/column engineering authority.
+"""Render C13.1 product output with canonical beam/column CheckResults.
 
-B1 boundary:
-- member geometry value/limit/ratio/status come only from canonical CheckResult JSON;
-- raw ETABS/source geometry is never converted, compared, ratioed, or judged here;
-- raw frame assignments may still be used for non-engineering scope/identity counts;
-- existing modal reporting remains an unrelated product concern.
+B1 ownership boundary
+---------------------
+Beam/column engineering decisions are already complete before this module runs.
+For migrated member checks this reporter only serializes canonical CheckResult
+fields.  It does not convert member lengths, infer units, evaluate applicability,
+calculate h/b, apply member limits, or create member PASS/FAIL verdicts.
+
+Existing modal and product guardrail reporting remains intentionally unchanged
+in engineering ownership: modal reporting is a separate legacy product concern,
+and manifest guardrail flags are surfaced rather than reinterpreted.
 """
 from __future__ import annotations
 
@@ -48,21 +53,24 @@ _CANONICAL_DETAIL_COLUMNS = [
     "value", "limit", "unit", "status", "ratio", "ratio_type", "pass_rule",
     "code_ref", "evidence", "messages",
 ]
-_CANONICAL_SECTION_COLUMNS = [
-    "section", "assigned_object_count", "stories", "canonical_result_count",
+_BEAM_SECTION_COLUMNS = [
+    "section", "assigned_beam_count", "stories", "canonical_result_count",
     "check_ids", "canonical_statuses", "evidence_table",
 ]
-_UNASSESSED_COLUMNS = [
-    "section", "assigned_object_count", "stories", "sample_labels", "reason",
-    "product_pass_impact",
+_COLUMN_SECTION_COLUMNS = [
+    "section", "assigned_column_count", "stories", "canonical_result_count",
+    "check_ids", "canonical_statuses", "evidence_table",
 ]
-
 TABLE_COLUMNS = {
     "executive_summary_rows": ["metric", "value"],
-    "concrete_beam_section_geometry_checks": list(_CANONICAL_SECTION_COLUMNS),
-    "unsupported_beam_sections": list(_UNASSESSED_COLUMNS),
-    "concrete_column_section_geometry_checks": list(_CANONICAL_SECTION_COLUMNS),
-    "unsupported_column_sections": list(_UNASSESSED_COLUMNS),
+    "concrete_beam_section_geometry_checks": list(_BEAM_SECTION_COLUMNS),
+    "unsupported_beam_sections": [
+        "section", "assigned_beam_count", "stories", "sample_labels", "reason", "product_pass_impact",
+    ],
+    "concrete_column_section_geometry_checks": list(_COLUMN_SECTION_COLUMNS),
+    "unsupported_column_sections": [
+        "section", "assigned_column_count", "stories", "sample_labels", "reason", "product_pass_impact",
+    ],
     "beam_section_detail_rows": list(_CANONICAL_DETAIL_COLUMNS),
     "column_section_detail_rows": list(_CANONICAL_DETAIL_COLUMNS),
     "modal_mass_final_verdict_rows": [
@@ -72,12 +80,10 @@ TABLE_COLUMNS = {
     "guardrail_rows": ["guardrail", "value"],
     "boundary_note_rows": ["item", "statement"],
 }
-
 MODAL_PREFERRED_COLUMNS = [
     "Case", "OutputCase", "Mode", "Period", "UX", "UY", "UZ", "RX", "RY", "RZ",
     "SumUX", "SumUY", "SumUZ", "SumRX", "SumRY", "SumRZ",
 ]
-
 _CHECK_TITLES = {
     "column_geometry_min_dimension": "Rectangular column minimum section dimension",
     "beam_geometry_min_width": "Beam web minimum width",
@@ -102,7 +108,7 @@ def _fmt(value: Any) -> str:
         return "True" if value else "False"
     if isinstance(value, float):
         return f"{value:.6g}"
-    if isinstance(value, list | tuple):
+    if isinstance(value, (list, tuple)):
         return ", ".join(_fmt(item) for item in value)
     if isinstance(value, Mapping):
         return json.dumps(dict(value), ensure_ascii=False, sort_keys=True)
@@ -147,21 +153,31 @@ def _source_tables_path(input_dir: Path) -> Path:
     for path in candidates:
         if path.is_file():
             return path
-    raise FileNotFoundError(
-        "product_report_source_tables.json is required for scope/modal reporting"
-    )
+    raise FileNotFoundError("product_report_source_tables.json is required for scope/modal reporting")
 
 
 def _table_payload(source: Mapping[str, Any], key: str) -> Mapping[str, Any]:
     tables = source.get("tables") if isinstance(source, Mapping) else None
     item = tables.get(key) if isinstance(tables, Mapping) else None
-    return item if isinstance(item, Mapping) else {"rows": [], "columns": [], "actual_table_name": None, "row_count": 0}
+    return item if isinstance(item, Mapping) else {
+        "rows": [], "columns": [], "actual_table_name": None, "row_count": 0,
+    }
 
 
 def _rows(source: Mapping[str, Any], key: str) -> list[dict[str, Any]]:
     item = _table_payload(source, key)
     rows = item.get("rows") or item.get("parsed_rows") or []
     return [dict(row) for row in rows if isinstance(row, Mapping)]
+
+
+def _modal_rows(source: Mapping[str, Any]) -> tuple[list[dict[str, Any]], Mapping[str, Any]]:
+    # Preserve the historical C13.1 key first; accept later aliases without
+    # changing modal decision ownership.
+    for key in ("modal_participating_mass", "modal_mass_ratios", "modal_participating_mass_ratios"):
+        rows = _rows(source, key)
+        if rows:
+            return rows, _table_payload(source, key)
+    return [], _table_payload(source, "modal_participating_mass")
 
 
 def _canonical_member_results_path(input_dir: Path) -> Path | None:
@@ -247,6 +263,7 @@ def _canonical_detail_rows(results: Sequence[Mapping[str, Any]], component_type:
         if str(result.get("component_type") or "").casefold() != wanted:
             continue
         check_id = str(result.get("check_id") or "")
+        # Strict projection: no engineering calculation or status transformation.
         rows.append({
             "element_type": component_type.title(),
             "component": result.get("component"),
@@ -272,17 +289,20 @@ def _section_rows(
     details: Sequence[Mapping[str, Any]],
     assignment_groups: Mapping[str, Sequence[Mapping[str, Any]]],
     evidence_table: str | None,
+    *,
+    element_type: str,
 ) -> list[dict[str, Any]]:
     by_section: dict[str, list[Mapping[str, Any]]] = defaultdict(list)
     for row in details:
         by_section[str(row.get("section") or "")].append(row)
+    count_key = "assigned_beam_count" if element_type == "Beam" else "assigned_column_count"
     rows: list[dict[str, Any]] = []
     for section in sorted(by_section):
         canonical = by_section[section]
         assigned = assignment_groups.get(section, ())
         rows.append({
             "section": section,
-            "assigned_object_count": len(assigned),
+            count_key: len(assigned),
             "stories": _stories(assigned),
             "canonical_result_count": len(canonical),
             "check_ids": [row.get("check_id") for row in canonical],
@@ -295,15 +315,18 @@ def _section_rows(
 def _unassessed_sections(
     assignment_groups: Mapping[str, Sequence[Mapping[str, Any]]],
     details: Sequence[Mapping[str, Any]],
+    *,
+    element_type: str,
 ) -> list[dict[str, Any]]:
     assessed_sections = {str(row.get("section") or "") for row in details}
+    count_key = "assigned_beam_count" if element_type == "Beam" else "assigned_column_count"
     rows: list[dict[str, Any]] = []
     for section, assigned in assignment_groups.items():
         if section in assessed_sections:
             continue
         rows.append({
             "section": section,
-            "assigned_object_count": len(assigned),
+            count_key: len(assigned),
             "stories": _stories(assigned),
             "sample_labels": _sample_labels(assigned),
             "reason": "No canonical member CheckResult artifact was supplied for this assigned section.",
@@ -313,51 +336,85 @@ def _unassessed_sections(
 
 
 def _modal_summary(modal_rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    # This is the pre-B1 modal product behavior, intentionally retained.
     def selected(alias: str) -> dict[str, Any]:
-        best: float | None = None
-        best_i: int | None = None
-        best_col: str | None = None
-        best_mode: Any = None
+        best = None
+        best_i = None
+        best_col = None
         for index, row in enumerate(modal_rows):
             column, raw = _first_present(row, (alias, alias.replace("Sum", "Sum "), alias.lower(), alias.upper()))
-            value = _to_float(raw)
-            if value is None:
+            number = _to_float(raw)
+            if number is None:
                 continue
-            if best is None or value >= best:
-                best = value
+            if best is None or number >= best:
+                best = number
                 best_i = index
                 best_col = column
-                _, best_mode = _first_present(row, ("Mode", "ModeNumber", "Mode Number"))
-        status = "NO_DATA" if best is None else ("OK" if best >= MODAL_THRESHOLD else "FAIL")
+        mode = None
+        if best_i is not None:
+            _, mode = _first_present(modal_rows[best_i], ("Mode", "ModeNum", "StepNum", "Step"))
         return {
             "value": best,
             "limit": MODAL_THRESHOLD,
+            "unit": "ratio",
             "comparison": None if best is None else f"{best:g} >= {MODAL_THRESHOLD:g}",
-            "status": status,
-            "selected_mode": best_mode,
+            "status": "OK" if isinstance(best, (int, float)) and best >= MODAL_THRESHOLD else (
+                "FAIL" if best is not None else "NO_DATA"
+            ),
+            "selected_mode": mode,
             "selected_row_index": best_i,
-            "rows_considered": len(modal_rows),
-            "source_column": best_col,
+            "source_rows_considered_count": len(modal_rows),
+            "source_table": "modal_participating_mass",
+            "source_column": best_col or alias,
         }
 
+    columns: list[str] = []
+    for preferred in MODAL_PREFERRED_COLUMNS:
+        for row in modal_rows:
+            column, _ = _first_present(row, (preferred, preferred.lower(), preferred.upper()))
+            if column and column not in columns:
+                columns.append(column)
+                break
+    for row in modal_rows:
+        for key in row:
+            if str(key) not in columns:
+                columns.append(str(key))
     ux = selected("SumUX")
     uy = selected("SumUY")
     return {
+        "modal_threshold": MODAL_THRESHOLD,
         "modal_mass_table_rows": len(modal_rows),
-        "ux": ux,
-        "uy": uy,
-        "status": "FAIL" if "FAIL" in {ux["status"], uy["status"]} else (
-            "NO_DATA" if "NO_DATA" in {ux["status"], uy["status"]} else "OK"
-        ),
+        "columns": columns,
+        "rows": [dict(row) for row in modal_rows],
+        "modal_mass_participation_ux": ux,
+        "modal_mass_participation_uy": uy,
+        "modal_ux_status": ux["status"],
+        "modal_uy_status": uy["status"],
     }
 
 
+def _modal_full_rows(modal: Mapping[str, Any]) -> list[dict[str, Any]]:
+    columns = [str(column) for column in modal.get("columns", [])]
+    return [{column: row.get(column) for column in columns} for row in modal.get("rows", [])]
+
+
 def _modal_verdict_rows(modal: Mapping[str, Any]) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    for direction, key in (("UX", "ux"), ("UY", "uy")):
-        row = dict(modal.get(key) or {})
-        rows.append({"direction": direction, **row})
-    return rows
+    ux = modal["modal_mass_participation_ux"]
+    uy = modal["modal_mass_participation_uy"]
+    return [
+        {
+            "direction": "UX", "value": ux.get("value"), "limit": ux.get("limit"),
+            "comparison": ux.get("comparison"), "status": ux.get("status"),
+            "selected_mode": ux.get("selected_mode"), "selected_row_index": ux.get("selected_row_index"),
+            "rows_considered": ux.get("source_rows_considered_count"), "source_column": ux.get("source_column"),
+        },
+        {
+            "direction": "UY", "value": uy.get("value"), "limit": uy.get("limit"),
+            "comparison": uy.get("comparison"), "status": uy.get("status"),
+            "selected_mode": uy.get("selected_mode"), "selected_row_index": uy.get("selected_row_index"),
+            "rows_considered": uy.get("source_rows_considered_count"), "source_column": uy.get("source_column"),
+        },
+    ]
 
 
 def _table_columns_for(summary: Mapping[str, Any], key: str) -> list[str]:
@@ -371,34 +428,33 @@ def _table_columns_for(summary: Mapping[str, Any], key: str) -> list[str]:
 
 
 def build_product_summary(input_dir: Path, out_dir: Path | None = None) -> dict[str, Any]:
-    source_path = _source_tables_path(Path(input_dir))
+    input_dir = Path(input_dir)
+    source_path = _source_tables_path(input_dir)
     source = _read_json(source_path)
     if not isinstance(source, Mapping):
         raise ValueError("product_report_source_tables.json must contain a JSON object")
+    manifest_path = input_dir / "product_slice_manifest.json"
+    manifest = _read_json(manifest_path) if manifest_path.is_file() else {}
+    if not isinstance(manifest, Mapping):
+        manifest = {}
 
     frame_rows = _rows(source, "frame_assignments")
-    modal_rows = _rows(source, "modal_mass_ratios")
-    if not modal_rows:
-        modal_rows = _rows(source, "modal_participating_mass_ratios")
+    modal_rows, _modal_table = _modal_rows(source)
     beam_groups = _frame_groups(frame_rows, "Beam")
     column_groups = _frame_groups(frame_rows, "Column")
 
-    canonical_results, canonical_path = _load_canonical_member_results(Path(input_dir))
+    canonical_results, canonical_path = _load_canonical_member_results(input_dir)
     beam_details = _canonical_detail_rows(canonical_results, "beam")
     column_details = _canonical_detail_rows(canonical_results, "column")
     evidence_name = None if canonical_path is None else canonical_path.name
-    beam_sections = _section_rows(beam_details, beam_groups, evidence_name)
-    column_sections = _section_rows(column_details, column_groups, evidence_name)
-    unassessed_beams = _unassessed_sections(beam_groups, beam_details)
-    unassessed_columns = _unassessed_sections(column_groups, column_details)
+    beam_sections = _section_rows(beam_details, beam_groups, evidence_name, element_type="Beam")
+    column_sections = _section_rows(column_details, column_groups, evidence_name, element_type="Column")
+    unassessed_beams = _unassessed_sections(beam_groups, beam_details, element_type="Beam")
+    unassessed_columns = _unassessed_sections(column_groups, column_details, element_type="Column")
 
     modal = _modal_summary(modal_rows)
-    modal_columns = list(_table_payload(source, "modal_mass_ratios").get("columns") or [])
-    if not modal_columns:
-        modal_columns = list(_table_payload(source, "modal_participating_mass_ratios").get("columns") or [])
-    if not modal_columns and modal_rows:
-        modal_columns = [column for column in MODAL_PREFERRED_COLUMNS if column in modal_rows[0]] or list(modal_rows[0])
-    modal["columns"] = modal_columns
+    modal_full_rows = _modal_full_rows(modal)
+    modal_verdict_rows = _modal_verdict_rows(modal)
 
     beam_fail_count = sum(1 for row in beam_details if row.get("status") == "FAIL")
     column_fail_count = sum(1 for row in column_details if row.get("status") == "FAIL")
@@ -406,18 +462,27 @@ def build_product_summary(input_dir: Path, out_dir: Path | None = None) -> dict[
         1 for row in (*beam_details, *column_details)
         if row.get("status") in {"BLOCKED", "NO_DATA"}
     )
-    member_result_count = len(beam_details) + len(column_details)
+    modal_fail_count = int(modal["modal_ux_status"] != "OK") + int(modal["modal_uy_status"] != "OK")
 
     guardrails = {
+        "excel_production_path_used": bool(manifest.get("excel_production_path_used", False)),
+        "streamlit_ui_used": bool(manifest.get("streamlit_ui_used", False)),
+        "legacy_runtime_used": bool(manifest.get("legacy_runtime_used", False)),
+        "rebar_flexure_shear_capacity_unlocked": bool(manifest.get("rebar_flexure_shear_capacity_unlocked", False)),
         "member_engineering_calculation_in_reporter": False,
         "member_limit_authority_in_reporter": False,
         "member_unit_inference_in_reporter": False,
         "retired_legacy_member_criteria_formalized": False,
-        "excel_production_path_used": False,
-        "streamlit_ui_used": False,
-        "legacy_runtime_used": False,
-        "rebar_flexure_shear_capacity_unlocked": False,
     }
+    guardrail_fail_count = sum(
+        1 for key in (
+            "excel_production_path_used", "streamlit_ui_used", "legacy_runtime_used",
+            "rebar_flexure_shear_capacity_unlocked",
+        )
+        if guardrails[key]
+    )
+    total_fail_count = beam_fail_count + column_fail_count + modal_fail_count + guardrail_fail_count
+
     boundary_notes = {
         "member_result_authority": "Beam/column formal fields are serialized from canonical CheckResult only.",
         "missing_canonical_member_results": "Assigned member sections without canonical CheckResult receive no reporter PASS/FAIL.",
@@ -426,38 +491,53 @@ def build_product_summary(input_dir: Path, out_dir: Path | None = None) -> dict[
         "full_tbdy_compliance_status": "NOT_EVALUATED",
     }
 
-    executive = {
+    concrete_beam_object_count = sum(int(row["assigned_beam_count"]) for row in beam_sections)
+    concrete_column_object_count = sum(int(row["assigned_column_count"]) for row in column_sections)
+    unsupported_beam_object_count = sum(int(row["assigned_beam_count"]) for row in unassessed_beams)
+    unsupported_column_object_count = sum(int(row["assigned_column_count"]) for row in unassessed_columns)
+    input_product_slice_passed = manifest.get("product_slice_passed")
+
+    values = {
+        "product_slice_passed": input_product_slice_passed,
+        "report_product_passed": None,
+        "input_product_slice_passed": input_product_slice_passed,
         "member_check_result_source": evidence_name,
-        "canonical_member_result_count": member_result_count,
+        "canonical_member_result_count": len(beam_details) + len(column_details),
         "canonical_member_blocked_or_no_data_count": member_blocked_count,
         "concrete_beam_section_type_count": len(beam_sections),
-        "concrete_beam_object_count": len({str(row.get("component")) for row in beam_details}),
+        "concrete_beam_object_count": concrete_beam_object_count,
         "unsupported_beam_section_type_count": len(unassessed_beams),
-        "unsupported_beam_object_count": sum(int(row["assigned_object_count"]) for row in unassessed_beams),
+        "unsupported_beam_object_count": unsupported_beam_object_count,
         "concrete_column_section_type_count": len(column_sections),
-        "concrete_column_object_count": len({str(row.get("component")) for row in column_details}),
+        "concrete_column_object_count": concrete_column_object_count,
         "unsupported_column_section_type_count": len(unassessed_columns),
-        "unsupported_column_object_count": sum(int(row["assigned_object_count"]) for row in unassessed_columns),
+        "unsupported_column_object_count": unsupported_column_object_count,
         "beam_fail_count": beam_fail_count,
         "column_fail_count": column_fail_count,
-        "modal_mass_table_rows": len(modal_rows),
+        "modal_mass_table_rows": modal["modal_mass_table_rows"],
         "modal_threshold": MODAL_THRESHOLD,
-        "modal_ux_status": (modal.get("ux") or {}).get("status"),
-        "modal_uy_status": (modal.get("uy") or {}).get("status"),
-        "total_fail_count": beam_fail_count + column_fail_count + sum(
-            1 for key in ("ux", "uy") if (modal.get(key) or {}).get("status") == "FAIL"
-        ),
-        "product_slice_passed": None,
-        "report_product_passed": None,
+        "modal_ux_status": modal["modal_ux_status"],
+        "modal_uy_status": modal["modal_uy_status"],
+        "total_fail_count": total_fail_count,
         "full_tbdy_compliance_status": "NOT_EVALUATED",
     }
 
     summary: dict[str, Any] = {
-        **executive,
+        **values,
+        "sprint": "B1_BEAM_COLUMN_CANONICALIZATION",
         "source_tables_path": str(source_path),
         "member_check_results_path": None if canonical_path is None else str(canonical_path),
+        "total_beam_count": sum(len(rows) for rows in beam_groups.values()),
+        "assigned_beam_section_type_count": len(beam_groups),
+        "total_column_count": sum(len(rows) for rows in column_groups.values()),
+        "assigned_column_section_type_count": len(column_groups),
         "retired_legacy_check_ids": list(RETIRED_LEGACY_CHECK_IDS),
-        "executive_summary_rows": [{"metric": key, "value": value} for key, value in executive.items()],
+        "beam_geometry_check_count": len(beam_details),
+        "column_geometry_check_count": len(column_details),
+        "beam_geometry_fail_count": beam_fail_count,
+        "column_geometry_fail_count": column_fail_count,
+        "fail_count": total_fail_count,
+        "executive_summary_rows": [{"metric": key, "value": value} for key, value in values.items()],
         "concrete_beam_section_geometry_checks": beam_sections,
         "unsupported_beam_sections": unassessed_beams,
         "concrete_column_section_geometry_checks": column_sections,
@@ -468,10 +548,10 @@ def build_product_summary(input_dir: Path, out_dir: Path | None = None) -> dict[
         "column_section_type_results": column_sections,
         "unsupported_sections": [*unassessed_beams, *unassessed_columns],
         "modal_mass_summary": modal,
-        "modal_mass_full_table_rows": modal_rows,
-        "modal_mass_final_verdict_rows": _modal_verdict_rows(modal),
+        "modal_mass_full_table_rows": modal_full_rows,
+        "modal_mass_final_verdict_rows": modal_verdict_rows,
         "guardrails": guardrails,
-        "guardrail_rows": [{"guardrail": key, "value": value} for key, value in sorted(guardrails.items())],
+        "guardrail_rows": [{"guardrail": key, "value": value} for key, value in guardrails.items()],
         "boundary_notes": boundary_notes,
         "boundary_note_rows": [{"item": key, "statement": value} for key, value in boundary_notes.items()],
     }
@@ -483,10 +563,13 @@ def build_product_summary(input_dir: Path, out_dir: Path | None = None) -> dict[
 def _md_table(headers: Sequence[str], rows: Sequence[Mapping[str, Any]]) -> str:
     if not headers:
         return "_No rows._"
-    out = ["| " + " | ".join(headers) + " |", "| " + " | ".join("---" for _ in headers) + " |"]
+    output = [
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join("---" for _ in headers) + " |",
+    ]
     for row in rows:
-        out.append("| " + " | ".join(_fmt(row.get(header)).replace("\n", " ") for header in headers) + " |")
-    return "\n".join(out)
+        output.append("| " + " | ".join(_fmt(row.get(header)).replace("\n", " ") for header in headers) + " |")
+    return "\n".join(output)
 
 
 def render_markdown(summary: Mapping[str, Any]) -> str:
@@ -503,7 +586,10 @@ def render_markdown(summary: Mapping[str, Any]) -> str:
         ("10. Guardrails", "guardrail_rows"),
         ("11. Boundary Notes", "boundary_note_rows"),
     ]
-    lines = ["# TBDY Minimal Live Product Report — C13.1", "", "Member engineering decisions are serialized from canonical CheckResult artifacts.", ""]
+    lines = [
+        "# TBDY Minimal Live Product Report — B1", "",
+        "Beam/column engineering decisions below are serialized from canonical CheckResult artifacts.", "",
+    ]
     for title, key in ordered:
         lines.extend([
             f"## {title}", "", f"Table name: `{TABLE_TITLES[key]}`", "",
@@ -524,7 +610,7 @@ def _html_table(caption: str, headers: Sequence[str], rows: Sequence[Mapping[str
 
 
 def render_html(summary: Mapping[str, Any]) -> str:
-    title = "TBDY Minimal Live Product Report — C13.1"
+    title = "TBDY Minimal Live Product Report — B1"
     ordered = [
         ("1. Executive Summary", "executive_summary_rows"),
         ("2. Canonical Beam CheckResults by Section", "concrete_beam_section_geometry_checks"),
@@ -545,7 +631,7 @@ def render_html(summary: Mapping[str, Any]) -> str:
     return f"""<!doctype html>
 <html lang="en"><head><meta charset="utf-8" /><title>{html.escape(title)}</title>
 <style>body{{font-family:Arial,sans-serif;max-width:1400px;margin:32px auto;padding:0 20px;line-height:1.45}}table{{border-collapse:collapse;margin:12px 0 28px;width:100%;font-size:13px}}th,td{{border:1px solid #ddd;padding:6px 8px;vertical-align:top}}th{{background:#f3f3f3}}</style>
-</head><body><h1>{html.escape(title)}</h1><p>Member engineering decisions are serialized from canonical CheckResult artifacts.</p>{sections}</body></html>"""
+</head><body><h1>{html.escape(title)}</h1><p>Beam/column engineering decisions are serialized from canonical CheckResult artifacts.</p>{sections}</body></html>"""
 
 
 def render_product_report(input_dir: Path, out_dir: Path) -> dict[str, Any]:
@@ -558,7 +644,7 @@ def render_product_report(input_dir: Path, out_dir: Path) -> dict[str, Any]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Render C13.1 product report from canonical member results plus source scope/modal evidence.")
+    parser = argparse.ArgumentParser(description="Render C13.1/B1 product report from canonical member results plus scope/modal evidence.")
     parser.add_argument("--input", required=True, help="Input product slice directory")
     parser.add_argument("--out", required=True, help="Output report directory")
     args = parser.parse_args(argv)
