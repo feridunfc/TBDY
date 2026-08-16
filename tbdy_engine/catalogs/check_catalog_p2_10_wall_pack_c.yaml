@@ -54,8 +54,8 @@ checks:
     required_execution_context: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence]
     optional_features: []
     formula_ref: TBDY_7_6_2_2_HCR_LE_2LW
-    pass_rule: {ratio_type: maximum_over_actual, ok_if: '>= 1.0'}
-    output: {value: hcr_governing_mm, limit: two_lw_mm, ratio: maximum_over_actual, unit: mm}
+    pass_rule: {ratio_type: value_over_maximum, ok_if: '<= 1.0'}
+    output: {value: hcr_governing_mm, limit: two_lw_mm, ratio: value_over_maximum, unit: mm}
     evidence_policy: {include_features: [wall_length_mm, wall_thickness_mm], include_formula: false, include_source_refs: true}
     code_ref: TBDY 2018 §7.6.2.2
   WALL_END_REGION_LENGTH_CRITICAL_GE_MAX_0_2LW_2BW:
