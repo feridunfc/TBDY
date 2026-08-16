@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import inspect
-from pathlib import Path
 
 import pytest
-import yaml
 
 from tbdy_engine.assessment.wall import WallAssessment, assess_wall_results
 from tbdy_engine.checks.engine import MinimalCheckEngine
@@ -68,6 +66,14 @@ def _snapshot():
     return FeatureSnapshot(component_type="wall", component_id="W1", identity={"story": "L1", "assigned_wall_property": "WALL-P1"}, features=features)
 
 
+def _special_proof(*, wall_only=True, condition_1=True, condition_2=True):
+    return {"TBDY_7_6_1_3_proof": {"W1": {
+        "wall_only_structural_system": wall_only,
+        "eq714_condition_1_satisfied": condition_1,
+        "eq714_condition_2_satisfied": condition_2,
+    }}}
+
+
 def test_pack_b_exact_five_affected_paths():
     assert PACK_B_AFFECTED_CHECK_IDS == (
         WALL_GEOM_BODY_THICKNESS_GE_H16, WALL_GEOM_BODY_THICKNESS_GE_250,
@@ -84,12 +90,19 @@ def test_unknown_applicability_blocks_general_and_special_without_default():
     assert results[WALL_GEOM_SPECIAL_THICKNESS_GE_HMAX20].status == CheckStatus.BLOCKED
     assert results[WALL_GEOM_SPECIAL_THICKNESS_GE_200].status == CheckStatus.BLOCKED
     source = inspect.getsource(resolve_special_branch_applicability)
+    assert "TBDY_7_6_1_3_applies" not in source
     assert '.get(component_id, False)' not in source
     assert 'or False' not in source
 
 
+def test_wall_only_system_requires_both_eq714_condition_proofs():
+    ctx = {"TBDY_7_6_1_3_proof": {"W1": {"wall_only_structural_system": True, "eq714_condition_1_satisfied": True}}}
+    run = run_wall_checks(_Bundle(), [_snapshot()], [WALL_GEOM_BODY_THICKNESS_GE_250, WALL_GEOM_SPECIAL_THICKNESS_GE_200], engineering_context=ctx)
+    assert all(result.status == CheckStatus.BLOCKED for result in run.check_results)
+
+
 def test_general_branch_executes_only_when_special_proven_false():
-    ctx = {"TBDY_7_6_1_3_applies": {"W1": False}}
+    ctx = _special_proof(condition_1=True, condition_2=False)
     run = run_wall_checks(_Bundle(), [_snapshot()], [WALL_GEOM_BODY_THICKNESS_GE_H16, WALL_GEOM_BODY_THICKNESS_GE_250], engineering_context=ctx)
     results = {r.check_id: r for r in run.check_results}
     assert results[WALL_GEOM_BODY_THICKNESS_GE_H16].status == CheckStatus.OK
@@ -98,8 +111,16 @@ def test_general_branch_executes_only_when_special_proven_false():
     assert results[WALL_GEOM_BODY_THICKNESS_GE_250].limit == pytest.approx(250.0)
 
 
+def test_non_wall_only_system_proves_special_inapplicable_without_eq714_guessing():
+    ctx = {"TBDY_7_6_1_3_proof": {"W1": {"wall_only_structural_system": False}}}
+    run = run_wall_checks(_Bundle(), [_snapshot()], [WALL_GEOM_BODY_THICKNESS_GE_250, WALL_GEOM_SPECIAL_THICKNESS_GE_200], engineering_context=ctx)
+    results = {r.check_id: r for r in run.check_results}
+    assert results[WALL_GEOM_BODY_THICKNESS_GE_250].status == CheckStatus.OK
+    assert results[WALL_GEOM_SPECIAL_THICKNESS_GE_200].status == CheckStatus.OUT_OF_SCOPE
+
+
 def test_special_checks_execute_only_when_special_applies():
-    ctx = {"TBDY_7_6_1_3_applies": {"W1": True}, "highest_applicable_story_height_mm": {"W1": 5000.0}}
+    ctx = {**_special_proof(), "highest_applicable_story_height_mm": {"W1": 5000.0}}
     run = run_wall_checks(_Bundle(), [_snapshot()], [WALL_GEOM_SPECIAL_THICKNESS_GE_HMAX20, WALL_GEOM_SPECIAL_THICKNESS_GE_200], engineering_context=ctx)
     results = {r.check_id: r for r in run.check_results}
     assert results[WALL_GEOM_SPECIAL_THICKNESS_GE_HMAX20].status == CheckStatus.OK
@@ -122,19 +143,34 @@ def test_directional_sum_ag_and_all_floor_sum_ap_are_not_collapsed():
     assert q["sum_ag_y_over_sum_ap"] == pytest.approx(0.10)
 
 
-def _pier_bundle():
+def _pier_bundle(*, force_unit="N", axial=100000.0):
     row = {field: 0 for field in PIER_FORCE_IDENTITY_FIELDS}
-    row.update({"Story": "L1", "Pier": "P1", "OutputCase": "EQX", "CaseType": "Combo", "StepType": "Max", "StepNumber": 1, "Location": "Bottom", "P": 100000.0})
+    row.update({"Story": "L1", "Pier": "P1", "OutputCase": "EQX", "CaseType": "Combo", "StepType": "Max", "StepNumber": 1, "Location": "Bottom", "P": axial})
     return ResultRowEvidenceBundle(
         table_key="pier_forces", actual_table_name="Pier Forces", identity_fields=PIER_FORCE_IDENTITY_FIELDS,
-        rows=(row,), source_contract_status="VERIFIED_LIVE", units={"force_unit": "N"},
+        rows=(row,), source_contract_status="VERIFIED_LIVE", units={"force_unit": force_unit},
     )
+
+
+def _ndm_policy():
+    return {
+        "eligible_output_cases": ["EQX"], "earthquake_direction": "X", "envelope_rule": "MAX_COMPRESSION",
+        "compression_sign": "POSITIVE", "governing_location": "Bottom", "response_spectrum_handling": "EXPLICIT_SIGNED_COMBINATION",
+    }
 
 
 def test_ndm_cannot_select_merely_by_output_case_name():
     q = derive_ndm_n(component_id="W1", pier_name="P1", pier_forces=_pier_bundle(), selection_policy={"eligible_output_cases": ["EQX"]})
     assert q.status == "BLOCKED"
     assert "policy is incomplete" in str(q.diagnostic)
+
+
+def test_ndm_normalizes_kn_to_n_only_from_explicit_source_unit():
+    q = derive_ndm_n(component_id="W1", pier_name="P1", pier_forces=_pier_bundle(force_unit="kN", axial=100.0), selection_policy=_ndm_policy())
+    assert q.status == "RESOLVED"
+    assert q.value == pytest.approx(100000.0)
+    blocked = derive_ndm_n(component_id="W1", pier_name="P1", pier_forces=_pier_bundle(force_unit="", axial=100.0), selection_policy=_ndm_policy())
+    assert blocked.status == "BLOCKED"
 
 
 def test_net_ac_rejects_shell_surface_area_and_does_not_subtract_unrelated_nulls():
@@ -159,12 +195,8 @@ def test_axial_path_exists_but_blocks_when_authoritative_result_policy_missing()
 
 
 def test_axial_formula_executes_only_with_complete_engineering_inputs():
-    policy = {
-        "eligible_output_cases": ["EQX"], "earthquake_direction": "X", "envelope_rule": "MAX_COMPRESSION",
-        "compression_sign": "POSITIVE", "governing_location": "Bottom", "response_spectrum_handling": "EXPLICIT_SIGNED_COMBINATION",
-    }
     ctx = {
-        "result_evidence": {"pier_forces": _pier_bundle()}, "wall_to_pier": {"W1": "P1"}, "ndm_result_policy": policy,
+        "result_evidence": {"pier_forces": _pier_bundle()}, "wall_to_pier": {"W1": "P1"}, "ndm_result_policy": _ndm_policy(),
         "net_section_topology": {"W1": {"topology_verified": True, "section_semantics_verified": True, "gross_cross_section_area_mm2": 300000.0, "openings": []}},
     }
     run = run_wall_checks(_Bundle(), [_snapshot()], [WALL_NET_SECTION_AXIAL_CAPACITY], engineering_context=ctx)
@@ -179,7 +211,7 @@ def test_single_engine_assessment_and_reporter_authorities():
     assert "0.35" not in inspect.getsource(assess_wall_results)
     assert "/ 20" not in inspect.getsource(assess_wall_results)
     assert "0.35" not in inspect.getsource(serialize_wall_results)
-    fake_run = run_wall_checks(_Bundle(), [_snapshot()], [WALL_GEOM_SPECIAL_THICKNESS_GE_200], engineering_context={"TBDY_7_6_1_3_applies": {"W1": True}})
+    fake_run = run_wall_checks(_Bundle(), [_snapshot()], [WALL_GEOM_SPECIAL_THICKNESS_GE_200], engineering_context=_special_proof())
     assessment = fake_run.assessment
     assert isinstance(assessment, WallAssessment)
     assert assessment.full_tbdy_compliance_status == "NOT_EVALUATED"
