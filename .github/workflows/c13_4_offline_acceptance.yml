@@ -7,6 +7,7 @@ on:
   push:
     branches:
       - main
+      - sprint/p2-10-wall-check-pack-a
 
 jobs:
   offline-acceptance:
@@ -24,6 +25,11 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install pytest pyyaml jsonschema
+
+      - name: Run Wall Inventory and Pack A kernel regressions
+        run: |
+          python -m pytest -q tests/wall_inventory/test_wall_inventory_slice_1.py
+          python -m pytest -q tests/wall_geometry/test_wall_check_pack_a.py
 
       - name: Run offline acceptance gate
         run: python tools/run_offline_product_acceptance.py --out local_out/c13_4_ci_offline_acceptance
