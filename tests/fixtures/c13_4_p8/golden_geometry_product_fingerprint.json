@@ -3,50 +3,50 @@
     {
       "check_id": "beam_depth_width_ratio",
       "component_type": "beam",
-      "limit": 3.5,
-      "status": "OK",
-      "unit": "",
-      "value": 2.0
+      "limit": null,
+      "status": "BLOCKED",
+      "unit": "None",
+      "value": null
     },
     {
       "check_id": "beam_geometry_min_depth",
       "component_type": "beam",
-      "limit": 300.0,
-      "status": "OK",
-      "unit": "mm",
-      "value": 600.0
+      "limit": null,
+      "status": "BLOCKED",
+      "unit": "None",
+      "value": null
     },
     {
       "check_id": "beam_geometry_min_width",
       "component_type": "beam",
-      "limit": 250.0,
-      "status": "OK",
-      "unit": "mm",
-      "value": 300.0
+      "limit": null,
+      "status": "BLOCKED",
+      "unit": "None",
+      "value": null
     },
     {
       "check_id": "column_geometry_min_depth",
       "component_type": "column",
-      "limit": 300.0,
-      "status": "OK",
-      "unit": "mm",
-      "value": 500.0
+      "limit": null,
+      "status": "BLOCKED",
+      "unit": "None",
+      "value": null
     },
     {
       "check_id": "column_geometry_min_dimension",
       "component_type": "column",
-      "limit": 300.0,
-      "status": "OK",
-      "unit": "mm",
-      "value": 400.0
+      "limit": null,
+      "status": "BLOCKED",
+      "unit": "None",
+      "value": null
     },
     {
       "check_id": "column_geometry_min_width",
       "component_type": "column",
-      "limit": 300.0,
-      "status": "OK",
-      "unit": "mm",
-      "value": 400.0
+      "limit": null,
+      "status": "BLOCKED",
+      "unit": "None",
+      "value": null
     }
   ],
   "fingerprint_version": "C13.4-P8.v1",
@@ -66,7 +66,7 @@
     "adapter_diagnostic_count": 0,
     "check_result_count": 6,
     "check_result_status_counts": {
-      "OK": 6
+      "BLOCKED": 6
     },
     "scope": "GEOMETRY_ONLY_PRODUCT_SMOKE",
     "status": "OK"

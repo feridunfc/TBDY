@@ -39,7 +39,7 @@ def _snapshot_by_component(component_id: str):
     raise AssertionError(f"missing fixture component {component_id}")
 
 
-def test_new_check_ids_are_present_in_modular_check_catalog():
+def test_legacy_check_ids_remain_in_overlay_for_compatibility_only():
     checks = _read_yaml(CHECK_OVERLAY)["checks"]
 
     assert "column_geometry_min_width" in checks
@@ -75,8 +75,8 @@ def test_adapter_diagnostics_never_emit_ok_or_fail_for_missing_or_wrong_unit():
         assert {diagnostic.status for diagnostic in result.diagnostics}.isdisjoint({"OK", "FAIL"})
 
 
-def test_engine_returns_ok_for_column_width_depth_at_or_above_300_mm():
-    snapshot = _snapshot_by_component("C_OK")
+def _compatibility_statuses(component_id: str) -> dict[str, str]:
+    snapshot = _snapshot_by_component(component_id)
     adapter = build_geometry_check_inputs_from_feature_snapshot(snapshot)
     definitions = _read_yaml(CHECK_OVERLAY)["checks"]
     definitions["column_geometry_min_dimension"] = {
@@ -85,52 +85,38 @@ def test_engine_returns_ok_for_column_width_depth_at_or_above_300_mm():
         "code_ref": "contract",
     }
     engine = MinimalCheckEngine(definitions)
-
-    statuses = {
-        check_input.check_id: engine.run_check(check_input.check_id, check_input.snapshot, check_input.coverage).status.value
-        for check_input in adapter.check_inputs
+    return {
+        item.check_id: engine.run_input(item).status.value
+        for item in adapter.check_inputs
     }
 
-    assert statuses["column_geometry_min_width"] == "OK"
-    assert statuses["column_geometry_min_depth"] == "OK"
+
+def test_legacy_column_width_depth_aliases_are_compatibility_only_for_good_geometry():
+    statuses = _compatibility_statuses("C_OK")
+    assert statuses["column_geometry_min_width"] == "BLOCKED"
+    assert statuses["column_geometry_min_depth"] == "BLOCKED"
 
 
-def test_engine_returns_fail_for_resolved_width_or_depth_below_300_mm():
-    definitions = _read_yaml(CHECK_OVERLAY)["checks"]
-    definitions["column_geometry_min_dimension"] = {
-        "element_type": "column",
-        "required_features": ["column_width_mm", "column_depth_mm"],
-        "code_ref": "contract",
-    }
-    engine = MinimalCheckEngine(definitions)
+def test_legacy_column_width_depth_aliases_never_recreate_pass_fail_for_bad_geometry():
+    width_status = _compatibility_statuses("C_BAD_WIDTH")
+    depth_status = _compatibility_statuses("C_BAD_DEPTH")
 
-    width_adapter = build_geometry_check_inputs_from_feature_snapshot(_snapshot_by_component("C_BAD_WIDTH"))
-    depth_adapter = build_geometry_check_inputs_from_feature_snapshot(_snapshot_by_component("C_BAD_DEPTH"))
-    width_status = {
-        item.check_id: engine.run_check(item.check_id, item.snapshot, item.coverage).status.value
-        for item in width_adapter.check_inputs
-    }
-    depth_status = {
-        item.check_id: engine.run_check(item.check_id, item.snapshot, item.coverage).status.value
-        for item in depth_adapter.check_inputs
-    }
-
-    assert width_status["column_geometry_min_width"] == "FAIL"
-    assert width_status["column_geometry_min_depth"] == "OK"
-    assert depth_status["column_geometry_min_width"] == "OK"
-    assert depth_status["column_geometry_min_depth"] == "FAIL"
+    assert width_status["column_geometry_min_width"] == "BLOCKED"
+    assert width_status["column_geometry_min_depth"] == "BLOCKED"
+    assert depth_status["column_geometry_min_width"] == "BLOCKED"
+    assert depth_status["column_geometry_min_depth"] == "BLOCKED"
 
 
-def test_p4_geometry_vertical_slice_emits_six_canonical_check_results(tmp_path: Path):
+def test_p4_geometry_vertical_slice_emits_six_compatibility_artifact_results(tmp_path: Path):
     result = run_geometry_vertical_slice_from_file(feature_snapshot_path=CANONICAL_FIXTURE, output_dir=tmp_path)
 
     assert len(result.check_results) == 6
     assert result.run_summary["check_result_count"] == 6
-    assert result.run_summary["check_result_status_counts"] == {"OK": 6}
+    assert result.run_summary["check_result_status_counts"] == {"BLOCKED": 6}
     assert result.run_summary["adapter_diagnostic_count"] == 0
 
 
-def test_p5_report_includes_new_column_check_rows(tmp_path: Path):
+def test_p5_report_includes_legacy_column_rows_without_promoting_them(tmp_path: Path):
     artifact_dir = tmp_path / "artifacts"
     run_geometry_vertical_slice_from_file(feature_snapshot_path=CANONICAL_FIXTURE, output_dir=artifact_dir)
     report_path = tmp_path / "report.md"
@@ -144,7 +130,7 @@ def test_p5_report_includes_new_column_check_rows(tmp_path: Path):
     assert "column_geometry_min_depth" in report
 
 
-def test_p6_product_smoke_p7_bundle_validator_and_p8_golden_regression_accept_six_checks(tmp_path: Path):
+def test_p6_product_smoke_p7_bundle_validator_and_p8_golden_regression_accept_six_blocked_results(tmp_path: Path):
     product_dir = tmp_path / "product"
     product = run_geometry_product_smoke(feature_snapshot_path=CANONICAL_FIXTURE, output_dir=product_dir)
 
@@ -163,6 +149,7 @@ def test_p6_product_smoke_p7_bundle_validator_and_p8_golden_regression_accept_si
     )
     assert regression.status == "OK"
     assert len(regression.actual_fingerprint["checks"]) == 6
+    assert {row["status"] for row in regression.actual_fingerprint["checks"]} == {"BLOCKED"}
 
 
 def test_p9_offline_acceptance_includes_c13_5_p1_before_golden_regression(tmp_path: Path):
