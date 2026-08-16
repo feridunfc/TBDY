@@ -1,7 +1,8 @@
 """Engineering-only helpers for wall applicability and derived result quantities.
 
-These helpers are consumed only by the canonical CheckEngine. They do not
-promote derived quantities into FeatureSnapshot facts or VERIFIED_LIVE sources.
+These helpers do not promote derived quantities into FeatureSnapshot facts or
+VERIFIED_LIVE sources. CheckEngine owns applicability execution; Coverage may
+query only whether the same frozen system context is sufficient to execute it.
 """
 from __future__ import annotations
 
@@ -90,10 +91,9 @@ def directional_eq714_quantities(
     return out
 
 
-def resolve_special_branch_applicability(
+def _special_branch_state(
     system_context: ReviewedWallSystemContext | None,
 ) -> tuple[bool | None, str | None]:
-    """Resolve §7.6.1.3 at regulatory-system grain with tri-state conjunction."""
     if system_context is None:
         return None, "Reviewed regulatory structural-system context is unavailable"
     if not isinstance(system_context, ReviewedWallSystemContext):
@@ -107,12 +107,26 @@ def resolve_special_branch_applicability(
         return None, "Directional/system Eq.7.14 evidence is unavailable"
     condition_1 = eq714.condition_1_satisfied
     condition_2 = eq714.condition_2_satisfied
-    # Tri-state AND: a proven FALSE is decisive even when the other operand is unknown.
     if condition_1 is False or condition_2 is False:
         return False, None
     if condition_1 is True and condition_2 is True:
         return True, None
     return None, "Eq.7.14 applicability remains UNKNOWN because at least one condition is unresolved"
+
+
+def special_branch_context_readiness(
+    system_context: ReviewedWallSystemContext | None,
+) -> tuple[bool, str | None]:
+    """Return only whether system evidence is sufficient for CheckEngine execution."""
+    state, reason = _special_branch_state(system_context)
+    return state is not None, reason
+
+
+def resolve_special_branch_applicability(
+    system_context: ReviewedWallSystemContext | None,
+) -> tuple[bool | None, str | None]:
+    """CheckEngine-facing §7.6.1.3 applicability at regulatory-system grain."""
+    return _special_branch_state(system_context)
 
 
 def derive_highest_applicable_story_height_mm(value: Any) -> DerivedQuantity:
@@ -126,12 +140,7 @@ def derive_ndm_n(
     pier_forces: ResultRowEvidenceBundle | None,
     selection_policy: Mapping[str, Any] | None = None,
 ) -> DerivedQuantity:
-    """Keep Ndm blocked until a frozen authoritative result-selection policy exists.
-
-    Presence of policy-shaped strings/mappings is intentionally non-authoritative.
-    This prevents output-case names, token values, or incomplete result semantics
-    from manufacturing a resolved Ndm.
-    """
+    """Keep Ndm blocked until a frozen authoritative result-selection policy exists."""
     del component_id, pier_name, selection_policy
     if pier_forces is None or pier_forces.table_key != "pier_forces":
         return DerivedQuantity(None, "BLOCKED", "VERIFIED_LIVE Pier Forces raw evidence is unavailable")
@@ -183,5 +192,5 @@ __all__ = [
     "DerivedQuantity", "Eq714SystemEvidence", "ReviewedWallSystemContext",
     "derive_highest_applicable_story_height_mm", "derive_ndm_n",
     "derive_net_section_area_mm2", "directional_eq714_quantities",
-    "resolve_special_branch_applicability",
+    "resolve_special_branch_applicability", "special_branch_context_readiness",
 ]
