@@ -1124,6 +1124,9 @@ features:
     source:
       table_key: wall_section_data
       field_aliases:
+      - Thickness
+      - Wall Thickness
+      - Total Thickness
       - ThickBot
       - ThickTop
       - ThicknessBottom
@@ -1131,9 +1134,9 @@ features:
       combo_family: NONE
       aggregation: none
     unit_policy:
-      source_unit: mm
+      source_unit: ETABS_PRESENT_LENGTH
       target_unit: mm
-      conversion: none
+      conversion: resolver_unit_context_length_to_mm
     fallback:
       allowed: false
       method: none
