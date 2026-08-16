@@ -7,6 +7,15 @@ from typing import Any
 
 from tbdy_engine.checks.diagnostics import CheckDiagnostic, CheckDiagnosticCode, CheckDiagnosticSeverity
 from tbdy_engine.checks.input_adapter import GeometryCheckInput
+from tbdy_engine.checks.member_geometry import (
+    BEAM_7411_APPLICABILITY_CONTEXT,
+    COLUMN_MIN_DIMENSION,
+    COLUMN_SECTION_SHAPE_CONTEXT,
+    LEGACY_COLUMN_ALIASES,
+    MEMBER_FORMAL_CHECK_IDS,
+    MEMBER_GEOMETRY_REGISTRATIONS,
+    evaluate_member_rule,
+)
 from tbdy_engine.checks.result import CheckResult, CheckStatus, EvaluationLevel
 from tbdy_engine.checks.wall_applicability import (
     WallCriticalHeightDerivation,
@@ -49,18 +58,8 @@ from tbdy_engine.features.wall_critical_evidence import (
 )
 
 _WALL_CHECK_IDS = frozenset((*PACK_A_CHECK_IDS, *PACK_B_NEW_CHECK_IDS, *PACK_C_CHECK_IDS))
-_ALLOWED_CHECKS = {
-    "column_geometry_min_dimension", "column_geometry_min_width", "column_geometry_min_depth",
-    "beam_geometry_min_width", "beam_geometry_min_depth", "beam_depth_width_ratio", *_WALL_CHECK_IDS,
-}
-_GEOMETRY_LIMITS = {
-    "column_geometry_min_dimension": 300.0,
-    "column_geometry_min_width": 300.0,
-    "column_geometry_min_depth": 300.0,
-    "beam_geometry_min_width": 250.0,
-    "beam_geometry_min_depth": 300.0,
-    "beam_depth_width_ratio": 3.5,
-}
+_MEMBER_COMPATIBILITY_CHECK_IDS = frozenset(LEGACY_COLUMN_ALIASES)
+_ALLOWED_CHECKS = frozenset((*MEMBER_FORMAL_CHECK_IDS, *_MEMBER_COMPATIBILITY_CHECK_IDS, *_WALL_CHECK_IDS))
 _GENERAL_BRANCH_IDS = {WALL_GEOM_BODY_THICKNESS_GE_H16, WALL_GEOM_BODY_THICKNESS_GE_250}
 _SPECIAL_BRANCH_IDS = {WALL_GEOM_SPECIAL_THICKNESS_GE_HMAX20, WALL_GEOM_SPECIAL_THICKNESS_GE_200}
 
@@ -132,7 +131,14 @@ class MinimalCheckEngine:
             return self._no_data(check_id, snapshot, coverage, "Unknown check_id for canonical MinimalCheckEngine")
         definition = dict(definition)
         if check_id not in _ALLOWED_CHECKS:
-            return self._blocked(check_id, snapshot, coverage, "Check is outside the canonical geometry allowlist")
+            return self._blocked(check_id, snapshot, coverage, "Check is outside the canonical registered-check set")
+        if check_id in LEGACY_COLUMN_ALIASES:
+            canonical = LEGACY_COLUMN_ALIASES[check_id]
+            return self._blocked(
+                check_id, snapshot, coverage,
+                f"Compatibility-only legacy projection; canonical engineering authority is {canonical}",
+                code_ref="B1-COMPATIBILITY-ONLY",
+            )
         if coverage.coverage_status == CoverageStatus.BLOCKED:
             return self._blocked(
                 check_id, snapshot, coverage,
@@ -151,14 +157,14 @@ class MinimalCheckEngine:
                 code_ref=str(definition.get("code_ref") or "contract"),
             )
         if coverage.coverage_status == CoverageStatus.PARTIAL:
-            if check_id in _WALL_CHECK_IDS:
+            if check_id in _WALL_CHECK_IDS or check_id in MEMBER_FORMAL_CHECK_IDS:
                 return self._blocked(
                     check_id, snapshot, coverage,
-                    coverage.reason or "Formal wall checks require FULL executable coverage",
+                    coverage.reason or "Formal checks require FULL executable coverage",
                     code_ref=str(definition.get("code_ref") or "contract"),
                     diagnostics=(CheckDiagnostic(
                         CheckDiagnosticSeverity.ERROR, CheckDiagnosticCode.COVERAGE_BLOCKED,
-                        "Partial coverage is not executable for formal wall checks", coverage.as_dict(),
+                        "Partial coverage is not executable for formal checks", coverage.as_dict(),
                     ),),
                 )
             return self._warning(check_id, snapshot, coverage, coverage.reason or "Coverage is partial; result is screening only")
@@ -182,7 +188,7 @@ class MinimalCheckEngine:
             fv = snapshot.features[feature_name]
             evidence.extend(ev.as_dict() for ev in fv.evidence)
             if fv.status != FeatureValueStatus.RESOLVED:
-                if check_id in _WALL_CHECK_IDS:
+                if check_id in _WALL_CHECK_IDS or check_id in MEMBER_FORMAL_CHECK_IDS:
                     return self._blocked(
                         check_id, snapshot, coverage,
                         f"Required canonical feature is not resolved: {feature_name}",
@@ -193,10 +199,58 @@ class MinimalCheckEngine:
                     check_id, snapshot, coverage,
                     f"Feature is not fully resolved: {feature_name}", evidence=evidence,
                 )
+            if check_id in MEMBER_FORMAL_CHECK_IDS and fv.unit != "mm":
+                return self._blocked(
+                    check_id, snapshot, coverage,
+                    f"Formal member geometry requires explicit mm feature units; {feature_name} has unit={fv.unit!r}",
+                    evidence=evidence,
+                    code_ref=str(definition.get("code_ref") or "contract"),
+                )
             variables[feature_name] = fv.value
+        if check_id in MEMBER_FORMAL_CHECK_IDS:
+            return self._evaluate_registered_member_check(check_input, definition, variables, evidence)
         if check_id in _WALL_CHECK_IDS:
             return self._evaluate_registered_wall_check(check_input, definition, variables, evidence)
-        return self._evaluate_legacy_geometry(check_id, definition, snapshot, coverage, variables, evidence)
+        return self._blocked(check_id, snapshot, coverage, "No canonical evaluator registered for check")
+
+    def _evaluate_registered_member_check(
+        self,
+        check_input: GeometryCheckInput,
+        definition: Mapping[str, Any],
+        variables: Mapping[str, Any],
+        evidence: Sequence[Any],
+    ) -> CheckResult:
+        check_id = check_input.check_id
+        snapshot = check_input.snapshot
+        coverage = check_input.coverage
+        registration = MEMBER_GEOMETRY_REGISTRATIONS[check_id]
+        code_ref = str(definition.get("code_ref") or registration.code_ref)
+        context = check_input.execution_context.values
+        if check_id == COLUMN_MIN_DIMENSION:
+            shape = context.get(COLUMN_SECTION_SHAPE_CONTEXT)
+            if not isinstance(shape, str) or not shape.strip():
+                return self._blocked(check_id, snapshot, coverage, "Rectangular-column applicability is unresolved", code_ref=code_ref, evidence=evidence)
+            if shape.strip().upper() != "RECTANGULAR":
+                return self._out_of_scope(check_id, snapshot, coverage, f"Rectangular-column rule is not applicable to section shape {shape}", code_ref=code_ref, evidence=evidence)
+        else:
+            applies = context.get(BEAM_7411_APPLICABILITY_CONTEXT)
+            if not isinstance(applies, bool):
+                return self._blocked(check_id, snapshot, coverage, "TBDY §7.4.1.1 beam applicability is unresolved", code_ref=code_ref, evidence=evidence)
+            if applies is False:
+                return self._out_of_scope(check_id, snapshot, coverage, "TBDY §7.4.1.1 is proven not applicable to this beam", code_ref=code_ref, evidence=evidence)
+        try:
+            rule = evaluate_member_rule(registration, variables)
+        except (TypeError, ValueError, ZeroDivisionError) as exc:
+            return self._blocked(check_id, snapshot, coverage, str(exc), code_ref=code_ref, evidence=evidence)
+        return CheckResult(
+            check_id=check_id, component=snapshot.component_id, component_type=snapshot.component_type,
+            story=self._story(snapshot), section=self._section(snapshot),
+            status=CheckStatus.OK if rule.is_satisfied else CheckStatus.FAIL,
+            value=rule.value, limit=rule.limit, ratio=rule.ratio, ratio_type=rule.ratio_type,
+            pass_rule=rule.ratio_type, unit=rule.unit, evaluation_level=EvaluationLevel.DESIGN_LEVEL,
+            evidence=evidence, messages=("Formal canonical beam/column geometry CheckResult",),
+            code_ref=code_ref, diagnostics=(),
+        )
 
     def _evaluate_registered_wall_check(
         self,
@@ -449,40 +503,6 @@ class MinimalCheckEngine:
             }
         return "Pack C check has no shared engineering-input derivation"
 
-    def _evaluate_legacy_geometry(
-        self,
-        check_id: str,
-        definition: Mapping[str, Any],
-        snapshot: FeatureSnapshot,
-        coverage: CoverageRow,
-        variables: Mapping[str, Any],
-        evidence: Sequence[Any],
-    ) -> CheckResult:
-        try:
-            value, limit, ratio, ratio_type = self._geometry_value(check_id, variables)
-        except (TypeError, ValueError, ZeroDivisionError) as exc:
-            return self._no_data(check_id, snapshot, coverage, str(exc))
-        status = CheckStatus.OK if self._geometry_satisfies(check_id, value, limit) else CheckStatus.FAIL
-        return CheckResult(
-            check_id=check_id,
-            component=snapshot.component_id,
-            component_type=snapshot.component_type,
-            story=self._story(snapshot),
-            section=self._section(snapshot),
-            status=status,
-            value=value,
-            limit=limit,
-            ratio=ratio,
-            ratio_type=ratio_type,
-            pass_rule=ratio_type,
-            unit="mm" if check_id != "beam_depth_width_ratio" else "",
-            evaluation_level=EvaluationLevel.SCREENING,
-            evidence=evidence,
-            messages=("Canonical geometry CheckResult",),
-            code_ref=definition.get("code_ref", "contract"),
-            diagnostics=(),
-        )
-
     @staticmethod
     def _number(name: str, value: Any) -> float:
         if isinstance(value, bool) or not isinstance(value, (int, float)):
@@ -500,37 +520,6 @@ class MinimalCheckEngine:
         if not isinstance(value, str) or not value.strip():
             raise TypeError(f"Required classification fact must be a nonblank string: {name}")
         return value.strip()
-
-    def _geometry_value(self, check_id: str, variables: Mapping[str, Any]) -> tuple[float, float, float, str]:
-        if check_id == "column_geometry_min_dimension":
-            width = self._number("column_width_mm", variables.get("column_width_mm"))
-            depth = self._number("column_depth_mm", variables.get("column_depth_mm"))
-            value = min(width, depth); minimum = _GEOMETRY_LIMITS[check_id]
-            return value, minimum, value / minimum, "actual_over_minimum"
-        if check_id == "column_geometry_min_width":
-            value = self._number("column_width_mm", variables.get("column_width_mm")); minimum = _GEOMETRY_LIMITS[check_id]
-            return value, minimum, value / minimum, "actual_over_minimum"
-        if check_id == "column_geometry_min_depth":
-            value = self._number("column_depth_mm", variables.get("column_depth_mm")); minimum = _GEOMETRY_LIMITS[check_id]
-            return value, minimum, value / minimum, "actual_over_minimum"
-        if check_id == "beam_geometry_min_width":
-            value = self._number("beam_width_mm", variables.get("beam_width_mm")); minimum = _GEOMETRY_LIMITS[check_id]
-            return value, minimum, value / minimum, "actual_over_minimum"
-        if check_id == "beam_geometry_min_depth":
-            value = self._number("beam_depth_mm", variables.get("beam_depth_mm")); minimum = _GEOMETRY_LIMITS[check_id]
-            return value, minimum, value / minimum, "actual_over_minimum"
-        if check_id == "beam_depth_width_ratio":
-            depth = self._number("beam_depth_mm", variables.get("beam_depth_mm"))
-            width = self._number("beam_width_mm", variables.get("beam_width_mm"))
-            if width == 0:
-                raise ZeroDivisionError("beam_width_mm is zero; depth/width ratio cannot be evaluated")
-            maximum = _GEOMETRY_LIMITS[check_id]; value = depth / width
-            return value, maximum, value / maximum, "value_over_maximum"
-        raise ValueError("Check is outside canonical geometry implementation")
-
-    @staticmethod
-    def _geometry_satisfies(check_id: str, value: float, limit: float) -> bool:
-        return value <= limit if check_id == "beam_depth_width_ratio" else value >= limit
 
     @staticmethod
     def _story(snapshot: FeatureSnapshot) -> str | None:
