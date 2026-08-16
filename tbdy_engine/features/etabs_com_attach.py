@@ -35,7 +35,9 @@ _DIRECT_ETABS_PROG_IDS: tuple[str, ...] = (
 )
 _HELPER_PROG_ID = "ETABSv1.Helper"
 _ALLOWED_ATTACH_STATUSES = frozenset({ATTACH_STATUS_ATTACHED, ATTACH_STATUS_FAILED})
-_ALLOWED_ATTEMPT_STATUSES = frozenset({ATTEMPT_STATUS_SUCCESS, ATTEMPT_STATUS_FAILED, ATTEMPT_STATUS_SKIPPED})
+_ALLOWED_ATTEMPT_STATUSES = frozenset(
+    {ATTEMPT_STATUS_SUCCESS, ATTEMPT_STATUS_FAILED, ATTEMPT_STATUS_SKIPPED}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,15 +111,17 @@ class EtabsAttachFailure(RuntimeError):
 def attach_to_running_etabs(
     *,
     pid: int | None = None,
+    allow_pid_fallback: bool = True,
     comtypes_client: Any | None = None,
     win32com_client: Any | None = None,
 ) -> EtabsAttachResult:
     """Try bounded ETABS COM attach strategies and record every attempt.
 
-    When ``pid`` is supplied, the official Helper.GetObjectProcess route is
-    attempted first. Existing active-object/helper compatibility routes remain
-    bounded fallbacks; callers that need a trustworthy target must still verify
-    the exact model identity after attachment.
+    ``allow_pid_fallback`` preserves the legacy compatibility behavior by
+    default. Canonical safety callers pass ``False``: a callable
+    Helper.GetObjectProcess failure then stops before generic active-object
+    attachment. Genuine GetObjectProcess absence still permits bounded fallback
+    because only a verified model full path can make that fallback trustworthy.
     """
     attempts: list[EtabsAttachAttempt] = []
 
@@ -132,6 +136,14 @@ def attach_to_running_etabs(
         attempts.extend(result.attempts)
         if result.status == ATTACH_STATUS_ATTACHED:
             return _with_attempts(result, attempts)
+        if not allow_pid_fallback and not _pid_strategy_unsupported(result):
+            return EtabsAttachResult(
+                status=ATTACH_STATUS_FAILED,
+                strategy=None,
+                etabs_object=None,
+                sap_model=None,
+                attempts=tuple(attempts),
+            )
 
     result = _try_direct_active_object(
         strategy="comtypes_get_active_object_etabs_api_object",
@@ -172,7 +184,26 @@ def attach_to_running_etabs(
     )
 
 
-def _with_attempts(result: EtabsAttachResult, attempts: Sequence[EtabsAttachAttempt]) -> EtabsAttachResult:
+def _pid_strategy_unsupported(result: EtabsAttachResult) -> bool:
+    attempts = [
+        attempt
+        for attempt in result.attempts
+        if attempt.strategy == STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS
+    ]
+    return bool(attempts) and any(
+        (
+            attempt.exception_type == "AttributeError"
+            and "GetObjectProcess" in attempt.message
+        )
+        or "GetObjectProcess was not accessible" in attempt.message
+        for attempt in attempts
+    )
+
+
+def _with_attempts(
+    result: EtabsAttachResult,
+    attempts: Sequence[EtabsAttachAttempt],
+) -> EtabsAttachResult:
     return EtabsAttachResult(
         status=result.status,
         strategy=result.strategy,
@@ -234,7 +265,9 @@ def _try_direct_active_object(
                 attempts=tuple(attempts),
             )
         except Exception as exc:
-            attempts.append(_attempt_from_exception(strategy=strategy, prog_id=prog_id, exc=exc))
+            attempts.append(
+                _attempt_from_exception(strategy=strategy, prog_id=prog_id, exc=exc)
+            )
 
     return _failed_strategy_result(*attempts)
 
@@ -268,11 +301,16 @@ def _try_helper_get_object_process(
         helper = resolved_client.CreateObject(helper_prog_id)
     except Exception as exc:
         return _failed_strategy_result(
-            _attempt_from_exception(strategy=strategy, prog_id=helper_prog_id, pid=pid, exc=exc)
+            _attempt_from_exception(
+                strategy=strategy,
+                prog_id=helper_prog_id,
+                pid=pid,
+                exc=exc,
+            )
         )
 
     get_object_process = getattr(helper, "GetObjectProcess", None)
-    if get_object_process is None:
+    if not callable(get_object_process):
         return _failed_strategy_result(
             EtabsAttachAttempt(
                 strategy=strategy,
@@ -316,7 +354,14 @@ def _try_helper_get_object_process(
                 attempts=tuple(attempts),
             )
         except Exception as exc:
-            attempts.append(_attempt_from_exception(strategy=strategy, prog_id=prog_id, pid=pid, exc=exc))
+            attempts.append(
+                _attempt_from_exception(
+                    strategy=strategy,
+                    prog_id=prog_id,
+                    pid=pid,
+                    exc=exc,
+                )
+            )
 
     return _failed_strategy_result(*attempts)
 
@@ -347,10 +392,12 @@ def _try_helper_get_object(
     try:
         helper = resolved_client.CreateObject(helper_prog_id)
     except Exception as exc:
-        return _failed_strategy_result(_attempt_from_exception(strategy=strategy, prog_id=helper_prog_id, exc=exc))
+        return _failed_strategy_result(
+            _attempt_from_exception(strategy=strategy, prog_id=helper_prog_id, exc=exc)
+        )
 
     get_object = getattr(helper, "GetObject", None)
-    if get_object is None:
+    if not callable(get_object):
         return _failed_strategy_result(
             EtabsAttachAttempt(
                 strategy=strategy,
@@ -390,7 +437,9 @@ def _try_helper_get_object(
                 attempts=tuple(attempts),
             )
         except Exception as exc:
-            attempts.append(_attempt_from_exception(strategy=strategy, prog_id=prog_id, exc=exc))
+            attempts.append(
+                _attempt_from_exception(strategy=strategy, prog_id=prog_id, exc=exc)
+            )
 
     return _failed_strategy_result(*attempts)
 
@@ -425,10 +474,9 @@ def _attempt_from_exception(
 
 def _sap_model_from(etabs_object: Any) -> Any | None:
     try:
-        sap_model = getattr(etabs_object, "SapModel")
+        return getattr(etabs_object, "SapModel")
     except Exception:
         return None
-    return sap_model
 
 
 def _exception_hresult(exc: Exception) -> str | None:

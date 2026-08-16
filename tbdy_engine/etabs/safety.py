@@ -16,6 +16,7 @@ from typing import Any, Mapping, Sequence
 
 from tbdy_engine.features.etabs_com_attach import (
     ATTACH_STATUS_ATTACHED,
+    ATTACH_STATUS_FAILED,
     STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS,
     EtabsAttachResult,
     attach_to_running_etabs,
@@ -50,8 +51,45 @@ class EtabsStateMutationKind(str, Enum):
     MODEL_OR_SESSION_MUTATION = "MODEL_OR_SESSION_MUTATION"
 
 
+class EtabsSafetyErrorCode(str, Enum):
+    """Small, machine-stable safety failure contract."""
+
+    ATTACH_FAILED = "ATTACH_FAILED"
+    PID_ATTACH_UNSUPPORTED = "PID_ATTACH_UNSUPPORTED"
+    PID_ATTACH_FAILED = "PID_ATTACH_FAILED"
+    ATTACHED_MODEL_MISMATCH = "ATTACHED_MODEL_MISMATCH"
+    SESSION_IDENTITY_UNAVAILABLE = "SESSION_IDENTITY_UNAVAILABLE"
+    STATE_SNAPSHOT_UNSUPPORTED = "STATE_SNAPSHOT_UNSUPPORTED"
+    TEMPORARY_STATE_SET_FAILED = "TEMPORARY_STATE_SET_FAILED"
+    TEMPORARY_STATE_VERIFY_FAILED = "TEMPORARY_STATE_VERIFY_FAILED"
+    FETCH_FAILED = "FETCH_FAILED"
+    STATE_RESTORE_FAILED = "STATE_RESTORE_FAILED"
+    STATE_RESTORE_VERIFY_FAILED = "STATE_RESTORE_VERIFY_FAILED"
+    UNIT_PROVENANCE_UNAVAILABLE = "UNIT_PROVENANCE_UNAVAILABLE"
+    ANALYSIS_STATUS_UNKNOWN = "ANALYSIS_STATUS_UNKNOWN"
+    CAPTURE_INTEGRITY_FAILED = "CAPTURE_INTEGRITY_FAILED"
+
+
 class EtabsSafetyError(RuntimeError):
     """Base error for a fail-closed ETABS safety operation."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        code: EtabsSafetyErrorCode,
+        details: Mapping[str, Any] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.code = EtabsSafetyErrorCode(code)
+        self.details = dict(details or {})
+
+    def as_diagnostic_dict(self) -> dict[str, Any]:
+        return {
+            "code": self.code.value,
+            "message": str(self),
+            "details": dict(self.details),
+        }
 
 
 class EtabsIdentityMismatchError(EtabsSafetyError):
@@ -100,21 +138,59 @@ class EtabsUnitSnapshot:
         }
 
 
+def _combined_capability(getter: CapabilityState, setter: CapabilityState) -> CapabilityState:
+    if getter is CapabilityState.SUPPORTED and setter is CapabilityState.SUPPORTED:
+        return CapabilityState.SUPPORTED
+    if getter is CapabilityState.UNKNOWN or setter is CapabilityState.UNKNOWN:
+        return CapabilityState.UNKNOWN
+    return CapabilityState.UNSUPPORTED
+
+
 @dataclass(frozen=True, slots=True)
 class EtabsCapabilitySnapshot:
     pid_attach: CapabilityState = CapabilityState.UNKNOWN
     present_units_2: CapabilityState = CapabilityState.UNKNOWN
     database_units_2: CapabilityState = CapabilityState.UNKNOWN
     case_status: CapabilityState = CapabilityState.UNKNOWN
-    results_case_selection: CapabilityState = CapabilityState.UNKNOWN
-    results_combo_selection: CapabilityState = CapabilityState.UNKNOWN
-    database_case_selection: CapabilityState = CapabilityState.UNKNOWN
-    database_combo_selection: CapabilityState = CapabilityState.UNKNOWN
+
+    results_case_selection_get: CapabilityState = CapabilityState.UNKNOWN
+    results_case_selection_set: CapabilityState = CapabilityState.UNKNOWN
+    results_combo_selection_get: CapabilityState = CapabilityState.UNKNOWN
+    results_combo_selection_set: CapabilityState = CapabilityState.UNKNOWN
+
+    database_case_selection_get: CapabilityState = CapabilityState.UNKNOWN
+    database_case_selection_set: CapabilityState = CapabilityState.UNKNOWN
+    database_combo_selection_get: CapabilityState = CapabilityState.UNKNOWN
+    database_combo_selection_set: CapabilityState = CapabilityState.UNKNOWN
+
     database_pattern_selection: CapabilityState = CapabilityState.UNKNOWN
     database_output_options: CapabilityState = CapabilityState.UNKNOWN
 
+    @property
+    def results_case_selection(self) -> CapabilityState:
+        return _combined_capability(self.results_case_selection_get, self.results_case_selection_set)
+
+    @property
+    def results_combo_selection(self) -> CapabilityState:
+        return _combined_capability(self.results_combo_selection_get, self.results_combo_selection_set)
+
+    @property
+    def database_case_selection(self) -> CapabilityState:
+        return _combined_capability(self.database_case_selection_get, self.database_case_selection_set)
+
+    @property
+    def database_combo_selection(self) -> CapabilityState:
+        return _combined_capability(self.database_combo_selection_get, self.database_combo_selection_set)
+
     def as_dict(self) -> dict[str, str]:
-        return {name: getattr(self, name).value for name in self.__dataclass_fields__}
+        payload = {name: getattr(self, name).value for name in self.__dataclass_fields__}
+        payload.update({
+            "results_case_selection": self.results_case_selection.value,
+            "results_combo_selection": self.results_combo_selection.value,
+            "database_case_selection": self.database_case_selection.value,
+            "database_combo_selection": self.database_combo_selection.value,
+        })
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,6 +230,7 @@ class EtabsVerifiedSession:
     attach_result: EtabsAttachResult
     identity: EtabsSessionIdentity
     capabilities: EtabsCapabilitySnapshot
+    diagnostics: tuple[Mapping[str, Any], ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,6 +240,7 @@ class AnalysisCaseReadiness:
     etabs_status_code: int | None
     return_code: int | None
     source_api: str = "Analyze.GetCaseStatus"
+    error_code: EtabsSafetyErrorCode | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,12 +281,7 @@ def _method_state(obj: Any, method_name: str) -> CapabilityState:
 
 
 def _pair_state(obj: Any, get_name: str, set_name: str) -> CapabilityState:
-    states = (_method_state(obj, get_name), _method_state(obj, set_name))
-    if all(state is CapabilityState.SUPPORTED for state in states):
-        return CapabilityState.SUPPORTED
-    if any(state is CapabilityState.UNKNOWN for state in states):
-        return CapabilityState.UNKNOWN
-    return CapabilityState.UNSUPPORTED
+    return _combined_capability(_method_state(obj, get_name), _method_state(obj, set_name))
 
 
 def _safe_attr(obj: Any, name: str) -> Any:
@@ -282,10 +355,11 @@ def _read_triplet_method(sap_model: Any, method_name: str) -> tuple[Any, Any, An
             return values[0], values[1], values[2], _return_code(raw)
     if isinstance(raw, (tuple, list)):
         values = list(raw)
-        if len(values) >= 4 and _return_code(raw) is not None:
+        code = _return_code(raw)
+        if len(values) >= 4 and code is not None:
             values = values[:-1]
         if len(values) >= 3:
-            return values[0], values[1], values[2], _return_code(raw)
+            return values[0], values[1], values[2], code
     return None
 
 
@@ -313,14 +387,24 @@ def read_etabs_unit_snapshot(sap_model: Any) -> EtabsUnitSnapshot:
     if present_triplet is not None:
         pf, pl, pt, ret = present_triplet
         if ret not in (None, 0):
-            diagnostics.append({"api": "GetPresentUnits_2", "return_code": ret, "status": "NONZERO_RETURN"})
+            diagnostics.append({
+                "api": "GetPresentUnits_2",
+                "return_code": ret,
+                "status": "NONZERO_RETURN",
+                "error_code": EtabsSafetyErrorCode.UNIT_PROVENANCE_UNAVAILABLE.value,
+            })
             present_triplet = None
 
     database_triplet = _read_triplet_method(sap_model, "GetDatabaseUnits_2")
     if database_triplet is not None:
         df, dl, dt, ret = database_triplet
         if ret not in (None, 0):
-            diagnostics.append({"api": "GetDatabaseUnits_2", "return_code": ret, "status": "NONZERO_RETURN"})
+            diagnostics.append({
+                "api": "GetDatabaseUnits_2",
+                "return_code": ret,
+                "status": "NONZERO_RETURN",
+                "error_code": EtabsSafetyErrorCode.UNIT_PROVENANCE_UNAVAILABLE.value,
+            })
             database_triplet = None
 
     present_units = _read_scalar_method(sap_model, "GetPresentUnits")
@@ -341,9 +425,17 @@ def read_etabs_unit_snapshot(sap_model: Any) -> EtabsUnitSnapshot:
         database_api = "GetDatabaseUnits" if database_units is not None else None
 
     if present_api is None:
-        diagnostics.append({"api": "present_units", "status": "UNAVAILABLE"})
+        diagnostics.append({
+            "api": "present_units",
+            "status": "UNAVAILABLE",
+            "error_code": EtabsSafetyErrorCode.UNIT_PROVENANCE_UNAVAILABLE.value,
+        })
     if database_api is None:
-        diagnostics.append({"api": "database_units", "status": "UNAVAILABLE"})
+        diagnostics.append({
+            "api": "database_units",
+            "status": "UNAVAILABLE",
+            "error_code": EtabsSafetyErrorCode.UNIT_PROVENANCE_UNAVAILABLE.value,
+        })
 
     return EtabsUnitSnapshot(
         present_units=present_units,
@@ -372,11 +464,7 @@ def _read_program_version(sap_model: Any) -> tuple[str | None, Any]:
         return raw.strip() or None, None
     if isinstance(raw, (tuple, list)):
         version = next((item.strip() for item in raw if isinstance(item, str) and item.strip()), None)
-        internal = None
-        for item in raw:
-            if isinstance(item, float):
-                internal = item
-                break
+        internal = next((item for item in raw if isinstance(item, float)), None)
         return version, internal
     return str(raw), None
 
@@ -389,8 +477,7 @@ def _read_program_info(sap_model: Any) -> tuple[str | None, str | None, str | No
         raw = method()
     except Exception:
         return None, None, None
-    strings = _string_items(raw)
-    strings = [item.strip() for item in strings if item.strip()]
+    strings = [item.strip() for item in _string_items(raw) if item.strip()]
     padded = strings[:3] + [None] * max(0, 3 - len(strings))
     return padded[0], padded[1], padded[2]
 
@@ -414,7 +501,10 @@ def _read_model_full_path(sap_model: Any) -> str:
         return ntpath.normpath(filename)
     if filename and filepath:
         return ntpath.normpath(ntpath.join(filepath, filename))
-    raise EtabsCapabilityError("Exact ETABS model full path could not be retrieved.")
+    raise EtabsCapabilityError(
+        "Exact ETABS model full path could not be retrieved.",
+        code=EtabsSafetyErrorCode.SESSION_IDENTITY_UNAVAILABLE,
+    )
 
 
 def read_session_identity(
@@ -449,6 +539,14 @@ def read_session_identity(
         except Exception:
             locked = None
 
+    units = read_etabs_unit_snapshot(sap_model)
+    if units.present_units_api is None or units.database_units_api is None:
+        raise EtabsCapabilityError(
+            "ETABS present/database unit provenance is unavailable.",
+            code=EtabsSafetyErrorCode.UNIT_PROVENANCE_UNAVAILABLE,
+            details={"unit_diagnostics": [dict(item) for item in units.diagnostics]},
+        )
+
     return EtabsSessionIdentity(
         process_id=process_id,
         attach_strategy=attach_strategy,
@@ -461,7 +559,7 @@ def read_session_identity(
         model_fingerprint=None,
         model_fingerprint_source="UNAVAILABLE_FROM_CONSUMED_API",
         model_locked=locked,
-        units=read_etabs_unit_snapshot(sap_model),
+        units=units,
     )
 
 
@@ -472,11 +570,34 @@ def _normalize_windows_path(path: str) -> str:
 def verify_target_model(identity: EtabsSessionIdentity, expected_model_full_path: str) -> None:
     expected = str(expected_model_full_path or "").strip()
     if not expected or not (ntpath.isabs(expected) or expected.startswith("\\\\")):
-        raise EtabsIdentityMismatchError("Expected ETABS target must be an exact full model path.")
+        raise EtabsIdentityMismatchError(
+            "Expected ETABS target must be an exact full model path.",
+            code=EtabsSafetyErrorCode.ATTACHED_MODEL_MISMATCH,
+        )
     if _normalize_windows_path(identity.model_full_path) != _normalize_windows_path(expected):
         raise EtabsIdentityMismatchError(
-            f"Wrong ETABS model attached: expected {expected!r}, got {identity.model_full_path!r}."
+            f"Wrong ETABS model attached: expected {expected!r}, got {identity.model_full_path!r}.",
+            code=EtabsSafetyErrorCode.ATTACHED_MODEL_MISMATCH,
+            details={"expected_model_full_path": expected, "actual_model_full_path": identity.model_full_path},
         )
+
+
+def _pid_attempts(attach_result: EtabsAttachResult | None) -> list[Any]:
+    if attach_result is None:
+        return []
+    return [
+        attempt
+        for attempt in attach_result.attempts
+        if attempt.strategy == STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS
+    ]
+
+
+def _pid_attempt_is_unsupported(attempt: Any) -> bool:
+    message = str(getattr(attempt, "message", ""))
+    return (
+        getattr(attempt, "exception_type", None) == "AttributeError"
+        and "GetObjectProcess" in message
+    ) or "GetObjectProcess was not accessible" in message
 
 
 def _pid_capability_from_attach(attach_result: EtabsAttachResult | None) -> CapabilityState:
@@ -484,20 +605,15 @@ def _pid_capability_from_attach(attach_result: EtabsAttachResult | None) -> Capa
         return CapabilityState.UNKNOWN
     if attach_result.strategy == STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS:
         return CapabilityState.SUPPORTED
-    pid_attempts = [
-        attempt
-        for attempt in attach_result.attempts
-        if attempt.strategy == STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS
-    ]
-    if not pid_attempts:
+    attempts = _pid_attempts(attach_result)
+    if not attempts:
         return CapabilityState.UNKNOWN
-    if any(attempt.status == "SUCCESS" for attempt in pid_attempts):
+    if any(getattr(attempt, "status", None) == "SUCCESS" for attempt in attempts):
         return CapabilityState.SUPPORTED
-    if any(
-        attempt.exception_type == "AttributeError" or "GetObjectProcess" in attempt.message and "not accessible" in attempt.message
-        for attempt in pid_attempts
-    ):
+    if any(_pid_attempt_is_unsupported(attempt) for attempt in attempts):
         return CapabilityState.UNSUPPORTED
+    if any(str(getattr(attempt, "prog_id", "")).startswith("CSI.ETABS.API.ETABSObject") for attempt in attempts):
+        return CapabilityState.SUPPORTED
     return CapabilityState.UNKNOWN
 
 
@@ -516,12 +632,33 @@ def read_capability_snapshot(
         present_units_2=_method_state(sap_model, "GetPresentUnits_2"),
         database_units_2=_method_state(sap_model, "GetDatabaseUnits_2"),
         case_status=_method_state(analyze, "GetCaseStatus"),
-        results_case_selection=_pair_state(setup, "GetCaseSelectedForOutput", "SetCaseSelectedForOutput"),
-        results_combo_selection=_pair_state(setup, "GetComboSelectedForOutput", "SetComboSelectedForOutput"),
-        database_case_selection=_pair_state(db, "GetLoadCasesSelectedForDisplay", "SetLoadCasesSelectedForDisplay"),
-        database_combo_selection=_pair_state(db, "GetLoadCombinationsSelectedForDisplay", "SetLoadCombinationsSelectedForDisplay"),
-        database_pattern_selection=_pair_state(db, "GetLoadPatternsSelectedForDisplay", "SetLoadPatternsSelectedForDisplay"),
-        database_output_options=_pair_state(db, "GetOutputOptionsForDisplay", "SetOutputOptionsForDisplay"),
+        results_case_selection_get=_method_state(setup, "GetCaseSelectedForOutput"),
+        results_case_selection_set=_method_state(setup, "SetCaseSelectedForOutput"),
+        results_combo_selection_get=_method_state(setup, "GetComboSelectedForOutput"),
+        results_combo_selection_set=_method_state(setup, "SetComboSelectedForOutput"),
+        database_case_selection_get=_method_state(db, "GetLoadCasesSelectedForDisplay"),
+        database_case_selection_set=_method_state(db, "SetLoadCasesSelectedForDisplay"),
+        database_combo_selection_get=_method_state(db, "GetLoadCombinationsSelectedForDisplay"),
+        database_combo_selection_set=_method_state(db, "SetLoadCombinationsSelectedForDisplay"),
+        database_pattern_selection=_pair_state(
+            db, "GetLoadPatternsSelectedForDisplay", "SetLoadPatternsSelectedForDisplay"
+        ),
+        database_output_options=_pair_state(
+            db, "GetOutputOptionsForDisplay", "SetOutputOptionsForDisplay"
+        ),
+    )
+
+
+def _raise_attach_failure(
+    attach_result: EtabsAttachResult,
+    *,
+    code: EtabsSafetyErrorCode,
+    message: str,
+) -> None:
+    raise EtabsSafetyError(
+        message,
+        code=code,
+        details={"attach": attach_result.as_diagnostic_dict()},
     )
 
 
@@ -529,28 +666,95 @@ def attach_verified_to_running_etabs(
     expected_model_full_path: str,
     *,
     pid: int | None = None,
+    allow_pid_fallback: bool = False,
     comtypes_client: Any | None = None,
     win32com_client: Any | None = None,
 ) -> EtabsVerifiedSession:
-    """Attach using bounded strategies, then hard-verify the exact target model."""
+    """Attach using bounded strategies, then hard-verify the exact target model.
+
+    An explicit ``pid`` is a canonical constraint. If Helper.GetObjectProcess is
+    callable but the requested process cannot be attached, the default is a
+    hard ``PID_ATTACH_FAILED``. Compatibility fallback after that failure
+    requires ``allow_pid_fallback=True``. If GetObjectProcess is genuinely
+    unsupported, bounded generic fallback may be used, but target full-path
+    verification remains mandatory.
+    """
     attach_result = attach_to_running_etabs(
         pid=pid,
+        allow_pid_fallback=allow_pid_fallback,
         comtypes_client=comtypes_client,
         win32com_client=win32com_client,
     )
+
+    pid_capability = _pid_capability_from_attach(attach_result)
+
+    if pid is not None and attach_result.strategy != STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS:
+        if attach_result.status != ATTACH_STATUS_ATTACHED:
+            if pid_capability is CapabilityState.UNSUPPORTED:
+                _raise_attach_failure(
+                    attach_result,
+                    code=EtabsSafetyErrorCode.PID_ATTACH_UNSUPPORTED,
+                    message=f"PID-specific ETABS attach is unsupported for requested PID {pid}.",
+                )
+            _raise_attach_failure(
+                attach_result,
+                code=EtabsSafetyErrorCode.PID_ATTACH_FAILED,
+                message=f"PID-specific ETABS attach failed for requested PID {pid}.",
+            )
+
+        if pid_capability is CapabilityState.SUPPORTED and not allow_pid_fallback:
+            _raise_attach_failure(
+                attach_result,
+                code=EtabsSafetyErrorCode.PID_ATTACH_FAILED,
+                message=f"Requested ETABS PID {pid} could not be attached; generic fallback is disabled.",
+            )
+
     if attach_result.status != ATTACH_STATUS_ATTACHED:
-        raise EtabsSafetyError(f"ETABS attach failed: {attach_result.as_diagnostic_dict()}")
+        _raise_attach_failure(
+            attach_result,
+            code=EtabsSafetyErrorCode.ATTACH_FAILED,
+            message="ETABS attach failed.",
+        )
 
     actual_pid = pid if attach_result.strategy == STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS else None
-    identity = read_session_identity(
-        attach_result.etabs_object,
-        attach_result.sap_model,
-        process_id=actual_pid,
-        attach_strategy=attach_result.strategy,
-    )
+    try:
+        identity = read_session_identity(
+            attach_result.etabs_object,
+            attach_result.sap_model,
+            process_id=actual_pid,
+            attach_strategy=attach_result.strategy,
+        )
+    except EtabsSafetyError:
+        raise
+    except Exception as exc:
+        raise EtabsCapabilityError(
+            f"ETABS session identity could not be read: {exc}",
+            code=EtabsSafetyErrorCode.SESSION_IDENTITY_UNAVAILABLE,
+        ) from exc
+
     verify_target_model(identity, expected_model_full_path)
     capabilities = read_capability_snapshot(attach_result.sap_model, attach_result=attach_result)
-    return EtabsVerifiedSession(attach_result=attach_result, identity=identity, capabilities=capabilities)
+    diagnostics: list[dict[str, Any]] = []
+    if pid is not None and attach_result.strategy != STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS:
+        if pid_capability is CapabilityState.UNSUPPORTED:
+            diagnostics.append({
+                "code": EtabsSafetyErrorCode.PID_ATTACH_UNSUPPORTED.value,
+                "requested_pid": int(pid),
+                "fallback_used": True,
+            })
+        elif pid_capability is CapabilityState.SUPPORTED:
+            diagnostics.append({
+                "code": EtabsSafetyErrorCode.PID_ATTACH_FAILED.value,
+                "requested_pid": int(pid),
+                "fallback_used": True,
+                "compatibility_opt_in": bool(allow_pid_fallback),
+            })
+    return EtabsVerifiedSession(
+        attach_result=attach_result,
+        identity=identity,
+        capabilities=capabilities,
+        diagnostics=tuple(diagnostics),
+    )
 
 
 def _extract_string_sequence(raw: Any) -> tuple[str, ...] | None:
@@ -568,36 +772,83 @@ def _extract_string_sequence(raw: Any) -> tuple[str, ...] | None:
     return None
 
 
+def _require_methods(
+    obj: Any,
+    method_names: Sequence[str],
+    *,
+    code: EtabsSafetyErrorCode = EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+) -> None:
+    missing = [name for name in method_names if _method_state(obj, name) is not CapabilityState.SUPPORTED]
+    if missing:
+        raise EtabsCapabilityError(
+            "Required reversible ETABS state APIs are unavailable: " + ", ".join(missing),
+            code=code,
+            details={"missing_methods": missing},
+        )
+
+
 def _read_selected_names(obj: Any, getter_name: str) -> tuple[str, ...]:
     getter = _safe_attr(obj, getter_name)
     if not callable(getter):
-        raise EtabsCapabilityError(f"{getter_name} is required before selection mutation.")
+        raise EtabsCapabilityError(
+            f"{getter_name} is required before selection mutation.",
+            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        )
     try:
         raw = getter()
     except Exception as exc:
-        raise EtabsCapabilityError(f"{getter_name} failed before mutation: {exc}") from exc
+        raise EtabsCapabilityError(
+            f"{getter_name} failed before mutation: {exc}",
+            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        ) from exc
     code = _return_code(raw)
     if code not in (None, 0):
-        raise EtabsCapabilityError(f"{getter_name} returned {code} before mutation.")
+        raise EtabsCapabilityError(
+            f"{getter_name} returned {code} before mutation.",
+            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+            details={"api_return_code": code},
+        )
     values = _extract_string_sequence(raw)
     if values is None:
-        raise EtabsCapabilityError(f"{getter_name} did not expose an exact selected-name list.")
+        raise EtabsCapabilityError(
+            f"{getter_name} did not expose an exact selected-name list.",
+            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        )
     return values
 
 
-def _set_selected_names(obj: Any, setter_name: str, names: Sequence[str]) -> tuple[Any, int | None]:
+def _set_selected_names(
+    obj: Any,
+    setter_name: str,
+    names: Sequence[str],
+    *,
+    error_code: EtabsSafetyErrorCode,
+) -> int | None:
     setter = _safe_attr(obj, setter_name)
     if not callable(setter):
-        raise EtabsCapabilityError(f"{setter_name} is required for reversible selection mutation.")
-    raw = setter(list(names))
+        raise EtabsCapabilityError(
+            f"{setter_name} is required for reversible selection mutation.",
+            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        )
+    try:
+        raw = setter(list(names))
+    except Exception as exc:
+        raise EtabsStateVerificationError(
+            f"{setter_name} raised {type(exc).__name__}: {exc}",
+            code=error_code,
+        ) from exc
     code = _return_code(raw)
     if code not in (None, 0):
-        raise EtabsStateVerificationError(f"{setter_name} returned {code}.")
-    return raw, code
+        raise EtabsStateVerificationError(
+            f"{setter_name} returned {code}.",
+            code=error_code,
+            details={"api_return_code": code, "requested_names": list(names)},
+        )
+    return code
 
 
-def _selection_equal(left: Sequence[str], right: Sequence[str]) -> bool:
-    return tuple(sorted(str(item) for item in left)) == tuple(sorted(str(item) for item in right))
+def _selection_equal_exact(left: Sequence[str], right: Sequence[str]) -> bool:
+    return tuple(str(item) for item in left) == tuple(str(item) for item in right)
 
 
 def _optional_selected_names(obj: Any, getter_name: str, setter_name: str) -> tuple[str, ...] | None:
@@ -607,7 +858,11 @@ def _optional_selected_names(obj: Any, getter_name: str, setter_name: str) -> tu
 
 
 def _read_output_options_if_supported(database_tables: Any) -> tuple[Any, ...] | None:
-    if _pair_state(database_tables, "GetOutputOptionsForDisplay", "SetOutputOptionsForDisplay") is not CapabilityState.SUPPORTED:
+    if _pair_state(
+        database_tables,
+        "GetOutputOptionsForDisplay",
+        "SetOutputOptionsForDisplay",
+    ) is not CapabilityState.SUPPORTED:
         return None
     getter = database_tables.GetOutputOptionsForDisplay
     try:
@@ -615,9 +870,7 @@ def _read_output_options_if_supported(database_tables: Any) -> tuple[Any, ...] |
     except Exception:
         return None
     code = _return_code(raw)
-    if code not in (None, 0):
-        return None
-    if not isinstance(raw, (tuple, list)):
+    if code not in (None, 0) or not isinstance(raw, (tuple, list)):
         return None
     values = list(raw)
     if code is not None and values:
@@ -630,6 +883,13 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
 
     mutation_kind = EtabsStateMutationKind.READ_WITH_OUTPUT_SELECTION_STATE_CHANGE
 
+    _CORE_METHODS = (
+        "GetLoadCasesSelectedForDisplay",
+        "SetLoadCasesSelectedForDisplay",
+        "GetLoadCombinationsSelectedForDisplay",
+        "SetLoadCombinationsSelectedForDisplay",
+    )
+
     def __init__(self, database_tables: Any) -> None:
         self.database_tables = database_tables
         self.snapshot: DatabaseTablesSelectionSnapshot | None = None
@@ -640,8 +900,11 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
         _PROCESS_LOCAL_ACQUISITION_LOCK.acquire()
         self._entered = True
         try:
+            _require_methods(self.database_tables, self._CORE_METHODS)
             cases = _read_selected_names(self.database_tables, "GetLoadCasesSelectedForDisplay")
-            combos = _read_selected_names(self.database_tables, "GetLoadCombinationsSelectedForDisplay")
+            combos = _read_selected_names(
+                self.database_tables, "GetLoadCombinationsSelectedForDisplay"
+            )
             patterns = _optional_selected_names(
                 self.database_tables,
                 "GetLoadPatternsSelectedForDisplay",
@@ -656,6 +919,7 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
             )
             self.diagnostics.append({
                 "phase": "snapshot",
+                "error_code": None,
                 "mutation_kind": self.mutation_kind.value,
                 "cases": list(cases),
                 "combos": list(combos),
@@ -663,140 +927,266 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
                 "output_options_captured": output_options is not None,
             })
             return self
-        except Exception:
+        except Exception as exc:
+            if isinstance(exc, EtabsSafetyError):
+                self.diagnostics.append({
+                    "phase": "snapshot",
+                    "success": False,
+                    "error_code": exc.code.value,
+                    "message": str(exc),
+                })
             self._entered = False
             _PROCESS_LOCAL_ACQUISITION_LOCK.release()
             raise
 
-    def select_output(self, preferred_output_case: str) -> dict[str, Any]:
-        if not self._entered or self.snapshot is None:
-            raise EtabsSafetyError("DatabaseTablesReadTransaction must be entered before selection.")
-        case_name = str(preferred_output_case or "").strip()
-        if not case_name:
-            raise EtabsSafetyError("preferred_output_case is required for display selection.")
+    def _current_core_selection(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        cases = _read_selected_names(self.database_tables, "GetLoadCasesSelectedForDisplay")
+        combos = _read_selected_names(
+            self.database_tables, "GetLoadCombinationsSelectedForDisplay"
+        )
+        return cases, combos
 
-        attempts: list[dict[str, Any]] = []
-        selected_method: str | None = None
-        attempted_case_fallback = False
-        skipped_case = False
+    def _set_core_exact(
+        self,
+        *,
+        cases: Sequence[str],
+        combos: Sequence[str],
+        set_error_code: EtabsSafetyErrorCode,
+        verify_error_code: EtabsSafetyErrorCode,
+        phase: str,
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        _set_selected_names(
+            self.database_tables,
+            "SetLoadCasesSelectedForDisplay",
+            cases,
+            error_code=set_error_code,
+        )
+        _set_selected_names(
+            self.database_tables,
+            "SetLoadCombinationsSelectedForDisplay",
+            combos,
+            error_code=set_error_code,
+        )
+        current_cases, current_combos = self._current_core_selection()
+        verified = (
+            _selection_equal_exact(current_cases, cases)
+            and _selection_equal_exact(current_combos, combos)
+        )
+        self.diagnostics.append({
+            "phase": phase,
+            "requested_cases": list(cases),
+            "requested_combos": list(combos),
+            "actual_cases": list(current_cases),
+            "actual_combos": list(current_combos),
+            "verified_exact": verified,
+            "error_code": None if verified else verify_error_code.value,
+            "mutation_kind": self.mutation_kind.value,
+        })
+        if not verified:
+            raise EtabsStateVerificationError(
+                "ETABS DatabaseTables temporary selection did not verify exactly.",
+                code=verify_error_code,
+                details={
+                    "requested_cases": list(cases),
+                    "requested_combos": list(combos),
+                    "actual_cases": list(current_cases),
+                    "actual_combos": list(current_combos),
+                },
+            )
+        return current_cases, current_combos
+
+    def _restore_core_and_verify(self, *, phase: str = "restore_verify") -> None:
+        if self.snapshot is None:
+            raise EtabsStateRestoreError(
+                "DatabaseTables selection snapshot was not captured.",
+                code=EtabsSafetyErrorCode.STATE_RESTORE_FAILED,
+            )
 
         try:
-            _, code = _set_selected_names(
+            _set_selected_names(
+                self.database_tables,
+                "SetLoadCasesSelectedForDisplay",
+                self.snapshot.cases,
+                error_code=EtabsSafetyErrorCode.STATE_RESTORE_FAILED,
+            )
+            _set_selected_names(
                 self.database_tables,
                 "SetLoadCombinationsSelectedForDisplay",
-                [case_name],
+                self.snapshot.combos,
+                error_code=EtabsSafetyErrorCode.STATE_RESTORE_FAILED,
             )
-            current = _read_selected_names(self.database_tables, "GetLoadCombinationsSelectedForDisplay")
-            verified = case_name in current
-            attempts.append({
-                "method": "SetLoadCombinationsSelectedForDisplay",
-                "return_code": code,
-                "verified": verified,
-                "selected_names_after": list(current),
-                "mutation_kind": self.mutation_kind.value,
+        except EtabsSafetyError as exc:
+            self.diagnostics.append({
+                "phase": phase,
+                "success": False,
+                "error_code": EtabsSafetyErrorCode.STATE_RESTORE_FAILED.value,
+                "message": str(exc),
             })
-            if verified:
-                selected_method = "SetLoadCombinationsSelectedForDisplay"
-                skipped_case = True
-        except Exception as exc:
-            attempts.append({
-                "method": "SetLoadCombinationsSelectedForDisplay",
-                "verified": False,
-                "exception_type": type(exc).__name__,
-                "exception": str(exc),
-                "mutation_kind": self.mutation_kind.value,
-            })
+            raise EtabsStateRestoreError(
+                str(exc),
+                code=EtabsSafetyErrorCode.STATE_RESTORE_FAILED,
+                details=exc.details,
+            ) from exc
 
-        if selected_method is None:
-            attempted_case_fallback = True
+        try:
+            restored_cases, restored_combos = self._current_core_selection()
+        except EtabsSafetyError as exc:
+            self.diagnostics.append({
+                "phase": phase,
+                "success": False,
+                "error_code": EtabsSafetyErrorCode.STATE_RESTORE_VERIFY_FAILED.value,
+                "message": str(exc),
+            })
+            raise EtabsStateRestoreError(
+                "DatabaseTables restored state could not be re-read.",
+                code=EtabsSafetyErrorCode.STATE_RESTORE_VERIFY_FAILED,
+            ) from exc
+
+        verified = (
+            _selection_equal_exact(restored_cases, self.snapshot.cases)
+            and _selection_equal_exact(restored_combos, self.snapshot.combos)
+        )
+        self.diagnostics.append({
+            "phase": phase,
+            "success": verified,
+            "error_code": None if verified else EtabsSafetyErrorCode.STATE_RESTORE_VERIFY_FAILED.value,
+            "restored_cases": list(restored_cases),
+            "restored_combos": list(restored_combos),
+        })
+        if not verified:
+            raise EtabsStateRestoreError(
+                "DatabaseTables case/combo selection did not restore exactly.",
+                code=EtabsSafetyErrorCode.STATE_RESTORE_VERIFY_FAILED,
+                details={
+                    "expected_cases": list(self.snapshot.cases),
+                    "expected_combos": list(self.snapshot.combos),
+                    "actual_cases": list(restored_cases),
+                    "actual_combos": list(restored_combos),
+                },
+            )
+
+    def select_output(self, preferred_output_case: str) -> dict[str, Any]:
+        if not self._entered or self.snapshot is None:
+            raise EtabsSafetyError(
+                "DatabaseTablesReadTransaction must be entered before selection.",
+                code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+            )
+        name = str(preferred_output_case or "").strip()
+        if not name:
+            raise EtabsSafetyError(
+                "preferred_output_case is required for display selection.",
+                code=EtabsSafetyErrorCode.TEMPORARY_STATE_SET_FAILED,
+            )
+
+        attempts: list[dict[str, Any]] = []
+
+        def attempt(kind: str) -> tuple[bool, EtabsSafetyError | None]:
+            cases = () if kind == "combo" else (name,)
+            combos = (name,) if kind == "combo" else ()
+            setter_name = (
+                "SetLoadCombinationsSelectedForDisplay"
+                if kind == "combo"
+                else "SetLoadCasesSelectedForDisplay"
+            )
             try:
-                _, code = _set_selected_names(
-                    self.database_tables,
-                    "SetLoadCasesSelectedForDisplay",
-                    [case_name],
+                current_cases, current_combos = self._set_core_exact(
+                    cases=cases,
+                    combos=combos,
+                    set_error_code=EtabsSafetyErrorCode.TEMPORARY_STATE_SET_FAILED,
+                    verify_error_code=EtabsSafetyErrorCode.TEMPORARY_STATE_VERIFY_FAILED,
+                    phase=f"temporary_selection_{kind}",
                 )
-                current = _read_selected_names(self.database_tables, "GetLoadCasesSelectedForDisplay")
-                verified = case_name in current
                 attempts.append({
-                    "method": "SetLoadCasesSelectedForDisplay",
-                    "return_code": code,
-                    "verified": verified,
-                    "selected_names_after": list(current),
+                    "kind": kind,
+                    "method": setter_name,
+                    "verified": True,
+                    "selected_cases_after": list(current_cases),
+                    "selected_combos_after": list(current_combos),
+                    "error_code": None,
                     "mutation_kind": self.mutation_kind.value,
                 })
-                if verified:
-                    selected_method = "SetLoadCasesSelectedForDisplay"
-            except Exception as exc:
+                return True, None
+            except EtabsSafetyError as exc:
                 attempts.append({
-                    "method": "SetLoadCasesSelectedForDisplay",
+                    "kind": kind,
+                    "method": setter_name,
                     "verified": False,
                     "exception_type": type(exc).__name__,
                     "exception": str(exc),
+                    "error_code": exc.code.value,
                     "mutation_kind": self.mutation_kind.value,
                 })
+                return False, exc
 
+        combo_ok, combo_error = attempt("combo")
+        selected_kind: str | None = "combo" if combo_ok else None
+
+        if not combo_ok:
+            self._restore_core_and_verify(phase="candidate_combo_rollback_verify")
+            case_ok, case_error = attempt("case")
+            if case_ok:
+                selected_kind = "case"
+            else:
+                self._restore_core_and_verify(phase="candidate_case_rollback_verify")
+                terminal = case_error or combo_error
+                if terminal is None:
+                    terminal = EtabsStateVerificationError(
+                        "Could not establish exact DatabaseTables temporary selection.",
+                        code=EtabsSafetyErrorCode.TEMPORARY_STATE_VERIFY_FAILED,
+                    )
+                raise terminal
+
+        selected_method = (
+            "SetLoadCombinationsSelectedForDisplay"
+            if selected_kind == "combo"
+            else "SetLoadCasesSelectedForDisplay"
+        )
         diagnostic = {
-            "preferred_output_case": case_name,
-            "preferred_output_kind_detected": "combo" if selected_method and "Combination" in selected_method else (
-                "case" if selected_method else "unknown"
-            ),
+            "preferred_output_case": name,
+            "preferred_output_kind_detected": selected_kind,
             "display_selection_attempted": True,
             "display_selection_attempts": attempts,
             "display_selection_selected_method": selected_method,
-            "display_selection_success": selected_method is not None,
-            "fetch_after_display_selection": selected_method is not None,
-            "attempted_case_fallback": attempted_case_fallback,
-            "skipped_case_selection_because_combo_succeeded": skipped_case,
+            "display_selection_success": True,
+            "fetch_after_display_selection": True,
+            "attempted_case_fallback": selected_kind == "case",
+            "skipped_case_selection_because_combo_succeeded": selected_kind == "combo",
+            "temporary_cases_exact": [] if selected_kind == "combo" else [name],
+            "temporary_combos_exact": [name] if selected_kind == "combo" else [],
+            "temporary_state_verified_exact": True,
+            "error_code": None,
             "mutation_kind": self.mutation_kind.value,
         }
-        self.diagnostics.append({"phase": "temporary_selection", **diagnostic})
-        if selected_method is None:
-            raise EtabsStateVerificationError("Could not establish and verify ETABS display output selection.")
+        self.diagnostics.append({"phase": "temporary_selection_accepted", **diagnostic})
         return diagnostic
 
     def _restore_and_verify(self) -> None:
-        if self.snapshot is None:
-            raise EtabsStateRestoreError("DatabaseTables selection snapshot was not captured.")
-        restore_errors: list[str] = []
-        for setter_name, names in (
-            ("SetLoadCasesSelectedForDisplay", self.snapshot.cases),
-            ("SetLoadCombinationsSelectedForDisplay", self.snapshot.combos),
-        ):
-            try:
-                _set_selected_names(self.database_tables, setter_name, names)
-            except Exception as exc:
-                restore_errors.append(f"{setter_name}: {type(exc).__name__}: {exc}")
-
-        if restore_errors:
-            self.diagnostics.append({"phase": "restore", "success": False, "errors": restore_errors})
-            raise EtabsStateRestoreError("; ".join(restore_errors))
-
-        restored_cases = _read_selected_names(self.database_tables, "GetLoadCasesSelectedForDisplay")
-        restored_combos = _read_selected_names(self.database_tables, "GetLoadCombinationsSelectedForDisplay")
-        verified = _selection_equal(restored_cases, self.snapshot.cases) and _selection_equal(restored_combos, self.snapshot.combos)
+        self._restore_core_and_verify()
 
         optional_changes: list[str] = []
+        assert self.snapshot is not None
         if self.snapshot.patterns is not None:
-            current_patterns = _read_selected_names(self.database_tables, "GetLoadPatternsSelectedForDisplay")
-            if not _selection_equal(current_patterns, self.snapshot.patterns):
+            current_patterns = _read_selected_names(
+                self.database_tables, "GetLoadPatternsSelectedForDisplay"
+            )
+            if not _selection_equal_exact(current_patterns, self.snapshot.patterns):
                 optional_changes.append("load_patterns_changed_during_transaction")
         if self.snapshot.output_options is not None:
             current_options = _read_output_options_if_supported(self.database_tables)
             if current_options != self.snapshot.output_options:
                 optional_changes.append("output_options_changed_during_transaction")
 
-        self.diagnostics.append({
-            "phase": "restore_verify",
-            "success": verified and not optional_changes,
-            "restored_cases": list(restored_cases),
-            "restored_combos": list(restored_combos),
-            "unexpected_external_state_changes": optional_changes,
-        })
-        if not verified:
-            raise EtabsStateRestoreError("DatabaseTables case/combo selection did not restore exactly.")
         if optional_changes:
-            raise EtabsStateVerificationError(
-                "DatabaseTables state changed outside the transaction: " + ", ".join(optional_changes)
+            self.diagnostics.append({
+                "phase": "restore_verify_optional",
+                "success": False,
+                "error_code": EtabsSafetyErrorCode.STATE_RESTORE_VERIFY_FAILED.value,
+                "unexpected_external_state_changes": optional_changes,
+            })
+            raise EtabsStateRestoreError(
+                "DatabaseTables state changed outside the transaction: "
+                + ", ".join(optional_changes),
+                code=EtabsSafetyErrorCode.STATE_RESTORE_VERIFY_FAILED,
             )
 
     def __exit__(self, exc_type, exc, tb) -> bool:
@@ -812,57 +1202,118 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
         if restore_error is not None:
             if isinstance(restore_error, EtabsStateRestoreError):
                 raise restore_error from exc
-            raise EtabsStateRestoreError(str(restore_error)) from exc
+            if isinstance(restore_error, EtabsSafetyError):
+                raise EtabsStateRestoreError(
+                    str(restore_error),
+                    code=EtabsSafetyErrorCode.STATE_RESTORE_FAILED,
+                ) from exc
+            raise EtabsStateRestoreError(
+                str(restore_error),
+                code=EtabsSafetyErrorCode.STATE_RESTORE_FAILED,
+            ) from exc
         return False
 
 
 def _get_name_list(container: Any, label: str) -> tuple[str, ...]:
     method = _safe_attr(container, "GetNameList")
     if not callable(method):
-        raise EtabsCapabilityError(f"{label}.GetNameList is required for reversible Results.Setup mutation.")
+        raise EtabsCapabilityError(
+            f"{label}.GetNameList is required for reversible Results.Setup mutation.",
+            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        )
     try:
         raw = method()
     except Exception as exc:
-        raise EtabsCapabilityError(f"{label}.GetNameList failed: {exc}") from exc
+        raise EtabsCapabilityError(
+            f"{label}.GetNameList failed: {exc}",
+            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        ) from exc
     if not _call_succeeded(raw):
-        raise EtabsCapabilityError(f"{label}.GetNameList returned {_return_code(raw)}.")
+        raise EtabsCapabilityError(
+            f"{label}.GetNameList returned {_return_code(raw)}.",
+            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        )
     names = _extract_string_sequence(raw)
     if names is None:
-        raise EtabsCapabilityError(f"{label}.GetNameList did not expose the exact name list.")
+        raise EtabsCapabilityError(
+            f"{label}.GetNameList did not expose the exact name list.",
+            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        )
     return names
 
 
 def _read_selected_flag(setup: Any, method_name: str, name: str) -> bool:
     method = _safe_attr(setup, method_name)
     if not callable(method):
-        raise EtabsCapabilityError(f"{method_name} is required before Results.Setup mutation.")
-    raw = method(name)
+        raise EtabsCapabilityError(
+            f"{method_name} is required before Results.Setup mutation.",
+            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        )
+    try:
+        raw = method(name)
+    except Exception as exc:
+        raise EtabsCapabilityError(
+            f"{method_name}({name!r}) failed: {exc}",
+            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        ) from exc
     code = _return_code(raw)
     if code not in (None, 0):
-        raise EtabsCapabilityError(f"{method_name}({name!r}) returned {code}.")
+        raise EtabsCapabilityError(
+            f"{method_name}({name!r}) returned {code}.",
+            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        )
     if isinstance(raw, bool):
         return raw
     if isinstance(raw, (tuple, list)):
         for item in raw:
             if isinstance(item, bool):
                 return item
-    raise EtabsCapabilityError(f"{method_name}({name!r}) did not return a selected flag.")
+    raise EtabsCapabilityError(
+        f"{method_name}({name!r}) did not return a selected flag.",
+        code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+    )
 
 
-def _set_selected_flag(setup: Any, method_name: str, name: str, selected: bool) -> None:
+def _set_selected_flag(
+    setup: Any,
+    method_name: str,
+    name: str,
+    selected: bool,
+    *,
+    error_code: EtabsSafetyErrorCode,
+) -> None:
     method = _safe_attr(setup, method_name)
     if not callable(method):
-        raise EtabsCapabilityError(f"{method_name} is required for reversible Results.Setup mutation.")
-    raw = method(name, bool(selected))
+        raise EtabsCapabilityError(
+            f"{method_name} is required for reversible Results.Setup mutation.",
+            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        )
+    try:
+        raw = method(name, bool(selected))
+    except Exception as exc:
+        raise EtabsStateVerificationError(
+            f"{method_name}({name!r}) raised {type(exc).__name__}: {exc}",
+            code=error_code,
+        ) from exc
     code = _return_code(raw)
     if code not in (None, 0):
-        raise EtabsStateVerificationError(f"{method_name}({name!r}) returned {code}.")
+        raise EtabsStateVerificationError(
+            f"{method_name}({name!r}) returned {code}.",
+            code=error_code,
+        )
 
 
 class ResultsSetupReadTransaction(AbstractContextManager["ResultsSetupReadTransaction"]):
     """Reversible Results.Setup case/combo selection transaction."""
 
     mutation_kind = EtabsStateMutationKind.READ_WITH_OUTPUT_SELECTION_STATE_CHANGE
+
+    _SELECTION_METHODS = (
+        "GetCaseSelectedForOutput",
+        "SetCaseSelectedForOutput",
+        "GetComboSelectedForOutput",
+        "SetComboSelectedForOutput",
+    )
 
     def __init__(self, sap_model: Any) -> None:
         self.sap_model = sap_model
@@ -878,9 +1329,22 @@ class ResultsSetupReadTransaction(AbstractContextManager["ResultsSetupReadTransa
         self._entered = True
         try:
             if self.setup is None:
-                raise EtabsCapabilityError("SapModel.Results.Setup is unavailable.")
-            self._case_names = _get_name_list(_safe_attr(self.sap_model, "LoadCases"), "LoadCases")
-            self._combo_names = _get_name_list(_safe_attr(self.sap_model, "RespCombo"), "RespCombo")
+                raise EtabsCapabilityError(
+                    "SapModel.Results.Setup is unavailable.",
+                    code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+                )
+            _require_methods(self.setup, self._SELECTION_METHODS)
+            _require_methods(
+                self.setup,
+                ("DeselectAllCasesAndCombosForOutput",),
+                code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+            )
+            self._case_names = _get_name_list(
+                _safe_attr(self.sap_model, "LoadCases"), "LoadCases"
+            )
+            self._combo_names = _get_name_list(
+                _safe_attr(self.sap_model, "RespCombo"), "RespCombo"
+            )
             case_flags = tuple(
                 (name, _read_selected_flag(self.setup, "GetCaseSelectedForOutput", name))
                 for name in self._case_names
@@ -889,27 +1353,49 @@ class ResultsSetupReadTransaction(AbstractContextManager["ResultsSetupReadTransa
                 (name, _read_selected_flag(self.setup, "GetComboSelectedForOutput", name))
                 for name in self._combo_names
             )
-            self.snapshot = ResultsSetupSelectionSnapshot(case_flags=case_flags, combo_flags=combo_flags)
+            self.snapshot = ResultsSetupSelectionSnapshot(
+                case_flags=case_flags, combo_flags=combo_flags
+            )
             self.diagnostics.append({
                 "phase": "snapshot",
+                "error_code": None,
                 "mutation_kind": self.mutation_kind.value,
                 "case_flags": list(case_flags),
                 "combo_flags": list(combo_flags),
             })
             return self
-        except Exception:
+        except Exception as exc:
+            if isinstance(exc, EtabsSafetyError):
+                self.diagnostics.append({
+                    "phase": "snapshot",
+                    "success": False,
+                    "error_code": exc.code.value,
+                    "message": str(exc),
+                })
             self._entered = False
             _PROCESS_LOCAL_ACQUISITION_LOCK.release()
             raise
 
-    def _deselect_all(self) -> None:
+    def _deselect_all(self, *, error_code: EtabsSafetyErrorCode) -> None:
         method = _safe_attr(self.setup, "DeselectAllCasesAndCombosForOutput")
         if not callable(method):
-            raise EtabsCapabilityError("DeselectAllCasesAndCombosForOutput is required for exact temporary Results.Setup state.")
-        raw = method()
+            raise EtabsCapabilityError(
+                "DeselectAllCasesAndCombosForOutput is required for exact temporary Results.Setup state.",
+                code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+            )
+        try:
+            raw = method()
+        except Exception as exc:
+            raise EtabsStateVerificationError(
+                f"DeselectAllCasesAndCombosForOutput raised {type(exc).__name__}: {exc}",
+                code=error_code,
+            ) from exc
         code = _return_code(raw)
         if code not in (None, 0):
-            raise EtabsStateVerificationError(f"DeselectAllCasesAndCombosForOutput returned {code}.")
+            raise EtabsStateVerificationError(
+                f"DeselectAllCasesAndCombosForOutput returned {code}.",
+                code=error_code,
+            )
 
     def _current_flags(self) -> ResultsSetupSelectionSnapshot:
         return ResultsSetupSelectionSnapshot(
@@ -925,46 +1411,128 @@ class ResultsSetupReadTransaction(AbstractContextManager["ResultsSetupReadTransa
 
     def select_case(self, name: str) -> None:
         if name not in self._case_names:
-            raise EtabsStateVerificationError(f"Unknown ETABS load case {name!r}.")
-        self._deselect_all()
-        _set_selected_flag(self.setup, "SetCaseSelectedForOutput", name, True)
+            raise EtabsStateVerificationError(
+                f"Unknown ETABS load case {name!r}.",
+                code=EtabsSafetyErrorCode.TEMPORARY_STATE_SET_FAILED,
+            )
+        self._deselect_all(error_code=EtabsSafetyErrorCode.TEMPORARY_STATE_SET_FAILED)
+        _set_selected_flag(
+            self.setup,
+            "SetCaseSelectedForOutput",
+            name,
+            True,
+            error_code=EtabsSafetyErrorCode.TEMPORARY_STATE_SET_FAILED,
+        )
         current = self._current_flags()
         expected = ResultsSetupSelectionSnapshot(
             case_flags=tuple((case, case == name) for case in self._case_names),
             combo_flags=tuple((combo, False) for combo in self._combo_names),
         )
         if current != expected:
-            raise EtabsStateVerificationError("Temporary Results.Setup case selection did not verify exactly.")
-        self.diagnostics.append({"phase": "temporary_selection", "kind": "case", "name": name, "verified": True})
+            raise EtabsStateVerificationError(
+                "Temporary Results.Setup case selection did not verify exactly.",
+                code=EtabsSafetyErrorCode.TEMPORARY_STATE_VERIFY_FAILED,
+            )
+        self.diagnostics.append({
+            "phase": "temporary_selection",
+            "kind": "case",
+            "name": name,
+            "verified": True,
+            "error_code": None,
+        })
 
     def select_combo(self, name: str) -> None:
         if name not in self._combo_names:
-            raise EtabsStateVerificationError(f"Unknown ETABS load combination {name!r}.")
-        self._deselect_all()
-        _set_selected_flag(self.setup, "SetComboSelectedForOutput", name, True)
+            raise EtabsStateVerificationError(
+                f"Unknown ETABS load combination {name!r}.",
+                code=EtabsSafetyErrorCode.TEMPORARY_STATE_SET_FAILED,
+            )
+        self._deselect_all(error_code=EtabsSafetyErrorCode.TEMPORARY_STATE_SET_FAILED)
+        _set_selected_flag(
+            self.setup,
+            "SetComboSelectedForOutput",
+            name,
+            True,
+            error_code=EtabsSafetyErrorCode.TEMPORARY_STATE_SET_FAILED,
+        )
         current = self._current_flags()
         expected = ResultsSetupSelectionSnapshot(
             case_flags=tuple((case, False) for case in self._case_names),
             combo_flags=tuple((combo, combo == name) for combo in self._combo_names),
         )
         if current != expected:
-            raise EtabsStateVerificationError("Temporary Results.Setup combo selection did not verify exactly.")
-        self.diagnostics.append({"phase": "temporary_selection", "kind": "combo", "name": name, "verified": True})
+            raise EtabsStateVerificationError(
+                "Temporary Results.Setup combo selection did not verify exactly.",
+                code=EtabsSafetyErrorCode.TEMPORARY_STATE_VERIFY_FAILED,
+            )
+        self.diagnostics.append({
+            "phase": "temporary_selection",
+            "kind": "combo",
+            "name": name,
+            "verified": True,
+            "error_code": None,
+        })
 
     def _restore_and_verify(self) -> None:
         if self.snapshot is None:
-            raise EtabsStateRestoreError("Results.Setup selection snapshot was not captured.")
-        self._deselect_all()
-        for name, selected in self.snapshot.case_flags:
-            if selected:
-                _set_selected_flag(self.setup, "SetCaseSelectedForOutput", name, True)
-        for name, selected in self.snapshot.combo_flags:
-            if selected:
-                _set_selected_flag(self.setup, "SetComboSelectedForOutput", name, True)
-        current = self._current_flags()
-        self.diagnostics.append({"phase": "restore_verify", "success": current == self.snapshot})
+            raise EtabsStateRestoreError(
+                "Results.Setup selection snapshot was not captured.",
+                code=EtabsSafetyErrorCode.STATE_RESTORE_FAILED,
+            )
+        try:
+            self._deselect_all(error_code=EtabsSafetyErrorCode.STATE_RESTORE_FAILED)
+            for name, selected in self.snapshot.case_flags:
+                if selected:
+                    _set_selected_flag(
+                        self.setup,
+                        "SetCaseSelectedForOutput",
+                        name,
+                        True,
+                        error_code=EtabsSafetyErrorCode.STATE_RESTORE_FAILED,
+                    )
+            for name, selected in self.snapshot.combo_flags:
+                if selected:
+                    _set_selected_flag(
+                        self.setup,
+                        "SetComboSelectedForOutput",
+                        name,
+                        True,
+                        error_code=EtabsSafetyErrorCode.STATE_RESTORE_FAILED,
+                    )
+        except EtabsSafetyError as exc:
+            self.diagnostics.append({
+                "phase": "restore",
+                "success": False,
+                "error_code": EtabsSafetyErrorCode.STATE_RESTORE_FAILED.value,
+                "message": str(exc),
+            })
+            raise EtabsStateRestoreError(
+                str(exc),
+                code=EtabsSafetyErrorCode.STATE_RESTORE_FAILED,
+            ) from exc
+
+        try:
+            current = self._current_flags()
+        except EtabsSafetyError as exc:
+            raise EtabsStateRestoreError(
+                "Results.Setup restored state could not be re-read.",
+                code=EtabsSafetyErrorCode.STATE_RESTORE_VERIFY_FAILED,
+            ) from exc
+
+        self.diagnostics.append({
+            "phase": "restore_verify",
+            "success": current == self.snapshot,
+            "error_code": (
+                None
+                if current == self.snapshot
+                else EtabsSafetyErrorCode.STATE_RESTORE_VERIFY_FAILED.value
+            ),
+        })
         if current != self.snapshot:
-            raise EtabsStateRestoreError("Results.Setup case/combo selection did not restore exactly.")
+            raise EtabsStateRestoreError(
+                "Results.Setup case/combo selection did not restore exactly.",
+                code=EtabsSafetyErrorCode.STATE_RESTORE_VERIFY_FAILED,
+            )
 
     def __exit__(self, exc_type, exc, tb) -> bool:
         restore_error: Exception | None = None
@@ -979,7 +1547,10 @@ class ResultsSetupReadTransaction(AbstractContextManager["ResultsSetupReadTransa
         if restore_error is not None:
             if isinstance(restore_error, EtabsStateRestoreError):
                 raise restore_error from exc
-            raise EtabsStateRestoreError(str(restore_error)) from exc
+            raise EtabsStateRestoreError(
+                str(restore_error),
+                code=EtabsSafetyErrorCode.STATE_RESTORE_FAILED,
+            ) from exc
         return False
 
 
@@ -987,7 +1558,11 @@ def _status_sequence(raw: Any, expected_len: int) -> tuple[int | None, ...] | No
     if not isinstance(raw, (tuple, list)):
         return None
     for item in raw:
-        if isinstance(item, (tuple, list)) and len(item) == expected_len and not all(isinstance(value, str) for value in item):
+        if (
+            isinstance(item, (tuple, list))
+            and len(item) == expected_len
+            and not all(isinstance(value, str) for value in item)
+        ):
             values = tuple(_coerce_int(value) for value in item)
             if any(value is not None for value in values):
                 return values
@@ -998,24 +1573,43 @@ def read_analysis_readiness(sap_model: Any, case_name: str) -> AnalysisCaseReadi
     analyze = _safe_attr(sap_model, "Analyze")
     method = _safe_attr(analyze, "GetCaseStatus")
     if not callable(method):
-        raise EtabsCapabilityError("Analyze.GetCaseStatus is required for factual analysis readiness.")
+        raise EtabsCapabilityError(
+            "Analyze.GetCaseStatus is required for factual analysis readiness.",
+            code=EtabsSafetyErrorCode.ANALYSIS_STATUS_UNKNOWN,
+        )
     try:
         raw = method()
     except Exception as exc:
-        raise EtabsCapabilityError(f"Analyze.GetCaseStatus failed: {exc}") from exc
+        raise EtabsCapabilityError(
+            f"Analyze.GetCaseStatus failed: {exc}",
+            code=EtabsSafetyErrorCode.ANALYSIS_STATUS_UNKNOWN,
+        ) from exc
     return_code = _return_code(raw)
     if return_code not in (None, 0):
-        raise EtabsCapabilityError(f"Analyze.GetCaseStatus returned {return_code}.")
+        raise EtabsCapabilityError(
+            f"Analyze.GetCaseStatus returned {return_code}.",
+            code=EtabsSafetyErrorCode.ANALYSIS_STATUS_UNKNOWN,
+        )
     names = _extract_string_sequence(raw)
     if names is None:
-        raise EtabsCapabilityError("Analyze.GetCaseStatus did not return case names.")
+        raise EtabsCapabilityError(
+            "Analyze.GetCaseStatus did not return case names.",
+            code=EtabsSafetyErrorCode.ANALYSIS_STATUS_UNKNOWN,
+        )
     statuses = _status_sequence(raw, len(names))
     if statuses is None:
-        raise EtabsCapabilityError("Analyze.GetCaseStatus did not return aligned case statuses.")
+        raise EtabsCapabilityError(
+            "Analyze.GetCaseStatus did not return aligned case statuses.",
+            code=EtabsSafetyErrorCode.ANALYSIS_STATUS_UNKNOWN,
+        )
     try:
         index = names.index(case_name)
     except ValueError as exc:
-        raise EtabsCapabilityError(f"Analyze.GetCaseStatus did not report case {case_name!r}.") from exc
+        raise EtabsCapabilityError(
+            f"Analyze.GetCaseStatus did not report case {case_name!r}.",
+            code=EtabsSafetyErrorCode.ANALYSIS_STATUS_UNKNOWN,
+        ) from exc
+
     code = statuses[index]
     mapping = {
         1: AnalysisReadiness.ANALYSIS_NOT_RUN,
@@ -1023,11 +1617,17 @@ def read_analysis_readiness(sap_model: Any, case_name: str) -> AnalysisCaseReadi
         3: AnalysisReadiness.ANALYSIS_INCOMPLETE,
         4: AnalysisReadiness.ANALYSIS_FINISHED,
     }
+    readiness = mapping.get(code, AnalysisReadiness.ANALYSIS_UNKNOWN)
     return AnalysisCaseReadiness(
         case_name=case_name,
-        readiness=mapping.get(code, AnalysisReadiness.ANALYSIS_UNKNOWN),
+        readiness=readiness,
         etabs_status_code=code,
         return_code=return_code,
+        error_code=(
+            EtabsSafetyErrorCode.ANALYSIS_STATUS_UNKNOWN
+            if readiness is AnalysisReadiness.ANALYSIS_UNKNOWN
+            else None
+        ),
     )
 
 
@@ -1045,12 +1645,33 @@ def classify_capture_status(
     """Classify factual runtime capture completeness without engineering meaning."""
     if explicitly_truncated:
         return RuntimeCaptureStatus.TRUNCATED
-    if max_rows is not None and max_rows >= 0 and row_count_reported is not None and row_count_reported > row_count_captured:
+    if (
+        max_rows is not None
+        and max_rows >= 0
+        and row_count_reported is not None
+        and row_count_reported > row_count_captured
+    ):
         return RuntimeCaptureStatus.SAMPLED
-    if return_code not in (None, 0):
-        return RuntimeCaptureStatus.PARTIAL if row_count_captured > 0 else RuntimeCaptureStatus.UNKNOWN
-    if row_count_reported is None or flat_payload_length is None or header_count < 0:
-        return RuntimeCaptureStatus.PARTIAL if row_count_captured > 0 else RuntimeCaptureStatus.UNKNOWN
+
+    if return_code != 0:
+        return (
+            RuntimeCaptureStatus.PARTIAL
+            if row_count_captured > 0
+            else RuntimeCaptureStatus.UNKNOWN
+        )
+    if header_count <= 0:
+        return (
+            RuntimeCaptureStatus.PARTIAL
+            if row_count_captured > 0 or (row_count_reported or 0) > 0
+            else RuntimeCaptureStatus.UNKNOWN
+        )
+    if row_count_reported is None or flat_payload_length is None:
+        return (
+            RuntimeCaptureStatus.PARTIAL
+            if row_count_captured > 0
+            else RuntimeCaptureStatus.UNKNOWN
+        )
+
     expected_flat = row_count_reported * header_count
     structurally_full = (
         row_count_captured == row_count_reported
@@ -1074,6 +1695,7 @@ __all__ = [
     "EtabsCapabilitySnapshot",
     "EtabsIdentityMismatchError",
     "EtabsSafetyError",
+    "EtabsSafetyErrorCode",
     "EtabsSessionIdentity",
     "EtabsStateMutationKind",
     "EtabsStateRestoreError",
