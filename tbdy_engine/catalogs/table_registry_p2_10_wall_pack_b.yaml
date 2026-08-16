@@ -1,0 +1,100 @@
+metadata:
+  contract: P2.10 Wall Check Pack B live result source overlay
+  version: '1.0'
+  catalog_name: table_registry_p2_10_wall_pack_b
+  status: promoted_verified_live_raw_results
+  notes:
+    - Raw VERIFIED_LIVE acquisition does not define or unlock derived Vt or Ndm.
+tables:
+  base_reactions:
+    provider: etabs
+    evidence_status: VERIFIED_LIVE
+    live_table_name: Base Reactions
+    excel_inventory_aliases: [Base Reactions]
+    fetch_policy: exact_first_capped_keyword
+    verified_by:
+      sprint: P2.10-PACK-B
+      live_probe: true
+      return_code: 0
+      observed_rows: 96
+      full_capture: true
+    required_columns:
+      OutputCase: {aliases: [OutputCase, Output Case]}
+      CaseType: {aliases: [CaseType, Case Type]}
+      StepType: {aliases: [StepType, Step Type]}
+      StepNumber: {aliases: [StepNumber, Step Number]}
+      FX: {aliases: [FX]}
+      FY: {aliases: [FY]}
+      FZ: {aliases: [FZ]}
+      MX: {aliases: [MX]}
+      MY: {aliases: [MY]}
+      MZ: {aliases: [MZ]}
+      X: {aliases: [X]}
+      Y: {aliases: [Y]}
+      Z: {aliases: [Z]}
+    optional_columns: {}
+    row_granularity: one raw row per complete OutputCase/CaseType/StepType/StepNumber result identity
+    source_role: base_reactions_raw_result_evidence
+    check_unlock_allowed: false
+    derived_quantities_forbidden: [Vt]
+  pier_forces:
+    provider: etabs
+    evidence_status: VERIFIED_LIVE
+    live_table_name: Pier Forces
+    excel_inventory_aliases: [Pier Forces, Pier Forces - Analysis, Pier Forces - Design]
+    fetch_policy: exact_first_capped_keyword
+    verified_by:
+      sprint: P2.10-PACK-B
+      live_probe: true
+      return_code: 0
+      observed_rows: 4416
+      full_capture: true
+    required_columns:
+      Story: {aliases: [Story]}
+      Pier: {aliases: [Pier]}
+      OutputCase: {aliases: [OutputCase, Output Case]}
+      CaseType: {aliases: [CaseType, Case Type]}
+      StepType: {aliases: [StepType, Step Type]}
+      StepNumber: {aliases: [StepNumber, Step Number]}
+      Location: {aliases: [Location]}
+      P: {aliases: [P]}
+      V2: {aliases: [V2]}
+      V3: {aliases: [V3]}
+      T: {aliases: [T]}
+      M2: {aliases: [M2]}
+      M3: {aliases: [M3]}
+    optional_columns: {}
+    row_granularity: one raw row per Story/Pier/OutputCase/CaseType/StepType/StepNumber/Location identity
+    source_role: pier_forces_raw_result_evidence
+    check_unlock_allowed: false
+    derived_quantities_forbidden: [Ndm]
+  story_forces:
+    provider: etabs
+    evidence_status: VERIFIED_LIVE
+    live_table_name: Story Forces
+    excel_inventory_aliases: [Story Forces]
+    fetch_policy: exact_first_capped_keyword
+    verified_by:
+      sprint: P2.10-PACK-B
+      live_probe: true
+      return_code: 0
+      observed_rows: 392
+      full_capture: true
+    required_columns:
+      Story: {aliases: [Story]}
+      OutputCase: {aliases: [OutputCase, Output Case]}
+      CaseType: {aliases: [CaseType, Case Type]}
+      StepType: {aliases: [StepType, Step Type]}
+      StepNumber: {aliases: [StepNumber, Step Number]}
+      Location: {aliases: [Location]}
+      P: {aliases: [P]}
+      VX: {aliases: [VX]}
+      VY: {aliases: [VY]}
+      T: {aliases: [T]}
+      MX: {aliases: [MX]}
+      MY: {aliases: [MY]}
+    optional_columns: {}
+    row_granularity: one raw row per Story/OutputCase/CaseType/StepType/StepNumber/Location identity
+    source_role: story_forces_raw_result_evidence
+    check_unlock_allowed: false
+    derived_quantities_forbidden: [Vt]

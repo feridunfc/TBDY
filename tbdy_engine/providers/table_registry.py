@@ -1,4 +1,4 @@
-"""Read-only alias resolver for ``tbdy_engine/catalogs/table_registry.yaml``."""
+"""Read-only alias resolver for canonical ETABS table registry contracts."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -12,6 +12,8 @@ from tbdy_engine.canonical_tables.diagnostics import DiagnosticCode, DiagnosticS
 from tbdy_engine.contracts.models import freeze_data
 from tbdy_engine.tools.validate_contract_constitution import DEFAULT_CATALOG_DIR
 
+_PACK_B_OVERLAY = "table_registry_p2_10_wall_pack_b.yaml"
+
 
 @dataclass(frozen=True, slots=True)
 class TableRegistry:
@@ -19,11 +21,23 @@ class TableRegistry:
 
     @classmethod
     def from_catalog_dir(cls, catalog_dir: str | Path = DEFAULT_CATALOG_DIR) -> "TableRegistry":
-        path = Path(catalog_dir) / "table_registry.yaml"
+        root = Path(catalog_dir)
+        path = root / "table_registry.yaml"
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             raise ValueError("table_registry.yaml must contain a YAML object")
-        return cls.from_dict(data)
+        tables = dict(data.get("tables", {}) or {})
+        overlay_path = root / _PACK_B_OVERLAY
+        if overlay_path.exists():
+            overlay = yaml.safe_load(overlay_path.read_text(encoding="utf-8")) or {}
+            overlay_tables = overlay.get("tables") or {}
+            if not isinstance(overlay_tables, Mapping):
+                raise ValueError(f"{_PACK_B_OVERLAY} tables must be a mapping")
+            for key, row in overlay_tables.items():
+                if not isinstance(row, Mapping):
+                    raise ValueError(f"{_PACK_B_OVERLAY} table {key} must be a mapping")
+                tables[str(key)] = dict(row)
+        return cls(tables=freeze_data(tables))
 
     @classmethod
     def from_dict(cls, data: Mapping[str, Any]) -> "TableRegistry":
@@ -33,22 +47,13 @@ class TableRegistry:
         return tuple(self.tables.keys())
 
     def aliases_for_key(self, table_key: str, *, provider: str = "etabs") -> tuple[str, ...]:
-        """Return deterministic provider aliases without crossing source boundaries.
-
-        The production ETABS catalog evolved from ``provider_sources.etabs`` to
-        the explicit ``live_table_name`` field.  Both remain supported, while
-        Excel inventory aliases are available only through an explicit Excel
-        provider namespace and never leak into live ETABS resolution.
-        """
         row = self.tables.get(table_key)
         if not row:
             return tuple()
-
         provider_name = str(provider or "").strip().casefold()
         provider_sources = row.get("provider_sources", {})
         provider_sources = provider_sources if isinstance(provider_sources, Mapping) else {}
         candidates: list[Any] = []
-
         if provider_name == "etabs":
             candidates.append(row.get("live_table_name"))
             candidates.extend(_alias_values(provider_sources.get("etabs")))
@@ -60,11 +65,9 @@ class TableRegistry:
         else:
             candidates.extend(_alias_values(provider_sources.get(provider_name)))
             candidates.append(row.get("logical_name"))
-
         return _ordered_unique_aliases(candidates)
 
     def primary_key_for_key(self, table_key: str) -> str | None:
-        """Return the primary catalog key for a primary or legacy compatibility key."""
         if table_key not in self.tables:
             return None
         current = str(table_key)
@@ -86,7 +89,6 @@ class TableRegistry:
         raise ValueError(f"Cyclic table compatibility alias chain detected for {table_key!r}")
 
     def compatibility_keys_for_key(self, table_key: str) -> tuple[str, ...]:
-        """Return deterministic primary/legacy keys belonging to one catalog table family."""
         primary = self.primary_key_for_key(table_key)
         if primary is None:
             return tuple()
@@ -103,13 +105,6 @@ class TableRegistry:
         return aliases[0] if aliases else None
 
     def canonical_key_for_alias(self, actual_table_name: str, *, provider: str = "etabs") -> str | None:
-        """Return canonical key for an actual ETABS table name.
-
-        Matching is intentionally conservative: explicit aliases are required,
-        but leading/trailing whitespace, duplicate spaces, and case drift are
-        normalized. This handles ETABS variants such as ``" -  TS 500"``
-        without introducing fuzzy table-name guessing.
-        """
         normalized = normalize_table_name(actual_table_name)
         for table_key in self.tables:
             if normalize_table_name(table_key) == normalized:
@@ -157,7 +152,6 @@ def _ordered_unique_aliases(values: list[Any]) -> tuple[str, ...]:
 
 
 def normalize_table_name(name: str) -> str:
-    """Normalize safe ETABS table-name drift without fuzzy matching."""
     return re.sub(r"\s+", " ", str(name).strip()).casefold()
 
 

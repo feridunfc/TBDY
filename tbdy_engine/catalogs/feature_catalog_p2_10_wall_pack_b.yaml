@@ -1,0 +1,49 @@
+metadata:
+  contract: P2.10 Wall Check Pack B factual feature overlay
+  catalog_name: feature_catalog_p2_10_wall_pack_b
+  status: factual_only
+  notes:
+    - No Vt, Ndm, Ac, Eq.7.14 applicability boolean, ΣAg, or ΣAp engineering aggregate is a resolver fact.
+    - concrete_fck_mpa reuses the existing canonical feature ID and source semantics for wall CheckInput coverage.
+features:
+  wall_regulatory_structural_system_classification:
+    element_type: wall
+    type: string
+    unit: ''
+    semantic_role: REGULATORY_CLASSIFICATION
+    availability: {status: manual_review_required, confidence: review_required}
+    source:
+      table_key: null
+      field_aliases: []
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy: {source_unit: '', target_unit: '', conversion: none}
+    fallback:
+      allowed: false
+      method: none
+      warning: Do not infer from wall existence, property names, pier labels, or unreviewed design_basis.yaml.
+    semantics:
+      source_level: REVIEWED_REGULATORY_INPUT
+      provided_rebar_verified: not_applicable
+      notes: Reviewed factual structural-system classification only; CheckEngine owns §7.6.1.3 applicability.
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit, output_case, combo_family]
+  concrete_fck_mpa:
+    element_type: material
+    type: float
+    unit: MPa
+    semantic_role: DESIGN_BASIS
+    availability: {status: available, confidence: high}
+    source:
+      table_key: material_concrete_data
+      field_aliases: [Fc, fc, Concrete Strength]
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy: {source_unit: MPa, target_unit: MPa, conversion: none}
+    fallback: {allowed: false, method: none, warning: ''}
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: Existing canonical concrete_fck_mpa feature reused unchanged for wall axial CheckInput.
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit, output_case, combo_family]
