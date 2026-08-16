@@ -1,19 +1,53 @@
 """Engineering-only helpers for wall applicability and derived result quantities.
 
-Called by CheckEngine. Nothing here promotes an engineering-derived quantity to
-VERIFIED_LIVE raw source evidence.
+These helpers are consumed only by the canonical CheckEngine. They do not
+promote derived quantities into FeatureSnapshot facts or VERIFIED_LIVE sources.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 
 from tbdy_engine.features.result_evidence import ResultRowEvidenceBundle
 
-_REQUIRED_NDM_POLICY_FIELDS = (
-    "eligible_output_cases", "earthquake_direction", "envelope_rule",
-    "compression_sign", "governing_location", "response_spectrum_handling",
-)
+
+@dataclass(frozen=True, slots=True)
+class Eq714SystemEvidence:
+    """Directional/system engineering evidence used by §7.6.1.3 applicability."""
+
+    condition_1_satisfied: bool | None
+    condition_2_satisfied: bool | None
+    directional_evidence: Mapping[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        for name, value in (
+            ("condition_1_satisfied", self.condition_1_satisfied),
+            ("condition_2_satisfied", self.condition_2_satisfied),
+        ):
+            if value is not None and not isinstance(value, bool):
+                raise TypeError(f"{name} must be bool or None")
+        object.__setattr__(self, "directional_evidence", MappingProxyType(dict(self.directional_evidence or {})))
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewedWallSystemContext:
+    """Single reviewed structural-system authority shared by every wall in a run."""
+
+    system_id: str
+    wall_only_status: bool | None
+    eq714: Eq714SystemEvidence | None = None
+    evidence_refs: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.system_id, str) or not self.system_id.strip():
+            raise ValueError("ReviewedWallSystemContext requires a nonblank system_id")
+        if self.wall_only_status is not None and not isinstance(self.wall_only_status, bool):
+            raise TypeError("wall_only_status must be bool or None")
+        if self.eq714 is not None and not isinstance(self.eq714, Eq714SystemEvidence):
+            raise TypeError("eq714 must be Eq714SystemEvidence or None")
+        object.__setattr__(self, "system_id", self.system_id.strip())
+        object.__setattr__(self, "evidence_refs", tuple(str(item) for item in self.evidence_refs))
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,18 +64,20 @@ def directional_eq714_quantities(
     vt_n_by_axis: Mapping[str, float] | None = None,
     fctd_mpa: float | None = None,
 ) -> Mapping[str, float | None]:
-    """Derive directional Eq.7.14 quantities without collapsing X/Y or floor areas."""
+    """Derive directional Eq.7.14 quantities without collapsing X/Y or floors."""
     sum_ag_x = sum(float(v) for v in gross_wall_areas_mm2_by_axis.get("X", ()))
     sum_ag_y = sum(float(v) for v in gross_wall_areas_mm2_by_axis.get("Y", ()))
     sum_ap = sum(float(v) for v in floor_plan_areas_mm2_by_story.values())
     if sum_ap <= 0:
         raise ValueError("All-floor ΣAp requires positive factual floor-plan areas")
     out: dict[str, float | None] = {
-        "sum_ag_x_mm2": sum_ag_x, "sum_ag_y_mm2": sum_ag_y,
+        "sum_ag_x_mm2": sum_ag_x,
+        "sum_ag_y_mm2": sum_ag_y,
         "sum_ap_all_floors_mm2": sum_ap,
         "sum_ag_x_over_sum_ap": sum_ag_x / sum_ap,
         "sum_ag_y_over_sum_ap": sum_ag_y / sum_ap,
-        "vt_x_over_sum_ag_x_fctd": None, "vt_y_over_sum_ag_y_fctd": None,
+        "vt_x_over_sum_ag_x_fctd": None,
+        "vt_y_over_sum_ag_y_fctd": None,
     }
     if vt_n_by_axis is not None and fctd_mpa is not None:
         fctd = float(fctd_mpa)
@@ -55,104 +91,61 @@ def directional_eq714_quantities(
 
 
 def resolve_special_branch_applicability(
-    *, component_id: str, reviewed_structural_system_classification: Any,
-    engineering_context: Mapping[str, Any] | None,
+    system_context: ReviewedWallSystemContext | None,
 ) -> tuple[bool | None, str | None]:
-    """Derive general-vs-special branch only from explicit engineering proof.
-
-    No precomputed ``applies`` boolean is accepted. If the reviewed regulatory
-    system is not wall-only, the special branch is proven inapplicable. If it is
-    wall-only, both Eq.7.14 condition proofs are mandatory and special applies
-    only when both are true. Missing/ambiguous proof fails closed.
-    """
-    if not isinstance(reviewed_structural_system_classification, str) or not reviewed_structural_system_classification.strip():
-        return None, "Regulatory structural-system classification is UNKNOWN"
-    proofs = (engineering_context or {}).get("TBDY_7_6_1_3_proof")
-    if not isinstance(proofs, Mapping):
-        return None, "§7.6.1.3 engineering applicability proof is unavailable"
-    proof = proofs.get(component_id)
-    if not isinstance(proof, Mapping):
-        return None, "§7.6.1.3 engineering applicability proof is unavailable for this wall"
-    wall_only = proof.get("wall_only_structural_system")
-    if not isinstance(wall_only, bool):
-        return None, "Reviewed wall-only structural-system applicability is unresolved"
-    if wall_only is False:
+    """Resolve §7.6.1.3 at regulatory-system grain with tri-state conjunction."""
+    if system_context is None:
+        return None, "Reviewed regulatory structural-system context is unavailable"
+    if not isinstance(system_context, ReviewedWallSystemContext):
+        return None, "Reviewed regulatory structural-system context has invalid type"
+    if system_context.wall_only_status is None:
+        return None, "Reviewed wall-only structural-system classification is UNKNOWN"
+    if system_context.wall_only_status is False:
         return False, None
-    condition_1 = proof.get("eq714_condition_1_satisfied")
-    condition_2 = proof.get("eq714_condition_2_satisfied")
-    if not isinstance(condition_1, bool) or not isinstance(condition_2, bool):
-        return None, "Both Eq.7.14 engineering condition proofs are required for a wall-only structural system"
-    return condition_1 and condition_2, None
+    eq714 = system_context.eq714
+    if eq714 is None:
+        return None, "Directional/system Eq.7.14 evidence is unavailable"
+    condition_1 = eq714.condition_1_satisfied
+    condition_2 = eq714.condition_2_satisfied
+    # Tri-state AND: a proven FALSE is decisive even when the other operand is unknown.
+    if condition_1 is False or condition_2 is False:
+        return False, None
+    if condition_1 is True and condition_2 is True:
+        return True, None
+    return None, "Eq.7.14 applicability remains UNKNOWN because at least one condition is unresolved"
 
 
-def derive_highest_applicable_story_height_mm(component_id: str, engineering_context: Mapping[str, Any] | None) -> DerivedQuantity:
-    values = (engineering_context or {}).get("highest_applicable_story_height_mm")
-    if not isinstance(values, Mapping):
-        return DerivedQuantity(None, "BLOCKED", "Highest applicable story-height derivation is unavailable")
-    value = values.get(component_id)
+def derive_highest_applicable_story_height_mm(value: Any) -> DerivedQuantity:
     if isinstance(value, bool) or not isinstance(value, (int, float)) or float(value) <= 0:
         return DerivedQuantity(None, "BLOCKED", "Highest applicable story height is not proven for this wall")
     return DerivedQuantity(float(value), "RESOLVED")
 
 
-def _to_newtons(value: float, bundle: ResultRowEvidenceBundle) -> float | None:
-    unit = str(bundle.units.get("force_unit") or bundle.units.get("force") or "").strip()
-    if unit == "N":
-        return value
-    if unit == "kN":
-        return value * 1000.0
-    return None
-
-
 def derive_ndm_n(
     *, component_id: str, pier_name: str | None,
-    pier_forces: ResultRowEvidenceBundle | None, selection_policy: Mapping[str, Any] | None,
+    pier_forces: ResultRowEvidenceBundle | None,
+    selection_policy: Mapping[str, Any] | None = None,
 ) -> DerivedQuantity:
-    """Derive Ndm only under a complete explicit result-selection policy."""
+    """Keep Ndm blocked until a frozen authoritative result-selection policy exists.
+
+    Presence of policy-shaped strings/mappings is intentionally non-authoritative.
+    This prevents output-case names, token values, or incomplete result semantics
+    from manufacturing a resolved Ndm.
+    """
+    del component_id, pier_name, selection_policy
     if pier_forces is None or pier_forces.table_key != "pier_forces":
         return DerivedQuantity(None, "BLOCKED", "VERIFIED_LIVE Pier Forces raw evidence is unavailable")
-    policy = selection_policy if isinstance(selection_policy, Mapping) else {}
-    missing = [field for field in _REQUIRED_NDM_POLICY_FIELDS if field not in policy]
-    if missing:
-        return DerivedQuantity(None, "BLOCKED", "Ndm result policy is incomplete: " + ", ".join(missing))
-    if not pier_name:
-        return DerivedQuantity(None, "BLOCKED", "Wall-to-pier result identity is unavailable")
-    eligible_cases = policy.get("eligible_output_cases")
-    if not isinstance(eligible_cases, (list, tuple, set)) or not eligible_cases:
-        return DerivedQuantity(None, "BLOCKED", "Ndm cannot select a result merely by output-case name")
-    governing_location = str(policy.get("governing_location"))
-    compression_sign = str(policy.get("compression_sign"))
-    envelope_rule = str(policy.get("envelope_rule"))
-    spectrum_rule = str(policy.get("response_spectrum_handling"))
-    if governing_location not in {"Top", "Bottom", "BOTH_ENVELOPE"}:
-        return DerivedQuantity(None, "BLOCKED", "Pier Top/Bottom governing-location policy is unresolved")
-    if compression_sign not in {"POSITIVE", "NEGATIVE"}:
-        return DerivedQuantity(None, "BLOCKED", "Pier compression sign policy is unresolved")
-    if envelope_rule not in {"MAX_COMPRESSION", "SIGNED_MAX_MIN"}:
-        return DerivedQuantity(None, "BLOCKED", "Pier signed envelope rule is unresolved")
-    if spectrum_rule in {"", "UNKNOWN", "BY_NAME"}:
-        return DerivedQuantity(None, "BLOCKED", "Response-spectrum handling is unresolved")
-    rows = []
-    for row in pier_forces.rows:
-        if row.get("Pier") != pier_name or row.get("OutputCase") not in eligible_cases:
-            continue
-        if governing_location != "BOTH_ENVELOPE" and row.get("Location") != governing_location:
-            continue
-        p = row.get("P")
-        if isinstance(p, bool) or not isinstance(p, (int, float)):
-            continue
-        rows.append(row)
-    if not rows:
-        return DerivedQuantity(None, "BLOCKED", "No Pier Forces row satisfies the complete authoritative Ndm policy")
-    p_values = [float(row["P"]) for row in rows]
-    signed = max(p_values) if compression_sign == "POSITIVE" else min(p_values)
-    compression_source = signed if compression_sign == "POSITIVE" else -signed
-    if compression_source < 0:
-        return DerivedQuantity(None, "BLOCKED", "Selected pier result is not compressive under the authoritative sign policy")
-    compression_n = _to_newtons(compression_source, pier_forces)
-    if compression_n is None:
-        return DerivedQuantity(None, "BLOCKED", "Pier Forces force unit is unresolved; Ndm cannot be normalized to N")
-    return DerivedQuantity(compression_n, "RESOLVED", evidence=tuple(dict(row) for row in rows))
+    if not pier_forces.is_full_capture:
+        return DerivedQuantity(
+            None,
+            "BLOCKED",
+            "Ndm requires runtime FULL Pier Forces acquisition; truncated/sampled/partial evidence cannot form an envelope",
+        )
+    return DerivedQuantity(
+        None,
+        "BLOCKED",
+        "Authoritative Ndm result-selection policy is not implemented: directional selection, response-spectrum handling, Max/Min, signed envelope, and governing-location semantics remain unresolved",
+    )
 
 
 def derive_net_section_area_mm2(component_id: str, topology_context: Mapping[str, Any] | None) -> DerivedQuantity:
@@ -187,6 +180,8 @@ def derive_net_section_area_mm2(component_id: str, topology_context: Mapping[str
 
 
 __all__ = [
-    "DerivedQuantity", "derive_highest_applicable_story_height_mm", "derive_ndm_n",
-    "derive_net_section_area_mm2", "directional_eq714_quantities", "resolve_special_branch_applicability",
+    "DerivedQuantity", "Eq714SystemEvidence", "ReviewedWallSystemContext",
+    "derive_highest_applicable_story_height_mm", "derive_ndm_n",
+    "derive_net_section_area_mm2", "directional_eq714_quantities",
+    "resolve_special_branch_applicability",
 ]
