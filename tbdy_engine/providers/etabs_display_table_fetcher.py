@@ -1,15 +1,20 @@
 """Shared read-only ETABS display-table fetcher.
 
 This module owns the COM signature probing for ``DatabaseTables`` display-table
-reads.  It is import-safe without ETABS/comtypes; callers pass an already
+reads. It is import-safe without ETABS/comtypes; callers pass an already
 obtained ``database_tables`` object.
 """
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Mapping
 
+from tbdy_engine.etabs.safety import (
+    DatabaseTablesReadTransaction,
+    RuntimeCaptureStatus,
+    classify_capture_status,
+)
 from tbdy_engine.providers.etabs_display_table_parser import ParsedDisplayTable, parse_etabs_display_table_result
 
 
@@ -21,6 +26,9 @@ class DisplayTableFetchResult:
     selected_signature: Mapping[str, Any] = field(default_factory=dict)
     selected_signature_reason: str = "not_selected"
     signature_attempts: tuple[Mapping[str, Any], ...] = field(default_factory=tuple)
+    capture_status: RuntimeCaptureStatus = RuntimeCaptureStatus.UNKNOWN
+    display_selection: Mapping[str, Any] = field(default_factory=dict)
+    state_diagnostics: tuple[Mapping[str, Any], ...] = field(default_factory=tuple)
 
     def header_payload(self, registry: Any) -> dict[str, Any]:
         payload = self.parsed.header_payload(registry)
@@ -38,6 +46,9 @@ class DisplayTableFetchResult:
             "number_records_by_signature": {
                 str(item.get("signature_name")): item.get("number_records") for item in self.signature_attempts
             },
+            "capture_status": self.capture_status.value,
+            "display_selection": dict(self.display_selection),
+            "state_diagnostics": [dict(item) for item in self.state_diagnostics],
         })
         raw = dict(payload.get("raw_table_diagnostics") or {})
         raw.update({
@@ -50,12 +61,15 @@ class DisplayTableFetchResult:
             "header_count": len(self.parsed.field_keys),
             "number_fields_detected": self.parsed.debug.get("number_fields_detected"),
             "number_fields_source": self.parsed.debug.get("number_fields_source"),
+            "capture_status": self.capture_status.value,
+            "display_selection": dict(self.display_selection),
+            "state_diagnostics": [dict(item) for item in self.state_diagnostics],
         })
         payload["raw_table_diagnostics"] = raw
         return payload
 
 
-# Use immutable templates only.  ETABS/comtypes may mutate output list arguments;
+# Use immutable templates only. ETABS/comtypes may mutate output list arguments;
 # concrete args must therefore be materialized fresh for every table/signature.
 DISPLAY_TABLE_SIGNATURES: tuple[tuple[str, tuple[Any, ...]], ...] = (
     ("sig_7_list_fields_records_data", ("__TABLE_NAME__", ("__FRESH_LIST__",), "", 0, ("__FRESH_LIST__",), 0, ("__FRESH_LIST__",))),
@@ -71,7 +85,6 @@ def _materialize_arg(item: Any, table_name: str) -> Any:
         return table_name
     if item == ("__FRESH_LIST__",):
         return []
-    # Defensive copy: never pass a mutable object from DISPLAY_TABLE_SIGNATURES.
     return deepcopy(item)
 
 
@@ -79,9 +92,7 @@ def _materialize_args(template: tuple[Any, ...], table_name: str) -> tuple[Any, 
     return tuple(_materialize_arg(item, table_name) for item in template)
 
 
-
 def _selection_return_code(raw: Any) -> Any:
-    """Best-effort return-code extraction for ETABS display selection calls."""
     if isinstance(raw, int):
         return raw
     if isinstance(raw, (list, tuple)):
@@ -118,20 +129,11 @@ def _selection_attempt_succeeded(record: Mapping[str, Any]) -> bool:
     if not record.get("call_succeeded"):
         return False
     code = record.get("return_code")
-    # ETABS selection wrappers usually return 0 or (..., 0).  If the wrapper
-    # returns no code but the call did not raise, keep it as a best-effort
-    # success because the display state is the only thing we need before fetch.
     return code in (None, 0, "0")
 
 
 def _detect_preferred_output_kind(database_tables: Any, preferred_output_case: str) -> str:
-    """Best-effort output-name classification for diagnostics only.
-
-    ETABS API variants expose load case/combination name lists through different
-    objects and wrappers.  C11.1.5 must not depend on those optional APIs, so
-    unknown is the safe default unless a lightweight fake/test object advertises
-    a direct membership set.
-    """
+    """Best-effort output-name classification for diagnostics only."""
     combo_names = getattr(database_tables, "load_combination_names", None)
     case_names = getattr(database_tables, "load_case_names", None)
     try:
@@ -166,20 +168,18 @@ def _call_selection_method(database_tables: Any, method_name: str, case_name: st
 
 
 def select_output_for_display(database_tables: Any, preferred_output_case: str | None) -> dict[str, Any]:
-    """Select an ETABS output case/combination for display-table result reads.
+    """Fail closed: standalone display selection is no longer a safe read API.
 
-    Real ETABS/comtypes showed that story/base result tables can report headers
-    and a positive record count while returning empty TableData until display
-    output is selected.  Use list-only calls only; the failing int overloads
-    such as ``SetLoadCombinationsSelectedForDisplay(1, [...])`` are
-    intentionally not present.  Combo selection is attempted first and, on
-    success, case selection is skipped to avoid a second display-state mutation.
+    A caller that selects output and later fetches cannot restore the exact
+    prior state in a ``finally`` block owned by this function. Use
+    :func:`fetch_display_table_for_output`, which wraps selection + fetch in a
+    reversible DatabaseTables transaction.
     """
     case_name = str(preferred_output_case or "").strip()
-    diagnostic: dict[str, Any] = {
+    return {
         "preferred_output_case": case_name,
-        "preferred_output_kind_detected": "unknown",
-        "display_selection_attempted": bool(case_name),
+        "preferred_output_kind_detected": _detect_preferred_output_kind(database_tables, case_name) if case_name else "unknown",
+        "display_selection_attempted": False,
         "display_selection_attempts": [],
         "display_selection_selected_method": None,
         "display_selection_success": False,
@@ -188,33 +188,9 @@ def select_output_for_display(database_tables: Any, preferred_output_case: str |
         "skipped_case_selection_because_combo_succeeded": False,
         "read_only_model_geometry": True,
         "model_geometry_mutated": False,
+        "mutation_kind": "READ_WITH_OUTPUT_SELECTION_STATE_CHANGE",
+        "diagnostic": "TRANSACTION_REQUIRED_USE_FETCH_DISPLAY_TABLE_FOR_OUTPUT",
     }
-    if not case_name:
-        diagnostic["diagnostic"] = "preferred_output_case_missing"
-        return diagnostic
-
-    diagnostic["preferred_output_kind_detected"] = _detect_preferred_output_kind(database_tables, case_name)
-
-    attempts: list[dict[str, Any]] = []
-    combo_record = _call_selection_method(database_tables, "SetLoadCombinationsSelectedForDisplay", case_name)
-    attempts.append(combo_record)
-    selected = combo_record if _selection_attempt_succeeded(combo_record) else None
-
-    if selected is not None:
-        diagnostic["skipped_case_selection_because_combo_succeeded"] = True
-    else:
-        diagnostic["attempted_case_fallback"] = True
-        case_record = _call_selection_method(database_tables, "SetLoadCasesSelectedForDisplay", case_name)
-        attempts.append(case_record)
-        selected = case_record if _selection_attempt_succeeded(case_record) else None
-
-    diagnostic.update({
-        "display_selection_attempts": attempts,
-        "display_selection_selected_method": selected.get("method") if selected else None,
-        "display_selection_success": selected is not None,
-        "fetch_after_display_selection": selected is not None,
-    })
-    return diagnostic
 
 
 def _parser_status_for(parsed: ParsedDisplayTable) -> str:
@@ -238,6 +214,35 @@ def _parser_status_for(parsed: ParsedDisplayTable) -> str:
     if not parsed.field_keys and not parsed.rows:
         return "EMPTY_TABLE"
     return parsed.fetch_status or "UNKNOWN_SHAPE"
+
+
+def _capture_status_for_parsed(parsed: ParsedDisplayTable, *, max_rows: int | None) -> RuntimeCaptureStatus:
+    debug = dict(parsed.debug or {})
+    reported = parsed.row_count_reported
+    if reported is None:
+        try:
+            value = debug.get("number_records")
+            reported = None if value is None else int(value)
+        except Exception:
+            reported = None
+    try:
+        payload_len = int(debug.get("table_data_length")) if debug.get("table_data_length") is not None else None
+    except Exception:
+        payload_len = None
+    parser_status = _parser_status_for(parsed)
+    parser_has_error = bool(debug.get("mismatch_reason")) or parser_status in {
+        "TABLEDATA_EMPTY_DESPITE_RECORDS",
+        "COM_CALL_FAILED",
+    }
+    return classify_capture_status(
+        return_code=parsed.return_code,
+        row_count_reported=reported,
+        row_count_captured=len(parsed.rows),
+        header_count=len(parsed.field_keys),
+        flat_payload_length=payload_len,
+        max_rows=max_rows,
+        parser_has_error=parser_has_error,
+    )
 
 
 def _safe_len(value: Any) -> int | None:
@@ -285,17 +290,12 @@ def _args_after_summary(args: tuple[Any, ...]) -> list[dict[str, Any]]:
 
 
 def _raw_return_fragments(raw: Any) -> list[Any]:
-    # ETABS/comtypes return values are commonly tuple-shaped, so expose their
-    # items to the legacy sequence scanner.
     if isinstance(raw, (list, tuple)):
         return list(raw)
     return [raw]
 
 
 def _arg_fragments(arg: Any) -> list[Any]:
-    # Do not flatten list/tuple output arguments: the parser must see each
-    # mutated list as one string-sequence candidate, just like the legacy probe
-    # saw return-tuple sequence items.
     fragments = [arg]
     if hasattr(arg, "value"):
         try:
@@ -339,8 +339,6 @@ def _merge_parse_diagnostics(primary: ParsedDisplayTable, combined: ParsedDispla
         diagnostics=tuple(diagnostics),
         debug=debug,
     )
-
-
 
 
 def _string_sequences_in(value: Any) -> list[tuple[str, ...]]:
@@ -397,8 +395,6 @@ def _parse_raw_and_args(raw: Any, args: tuple[Any, ...], *, table_name: str, max
     combined = parse_etabs_display_table_result(combined_raw, actual_table_name=table_name, max_rows=max_rows)
     if combined.rows and len(combined.field_keys) > 1:
         return _merge_parse_diagnostics(primary, combined, strategy="return_plus_mutated_args_sequence_scan")
-    # Keep the better diagnostic: prefer raw-return status when it has headers/
-    # records, otherwise combined if it found a more informative shape.
     raw_header_count = len(primary.field_keys)
     combined_header_count = len(combined.field_keys)
     if combined_header_count > raw_header_count:
@@ -503,14 +499,32 @@ def _with_fetcher_debug(parsed: ParsedDisplayTable, attempts: list[dict[str, Any
     )
 
 
+def _result(
+    *,
+    table_name: str,
+    parsed: ParsedDisplayTable,
+    raw: Any,
+    selected: Mapping[str, Any],
+    reason: str,
+    attempts: list[dict[str, Any]],
+    max_rows: int | None,
+) -> DisplayTableFetchResult:
+    return DisplayTableFetchResult(
+        table_name=table_name,
+        parsed=parsed,
+        raw_response=raw,
+        selected_signature=selected,
+        selected_signature_reason=reason,
+        signature_attempts=tuple(attempts),
+        capture_status=_capture_status_for_parsed(parsed, max_rows=max_rows),
+    )
+
+
 def fetch_display_table(database_tables: Any, table_name: str, *, max_rows: int | None = None) -> DisplayTableFetchResult:
     """Fetch a display table by trying all known read-only COM signatures.
 
-    A return code of 0 is not sufficient.  Some wrappers return headers and a
-    positive record count with empty ``TableData`` for one signature while a
-    later signature or post-call mutable out arguments contain the full flat row
-    payload.  This function accepts only a signature/parse strategy that actually
-    produces rows.
+    This function itself does not change ETABS display selection. If a table
+    requires temporary output selection, use ``fetch_display_table_for_output``.
     """
     attempts: list[dict[str, Any]] = []
     parsed_candidates: list[tuple[ParsedDisplayTable, Any, dict[str, Any]]] = []
@@ -519,7 +533,7 @@ def fetch_display_table(database_tables: Any, table_name: str, *, max_rows: int 
         args = _materialize_args(template, table_name)
         try:  # pragma: no cover - real COM requires local ETABS
             raw = database_tables.GetTableForDisplayArray(*args)
-        except Exception as exc:  # pragma: no cover - real COM requires local ETABS
+        except Exception as exc:  # pragma: no cover - real ETABS COM
             last_exception = exc
             attempt = _attempt_record(index=index, signature_name=signature_name, args=args, exception=exc)
             attempts.append(attempt)
@@ -537,13 +551,14 @@ def fetch_display_table(database_tables: Any, table_name: str, *, max_rows: int 
                 "message": "Selected first GetTableForDisplayArray signature that produced parsed rows.",
                 "details": {"selected_signature": signature_name, "parse_strategy_used": attempt.get("parse_strategy_used")},
             }])
-            return DisplayTableFetchResult(
+            return _result(
                 table_name=table_name,
                 parsed=parsed,
-                raw_response=raw,
-                selected_signature=selected,
-                selected_signature_reason=reason,
-                signature_attempts=tuple(attempts),
+                raw=raw,
+                selected=selected,
+                reason=reason,
+                attempts=attempts,
+                max_rows=max_rows,
             )
 
     best = _best_failed_candidate(parsed_candidates)
@@ -557,13 +572,14 @@ def fetch_display_table(database_tables: Any, table_name: str, *, max_rows: int 
             "message": "No GetTableForDisplayArray signature produced parsed rows; selected best diagnostic response.",
             "details": {"selected_signature": selected_attempt.get("signature_name")},
         }])
-        return DisplayTableFetchResult(
+        return _result(
             table_name=table_name,
             parsed=parsed,
-            raw_response=raw,
-            selected_signature=selected_attempt,
-            selected_signature_reason=selected_reason,
-            signature_attempts=tuple(attempts),
+            raw=raw,
+            selected=selected_attempt,
+            reason=selected_reason,
+            attempts=attempts,
+            max_rows=max_rows,
         )
 
     raw = {
@@ -580,13 +596,36 @@ def fetch_display_table(database_tables: Any, table_name: str, *, max_rows: int 
         "message": "All GetTableForDisplayArray signatures raised exceptions.",
         "details": {"last_exception": str(last_exception)},
     }])
-    return DisplayTableFetchResult(
+    return _result(
         table_name=table_name,
         parsed=parsed,
-        raw_response=raw,
-        selected_signature=selected,
-        selected_signature_reason="all_signatures_raised_exceptions",
-        signature_attempts=tuple(attempts),
+        raw=raw,
+        selected=selected,
+        reason="all_signatures_raised_exceptions",
+        attempts=attempts,
+        max_rows=max_rows,
+    )
+
+
+def fetch_display_table_for_output(
+    database_tables: Any,
+    table_name: str,
+    *,
+    preferred_output_case: str,
+    max_rows: int | None = None,
+) -> DisplayTableFetchResult:
+    """Safely select ETABS display output, fetch, restore, and verify state."""
+    transaction = DatabaseTablesReadTransaction(database_tables)
+    selection: Mapping[str, Any] = {}
+    fetched: DisplayTableFetchResult | None = None
+    with transaction:
+        selection = transaction.select_output(preferred_output_case)
+        fetched = fetch_display_table(database_tables, table_name, max_rows=max_rows)
+    assert fetched is not None
+    return replace(
+        fetched,
+        display_selection=dict(selection),
+        state_diagnostics=tuple(dict(item) for item in transaction.diagnostics),
     )
 
 
@@ -599,6 +638,7 @@ __all__ = [
     "DISPLAY_TABLE_SIGNATURES",
     "DisplayTableFetchResult",
     "fetch_display_table",
+    "fetch_display_table_for_output",
     "select_output_for_display",
     "try_get_display_table",
 ]
