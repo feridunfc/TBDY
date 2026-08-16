@@ -814,7 +814,18 @@ def _decode_database_selected_names(
             details={"api_return_code": code},
         )
 
-    count = _coerce_int(raw[0])
+    raw_count = raw[0]
+    if isinstance(raw_count, bool):
+        count = None
+    elif isinstance(raw_count, int):
+        count = int(raw_count)
+    else:
+        candidate = getattr(raw_count, "value", None)
+        count = (
+            int(candidate)
+            if isinstance(candidate, int) and not isinstance(candidate, bool)
+            else None
+        )
     if count is None or count < 0:
         raise EtabsCapabilityError(
             f"{getter_name} returned an invalid selected-name count.",
@@ -1391,7 +1402,7 @@ def _set_selected_flag(
     method = _safe_attr(setup, method_name)
     if not callable(method):
         raise EtabsCapabilityError(
-            f"{method_name} is required for Results.Setup mutation.",
+            f"{method_name} is required for reversible Results.Setup mutation.",
             code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
         )
     try:
