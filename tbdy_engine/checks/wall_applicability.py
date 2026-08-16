@@ -1,7 +1,7 @@
 """Engineering-only helpers for wall applicability and derived result quantities.
 
-These helpers are called by CheckEngine. They never mutate FeatureSnapshot and
-never promote a derived engineering quantity to VERIFIED_LIVE source evidence.
+Called by CheckEngine. Nothing here promotes an engineering-derived quantity to
+VERIFIED_LIVE raw source evidence.
 """
 from __future__ import annotations
 
@@ -25,26 +25,22 @@ class DerivedQuantity:
 
 
 def directional_eq714_quantities(
-    *,
-    gross_wall_areas_mm2_by_axis: Mapping[str, Sequence[float]],
+    *, gross_wall_areas_mm2_by_axis: Mapping[str, Sequence[float]],
     floor_plan_areas_mm2_by_story: Mapping[str, float],
     vt_n_by_axis: Mapping[str, float] | None = None,
     fctd_mpa: float | None = None,
 ) -> Mapping[str, float | None]:
-    """Derive directional Eq.7.14 quantities without deciding applicability."""
     sum_ag_x = sum(float(v) for v in gross_wall_areas_mm2_by_axis.get("X", ()))
     sum_ag_y = sum(float(v) for v in gross_wall_areas_mm2_by_axis.get("Y", ()))
     sum_ap = sum(float(v) for v in floor_plan_areas_mm2_by_story.values())
     if sum_ap <= 0:
         raise ValueError("All-floor ΣAp requires positive factual floor-plan areas")
     out: dict[str, float | None] = {
-        "sum_ag_x_mm2": sum_ag_x,
-        "sum_ag_y_mm2": sum_ag_y,
+        "sum_ag_x_mm2": sum_ag_x, "sum_ag_y_mm2": sum_ag_y,
         "sum_ap_all_floors_mm2": sum_ap,
         "sum_ag_x_over_sum_ap": sum_ag_x / sum_ap,
         "sum_ag_y_over_sum_ap": sum_ag_y / sum_ap,
-        "vt_x_over_sum_ag_x_fctd": None,
-        "vt_y_over_sum_ag_y_fctd": None,
+        "vt_x_over_sum_ag_x_fctd": None, "vt_y_over_sum_ag_y_fctd": None,
     }
     if vt_n_by_axis is not None and fctd_mpa is not None:
         fctd = float(fctd_mpa)
@@ -58,16 +54,12 @@ def directional_eq714_quantities(
 
 
 def resolve_special_branch_applicability(
-    *,
-    component_id: str,
-    reviewed_structural_system_classification: Any,
+    *, component_id: str, reviewed_structural_system_classification: Any,
     engineering_context: Mapping[str, Any] | None,
 ) -> tuple[bool | None, str | None]:
-    """Resolve only a proven engineering applicability decision; never default."""
     if not isinstance(reviewed_structural_system_classification, str) or not reviewed_structural_system_classification.strip():
         return None, "Regulatory structural-system classification is UNKNOWN"
-    context = engineering_context or {}
-    decisions = context.get("TBDY_7_6_1_3_applies")
+    decisions = (engineering_context or {}).get("TBDY_7_6_1_3_applies")
     if not isinstance(decisions, Mapping):
         return None, "§7.6.1.3 engineering applicability proof is unavailable"
     decision = decisions.get(component_id)
@@ -86,14 +78,20 @@ def derive_highest_applicable_story_height_mm(component_id: str, engineering_con
     return DerivedQuantity(float(value), "RESOLVED")
 
 
+def _to_newtons(value: float, bundle: ResultRowEvidenceBundle) -> float | None:
+    unit = str(bundle.units.get("force_unit") or bundle.units.get("force") or "").strip()
+    if unit == "N":
+        return value
+    if unit == "kN":
+        return value * 1000.0
+    return None
+
+
 def derive_ndm_n(
-    *,
-    component_id: str,
-    pier_name: str | None,
-    pier_forces: ResultRowEvidenceBundle | None,
-    selection_policy: Mapping[str, Any] | None,
+    *, component_id: str, pier_name: str | None,
+    pier_forces: ResultRowEvidenceBundle | None, selection_policy: Mapping[str, Any] | None,
 ) -> DerivedQuantity:
-    """Derive Ndm only when the complete load/result selection policy is explicit."""
+    """Derive Ndm only under a complete explicit result-selection policy."""
     if pier_forces is None or pier_forces.table_key != "pier_forces":
         return DerivedQuantity(None, "BLOCKED", "VERIFIED_LIVE Pier Forces raw evidence is unavailable")
     policy = selection_policy if isinstance(selection_policy, Mapping) else {}
@@ -108,12 +106,15 @@ def derive_ndm_n(
     governing_location = str(policy.get("governing_location"))
     compression_sign = str(policy.get("compression_sign"))
     envelope_rule = str(policy.get("envelope_rule"))
+    spectrum_rule = str(policy.get("response_spectrum_handling"))
     if governing_location not in {"Top", "Bottom", "BOTH_ENVELOPE"}:
         return DerivedQuantity(None, "BLOCKED", "Pier Top/Bottom governing-location policy is unresolved")
     if compression_sign not in {"POSITIVE", "NEGATIVE"}:
         return DerivedQuantity(None, "BLOCKED", "Pier compression sign policy is unresolved")
     if envelope_rule not in {"MAX_COMPRESSION", "SIGNED_MAX_MIN"}:
         return DerivedQuantity(None, "BLOCKED", "Pier signed envelope rule is unresolved")
+    if spectrum_rule in {"", "UNKNOWN", "BY_NAME"}:
+        return DerivedQuantity(None, "BLOCKED", "Response-spectrum handling is unresolved")
     rows = []
     for row in pier_forces.rows:
         if row.get("Pier") != pier_name or row.get("OutputCase") not in eligible_cases:
@@ -128,14 +129,16 @@ def derive_ndm_n(
         return DerivedQuantity(None, "BLOCKED", "No Pier Forces row satisfies the complete authoritative Ndm policy")
     p_values = [float(row["P"]) for row in rows]
     signed = max(p_values) if compression_sign == "POSITIVE" else min(p_values)
-    compression = signed if compression_sign == "POSITIVE" else -signed
-    if compression < 0:
+    compression_source = signed if compression_sign == "POSITIVE" else -signed
+    if compression_source < 0:
         return DerivedQuantity(None, "BLOCKED", "Selected pier result is not compressive under the authoritative sign policy")
-    return DerivedQuantity(compression, "RESOLVED", evidence=tuple(dict(row) for row in rows))
+    compression_n = _to_newtons(compression_source, pier_forces)
+    if compression_n is None:
+        return DerivedQuantity(None, "BLOCKED", "Pier Forces force unit is unresolved; Ndm cannot be normalized to N")
+    return DerivedQuantity(compression_n, "RESOLVED", evidence=tuple(dict(row) for row in rows))
 
 
 def derive_net_section_area_mm2(component_id: str, topology_context: Mapping[str, Any] | None) -> DerivedQuantity:
-    """Derive net Ac only from proven section/opening topology, never shell surface area."""
     context = topology_context if isinstance(topology_context, Mapping) else {}
     if "shell_surface_area" in context or "wall_shell_surface_area" in context:
         return DerivedQuantity(None, "BLOCKED", "Vertical shell surface Area is not wall net cross-sectional Ac")
@@ -150,10 +153,7 @@ def derive_net_section_area_mm2(component_id: str, topology_context: Mapping[str
     deducted = 0.0
     evidence = []
     for opening in openings:
-        if not isinstance(opening, Mapping):
-            continue
-        # Unrelated/null areas are preserved as unrelated evidence and never blindly deducted.
-        if opening.get("parent_wall_id") != component_id:
+        if not isinstance(opening, Mapping) or opening.get("parent_wall_id") != component_id:
             continue
         if opening.get("topology_verified") is not True or opening.get("section_semantics") != "NET_SECTION_OPENING":
             return DerivedQuantity(None, "BLOCKED", "Parent opening exists but its net-section semantics are not proven")
@@ -170,6 +170,5 @@ def derive_net_section_area_mm2(component_id: str, topology_context: Mapping[str
 
 __all__ = [
     "DerivedQuantity", "derive_highest_applicable_story_height_mm", "derive_ndm_n",
-    "derive_net_section_area_mm2", "directional_eq714_quantities",
-    "resolve_special_branch_applicability",
+    "derive_net_section_area_mm2", "directional_eq714_quantities", "resolve_special_branch_applicability",
 ]
