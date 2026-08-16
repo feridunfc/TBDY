@@ -96,7 +96,7 @@ def hcr_ge_hw_div6(_: Mapping[str, Any], e: Mapping[str, Any]) -> WallRuleValue:
 
 def hcr_le_2lw(_: Mapping[str, Any], e: Mapping[str, Any]) -> WallRuleValue:
     hcr = _positive("hcr_governing_mm", e.get("hcr_governing_mm")); maximum = 2.0 * _positive("lw_governing_mm", e.get("lw_governing_mm"))
-    return WallRuleValue(hcr, maximum, maximum / hcr, "mm", satisfied=hcr <= maximum, ratio_type="maximum_over_actual", pass_rule="maximum_over_actual")
+    return WallRuleValue(hcr, maximum, hcr / maximum, "mm", satisfied=hcr <= maximum, ratio_type="value_over_maximum", pass_rule="value_over_maximum")
 
 def critical_end_region_length(_: Mapping[str, Any], e: Mapping[str, Any]) -> WallRuleValue:
     actual = _nonnegative("governing_end_region_plan_length_mm", e.get("governing_end_region_plan_length_mm")); minimum = _positive("governing_required_end_region_plan_length_mm", e.get("governing_required_end_region_plan_length_mm"))
