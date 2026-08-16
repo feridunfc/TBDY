@@ -1,0 +1,193 @@
+name: B1 Beam Column Canonicalization
+
+on:
+  push:
+    branches: [sprint/b1-beam-column-canonicalization]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply guarded B1 engine migration once
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('tbdy_engine/checks/engine.py')
+          text = p.read_text(encoding='utf-8')
+          marker = 'from tbdy_engine.checks.member_geometry import ('
+          if marker not in text:
+              old = 'from tbdy_engine.checks.input_adapter import GeometryCheckInput\nfrom tbdy_engine.checks.result import CheckResult, CheckStatus, EvaluationLevel\n'
+              new = '''from tbdy_engine.checks.input_adapter import GeometryCheckInput
+          from tbdy_engine.checks.member_geometry import (
+              BEAM_7411_APPLICABILITY_CONTEXT,
+              COLUMN_MIN_DIMENSION,
+              COLUMN_SECTION_SHAPE_CONTEXT,
+              LEGACY_COLUMN_ALIASES,
+              MEMBER_FORMAL_CHECK_IDS,
+              MEMBER_GEOMETRY_REGISTRATIONS,
+              evaluate_member_rule,
+          )
+          from tbdy_engine.checks.result import CheckResult, CheckStatus, EvaluationLevel
+          '''
+              assert text.count(old) == 1
+              text = text.replace(old, new)
+
+              old = '''_WALL_CHECK_IDS = frozenset((*PACK_A_CHECK_IDS, *PACK_B_NEW_CHECK_IDS, *PACK_C_CHECK_IDS))
+          _ALLOWED_CHECKS = {
+              "column_geometry_min_dimension", "column_geometry_min_width", "column_geometry_min_depth",
+              "beam_geometry_min_width", "beam_geometry_min_depth", "beam_depth_width_ratio", *_WALL_CHECK_IDS,
+          }
+          _GEOMETRY_LIMITS = {
+              "column_geometry_min_dimension": 300.0,
+              "column_geometry_min_width": 300.0,
+              "column_geometry_min_depth": 300.0,
+              "beam_geometry_min_width": 250.0,
+              "beam_geometry_min_depth": 300.0,
+              "beam_depth_width_ratio": 3.5,
+          }
+          '''
+              new = '''_WALL_CHECK_IDS = frozenset((*PACK_A_CHECK_IDS, *PACK_B_NEW_CHECK_IDS, *PACK_C_CHECK_IDS))
+          _MEMBER_COMPATIBILITY_CHECK_IDS = frozenset(LEGACY_COLUMN_ALIASES)
+          _ALLOWED_CHECKS = frozenset((*MEMBER_FORMAL_CHECK_IDS, *_MEMBER_COMPATIBILITY_CHECK_IDS, *_WALL_CHECK_IDS))
+          '''
+              assert text.count(old) == 1
+              text = text.replace(old, new)
+
+              old = '''        if check_id not in _ALLOWED_CHECKS:
+              return self._blocked(check_id, snapshot, coverage, "Check is outside the canonical geometry allowlist")
+          '''
+              new = '''        if check_id not in _ALLOWED_CHECKS:
+              return self._blocked(check_id, snapshot, coverage, "Check is outside the canonical registered-check set")
+          if check_id in LEGACY_COLUMN_ALIASES:
+              canonical = LEGACY_COLUMN_ALIASES[check_id]
+              return self._blocked(
+                  check_id, snapshot, coverage,
+                  f"Compatibility-only legacy projection; canonical engineering authority is {canonical}",
+                  code_ref="B1-COMPATIBILITY-ONLY",
+              )
+          '''
+              assert text.count(old) == 1
+              text = text.replace(old, new)
+
+              text = text.replace('if check_id in _WALL_CHECK_IDS:\n                return self._blocked(', 'if check_id in _WALL_CHECK_IDS or check_id in MEMBER_FORMAL_CHECK_IDS:\n                return self._blocked(', 1)
+              text = text.replace('"Formal wall checks require FULL executable coverage",', '"Formal checks require FULL executable coverage",', 1)
+              text = text.replace('"Partial coverage is not executable for formal wall checks", coverage.as_dict(),', '"Partial coverage is not executable for formal checks", coverage.as_dict(),', 1)
+
+              old = '''            if fv.status != FeatureValueStatus.RESOLVED:
+                  if check_id in _WALL_CHECK_IDS:
+          '''
+              new = '''            if fv.status != FeatureValueStatus.RESOLVED:
+                  if check_id in _WALL_CHECK_IDS or check_id in MEMBER_FORMAL_CHECK_IDS:
+          '''
+              assert text.count(old) == 1
+              text = text.replace(old, new)
+
+              old = '''            variables[feature_name] = fv.value
+              if check_id in _WALL_CHECK_IDS:
+                  return self._evaluate_registered_wall_check(check_input, definition, variables, evidence)
+              return self._evaluate_legacy_geometry(check_id, definition, snapshot, coverage, variables, evidence)
+          '''
+              new = '''            if check_id in MEMBER_FORMAL_CHECK_IDS and fv.unit != "mm":
+                  return self._blocked(
+                      check_id, snapshot, coverage,
+                      f"Formal member geometry requires explicit mm feature units; {feature_name} has unit={fv.unit!r}",
+                      evidence=evidence,
+                      code_ref=str(definition.get("code_ref") or "contract"),
+                  )
+              variables[feature_name] = fv.value
+              if check_id in MEMBER_FORMAL_CHECK_IDS:
+                  return self._evaluate_registered_member_check(check_input, definition, variables, evidence)
+              if check_id in _WALL_CHECK_IDS:
+                  return self._evaluate_registered_wall_check(check_input, definition, variables, evidence)
+              return self._blocked(check_id, snapshot, coverage, "No canonical evaluator registered for check")
+          '''
+              assert text.count(old) == 1
+              text = text.replace(old, new)
+
+              anchor = '    def _evaluate_registered_wall_check(\n'
+              assert text.count(anchor) == 1
+              method = '''    def _evaluate_registered_member_check(
+              self,
+              check_input: GeometryCheckInput,
+              definition: Mapping[str, Any],
+              variables: Mapping[str, Any],
+              evidence: Sequence[Any],
+          ) -> CheckResult:
+              check_id = check_input.check_id
+              snapshot = check_input.snapshot
+              coverage = check_input.coverage
+              code_ref = str(definition.get("code_ref") or MEMBER_GEOMETRY_REGISTRATIONS[check_id].code_ref)
+              context = check_input.execution_context.values
+              if check_id == COLUMN_MIN_DIMENSION:
+                  shape = context.get(COLUMN_SECTION_SHAPE_CONTEXT)
+                  if not isinstance(shape, str) or not shape.strip():
+                      return self._blocked(check_id, snapshot, coverage, "Rectangular-column applicability is unresolved", code_ref=code_ref, evidence=evidence)
+                  if shape.strip().upper() != "RECTANGULAR":
+                      return self._out_of_scope(check_id, snapshot, coverage, f"Rectangular-column rule is not applicable to section shape {shape}", code_ref=code_ref, evidence=evidence)
+              else:
+                  applies = context.get(BEAM_7411_APPLICABILITY_CONTEXT)
+                  if not isinstance(applies, bool):
+                      return self._blocked(check_id, snapshot, coverage, "TBDY §7.4.1.1 beam applicability is unresolved", code_ref=code_ref, evidence=evidence)
+                  if applies is False:
+                      return self._out_of_scope(check_id, snapshot, coverage, "TBDY §7.4.1.1 is proven not applicable to this beam", code_ref=code_ref, evidence=evidence)
+              try:
+                  rule = evaluate_member_rule(MEMBER_GEOMETRY_REGISTRATIONS[check_id], variables)
+              except (TypeError, ValueError, ZeroDivisionError) as exc:
+                  return self._blocked(check_id, snapshot, coverage, str(exc), code_ref=code_ref, evidence=evidence)
+              return CheckResult(
+                  check_id=check_id,
+                  component=snapshot.component_id,
+                  component_type=snapshot.component_type,
+                  story=self._story(snapshot),
+                  section=self._section(snapshot),
+                  status=CheckStatus.OK if rule.is_satisfied else CheckStatus.FAIL,
+                  value=rule.value,
+                  limit=rule.limit,
+                  ratio=rule.ratio,
+                  ratio_type=rule.ratio_type,
+                  pass_rule=rule.ratio_type,
+                  unit=rule.unit,
+                  evaluation_level=EvaluationLevel.DESIGN_LEVEL,
+                  evidence=evidence,
+                  messages=("Formal canonical beam/column geometry CheckResult",),
+                  code_ref=code_ref,
+                  diagnostics=(),
+              )
+
+          '''
+              text = text.replace(anchor, method + anchor)
+
+              start = text.index('    def _evaluate_legacy_geometry(\n')
+              end = text.index('    @staticmethod\n    def _number(', start)
+              text = text[:start] + text[end:]
+              start = text.index('    def _geometry_value(')
+              end = text.index('    @staticmethod\n    def _story(', start)
+              text = text[:start] + text[end:]
+              assert '_GEOMETRY_LIMITS' not in text
+              assert '_evaluate_legacy_geometry' not in text
+              p.write_text(text, encoding='utf-8')
+      - name: Commit guarded migration if changed
+        shell: bash
+        run: |
+          if ! git diff --quiet; then
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git add tbdy_engine/checks/engine.py
+            git commit -m "B1 route member geometry through canonical engine"
+            git push origin HEAD:sprint/b1-beam-column-canonicalization
+          fi
+      - name: Compile
+        run: python -m compileall -q tbdy_engine tools
+      - name: Existing wall and alignment regression
+        run: |
+          python -m pytest -q tests/wall_inventory tests/wall_geometry tests/checks/test_check_engine_catalog_alignment.py
