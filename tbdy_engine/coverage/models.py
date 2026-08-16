@@ -1,8 +1,7 @@
 """Coverage matrix models for C5/C5.1.
 
-Coverage rows describe whether a check is runnable from resolved features and
-required context. They are not CheckResult objects, do not execute pass rules,
-and do not emit engineering decisions.
+Coverage describes whether a check has the factual and execution dependencies
+needed to run. It never evaluates formulas or emits engineering verdicts.
 """
 from __future__ import annotations
 
@@ -14,16 +13,8 @@ from tbdy_engine.contracts.models import freeze_data
 from tbdy_engine.coverage.diagnostics import CoverageDiagnostic
 
 _FORBIDDEN_ROW_TOKENS = (
-    "CheckResult",
-    "check_result",
-    "pass_rule",
-    "formula",
-    " OK",
-    " FAIL",
-    "'OK'",
-    "'FAIL'",
-    '"OK"',
-    '"FAIL"',
+    "CheckResult", "check_result", "pass_rule", "formula", " OK", " FAIL",
+    "'OK'", "'FAIL'", '"OK"', '"FAIL"',
 )
 _FORBIDDEN_FIELD_NAMES = {"ratio", "ratios", "check_result", "check_results", "CheckResult", "pass_rule", "formula"}
 
@@ -46,11 +37,35 @@ class CoverageEvidenceStatus(StrEnum):
     MISSING = "MISSING"
 
 
+class CoverageExecutionContextStatus(StrEnum):
+    READY = "READY"
+    PARTIAL = "PARTIAL"
+    BLOCKED = "BLOCKED"
+
+
 class ExpectedSourceKind(StrEnum):
     ETABS_TABLE = "etabs_table"
     COMPUTED = "computed"
     DESIGN_CONTEXT = "design_context"
     UNKNOWN = "unknown"
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageExecutionContextReadiness:
+    context_name: str
+    status: CoverageExecutionContextStatus | str
+    reason: str | None = None
+
+    def __post_init__(self) -> None:
+        if not self.context_name:
+            raise ValueError("execution context readiness requires context_name")
+        normalized = CoverageExecutionContextStatus(str(self.status))
+        if normalized != CoverageExecutionContextStatus.READY and not self.reason:
+            raise ValueError("PARTIAL/BLOCKED execution context readiness requires a reason")
+        object.__setattr__(self, "status", normalized)
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"context_name": self.context_name, "status": self.status.value, "reason": self.reason}
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,12 +88,6 @@ class CoverageMissingDesignContext:
 
 @dataclass(frozen=True, slots=True)
 class CoverageExpectedSource:
-    """Diagnostic metadata explaining where missing coverage input was expected.
-
-    This is not feature resolution and contains no engineering decision. It only
-    mirrors contract metadata from feature_catalog/table_registry/design_basis.
-    """
-
     source_kind: ExpectedSourceKind | str
     feature_name: str | None = None
     context_name: str | None = None
@@ -114,8 +123,7 @@ class CoverageExpectedSource:
         unit: str | None = None,
         expected_evidence_fields: Sequence[str] | None = None,
     ) -> None:
-        normalized_kind = ExpectedSourceKind(str(source_kind))
-        object.__setattr__(self, "source_kind", normalized_kind)
+        object.__setattr__(self, "source_kind", ExpectedSourceKind(str(source_kind)))
         object.__setattr__(self, "feature_name", feature_name)
         object.__setattr__(self, "context_name", context_name)
         object.__setattr__(self, "table_key", table_key)
@@ -198,6 +206,8 @@ class CoverageRow:
     missing_design_context_sources: Mapping[str, CoverageExpectedSource] = field(default_factory=dict)
     expected_evidence_requirements: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     source_diagnostics: tuple[CoverageDiagnostic, ...] = field(default_factory=tuple)
+    required_execution_context: tuple[str, ...] = field(default_factory=tuple)
+    execution_context_readiness: tuple[CoverageExecutionContextReadiness, ...] = field(default_factory=tuple)
 
     def __init__(
         self,
@@ -222,6 +232,8 @@ class CoverageRow:
         missing_design_context_sources: Mapping[str, CoverageExpectedSource | Mapping[str, Any]] | None = None,
         expected_evidence_requirements: Mapping[str, Sequence[str]] | None = None,
         source_diagnostics: Sequence[CoverageDiagnostic] | None = None,
+        required_execution_context: Sequence[str] | None = None,
+        execution_context_readiness: Sequence[CoverageExecutionContextReadiness | Mapping[str, Any]] | None = None,
         **extra: Any,
     ) -> None:
         if extra:
@@ -239,6 +251,17 @@ class CoverageRow:
             item if isinstance(item, CoverageMissingDesignContext) else CoverageMissingDesignContext(**dict(item))
             for item in (missing_design_context or ())
         )
+        normalized_execution = tuple(
+            item if isinstance(item, CoverageExecutionContextReadiness) else CoverageExecutionContextReadiness(**dict(item))
+            for item in (execution_context_readiness or ())
+        )
+        required_execution = tuple(str(item) for item in (required_execution_context or ()))
+        execution_by_name = {item.context_name: item for item in normalized_execution}
+        if len(execution_by_name) != len(normalized_execution):
+            raise ValueError("execution_context_readiness must not contain duplicate context_name values")
+        unexpected_execution = sorted(set(execution_by_name) - set(required_execution))
+        if unexpected_execution:
+            raise ValueError("Execution readiness supplied for undeclared context: " + ", ".join(unexpected_execution))
         normalized_status = CoverageStatus(str(coverage_status))
         normalized_evidence = CoverageEvidenceStatus(str(evidence_status))
         normalized_diagnostics = tuple(diagnostics or ())
@@ -255,7 +278,17 @@ class CoverageRow:
             str(key): tuple(str(item) for item in value)
             for key, value in (expected_evidence_requirements or {}).items()
         }
-        if normalized_status == CoverageStatus.BLOCKED and not (reason or normalized_missing or normalized_missing_context):
+        if normalized_status == CoverageStatus.RUNNABLE:
+            missing_exec = [name for name in required_execution if name not in execution_by_name]
+            nonready_exec = [
+                name for name in required_execution
+                if name in execution_by_name and execution_by_name[name].status != CoverageExecutionContextStatus.READY
+            ]
+            if missing_exec or nonready_exec:
+                raise ValueError("RUNNABLE coverage requires every mandatory execution context to be READY")
+        if normalized_status == CoverageStatus.BLOCKED and not (
+            reason or normalized_missing or normalized_missing_context or normalized_execution
+        ):
             raise ValueError("BLOCKED coverage requires a reason or missing dependency list")
         if normalized_status in {CoverageStatus.BLOCKED, CoverageStatus.PARTIAL}:
             if not (
@@ -263,8 +296,9 @@ class CoverageRow:
                 or normalized_context_sources
                 or normalized_evidence_requirements
                 or normalized_source_diagnostics
+                or normalized_execution
             ):
-                raise ValueError("BLOCKED/PARTIAL coverage requires expected source diagnostics")
+                raise ValueError("BLOCKED/PARTIAL coverage requires expected source/readiness diagnostics")
         payload_probe = {
             "check_id": check_id,
             "component_type": component_type,
@@ -275,6 +309,8 @@ class CoverageRow:
             "required_design_context": list(required_design_context or ()),
             "resolved_design_context": list(resolved_design_context or ()),
             "missing_design_context": [m.as_dict() for m in normalized_missing_context],
+            "required_execution_context": list(required_execution),
+            "execution_context_readiness": [item.as_dict() for item in normalized_execution],
             "reason": reason,
             "missing_feature_sources": {k: v.as_dict() for k, v in normalized_feature_sources.items()},
             "missing_design_context_sources": {k: v.as_dict() for k, v in normalized_context_sources.items()},
@@ -301,6 +337,8 @@ class CoverageRow:
         object.__setattr__(self, "missing_design_context_sources", freeze_data(normalized_context_sources))
         object.__setattr__(self, "expected_evidence_requirements", freeze_data(normalized_evidence_requirements))
         object.__setattr__(self, "source_diagnostics", normalized_source_diagnostics)
+        object.__setattr__(self, "required_execution_context", required_execution)
+        object.__setattr__(self, "execution_context_readiness", normalized_execution)
 
     @staticmethod
     def _reject_forbidden(value: Any) -> None:
@@ -320,6 +358,8 @@ class CoverageRow:
             "required_design_context": list(self.required_design_context),
             "resolved_design_context": list(self.resolved_design_context),
             "missing_design_context": [item.as_dict() for item in self.missing_design_context],
+            "required_execution_context": list(self.required_execution_context),
+            "execution_context_readiness": [item.as_dict() for item in self.execution_context_readiness],
             "combo_policy_status": self.combo_policy_status.value,
             "section_state_status": self.section_state_status.value,
             "ductility_context_status": self.ductility_context_status.value,
@@ -333,10 +373,15 @@ class CoverageRow:
             "source_diagnostics": [diagnostic.as_dict() for diagnostic in self.source_diagnostics],
         }
 
-    def as_schema_check_item(self, check_readiness_status: str = "ready", effective_evaluation_level: str | None = None) -> dict[str, Any]:
-        """Return a compatibility view for the coverage_matrix.schema.json."""
+    def as_schema_check_item(
+        self,
+        check_readiness_status: str = "ready",
+        effective_evaluation_level: str | None = None,
+    ) -> dict[str, Any]:
         level = effective_evaluation_level or (
-            "NO_DATA" if self.coverage_status == CoverageStatus.BLOCKED else "SCREENING" if self.coverage_status == CoverageStatus.PARTIAL else "DESIGN_LEVEL"
+            "NO_DATA" if self.coverage_status == CoverageStatus.BLOCKED
+            else "SCREENING" if self.coverage_status == CoverageStatus.PARTIAL
+            else "DESIGN_LEVEL"
         )
         payload = self.as_dict()
         payload["check_readiness_status"] = check_readiness_status
@@ -349,7 +394,11 @@ class CoverageMatrix:
     rows: tuple[CoverageRow, ...]
     diagnostics: tuple[CoverageDiagnostic, ...] = field(default_factory=tuple)
 
-    def __init__(self, rows: Sequence[CoverageRow] | None = None, diagnostics: Sequence[CoverageDiagnostic] | None = None) -> None:
+    def __init__(
+        self,
+        rows: Sequence[CoverageRow] | None = None,
+        diagnostics: Sequence[CoverageDiagnostic] | None = None,
+    ) -> None:
         normalized_rows = tuple(rows or ())
         if any(not isinstance(row, CoverageRow) for row in normalized_rows):
             raise TypeError("CoverageMatrix rows must be CoverageRow objects")
@@ -357,10 +406,7 @@ class CoverageMatrix:
         object.__setattr__(self, "diagnostics", tuple(diagnostics or ()))
 
     def as_dict(self) -> dict[str, Any]:
-        return {
-            "rows": [row.as_dict() for row in self.rows],
-            "diagnostics": [diagnostic.as_dict() for diagnostic in self.diagnostics],
-        }
+        return {"rows": [row.as_dict() for row in self.rows], "diagnostics": [d.as_dict() for d in self.diagnostics]}
 
     def as_schema_document(self, check_readiness: Mapping[str, str] | None = None) -> dict[str, Any]:
         readiness = check_readiness or {}
@@ -374,13 +420,8 @@ class CoverageMatrix:
 
 
 __all__ = [
-    "CoverageEvidenceStatus",
-    "CoverageExpectedSource",
-    "CoverageMatrix",
-    "CoverageMissingDesignContext",
-    "CoverageMissingFeature",
-    "CoveragePolicyStatus",
-    "CoverageRow",
-    "CoverageStatus",
-    "ExpectedSourceKind",
+    "CoverageEvidenceStatus", "CoverageExecutionContextReadiness",
+    "CoverageExecutionContextStatus", "CoverageExpectedSource", "CoverageMatrix",
+    "CoverageMissingDesignContext", "CoverageMissingFeature", "CoveragePolicyStatus",
+    "CoverageRow", "CoverageStatus", "ExpectedSourceKind",
 ]
