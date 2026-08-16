@@ -9,6 +9,7 @@ from tbdy_engine.checks.diagnostics import CheckDiagnostic, CheckDiagnosticCode,
 from tbdy_engine.checks.input_adapter import GeometryCheckInput
 from tbdy_engine.checks.result import CheckResult, CheckStatus, EvaluationLevel
 from tbdy_engine.checks.wall_applicability import (
+    WallCriticalHeightDerivation,
     critical_region_story_names,
     derive_highest_applicable_story_height_mm,
     derive_ndm_n,
@@ -42,7 +43,10 @@ from tbdy_engine.coverage.models import CoverageRow, CoverageStatus
 from tbdy_engine.features.result_evidence import ResultRowEvidenceBundle
 from tbdy_engine.features.snapshot import FeatureSnapshot
 from tbdy_engine.features.value import FeatureValueStatus
-from tbdy_engine.features.wall_critical_evidence import WallCriticalHeightFactualEvidence
+from tbdy_engine.features.wall_critical_evidence import (
+    WallCriticalHeightFactualEvidence,
+    WallRegulatoryReferenceFacts,
+)
 
 _WALL_CHECK_IDS = frozenset((*PACK_A_CHECK_IDS, *PACK_B_NEW_CHECK_IDS, *PACK_C_CHECK_IDS))
 _ALLOWED_CHECKS = {
@@ -274,19 +278,59 @@ class MinimalCheckEngine:
                     return self._blocked(check_id, snapshot, coverage, derived, code_ref=code_ref, evidence=evidence_rows)
                 engineering_inputs.update(derived)
             if check_id in PACK_C_CHECK_IDS:
-                derived_c = self._derive_pack_c_inputs(check_input)
-                if isinstance(derived_c, str):
-                    return self._blocked(check_id, snapshot, coverage, derived_c, code_ref=code_ref, evidence=evidence_rows)
-                if derived_c is None:
+                facts = check_input.execution_context.evidence.get("wall_critical_height_facts")
+                reference_facts = check_input.execution_context.values.get("wall_regulatory_reference_facts")
+                if not isinstance(facts, WallCriticalHeightFactualEvidence):
+                    return self._blocked(
+                        check_id, snapshot, coverage,
+                        "Canonical Pack C wall factual evidence is unavailable from CheckInput",
+                        code_ref=code_ref, evidence=evidence_rows,
+                    )
+                if facts.component_id != check_input.component_id:
+                    return self._blocked(
+                        check_id, snapshot, coverage,
+                        "Pack C factual evidence identity differs from CheckInput component",
+                        code_ref=code_ref, evidence=evidence_rows,
+                    )
+                if not isinstance(reference_facts, WallRegulatoryReferenceFacts):
+                    return self._blocked(
+                        check_id, snapshot, coverage,
+                        "Run-level Pack C regulatory reference facts are unavailable from CheckInput",
+                        code_ref=code_ref, evidence=evidence_rows,
+                    )
+                derivation = derive_wall_critical_height(facts, reference_facts)
+                if derivation.status != "RESOLVED":
+                    return self._blocked(
+                        check_id, snapshot, coverage,
+                        derivation.diagnostic or "Hw/Hcr derivation is blocked",
+                        code_ref=code_ref, evidence=evidence_rows,
+                    )
+                if not derivation.applicable_segments:
                     return self._out_of_scope(
                         check_id, snapshot, coverage,
                         "TBDY §7.6.2 end-region/critical-height branch is not triggered because no proven segment has Hw/lw > 2.0",
                         code_ref=code_ref, evidence=evidence_rows,
                     )
+                if check_id == WALL_END_REGION_LENGTH_CRITICAL_GE_MAX_0_2LW_2BW:
+                    shape = facts.wall_section_shape
+                    if shape is None:
+                        return self._blocked(
+                            check_id, snapshot, coverage,
+                            "Wall section shape is unproven; §7.6.2.3 rectangular applicability cannot be established",
+                            code_ref=code_ref, evidence=evidence_rows,
+                        )
+                    if shape != "RECTANGULAR":
+                        return self._out_of_scope(
+                            check_id, snapshot, coverage,
+                            f"TBDY §7.6.2.3 applies only to rectangular wall sections; factual shape is {shape}",
+                            code_ref=code_ref, evidence=evidence_rows,
+                        )
+                derived_c = self._derive_pack_c_inputs(check_input, facts, derivation)
+                if isinstance(derived_c, str):
+                    return self._blocked(check_id, snapshot, coverage, derived_c, code_ref=code_ref, evidence=evidence_rows)
                 engineering_inputs.update(derived_c)
-                facts = check_input.execution_context.evidence.get("wall_critical_height_facts")
-                if isinstance(facts, WallCriticalHeightFactualEvidence):
-                    evidence_rows.append(facts.as_dict())
+                evidence_rows.append(facts.as_dict())
+                evidence_rows.append({"run_level_regulatory_reference": reference_facts.as_dict()})
 
             evaluator = WALL_EVALUATORS.get(check_id)
             if evaluator is None:
@@ -343,20 +387,16 @@ class MinimalCheckEngine:
         return {"Ndm_N": float(ndm.value), "net_section_area_mm2": float(ac.value)}
 
     @staticmethod
-    def _derive_pack_c_inputs(check_input: GeometryCheckInput) -> Mapping[str, float] | str | None:
-        facts = check_input.execution_context.evidence.get("wall_critical_height_facts")
-        if not isinstance(facts, WallCriticalHeightFactualEvidence):
-            return "Canonical Pack C wall factual evidence is unavailable from CheckInput"
-        if facts.component_id != check_input.component_id:
-            return "Pack C factual evidence identity differs from CheckInput component"
-        derivation = derive_wall_critical_height(facts)
-        if derivation.status != "RESOLVED":
-            return derivation.diagnostic or "Hw/Hcr derivation is blocked"
+    def _derive_pack_c_inputs(
+        check_input: GeometryCheckInput,
+        facts: WallCriticalHeightFactualEvidence,
+        derivation: WallCriticalHeightDerivation,
+    ) -> Mapping[str, float] | str:
         segments = derivation.applicable_segments
-        if not segments:
-            return None
         check_id = check_input.check_id
         if check_id == WALL_END_REGIONS_REQUIRED_HW_LW_GT2:
+            if facts.end_region_topology_proven is not True:
+                return "End-region existence/topology is not proven after Hw/lw > 2.0 applicability was established"
             lowest_reference = min(segment.reference_elevation_mm for segment in segments)
             target_stories = tuple(
                 row.story for row in facts.story_geometry if row.top_elevation_mm > lowest_reference + 1e-6
@@ -378,6 +418,8 @@ class MinimalCheckEngine:
             governing = min(segments, key=lambda segment: (2.0 * segment.lw_mm) / segment.hcr_governing_mm)
             return {"hcr_governing_mm": governing.hcr_governing_mm, "lw_governing_mm": governing.lw_mm, "hw_governing_mm": governing.hw_mm}
         if check_id == WALL_END_REGION_LENGTH_CRITICAL_GE_MAX_0_2LW_2BW:
+            if facts.end_region_topology_proven is not True:
+                return "End-region topology/plan lengths are not proven after Hw/lw > 2.0 applicability was established"
             critical_stories = critical_region_story_names(facts, derivation)
             if not critical_stories:
                 return "Derived critical region does not intersect proven wall story geometry"
