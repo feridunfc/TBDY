@@ -5,6 +5,13 @@ from pathlib import Path
 import yaml
 
 from tbdy_engine.checks.engine import MinimalCheckEngine
+from tbdy_engine.checks.input_adapter import CheckExecutionContext, GeometryCheckInput
+from tbdy_engine.checks.member_geometry import (
+    BEAM_7411_APPLICABILITY_CONTEXT,
+    BEAM_DEPTH_WIDTH_RATIO,
+    BEAM_MIN_WIDTH,
+    registration_check_definitions,
+)
 from tbdy_engine.checks.result import CheckStatus, EvaluationLevel
 from tbdy_engine.coverage.models import CoverageExpectedSource, CoverageRow, CoverageStatus, ExpectedSourceKind
 from tbdy_engine.features.evidence import FeatureEvidence, FeatureEvidenceStatus
@@ -62,41 +69,61 @@ def _coverage(check_id: str, component_type: str = "beam", required: tuple[str, 
     )
 
 
+def _run_member(check_id: str, snapshot: FeatureSnapshot, coverage: CoverageRow):
+    required = tuple(coverage.required_features)
+    check_input = GeometryCheckInput(
+        check_id=check_id,
+        component_id=snapshot.component_id,
+        component_type=snapshot.component_type,
+        story="+14.5",
+        section="TEST",
+        required_features=required,
+        snapshot=snapshot,
+        coverage=coverage,
+        evidence_by_feature={
+            name: tuple(snapshot.features[name].evidence) if name in snapshot.features else ()
+            for name in required
+        },
+        execution_context=CheckExecutionContext(values={BEAM_7411_APPLICABILITY_CONTEXT: True}),
+    )
+    return MinimalCheckEngine(registration_check_definitions()).run_input(check_input)
+
+
 def test_missing_required_feature_returns_no_data_not_failure():
-    result = MinimalCheckEngine(_defs()).run_check(
-        "beam_geometry_min_width",
+    result = _run_member(
+        BEAM_MIN_WIDTH,
         _snapshot("beam"),
-        _coverage("beam_geometry_min_width", required=("beam_width_mm",)),
+        _coverage(BEAM_MIN_WIDTH, required=("beam_width_mm",)),
     )
     assert result.status == CheckStatus.NO_DATA
     assert result.evaluation_level == EvaluationLevel.NO_DATA
 
 
-def test_zero_width_for_depth_width_ratio_returns_no_data():
-    result = MinimalCheckEngine(_defs()).run_check(
-        "beam_depth_width_ratio",
+def test_zero_width_for_depth_width_ratio_blocks_invalid_formal_input():
+    result = _run_member(
+        BEAM_DEPTH_WIDTH_RATIO,
         _snapshot("beam", beam_depth_mm=700, beam_width_mm=0),
-        _coverage("beam_depth_width_ratio", required=("beam_depth_mm", "beam_width_mm")),
+        _coverage(BEAM_DEPTH_WIDTH_RATIO, required=("beam_depth_mm", "beam_width_mm")),
     )
-    assert result.status == CheckStatus.NO_DATA
+    assert result.status == CheckStatus.BLOCKED
     assert result.evaluation_level == EvaluationLevel.NO_DATA
 
 
 def test_blocked_coverage_returns_blocked_not_no_data_or_failure():
-    result = MinimalCheckEngine(_defs()).run_check(
-        "beam_geometry_min_width",
+    result = _run_member(
+        BEAM_MIN_WIDTH,
         _snapshot("beam", beam_width_mm=400),
-        _coverage("beam_geometry_min_width", required=("beam_width_mm",), status=CoverageStatus.BLOCKED),
+        _coverage(BEAM_MIN_WIDTH, required=("beam_width_mm",), status=CoverageStatus.BLOCKED),
     )
     assert result.status == CheckStatus.BLOCKED
     assert result.evaluation_level == EvaluationLevel.NO_DATA
 
 
 def test_component_type_mismatch_returns_out_of_scope():
-    result = MinimalCheckEngine(_defs()).run_check(
-        "beam_geometry_min_width",
+    result = _run_member(
+        BEAM_MIN_WIDTH,
         _snapshot("column", beam_width_mm=400),
-        _coverage("beam_geometry_min_width", component_type="beam", required=("beam_width_mm",)),
+        _coverage(BEAM_MIN_WIDTH, component_type="beam", required=("beam_width_mm",)),
     )
     assert result.status == CheckStatus.OUT_OF_SCOPE
     assert result.evaluation_level == EvaluationLevel.NO_DATA

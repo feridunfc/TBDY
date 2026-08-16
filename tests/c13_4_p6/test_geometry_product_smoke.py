@@ -72,7 +72,9 @@ def test_summary_json_has_required_p4_and_p5_counts(tmp_path: Path):
     assert summary["scope"] == "GEOMETRY_ONLY_PRODUCT_SMOKE"
     assert summary["p4"]["check_result_count"] == 6
     assert summary["p4"]["adapter_diagnostic_count"] == 0
-    assert summary["p4"]["check_result_status_counts"] == {"OK": 6}
+    # The legacy fixture has geometry facts but no explicit member regulatory
+    # applicability context. B1 therefore preserves artifacts while blocking verdicts.
+    assert summary["p4"]["check_result_status_counts"] == {"BLOCKED": 6}
     assert summary["p4"]["coverage_row_count"] == 6
     assert summary["p4"]["coverage_status_counts"] == {"RUNNABLE": 6}
     assert summary["p4"]["coverage_execution_trace_count"] == 6
@@ -81,7 +83,7 @@ def test_summary_json_has_required_p4_and_p5_counts(tmp_path: Path):
     assert summary["p4"]["check_result_emitted_count"] == 6
     assert summary["p4"]["check_result_not_emitted_count"] == 0
     assert summary["p4"]["trace_adapter_status_counts"] == {"READY": 6}
-    assert summary["p4"]["trace_result_status_counts"] == {"OK": 6}
+    assert summary["p4"]["trace_result_status_counts"] == {"BLOCKED": 6}
     assert summary["outputs"]["coverage_rows_json"] == str(out_dir / "artifacts" / "coverage_rows.json")
     assert summary["outputs"]["coverage_execution_trace_json"] == str(
         out_dir / "artifacts" / "coverage_execution_trace.json"

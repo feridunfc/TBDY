@@ -5,6 +5,11 @@ from pathlib import Path
 import yaml
 
 from tbdy_engine.checks.engine import _ALLOWED_CHECKS
+from tbdy_engine.checks.member_geometry import (
+    LEGACY_COLUMN_ALIASES,
+    MEMBER_FORMAL_CHECK_IDS,
+    MEMBER_GEOMETRY_REGISTRATIONS,
+)
 from tbdy_engine.checks.wall_contract import PACK_B_NEW_CHECK_IDS, PACK_C_CHECK_IDS
 from tbdy_engine.checks.wall_pack_a_contract import PACK_A_CHECK_IDS
 
@@ -31,17 +36,22 @@ def _catalog_ids() -> set[str]:
 
 
 def test_allowed_checks_exist_in_check_catalog():
-    expected = {
-        "column_geometry_min_dimension", "column_geometry_min_width", "column_geometry_min_depth",
-        "beam_geometry_min_width", "beam_geometry_min_depth", "beam_depth_width_ratio",
-    } | set(PACK_A_CHECK_IDS) | set(PACK_B_NEW_CHECK_IDS) | set(PACK_C_CHECK_IDS)
+    expected = (
+        set(MEMBER_FORMAL_CHECK_IDS)
+        | set(LEGACY_COLUMN_ALIASES)
+        | set(PACK_A_CHECK_IDS)
+        | set(PACK_B_NEW_CHECK_IDS)
+        | set(PACK_C_CHECK_IDS)
+    )
     assert _ALLOWED_CHECKS == expected
     assert _ALLOWED_CHECKS.issubset(_catalog_ids())
 
 
-def test_engine_does_not_use_engine_only_or_legacy_column_or_ge7_id():
+def test_engine_member_ids_are_domain_registered_not_engine_owned_literals():
     engine_text = (ROOT / "tbdy_engine/checks/engine.py").read_text(encoding="utf-8")
-    assert "column_geometry_min_dimension" in engine_text
-    assert "column_min_dimension" not in engine_text
+    assert "MEMBER_FORMAL_CHECK_IDS" in engine_text
+    assert "MEMBER_GEOMETRY_REGISTRATIONS" in engine_text
+    assert "_GEOMETRY_LIMITS" not in engine_text
+    assert set(MEMBER_GEOMETRY_REGISTRATIONS) == set(MEMBER_FORMAL_CHECK_IDS)
     assert "WALL11_LENGTH_TO_THICKNESS_GE7" not in _ALLOWED_CHECKS
     assert not (_ALLOWED_CHECKS - _catalog_ids())

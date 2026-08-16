@@ -68,7 +68,9 @@ def test_valid_fixture_counts_and_geometry_check_ids(tmp_path: Path):
     assert summary["executable_input_count"] == 6
     assert summary["check_result_count"] == 6
     assert summary["adapter_diagnostic_count"] == 0
-    assert summary["check_result_status_counts"] == {"OK": 6}
+    # B1 intentionally retires contextless member PASS/FAIL.  This fixture carries
+    # geometry facts only, so the formal member rules and compatibility aliases fail closed.
+    assert summary["check_result_status_counts"] == {"BLOCKED": 6}
     assert summary["check_id_counts"] == {
         "beam_depth_width_ratio": 1,
         "beam_geometry_min_depth": 1,

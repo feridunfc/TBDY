@@ -1,76 +1,84 @@
-﻿metadata:
+metadata:
   catalog_fragment: checks.beam_geometry
   version: '1.0'
 checks:
   beam_geometry_min_width:
-    title: Beam Geometry Min Width
+    title: Beam Web Minimum Width
     element_type: beam
     category: GEOMETRY
     readiness:
       status: ready
-      reason: C13.4-P1 geometry slice.
+      reason: B1 formal TBDY 2018 §7.4.1.1(a) condition within proven applicability.
     required_features:
       - beam_width_mm
+    required_execution_context:
+      - tbdy_7_4_1_1_applicability
     optional_features: []
-    formula_ref: contract_only_no_formula
+    formula_ref: member_geometry_registration
     pass_rule:
-      ratio_type: boolean
-      ok_if: 'true'
+      ratio_type: actual_over_minimum
+      ok_if: '>= 1.0'
     output:
-      value: contract_defined
-      limit: contract_defined
-      ratio: contract_defined
+      value: canonical_check_result
+      limit: member_geometry_registration
+      ratio: canonical_check_result
       unit: mm
     evidence_policy:
       include_features:
         - beam_width_mm
       include_formula: false
       include_source_refs: true
-    code_ref: contract
+    tbdy_ref: TBDY-2018-7.4.1.1(a)
+    code_ref: TBDY-2018-7.4.1.1(a)
   beam_geometry_min_depth:
-    title: Beam Geometry Min Depth
+    title: Beam Minimum Height 300 mm Sub-condition
     element_type: beam
     category: GEOMETRY
     readiness:
       status: ready
-      reason: C13.4-P1 geometry slice.
+      reason: B1 formal 300-mm sub-condition only; slab-thickness condition is a separate missing formal path.
     required_features:
       - beam_depth_mm
+    required_execution_context:
+      - tbdy_7_4_1_1_applicability
     optional_features: []
-    formula_ref: contract_only_no_formula
+    formula_ref: member_geometry_registration
     pass_rule:
-      ratio_type: boolean
-      ok_if: 'true'
+      ratio_type: actual_over_minimum
+      ok_if: '>= 1.0'
     output:
-      value: contract_defined
-      limit: contract_defined
-      ratio: contract_defined
+      value: canonical_check_result
+      limit: member_geometry_registration
+      ratio: canonical_check_result
       unit: mm
     evidence_policy:
       include_features:
         - beam_depth_mm
       include_formula: false
       include_source_refs: true
-    code_ref: contract
+    tbdy_ref: TBDY-2018-7.4.1.1(b)
+    code_ref: TBDY-2018-7.4.1.1(b)
   beam_depth_width_ratio:
-    title: Beam Depth Width Ratio
+    title: Beam Height To Web Width Maximum Ratio
     element_type: beam
     category: GEOMETRY
     readiness:
       status: ready
-      reason: C13.4-P1 geometry slice.
+      reason: B1 formal TBDY 2018 §7.4.1.1(b) condition within proven applicability.
     required_features:
       - beam_depth_mm
       - beam_width_mm
+    required_execution_context:
+      - tbdy_7_4_1_1_applicability
     optional_features: []
-    formula_ref: contract_only_no_formula
+    formula_ref: member_geometry_registration
     pass_rule:
-      ratio_type: boolean
-      ok_if: 'true'
+      ratio_type: value_over_maximum
+      ok_if: '<= 1.0'
     output:
-      value: contract_defined
-      limit: contract_defined
-      ratio: contract_defined
+      value: canonical_check_result
+      limit: member_geometry_registration
+      ratio: canonical_check_result
       unit: dimensionless
     evidence_policy:
       include_features:
@@ -78,5 +86,5 @@ checks:
         - beam_width_mm
       include_formula: false
       include_source_refs: true
-    code_ref: contract
-
+    tbdy_ref: TBDY-2018-7.4.1.1(b)
+    code_ref: TBDY-2018-7.4.1.1(b)
