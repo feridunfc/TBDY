@@ -62,20 +62,25 @@ def _bundle(rows, *, unit="N", capture=RuntimeCaptureStatus.FULL, reported=None)
     )
 
 
-def _binding(*, q_ids=("Q_CASE",), baseline_override=None, fixed_override=None):
-    final_ids = ("FINAL_X", "FINAL_Y")
+def _binding(*, q_ids=("Q_CASE",), baseline_override=None, fixed_override=None,
+             final_ids=("FINAL_X", "FINAL_Y"), allowed_steps=("Max", "Min"),
+             allowed_locations=("Top", "Bottom")):
+    final_ids = tuple(final_ids)
     g = ("G_CASE",); q = tuple(q_ids); s = ("S_CASE",); h = ("E_X", "E_Y"); v = ("E_Z",)
-    x = {"G_CASE": 1.0, **{item: 1.0 for item in q}, "S_CASE": 1.0,
-         "E_X": 1.0, "E_Y": 0.3, "E_Z": 0.3}
-    y = {"G_CASE": 1.0, **{item: 1.0 for item in q}, "S_CASE": 1.0,
-         "E_X": 0.3, "E_Y": 1.0, "E_Z": 0.3}
-    baseline = {"FINAL_X": x, "FINAL_Y": y}
-    if baseline_override:
-        for combo, values in baseline_override.items(): baseline[combo] = {**baseline[combo], **values}
-    fixed = {
+    all_baseline = {
+        "FINAL_X": {"G_CASE": 1.0, **{item: 1.0 for item in q}, "S_CASE": 1.0,
+                    "E_X": 1.0, "E_Y": 0.3, "E_Z": 0.3},
+        "FINAL_Y": {"G_CASE": 1.0, **{item: 1.0 for item in q}, "S_CASE": 1.0,
+                    "E_X": 0.3, "E_Y": 1.0, "E_Z": 0.3},
+    }
+    all_fixed = {
         "FINAL_X": {"G_CASE": 1.0, "E_X": 1.0, "E_Y": 0.3, "E_Z": 0.3},
         "FINAL_Y": {"G_CASE": 1.0, "E_X": 0.3, "E_Y": 1.0, "E_Z": 0.3},
     }
+    baseline = {combo: dict(all_baseline[combo]) for combo in final_ids}
+    fixed = {combo: dict(all_fixed[combo]) for combo in final_ids}
+    if baseline_override:
+        for combo, values in baseline_override.items(): baseline[combo] = {**baseline[combo], **values}
     if fixed_override:
         for combo, values in fixed_override.items(): fixed[combo] = {**fixed[combo], **values}
     return ReviewedNdmLoadBinding(
@@ -83,6 +88,7 @@ def _binding(*, q_ids=("Q_CASE",), baseline_override=None, fixed_override=None):
         g_case_ids=g, q_case_ids=q, s_case_ids=s, horizontal_e_case_ids=h, vertical_e_case_ids=v,
         baseline_coefficients_by_combination=baseline,
         required_fixed_coefficients_by_combination=fixed,
+        allowed_final_step_types=tuple(allowed_steps), allowed_locations=tuple(allowed_locations),
         review_refs=("supervisor-reviewed-live-inventory",),
     )
 
@@ -138,7 +144,7 @@ def test_raw_row_reordering_is_deterministic():
 
 def test_negative_p_is_compression_and_abs_is_not_used():
     rows = [_row("FINAL_X", 900_000.0, step="Max", location="Top"), _row("FINAL_X", -100_000.0, step="Min", location="Bottom"), *_correction_rows()]
-    demand = select_ndm_demand(_request(), _bundle(rows), _binding(), _policy())
+    demand = select_ndm_demand(_request(), _bundle(rows), _binding(final_ids=("FINAL_X",)), _policy())
     compressions = [item.canonical_compression_n for item in demand.trace.candidate_rows]
     assert min(compressions) == 0.0
     assert 0.0 < demand.ndm_n < 900_000.0
@@ -163,7 +169,7 @@ def test_max_and_min_and_top_and_bottom_are_all_evaluated_without_step_shortcut(
 
 def test_more_compressive_max_can_govern_over_min():
     rows = [_row("FINAL_X", -200_000.0, step="Max", location="Top"), _row("FINAL_X", -100_000.0, step="Min", location="Bottom"), *_correction_rows()]
-    demand = select_ndm_demand(_request(), _bundle(rows), _binding(), _policy())
+    demand = select_ndm_demand(_request(), _bundle(rows), _binding(final_ids=("FINAL_X",)), _policy())
     assert dict(demand.trace.governing_row_identities[0])["StepType"] == "Max"
 
 
@@ -176,7 +182,7 @@ def test_step_number_none_is_preserved_not_fabricated():
 
 def test_explicit_kn_to_n_conversion():
     rows = [_row("FINAL_X", -100.0, step="Max", location="Top"), _row("FINAL_Y", -90.0, step="Max", location="Top"), *_correction_rows(q_p=-20.0, s_p=-10.0, locations=("Top",))]
-    demand = select_ndm_demand(_request(), _bundle(rows, unit="kN"), _binding(), _policy())
+    demand = select_ndm_demand(_request(), _bundle(rows, unit="kN"), _binding(allowed_steps=("Max",), allowed_locations=("Top",)), _policy())
     assert demand.availability == NdmAvailability.RESOLVED
     assert demand.ndm_n == pytest.approx(82_000.0)
     assert demand.unit == "N" and demand.trace.source_unit == "kN"
@@ -215,7 +221,7 @@ def test_unequal_q_requires_reviewed_interpretation():
 
 def test_reviewed_q_and_s_linear_corrections_are_reconstructable():
     rows = [_row("FINAL_X", -100_000.0, step="Max", location="Top"), *_correction_rows(locations=("Top",))]
-    demand = select_ndm_demand(_request(), _bundle(rows), _binding(), _policy())
+    demand = select_ndm_demand(_request(), _bundle(rows), _binding(final_ids=("FINAL_X",), allowed_steps=("Max",), allowed_locations=("Top",)), _policy())
     assert demand.ndm_n == pytest.approx(82_000.0)
     candidate = demand.trace.candidate_rows[0]; q = candidate.q_corrections[0]; s = candidate.s_corrections[0]
     assert q.baseline_coefficient == 1.0 and q.target_coefficient == 0.5 and q.delta_p_n == pytest.approx(10_000.0)
@@ -254,13 +260,31 @@ def test_conflicting_duplicate_source_identity_blocks():
 
 def test_all_exact_co_governing_ties_are_retained():
     rows = [_row("FINAL_X", -100_000.0, step="Max", location="Top"), _row("FINAL_Y", -100_000.0, step="Min", location="Top"), *_correction_rows(locations=("Top",))]
-    demand = select_ndm_demand(_request(), _bundle(rows), _binding(), _policy())
+    demand = select_ndm_demand(_request(), _bundle(rows), _binding(allowed_locations=("Top",)), _policy())
     assert demand.availability == NdmAvailability.RESOLVED and len(demand.trace.governing_row_identities) == 2
 
 
 def test_full_resolved_lookup_with_no_matching_final_row_is_no_data():
     demand = select_ndm_demand(_request(), _bundle([_static("Q_CASE", -20_000.0), _static("S_CASE", -10_000.0)]), _binding(), _policy())
     assert demand.availability == NdmAvailability.NO_DATA
+
+
+def test_full_lookup_missing_one_reviewed_final_combination_is_no_data():
+    rows = [row for row in _resolved_rows() if row.get("OutputCase") != "FINAL_Y"]
+    demand = select_ndm_demand(_request(), _bundle(rows), _binding(), _policy())
+    assert demand.availability == NdmAvailability.NO_DATA
+    assert "final combinations=FINAL_Y" in str(demand.trace.reason)
+
+
+def test_full_lookup_missing_reviewed_step_or_location_dimension_is_no_data():
+    no_min = [row for row in _resolved_rows() if row.get("StepType") != "Min"]
+    min_demand = select_ndm_demand(_request(), _bundle(no_min), _binding(), _policy())
+    assert min_demand.availability == NdmAvailability.NO_DATA
+    assert "StepTypes=Min" in str(min_demand.trace.reason)
+    no_bottom = [row for row in _resolved_rows() if row.get("Location") != "Bottom"]
+    bottom_demand = select_ndm_demand(_request(), _bundle(no_bottom), _binding(), _policy())
+    assert bottom_demand.availability == NdmAvailability.NO_DATA
+    assert "Locations=Bottom" in str(bottom_demand.trace.reason)
 
 
 def test_selection_result_has_availability_not_regulatory_verdict_or_ratio():

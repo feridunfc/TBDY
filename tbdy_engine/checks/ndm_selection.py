@@ -626,6 +626,26 @@ def select_ndm_demand(
         return _result(request, binding=binding, policy=policy, bundle=pier_forces,
                        availability=NdmAvailability.NO_DATA, reason="No admissible reviewed Ndm candidate row",
                        source_unit=source_unit, candidate_rows=candidates)
+    accepted_combinations = {item.final_combination_id for item in accepted}
+    accepted_steps = {item.step_type for item in accepted}
+    accepted_locations = {item.location for item in accepted}
+    missing_combinations = tuple(sorted(set(binding.final_combination_ids) - accepted_combinations))
+    missing_steps = tuple(sorted(set(binding.allowed_final_step_types) - accepted_steps))
+    missing_locations = tuple(sorted(set(binding.allowed_locations) - accepted_locations))
+    if missing_combinations or missing_steps or missing_locations:
+        missing_parts = []
+        if missing_combinations:
+            missing_parts.append("final combinations=" + ",".join(missing_combinations))
+        if missing_steps:
+            missing_parts.append("StepTypes=" + ",".join(missing_steps))
+        if missing_locations:
+            missing_parts.append("Locations=" + ",".join(missing_locations))
+        return _result(
+            request, binding=binding, policy=policy, bundle=pier_forces,
+            availability=NdmAvailability.NO_DATA,
+            reason="FULL Pier Forces lookup is missing reviewed Ndm candidate population dimensions: " + "; ".join(missing_parts),
+            source_unit=source_unit, candidate_rows=candidates,
+        )
     governing = max(item.canonical_compression_n for item in accepted)
     governing_ids = tuple(
         item.source_row_identity for item in accepted if item.canonical_compression_n == governing
