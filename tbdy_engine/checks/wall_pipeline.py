@@ -18,7 +18,10 @@ from tbdy_engine.features.evidence import FeatureEvidence
 from tbdy_engine.features.result_evidence import ResultRowEvidenceBundle
 from tbdy_engine.features.snapshot import FeatureSnapshot
 from tbdy_engine.features.value import FeatureValueStatus
-from tbdy_engine.features.wall_critical_evidence import WallCriticalHeightFactualEvidence
+from tbdy_engine.features.wall_critical_evidence import (
+    WallCriticalHeightFactualEvidence,
+    WallRegulatoryReferenceFacts,
+)
 from tbdy_engine.features.wall_geometry_contract import (
     WALL_GEOMETRY_SUPPLEMENTAL_FEATURE_DEFINITIONS,
     WALL_PACK_B_FEATURE_DEFINITIONS,
@@ -35,10 +38,13 @@ class WallExecutionEvidence:
     wall_to_pier: Mapping[str, str] = field(default_factory=dict)
     net_section_topology_by_component: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     critical_height_facts_by_component: Mapping[str, WallCriticalHeightFactualEvidence] = field(default_factory=dict)
+    pack_c_reference_facts: WallRegulatoryReferenceFacts | None = None
 
     def __post_init__(self) -> None:
         if self.wall_system_context is not None and not isinstance(self.wall_system_context, ReviewedWallSystemContext):
             raise TypeError("wall_system_context must be ReviewedWallSystemContext or None")
+        if self.pack_c_reference_facts is not None and not isinstance(self.pack_c_reference_facts, WallRegulatoryReferenceFacts):
+            raise TypeError("pack_c_reference_facts must be WallRegulatoryReferenceFacts or None")
         bundles = dict(self.result_bundles or {})
         if any(not isinstance(bundle, ResultRowEvidenceBundle) for bundle in bundles.values()):
             raise TypeError("result_bundles values must be ResultRowEvidenceBundle objects")
@@ -150,6 +156,7 @@ def _pack_c_readiness(
     context_name: str,
     facts: WallCriticalHeightFactualEvidence | None,
     component_id: str,
+    reference_facts: WallRegulatoryReferenceFacts | None,
 ) -> CoverageExecutionContextReadiness:
     def blocked(reason: str) -> CoverageExecutionContextReadiness:
         return CoverageExecutionContextReadiness(
@@ -170,22 +177,19 @@ def _pack_c_readiness(
         if facts.section_reduction_evidence_complete is not True:
             return blocked("Story-by-story plan-length/section-width reduction evidence is incomplete")
     elif context_name == "wall_regulatory_reference_facts":
-        ref = facts.reference_facts
+        ref = reference_facts
         if ref is None or ref.foundation_top_elevation_mm is None:
-            return blocked("Foundation-top/regulatory reference-level factual evidence is unavailable")
+            return blocked("Run-level foundation-top/regulatory reference factual evidence is unavailable")
         perimeter = ref.rigid_basement_perimeter_walls
         diaphragm = ref.rigid_basement_diaphragm
         rigid_false_proven = perimeter is False or diaphragm is False
         rigid_true_proven = perimeter is True and diaphragm is True
         if not rigid_false_proven and not rigid_true_proven:
-            return blocked("Rigid-basement applicability facts are incomplete")
+            return blocked("Run-level rigid-basement applicability facts are incomplete")
         if rigid_true_proven and ref.ground_floor_elevation_mm is None:
-            return blocked("Rigid-basement case requires proven ground-floor elevation")
+            return blocked("Rigid-basement case requires proven run-level ground-floor elevation")
         if rigid_true_proven and ref.first_basement_story_height_mm is None:
-            return blocked("Rigid-basement case requires proven first-basement story height")
-    elif context_name == "wall_end_region_topology":
-        if facts.end_region_topology_proven is not True:
-            return blocked("End-region existence/topology and plan lengths are not proven")
+            return blocked("Rigid-basement case requires proven run-level first-basement story height")
     else:
         return blocked("Unknown Pack C execution-context contract")
     return CoverageExecutionContextReadiness(
@@ -208,14 +212,17 @@ def _execution_materialization(
     evidence: dict[str, Any] = {}
     pack_c_names = {
         "wall_vertical_profile", "wall_regulatory_reference_facts",
-        "wall_section_reduction_evidence", "wall_end_region_topology",
+        "wall_section_reduction_evidence",
     }
     critical_facts = execution_evidence.critical_height_facts_by_component.get(component_id)
+    reference_facts = execution_evidence.pack_c_reference_facts
     if critical_facts is not None:
         evidence["wall_critical_height_facts"] = critical_facts
+    if "wall_regulatory_reference_facts" in required and reference_facts is not None:
+        values["wall_regulatory_reference_facts"] = reference_facts
     for name in required:
         if name in pack_c_names:
-            readiness[name] = _pack_c_readiness(name, critical_facts, component_id)
+            readiness[name] = _pack_c_readiness(name, critical_facts, component_id, reference_facts)
         elif name == "wall_system_context":
             row = _system_context_readiness(
                 execution_evidence.wall_system_context,
