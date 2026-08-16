@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import inspect
 from pathlib import Path
 
 import yaml
 
 from tbdy_engine.checks.wall_contract import PACK_C_CHECK_IDS
+from tbdy_engine.features.wall_critical_evidence import WallCriticalHeightFactualEvidence
 from tbdy_engine.providers.table_registry import TableRegistry
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -36,7 +38,7 @@ def test_pack_c_reuses_only_existing_live_promoted_geometry_identity_sources():
     assert {"Story", "Label", "Pier"}.issubset(assignment_columns)
 
 
-def test_pack_c_does_not_promote_unproven_connectivity_or_end_region_source_by_name():
+def test_pack_c_does_not_promote_unproven_connectivity_topology_or_reference_source():
     catalog_dir = ROOT / "tbdy_engine/catalogs"
     pack_c_catalogs = sorted(path for path in catalog_dir.glob("*pack_c*") if path.is_file())
     text = "\n".join(path.read_text(encoding="utf-8") for path in pack_c_catalogs)
@@ -44,6 +46,13 @@ def test_pack_c_does_not_promote_unproven_connectivity_or_end_region_source_by_n
     assert "Wall Bays" not in text
     assert "source_contract_status: VERIFIED_LIVE" not in text
     assert "evidence_status: VERIFIED_LIVE" not in text
+
+
+def test_pack_c_factual_dto_never_blanket_claims_verified_live():
+    source = inspect.getsource(WallCriticalHeightFactualEvidence)
+    assert "source_contract_status" not in source
+    assert "VERIFIED_LIVE" not in source
+    assert "source_contract_status" not in WallCriticalHeightFactualEvidence.__dataclass_fields__
 
 
 def test_pack_c_catalog_defines_exact_five_formal_checks_and_no_derived_snapshot_features():
@@ -60,9 +69,11 @@ def test_pack_c_catalog_defines_exact_five_formal_checks_and_no_derived_snapshot
     assert "derived_hw_hcr_not_feature_snapshot: true" in text
     assert "no_property_name_inference: true" in text
     assert "no_magnitude_unit_heuristic: true" in text
+    assert "regulatory_reference_is_run_level: true" in text
+    assert "end_region_topology_is_engine_conditioned: true" in text
 
 
-def test_pack_c_clause_refs_and_execution_dependencies_are_frozen():
+def test_pack_c_clause_refs_and_static_execution_dependencies_are_frozen():
     raw = yaml.safe_load(CATALOG.read_text(encoding="utf-8"))["checks"]
     assert raw["WALL_END_REGIONS_REQUIRED_HW_LW_GT2"]["code_ref"] == "TBDY 2018 §7.6.2.1"
     assert raw["WALL_HCR_GE_LW"]["formula_ref"] == "TBDY_EQ_7_15A_HCR_GE_LW"
@@ -70,7 +81,6 @@ def test_pack_c_clause_refs_and_execution_dependencies_are_frozen():
     assert raw["WALL_HCR_LE_2LW"]["code_ref"] == "TBDY 2018 §7.6.2.2"
     assert raw["WALL_END_REGION_LENGTH_CRITICAL_GE_MAX_0_2LW_2BW"]["code_ref"] == "TBDY 2018 §7.6.2.3"
     base = ["wall_vertical_profile", "wall_regulatory_reference_facts", "wall_section_reduction_evidence"]
-    for check_id in ("WALL_HCR_GE_LW", "WALL_HCR_GE_HW_DIV6", "WALL_HCR_LE_2LW"):
+    for check_id in PACK_C_CHECK_IDS:
         assert raw[check_id]["required_execution_context"] == base
-    for check_id in ("WALL_END_REGIONS_REQUIRED_HW_LW_GT2", "WALL_END_REGION_LENGTH_CRITICAL_GE_MAX_0_2LW_2BW"):
-        assert raw[check_id]["required_execution_context"] == base + ["wall_end_region_topology"]
+    assert all("wall_end_region_topology" not in raw[check_id]["required_execution_context"] for check_id in PACK_C_CHECK_IDS)
