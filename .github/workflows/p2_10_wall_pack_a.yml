@@ -1,0 +1,33 @@
+name: P2.10 Wall Pack A Kernel
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+jobs:
+  wall-pack-a-kernel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml
+
+      - name: Run Wall Inventory and Pack A required regressions
+        run: |
+          python -m pytest -q tests/wall_inventory/test_wall_inventory_slice_1.py
+          python -m pytest -q tests/wall_geometry/test_wall_check_pack_a.py
+          python -m pytest -q tests/wall_geometry/test_wall_pack_a_catalog_contract.py
+          python -m pytest -q tests/c13_4_p1/test_engine_catalog_check_id_alignment.py

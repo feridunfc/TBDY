@@ -1,15 +1,17 @@
-"""Unit metadata helpers for the C13.3-P0 FeatureSnapshot proof.
+"""Feature-layer unit metadata and explicit canonical normalization helpers.
 
-This module is intentionally feature-layer only.  It preserves raw source unit
-context and produces labelled normalized display values without unlocking any
-engineering check.
+Raw source-unit context is preserved as evidence. Production normalization is
+allowed only from explicit, trusted UnitContext values; engineering checks must
+consume already-normalized canonical facts and must never infer units from
+numeric magnitude.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any
 
-ALLOWED_UNITS = {"kN", "kN.m", "m", "mm", "mm2", "MPa", "ratio", "percent", "unitless"}
+ALLOWED_UNITS = {"kN", "kN.m", "m", "cm", "mm", "mm2", "MPa", "ratio", "percent", "unitless"}
 RAW_UNIT_POLICY = "ETABS_LIVE_MODEL_CONTEXT_RAW_UNCONVERTED"
 NORMALIZED_UNIT_POLICY = "FEATURESNAPSHOT_DISPLAY_NORMALIZATION_WITH_PROVENANCE"
 
@@ -58,10 +60,9 @@ def default_unit_for(quantity_kind: str) -> str:
 def normalize_value(raw_value: Any, *, raw_unit: str | None, quantity_kind: str) -> UnitNormalization:
     """Return labelled raw+normalized unit metadata.
 
-    The C13.3-P0 proof does not know ETABS model units independently; therefore it
-    only converts when the raw unit is explicit and the conversion is lossless for
-    display.  Otherwise the raw value is preserved and the normalized unit is the
-    declared default display unit when the raw unit already matches it.
+    This generic helper converts only when the raw unit is explicit and a known
+    lossless display conversion exists. Production fact resolvers that require a
+    trusted source-unit basis must validate UnitContext before calling it.
     """
     normalized_unit = default_unit_for(quantity_kind)
     raw_unit_text = raw_unit or normalized_unit
@@ -77,6 +78,10 @@ def normalize_value(raw_value: Any, *, raw_unit: str | None, quantity_kind: str)
             normalized_value = raw_value * 1000.0
             factor = 1000.0
             rule = "m_to_mm_display"
+        elif raw_unit_text == "cm" and normalized_unit == "mm":
+            normalized_value = raw_value * 10.0
+            factor = 10.0
+            rule = "cm_to_mm_display"
         elif raw_unit_text == "mm" and normalized_unit == "m":
             normalized_value = raw_value / 1000.0
             factor = 0.001
@@ -103,6 +108,91 @@ def normalize_value(raw_value: Any, *, raw_unit: str | None, quantity_kind: str)
     )
 
 
+def trusted_length_unit_from_context(units: Any) -> str | None:
+    """Return serialized UnitContext length unit only when its basis is resolved."""
+    if not isinstance(units, dict) and not hasattr(units, "get"):
+        return None
+    status = str(units.get("unit_query_status") or "")
+    force_unit = units.get("force_unit")
+    length_unit = units.get("length_unit")
+    if status != "RESOLVED" or not force_unit or not length_unit:
+        return None
+    return str(length_unit)
+
+
+def _finite_number(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        number = float(value)
+        return number if math.isfinite(number) else None
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            number = float(text.replace(",", "."))
+        except ValueError:
+            return None
+        return number if math.isfinite(number) else None
+    return None
+
+
+def normalize_length_to_mm(
+    raw_value: Any,
+    *,
+    raw_unit: str | None,
+    unit_context_trusted: bool,
+) -> UnitNormalization:
+    """Normalize one factual length to mm from explicit, trusted source units.
+
+    Missing/untrusted/unsupported units fail closed. Numeric magnitude is never
+    used to infer a unit.
+    """
+    raw_unit_text = str(raw_unit or "").strip()
+    numeric = _finite_number(raw_value)
+
+    def unresolved(rule: str) -> UnitNormalization:
+        return UnitNormalization(
+            raw_value=raw_value,
+            raw_unit=raw_unit_text,
+            normalized_value=None,
+            normalized_unit="mm",
+            quantity_kind="section_dimensions",
+            unit_policy=NORMALIZED_UNIT_POLICY,
+            provenance={
+                "source_unit_policy": RAW_UNIT_POLICY,
+                "normalization_rule": rule,
+                "factor": None,
+                "normalization_status": "UNVERIFIED",
+                "silent_source_contract_conversion": False,
+                "check_engine_unlock": False,
+            },
+        )
+
+    if not unit_context_trusted:
+        return unresolved("untrusted_unit_context")
+    if numeric is None:
+        return unresolved("non_numeric_length_value")
+    if raw_unit_text not in {"m", "cm", "mm"}:
+        return unresolved("unsupported_length_unit")
+
+    normalized = normalize_value(numeric, raw_unit=raw_unit_text, quantity_kind="section_dimensions")
+    return UnitNormalization(
+        raw_value=raw_value,
+        raw_unit=normalized.raw_unit,
+        normalized_value=normalized.normalized_value,
+        normalized_unit=normalized.normalized_unit,
+        quantity_kind=normalized.quantity_kind,
+        unit_policy=normalized.unit_policy,
+        provenance={
+            **normalized.provenance,
+            "normalization_status": "RESOLVED",
+            "input_numeric_value": numeric,
+        },
+    )
+
+
 __all__ = [
     "ALLOWED_UNITS",
     "DEFAULT_REPORT_UNITS",
@@ -110,5 +200,7 @@ __all__ = [
     "RAW_UNIT_POLICY",
     "UnitNormalization",
     "default_unit_for",
+    "normalize_length_to_mm",
+    "trusted_length_unit_from_context",
     "normalize_value",
 ]

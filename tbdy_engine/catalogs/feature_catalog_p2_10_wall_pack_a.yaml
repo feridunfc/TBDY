@@ -1,0 +1,137 @@
+metadata:
+  contract: P2.10 Wall Check Pack A canonical wall-geometry facts
+  catalog_name: feature_catalog_p2_10_wall_pack_a
+  status: wall_geometry_overlay
+  notes:
+    - Existing canonical feature IDs are overridden only to align source/unit metadata with verified live ETABS contracts.
+    - Supplemental facts are factual geometry/location/topology evidence only; no TBDY applicability result is stored as a feature.
+    - Engineering-derived §7.6.1.3 eligibility remains a CheckEngine/applicability responsibility.
+features:
+  wall_thickness_mm:
+    element_type: wall
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability: {status: available, confidence: high}
+    source:
+      table_key: wall_section_properties
+      field_aliases: [Thickness, Wall Thickness, Total Thickness, ThickBot, ThickTop, ThicknessBottom]
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: ETABS_PRESENT_LENGTH
+      target_unit: mm
+      conversion: resolver_unit_context_length_to_mm
+    fallback: {allowed: false, method: none, warning: ''}
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: Exact assigned wall-property identity join; numeric magnitude never determines units.
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit]
+
+  wall_length_mm:
+    element_type: wall
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability: {status: available, confidence: high}
+    source:
+      table_key: pier_section_properties
+      field_aliases: [Width, Width Bottom, Width Top, WidthBot, WidthTop]
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: ETABS_PRESENT_LENGTH
+      target_unit: mm
+      conversion: resolver_unit_context_length_to_mm
+    fallback: {allowed: false, method: none, warning: Do not infer wall length from property names or substitute an unrelated total length.}
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: Resolve from verified Pier Section Properties using exact story + pier identity; missing pier/source evidence remains unresolved.
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit]
+
+  story_height_mm:
+    element_type: story
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability: {status: available, confidence: high}
+    source:
+      table_key: story_definitions
+      field_aliases: [Height, Story Height]
+      filters: []
+      combo_family: NONE
+      aggregation: none
+    unit_policy:
+      source_unit: ETABS_PRESENT_LENGTH
+      target_unit: mm
+      conversion: resolver_unit_context_length_to_mm
+    fallback: {allowed: false, method: none, warning: ''}
+    semantics:
+      source_level: ETABS_RAW
+      provided_rebar_verified: not_applicable
+      notes: Exact story identity join; numeric magnitude never determines units.
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit]
+
+  wall_is_basement:
+    element_type: wall
+    type: bool
+    unit: ''
+    semantic_role: APPLICABILITY_FACT
+    availability: {status: partial, confidence: medium}
+    source: {table_key: null, field_aliases: [], filters: [], combo_family: NONE, aggregation: none}
+    unit_policy: {source_unit: unitless, target_unit: unitless, conversion: none}
+    fallback: {allowed: false, method: none, warning: Regulatory location must be established from canonical location/story evidence.}
+    semantics: {source_level: CANONICAL_CONTEXT, provided_rebar_verified: not_applicable, notes: Property names are not regulatory truth.}
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit]
+
+  wall_body_classification:
+    element_type: wall
+    type: string
+    unit: ''
+    semantic_role: GEOMETRY_CLASSIFICATION
+    availability: {status: partial, confidence: medium}
+    source: {table_key: null, field_aliases: [], filters: [], combo_family: NONE, aggregation: none}
+    unit_policy: {source_unit: unitless, target_unit: unitless, conversion: none}
+    fallback: {allowed: false, method: none, warning: Wall body classification must be established from geometry evidence.}
+    semantics: {source_level: CANONICAL_CONTEXT, provided_rebar_verified: not_applicable, notes: No property-name inference.}
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit]
+
+  unrestrained_plan_length_mm:
+    element_type: wall
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability: {status: partial, confidence: medium}
+    source: {table_key: null, field_aliases: [], filters: [], combo_family: NONE, aggregation: none}
+    unit_policy: {source_unit: mm, target_unit: mm, conversion: none}
+    fallback: {allowed: false, method: none, warning: Do not substitute total wall length for unrestrained plan length.}
+    semantics: {source_level: CANONICAL_CONTEXT, provided_rebar_verified: not_applicable, notes: Requires factual topology/restraint evidence.}
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit]
+
+  wall_geometry_classification:
+    element_type: wall
+    type: string
+    unit: ''
+    semantic_role: GEOMETRY_CLASSIFICATION
+    availability: {status: partial, confidence: medium}
+    source: {table_key: null, field_aliases: [], filters: [], combo_family: NONE, aggregation: none}
+    unit_policy: {source_unit: unitless, target_unit: unitless, conversion: none}
+    fallback: {allowed: false, method: none, warning: Rectangular-wall or wall-leg classification must be established from geometry evidence.}
+    semantics: {source_level: CANONICAL_CONTEXT, provided_rebar_verified: not_applicable, notes: Fact only.}
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit]
+
+  wall_both_ends_laterally_restrained:
+    element_type: wall
+    type: bool
+    unit: ''
+    semantic_role: TOPOLOGY
+    availability: {status: partial, confidence: medium}
+    source: {table_key: null, field_aliases: [], filters: [], combo_family: NONE, aggregation: none}
+    unit_policy: {source_unit: unitless, target_unit: unitless, conversion: none}
+    fallback: {allowed: false, method: none, warning: Both-ends lateral restraint must be established from topology evidence.}
+    semantics: {source_level: CANONICAL_CONTEXT, provided_rebar_verified: not_applicable, notes: Unknown restraint blocks §7.6.1.2(c).}
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit]
