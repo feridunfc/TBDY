@@ -40,7 +40,7 @@ class WallExecutionEvidence:
     result_bundles: Mapping[str, ResultRowEvidenceBundle] = field(default_factory=dict)
     wall_to_pier: Mapping[str, str] = field(default_factory=dict)
     ndm_load_binding: ReviewedNdmLoadBinding | None = None
-    ndm_policy: ReviewedNdmPolicy | None = None
+    ndm_policies_by_component_id: Mapping[str, ReviewedNdmPolicy] = field(default_factory=dict)
     net_section_topology_by_component: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
     critical_height_facts_by_component: Mapping[str, WallCriticalHeightFactualEvidence] = field(default_factory=dict)
     pack_c_reference_facts: WallRegulatoryReferenceFacts | None = None
@@ -52,8 +52,14 @@ class WallExecutionEvidence:
             raise TypeError("pack_c_reference_facts must be WallRegulatoryReferenceFacts or None")
         if self.ndm_load_binding is not None and not isinstance(self.ndm_load_binding, ReviewedNdmLoadBinding):
             raise TypeError("ndm_load_binding must be ReviewedNdmLoadBinding or None")
-        if self.ndm_policy is not None and not isinstance(self.ndm_policy, ReviewedNdmPolicy):
-            raise TypeError("ndm_policy must be ReviewedNdmPolicy or None")
+        policies = dict(self.ndm_policies_by_component_id or {})
+        for component_id, policy in policies.items():
+            if not isinstance(component_id, str) or not component_id:
+                raise TypeError("ndm_policies_by_component_id keys must be nonblank strings")
+            if not isinstance(policy, ReviewedNdmPolicy):
+                raise TypeError("ndm_policies_by_component_id values must be ReviewedNdmPolicy")
+            if component_id != policy.target_component_id:
+                raise ValueError("Ndm policy mapping key must equal policy.target_component_id")
         bundles = dict(self.result_bundles or {})
         if any(not isinstance(bundle, ResultRowEvidenceBundle) for bundle in bundles.values()):
             raise TypeError("result_bundles values must be ResultRowEvidenceBundle objects")
@@ -65,6 +71,7 @@ class WallExecutionEvidence:
                 raise ValueError("Pack C factual-evidence mapping key must equal bundle.component_id")
         object.__setattr__(self, "highest_applicable_story_height_mm_by_component", freeze_data(dict(self.highest_applicable_story_height_mm_by_component or {})))
         object.__setattr__(self, "result_bundles", MappingProxyType(bundles))
+        object.__setattr__(self, "ndm_policies_by_component_id", MappingProxyType(policies))
         object.__setattr__(self, "wall_to_pier", freeze_data(dict(self.wall_to_pier or {})))
         object.__setattr__(self, "net_section_topology_by_component", freeze_data(dict(self.net_section_topology_by_component or {})))
         object.__setattr__(self, "critical_height_facts_by_component", MappingProxyType(critical))
@@ -302,7 +309,7 @@ def _execution_materialization(
                 pier_name=None if pier is None else str(pier),
                 pier_forces=bundle,
                 load_binding=execution_evidence.ndm_load_binding,
-                policy=execution_evidence.ndm_policy,
+                policy=execution_evidence.ndm_policies_by_component_id.get(component_id),
             )
             if demand.status == "BLOCKED":
                 readiness[name] = CoverageExecutionContextReadiness(

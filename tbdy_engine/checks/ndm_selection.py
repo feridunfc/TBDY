@@ -7,7 +7,9 @@ regulatory capacity, ratios, applicability, PASS/FAIL, or ETABS acquisition.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
+from math import isfinite
 from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 
@@ -23,6 +25,13 @@ class NdmAvailability(StrEnum):
     RESOLVED = "RESOLVED"
     BLOCKED = "BLOCKED"
     NO_DATA = "NO_DATA"
+
+
+class Ts498StoreyQState(StrEnum):
+    NOT_APPLICABLE = "NOT_APPLICABLE"
+    EQUAL_STOREY_Q_REVIEWED = "EQUAL_STOREY_Q_REVIEWED"
+    UNEQUAL_STOREY_Q_REVIEWED = "UNEQUAL_STOREY_Q_REVIEWED"
+    UNEQUAL_STOREY_Q_UNRESOLVED = "UNEQUAL_STOREY_Q_UNRESOLVED"
 
 
 def _nonblank(name: str, value: Any) -> str:
@@ -147,27 +156,39 @@ class ReviewedNdmLoadBinding:
 
 @dataclass(frozen=True, slots=True)
 class ReviewedNdmPolicy:
-    """Reviewed Ndm-only policy truth, including the manual TS498 decision boundary."""
+    """Target-scoped reviewed Ndm policy, including explicit TS498 storey-Q state."""
 
     policy_id: str
     version: str
-    ts498_decision: str
+    target_component_id: str
+    target_story: str
+    target_pier: str
+    ts498_storey_q_state: Ts498StoreyQState | str
     q_target_coefficients: Mapping[str, float]
     s_target_coefficients: Mapping[str, float]
-    unequal_q_interpretation_reviewed: bool
     linear_superposition_reviewed: bool
     regulatory_authority_ids: tuple[str, ...]
+    unequal_storey_q_interpretation: str | None = None
     review_refs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "policy_id", _nonblank("policy_id", self.policy_id))
         object.__setattr__(self, "version", _nonblank("policy version", self.version))
-        if self.ts498_decision not in {"NOT_APPLICABLE", "RESOLVED", "UNRESOLVED"}:
-            raise ValueError("ts498_decision must be NOT_APPLICABLE, RESOLVED, or UNRESOLVED")
-        if not isinstance(self.unequal_q_interpretation_reviewed, bool):
-            raise TypeError("unequal_q_interpretation_reviewed must be bool")
+        object.__setattr__(self, "target_component_id", _nonblank("target_component_id", self.target_component_id))
+        object.__setattr__(self, "target_story", _nonblank("target_story", self.target_story))
+        object.__setattr__(self, "target_pier", _nonblank("target_pier", self.target_pier))
+        try:
+            state = Ts498StoreyQState(self.ts498_storey_q_state)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Invalid TS498 storey-Q distribution state") from exc
+        object.__setattr__(self, "ts498_storey_q_state", state)
         if not isinstance(self.linear_superposition_reviewed, bool):
             raise TypeError("linear_superposition_reviewed must be bool")
+        if self.unequal_storey_q_interpretation is not None:
+            object.__setattr__(
+                self, "unequal_storey_q_interpretation",
+                _nonblank("unequal_storey_q_interpretation", self.unequal_storey_q_interpretation),
+            )
         object.__setattr__(self, "q_target_coefficients", _frozen_float_map(self.q_target_coefficients))
         object.__setattr__(self, "s_target_coefficients", _frozen_float_map(self.s_target_coefficients))
         authority = tuple(_nonblank("regulatory_authority_id", item) for item in self.regulatory_authority_ids)
@@ -181,7 +202,7 @@ class ReviewedNdmPolicy:
 class CorrectionTrace:
     case_id: str
     source_row_identity: tuple[tuple[str, Any], ...]
-    raw_p: float
+    raw_p: Any
     source_unit: str
     canonical_p_n: float
     baseline_coefficient: float
@@ -212,7 +233,7 @@ class NdmCandidateTrace:
     location: str
     step_type: Any
     step_number: Any
-    raw_p: float
+    raw_p: Any
     source_unit: str
     canonical_p_n: float
     q_corrections: tuple[CorrectionTrace, ...]
@@ -380,10 +401,40 @@ def _force_unit(bundle: ResultRowEvidenceBundle) -> tuple[str | None, str | None
     return unit, None
 
 
-def _to_n(value: Any, unit: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise TypeError("Pier Forces P must be numeric")
-    number = float(value)
+def _decode_p_scalar(value: Any) -> float:
+    """Strictly decode one raw ETABS P scalar without mutating factual evidence."""
+    if isinstance(value, bool) or value is None:
+        raise TypeError("Pier Forces P must be a finite decimal scalar")
+    if isinstance(value, int):
+        number = float(value)
+    elif isinstance(value, float):
+        number = value
+    elif isinstance(value, str):
+        if not value or value != value.strip():
+            raise ValueError("Pier Forces P decimal text must be nonblank and unpadded")
+        body = value[1:] if value[:1] in {"+", "-"} else value
+        if not body:
+            raise ValueError("Pier Forces P decimal text is missing digits")
+        parts = body.split(".")
+        if len(parts) > 2 or any(not part for part in parts):
+            raise ValueError("Pier Forces P must use strict decimal-point syntax")
+        if any(any(ch < "0" or ch > "9" for ch in part) for part in parts):
+            raise ValueError("Pier Forces P must use strict decimal-point syntax")
+        try:
+            decimal_value = Decimal(value)
+        except InvalidOperation as exc:
+            raise ValueError("Pier Forces P decimal text is invalid") from exc
+        if not decimal_value.is_finite():
+            raise ValueError("Pier Forces P must be finite")
+        number = float(decimal_value)
+    else:
+        raise TypeError("Pier Forces P must be int, finite float, or strict decimal text")
+    if not isfinite(number):
+        raise ValueError("Pier Forces P must be finite")
+    return number
+
+
+def _to_n(number: float, unit: str) -> float:
     return number if unit == _N else number * 1000.0
 
 
@@ -401,15 +452,27 @@ def _check_duplicate_identities(rows: Sequence[Mapping[str, Any]]) -> str | None
     return None
 
 
+def _policy_target_reason(request: EngineeringQuantityRequest, policy: ReviewedNdmPolicy) -> str | None:
+    if request.component_id != policy.target_component_id:
+        return "Reviewed Ndm policy target_component_id does not match requested component"
+    if request.story != policy.target_story:
+        return "Reviewed Ndm policy target_story does not match requested Story"
+    if request.pier != policy.target_pier:
+        return "Reviewed Ndm policy target_pier does not match requested Pier"
+    return None
+
+
 def _binding_policy_reason(binding: ReviewedNdmLoadBinding, policy: ReviewedNdmPolicy) -> str | None:
-    if policy.ts498_decision == "UNRESOLVED":
-        return "TS498 live-load reduction authority is unresolved"
+    state = policy.ts498_storey_q_state
+    if state == Ts498StoreyQState.UNEQUAL_STOREY_Q_UNRESOLVED:
+        return "TS498 supported-storey Q distribution has an unresolved unequal-Q interpretation"
+    if state == Ts498StoreyQState.UNEQUAL_STOREY_Q_REVIEWED:
+        if policy.unequal_storey_q_interpretation is None or not policy.review_refs:
+            return "Reviewed unequal storey-Q state requires an explicit reviewed interpretation and review refs"
     if set(policy.q_target_coefficients) != set(binding.q_case_ids):
         return "Reviewed Q target coefficients do not cover the exact bound Q identities"
     if set(policy.s_target_coefficients) != set(binding.s_case_ids):
         return "Reviewed S target coefficients do not cover the exact bound S identities"
-    if len(set(policy.q_target_coefficients.values())) > 1 and not policy.unequal_q_interpretation_reviewed:
-        return "Unequal Q target coefficients lack an explicit reviewed interpretation"
     if any(value != _TBDY_EQ_4_11_S_TARGET for value in policy.s_target_coefficients.values()):
         return "Reviewed S target coefficient must equal TBDY Eq.4.11 value 0.2"
     fixed_ids = (*binding.g_case_ids, *binding.horizontal_e_case_ids, *binding.vertical_e_case_ids)
@@ -471,6 +534,10 @@ def select_ndm_demand(
     if not isinstance(policy, ReviewedNdmPolicy):
         return _result(request, binding=binding, policy=None, bundle=pier_forces,
                        availability=NdmAvailability.BLOCKED, reason="Reviewed Ndm policy has invalid type")
+    target_reason = _policy_target_reason(request, policy)
+    if target_reason is not None:
+        return _result(request, binding=binding, policy=policy, bundle=pier_forces,
+                       availability=NdmAvailability.BLOCKED, reason=target_reason)
     if pier_forces is None or not isinstance(pier_forces, ResultRowEvidenceBundle):
         return _result(request, binding=binding, policy=policy, bundle=None,
                        availability=NdmAvailability.BLOCKED, reason="Canonical Pier Forces evidence is unavailable")
@@ -521,11 +588,10 @@ def select_ndm_demand(
         elif row.get("Location") not in binding.allowed_locations:
             semantic_reason = "BOUND_FINAL_LOCATION_NOT_REVIEWED"
         if semantic_reason is not None:
+            raw_p = row.get("P")
             try:
-                raw_p = float(row.get("P"))
-                canonical = _to_n(row.get("P"), source_unit)
+                canonical = _to_n(_decode_p_scalar(raw_p), source_unit)
             except (TypeError, ValueError):
-                raw_p = 0.0
                 canonical = 0.0
             rejected = NdmCandidateTrace(
                 source_row_identity=identity, final_combination_id=combo,
@@ -541,9 +607,9 @@ def select_ndm_demand(
                            reason=f"Reviewed final-combination row semantics mismatch: {semantic_reason}",
                            source_unit=source_unit, candidate_rows=candidates)
 
+        raw_p = row.get("P")
         try:
-            raw_p = float(row.get("P"))
-            canonical_p_n = _to_n(row.get("P"), source_unit)
+            canonical_p_n = _to_n(_decode_p_scalar(raw_p), source_unit)
         except (TypeError, ValueError):
             return _result(request, binding=binding, policy=policy, bundle=pier_forces,
                            availability=NdmAvailability.BLOCKED,
@@ -579,9 +645,9 @@ def select_ndm_demand(
                         reason=f"FULL Pier Forces lookup found no exact required {family} correction row for {case_id}",
                         source_unit=source_unit, candidate_rows=candidates,
                     )
+                correction_raw = correction_row.get("P")
                 try:
-                    correction_raw = float(correction_row.get("P"))
-                    correction_n = _to_n(correction_row.get("P"), source_unit)
+                    correction_n = _to_n(_decode_p_scalar(correction_raw), source_unit)
                 except (TypeError, ValueError):
                     return _result(request, binding=binding, policy=policy, bundle=pier_forces,
                                    availability=NdmAvailability.BLOCKED,
@@ -626,24 +692,25 @@ def select_ndm_demand(
         return _result(request, binding=binding, policy=policy, bundle=pier_forces,
                        availability=NdmAvailability.NO_DATA, reason="No admissible reviewed Ndm candidate row",
                        source_unit=source_unit, candidate_rows=candidates)
-    accepted_combinations = {item.final_combination_id for item in accepted}
-    accepted_steps = {item.step_type for item in accepted}
-    accepted_locations = {item.location for item in accepted}
-    missing_combinations = tuple(sorted(set(binding.final_combination_ids) - accepted_combinations))
-    missing_steps = tuple(sorted(set(binding.allowed_final_step_types) - accepted_steps))
-    missing_locations = tuple(sorted(set(binding.allowed_locations) - accepted_locations))
-    if missing_combinations or missing_steps or missing_locations:
-        missing_parts = []
-        if missing_combinations:
-            missing_parts.append("final combinations=" + ",".join(missing_combinations))
-        if missing_steps:
-            missing_parts.append("StepTypes=" + ",".join(missing_steps))
-        if missing_locations:
-            missing_parts.append("Locations=" + ",".join(missing_locations))
+    expected_cells = {
+        (combo, step_type, location)
+        for combo in binding.final_combination_ids
+        for step_type in binding.allowed_final_step_types
+        for location in binding.allowed_locations
+    }
+    actual_cells = {
+        (item.final_combination_id, item.step_type, item.location)
+        for item in accepted
+    }
+    if actual_cells != expected_cells:
+        missing_cells = tuple(sorted(expected_cells - actual_cells))
         return _result(
             request, binding=binding, policy=policy, bundle=pier_forces,
             availability=NdmAvailability.NO_DATA,
-            reason="FULL Pier Forces lookup is missing reviewed Ndm candidate population dimensions: " + "; ".join(missing_parts),
+            reason=(
+                "FULL Pier Forces lookup is missing reviewed Ndm candidate cells: "
+                + ", ".join(f"{combo}/{step_type}/{location}" for combo, step_type, location in missing_cells)
+            ),
             source_unit=source_unit, candidate_rows=candidates,
         )
     governing = max(item.canonical_compression_n for item in accepted)
@@ -662,5 +729,6 @@ def select_ndm_demand(
 __all__ = [
     "CorrectionTrace", "EngineeringQuantityRequest", "NdmAvailability", "NdmCandidateTrace",
     "ResolvedNdmDemand", "ReviewedNdmLoadBinding", "ReviewedNdmPolicy", "SelectionTrace",
+    "Ts498StoreyQState",
     "select_ndm_demand",
 ]

@@ -5,11 +5,13 @@ from collections.abc import Mapping
 
 import pytest
 
+from tbdy_engine.checks import ndm_selection as ndm_module
 from tbdy_engine.checks.ndm_selection import (
     EngineeringQuantityRequest,
     NdmAvailability,
     ReviewedNdmLoadBinding,
     ReviewedNdmPolicy,
+    Ts498StoreyQState,
     select_ndm_demand,
 )
 from tbdy_engine.checks.result import CheckStatus
@@ -93,12 +95,16 @@ def _binding(*, q_ids=("Q_CASE",), baseline_override=None, fixed_override=None,
     )
 
 
-def _policy(*, q=None, s=0.2, ts498="RESOLVED", unequal=True, linear=True):
+def _policy(*, q=None, s=0.2, q_state=Ts498StoreyQState.EQUAL_STOREY_Q_REVIEWED,
+            target_component_id="W1", target_story="L1", target_pier="P1",
+            unequal_interpretation="reviewed supported-storey Q_i interpretation", linear=True):
     q = {"Q_CASE": 0.5} if q is None else q
     return ReviewedNdmPolicy(
-        policy_id="NDM-POLICY-1", version="v1", ts498_decision=ts498,
+        policy_id=f"NDM-POLICY-{target_component_id}", version="v1",
+        target_component_id=target_component_id, target_story=target_story, target_pier=target_pier,
+        ts498_storey_q_state=q_state,
         q_target_coefficients=q, s_target_coefficients={"S_CASE": s},
-        unequal_q_interpretation_reviewed=unequal,
+        unequal_storey_q_interpretation=unequal_interpretation,
         linear_superposition_reviewed=linear,
         regulatory_authority_ids=AUTHORITY_IDS,
         review_refs=("reviewed-ts498-decision", "reviewed-linear-superposition"),
@@ -108,20 +114,33 @@ def _policy(*, q=None, s=0.2, ts498="RESOLVED", unequal=True, linear=True):
 def _request(): return EngineeringQuantityRequest("REQ-1", "W1", "L1", "P1")
 
 
-def _correction_rows(*, q_p=-20_000.0, s_p=-10_000.0, locations=("Top", "Bottom")):
+def _correction_rows(*, q_p=-20_000.0, s_p=-10_000.0, locations=("Top", "Bottom"), story="L1", pier="P1", q_ids=("Q_CASE",)):
     rows = []
     for location in locations:
-        rows.extend((_static("Q_CASE", q_p, location=location), _static("S_CASE", s_p, location=location)))
+        for q_id in q_ids:
+            rows.append(_static(q_id, q_p, location=location, story=story, pier=pier))
+        rows.append(_static("S_CASE", s_p, location=location, story=story, pier=pier))
     return rows
 
 
 def _resolved_rows():
     return [
         _row("FINAL_X", -100_000.0, step="Max", location="Top"),
+        _row("FINAL_X", -105_000.0, step="Max", location="Bottom"),
+        _row("FINAL_X", -115_000.0, step="Min", location="Top"),
         _row("FINAL_X", -120_000.0, step="Min", location="Bottom"),
         _row("FINAL_Y", -90_000.0, step="Max", location="Top"),
+        _row("FINAL_Y", -95_000.0, step="Max", location="Bottom"),
+        _row("FINAL_Y", -105_000.0, step="Min", location="Top"),
         _row("FINAL_Y", -110_000.0, step="Min", location="Bottom"),
         *_correction_rows(),
+    ]
+
+
+def _single_cell_rows(*, final_p=-100_000.0, q_p=-20_000.0, s_p=-10_000.0, story="L1", pier="P1", q_ids=("Q_CASE",)):
+    return [
+        _row("FINAL_X", final_p, step="Max", location="Top", story=story, pier=pier),
+        *_correction_rows(q_p=q_p, s_p=s_p, locations=("Top",), story=story, pier=pier, q_ids=q_ids),
     ]
 
 
@@ -143,8 +162,15 @@ def test_raw_row_reordering_is_deterministic():
 
 
 def test_negative_p_is_compression_and_abs_is_not_used():
-    rows = [_row("FINAL_X", 900_000.0, step="Max", location="Top"), _row("FINAL_X", -100_000.0, step="Min", location="Bottom"), *_correction_rows()]
+    rows = [
+        _row("FINAL_X", 900_000.0, step="Max", location="Top"),
+        _row("FINAL_X", 800_000.0, step="Max", location="Bottom"),
+        _row("FINAL_X", -90_000.0, step="Min", location="Top"),
+        _row("FINAL_X", -100_000.0, step="Min", location="Bottom"),
+        *_correction_rows(),
+    ]
     demand = select_ndm_demand(_request(), _bundle(rows), _binding(final_ids=("FINAL_X",)), _policy())
+    assert demand.availability == NdmAvailability.RESOLVED
     compressions = [item.canonical_compression_n for item in demand.trace.candidate_rows]
     assert min(compressions) == 0.0
     assert 0.0 < demand.ndm_n < 900_000.0
@@ -160,16 +186,23 @@ def test_standalone_response_spectrum_rows_are_not_direct_ndm_candidates():
 
 def test_max_and_min_and_top_and_bottom_are_all_evaluated_without_step_shortcut():
     demand = select_ndm_demand(_request(), _bundle(_resolved_rows()), _binding(), _policy())
-    seen = {(item.step_type, item.location) for item in demand.trace.candidate_rows}
-    assert ("Max", "Top") in seen and ("Min", "Bottom") in seen
-    assert len(demand.trace.candidate_rows) == 4
+    seen = {(item.final_combination_id, item.step_type, item.location) for item in demand.trace.candidate_rows}
+    assert len(seen) == 8
+    assert ("FINAL_X", "Max", "Top") in seen and ("FINAL_Y", "Min", "Bottom") in seen
     governing = dict(demand.trace.governing_row_identities[0])
     assert governing["StepType"] == "Min" and governing["Location"] == "Bottom"
 
 
 def test_more_compressive_max_can_govern_over_min():
-    rows = [_row("FINAL_X", -200_000.0, step="Max", location="Top"), _row("FINAL_X", -100_000.0, step="Min", location="Bottom"), *_correction_rows()]
+    rows = [
+        _row("FINAL_X", -200_000.0, step="Max", location="Top"),
+        _row("FINAL_X", -190_000.0, step="Max", location="Bottom"),
+        _row("FINAL_X", -100_000.0, step="Min", location="Top"),
+        _row("FINAL_X", -90_000.0, step="Min", location="Bottom"),
+        *_correction_rows(),
+    ]
     demand = select_ndm_demand(_request(), _bundle(rows), _binding(final_ids=("FINAL_X",)), _policy())
+    assert demand.availability == NdmAvailability.RESOLVED
     assert dict(demand.trace.governing_row_identities[0])["StepType"] == "Max"
 
 
@@ -186,6 +219,36 @@ def test_explicit_kn_to_n_conversion():
     assert demand.availability == NdmAvailability.RESOLVED
     assert demand.ndm_n == pytest.approx(82_000.0)
     assert demand.unit == "N" and demand.trace.source_unit == "kN"
+
+
+def test_live_shaped_decimal_string_p_values_decode_without_mutating_raw_evidence():
+    rows = [
+        _row("FINAL_X", "-446.9878", step="Max", location="Top"),
+        _row("FINAL_X", "-430.1250", step="Max", location="Bottom"),
+        _row("FINAL_X", "-440.5000", step="Min", location="Top"),
+        _row("FINAL_X", "-445.2500", step="Min", location="Bottom"),
+        *_correction_rows(q_p="-20.0000", s_p="-10.0000"),
+    ]
+    bundle = _bundle(rows, unit="kN")
+    demand = select_ndm_demand(_request(), bundle, _binding(final_ids=("FINAL_X",)), _policy())
+    assert demand.availability == NdmAvailability.RESOLVED
+    live = next(item for item in demand.trace.candidate_rows if item.step_type == "Max" and item.location == "Top")
+    assert live.raw_p == "-446.9878"
+    assert live.canonical_p_n == pytest.approx(-446_987.8)
+    assert isinstance(bundle.rows[0]["P"], str)
+    assert all(isinstance(trace.raw_p, str) for trace in live.q_corrections + live.s_corrections)
+
+
+@pytest.mark.parametrize("bad_p", ["", "abc", "NaN", "Infinity", "+Inf", "-Inf", "1,23", True])
+def test_invalid_live_p_scalars_are_rejected(bad_p):
+    rows = _single_cell_rows(final_p=bad_p)
+    demand = select_ndm_demand(
+        _request(), _bundle(rows),
+        _binding(final_ids=("FINAL_X",), allowed_steps=("Max",), allowed_locations=("Top",)),
+        _policy(),
+    )
+    assert demand.availability == NdmAvailability.BLOCKED
+    assert demand.ndm_n is None
 
 
 @pytest.mark.parametrize("capture", [RuntimeCaptureStatus.PARTIAL, RuntimeCaptureStatus.SAMPLED, RuntimeCaptureStatus.TRUNCATED, RuntimeCaptureStatus.UNKNOWN])
@@ -206,17 +269,77 @@ def test_missing_and_unsupported_units_block():
     assert select_ndm_demand(_request(), with_units({"force_unit": "kgf"}), _binding(), _policy()).availability == NdmAvailability.BLOCKED
 
 
-def test_missing_binding_and_unresolved_ts498_block():
+def test_missing_binding_blocks():
     bundle = _bundle(_resolved_rows())
     assert select_ndm_demand(_request(), bundle, None, _policy()).availability == NdmAvailability.BLOCKED
-    demand = select_ndm_demand(_request(), bundle, _binding(), _policy(ts498="UNRESOLVED"))
-    assert demand.availability == NdmAvailability.BLOCKED and "TS498" in str(demand.trace.reason)
 
 
-def test_unequal_q_requires_reviewed_interpretation():
-    binding = _binding(q_ids=("Q1", "Q2"))
-    demand = select_ndm_demand(_request(), _bundle([]), binding, _policy(q={"Q1": 0.5, "Q2": 0.3}, unequal=False))
-    assert demand.availability == NdmAvailability.BLOCKED and "Unequal Q" in str(demand.trace.reason)
+def test_one_q_case_with_unequal_storey_q_unresolved_is_blocked():
+    demand = select_ndm_demand(
+        _request(), _bundle(_single_cell_rows()),
+        _binding(final_ids=("FINAL_X",), allowed_steps=("Max",), allowed_locations=("Top",)),
+        _policy(q_state=Ts498StoreyQState.UNEQUAL_STOREY_Q_UNRESOLVED),
+    )
+    assert demand.availability == NdmAvailability.BLOCKED
+    assert "storey Q" in str(demand.trace.reason)
+
+
+def test_multiple_q_cases_with_equal_coefficients_do_not_imply_equal_storey_q():
+    binding = _binding(q_ids=("Q1", "Q2"), final_ids=("FINAL_X",), allowed_steps=("Max",), allowed_locations=("Top",))
+    policy = _policy(q={"Q1": 0.5, "Q2": 0.5}, q_state=Ts498StoreyQState.UNEQUAL_STOREY_Q_UNRESOLVED)
+    demand = select_ndm_demand(_request(), _bundle([]), binding, policy)
+    assert demand.availability == NdmAvailability.BLOCKED
+
+
+def test_explicit_equal_storey_q_reviewed_state_may_execute():
+    binding = _binding(final_ids=("FINAL_X",), allowed_steps=("Max",), allowed_locations=("Top",))
+    demand = select_ndm_demand(_request(), _bundle(_single_cell_rows()), binding, _policy(q_state=Ts498StoreyQState.EQUAL_STOREY_Q_REVIEWED))
+    assert demand.availability == NdmAvailability.RESOLVED
+
+
+def test_explicit_unequal_storey_q_reviewed_state_may_execute_with_interpretation():
+    binding = _binding(final_ids=("FINAL_X",), allowed_steps=("Max",), allowed_locations=("Top",))
+    policy = _policy(
+        q_state=Ts498StoreyQState.UNEQUAL_STOREY_Q_REVIEWED,
+        unequal_interpretation="reviewed unequal supported-storey Q_i distribution",
+    )
+    demand = select_ndm_demand(_request(), _bundle(_single_cell_rows()), binding, policy)
+    assert demand.availability == NdmAvailability.RESOLVED
+
+
+def test_unequal_storey_q_reviewed_requires_explicit_interpretation():
+    binding = _binding(final_ids=("FINAL_X",), allowed_steps=("Max",), allowed_locations=("Top",))
+    policy = _policy(q_state=Ts498StoreyQState.UNEQUAL_STOREY_Q_REVIEWED, unequal_interpretation=None)
+    demand = select_ndm_demand(_request(), _bundle(_single_cell_rows()), binding, policy)
+    assert demand.availability == NdmAvailability.BLOCKED
+
+
+def test_mass_source_is_not_part_of_ts498_storey_q_contract_and_old_proxy_is_deleted():
+    assert not any("mass" in name.casefold() for name in ReviewedNdmPolicy.__dataclass_fields__)
+    source = inspect.getsource(ndm_module._binding_policy_reason)
+    assert "q_target_coefficients.values" not in source
+    assert "Mass Source" not in inspect.getsource(ReviewedNdmPolicy)
+
+
+def test_w1_policy_cannot_execute_w2_request():
+    request = EngineeringQuantityRequest("REQ-W2", "W2", "L1", "P1")
+    demand = select_ndm_demand(request, _bundle(_resolved_rows()), _binding(), _policy())
+    assert demand.availability == NdmAvailability.BLOCKED
+    assert "target_component_id" in str(demand.trace.reason)
+
+
+def test_policy_correct_component_wrong_story_is_blocked():
+    request = EngineeringQuantityRequest("REQ-L2", "W1", "L2", "P1")
+    demand = select_ndm_demand(request, _bundle(_resolved_rows()), _binding(), _policy())
+    assert demand.availability == NdmAvailability.BLOCKED
+    assert "target_story" in str(demand.trace.reason)
+
+
+def test_policy_correct_component_story_wrong_pier_is_blocked():
+    request = EngineeringQuantityRequest("REQ-P2", "W1", "L1", "P2")
+    demand = select_ndm_demand(request, _bundle(_resolved_rows()), _binding(), _policy())
+    assert demand.availability == NdmAvailability.BLOCKED
+    assert "target_pier" in str(demand.trace.reason)
 
 
 def test_reviewed_q_and_s_linear_corrections_are_reconstructable():
@@ -231,7 +354,10 @@ def test_reviewed_q_and_s_linear_corrections_are_reconstructable():
 
 def test_zero_s_force_has_zero_numeric_correction_but_remains_traced():
     rows = [_row("FINAL_X", -100_000.0, location="Top"), _static("Q_CASE", -20_000.0, location="Top"), _static("S_CASE", 0.0, location="Top")]
-    s = select_ndm_demand(_request(), _bundle(rows), _binding(), _policy()).trace.candidate_rows[0].s_corrections[0]
+    binding = _binding(final_ids=("FINAL_X",), allowed_steps=("Max",), allowed_locations=("Top",))
+    demand = select_ndm_demand(_request(), _bundle(rows), binding, _policy())
+    assert demand.availability == NdmAvailability.RESOLVED
+    s = demand.trace.candidate_rows[0].s_corrections[0]
     assert s.delta_coefficient == pytest.approx(-0.8) and s.delta_p_n == 0.0
 
 
@@ -259,7 +385,13 @@ def test_conflicting_duplicate_source_identity_blocks():
 
 
 def test_all_exact_co_governing_ties_are_retained():
-    rows = [_row("FINAL_X", -100_000.0, step="Max", location="Top"), _row("FINAL_Y", -100_000.0, step="Min", location="Top"), *_correction_rows(locations=("Top",))]
+    rows = [
+        _row("FINAL_X", -100_000.0, step="Max", location="Top"),
+        _row("FINAL_X", -90_000.0, step="Min", location="Top"),
+        _row("FINAL_Y", -80_000.0, step="Max", location="Top"),
+        _row("FINAL_Y", -100_000.0, step="Min", location="Top"),
+        *_correction_rows(locations=("Top",)),
+    ]
     demand = select_ndm_demand(_request(), _bundle(rows), _binding(allowed_locations=("Top",)), _policy())
     assert demand.availability == NdmAvailability.RESOLVED and len(demand.trace.governing_row_identities) == 2
 
@@ -269,22 +401,45 @@ def test_full_resolved_lookup_with_no_matching_final_row_is_no_data():
     assert demand.availability == NdmAvailability.NO_DATA
 
 
+def test_complete_cartesian_candidate_population_resolves():
+    demand = select_ndm_demand(_request(), _bundle(_resolved_rows()), _binding(), _policy())
+    expected = {
+        (combo, step, location)
+        for combo in ("FINAL_X", "FINAL_Y")
+        for step in ("Max", "Min")
+        for location in ("Top", "Bottom")
+    }
+    actual = {(item.final_combination_id, item.step_type, item.location) for item in demand.trace.candidate_rows}
+    assert demand.availability == NdmAvailability.RESOLVED
+    assert actual == expected
+
+
+def test_cartesian_population_missing_exactly_one_cell_is_no_data_even_when_unions_are_complete():
+    rows = [
+        row for row in _resolved_rows()
+        if not (row.get("OutputCase") == "FINAL_Y" and row.get("StepType") == "Min" and row.get("Location") == "Bottom")
+    ]
+    demand = select_ndm_demand(_request(), _bundle(rows), _binding(), _policy())
+    assert demand.availability == NdmAvailability.NO_DATA
+    assert "FINAL_Y/Min/Bottom" in str(demand.trace.reason)
+
+
 def test_full_lookup_missing_one_reviewed_final_combination_is_no_data():
     rows = [row for row in _resolved_rows() if row.get("OutputCase") != "FINAL_Y"]
     demand = select_ndm_demand(_request(), _bundle(rows), _binding(), _policy())
     assert demand.availability == NdmAvailability.NO_DATA
-    assert "final combinations=FINAL_Y" in str(demand.trace.reason)
+    assert "FINAL_Y/Max/Top" in str(demand.trace.reason)
 
 
-def test_full_lookup_missing_reviewed_step_or_location_dimension_is_no_data():
+def test_full_lookup_missing_reviewed_step_or_location_cells_is_no_data():
     no_min = [row for row in _resolved_rows() if row.get("StepType") != "Min"]
     min_demand = select_ndm_demand(_request(), _bundle(no_min), _binding(), _policy())
     assert min_demand.availability == NdmAvailability.NO_DATA
-    assert "StepTypes=Min" in str(min_demand.trace.reason)
+    assert "/Min/" in str(min_demand.trace.reason)
     no_bottom = [row for row in _resolved_rows() if row.get("Location") != "Bottom"]
     bottom_demand = select_ndm_demand(_request(), _bundle(no_bottom), _binding(), _policy())
     assert bottom_demand.availability == NdmAvailability.NO_DATA
-    assert "Locations=Bottom" in str(bottom_demand.trace.reason)
+    assert "/Bottom" in str(bottom_demand.trace.reason)
 
 
 def test_selection_result_has_availability_not_regulatory_verdict_or_ratio():
@@ -316,8 +471,8 @@ def _fv(name, value, unit="", role="GEOMETRY"):
     return FeatureValue(feature_name=name, value=value, unit=unit, semantic_role=role, status=FeatureValueStatus.RESOLVED, evidence=[ev])
 
 
-def _snapshot():
-    return FeatureSnapshot(component_type="wall", component_id="W1", identity={"story": "L1", "assigned_wall_property": "WALL-P1"}, features={
+def _snapshot(component_id="W1", story="L1"):
+    return FeatureSnapshot(component_type="wall", component_id=component_id, identity={"story": story, "assigned_wall_property": "WALL-P1"}, features={
         "wall_thickness_mm": _fv("wall_thickness_mm", 300.0, "mm"), "story_height_mm": _fv("story_height_mm", 3200.0, "mm"),
         "wall_body_classification": _fv("wall_body_classification", "RECTANGULAR_BODY", role="GEOMETRY_CLASSIFICATION"),
         "wall_is_basement": _fv("wall_is_basement", False, role="REGULATORY_LOCATION"), "concrete_fck_mpa": _fv("concrete_fck_mpa", 35.0, "MPa", "DESIGN_BASIS"),
@@ -325,7 +480,13 @@ def _snapshot():
 
 
 def _execution(rows):
-    return WallExecutionEvidence(result_bundles={"pier_forces": _bundle(rows)}, wall_to_pier={"W1": "P1"}, ndm_load_binding=_binding(), ndm_policy=_policy(), net_section_topology_by_component={"W1": {"topology_verified": True, "section_semantics_verified": True, "gross_cross_section_area_mm2": 300_000.0, "openings": []}})
+    return WallExecutionEvidence(
+        result_bundles={"pier_forces": _bundle(rows)},
+        wall_to_pier={"W1": "P1"},
+        ndm_load_binding=_binding(),
+        ndm_policies_by_component_id={"W1": _policy()},
+        net_section_topology_by_component={"W1": {"topology_verified": True, "section_semantics_verified": True, "gross_cross_section_area_mm2": 300_000.0, "openings": []}},
+    )
 
 
 def test_pack_b_pipeline_materializes_ndm_before_engine_and_existing_formula_executes():
@@ -345,6 +506,57 @@ def test_pack_b_pipeline_propagates_authoritative_no_data_not_blocked():
     readiness = {item.context_name: item for item in run.coverage_rows[0].execution_context_readiness}
     assert readiness["ndm_demand"].status.value == "READY"
     assert run.check_results[0].status == CheckStatus.NO_DATA
+
+
+def test_two_walls_receive_only_their_exact_component_scoped_ndm_policy():
+    binding = _binding(final_ids=("FINAL_X",), allowed_steps=("Max",), allowed_locations=("Top",))
+    rows = [
+        *_single_cell_rows(story="L1", pier="P1"),
+        *_single_cell_rows(story="L2", pier="P2"),
+    ]
+    execution = WallExecutionEvidence(
+        result_bundles={"pier_forces": _bundle(rows)},
+        wall_to_pier={"W1": "P1", "W2": "P2"},
+        ndm_load_binding=binding,
+        ndm_policies_by_component_id={
+            "W1": _policy(q={"Q_CASE": 0.5}, target_component_id="W1", target_story="L1", target_pier="P1"),
+            "W2": _policy(q={"Q_CASE": 0.25}, target_component_id="W2", target_story="L2", target_pier="P2"),
+        },
+        net_section_topology_by_component={
+            "W1": {"topology_verified": True, "section_semantics_verified": True, "gross_cross_section_area_mm2": 300_000.0, "openings": []},
+            "W2": {"topology_verified": True, "section_semantics_verified": True, "gross_cross_section_area_mm2": 300_000.0, "openings": []},
+        },
+    )
+    run = run_wall_checks(
+        _Bundle(), [_snapshot("W1", "L1"), _snapshot("W2", "L2")],
+        [WALL_NET_SECTION_AXIAL_CAPACITY], execution_evidence=execution,
+    )
+    demands = {item.component_id: item.execution_context.values["ndm_demand"].value for item in run.check_inputs}
+    assert demands["W1"] == pytest.approx(82_000.0)
+    assert demands["W2"] == pytest.approx(77_000.0)
+    with pytest.raises(TypeError):
+        execution.ndm_policies_by_component_id["W3"] = _policy(target_component_id="W3")
+
+
+def test_missing_per_component_policy_blocks_wall_execution():
+    binding = _binding(final_ids=("FINAL_X",), allowed_steps=("Max",), allowed_locations=("Top",))
+    execution = WallExecutionEvidence(
+        result_bundles={"pier_forces": _bundle(_single_cell_rows())},
+        wall_to_pier={"W1": "P1"},
+        ndm_load_binding=binding,
+        ndm_policies_by_component_id={},
+        net_section_topology_by_component={"W1": {"topology_verified": True, "section_semantics_verified": True, "gross_cross_section_area_mm2": 300_000.0, "openings": []}},
+    )
+    run = run_wall_checks(_Bundle(), [_snapshot()], [WALL_NET_SECTION_AXIAL_CAPACITY], execution_evidence=execution)
+    readiness = {item.context_name: item for item in run.coverage_rows[0].execution_context_readiness}
+    assert readiness["ndm_demand"].status.value == "BLOCKED"
+    assert run.check_results[0].status == CheckStatus.BLOCKED
+    assert "Reviewed Ndm policy is missing" in run.check_results[0].messages[0]
+
+
+def test_policy_mapping_key_must_equal_policy_target_component_id():
+    with pytest.raises(ValueError, match="mapping key"):
+        WallExecutionEvidence(ndm_policies_by_component_id={"W2": _policy(target_component_id="W1")})
 
 
 def test_ndm_selector_does_not_duplicate_wall_capacity_formula():
