@@ -1,13 +1,14 @@
 """Canonical factual evidence for wall critical-height/end-region checks.
 
-This module carries source-proven geometry/topology facts only. It does not
-calculate Hw, Hcr, Hw/lw applicability, critical-region membership, or verdicts.
+This module carries source-proven component facts plus one typed run-level
+regulatory reference context. It does not calculate Hw, Hcr, Hw/lw
+applicability, critical-region membership, or verdicts.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Any, Mapping, Sequence
+from typing import Any, Mapping
 
 
 def _positive(name: str, value: Any) -> float:
@@ -56,7 +57,7 @@ class WallStoryGeometryEvidence:
 
 @dataclass(frozen=True, slots=True)
 class WallRegulatoryReferenceFacts:
-    """Factual levels and rigid-basement conditions used later by CheckEngine."""
+    """Single run-level regulatory reference truth shared by all walls in a run."""
 
     foundation_top_elevation_mm: float | None
     ground_floor_elevation_mm: float | None
@@ -77,6 +78,16 @@ class WallRegulatoryReferenceFacts:
         if self.first_basement_story_height_mm is not None:
             object.__setattr__(self, "first_basement_story_height_mm", _positive("first_basement_story_height_mm", self.first_basement_story_height_mm))
         object.__setattr__(self, "source_refs", tuple(str(ref) for ref in self.source_refs if str(ref).strip()))
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "foundation_top_elevation_mm": self.foundation_top_elevation_mm,
+            "ground_floor_elevation_mm": self.ground_floor_elevation_mm,
+            "rigid_basement_perimeter_walls": self.rigid_basement_perimeter_walls,
+            "rigid_basement_diaphragm": self.rigid_basement_diaphragm,
+            "first_basement_story_height_mm": self.first_basement_story_height_mm,
+            "source_refs": list(self.source_refs),
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,22 +116,27 @@ class WallEndRegionStoryEvidence:
         object.__setattr__(self, "source_refs", tuple(str(ref) for ref in self.source_refs if str(ref).strip()))
 
 
+_ALLOWED_SECTION_SHAPES = frozenset({"RECTANGULAR", "L", "T", "U", "OTHER_NON_RECTANGULAR"})
+
+
 @dataclass(frozen=True, slots=True)
 class WallCriticalHeightFactualEvidence:
-    """Full factual execution-evidence bundle for §7.6.2 checks.
+    """Per-wall factual execution evidence for §7.6.2 checks.
 
-    Proof booleans describe acquisition/completeness only. They are not
-    applicability or engineering-result booleans.
+    Proof booleans describe acquisition/completeness only. Regulatory reference
+    truth is deliberately absent: it is supplied once at run/system grain via
+    WallExecutionEvidence. Section shape is a factual classification, not an
+    engineering applicability boolean.
     """
 
     component_id: str
     story_geometry: tuple[WallStoryGeometryEvidence, ...]
     vertical_continuity_proven: bool | None
     section_reduction_evidence_complete: bool | None
-    reference_facts: WallRegulatoryReferenceFacts | None = None
+    wall_section_shape: str | None = None
+    wall_section_shape_source_refs: tuple[str, ...] = ()
     end_region_geometry: tuple[WallEndRegionStoryEvidence, ...] = ()
     end_region_topology_proven: bool | None = None
-    source_contract_status: str = "VERIFIED_LIVE"
     source_refs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -136,19 +152,27 @@ class WallCriticalHeightFactualEvidence:
             value = getattr(self, name)
             if value is not None and not isinstance(value, bool):
                 raise TypeError(f"{name} must be bool or None")
-        if self.reference_facts is not None and not isinstance(self.reference_facts, WallRegulatoryReferenceFacts):
-            raise TypeError("reference_facts must be WallRegulatoryReferenceFacts or None")
+        shape = self.wall_section_shape
+        if shape is not None:
+            if not isinstance(shape, str) or not shape.strip():
+                raise TypeError("wall_section_shape must be a nonblank string or None")
+            shape = shape.strip().upper()
+            if shape not in _ALLOWED_SECTION_SHAPES:
+                raise ValueError("wall_section_shape must be an allowed factual shape classification")
+        shape_refs = tuple(str(ref) for ref in self.wall_section_shape_source_refs if str(ref).strip())
+        if shape is not None and not shape_refs:
+            raise ValueError("Proven wall section shape requires wall_section_shape_source_refs")
         end_rows = tuple(self.end_region_geometry)
         if any(not isinstance(row, WallEndRegionStoryEvidence) for row in end_rows):
             raise TypeError("end_region_geometry must contain WallEndRegionStoryEvidence")
         if len({row.story for row in end_rows}) != len(end_rows):
             raise ValueError("end_region_geometry must contain unique story identities")
-        if self.source_contract_status != "VERIFIED_LIVE":
-            raise ValueError("Pack C executable factual bundle requires VERIFIED_LIVE source contract status")
         refs = tuple(str(ref) for ref in self.source_refs if str(ref).strip())
         if (self.vertical_continuity_proven is True or self.section_reduction_evidence_complete is True or self.end_region_topology_proven is True) and not refs:
-            raise ValueError("Proven Pack C factual bundle requires source_refs")
+            raise ValueError("Proven Pack C component facts require source_refs")
         object.__setattr__(self, "story_geometry", geometry)
+        object.__setattr__(self, "wall_section_shape", shape)
+        object.__setattr__(self, "wall_section_shape_source_refs", shape_refs)
         object.__setattr__(self, "end_region_geometry", end_rows)
         object.__setattr__(self, "source_refs", refs)
 
@@ -172,10 +196,10 @@ class WallCriticalHeightFactualEvidence:
             ],
             "vertical_continuity_proven": self.vertical_continuity_proven,
             "section_reduction_evidence_complete": self.section_reduction_evidence_complete,
-            "reference_facts_present": self.reference_facts is not None,
+            "wall_section_shape": self.wall_section_shape,
+            "wall_section_shape_source_refs": list(self.wall_section_shape_source_refs),
             "end_region_topology_proven": self.end_region_topology_proven,
             "end_region_story_count": len(self.end_region_geometry),
-            "source_contract_status": self.source_contract_status,
             "source_refs": list(self.source_refs),
             "derived_hw_hcr": None,
         }
