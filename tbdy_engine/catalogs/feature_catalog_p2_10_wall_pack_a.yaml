@@ -1,0 +1,74 @@
+metadata:
+  contract: P2.10 Wall Check Pack A canonical context facts
+  catalog_name: feature_catalog_p2_10_wall_pack_a
+  status: wall_context_overlay
+  notes:
+    - Existing wall_thickness_mm, wall_length_mm and story_height_mm are intentionally not redefined here.
+    - These facts carry applicability/topology evidence only; they do not contain TBDY decisions.
+features:
+  wall_is_basement:
+    element_type: wall
+    type: bool
+    unit: ''
+    semantic_role: APPLICABILITY
+    availability: {status: partial, confidence: medium}
+    source: {table_key: null, field_aliases: [], filters: [], combo_family: NONE, aggregation: none}
+    unit_policy: {source_unit: unitless, target_unit: unitless, conversion: none}
+    fallback: {allowed: false, method: none, warning: Regulatory location applicability must be established canonically.}
+    semantics: {source_level: CANONICAL_CONTEXT, provided_rebar_verified: not_applicable, notes: Property names are not regulatory truth.}
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit]
+  wall_body_classification:
+    element_type: wall
+    type: string
+    unit: ''
+    semantic_role: GEOMETRY_CLASSIFICATION
+    availability: {status: partial, confidence: medium}
+    source: {table_key: null, field_aliases: [], filters: [], combo_family: NONE, aggregation: none}
+    unit_policy: {source_unit: unitless, target_unit: unitless, conversion: none}
+    fallback: {allowed: false, method: none, warning: Wall body classification must be established canonically.}
+    semantics: {source_level: CANONICAL_CONTEXT, provided_rebar_verified: not_applicable, notes: No property-name inference.}
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit]
+  wall_special_branch_7_6_1_3_applies:
+    element_type: wall
+    type: bool
+    unit: ''
+    semantic_role: APPLICABILITY
+    availability: {status: partial, confidence: medium}
+    source: {table_key: null, field_aliases: [], filters: [], combo_family: NONE, aggregation: none}
+    unit_policy: {source_unit: unitless, target_unit: unitless, conversion: none}
+    fallback: {allowed: false, method: none, warning: §7.6.1.3 applicability must be established; unknown blocks §7.6.1.2(a).}
+    semantics: {source_level: CANONICAL_CONTEXT, provided_rebar_verified: not_applicable, notes: §7.6.1.3 itself is outside Pack A.}
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit]
+  unrestrained_plan_length_mm:
+    element_type: wall
+    type: float
+    unit: mm
+    semantic_role: GEOMETRY
+    availability: {status: partial, confidence: medium}
+    source: {table_key: null, field_aliases: [], filters: [], combo_family: NONE, aggregation: none}
+    unit_policy: {source_unit: mm, target_unit: mm, conversion: none}
+    fallback: {allowed: false, method: none, warning: Do not substitute total wall length for unrestrained plan length.}
+    semantics: {source_level: CANONICAL_CONTEXT, provided_rebar_verified: not_applicable, notes: Requires established topology/restraint evidence.}
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit]
+  wall_geometry_classification:
+    element_type: wall
+    type: string
+    unit: ''
+    semantic_role: GEOMETRY_CLASSIFICATION
+    availability: {status: partial, confidence: medium}
+    source: {table_key: null, field_aliases: [], filters: [], combo_family: NONE, aggregation: none}
+    unit_policy: {source_unit: unitless, target_unit: unitless, conversion: none}
+    fallback: {allowed: false, method: none, warning: Rectangular-wall or wall-leg classification must be established canonically.}
+    semantics: {source_level: CANONICAL_CONTEXT, provided_rebar_verified: not_applicable, notes: Fact only.}
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit]
+  wall_both_ends_laterally_restrained:
+    element_type: wall
+    type: bool
+    unit: ''
+    semantic_role: TOPOLOGY
+    availability: {status: partial, confidence: medium}
+    source: {table_key: null, field_aliases: [], filters: [], combo_family: NONE, aggregation: none}
+    unit_policy: {source_unit: unitless, target_unit: unitless, conversion: none}
+    fallback: {allowed: false, method: none, warning: Both-ends lateral restraint must be established from topology evidence.}
+    semantics: {source_level: CANONICAL_CONTEXT, provided_rebar_verified: not_applicable, notes: Unknown restraint blocks §7.6.1.2(c).}
+    evidence_fields: [source_table, source_row, source_column, raw_value, normalized_value, unit]
