@@ -7,7 +7,6 @@ on:
   push:
     branches:
       - main
-      - sprint/p2-10-wall-check-pack-a
 
 jobs:
   offline-acceptance:
