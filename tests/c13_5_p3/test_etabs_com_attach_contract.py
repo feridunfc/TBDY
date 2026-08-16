@@ -76,8 +76,10 @@ def test_attach_module_has_no_top_level_com_imports():
     assert '"comtypes.client"' in source
     assert '"win32com.client"' in source
 
+
 def test_attach_strategies_are_bounded_and_ordered():
     assert ATTACH_STRATEGIES == (
+        "comtypes_create_helper_get_object_process",
         "comtypes_get_active_object_etabs_api_object",
         "comtypes_create_helper_get_object",
         "win32com_get_active_object_etabs_api_object",

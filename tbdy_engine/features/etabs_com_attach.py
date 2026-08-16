@@ -17,7 +17,9 @@ ATTEMPT_STATUS_SUCCESS = "SUCCESS"
 ATTEMPT_STATUS_FAILED = "FAILED"
 ATTEMPT_STATUS_SKIPPED = "SKIPPED"
 
+STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS = "comtypes_create_helper_get_object_process"
 ATTACH_STRATEGIES: tuple[str, ...] = (
+    STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS,
     "comtypes_get_active_object_etabs_api_object",
     "comtypes_create_helper_get_object",
     "win32com_get_active_object_etabs_api_object",
@@ -33,7 +35,9 @@ _DIRECT_ETABS_PROG_IDS: tuple[str, ...] = (
 )
 _HELPER_PROG_ID = "ETABSv1.Helper"
 _ALLOWED_ATTACH_STATUSES = frozenset({ATTACH_STATUS_ATTACHED, ATTACH_STATUS_FAILED})
-_ALLOWED_ATTEMPT_STATUSES = frozenset({ATTEMPT_STATUS_SUCCESS, ATTEMPT_STATUS_FAILED, ATTEMPT_STATUS_SKIPPED})
+_ALLOWED_ATTEMPT_STATUSES = frozenset(
+    {ATTEMPT_STATUS_SUCCESS, ATTEMPT_STATUS_FAILED, ATTEMPT_STATUS_SKIPPED}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +48,7 @@ class EtabsAttachAttempt:
     exception_type: str | None = None
     hresult: str | None = None
     prog_id: str | None = None
+    pid: int | None = None
 
     def __post_init__(self) -> None:
         if self.strategy not in ATTACH_STRATEGIES:
@@ -58,6 +63,7 @@ class EtabsAttachAttempt:
             "exception_type": self.exception_type,
             "hresult": self.hresult,
             "message": self.message,
+            "pid": self.pid,
             "prog_id": self.prog_id,
             "status": self.status,
             "strategy": self.strategy,
@@ -104,11 +110,40 @@ class EtabsAttachFailure(RuntimeError):
 
 def attach_to_running_etabs(
     *,
+    pid: int | None = None,
+    allow_pid_fallback: bool = True,
     comtypes_client: Any | None = None,
     win32com_client: Any | None = None,
 ) -> EtabsAttachResult:
-    """Try bounded ETABS COM attach strategies and record every attempt."""
+    """Try bounded ETABS COM attach strategies and record every attempt.
+
+    ``allow_pid_fallback`` preserves the legacy compatibility behavior by
+    default. Canonical safety callers pass ``False``: a callable
+    Helper.GetObjectProcess failure then stops before generic active-object
+    attachment. Genuine GetObjectProcess absence still permits bounded fallback
+    because only a verified model full path can make that fallback trustworthy.
+    """
     attempts: list[EtabsAttachAttempt] = []
+
+    if pid is not None:
+        result = _try_helper_get_object_process(
+            client=comtypes_client,
+            import_module_name="comtypes.client",
+            helper_prog_id=_HELPER_PROG_ID,
+            etabs_prog_ids=_DIRECT_ETABS_PROG_IDS,
+            pid=int(pid),
+        )
+        attempts.extend(result.attempts)
+        if result.status == ATTACH_STATUS_ATTACHED:
+            return _with_attempts(result, attempts)
+        if not allow_pid_fallback and not _pid_strategy_unsupported(result):
+            return EtabsAttachResult(
+                status=ATTACH_STATUS_FAILED,
+                strategy=None,
+                etabs_object=None,
+                sap_model=None,
+                attempts=tuple(attempts),
+            )
 
     result = _try_direct_active_object(
         strategy="comtypes_get_active_object_etabs_api_object",
@@ -149,7 +184,26 @@ def attach_to_running_etabs(
     )
 
 
-def _with_attempts(result: EtabsAttachResult, attempts: Sequence[EtabsAttachAttempt]) -> EtabsAttachResult:
+def _pid_strategy_unsupported(result: EtabsAttachResult) -> bool:
+    attempts = [
+        attempt
+        for attempt in result.attempts
+        if attempt.strategy == STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS
+    ]
+    return bool(attempts) and any(
+        (
+            attempt.exception_type == "AttributeError"
+            and "GetObjectProcess" in attempt.message
+        )
+        or "GetObjectProcess was not accessible" in attempt.message
+        for attempt in attempts
+    )
+
+
+def _with_attempts(
+    result: EtabsAttachResult,
+    attempts: Sequence[EtabsAttachAttempt],
+) -> EtabsAttachResult:
     return EtabsAttachResult(
         status=result.status,
         strategy=result.strategy,
@@ -211,7 +265,103 @@ def _try_direct_active_object(
                 attempts=tuple(attempts),
             )
         except Exception as exc:
-            attempts.append(_attempt_from_exception(strategy=strategy, prog_id=prog_id, exc=exc))
+            attempts.append(
+                _attempt_from_exception(strategy=strategy, prog_id=prog_id, exc=exc)
+            )
+
+    return _failed_strategy_result(*attempts)
+
+
+def _try_helper_get_object_process(
+    *,
+    client: Any | None,
+    import_module_name: str,
+    helper_prog_id: str,
+    etabs_prog_ids: Sequence[str],
+    pid: int,
+) -> EtabsAttachResult:
+    strategy = STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS
+    attempts: list[EtabsAttachAttempt] = []
+    try:
+        resolved_client = client if client is not None else importlib.import_module(import_module_name)
+    except Exception as exc:
+        return _failed_strategy_result(
+            EtabsAttachAttempt(
+                strategy=strategy,
+                prog_id=helper_prog_id,
+                pid=pid,
+                status=ATTEMPT_STATUS_FAILED,
+                message=_exception_message(exc),
+                exception_type=type(exc).__name__,
+                hresult=_exception_hresult(exc),
+            )
+        )
+
+    try:
+        helper = resolved_client.CreateObject(helper_prog_id)
+    except Exception as exc:
+        return _failed_strategy_result(
+            _attempt_from_exception(
+                strategy=strategy,
+                prog_id=helper_prog_id,
+                pid=pid,
+                exc=exc,
+            )
+        )
+
+    get_object_process = getattr(helper, "GetObjectProcess", None)
+    if not callable(get_object_process):
+        return _failed_strategy_result(
+            EtabsAttachAttempt(
+                strategy=strategy,
+                prog_id=helper_prog_id,
+                pid=pid,
+                status=ATTEMPT_STATUS_FAILED,
+                message="ETABS helper object was returned but GetObjectProcess was not accessible.",
+                exception_type="AttributeError",
+            )
+        )
+
+    for prog_id in etabs_prog_ids:
+        try:
+            etabs_object = get_object_process(prog_id, pid)
+            sap_model = _sap_model_from(etabs_object)
+            if sap_model is None:
+                attempts.append(
+                    EtabsAttachAttempt(
+                        strategy=strategy,
+                        prog_id=prog_id,
+                        pid=pid,
+                        status=ATTEMPT_STATUS_FAILED,
+                        message="ETABS helper returned a process object but SapModel was not accessible.",
+                    )
+                )
+                continue
+            attempts.append(
+                EtabsAttachAttempt(
+                    strategy=strategy,
+                    prog_id=prog_id,
+                    pid=pid,
+                    status=ATTEMPT_STATUS_SUCCESS,
+                    message="ETABS helper returned the requested process object and SapModel.",
+                )
+            )
+            return EtabsAttachResult(
+                status=ATTACH_STATUS_ATTACHED,
+                strategy=strategy,
+                etabs_object=etabs_object,
+                sap_model=sap_model,
+                attempts=tuple(attempts),
+            )
+        except Exception as exc:
+            attempts.append(
+                _attempt_from_exception(
+                    strategy=strategy,
+                    prog_id=prog_id,
+                    pid=pid,
+                    exc=exc,
+                )
+            )
 
     return _failed_strategy_result(*attempts)
 
@@ -242,10 +392,12 @@ def _try_helper_get_object(
     try:
         helper = resolved_client.CreateObject(helper_prog_id)
     except Exception as exc:
-        return _failed_strategy_result(_attempt_from_exception(strategy=strategy, prog_id=helper_prog_id, exc=exc))
+        return _failed_strategy_result(
+            _attempt_from_exception(strategy=strategy, prog_id=helper_prog_id, exc=exc)
+        )
 
     get_object = getattr(helper, "GetObject", None)
-    if get_object is None:
+    if not callable(get_object):
         return _failed_strategy_result(
             EtabsAttachAttempt(
                 strategy=strategy,
@@ -285,7 +437,9 @@ def _try_helper_get_object(
                 attempts=tuple(attempts),
             )
         except Exception as exc:
-            attempts.append(_attempt_from_exception(strategy=strategy, prog_id=prog_id, exc=exc))
+            attempts.append(
+                _attempt_from_exception(strategy=strategy, prog_id=prog_id, exc=exc)
+            )
 
     return _failed_strategy_result(*attempts)
 
@@ -300,10 +454,17 @@ def _failed_strategy_result(*attempts: EtabsAttachAttempt) -> EtabsAttachResult:
     )
 
 
-def _attempt_from_exception(*, strategy: str, prog_id: str | None, exc: Exception) -> EtabsAttachAttempt:
+def _attempt_from_exception(
+    *,
+    strategy: str,
+    prog_id: str | None,
+    exc: Exception,
+    pid: int | None = None,
+) -> EtabsAttachAttempt:
     return EtabsAttachAttempt(
         strategy=strategy,
         prog_id=prog_id,
+        pid=pid,
         status=ATTEMPT_STATUS_FAILED,
         message=_exception_message(exc),
         exception_type=type(exc).__name__,
@@ -313,10 +474,9 @@ def _attempt_from_exception(*, strategy: str, prog_id: str | None, exc: Exceptio
 
 def _sap_model_from(etabs_object: Any) -> Any | None:
     try:
-        sap_model = getattr(etabs_object, "SapModel")
+        return getattr(etabs_object, "SapModel")
     except Exception:
         return None
-    return sap_model
 
 
 def _exception_hresult(exc: Exception) -> str | None:
@@ -341,6 +501,7 @@ def _exception_message(exc: Exception) -> str:
 __all__ = [
     "ATTACH_STRATEGIES",
     "CANDIDATE_PROG_IDS",
+    "STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS",
     "EtabsAttachAttempt",
     "EtabsAttachFailure",
     "EtabsAttachResult",

@@ -4,6 +4,8 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, Optional
 
+from tbdy_engine.etabs.safety import read_etabs_unit_snapshot
+
 
 TARGET_ETABS_EUNITS = 6  # kN_m_C
 
@@ -33,11 +35,11 @@ def _class_from_concrete_name(name: Any) -> Optional[float]:
 
 
 def normalize_stress_to_mpa(value: Any, fallback_class: Any = None) -> Optional[float]:
-    """
-    35     -> 35 MPa
-    35000  -> 35 MPa
-    0.035  -> 35 MPa
-    0.03   -> 30 MPa
+    """Legacy design-basis normalization helper; not an ETABS acquisition unit detector.
+
+    This function is retained for compatibility with existing domain callers.
+    Canonical ETABS acquisition uses explicit unit provenance and must not infer
+    ETABS source units from numeric magnitude.
     """
     try:
         x = float(value)
@@ -59,7 +61,12 @@ def normalize_stress_to_mpa(value: Any, fallback_class: Any = None) -> Optional[
 
 
 def set_etabs_units_kn_m(sap_model: Any) -> Dict[str, Any]:
+    """Compatibility-only mutating API.
+
+    Canonical ETABS acquisition must use :func:`read_etabs_units` instead.
+    """
     info = dict(UNIT_SYSTEM_KN_M_MPA)
+    info["compatibility_only"] = True
     info["set_present_units_attempted"] = False
     info["set_present_units_ret"] = None
     info["actual_present_units_enum"] = None
@@ -87,6 +94,22 @@ def set_etabs_units_kn_m(sap_model: Any) -> Dict[str, Any]:
     except Exception as exc:
         info["get_present_units_error"] = f"{type(exc).__name__}: {exc}"
 
+    return info
+
+
+def read_etabs_units(sap_model: Any) -> Dict[str, Any]:
+    """Canonical read-only ETABS unit provenance."""
+    info = dict(UNIT_SYSTEM_KN_M_MPA)
+    info["source"] = "ETABS_READ_ONLY"
+    info["compatibility_only"] = False
+    info["set_present_units_attempted"] = False
+    if sap_model is None:
+        info["source"] = "NO_SAP_MODEL"
+        return info
+    snapshot = read_etabs_unit_snapshot(sap_model)
+    info["etabs_unit_provenance"] = snapshot.as_dict()
+    info["actual_present_units_enum"] = snapshot.present_units
+    info["actual_database_units_enum"] = snapshot.database_units
     return info
 
 
@@ -139,8 +162,12 @@ def normalize_design_basis_units(ctx: Any) -> Any:
     return ctx
 
 
-def attach_unit_context(ctx: Any, sap_model: Any = None, set_units: bool = True) -> Any:
-    unit_info = set_etabs_units_kn_m(sap_model) if set_units else dict(UNIT_SYSTEM_KN_M_MPA)
+def attach_unit_context(ctx: Any, sap_model: Any = None, set_units: bool = False) -> Any:
+    """Attach unit context without mutating ETABS by default.
+
+    ``set_units=True`` is an explicit legacy compatibility opt-in only.
+    """
+    unit_info = set_etabs_units_kn_m(sap_model) if set_units else read_etabs_units(sap_model)
     setattr(ctx, "unit_system", unit_info)
 
     if not hasattr(ctx, "design_basis") or ctx.design_basis is None:
