@@ -1,8 +1,9 @@
-"""Unit metadata helpers for the C13.3-P0 FeatureSnapshot proof.
+"""Feature-layer unit metadata and explicit canonical normalization helpers.
 
-This module is intentionally feature-layer only.  It preserves raw source unit
-context and produces labelled normalized display values without unlocking any
-engineering check.
+Raw source-unit context is preserved as evidence. Production normalization is
+allowed only from explicit, trusted UnitContext values; engineering checks must
+consume already-normalized canonical facts and must never infer units from
+numeric magnitude.
 """
 from __future__ import annotations
 
@@ -59,10 +60,9 @@ def default_unit_for(quantity_kind: str) -> str:
 def normalize_value(raw_value: Any, *, raw_unit: str | None, quantity_kind: str) -> UnitNormalization:
     """Return labelled raw+normalized unit metadata.
 
-    The C13.3-P0 proof does not know ETABS model units independently; therefore it
-    only converts when the raw unit is explicit and the conversion is lossless for
-    display.  Otherwise the raw value is preserved and the normalized unit is the
-    declared default display unit when the raw unit already matches it.
+    This generic helper converts only when the raw unit is explicit and a known
+    lossless display conversion exists. Production fact resolvers that require a
+    trusted source-unit basis must validate UnitContext before calling it.
     """
     normalized_unit = default_unit_for(quantity_kind)
     raw_unit_text = raw_unit or normalized_unit
