@@ -1,10 +1,16 @@
 """Pack A compatibility wrapper over the single reusable wall-check pipeline."""
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from typing import Sequence
 
 from tbdy_engine.checks.wall_pack_a_contract import PACK_A_CHECK_IDS
-from tbdy_engine.checks.wall_pipeline import WallCheckRun, build_wall_check_input, run_wall_checks, wall_coverage_builder
+from tbdy_engine.checks.wall_pipeline import (
+    WallCheckRun,
+    WallExecutionEvidence,
+    build_wall_check_input,
+    run_wall_checks,
+    wall_coverage_builder,
+)
 from tbdy_engine.contracts.models import ContractBundle
 from tbdy_engine.features.snapshot import FeatureSnapshot
 
@@ -17,13 +23,13 @@ def run_wall_check_pack_a(
     contract_bundle: ContractBundle,
     snapshots: Sequence[FeatureSnapshot],
     *,
-    engineering_context: Mapping[str, Any] | None = None,
+    execution_evidence: WallExecutionEvidence | None = None,
 ) -> WallPackARun:
     return run_wall_checks(
         contract_bundle,
         snapshots,
         PACK_A_CHECK_IDS,
-        engineering_context=engineering_context,
+        execution_evidence=execution_evidence,
     )
 
 
