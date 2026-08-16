@@ -787,34 +787,93 @@ def _require_methods(
         )
 
 
-def _read_selected_names(obj: Any, getter_name: str) -> tuple[str, ...]:
+def _decode_database_selected_names(
+    raw: Any,
+    getter_name: str,
+    *,
+    error_code: EtabsSafetyErrorCode,
+) -> tuple[str, ...]:
+    """Decode ETABS DatabaseTables selected-name getters by authoritative count.
+
+    ETABS/comtypes may return a SAFEARRAY whose tail retains old capacity and is
+    padded with ``None`` after a singleton selection. Only ``payload[:count]``
+    is authoritative. The padded tail is never inferred as selected state.
+    """
+    if not isinstance(raw, (tuple, list)) or len(raw) < 3:
+        raise EtabsCapabilityError(
+            f"{getter_name} did not return [count, payload, return_code].",
+            code=error_code,
+            details={"raw_type": type(raw).__name__},
+        )
+
+    code = _return_code(raw)
+    if code != 0:
+        raise EtabsCapabilityError(
+            f"{getter_name} returned {code}.",
+            code=error_code,
+            details={"api_return_code": code},
+        )
+
+    count = _coerce_int(raw[0])
+    if count is None or count < 0:
+        raise EtabsCapabilityError(
+            f"{getter_name} returned an invalid selected-name count.",
+            code=error_code,
+            details={"selected_count": raw[0]},
+        )
+
+    payload = raw[1]
+    if not isinstance(payload, (tuple, list)):
+        raise EtabsCapabilityError(
+            f"{getter_name} did not return an indexable selected-name payload.",
+            code=error_code,
+            details={"selected_count": count, "payload_type": type(payload).__name__},
+        )
+    if len(payload) < count:
+        raise EtabsCapabilityError(
+            f"{getter_name} selected-name payload is shorter than its authoritative count.",
+            code=error_code,
+            details={"selected_count": count, "payload_length": len(payload)},
+        )
+
+    prefix = payload[:count]
+    invalid_positions = [
+        index
+        for index, value in enumerate(prefix)
+        if not isinstance(value, str) or not value.strip()
+    ]
+    if invalid_positions:
+        raise EtabsCapabilityError(
+            f"{getter_name} authoritative selected-name prefix is invalid.",
+            code=error_code,
+            details={
+                "selected_count": count,
+                "invalid_prefix_positions": invalid_positions,
+            },
+        )
+    return tuple(prefix)
+
+
+def _read_selected_names(
+    obj: Any,
+    getter_name: str,
+    *,
+    error_code: EtabsSafetyErrorCode = EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+) -> tuple[str, ...]:
     getter = _safe_attr(obj, getter_name)
     if not callable(getter):
         raise EtabsCapabilityError(
             f"{getter_name} is required before selection mutation.",
-            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+            code=error_code,
         )
     try:
         raw = getter()
     except Exception as exc:
         raise EtabsCapabilityError(
             f"{getter_name} failed before mutation: {exc}",
-            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+            code=error_code,
         ) from exc
-    code = _return_code(raw)
-    if code not in (None, 0):
-        raise EtabsCapabilityError(
-            f"{getter_name} returned {code} before mutation.",
-            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
-            details={"api_return_code": code},
-        )
-    values = _extract_string_sequence(raw)
-    if values is None:
-        raise EtabsCapabilityError(
-            f"{getter_name} did not expose an exact selected-name list.",
-            code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
-        )
-    return values
+    return _decode_database_selected_names(raw, getter_name, error_code=error_code)
 
 
 def _set_selected_names(
@@ -939,46 +998,73 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
             _PROCESS_LOCAL_ACQUISITION_LOCK.release()
             raise
 
-    def _current_core_selection(self) -> tuple[tuple[str, ...], tuple[str, ...]]:
-        cases = _read_selected_names(self.database_tables, "GetLoadCasesSelectedForDisplay")
+    def _current_core_selection(
+        self,
+        *,
+        error_code: EtabsSafetyErrorCode,
+    ) -> tuple[tuple[str, ...], tuple[str, ...]]:
+        cases = _read_selected_names(
+            self.database_tables,
+            "GetLoadCasesSelectedForDisplay",
+            error_code=error_code,
+        )
         combos = _read_selected_names(
-            self.database_tables, "GetLoadCombinationsSelectedForDisplay"
+            self.database_tables,
+            "GetLoadCombinationsSelectedForDisplay",
+            error_code=error_code,
         )
         return cases, combos
 
     def _set_core_exact(
         self,
         *,
+        target_kind: str,
         cases: Sequence[str],
         combos: Sequence[str],
         set_error_code: EtabsSafetyErrorCode,
         verify_error_code: EtabsSafetyErrorCode,
         phase: str,
     ) -> tuple[tuple[str, ...], tuple[str, ...]]:
-        _set_selected_names(
-            self.database_tables,
-            "SetLoadCasesSelectedForDisplay",
-            cases,
-            error_code=set_error_code,
+        if target_kind == "case":
+            _set_selected_names(
+                self.database_tables,
+                "SetLoadCasesSelectedForDisplay",
+                cases,
+                error_code=set_error_code,
+            )
+        elif target_kind == "combo":
+            _set_selected_names(
+                self.database_tables,
+                "SetLoadCombinationsSelectedForDisplay",
+                combos,
+                error_code=set_error_code,
+            )
+        else:
+            raise EtabsStateVerificationError(
+                f"Unsupported DatabaseTables target kind {target_kind!r}.",
+                code=set_error_code,
+            )
+
+        current_cases, current_combos = self._current_core_selection(
+            error_code=verify_error_code
         )
-        _set_selected_names(
-            self.database_tables,
-            "SetLoadCombinationsSelectedForDisplay",
-            combos,
-            error_code=set_error_code,
-        )
-        current_cases, current_combos = self._current_core_selection()
-        verified = (
-            _selection_equal_exact(current_cases, cases)
-            and _selection_equal_exact(current_combos, combos)
-        )
+        cases_verified = _selection_equal_exact(current_cases, cases)
+        combos_verified = _selection_equal_exact(current_combos, combos)
+        verified = cases_verified and combos_verified
         self.diagnostics.append({
             "phase": phase,
+            "target_kind": target_kind,
             "requested_cases": list(cases),
             "requested_combos": list(combos),
             "actual_cases": list(current_cases),
             "actual_combos": list(current_combos),
+            "temporary_cases_verified_exact": cases_verified,
+            "temporary_combos_verified_exact": combos_verified,
             "verified_exact": verified,
+            "opposite_domain_preserved": (
+                combos_verified if target_kind == "case" else cases_verified
+            ),
+            "selection_scope": "VERIFIED_SUPERSET_SELECTION",
             "error_code": None if verified else verify_error_code.value,
             "mutation_kind": self.mutation_kind.value,
         })
@@ -987,10 +1073,13 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
                 "ETABS DatabaseTables temporary selection did not verify exactly.",
                 code=verify_error_code,
                 details={
+                    "target_kind": target_kind,
                     "requested_cases": list(cases),
                     "requested_combos": list(combos),
                     "actual_cases": list(current_cases),
                     "actual_combos": list(current_combos),
+                    "temporary_cases_verified_exact": cases_verified,
+                    "temporary_combos_verified_exact": combos_verified,
                 },
             )
         return current_cases, current_combos
@@ -1029,7 +1118,9 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
             ) from exc
 
         try:
-            restored_cases, restored_combos = self._current_core_selection()
+            restored_cases, restored_combos = self._current_core_selection(
+                error_code=EtabsSafetyErrorCode.STATE_RESTORE_VERIFY_FAILED
+            )
         except EtabsSafetyError as exc:
             self.diagnostics.append({
                 "phase": phase,
@@ -1081,8 +1172,8 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
         attempts: list[dict[str, Any]] = []
 
         def attempt(kind: str) -> tuple[bool, EtabsSafetyError | None]:
-            cases = () if kind == "combo" else (name,)
-            combos = (name,) if kind == "combo" else ()
+            cases = self.snapshot.cases if kind == "combo" else (name,)
+            combos = (name,) if kind == "combo" else self.snapshot.combos
             setter_name = (
                 "SetLoadCombinationsSelectedForDisplay"
                 if kind == "combo"
@@ -1090,6 +1181,7 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
             )
             try:
                 current_cases, current_combos = self._set_core_exact(
+                    target_kind=kind,
                     cases=cases,
                     combos=combos,
                     set_error_code=EtabsSafetyErrorCode.TEMPORARY_STATE_SET_FAILED,
@@ -1098,10 +1190,16 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
                 )
                 attempts.append({
                     "kind": kind,
+                    "target_name": name,
                     "method": setter_name,
                     "verified": True,
                     "selected_cases_after": list(current_cases),
                     "selected_combos_after": list(current_combos),
+                    "temporary_cases_exact": list(cases),
+                    "temporary_combos_exact": list(combos),
+                    "opposite_domain_preserved": True,
+                    "temporary_state_verified_exact": True,
+                    "selection_scope": "VERIFIED_SUPERSET_SELECTION",
                     "error_code": None,
                     "mutation_kind": self.mutation_kind.value,
                 })
@@ -1109,6 +1207,7 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
             except EtabsSafetyError as exc:
                 attempts.append({
                     "kind": kind,
+                    "target_name": name,
                     "method": setter_name,
                     "verified": False,
                     "exception_type": type(exc).__name__,
@@ -1141,9 +1240,13 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
             if selected_kind == "combo"
             else "SetLoadCasesSelectedForDisplay"
         )
+        temporary_cases = self.snapshot.cases if selected_kind == "combo" else (name,)
+        temporary_combos = (name,) if selected_kind == "combo" else self.snapshot.combos
         diagnostic = {
             "preferred_output_case": name,
             "preferred_output_kind_detected": selected_kind,
+            "target_kind": selected_kind,
+            "target_name": name,
             "display_selection_attempted": True,
             "display_selection_attempts": attempts,
             "display_selection_selected_method": selected_method,
@@ -1151,9 +1254,12 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
             "fetch_after_display_selection": True,
             "attempted_case_fallback": selected_kind == "case",
             "skipped_case_selection_because_combo_succeeded": selected_kind == "combo",
-            "temporary_cases_exact": [] if selected_kind == "combo" else [name],
-            "temporary_combos_exact": [name] if selected_kind == "combo" else [],
+            "temporary_cases_exact": list(temporary_cases),
+            "temporary_combos_exact": list(temporary_combos),
+            "opposite_domain_preserved": True,
             "temporary_state_verified_exact": True,
+            "selection_scope": "VERIFIED_SUPERSET_SELECTION",
+            "target_only_capture_claimed": False,
             "error_code": None,
             "mutation_kind": self.mutation_kind.value,
         }
@@ -1285,7 +1391,7 @@ def _set_selected_flag(
     method = _safe_attr(setup, method_name)
     if not callable(method):
         raise EtabsCapabilityError(
-            f"{method_name} is required for reversible Results.Setup mutation.",
+            f"{method_name} is required for Results.Setup mutation.",
             code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
         )
     try:
