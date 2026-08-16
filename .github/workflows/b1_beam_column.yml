@@ -43,4 +43,10 @@ jobs:
           python -m pytest -q tests/wall_geometry/test_wall_check_pack_c.py
           python -m pytest -q tests/wall_geometry/test_wall_pack_c_source_contracts.py
       - name: Offline product acceptance
-        run: python tools/run_offline_product_acceptance.py --out local_out/b1_offline_acceptance
+        shell: bash
+        run: |
+          if ! python tools/run_offline_product_acceptance.py --out local_out/b1_offline_acceptance; then
+            echo '--- offline_product_acceptance_report.json ---'
+            cat local_out/b1_offline_acceptance/offline_product_acceptance_report.json || true
+            exit 1
+          fi
