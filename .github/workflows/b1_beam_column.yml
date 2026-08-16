@@ -21,8 +21,11 @@ jobs:
       - name: Compile
         run: python -m compileall -q tbdy_engine tools tests
       - name: B1 member canonicalization tests
-        run: |
-          python -m pytest -q tests/member_geometry
+        run: python -m pytest -q tests/member_geometry
+      - name: Migrated C13.1 member reporter product tests
+        run: python -m pytest -q tests/c13_1
+      - name: Registration duplicate-id hard-failure test
+        run: python -m pytest -q tests/c13_4_p2/test_modular_catalog_negative_cases.py::test_duplicate_check_id_fails
       - name: CheckEngine and catalog alignment
         run: python -m pytest -q tests/c13_4_p1/test_engine_catalog_check_id_alignment.py
       - name: Wall Inventory regression
