@@ -1,0 +1,79 @@
+metadata:
+  contract: P2.10 Wall Check Pack C
+  catalog_name: check_catalog_p2_10_wall_pack_c
+  status: formal_wall_overlay
+  code_basis:
+    - TBDY 2018 §7.6.2.1
+    - TBDY 2018 §7.6.2.2 / Eq.7.15
+    - TBDY 2018 §7.6.2.3
+  notes:
+    - Hw, Hcr, Hw/lw applicability and critical-region membership are engineering-derived inside the shared CheckEngine path, never FeatureSnapshot facts.
+    - Vertical continuity, regulatory reference facts, section-reduction evidence and end-region topology fail closed when unproven.
+checks:
+  WALL_END_REGIONS_REQUIRED_HW_LW_GT2:
+    title: Wall end regions required when Hw/lw > 2.0
+    element_type: wall
+    category: GEOMETRY
+    required_features: [wall_length_mm, wall_thickness_mm]
+    required_execution_context: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence, wall_end_region_topology]
+    optional_features: []
+    formula_ref: TBDY_7_6_2_1_HW_OVER_LW_GT2_END_REGIONS
+    pass_rule: {ratio_type: actual_over_minimum, ok_if: '>= 1.0'}
+    output: {value: proven_end_region_ends, limit: required_end_region_ends, ratio: actual_over_minimum, unit: ''}
+    evidence_policy: {include_features: [wall_length_mm, wall_thickness_mm], include_formula: false, include_source_refs: true}
+    code_ref: TBDY 2018 §7.6.2.1
+  WALL_HCR_GE_LW:
+    title: Critical wall height Hcr >= lw
+    element_type: wall
+    category: GEOMETRY
+    required_features: [wall_length_mm, wall_thickness_mm]
+    required_execution_context: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence]
+    optional_features: []
+    formula_ref: TBDY_EQ_7_15A_HCR_GE_LW
+    pass_rule: {ratio_type: actual_over_minimum, ok_if: '>= 1.0'}
+    output: {value: hcr_governing_mm, limit: lw_mm, ratio: actual_over_minimum, unit: mm}
+    evidence_policy: {include_features: [wall_length_mm, wall_thickness_mm], include_formula: false, include_source_refs: true}
+    code_ref: TBDY 2018 §7.6.2.2 / Eq.7.15
+  WALL_HCR_GE_HW_DIV6:
+    title: Critical wall height Hcr >= Hw/6
+    element_type: wall
+    category: GEOMETRY
+    required_features: [wall_length_mm, wall_thickness_mm]
+    required_execution_context: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence]
+    optional_features: []
+    formula_ref: TBDY_EQ_7_15B_HCR_GE_HW_DIV6
+    pass_rule: {ratio_type: actual_over_minimum, ok_if: '>= 1.0'}
+    output: {value: hcr_governing_mm, limit: hw_div_6_mm, ratio: actual_over_minimum, unit: mm}
+    evidence_policy: {include_features: [wall_length_mm, wall_thickness_mm], include_formula: false, include_source_refs: true}
+    code_ref: TBDY 2018 §7.6.2.2 / Eq.7.15
+  WALL_HCR_LE_2LW:
+    title: Critical wall height Hcr <= 2lw
+    element_type: wall
+    category: GEOMETRY
+    required_features: [wall_length_mm, wall_thickness_mm]
+    required_execution_context: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence]
+    optional_features: []
+    formula_ref: TBDY_7_6_2_2_HCR_LE_2LW
+    pass_rule: {ratio_type: maximum_over_actual, ok_if: '>= 1.0'}
+    output: {value: hcr_governing_mm, limit: two_lw_mm, ratio: maximum_over_actual, unit: mm}
+    evidence_policy: {include_features: [wall_length_mm, wall_thickness_mm], include_formula: false, include_source_refs: true}
+    code_ref: TBDY 2018 §7.6.2.2
+  WALL_END_REGION_LENGTH_CRITICAL_GE_MAX_0_2LW_2BW:
+    title: Critical-region end-region plan length >= max(0.2lw, 2bw)
+    element_type: wall
+    category: GEOMETRY
+    required_features: [wall_length_mm, wall_thickness_mm]
+    required_execution_context: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence, wall_end_region_topology]
+    optional_features: []
+    formula_ref: TBDY_7_6_2_3_END_REGION_GE_MAX_0_2LW_2BW
+    pass_rule: {ratio_type: actual_over_minimum, ok_if: '>= 1.0'}
+    output: {value: governing_end_region_plan_length_mm, limit: governing_required_plan_length_mm, ratio: actual_over_minimum, unit: mm}
+    evidence_policy: {include_features: [wall_length_mm, wall_thickness_mm], include_formula: false, include_source_refs: true}
+    code_ref: TBDY 2018 §7.6.2.3
+policies:
+  WALL_CHECK_PACK_C:
+    no_property_name_inference: true
+    no_magnitude_unit_heuristic: true
+    derived_hw_hcr_not_feature_snapshot: true
+    execution_context_must_be_canonical_check_input: true
+    full_tbdy_compliance_status: NOT_EVALUATED
