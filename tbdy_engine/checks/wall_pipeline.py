@@ -18,6 +18,10 @@ from tbdy_engine.features.evidence import FeatureEvidence
 from tbdy_engine.features.result_evidence import ResultRowEvidenceBundle
 from tbdy_engine.features.snapshot import FeatureSnapshot
 from tbdy_engine.features.value import FeatureValueStatus
+from tbdy_engine.features.wall_critical_evidence import (
+    WallCriticalHeightFactualEvidence,
+    WallRegulatoryReferenceFacts,
+)
 from tbdy_engine.features.wall_geometry_contract import (
     WALL_GEOMETRY_SUPPLEMENTAL_FEATURE_DEFINITIONS,
     WALL_PACK_B_FEATURE_DEFINITIONS,
@@ -33,17 +37,28 @@ class WallExecutionEvidence:
     result_bundles: Mapping[str, ResultRowEvidenceBundle] = field(default_factory=dict)
     wall_to_pier: Mapping[str, str] = field(default_factory=dict)
     net_section_topology_by_component: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+    critical_height_facts_by_component: Mapping[str, WallCriticalHeightFactualEvidence] = field(default_factory=dict)
+    pack_c_reference_facts: WallRegulatoryReferenceFacts | None = None
 
     def __post_init__(self) -> None:
         if self.wall_system_context is not None and not isinstance(self.wall_system_context, ReviewedWallSystemContext):
             raise TypeError("wall_system_context must be ReviewedWallSystemContext or None")
+        if self.pack_c_reference_facts is not None and not isinstance(self.pack_c_reference_facts, WallRegulatoryReferenceFacts):
+            raise TypeError("pack_c_reference_facts must be WallRegulatoryReferenceFacts or None")
         bundles = dict(self.result_bundles or {})
         if any(not isinstance(bundle, ResultRowEvidenceBundle) for bundle in bundles.values()):
             raise TypeError("result_bundles values must be ResultRowEvidenceBundle objects")
+        critical = dict(self.critical_height_facts_by_component or {})
+        if any(not isinstance(bundle, WallCriticalHeightFactualEvidence) for bundle in critical.values()):
+            raise TypeError("critical_height_facts_by_component values must be WallCriticalHeightFactualEvidence")
+        for component_id, bundle in critical.items():
+            if str(component_id) != bundle.component_id:
+                raise ValueError("Pack C factual-evidence mapping key must equal bundle.component_id")
         object.__setattr__(self, "highest_applicable_story_height_mm_by_component", freeze_data(dict(self.highest_applicable_story_height_mm_by_component or {})))
         object.__setattr__(self, "result_bundles", MappingProxyType(bundles))
         object.__setattr__(self, "wall_to_pier", freeze_data(dict(self.wall_to_pier or {})))
         object.__setattr__(self, "net_section_topology_by_component", freeze_data(dict(self.net_section_topology_by_component or {})))
+        object.__setattr__(self, "critical_height_facts_by_component", MappingProxyType(critical))
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,6 +152,52 @@ def _system_context_readiness(
     )
 
 
+def _pack_c_readiness(
+    context_name: str,
+    facts: WallCriticalHeightFactualEvidence | None,
+    component_id: str,
+    reference_facts: WallRegulatoryReferenceFacts | None,
+) -> CoverageExecutionContextReadiness:
+    def blocked(reason: str) -> CoverageExecutionContextReadiness:
+        return CoverageExecutionContextReadiness(
+            context_name=context_name,
+            status=CoverageExecutionContextStatus.BLOCKED,
+            reason=reason,
+        )
+    if facts is None:
+        return blocked("Canonical Pack C wall factual evidence is absent")
+    if facts.component_id != component_id:
+        return blocked("Pack C factual evidence component identity does not match wall candidate")
+    if context_name == "wall_vertical_profile":
+        if not facts.story_geometry:
+            return blocked("Story-by-story wall geometry is unavailable")
+        if facts.vertical_continuity_proven is not True:
+            return blocked("Wall vertical continuity is not proven by factual source evidence")
+    elif context_name == "wall_section_reduction_evidence":
+        if facts.section_reduction_evidence_complete is not True:
+            return blocked("Story-by-story plan-length/section-width reduction evidence is incomplete")
+    elif context_name == "wall_regulatory_reference_facts":
+        ref = reference_facts
+        if ref is None or ref.foundation_top_elevation_mm is None:
+            return blocked("Run-level foundation-top/regulatory reference factual evidence is unavailable")
+        perimeter = ref.rigid_basement_perimeter_walls
+        diaphragm = ref.rigid_basement_diaphragm
+        rigid_false_proven = perimeter is False or diaphragm is False
+        rigid_true_proven = perimeter is True and diaphragm is True
+        if not rigid_false_proven and not rigid_true_proven:
+            return blocked("Run-level rigid-basement applicability facts are incomplete")
+        if rigid_true_proven and ref.ground_floor_elevation_mm is None:
+            return blocked("Rigid-basement case requires proven run-level ground-floor elevation")
+        if rigid_true_proven and ref.first_basement_story_height_mm is None:
+            return blocked("Rigid-basement case requires proven run-level first-basement story height")
+    else:
+        return blocked("Unknown Pack C execution-context contract")
+    return CoverageExecutionContextReadiness(
+        context_name=context_name,
+        status=CoverageExecutionContextStatus.READY,
+    )
+
+
 def _execution_materialization(
     *,
     snapshot: FeatureSnapshot,
@@ -149,8 +210,20 @@ def _execution_materialization(
     readiness: dict[str, CoverageExecutionContextReadiness] = {}
     values: dict[str, Any] = {}
     evidence: dict[str, Any] = {}
+    pack_c_names = {
+        "wall_vertical_profile", "wall_regulatory_reference_facts",
+        "wall_section_reduction_evidence",
+    }
+    critical_facts = execution_evidence.critical_height_facts_by_component.get(component_id)
+    reference_facts = execution_evidence.pack_c_reference_facts
+    if critical_facts is not None:
+        evidence["wall_critical_height_facts"] = critical_facts
+    if "wall_regulatory_reference_facts" in required and reference_facts is not None:
+        values["wall_regulatory_reference_facts"] = reference_facts
     for name in required:
-        if name == "wall_system_context":
+        if name in pack_c_names:
+            readiness[name] = _pack_c_readiness(name, critical_facts, component_id, reference_facts)
+        elif name == "wall_system_context":
             row = _system_context_readiness(
                 execution_evidence.wall_system_context,
                 known_out_of_scope=_known_basement(snapshot),
