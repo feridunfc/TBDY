@@ -62,6 +62,53 @@ class MinimalCheckEngine:
 
     check_definitions: Mapping[str, Mapping[str, Any]]
 
+    def run_check(self, check_id: str, snapshot: FeatureSnapshot, coverage: CoverageRow) -> CheckResult:
+        """Legacy geometry compatibility wrapper; all execution delegates to CheckInput.
+
+        Wall checks with mandatory execution context cannot use this legacy API.
+        They must arrive as a fully materialized canonical GeometryCheckInput via
+        ``run_input``.
+        """
+        if not isinstance(snapshot, FeatureSnapshot):
+            raise TypeError("run_check snapshot must be a FeatureSnapshot")
+        if not isinstance(coverage, CoverageRow):
+            raise TypeError("run_check coverage must be a CoverageRow")
+        definition = self.check_definitions.get(check_id)
+        required_features = tuple(
+            str(name)
+            for name in (
+                (definition or {}).get("required_features")
+                or coverage.required_features
+                or ()
+            )
+        )
+        required_execution = tuple(
+            str(name) for name in ((definition or {}).get("required_execution_context", ()) or ())
+        )
+        if required_execution:
+            raise TypeError(
+                "Legacy run_check cannot execute checks with mandatory execution context; "
+                "build canonical CheckInput and call run_input(check_input)"
+            )
+        evidence_by_feature = {
+            feature_name: tuple(snapshot.features[feature_name].evidence)
+            if feature_name in snapshot.features else ()
+            for feature_name in required_features
+        }
+        return self.run_input(
+            GeometryCheckInput(
+                check_id=check_id,
+                component_id=snapshot.component_id,
+                component_type=snapshot.component_type,
+                story=self._story(snapshot),
+                section=self._section(snapshot),
+                required_features=required_features,
+                snapshot=snapshot,
+                coverage=coverage,
+                evidence_by_feature=evidence_by_feature,
+            )
+        )
+
     def run_input(self, check_input: GeometryCheckInput) -> CheckResult:
         """Execute one canonical CheckInput; no parallel execution-context channel exists."""
         if not isinstance(check_input, GeometryCheckInput):
