@@ -3,24 +3,26 @@ metadata:
   version: '1.0'
 checks:
   column_geometry_min_dimension:
-    title: Column Geometry Min Dimension
+    title: Rectangular Column Minimum Section Dimension
     element_type: column
     category: GEOMETRY
     readiness:
       status: ready
-      reason: C13.4-P1 geometry slice.
+      reason: B1 formal TBDY 2018 rectangular-column geometry condition.
     required_features:
       - column_width_mm
       - column_depth_mm
+    required_execution_context:
+      - column_section_shape
     optional_features: []
-    formula_ref: contract_only_no_formula
+    formula_ref: member_geometry_registration
     pass_rule:
-      ratio_type: boolean
-      ok_if: 'true'
+      ratio_type: actual_over_minimum
+      ok_if: '>= 1.0'
     output:
-      value: contract_defined
-      limit: contract_defined
-      ratio: contract_defined
+      value: canonical_check_result
+      limit: member_geometry_registration
+      ratio: canonical_check_result
       unit: mm
     evidence_policy:
       include_features:
@@ -28,4 +30,5 @@ checks:
         - column_depth_mm
       include_formula: false
       include_source_refs: true
-    code_ref: contract
+    tbdy_ref: TBDY-2018-7.3.1.1
+    code_ref: TBDY-2018-7.3.1.1
