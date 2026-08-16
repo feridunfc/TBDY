@@ -33,7 +33,7 @@ jobs:
           script_lines = workflow[start:end]
           script = "\n".join(line[10:] if line.startswith("          ") else line for line in script_lines) + "\n"
 
-          bad = '    assert demand.ndm_n is None\\n\\n\\n@pytest.mark.parametrize(\\"capture\\"' + "''',"
+          bad = '    assert demand.ndm_n is None\\n\\n\\n@pytest.mark.parametrize("capture"' + "''',"
           good = '    assert demand.ndm_n is None\\n\\n\\n' + "''',"
           if script.count(bad) != 1:
               raise SystemExit(f'generator repair anchor count != 1: {script.count(bad)}')
