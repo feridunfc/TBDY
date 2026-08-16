@@ -36,7 +36,13 @@ class TableRegistry:
             for key, row in overlay_tables.items():
                 if not isinstance(row, Mapping):
                     raise ValueError(f"{_PACK_B_OVERLAY} table {key} must be a mapping")
-                tables[str(key)] = dict(row)
+                key_text = str(key)
+                existing = tables.get(key_text, {})
+                if existing not in (None, {}) and not isinstance(existing, Mapping):
+                    raise ValueError(f"table_registry.yaml table {key_text} must be a mapping")
+                # Promote/expand the live result contract without discarding unrelated
+                # compatibility/provider metadata already present on the canonical row.
+                tables[key_text] = {**dict(existing or {}), **dict(row)}
         return cls(tables=freeze_data(tables))
 
     @classmethod
