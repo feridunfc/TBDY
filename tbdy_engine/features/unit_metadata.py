@@ -1,7 +1,7 @@
-"""Unit metadata helpers for FeatureSnapshot fact resolution.
+"""Unit metadata helpers for the C13.3-P0 FeatureSnapshot proof.
 
-This module is intentionally feature-layer only. It preserves raw source unit
-context and produces labelled normalized values without unlocking any
+This module is intentionally feature-layer only.  It preserves raw source unit
+context and produces labelled normalized display values without unlocking any
 engineering check.
 """
 from __future__ import annotations
@@ -59,9 +59,10 @@ def default_unit_for(quantity_kind: str) -> str:
 def normalize_value(raw_value: Any, *, raw_unit: str | None, quantity_kind: str) -> UnitNormalization:
     """Return labelled raw+normalized unit metadata.
 
-    This existing public helper converts only from an explicit source unit. It
-    never infers units from numeric magnitude. Callers that require a trusted
-    ETABS UnitContext must validate that context before calling this function.
+    The C13.3-P0 proof does not know ETABS model units independently; therefore it
+    only converts when the raw unit is explicit and the conversion is lossless for
+    display.  Otherwise the raw value is preserved and the normalized unit is the
+    declared default display unit when the raw unit already matches it.
     """
     normalized_unit = default_unit_for(quantity_kind)
     raw_unit_text = raw_unit or normalized_unit
@@ -69,7 +70,7 @@ def normalize_value(raw_value: Any, *, raw_unit: str | None, quantity_kind: str)
     factor = 1.0
     rule = "identity_or_non_numeric"
 
-    if isinstance(raw_value, (int, float)) and not isinstance(raw_value, bool):
+    if isinstance(raw_value, (int, float)):
         if raw_unit_text == normalized_unit:
             normalized_value = raw_value
             rule = "explicit_identity"
