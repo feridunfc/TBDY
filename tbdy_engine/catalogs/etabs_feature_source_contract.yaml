@@ -803,7 +803,7 @@ sources:
   - MZ
   row_selection_rule:
   - preserve ETABS row identity and select/filter downstream only
-  - observed base reaction FY source only; base shear check remains locked
+  - observed base reaction FY source only; no check unlock
   display_selection_required: true
   unit_expectation:
     unit: ''
@@ -885,11 +885,12 @@ sources:
   etabs_table_name: Wall Property Definitions - Specified
   canonical_table_key: wall_section_data
   table_registry_key: wall_section_properties
-  column: ThickBot
+  column: Thickness
   required_columns:
   - Name
-  - ThickBot
+  - Thickness
   optional_columns:
+  - ThickBot
   - ThickTop
   - Material
   row_selection_rule:
@@ -897,7 +898,12 @@ sources:
   - verified wall section context source only; wall checks remain locked
   display_selection_required: false
   unit_expectation:
-    unit: ''
+    unit: ETABS_PRESENT_LENGTH
+  unit_normalization:
+    authority: CanonicalTable.units
+    target_unit: mm
+    method: resolver_unit_context_length_to_mm
+    missing_or_untrusted_behavior: PARTIAL
   evidence_required: true
   forbidden_source:
   - excel_production
