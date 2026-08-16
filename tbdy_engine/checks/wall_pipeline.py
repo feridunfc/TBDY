@@ -14,7 +14,10 @@ from tbdy_engine.coverage.builder import CoverageBuilder
 from tbdy_engine.coverage.models import CoverageRow
 from tbdy_engine.features.evidence import FeatureEvidence
 from tbdy_engine.features.snapshot import FeatureSnapshot
-from tbdy_engine.features.wall_geometry_contract import WALL_GEOMETRY_SUPPLEMENTAL_FEATURE_DEFINITIONS
+from tbdy_engine.features.wall_geometry_contract import (
+    WALL_GEOMETRY_SUPPLEMENTAL_FEATURE_DEFINITIONS,
+    WALL_PACK_B_FEATURE_DEFINITIONS,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,10 +36,13 @@ def wall_coverage_builder(contract_bundle: ContractBundle) -> CoverageBuilder:
     if missing:
         raise ValueError("Wall checks require existing canonical feature(s): " + ", ".join(missing))
     builder.check_catalog = {**dict(builder.check_catalog), **dict(WALL_CHECK_DEFINITIONS)}
-    # Supplemental overlay may deliberately restate an existing canonical feature ID
-    # (e.g. concrete_fck_mpa) only for wall resolver injection; existing definition wins.
-    supplements = {k: v for k, v in WALL_GEOMETRY_SUPPLEMENTAL_FEATURE_DEFINITIONS.items() if k not in existing_features}
-    builder.feature_catalog = {**existing_features, **supplements}
+    supplements = {
+        **dict(WALL_GEOMETRY_SUPPLEMENTAL_FEATURE_DEFINITIONS),
+        **dict(WALL_PACK_B_FEATURE_DEFINITIONS),
+    }
+    for key, definition in supplements.items():
+        existing_features.setdefault(key, definition)
+    builder.feature_catalog = existing_features
     return builder
 
 
@@ -56,24 +62,16 @@ def build_wall_check_input(snapshot: FeatureSnapshot, coverage: CoverageRow) -> 
         feature = snapshot.features.get(feature_id)
         evidence_by_feature[feature_id] = tuple(feature.evidence) if feature is not None else ()
     return GeometryCheckInput(
-        check_id=coverage.check_id,
-        component_id=snapshot.component_id,
-        component_type=snapshot.component_type,
+        check_id=coverage.check_id, component_id=snapshot.component_id, component_type=snapshot.component_type,
         story=None if snapshot.identity.get("story") is None else str(snapshot.identity.get("story")),
         section=None if snapshot.identity.get("assigned_wall_property") is None else str(snapshot.identity.get("assigned_wall_property")),
-        required_features=expected,
-        snapshot=snapshot,
-        coverage=coverage,
-        evidence_by_feature=evidence_by_feature,
+        required_features=expected, snapshot=snapshot, coverage=coverage, evidence_by_feature=evidence_by_feature,
     )
 
 
 def run_wall_checks(
-    contract_bundle: ContractBundle,
-    snapshots: Sequence[FeatureSnapshot],
-    check_ids: Sequence[str],
-    *,
-    engineering_context: Mapping[str, Any] | None = None,
+    contract_bundle: ContractBundle, snapshots: Sequence[FeatureSnapshot], check_ids: Sequence[str],
+    *, engineering_context: Mapping[str, Any] | None = None,
 ) -> WallCheckRun:
     selected = tuple(str(check_id) for check_id in check_ids)
     unknown = sorted(set(selected) - set(WALL_CHECK_DEFINITIONS))
@@ -91,15 +89,10 @@ def run_wall_checks(
             coverage = builder.build_row(snapshot, check_id)
             check_input = build_wall_check_input(snapshot, coverage)
             result = engine.run_input(check_input, engineering_context=engineering_context)
-            coverage_rows.append(coverage)
-            check_inputs.append(check_input)
-            results.append(result)
+            coverage_rows.append(coverage); check_inputs.append(check_input); results.append(result)
     return WallCheckRun(
-        snapshots=tuple(snapshots),
-        coverage_rows=tuple(coverage_rows),
-        check_inputs=tuple(check_inputs),
-        check_results=tuple(results),
-        assessment=assess_wall_results(results, check_ids=selected),
+        snapshots=tuple(snapshots), coverage_rows=tuple(coverage_rows), check_inputs=tuple(check_inputs),
+        check_results=tuple(results), assessment=assess_wall_results(results, check_ids=selected),
     )
 
 
