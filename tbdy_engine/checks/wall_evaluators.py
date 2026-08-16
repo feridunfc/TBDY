@@ -14,7 +14,10 @@ from tbdy_engine.checks.wall_pack_a_contract import (
     WALL_GEOM_UNRESTRAINED_THICKNESS_GE_L30,
 )
 from tbdy_engine.checks.wall_contract import (
+    WALL_END_REGIONS_REQUIRED_HW_LW_GT2,
+    WALL_END_REGION_LENGTH_CRITICAL_GE_MAX_0_2LW_2BW,
     WALL_GEOM_SPECIAL_THICKNESS_GE_200, WALL_GEOM_SPECIAL_THICKNESS_GE_HMAX20,
+    WALL_HCR_GE_HW_DIV6, WALL_HCR_GE_LW, WALL_HCR_LE_2LW,
     WALL_NET_SECTION_AXIAL_CAPACITY,
 )
 
@@ -25,6 +28,13 @@ class WallRuleValue:
     limit: float
     ratio: float
     unit: str
+    satisfied: bool | None = None
+    ratio_type: str = "actual_over_minimum"
+    pass_rule: str = "actual_over_minimum"
+
+    @property
+    def is_satisfied(self) -> bool:
+        return self.value >= self.limit if self.satisfied is None else self.satisfied
 
 
 def _positive(name: str, value: Any) -> float:
@@ -86,6 +96,40 @@ def net_axial(v: Mapping[str, Any], e: Mapping[str, Any]) -> WallRuleValue:
     return WallRuleValue(ac, required, ac / required, "mm2")
 
 
+def end_regions_required(_: Mapping[str, Any], e: Mapping[str, Any]) -> WallRuleValue:
+    actual = float(e.get("proven_end_region_ends", 0.0))
+    return WallRuleValue(actual, 2.0, actual / 2.0, "")
+
+
+def hcr_ge_lw(_: Mapping[str, Any], e: Mapping[str, Any]) -> WallRuleValue:
+    hcr = _positive("hcr_governing_mm", e.get("hcr_governing_mm"))
+    lw = _positive("lw_governing_mm", e.get("lw_governing_mm"))
+    return WallRuleValue(hcr, lw, hcr / lw, "mm")
+
+
+def hcr_ge_hw_div6(_: Mapping[str, Any], e: Mapping[str, Any]) -> WallRuleValue:
+    hcr = _positive("hcr_governing_mm", e.get("hcr_governing_mm"))
+    minimum = _positive("hw_governing_mm", e.get("hw_governing_mm")) / 6.0
+    return WallRuleValue(hcr, minimum, hcr / minimum, "mm")
+
+
+def hcr_le_2lw(_: Mapping[str, Any], e: Mapping[str, Any]) -> WallRuleValue:
+    hcr = _positive("hcr_governing_mm", e.get("hcr_governing_mm"))
+    maximum = 2.0 * _positive("lw_governing_mm", e.get("lw_governing_mm"))
+    return WallRuleValue(
+        hcr, maximum, maximum / hcr, "mm",
+        satisfied=hcr <= maximum,
+        ratio_type="maximum_over_actual",
+        pass_rule="maximum_over_actual",
+    )
+
+
+def critical_end_region_length(_: Mapping[str, Any], e: Mapping[str, Any]) -> WallRuleValue:
+    actual = _positive("governing_end_region_plan_length_mm", e.get("governing_end_region_plan_length_mm"))
+    minimum = _positive("governing_required_end_region_plan_length_mm", e.get("governing_required_end_region_plan_length_mm"))
+    return WallRuleValue(actual, minimum, actual / minimum, "mm")
+
+
 WallEvaluator = Callable[[Mapping[str, Any], Mapping[str, Any]], WallRuleValue]
 WALL_EVALUATORS: Mapping[str, WallEvaluator] = {
     WALL_GEOM_DEFINITION_LW_BW_GE6: definition_ge6,
@@ -96,6 +140,11 @@ WALL_EVALUATORS: Mapping[str, WallEvaluator] = {
     WALL_GEOM_SPECIAL_THICKNESS_GE_HMAX20: special_hmax20,
     WALL_GEOM_SPECIAL_THICKNESS_GE_200: special_200,
     WALL_NET_SECTION_AXIAL_CAPACITY: net_axial,
+    WALL_END_REGIONS_REQUIRED_HW_LW_GT2: end_regions_required,
+    WALL_HCR_GE_LW: hcr_ge_lw,
+    WALL_HCR_GE_HW_DIV6: hcr_ge_hw_div6,
+    WALL_HCR_LE_2LW: hcr_le_2lw,
+    WALL_END_REGION_LENGTH_CRITICAL_GE_MAX_0_2LW_2BW: critical_end_region_length,
 }
 
 __all__ = ["WALL_EVALUATORS", "WallRuleValue"]
