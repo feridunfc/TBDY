@@ -1,4 +1,4 @@
-name: B2 guarded candidate-population patch
+name: B2 guarded candidate-population patch v2
 
 on:
   push:
@@ -34,10 +34,28 @@ jobs:
 
           t = Path('tests/result_selection/test_b2_ndm_selection.py')
           tests = t.read_text(encoding='utf-8')
+          old_helper = '''def _binding(*, q_ids=("Q_CASE",), baseline_override=None, fixed_override=None):\n    final_ids = ("FINAL_X", "FINAL_Y")\n    g = ("G_CASE",); q = tuple(q_ids); s = ("S_CASE",); h = ("E_X", "E_Y"); v = ("E_Z",)\n    x = {"G_CASE": 1.0, **{item: 1.0 for item in q}, "S_CASE": 1.0,\n         "E_X": 1.0, "E_Y": 0.3, "E_Z": 0.3}\n    y = {"G_CASE": 1.0, **{item: 1.0 for item in q}, "S_CASE": 1.0,\n         "E_X": 0.3, "E_Y": 1.0, "E_Z": 0.3}\n    baseline = {"FINAL_X": x, "FINAL_Y": y}\n    if baseline_override:\n        for combo, values in baseline_override.items(): baseline[combo] = {**baseline[combo], **values}\n    fixed = {\n        "FINAL_X": {"G_CASE": 1.0, "E_X": 1.0, "E_Y": 0.3, "E_Z": 0.3},\n        "FINAL_Y": {"G_CASE": 1.0, "E_X": 0.3, "E_Y": 1.0, "E_Z": 0.3},\n    }\n    if fixed_override:\n        for combo, values in fixed_override.items(): fixed[combo] = {**fixed[combo], **values}\n    return ReviewedNdmLoadBinding(\n        binding_id="BINDING-1", version="v1", final_combination_ids=final_ids,\n        g_case_ids=g, q_case_ids=q, s_case_ids=s, horizontal_e_case_ids=h, vertical_e_case_ids=v,\n        baseline_coefficients_by_combination=baseline,\n        required_fixed_coefficients_by_combination=fixed,\n        review_refs=("supervisor-reviewed-live-inventory",),\n    )\n'''
+          new_helper = '''def _binding(*, q_ids=("Q_CASE",), baseline_override=None, fixed_override=None,\n             final_ids=("FINAL_X", "FINAL_Y"), allowed_steps=("Max", "Min"),\n             allowed_locations=("Top", "Bottom")):\n    final_ids = tuple(final_ids)\n    g = ("G_CASE",); q = tuple(q_ids); s = ("S_CASE",); h = ("E_X", "E_Y"); v = ("E_Z",)\n    all_baseline = {\n        "FINAL_X": {"G_CASE": 1.0, **{item: 1.0 for item in q}, "S_CASE": 1.0,\n                    "E_X": 1.0, "E_Y": 0.3, "E_Z": 0.3},\n        "FINAL_Y": {"G_CASE": 1.0, **{item: 1.0 for item in q}, "S_CASE": 1.0,\n                    "E_X": 0.3, "E_Y": 1.0, "E_Z": 0.3},\n    }\n    all_fixed = {\n        "FINAL_X": {"G_CASE": 1.0, "E_X": 1.0, "E_Y": 0.3, "E_Z": 0.3},\n        "FINAL_Y": {"G_CASE": 1.0, "E_X": 0.3, "E_Y": 1.0, "E_Z": 0.3},\n    }\n    baseline = {combo: dict(all_baseline[combo]) for combo in final_ids}\n    fixed = {combo: dict(all_fixed[combo]) for combo in final_ids}\n    if baseline_override:\n        for combo, values in baseline_override.items(): baseline[combo] = {**baseline[combo], **values}\n    if fixed_override:\n        for combo, values in fixed_override.items(): fixed[combo] = {**fixed[combo], **values}\n    return ReviewedNdmLoadBinding(\n        binding_id="BINDING-1", version="v1", final_combination_ids=final_ids,\n        g_case_ids=g, q_case_ids=q, s_case_ids=s, horizontal_e_case_ids=h, vertical_e_case_ids=v,\n        baseline_coefficients_by_combination=baseline,\n        required_fixed_coefficients_by_combination=fixed,\n        allowed_final_step_types=tuple(allowed_steps), allowed_locations=tuple(allowed_locations),\n        review_refs=("supervisor-reviewed-live-inventory",),\n    )\n'''
+          if tests.count(old_helper) != 1:
+              raise SystemExit(f'helper anchor count != 1: {tests.count(old_helper)}')
+          tests = tests.replace(old_helper, new_helper, 1)
+
+          replacements = {
+              'select_ndm_demand(_request(), _bundle(rows), _binding(), _policy())\n    compressions': 'select_ndm_demand(_request(), _bundle(rows), _binding(final_ids=("FINAL_X",)), _policy())\n    compressions',
+              'select_ndm_demand(_request(), _bundle(rows), _binding(), _policy())\n    assert dict(demand.trace.governing_row_identities[0])["StepType"] == "Max"': 'select_ndm_demand(_request(), _bundle(rows), _binding(final_ids=("FINAL_X",)), _policy())\n    assert dict(demand.trace.governing_row_identities[0])["StepType"] == "Max"',
+              'select_ndm_demand(_request(), _bundle(rows, unit="kN"), _binding(), _policy())': 'select_ndm_demand(_request(), _bundle(rows, unit="kN"), _binding(allowed_steps=("Max",), allowed_locations=("Top",)), _policy())',
+              'select_ndm_demand(_request(), _bundle(rows), _binding(), _policy())\n    assert demand.ndm_n == pytest.approx(82_000.0)': 'select_ndm_demand(_request(), _bundle(rows), _binding(final_ids=("FINAL_X",), allowed_steps=("Max",), allowed_locations=("Top",)), _policy())\n    assert demand.ndm_n == pytest.approx(82_000.0)',
+              'select_ndm_demand(_request(), _bundle(rows), _binding(), _policy())\n    assert demand.availability == NdmAvailability.RESOLVED and len(demand.trace.governing_row_identities) == 2': 'select_ndm_demand(_request(), _bundle(rows), _binding(allowed_locations=("Top",)), _policy())\n    assert demand.availability == NdmAvailability.RESOLVED and len(demand.trace.governing_row_identities) == 2',
+          }
+          for old, new in replacements.items():
+              if tests.count(old) != 1:
+                  raise SystemExit(f'sparse test anchor count != 1: {old!r} count={tests.count(old)}')
+              tests = tests.replace(old, new, 1)
+
           anchor = '''def test_full_resolved_lookup_with_no_matching_final_row_is_no_data():\n    demand = select_ndm_demand(_request(), _bundle([_static("Q_CASE", -20_000.0), _static("S_CASE", -10_000.0)]), _binding(), _policy())\n    assert demand.availability == NdmAvailability.NO_DATA\n\n\n'''
           addition = anchor + '''def test_full_lookup_missing_one_reviewed_final_combination_is_no_data():\n    rows = [row for row in _resolved_rows() if row.get("OutputCase") != "FINAL_Y"]\n    demand = select_ndm_demand(_request(), _bundle(rows), _binding(), _policy())\n    assert demand.availability == NdmAvailability.NO_DATA\n    assert "final combinations=FINAL_Y" in str(demand.trace.reason)\n\n\ndef test_full_lookup_missing_reviewed_step_or_location_dimension_is_no_data():\n    no_min = [row for row in _resolved_rows() if row.get("StepType") != "Min"]\n    min_demand = select_ndm_demand(_request(), _bundle(no_min), _binding(), _policy())\n    assert min_demand.availability == NdmAvailability.NO_DATA\n    assert "StepTypes=Min" in str(min_demand.trace.reason)\n    no_bottom = [row for row in _resolved_rows() if row.get("Location") != "Bottom"]\n    bottom_demand = select_ndm_demand(_request(), _bundle(no_bottom), _binding(), _policy())\n    assert bottom_demand.availability == NdmAvailability.NO_DATA\n    assert "Locations=Bottom" in str(bottom_demand.trace.reason)\n\n\n'''
           if tests.count(anchor) != 1:
-              raise SystemExit(f'test anchor count != 1: {tests.count(anchor)}')
+              raise SystemExit(f'new tests anchor count != 1: {tests.count(anchor)}')
           t.write_text(tests.replace(anchor, addition, 1), encoding='utf-8')
           PY
           python -m pip install pytest pyyaml jsonschema
