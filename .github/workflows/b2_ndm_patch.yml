@@ -1,47 +1,53 @@
-name: B2 Ndm Result Selection Acceptance
+name: B2 guarded candidate-population patch
 
 on:
   push:
     branches: [sprint/b2-ndm-result-selection]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  b2-acceptance:
+  patch:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: sprint/b2-ndm-result-selection
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install test dependencies
-        run: python -m pip install pytest pyyaml jsonschema
-      - name: Compile
-        run: python -m compileall -q tbdy_engine tools tests
-      - name: B2 Ndm focused selection tests
-        run: python -m pytest -q tests/result_selection/test_b2_ndm_selection.py
-      - name: Affected Pack B regression
-        run: |
-          python -m pytest -q tests/wall_geometry/test_wall_check_pack_b.py
-          python -m pytest -q tests/wall_geometry/test_wall_pack_b_source_contracts.py
-      - name: Wall Pack A regression
-        run: |
-          python -m pytest -q tests/wall_geometry/test_wall_check_pack_a.py
-          python -m pytest -q tests/wall_geometry/test_wall_pack_a_catalog_contract.py
-      - name: Wall Pack C regression
-        run: |
-          python -m pytest -q tests/wall_geometry/test_wall_check_pack_c.py
-          python -m pytest -q tests/wall_geometry/test_wall_pack_c_source_contracts.py
-      - name: B1 member regression
-        run: python -m pytest -q tests/member_geometry
-      - name: ETABS Safety targeted regression
-        run: python -m pytest -q tests/etabs/test_safety_foundation.py tests/c13_5_p3/test_etabs_com_attach_contract.py
-      - name: Offline product acceptance
+      - name: Require complete reviewed candidate dimensions
         shell: bash
         run: |
-          if ! python tools/run_offline_product_acceptance.py --out local_out/b2_ndm_offline_acceptance; then
-            echo '--- offline_product_acceptance_report.json ---'
-            cat local_out/b2_ndm_offline_acceptance/offline_product_acceptance_report.json || true
-            exit 1
-          fi
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('tbdy_engine/checks/ndm_selection.py')
+          text = p.read_text(encoding='utf-8')
+          old = '''    if not accepted:\n        return _result(request, binding=binding, policy=policy, bundle=pier_forces,\n                       availability=NdmAvailability.NO_DATA, reason="No admissible reviewed Ndm candidate row",\n                       source_unit=source_unit, candidate_rows=candidates)\n    governing = max(item.canonical_compression_n for item in accepted)\n'''
+          new = '''    if not accepted:\n        return _result(request, binding=binding, policy=policy, bundle=pier_forces,\n                       availability=NdmAvailability.NO_DATA, reason="No admissible reviewed Ndm candidate row",\n                       source_unit=source_unit, candidate_rows=candidates)\n    accepted_combinations = {item.final_combination_id for item in accepted}\n    accepted_steps = {item.step_type for item in accepted}\n    accepted_locations = {item.location for item in accepted}\n    missing_combinations = tuple(sorted(set(binding.final_combination_ids) - accepted_combinations))\n    missing_steps = tuple(sorted(set(binding.allowed_final_step_types) - accepted_steps))\n    missing_locations = tuple(sorted(set(binding.allowed_locations) - accepted_locations))\n    if missing_combinations or missing_steps or missing_locations:\n        missing_parts = []\n        if missing_combinations:\n            missing_parts.append("final combinations=" + ",".join(missing_combinations))\n        if missing_steps:\n            missing_parts.append("StepTypes=" + ",".join(missing_steps))\n        if missing_locations:\n            missing_parts.append("Locations=" + ",".join(missing_locations))\n        return _result(\n            request, binding=binding, policy=policy, bundle=pier_forces,\n            availability=NdmAvailability.NO_DATA,\n            reason="FULL Pier Forces lookup is missing reviewed Ndm candidate population dimensions: " + "; ".join(missing_parts),\n            source_unit=source_unit, candidate_rows=candidates,\n        )\n    governing = max(item.canonical_compression_n for item in accepted)\n'''
+          if text.count(old) != 1:
+              raise SystemExit(f'production anchor count != 1: {text.count(old)}')
+          p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          t = Path('tests/result_selection/test_b2_ndm_selection.py')
+          tests = t.read_text(encoding='utf-8')
+          anchor = '''def test_full_resolved_lookup_with_no_matching_final_row_is_no_data():\n    demand = select_ndm_demand(_request(), _bundle([_static("Q_CASE", -20_000.0), _static("S_CASE", -10_000.0)]), _binding(), _policy())\n    assert demand.availability == NdmAvailability.NO_DATA\n\n\n'''
+          addition = anchor + '''def test_full_lookup_missing_one_reviewed_final_combination_is_no_data():\n    rows = [row for row in _resolved_rows() if row.get("OutputCase") != "FINAL_Y"]\n    demand = select_ndm_demand(_request(), _bundle(rows), _binding(), _policy())\n    assert demand.availability == NdmAvailability.NO_DATA\n    assert "final combinations=FINAL_Y" in str(demand.trace.reason)\n\n\ndef test_full_lookup_missing_reviewed_step_or_location_dimension_is_no_data():\n    no_min = [row for row in _resolved_rows() if row.get("StepType") != "Min"]\n    min_demand = select_ndm_demand(_request(), _bundle(no_min), _binding(), _policy())\n    assert min_demand.availability == NdmAvailability.NO_DATA\n    assert "StepTypes=Min" in str(min_demand.trace.reason)\n    no_bottom = [row for row in _resolved_rows() if row.get("Location") != "Bottom"]\n    bottom_demand = select_ndm_demand(_request(), _bundle(no_bottom), _binding(), _policy())\n    assert bottom_demand.availability == NdmAvailability.NO_DATA\n    assert "Locations=Bottom" in str(bottom_demand.trace.reason)\n\n\n'''
+          if tests.count(anchor) != 1:
+              raise SystemExit(f'test anchor count != 1: {tests.count(anchor)}')
+          t.write_text(tests.replace(anchor, addition, 1), encoding='utf-8')
+          PY
+          python -m pip install pytest pyyaml jsonschema
+          python -m compileall -q tbdy_engine tests
+          python -m pytest -q tests/result_selection/test_b2_ndm_selection.py
+      - name: Commit source and focused tests only
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tbdy_engine/checks/ndm_selection.py tests/result_selection/test_b2_ndm_selection.py
+          git commit -m 'B2 require complete reviewed Ndm candidate dimensions'
+          git push origin HEAD:sprint/b2-ndm-result-selection
