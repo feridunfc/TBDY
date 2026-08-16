@@ -36,33 +36,55 @@ The conformance classifications used in this document are:
 
 ### FROZEN CONSTITUTIONAL RULE
 
-This document is the normative architecture constitution for TBDY Engine. It governs the boundaries by which ETABS evidence becomes factual features, check execution, formal results, assessment, and reporting.
+This document is the normative architecture constitution for TBDY Engine. It governs the boundaries by which ETABS evidence becomes factual features, derived engineering quantities, check execution, formal results, assessment, and reporting.
 
 The constitution governs, at minimum:
 
 1. ETABS session acquisition and display-table acquisition.
 2. Raw factual evidence and canonical tables.
 3. Raw result evidence and result-row identity.
-4. Feature resolution and `FeatureSnapshot`.
-5. Result selection and `SelectionTrace`.
-6. Coverage/readiness.
-7. Typed `CheckInput` and `CheckExecutionContext`.
-8. `CheckEngine` and pure evaluators.
-9. Canonical `CheckResult`.
-10. Assessment/reconciliation.
-11. Reporter behavior.
-12. Registration and composition.
-13. Units and provenance.
-14. Compatibility and migration of legacy authorities.
-15. Parallel-worker ownership and integration rules.
+4. Feature resolution and factual `FeatureSnapshot`.
+5. Reviewed load-family binding, result selection, `EngineeringQuantity`, and `SelectionTrace`.
+6. Regulatory/project context grains.
+7. Coverage/readiness.
+8. Typed `CheckInput` and `CheckExecutionContext`.
+9. `CheckEngine` and pure evaluators.
+10. Canonical `CheckResult`.
+11. Assessment/reconciliation.
+12. Reporter behavior.
+13. Registration and composition.
+14. Units and provenance.
+15. Compatibility and migration of legacy authorities.
+16. Parallel-worker ownership and integration rules.
 
 The audited baseline is exactly `46ed7f087290393786bd06feef3a7598a67805fd`. Unmerged work from B1 Beam + Column Canonicalization and ETABS Safety Foundation is not accepted implementation evidence for this document.
 
 The semantics of registration/composition and ETABS session safety are frozen here. Their exact implementation shapes are **PENDING IMPLEMENTATION RATIFICATION**.
 
+### Product target
+
+**PRODUCT TARGET: FULL TBDY ENGINE.**
+
+TBDY Engine is NOT constitutionally a screening-only engine. Partial vertical slices MAY be useful and MAY be reported as partial/domain results, but they MUST NOT be promoted to full-code compliance.
+
+Until every mandatory TBDY domain applicable to the assessed scope has:
+
+- authoritative source/context,
+- implemented formal checks,
+- complete Coverage,
+- canonical Assessment,
+
+the product-level gate MUST report:
+
+```text
+full_tbdy_compliance_status = NOT_EVALUATED
+```
+
+A successful wall, beam, material, modal, or other partial slice MUST NOT be promoted to `FULL TBDY PASS`.
+
 ### CURRENT IMPLEMENTATION
 
-The accepted wall path is the strongest current reference implementation. Beam/column geometry has part of the same canonical execution machinery. Material and result-based domains still contain product/report-owned authority. ETABS acquisition has usable connection/fetch foundations but does not yet satisfy the complete safety transaction constitution.
+The accepted wall path is the strongest current reference implementation. Beam/column geometry has part of the same canonical execution machinery. Material and result-based domains still contain product/report-owned authority. ETABS acquisition has usable connection/fetch foundations but does not yet satisfy the complete safety constitution.
 
 ### Integration boundary
 
@@ -70,7 +92,9 @@ Changes cross the constitutional boundary when they introduce or change any owne
 
 - raw evidence,
 - feature facts,
-- candidate result selection,
+- reviewed shared context,
+- candidate result binding/selection,
+- derived engineering quantities,
 - coverage/readiness,
 - regulatory applicability,
 - limits,
@@ -88,16 +112,19 @@ Any such change MUST be evaluated against this constitution before merge.
 
 ### FROZEN CONSTITUTIONAL RULE
 
-TBDY Engine MUST produce engineering conclusions that are deterministic, auditable, reproducible, fail-closed, and attributable to explicit source evidence and explicit policy/context.
+TBDY Engine MUST produce engineering conclusions that are deterministic, auditable, reproducible, fail-closed, and attributable to explicit source evidence and explicit reviewed policy/context.
 
 The product objective is not merely to produce a report that looks correct. The product MUST be able to answer, for every formal check result:
 
 - What source evidence was used?
 - What units did the source evidence use?
 - Which factual features were resolved?
+- What reviewed building/system/direction/reference truth was consumed?
 - What candidate result rows existed?
+- Which exact load-family/case/combo binding was reviewed and frozen?
 - If rows were selected, why were they included or excluded?
 - Was the required evidence capture complete?
+- Which `EngineeringQuantity`, if any, was derived by selection?
 - Which execution context/policy was required?
 - Which check owned applicability?
 - Which rule/limit/formula produced the comparison?
@@ -109,9 +136,10 @@ A product output that cannot answer those questions MUST NOT be treated as compl
 
 ### Decision ownership
 
-- Acquisition owns retrieval fidelity.
+- Acquisition owns retrieval fidelity and source/session state evidence.
 - Feature resolution owns factual interpretation only.
-- Result selection owns deterministic candidate selection only.
+- Reviewed context authorities own reviewed building/system/direction/reference truth at their proper grain.
+- Result binding/selection owns deterministic candidate binding and derived `EngineeringQuantity` only.
 - Coverage owns availability/readiness only.
 - `CheckEngine` owns regulatory decisions.
 - Assessment owns structural reconciliation only.
@@ -129,19 +157,21 @@ The following principles are constitutional invariants.
 
 1. **One authority per decision.** The same engineering decision MUST NOT be independently recomputed by multiple production paths.
 2. **Facts before rules.** Source evidence and factual features MUST be separated from regulatory interpretation.
-3. **One execution boundary.** Formal engineering execution MUST cross through typed `CheckInput` plus explicit `CheckExecutionContext`.
-4. **One regulatory authority.** `CheckEngine` MUST be the sole production authority for check applicability, limits, comparison/formula orchestration, ratio semantics, status, and formal `CheckResult` creation.
-5. **One formal result DTO.** There MUST be one canonical `CheckResult` type. Parallel “formal” dictionaries or DTOs MUST NOT become independent authorities.
-6. **Fail closed.** Missing mandatory fact, unit, context, identity, or complete result capture MUST produce a blocked/not-runnable state, not a guessed pass/fail.
-7. **Provenance is data.** Source identity and transformation evidence MUST travel with the facts/results they support.
-8. **Selection is not compliance.** Result-row selection MUST NOT decide PASS/FAIL.
-9. **Coverage is not compliance.** Coverage/readiness MUST NOT decide engineering status.
-10. **Assessment is not engineering.** Assessment MUST reconcile expected versus observed formal results and MUST NOT recompute check formulas.
-11. **Reporting is not engineering.** Reporter code MUST NOT own thresholds, ratios, regulatory row selection, unit inference, or statuses.
-12. **No hidden state.** ETABS state mutations MUST be explicit, bounded, observable, and restored where temporary mutation is required.
-13. **No heuristic authority.** Name, magnitude, default-unit, or similar heuristics MUST NOT become authoritative input to canonical engineering execution.
-14. **Delete duplicate authority last.** Migration MUST first establish canonical equivalence and acceptance, then remove legacy decision code.
-15. **Generalize semantics, not data bags.** Shared contracts SHOULD encode shared invariants while domain facts and policies remain typed and domain-specific.
+3. **Reviewed context at true grain.** Building, structural-system, direction, story/reference, component, and check-execution truth MUST live at the grain at which it is true.
+4. **One execution boundary.** Formal engineering execution MUST cross through typed `CheckInput` plus explicit `CheckExecutionContext`.
+5. **One regulatory authority.** `CheckEngine` MUST be the sole production authority for check applicability, limits, comparison/formula orchestration, ratio semantics, status, and formal `CheckResult` creation.
+6. **One formal result DTO.** There MUST be one canonical `CheckResult` type. Parallel “formal” dictionaries or DTOs MUST NOT become independent authorities.
+7. **Fail closed.** Missing mandatory fact, unit, context, identity, reviewed binding, or complete result capture MUST produce a blocked/not-runnable state, not a guessed pass/fail.
+8. **Provenance is data.** Source identity and transformation evidence MUST travel with the facts/results they support.
+9. **Selection is not compliance.** Result-row selection MUST NOT decide PASS/FAIL.
+10. **Coverage is not compliance.** Coverage/readiness MUST NOT decide engineering status.
+11. **Assessment is not engineering.** Assessment MUST reconcile expected versus observed formal results and MUST NOT recompute check formulas.
+12. **Reporting is not engineering.** Reporter code MUST NOT own thresholds, ratios, regulatory row selection, unit inference, or statuses.
+13. **No hidden state.** ETABS state mutation/acquisition MUST be explicit, bounded, observable, and serialized through the canonical acquisition owner where mutation is required.
+14. **No heuristic authority.** Name, magnitude, default-unit, lexical, first-match, or similar heuristics MUST NOT become authoritative input to canonical engineering execution.
+15. **Delete duplicate authority last.** Migration MUST first establish canonical equivalence and acceptance, then remove legacy decision code.
+16. **Generalize semantics, not data bags.** Shared contracts SHOULD encode shared invariants while domain facts and policies remain typed and domain-specific.
+17. **Full-code gate remains explicit.** Partial domain success MUST NOT imply full TBDY compliance.
 
 ### Fail-closed default
 
@@ -153,33 +183,44 @@ Where this constitution does not explicitly grant decision authority, a layer MU
 
 ### FROZEN CONSTITUTIONAL RULE
 
-TBDY Engine has two canonical evidence lanes that converge before execution.
+TBDY Engine has two legitimate canonical evidence lanes that converge at the typed execution dependency boundary. They MUST NOT be forced into a false single representation.
 
-### 4.1 Factual-table lane
+### 4.1 Factual lane
 
 ```text
 ETABS acquisition
     -> Raw Evidence / CanonicalTable
     -> FeatureResolver
     -> FeatureSnapshot
-    -> Coverage
-    -> typed CheckInput + CheckExecutionContext
-    -> CheckEngine
-    -> canonical CheckResult
-    -> Assessment
-    -> Reporter
 ```
 
-This lane is appropriate for geometry, material facts, assignments, metadata, and other facts that do not require choosing a governing row from an ETABS result candidate universe.
+`FeatureSnapshot` is factual only. This lane is appropriate for geometry, material facts, assignments, topology, reviewed factual references, and other source facts.
 
-### 4.2 Result-evidence lane
+### 4.2 Result lane
 
 ```text
 ETABS acquisition
     -> Raw Result Evidence
-       (stable identity + payload + capture status)
-    -> Result Selection + SelectionTrace
-    -> resolved result features / FeatureSnapshot
+       (source-specific identity + payload + RuntimeCaptureStatus)
+    -> ReviewedLoadFamilyBinding / exact reviewed binding authority
+    -> ResultSelectionPolicy
+    -> EngineeringQuantity + SelectionTrace
+```
+
+This lane is required when a formal check depends on selecting or deriving a governing quantity from candidate result rows, modes, cases, combinations, stories, directions, stations, steps, or envelopes.
+
+A selected raw factual row/component MAY be represented as factual evidence where it remains a source fact. A policy-derived governing engineering demand MUST NOT be disguised as a raw factual `FeatureSnapshot` merely to make the architecture look uniform.
+
+### 4.3 Convergence boundary
+
+The two lanes converge as typed dependencies:
+
+```text
+factual FeatureSnapshot
+    +
+derived EngineeringQuantity / selection evidence
+    +
+reviewed/shared typed contexts
     -> Coverage
     -> typed CheckInput + CheckExecutionContext
     -> CheckEngine
@@ -188,16 +229,17 @@ ETABS acquisition
     -> Reporter
 ```
 
-This lane is required for modal participation, story drift, torsional A1, and any domain where a formal check depends on selecting rows, modes, cases, combinations, stories, directions, stations, steps, or an envelope from a candidate result set.
+A check MAY consume only factual dependencies, only a derived engineering quantity plus reviewed context, or both, depending on its frozen contract.
 
-### 4.3 Boundary ownership
+### 4.4 Boundary ownership
 
 | Boundary | Owner | MUST NOT own | Fail-closed trigger |
 |---|---|---|---|
 | ETABS -> raw evidence | acquisition/provider | code limits, verdicts | session/source ambiguity, failed fetch |
-| raw evidence -> feature | resolver | applicability, pass/fail | missing/ambiguous factual mapping or unit |
-| raw result -> selected evidence | selection policy | regulatory limit/status | incomplete required capture, unresolved policy |
-| feature -> runnable check | Coverage + input adapter | engineering verdict | missing feature/context/readiness |
+| raw evidence -> factual feature | resolver | applicability, pass/fail | missing/ambiguous factual mapping or unit |
+| raw result -> exact binding | reviewed binding authority | regulatory verdict | missing/unreviewed binding |
+| bound result -> `EngineeringQuantity` | `ResultSelectionPolicy` | regulatory limit/status | incomplete required capture, unresolved policy |
+| typed dependencies -> runnable check | Coverage + input adapter | engineering verdict | missing feature/quantity/context/readiness |
 | runnable check -> formal result | CheckEngine | presentation | unresolved mandatory policy, invalid input |
 | result set -> assessment | Assessment | engineering recomputation | missing/duplicate expected results |
 | assessment/result -> output | Reporter | calculations/selection/status | malformed canonical artifact |
@@ -219,13 +261,15 @@ The following matrix is authoritative.
 | raw table payload | provider/acquisition | CheckEngine, reporter |
 | canonical table normalization | canonical table/provider layer | reporter |
 | factual feature value | FeatureResolver | CheckEngine policy layer may consume but MUST NOT fabricate source facts |
+| building/system/direction/reference truth | reviewed context authority at the correct grain | component feature bag, reporter, hidden global |
 | source unit identity | acquisition/evidence | reporter, evaluator |
 | explicit unit conversion | authorized factual normalization using explicit unit metadata | magnitude/name heuristic |
 | result-row identity | raw result evidence layer | reporter |
 | capture completeness | result acquisition/evidence | result selector, reporter MUST consume but not invent |
-| result candidate selection | explicit result-selection policy | reporter, product check builder, pure evaluator |
+| reviewed exact load/case/combo binding | reviewed binding authority | runtime regex/name matcher |
+| result candidate selection / derived quantity | `ResultSelectionPolicy` | reporter, product check builder, pure evaluator |
 | selection audit trail | `SelectionTrace` | `CheckResult` status logic |
-| feature availability | Coverage | CheckEngine status logic |
+| feature/dependency availability | Coverage | CheckEngine status logic |
 | execution context readiness | Coverage + `CheckExecutionContext` validation | hidden globals/defaults |
 | regulatory applicability | CheckEngine | resolver, selection, coverage, reporter |
 | regulatory limit | CheckEngine/catalog-backed canonical check authority | reporter/product report/legacy module |
@@ -235,11 +279,12 @@ The following matrix is authoritative.
 | formal result construction | CheckEngine | reporter/product parallel DTO builder |
 | expected-vs-observed reconciliation | Assessment | reporter |
 | structural completeness | Assessment | reporter |
+| product-level full TBDY gate | canonical product assessment | individual domain slice/reporter |
 | formatting/localization | Reporter | CheckEngine SHOULD NOT own presentation formatting |
 
 ### Integration boundary
 
-Any new production code that contains a regulatory threshold, PASS/FAIL/OK decision, result-row governing choice, or unit inference MUST identify its constitutional owner during review. If the owner is not the authorized layer above, the change MUST be rejected or redesigned.
+Any new production code that contains a regulatory threshold, PASS/FAIL/OK decision, runtime result-row governing choice, runtime case-name matching, or unit inference MUST identify its constitutional owner during review. If the owner is not the authorized layer above, the change MUST be rejected or redesigned.
 
 ---
 
@@ -247,78 +292,122 @@ Any new production code that contains a regulatory threshold, PASS/FAIL/OK decis
 
 ### FROZEN CONSTITUTIONAL RULE
 
-Context MUST be modeled at the grain at which it is true. Context MUST NOT be smuggled across grains through globals, implicit defaults, mutable singleton state, or reporter-side guesses.
+The canonical regulatory/project context model has these grains:
 
-Five context grains are recognized.
+```text
+MODEL
+BUILDING
+STRUCTURAL_SYSTEM
+DIRECTION
+STORY / LEVEL
+COMPONENT
+CHECK_EXECUTION
+```
 
-### 6.1 Session/acquisition grain
+Context MUST be modeled at the grain at which it is true. Building/system/reference truth MUST NOT be copied into per-component factual truth merely for convenience. A giant undifferentiated `ModelContext` that mixes these grains is constitutionally prohibited.
 
-Examples:
+ETABS session/table/result evidence grains MAY additionally exist as acquisition/evidence storage grains, but they MUST NOT replace the regulatory context grain model above.
 
-- ETABS process/instance identity,
-- model filename/model identity,
-- ETABS version,
-- source mode: live vs replay,
-- explicit present/source units,
-- acquisition timestamp or run identity,
-- display-state transaction state.
+### 6.1 MODEL
 
-Owner: ETABS acquisition.
+**Owner:** model/acquisition factual authority.
 
-### 6.2 Evidence/table grain
+MODEL context contains model-wide facts such as:
 
-Examples:
+- model identity/fingerprint,
+- coordinate/source-system facts,
+- factual analysis/session state,
+- model-level source provenance.
 
-- table name,
-- field keys,
-- source table version/shape,
-- fetch diagnostics,
-- raw row identity,
-- capture status,
-- parser/probe signature.
+MODEL MUST NOT become a container for every building, structural-system, direction, story, component, or check-specific regulatory dependency.
 
-Owner: provider/evidence layer.
+**Fail closed:** if the model identity/fingerprint needed to bind reviewed context to evidence cannot be established, dependent canonical execution MUST block.
 
-### 6.3 Entity/feature grain
+### 6.2 BUILDING
 
-Examples:
+**Owner:** reviewed building-level regulatory/project authority.
 
-- frame/column/wall/story identity,
-- section assignment,
-- resolved width/depth,
-- material name,
-- `fck`,
-- selected result feature.
+BUILDING context contains building-level reviewed regulatory/project truth. Examples MAY include reviewed classifications or project parameters that genuinely apply to the entire building.
 
-Owner: FeatureResolver / result-resolution layer.
+BUILDING truth MUST NOT be inferred from one component, one report row, or one ETABS naming convention. It MUST NOT be duplicated into every component feature merely for convenience.
 
-### 6.4 Check-execution grain
+**Integration boundary:** typed downstream contexts MAY reference the reviewed building authority; component resolvers MUST NOT recreate it.
 
-Examples:
+### 6.3 STRUCTURAL_SYSTEM
+
+**Owner:** reviewed structural-system authority.
+
+STRUCTURAL_SYSTEM context contains reviewed structural-system truth at the structural-zone/system grain where it is valid.
+
+Where a rule is direction-dependent, structural-system authority MUST be keyed at least by:
+
+```text
+structural_zone × direction
+```
+
+There MUST NOT be a global `R`, `D`, structural-system, or equivalent fallback where directional authority is required.
+
+**Fail closed:** if the applicable structural zone/system cannot be resolved for the requested direction, the dependent check is not runnable.
+
+### 6.4 DIRECTION
+
+**Owner:** reviewed direction-specific regulatory/system authority.
+
+DIRECTION context contains truth that is specific to X/Y or another explicit analysis/regulatory direction, including the directional view of structural-system authority where applicable.
+
+A direction-dependent rule MUST consume an explicit direction binding. Direction MUST NOT be guessed from case-name substrings or component orientation unless that mapping is itself an authoritative reviewed fact.
+
+### 6.5 STORY / LEVEL
+
+**Owner:** reviewed story/reference authority plus factual level evidence.
+
+STORY / LEVEL context contains, where applicable:
+
+- elevation,
+- story height,
+- reviewed `ReferenceRole` bindings,
+- explicit level/story identity needed by checks.
+
+Reference roles MUST be reviewed/frozen authority. A check MUST NOT choose a reference level by lexical story name, first/last row, or convenience ordering when the regulatory meaning requires an explicit binding.
+
+### 6.6 COMPONENT
+
+**Owner:** factual component resolver/evidence layer.
+
+COMPONENT context contains factual component truth such as:
+
+- geometry,
+- material,
+- topology,
+- assignments,
+- component/object identity,
+- source evidence references.
+
+COMPONENT MUST NOT own reviewed building/system/direction/reference truth merely because duplicating those values would simplify a DTO.
+
+### 6.7 CHECK_EXECUTION
+
+**Owner:** typed execution-context assembly consumed by `CheckEngine`.
+
+CHECK_EXECUTION contains only the exact frozen dependencies required by one check instance, bound from the appropriate factual/result/context authorities.
+
+It MAY include:
 
 - check id,
-- code edition/design basis,
-- mandatory policy selections,
-- applicable direction/case family,
-- context needed to decide regulatory applicability,
-- canonical catalog/limit identity.
+- code/design basis,
+- exact direction,
+- exact structural-system/reference bindings,
+- exact selection-policy identity,
+- exact engineering quantity/evidence references,
+- other mandatory policy/context explicitly required by that check.
 
-Owner: `CheckExecutionContext` consumed by `CheckEngine`.
+It MUST NOT become a second giant model context or a location for hidden defaults.
 
-### 6.5 Result/assessment/report grain
+**Fail closed:** any unresolved mandatory dependency makes the check not runnable.
 
-Examples:
+### Acquisition/evidence storage grains
 
-- formal `CheckResult` identity,
-- expected check inventory,
-- missing/duplicate reconciliation,
-- report ordering/localization.
-
-Owners: `CheckResult`, Assessment, Reporter respectively.
-
-### Fail-closed behavior
-
-If a required context value exists only at a broader or narrower grain and cannot be unambiguously bound to the check instance, canonical execution MUST block instead of applying it globally.
+Session, table, raw-result bundle, parser, and provenance grains MAY be modeled separately for acquisition/storage. They are evidence organization, not substitutes for MODEL/BUILDING/STRUCTURAL_SYSTEM/DIRECTION/STORY/COMPONENT/CHECK_EXECUTION regulatory context.
 
 ---
 
@@ -326,7 +415,7 @@ If a required context value exists only at a broader or narrower grain and canno
 
 ### FROZEN CONSTITUTIONAL RULE
 
-Every canonical factual feature and selected result feature used by a check MUST be reviewable back to source evidence.
+Every canonical factual feature and every derived `EngineeringQuantity` used by a check MUST be reviewable back to source evidence and reviewed authority.
 
 At minimum provenance SHOULD support:
 
@@ -338,16 +427,18 @@ At minimum provenance SHOULD support:
 - raw source value,
 - source unit,
 - normalized value and normalized unit,
-- resolver/selection policy identity,
-- selection trace identity where selection occurred,
+- reviewed binding identity/version where result binding occurred,
+- result-selection policy identity/version where selection occurred,
+- selection trace identity,
 - capture status for result evidence,
+- reviewed context references,
 - diagnostics that explain missing/ambiguous evidence.
 
 Provenance MUST describe what happened; it MUST NOT be used as a hidden location for regulatory policy.
 
 ### Review invariant
 
-A reviewer MUST be able to inspect a `CheckResult` and traverse backward to the evidence and policy/context that produced it without rerunning reporter calculations.
+A reviewer MUST be able to inspect a `CheckResult` and traverse backward to the factual evidence, derived quantity/selection trace, reviewed context, and policy that produced it without rerunning reporter calculations.
 
 ### Separation of identity and payload
 
@@ -359,7 +450,7 @@ For result evidence, identity MUST be represented separately from numeric payloa
 
 ### FROZEN CONSTITUTIONAL RULE
 
-ETABS acquisition owns connection, session identity, explicit unit context, table/result retrieval, parsing handoff, and any temporary ETABS display/read-state transaction required for retrieval.
+ETABS acquisition owns connection, session identity, source/database/present unit evidence, table/result retrieval, parsing handoff, and any temporary ETABS display/read-state transaction required for retrieval.
 
 It MUST NOT own TBDY applicability, code limits, engineering verdicts, or reporter presentation.
 
@@ -369,29 +460,56 @@ Canonical live acquisition MUST establish enough identity to reject an ambiguous
 
 Connection success MUST mean more than “a COM object exists.” The acquisition boundary SHOULD verify a coherent SapModel/database-table surface and record the verified identity.
 
-### 8.2 Unit context
+### 8.2 Canonical unit acquisition rule
 
-Source units MUST be explicit acquisition evidence. Setting ETABS present units MAY be part of an explicit transaction, but canonical engineering MUST NOT infer source units solely from value magnitudes.
+Canonical ETABS acquisition MUST NOT call:
 
-If acquisition changes present units, it MUST record the change and MUST restore prior state when the change is temporary under the ratified safety transaction design.
+```text
+SetPresentUnits(...)
+SetPresentUnits_2(...)
+```
+
+merely to normalize data.
+
+The canonical strategy is:
+
+```text
+read source/present/database units
+    -> preserve unit provenance
+    -> convert in Python downstream using explicit unit contracts
+```
+
+Temporary transaction semantics do NOT make unit normalization through `SetPresentUnits` canonical.
+
+A legacy explicitly mutating compatibility API MAY exist temporarily, but it MUST be clearly non-canonical, MUST NOT be the default acquisition path, and MUST NOT silently feed canonical engineering as if its mutation were source-unit provenance.
 
 ### 8.3 Read/display state
 
 A fetcher MAY need to select a case or combination for display because ETABS can return headers/record counts without usable table data until display selection is set.
 
-Such mutation MUST be treated as a transaction:
+Where such state mutation is genuinely required for acquisition, it MUST be treated as an explicit bounded transaction under the ratified ETABS Safety implementation:
 
 1. identify the current state where the API permits it,
 2. record intended mutation,
 3. apply only the minimum mutation required,
 4. fetch,
-5. restore prior state,
+5. restore prior state where restoration is supported/required,
 6. record restoration success/failure,
-7. fail closed if the state cannot be trusted for a canonical result.
+7. fail closed if the acquired evidence cannot be trusted.
+
+This display-state transaction permission MUST NOT be interpreted as permission to call `SetPresentUnits` for canonical normalization.
 
 Hidden or unbounded ETABS state mutation is prohibited.
 
-### 8.4 Acquisition output
+### 8.4 One live acquisition owner
+
+There MUST be **ONE LIVE ETABS ACQUISITION OWNER AT A TIME** per live ETABS session within the enforced repository/process scope.
+
+Canonical ETABS state mutation/acquisition through that boundary MUST be serialized. After acquisition, immutable evidence MAY be consumed in parallel.
+
+The constitution does NOT claim cross-process or OS-global locking unless a concrete implementation proves and ratifies such a guarantee.
+
+### 8.5 Acquisition output
 
 Acquisition output MUST expose retrieval diagnostics sufficient to distinguish:
 
@@ -400,20 +518,20 @@ Acquisition output MUST expose retrieval diagnostics sufficient to distinguish:
 - header-only response,
 - records-reported-but-data-empty response,
 - successful parsed rows,
-- partial capture,
+- `PARTIAL`, `SAMPLED`, `TRUNCATED`, or `UNKNOWN` capture where applicable,
 - unsupported signature/API shape.
 
 ### CURRENT IMPLEMENTATION
 
-`tbdy_engine/etabs/connection.py` attaches through helper/GetActiveObject fallbacks and validates a SapModel/table surface. It also calls `SetPresentUnits(6)` during connect and again in `get_sap()`. That is usable acquisition functionality but does not yet implement the full explicit state-transaction constitution.
+`tbdy_engine/etabs/connection.py` attaches through helper/GetActiveObject fallbacks and validates a SapModel/table surface. It also calls `SetPresentUnits(6)` during connect and again in `get_sap()`. That behavior is **LEGACY DEBT** relative to the canonical unit-acquisition rule; restoration would not make it the canonical normalization strategy.
 
-`tbdy_engine/providers/etabs_display_table_fetcher.py` probes multiple display-table COM signatures and records detailed fetch/parser diagnostics. It can call `SetLoadCombinationsSelectedForDisplay` or `SetLoadCasesSelectedForDisplay` before fetch. The audited baseline does not provide the ratified snapshot/restore transaction contract around that mutation.
+`tbdy_engine/providers/etabs_display_table_fetcher.py` probes multiple display-table COM signatures and records detailed fetch/parser diagnostics. It can call `SetLoadCombinationsSelectedForDisplay` or `SetLoadCasesSelectedForDisplay` before fetch. The audited baseline does not provide the ratified serialized acquisition owner plus snapshot/restore transaction contract around that mutation.
 
 No separate `etabs_com_attach.py` exists at the audited baseline under the inspected repository paths. The attachment responsibility is currently represented by `tbdy_engine/etabs/connection.py`.
 
 ### PENDING IMPLEMENTATION RATIFICATION
 
-The exact ETABS Safety Foundation class/module/API structure is not frozen. The semantic requirements in this section are frozen.
+The exact ETABS Safety Foundation class/module/API structure is not frozen. The semantic requirements in this section are frozen, including the no-`SetPresentUnits` canonical normalization rule and the one-live-acquisition-owner rule.
 
 ---
 
@@ -423,38 +541,66 @@ The exact ETABS Safety Foundation class/module/API structure is not frozen. The 
 
 Result evidence MUST distinguish row identity, row payload, and capture completeness.
 
-A result row identity SHOULD use all source keys required to distinguish candidates at source grain, for example as applicable:
+### 9.1 Result row identity is not payload component
 
-- model/run identity,
-- table identity,
-- case/combination identity and type,
-- story,
-- object/element,
-- direction/component,
-- mode,
-- step/step type,
-- station/location,
-- source row index or equivalent stable discriminator.
+```text
+RESULT ROW IDENTITY != PAYLOAD COMPONENT
+```
+
+There is no universal ETABS result-row identity. Identity is source-specific and MUST be defined from the source schema/grain required to distinguish candidate rows.
+
+For a wide Pier Force-style source, identity may include, as applicable:
+
+- `Story`,
+- `Pier`,
+- `OutputCase`,
+- `CaseType`,
+- `StepType`,
+- `StepNumber`,
+- `Location`.
+
+Its payload may include:
+
+- `P`,
+- `V2`,
+- `V3`,
+- `T`,
+- `M2`,
+- `M3`.
+
+`P`, `M3`, or another payload component MUST NOT automatically become row identity merely because a check requests that component.
+
+A long-form ETABS source MAY legitimately include a component/quantity discriminator in identity when the source itself represents each component as a distinct row. The identity contract MUST follow the authoritative source shape rather than impose one universal key set.
 
 Equal numeric payload does not imply equal identity.
 
-### Capture status
+### 9.2 RuntimeCaptureStatus
 
-Result acquisition MUST expose a capture status equivalent to at least:
+Canonical `RuntimeCaptureStatus` semantics are exactly:
 
-- `FULL` — the complete candidate universe required by the intended selection is known to have been captured;
-- `PARTIAL` — useful rows exist but completeness is not guaranteed;
-- `NONE`/failed — no usable candidate universe exists.
+- `FULL` — the required source population is proven complete.
+- `PARTIAL` — usable evidence exists but the required population is incomplete.
+- `SAMPLED` — acquisition intentionally contains a sampled subset rather than the required complete population.
+- `TRUNCATED` — the source/acquisition is known to have been cut short.
+- `UNKNOWN` — completeness cannot be established.
 
-Exact enum names MAY differ, but semantics MUST be explicit.
+These are the canonical capture statuses. They MUST NOT be collapsed, renamed, or weakened in a way that erases any of the distinctions above.
 
-### Derived-envelope rule
+### 9.3 Complete-population rule
 
-Any governing/envelope calculation that requires comparison across the candidate universe MUST require `FULL` capture. If capture is `PARTIAL`, selection MUST NOT pretend the visible maximum/minimum is governing. The path MUST block or remain explicitly unresolved.
+For any selection, governing demand, or envelope that requires the complete source population:
+
+```text
+RuntimeCaptureStatus != FULL
+    -> governing engineering demand unresolved
+    -> formal execution BLOCKED
+```
+
+The visible maximum/minimum of a `PARTIAL`, `SAMPLED`, `TRUNCATED`, or `UNKNOWN` bundle MUST NOT be promoted to governing demand.
 
 ### CURRENT IMPLEMENTATION
 
-`tbdy_engine/features/result_evidence.py` provides shared result-evidence bundle/capture semantics and is a valid foundation. Adoption is incomplete across modal, drift, and torsion product/report paths.
+`tbdy_engine/features/result_evidence.py` provides shared result-evidence bundle/capture foundations and is a valid foundation, but repository-wide adoption and the exact five-status contract are not yet complete across modal, drift, torsion, and future result consumers.
 
 ---
 
@@ -462,34 +608,88 @@ Any governing/envelope calculation that requires comparison across the candidate
 
 ### FROZEN CONSTITUTIONAL RULE
 
-Result selection is a first-class boundary between raw result evidence and check execution.
+Result selection is a first-class boundary between raw result evidence and check execution. It produces selected/derived engineering evidence, not regulatory compliance.
 
-A result-selection component MUST:
+### 10.1 Reviewed load-family / exact binding authority
 
-- consume raw result evidence with stable identity,
-- consume an explicit deterministic selection policy,
-- verify required capture completeness,
-- emit selected evidence or resolved result features,
-- emit a `SelectionTrace`,
-- preserve unresolved reasons.
+Formal runtime result selection MUST consume an exact reviewed and frozen binding, not a runtime naming heuristic.
+
+The allowed production pattern is:
+
+```text
+reviewed + versioned binding rule
+    -> expand against the exact current ETABS case/combo inventory
+    -> materialized exact binding manifest
+    -> review/freeze
+    -> ResultSelectionPolicy
+```
+
+Runtime heuristic authority is forbidden. Examples include:
+
+- `"EQX" in case_name`,
+- regex seismic-name matching,
+- lexical preference,
+- earthquake-looking names,
+- first matching case.
+
+Such heuristics MAY be used only for:
+
+- discovery,
+- suggestion,
+- review assistance.
+
+They MUST NOT become formal runtime authority even if a runtime policy flag would otherwise “authorize” the heuristic. Formal runtime selection consumes the exact frozen binding manifest.
+
+### 10.2 ResultSelectionPolicy contract
+
+A `ResultSelectionPolicy` MUST define, where relevant:
+
+- policy id/version,
+- requested engineering quantity,
+- authoritative source,
+- exact reviewed binding set,
+- direction,
+- analysis kind,
+- `StepType`,
+- `StepNumber`,
+- sign semantics,
+- Max/Min semantics,
+- location/station semantics,
+- envelope operator,
+- tie semantics,
+- completeness requirement.
+
+There is NO default:
+
+- `Max`,
+- `Min`,
+- `abs-max`,
+- `Bottom`,
+- `Top`,
+- first row,
+- lexical case,
+- envelope operator,
+- response-spectrum sign.
+
+If any of those semantics matter to the requested quantity, they MUST be explicit in reviewed policy/binding authority.
+
+### 10.3 Selection output and authority boundary
+
+A `ResultSelectionPolicy` MAY derive an `EngineeringQuantity` and MUST emit a `SelectionTrace` sufficient to reconstruct that derivation.
 
 It MUST NOT:
 
-- apply regulatory PASS/FAIL limits,
+- apply final regulatory PASS/FAIL limits,
+- issue final formal `OUT_OF_SCOPE`,
 - create canonical `CheckResult`,
-- convert missing authoritative metadata into a confident policy decision through case-name heuristics,
 - use report layout needs to decide engineering selection,
 - silently drop candidates without trace.
 
-### Applicability boundary
-
-Selection determines which factual result evidence is presented to execution under an explicit selection policy. Regulatory applicability remains owned by `CheckEngine`.
-
-For example, “this row belongs to an explicitly selected seismic result family” may be a selection fact; “TBDY check X applies and passes” is an engine decision.
+Regulatory applicability and final `OUT_OF_SCOPE` remain `CheckEngine` authority.
 
 ### Fail-closed behavior
 
-If required policy metadata is absent, contradictory, or capture is insufficient for the requested governing selection, selection MUST return unresolved/blocked evidence. It MUST NOT choose by filename, case-name substring, first row, last row, or largest visible value unless that behavior is an explicitly authorized and reviewable policy with adequate evidence.
+If reviewed exact binding, requested selection semantics, or required capture completeness is unresolved, selection MUST return unresolved/blocked evidence. It MUST NOT choose a convenient case/row/operator.
 
 ---
 
@@ -497,23 +697,52 @@ If required policy metadata is absent, contradictory, or capture is insufficient
 
 ### FROZEN CONSTITUTIONAL RULE
 
-`SelectionTrace` is the audit artifact for result selection. It MUST be separate from the formal engineering verdict.
+`SelectionTrace` is the deterministic audit artifact for result selection. It MUST be separate from the formal engineering verdict.
 
-A conforming trace SHOULD contain:
+A conforming `SelectionTrace` MUST be capable of reconstructing, at minimum where relevant:
 
-- trace identity,
-- selection policy id/version,
-- source result-evidence bundle identity,
-- source capture status,
-- candidate row identities,
-- candidate inclusion/exclusion decisions,
-- reasons for each exclusion where material,
-- tie-breaking/governing rule identity,
-- selected row identities,
-- unresolved reason(s), if any,
-- diagnostics needed for review.
+- policy ID/version,
+- quantity ID,
+- source bundle ID,
+- model/source identity,
+- capture status,
+- requested component,
+- requested story,
+- requested direction,
+- candidate count,
+- eligible count,
+- rejected rows/reason categories,
+- selected exact case/combo,
+- reviewed load family/binding identity,
+- analysis kind,
+- `StepType`,
+- `StepNumber`,
+- location/station,
+- raw selected value,
+- source unit,
+- unit conversion,
+- sign transformation,
+- Max/Min interpretation,
+- envelope operation,
+- tie decision,
+- final `EngineeringQuantity`,
+- evidence refs.
 
-`SelectionTrace` MUST NOT contain a regulatory limit or final compliance status except as inert source metadata already present in evidence. It MUST NOT become an alternate `CheckResult`.
+The trace MAY contain additional candidate identities/diagnostics needed for review.
+
+### Determinism invariant
+
+```text
+same immutable source bundle
++ same reviewed bindings
++ same request
++ same policy version
+=> same SelectionTrace
+```
+
+A change in runtime iteration order, report ordering, import order, or lexical case ordering MUST NOT change the trace.
+
+`SelectionTrace` MUST NOT contain a final regulatory PASS/FAIL/OUT_OF_SCOPE verdict. It MUST NOT become an alternate `CheckResult`.
 
 ### CURRENT IMPLEMENTATION
 
@@ -534,7 +763,7 @@ It MAY contain:
 - entity identity,
 - source/evidence references,
 - factual diagnostics,
-- selected result features and their trace/evidence references.
+- selected raw factual row/component evidence where the selection does not transform the fact into a policy-derived governing demand.
 
 It MUST NOT contain:
 
@@ -542,13 +771,16 @@ It MUST NOT contain:
 - hidden code limits,
 - check applicability decisions,
 - report-specific formatting,
-- inferred policy defaults that belong to execution context.
+- inferred policy defaults that belong to execution context,
+- policy-derived governing `EngineeringQuantity` disguised as a raw fact.
 
-Feature resolvers MUST produce facts, not verdicts.
+Feature resolvers MUST produce facts, not verdicts or governing-demand policy results.
 
 ### Integration boundary
 
-Coverage MUST consume the snapshot rather than re-fetching ETABS or recalculating source facts. CheckEngine MUST consume typed inputs built from the snapshot/readiness boundary rather than reaching backward into ETABS/provider code.
+Coverage MAY consume factual `FeatureSnapshot` dependencies together with separately derived `EngineeringQuantity`/selection evidence and reviewed typed context. A policy-derived result quantity does not need to be copied into `FeatureSnapshot` to cross the execution boundary.
+
+CheckEngine MUST consume typed inputs built from the authorized dependency/readiness boundary rather than reaching backward into ETABS/provider code.
 
 ---
 
@@ -556,15 +788,24 @@ Coverage MUST consume the snapshot rather than re-fetching ETABS or recalculatin
 
 ### FROZEN CONSTITUTIONAL RULE
 
-Coverage is the canonical availability/readiness gate between facts and formal check execution.
+Coverage is the canonical availability/readiness gate between authorized dependencies and formal check execution.
+
+Canonical Coverage readiness statuses are exactly:
+
+- `RUNNABLE`
+- `PARTIAL`
+- `BLOCKED`
+
+Coverage owns readiness only.
 
 Coverage owns questions such as:
 
-- Is the required feature present?
+- Is the required factual feature present?
+- Is the required derived `EngineeringQuantity` resolved?
 - Is source evidence usable?
 - Is the unit explicit and acceptable?
 - Is required result capture complete?
-- Is mandatory execution context resolved?
+- Is mandatory reviewed context resolved?
 - Is the typed check input constructible?
 
 Coverage MUST NOT answer:
@@ -573,12 +814,27 @@ Coverage MUST NOT answer:
 - What is the regulatory limit?
 - Does the element pass?
 - What ratio/status should be reported?
+- Is the final formal result `OUT_OF_SCOPE`?
 
 Those remain `CheckEngine` authority.
 
-### Fail-closed behavior
+### Readiness semantics
 
-A check that lacks a mandatory feature, explicit unit, required selection resolution, or mandatory execution context MUST be unavailable/not-ready/blocked before formal evaluation. Missing evidence MUST NOT be converted to zero, a benign default, PASS, or “not applicable” unless the canonical engine explicitly decides regulatory non-applicability from sufficient context.
+- Missing authority or ambiguous semantic meaning -> `BLOCKED`.
+- Missing mandatory context -> `BLOCKED`.
+- Incomplete required result capture -> `BLOCKED` or `PARTIAL` readiness as defined by the check/dependency contract, but a check requiring a complete population MUST NOT execute as a complete-envelope check.
+- `PARTIAL` MUST remain visibly incomplete and MUST NOT be treated as `RUNNABLE` by convenience.
+
+### NO_DATA rule
+
+`NO_DATA` is NOT a generic synonym for missing information.
+
+A formal `CheckResult.NO_DATA` MAY be produced only when:
+
+1. all required semantics, source meanings, units, reviewed bindings, and mandatory contexts are fully resolved; **and**
+2. the authoritative factual row/data is genuinely absent.
+
+Missing information MUST NOT imply `OUT_OF_SCOPE` or `NOT_APPLICABLE`. Final formal `OUT_OF_SCOPE` belongs to `CheckEngine`.
 
 ### CURRENT IMPLEMENTATION
 
@@ -592,9 +848,14 @@ CoverageBuilder and accepted wall/geometry orchestration establish the correct b
 
 Formal execution MUST accept a typed `CheckInput` plus explicit `CheckExecutionContext` or an equivalent typed boundary preserving the same semantics.
 
-`CheckInput` is the sole formal execution-data boundary. It MUST carry normalized factual inputs required by the check and references necessary for auditability.
+`CheckInput` is the sole formal execution-data boundary. It MUST carry or explicitly reference the normalized dependencies required by the check, which MAY include:
 
-`CheckExecutionContext` carries mandatory policy/context that is not itself a source fact, for example code/design basis or execution policy choices.
+- factual values originating from `FeatureSnapshot`,
+- derived `EngineeringQuantity` plus selection/evidence references,
+- subject/entity identity,
+- normalized unit-bearing values required by contract.
+
+`CheckExecutionContext` carries the exact reviewed/shared policy/context dependencies required by one check, bound from the correct MODEL/BUILDING/STRUCTURAL_SYSTEM/DIRECTION/STORY-or-LEVEL/COMPONENT/CHECK_EXECUTION authorities.
 
 ### Prohibited behavior
 
@@ -605,12 +866,13 @@ Formal execution MUST NOT depend on:
 - mutable ETABS state,
 - environment-dependent defaults,
 - implicit unit assumptions,
-- case-name guesses,
-- a resolver deciding regulatory policy.
+- runtime case-name guesses,
+- a resolver deciding regulatory policy,
+- a giant untyped `ModelContext` that obscures dependency grain.
 
 ### Readiness
 
-If mandatory execution context is unresolved, the check is not runnable. The system MUST represent that state explicitly and MUST NOT manufacture a result by choosing an arbitrary default.
+If mandatory execution context or a required engineering quantity is unresolved, the check is not runnable. The system MUST represent that state explicitly and MUST NOT manufacture a result by choosing an arbitrary default.
 
 ### CURRENT IMPLEMENTATION
 
@@ -638,7 +900,7 @@ For each canonical check, the engine owns or orchestrates:
 6. status/verdict semantics,
 7. canonical `CheckResult` construction.
 
-The engine MAY delegate mathematical kernels to pure evaluators and MAY consume catalog data, but delegation MUST NOT transfer regulatory ownership to reporters, feature resolvers, assessment, or compatibility modules.
+The engine MAY delegate mathematical kernels to pure evaluators and MAY consume catalog data, but delegation MUST NOT transfer regulatory ownership to reporters, feature resolvers, result selectors, assessment, or compatibility modules.
 
 ### One-engine rule
 
@@ -646,7 +908,7 @@ The repository MUST NOT create domain-specific mini-engines that independently p
 
 ### Fail-closed behavior
 
-Unknown check id, duplicate check registration, unresolved mandatory context, invalid normalized input, or missing authoritative rule MUST fail deterministically. The engine MUST NOT infer a rule from a nearby check or silently fall back to product-report constants.
+Unknown check id, duplicate check registration, unresolved mandatory context, invalid normalized input, unresolved required `EngineeringQuantity`, or missing authoritative rule MUST fail deterministically. The engine MUST NOT infer a rule from a nearby check or silently fall back to product-report constants.
 
 ### CURRENT IMPLEMENTATION
 
@@ -691,19 +953,31 @@ If changing a pure evaluator can change which source row is selected or which co
 
 ### FROZEN CONSTITUTIONAL RULE
 
-There MUST be exactly one formal production `CheckResult` DTO.
+There MUST be exactly one formal production `CheckResult` DTO, and `CheckEngine` MUST construct the final formal `CheckResult`.
 
-The canonical result MUST be produced by `CheckEngine` and SHOULD carry enough information to review:
+The canonical formal `CheckResult.status` set is exactly:
+
+- `OK` — the applicable formal check was evaluated and satisfied its canonical rule.
+- `FAIL` — the applicable formal check was evaluated and failed its canonical rule.
+- `WARNING` — the formal check produced a canonical warning state explicitly defined by its check contract; it is not a substitute for unresolved input.
+- `NO_DATA` — all semantics/context/source meanings are resolved, but the authoritative factual data is genuinely absent under the check contract.
+- `BLOCKED` — formal evaluation cannot be completed because a mandatory dependency, authority, context, capture requirement, or trusted execution condition is unresolved.
+- `OUT_OF_SCOPE` — `CheckEngine` determined from sufficient authoritative context that the formal check is regulatorily outside the assessed scope.
+
+No additional final formal status MAY be introduced without constitutional amendment.
+
+A lower-level resolver, selector, acquisition operation, or compatibility layer MAY report its own operation-specific unresolved/not-applicable diagnostic state, but it MUST NOT manufacture final formal `CheckResult.OUT_OF_SCOPE`.
+
+The canonical result SHOULD carry enough information to review:
 
 - check identity,
 - subject/entity identity,
-- applicable/not-applicable/blocked/evaluated semantics as defined by the result contract,
-- normalized value(s),
+- final formal status,
+- normalized value(s) and/or derived engineering quantity,
 - authoritative limit/rule identity where applicable,
 - comparison/ratio semantics where applicable,
-- final status,
 - execution-context identity or summary,
-- evidence/provenance references,
+- evidence/provenance/selection-trace references,
 - diagnostics required for review.
 
 A reporter-friendly dictionary MAY serialize a canonical `CheckResult`, but it MUST NOT become a second formal result authority.
@@ -746,6 +1020,16 @@ Assessment MUST NOT:
 
 A materially missing or duplicate expected result MUST prevent an assessment from claiming structurally complete canonical coverage.
 
+### Full TBDY product gate
+
+Domain assessment completeness is not full-code completeness. Until every mandatory TBDY domain applicable to the assessed scope has authoritative dependencies, implemented canonical formal checks, complete Coverage, and canonical Assessment, the product MUST keep:
+
+```text
+full_tbdy_compliance_status = NOT_EVALUATED
+```
+
+No aggregation of successful partial domains MAY be labeled `FULL TBDY PASS`.
+
 ### CURRENT IMPLEMENTATION
 
 `WallAssessment` is the accepted domain reference for expected-versus-observed reconciliation and is `CONFORMING` within the wall slice. A generic assessment abstraction MAY be introduced when a second domain proves identical semantics; premature universalization is not required.
@@ -778,7 +1062,8 @@ A reporter MUST NOT own:
 - result-row selection,
 - governing-envelope selection,
 - source-unit inference,
-- creation of a parallel formal result.
+- creation of a parallel formal result,
+- promotion of partial-domain success to full TBDY compliance.
 
 Display rounding MUST NOT alter the underlying canonical value or verdict.
 
@@ -825,15 +1110,16 @@ The constitution MUST NOT be used to pre-approve unmerged B1 code.
 
 ### FROZEN CONSTITUTIONAL RULE
 
-Units are explicit evidence, not a guess.
+Units are explicit evidence, not a guess and not a reason to mutate ETABS into a preferred display unit system.
 
-1. Acquisition MUST record source unit context.
-2. Raw evidence SHOULD preserve raw value and source unit.
-3. Conversion MUST use an explicit unit mapping/contract.
-4. FeatureSnapshot MUST expose normalized unit with the normalized value where dimensional meaning matters.
-5. CheckInput MUST receive normalized values whose units are known by contract.
-6. Reporter MUST NOT infer or repair engineering units.
-7. Missing or contradictory units MUST block canonical execution when the check depends on them.
+1. Acquisition MUST record source/present/database unit context using non-normalizing reads available to the authoritative source/API.
+2. Canonical acquisition MUST NOT call `SetPresentUnits(...)` or `SetPresentUnits_2(...)` merely to normalize data.
+3. Raw evidence SHOULD preserve raw value and source unit.
+4. Conversion MUST use an explicit unit mapping/contract in Python downstream.
+5. FeatureSnapshot MUST expose normalized unit with the normalized factual value where dimensional meaning matters.
+6. CheckInput MUST receive normalized values whose units are known by contract.
+7. Reporter MUST NOT infer or repair engineering units.
+8. Missing or contradictory units MUST block canonical execution when the check depends on them.
 
 ### Prohibited heuristics
 
@@ -842,11 +1128,14 @@ The following are prohibited as canonical engineering authority:
 - “if absolute value <= 30, treat as metres; otherwise millimetres,”
 - “if strength > 1000, divide by 1000; otherwise assume MPa,”
 - guessing units from GUI strings without explicit acquisition evidence,
-- choosing a conversion because the resulting value looks plausible.
+- choosing a conversion because the resulting value looks plausible,
+- changing ETABS present units and treating the mutated state as the canonical normalization mechanism.
 
 ### CURRENT IMPLEMENTATION
 
 `tbdy_engine/engine/unit_context.py` contains an immutable explicit `UnitContext` and a fail-closed `require_unit_context_for_engineering()` path, which are conforming foundations. It also contains optional compatibility heuristics/fallback discovery. Those heuristic paths MAY remain for compatibility/diagnostics but MUST NOT feed canonical engineering execution.
+
+`tbdy_engine/etabs/connection.py` currently calls `SetPresentUnits(6)` and therefore does not conform to the canonical acquisition-unit rule.
 
 `tools/render_product_report.py` and `tbdy_engine/product_reports/material_evidence.py` contain magnitude-based conversions that are legacy debt.
 
@@ -862,31 +1151,38 @@ The following conditions MUST NOT produce a confident engineering PASS/FAIL resu
 
 - missing mandatory feature,
 - unknown/ambiguous dimensional unit,
+- unresolved reviewed building/system/direction/reference authority,
 - unresolved execution policy/context,
-- missing authoritative result-case metadata when the selection policy requires it,
-- `PARTIAL` capture for a full-universe governing/envelope selection,
+- missing exact reviewed load/case/combo binding when result selection requires it,
+- `PARTIAL`, `SAMPLED`, `TRUNCATED`, or `UNKNOWN` capture for a full-population governing/envelope selection,
 - duplicate canonical check registration,
 - unknown check id,
 - failed ETABS state restoration where result trust depends on restoration semantics,
 - ambiguous or stale ETABS session identity,
-- conflicting source evidence without an explicit resolution policy.
+- conflicting source evidence without an explicit reviewed resolution policy.
 
 ### Prohibited heuristic authority
 
 Canonical engineering MUST NOT use these as substitutes for missing authority:
 
 - value magnitude,
-- string/name substring,
+- case-name/string substring,
+- regex seismic-name matching,
+- lexical preference,
+- earthquake-looking names,
+- first matching case,
 - first/last row,
-- first successful case unless policy explicitly defines it,
 - “largest row seen” when the full universe is not captured,
+- default Max/Min/abs-max/envelope/sign/location semantics,
 - reporter defaults,
 - silent unit defaults,
 - silent code-edition defaults,
 - mutable global ETABS present units as proof of source units,
 - test fixture assumptions leaking into live execution.
 
-Heuristics MAY exist for diagnostics, user assistance, legacy compatibility, or discovery only if their non-authoritative status is explicit and they cannot silently enter canonical execution.
+Runtime case-name heuristics MAY exist only for discovery, suggestion, or review assistance. They MUST NOT be formal runtime selection authority.
+
+Missing information MUST NOT be converted to `OUT_OF_SCOPE`, `NOT_APPLICABLE`, or PASS. Coverage blocks unresolved readiness; final regulatory `OUT_OF_SCOPE` is owned by `CheckEngine`.
 
 ---
 
@@ -906,15 +1202,17 @@ Changes to these surfaces SHOULD be serialized or owned by an architecture/integ
 - shared result-evidence/capture contracts,
 - central registration composer,
 - base catalog schema/composition rules,
-- shared execution-boundary semantics.
+- shared execution-boundary semantics,
+- ratified ETABS acquisition/session transaction boundary.
 
 ### 23.2 Domain-worker surfaces
 
 A domain worker SHOULD primarily own:
 
 - domain raw-evidence mapping,
-- domain FeatureResolver,
+- domain FeatureResolver for factual features,
 - domain-specific factual feature definitions,
+- domain `ResultSelectionPolicy` contribution where result selection is required,
 - typed domain CheckInput adapter,
 - pure evaluator,
 - domain registration contribution,
@@ -922,13 +1220,23 @@ A domain worker SHOULD primarily own:
 - domain tests/replay fixtures,
 - compatibility delegation for that domain.
 
-### 23.3 Hotspot avoidance
+### 23.3 One-live-client / acquisition ownership
 
-`tbdy_engine/checks/registry.py`, `tbdy_engine/checks/engine.py`, base catalogs, `tbdy_engine/product_reports/check_results.py`, and `tools/render_product_report.py` are known integration hotspots. Multiple workers SHOULD NOT independently redesign them during domain migrations.
+There MUST be **ONE LIVE ETABS ACQUISITION OWNER AT A TIME** per live ETABS session within the enforced repository/process scope.
 
-### 23.4 No speculative framework rule
+Canonical ETABS acquisition and state mutation MUST be serialized through that owner. Workers MUST NOT concurrently mutate a shared live ETABS session through independent clients merely because their downstream domains are parallelizable.
 
-A worker MUST NOT create a generic plugin framework, universal evidence bag, second engine, or alternate formal-result abstraction merely to avoid a merge conflict. Shared abstractions SHOULD be generalized only after at least two real domains prove the shared semantics.
+After acquisition, immutable evidence bundles, factual snapshots, reviewed contexts, selection traces, and formal inputs MAY be consumed in parallel.
+
+No worker or document MAY claim cross-process or OS-global locking unless the implementation actually enforces and proves that scope.
+
+### 23.4 Hotspot avoidance
+
+`tbdy_engine/checks/registry.py`, `tbdy_engine/checks/engine.py`, base catalogs, `tbdy_engine/product_reports/check_results.py`, `tools/render_product_report.py`, and the future canonical ETABS safety boundary are known integration hotspots. Multiple workers SHOULD NOT independently redesign them during domain migrations.
+
+### 23.5 No speculative framework rule
+
+A worker MUST NOT create a generic plugin framework, universal evidence bag, second engine, giant `ModelContext`, or alternate formal-result abstraction merely to avoid a merge conflict. Shared abstractions SHOULD be generalized only after real consumers prove the shared semantics.
 
 ---
 
@@ -941,17 +1249,20 @@ Each domain migration SHOULD proceed as a vertical slice in this order:
 1. inventory current checks/results and duplicate authorities,
 2. identify exact source tables/result evidence and provenance,
 3. establish factual raw/canonical evidence contract,
-4. implement/confirm factual FeatureResolver,
-5. produce `FeatureSnapshot`,
-6. for result domains, establish stable result identity, capture status, selection policy, and `SelectionTrace`,
-7. establish Coverage/readiness,
-8. build typed `CheckInput` + `CheckExecutionContext`,
-9. register pure evaluator/check with canonical `CheckEngine`,
-10. produce canonical `CheckResult`,
-11. reconcile through Assessment,
-12. convert reporter/product API to serialization/delegation only,
-13. run boundary, replay, and live acceptance,
-14. remove/deactivate duplicate authority only after parity/acceptance.
+4. implement/confirm factual FeatureResolver where factual features are required,
+5. produce factual `FeatureSnapshot` for factual dependencies only,
+6. for result domains, establish source-specific result identity and exact `RuntimeCaptureStatus`, reviewed exact bindings, `ResultSelectionPolicy`, `EngineeringQuantity`, and deterministic `SelectionTrace`,
+7. bind reviewed MODEL/BUILDING/STRUCTURAL_SYSTEM/DIRECTION/STORY-or-LEVEL/COMPONENT context dependencies at their proper grain,
+8. establish Coverage/readiness,
+9. build typed `CheckInput` + `CheckExecutionContext`,
+10. register pure evaluator/check with canonical `CheckEngine`,
+11. produce canonical `CheckResult`,
+12. reconcile through Assessment,
+13. convert reporter/product API to serialization/delegation only,
+14. run boundary, replay, and live acceptance,
+15. remove/deactivate duplicate authority only after parity/acceptance.
+
+A migration MUST NOT force a policy-derived `EngineeringQuantity` into `FeatureSnapshot` merely to reuse a factual path.
 
 A migration MUST NOT begin by deleting legacy behavior before the canonical path can prove equivalent or intentionally changed semantics.
 
@@ -961,8 +1272,10 @@ A completed slice SHOULD demonstrate:
 
 - source evidence provenance,
 - explicit units,
+- correct context-grain binding,
 - missing/invalid input behavior,
 - exact-boundary comparisons where numeric limits exist,
+- exact reviewed result binding and selection trace where applicable,
 - duplicate registration failure,
 - compatibility delegation,
 - non-regression of previously canonical slices,
@@ -976,28 +1289,31 @@ A completed slice SHOULD demonstrate:
 
 Legacy compatibility is permitted as a temporary interface, not as a second authority.
 
-A compatibility path MUST converge toward:
+A compatibility path MUST converge toward one of the canonical dependency lanes and then the canonical execution boundary:
 
 ```text
 legacy/public API
-    -> canonical acquisition/features/selection
+    -> canonical factual evidence/features and/or canonical result evidence/selection
+    -> reviewed typed context
     -> Coverage
     -> canonical CheckEngine
     -> canonical CheckResult
     -> compatibility serialization
 ```
 
-It MUST NOT retain independent thresholds, applicability, formula, status, or row-selection logic once the domain is migrated.
+It MUST NOT retain independent thresholds, applicability, formula, status, unit inference, or row-selection logic once the domain is migrated.
 
-### Migration sequence
+### Legacy batch labels
 
-The currently approved migration order is:
+The following labels remain useful for debt mapping and compatibility cleanup:
 
-1. **Batch 1 — Beam + Column Geometry**
-2. **Batch 2 — Concrete Material Strength**
-3. **Batch 3 — Modal Mass Participation**
-4. **Batch 4 — Story Drift + Torsional A1**
-5. **Batch 5 — Remaining Legacy Design/Result Authorities**
+- **B1 — Beam + Column Geometry**
+- **B2 — Concrete Material Strength**
+- **B3 — Modal Mass Participation**
+- **B4 — Story Drift + Torsional A1**
+- **B5 — Remaining Legacy Design/Result Authorities**
+
+These labels are NOT, by themselves, the current execution schedule. The authoritative current acceleration roadmap is Section 28 and includes result-selection/context consumers interleaved with legacy canonicalization.
 
 ### Deletion rule
 
@@ -1023,9 +1339,10 @@ No vertical slice is complete merely because its new code exists. Acceptance MUS
 
 A migrated domain MUST satisfy all applicable conditions:
 
-- one source-to-result canonical path,
+- one authorized source-to-result canonical path,
 - explicit provenance,
 - explicit units,
+- correct regulatory context-grain bindings,
 - Coverage mandatory before formal execution,
 - typed CheckInput/context boundary,
 - no hidden mandatory context,
@@ -1043,7 +1360,7 @@ A migrated domain MUST satisfy all applicable conditions:
 
 B1 MUST satisfy all twenty gates below before its implementation shape is considered ratified:
 
-1. Exactly one execution path exists from raw section evidence -> normalized feature -> `FeatureSnapshot` -> Coverage -> typed `CheckInput` -> `CheckEngine` -> canonical `CheckResult`.
+1. Exactly one execution path exists from raw section evidence -> normalized factual feature -> `FeatureSnapshot` -> Coverage -> typed `CheckInput` -> `CheckEngine` -> canonical `CheckResult`.
 2. Coverage is mandatory.
 3. No hidden execution context is required.
 4. There is one numeric authority for 250 mm, 300 mm, 3.5, and any retained column limits.
@@ -1066,16 +1383,18 @@ B1 MUST satisfy all twenty gates below before its implementation shape is consid
 
 ### 26.3 Result-domain gate
 
-Modal, drift, torsion, and later envelope/governing result domains additionally MUST demonstrate:
+Ndm, Vt/Eq7.14, modal, drift, torsion, and later governing/envelope result domains additionally MUST demonstrate:
 
-- stable candidate identity,
-- explicit capture status,
-- `FULL` capture where full-universe governing selection is required,
-- explicit selection policy,
-- `SelectionTrace`,
+- source-specific stable candidate identity distinct from payload,
+- exact `RuntimeCaptureStatus` from `FULL/PARTIAL/SAMPLED/TRUNCATED/UNKNOWN`,
+- `FULL` capture where full-population governing selection is required,
+- reviewed + versioned exact binding manifest,
+- explicit `ResultSelectionPolicy` including all relevant sign/step/location/envelope/tie semantics,
+- deterministic `SelectionTrace`,
+- explicit `EngineeringQuantity` output where a governing quantity is derived,
 - no reporter/product selection authority,
-- no case-name fallback used as authoritative metadata,
-- regulatory applicability still decided by `CheckEngine`.
+- no runtime case-name heuristic used as authoritative metadata,
+- regulatory applicability and final `OUT_OF_SCOPE` decided only by `CheckEngine`.
 
 ---
 
@@ -1095,49 +1414,49 @@ This section records the audited state at exactly `46ed7f087290393786bd06feef3a7
 | Wall Pack C | `CONFORMING` | Canonical wall pipeline binds readiness/Coverage, typed input/context, engine execution, formal result, assessment; unresolved Ndm policy blocks. | Reference implementation for fail-closed execution. |
 | `MinimalCheckEngine` | `PARTIALLY_CONFORMING` | Canonical authority for accepted wall and geometry checks; repo-wide bypasses still exist. | Sole regulatory production authority for all migrated domains. |
 | `GeometryCheckInput` / `CheckExecutionContext` | `CONFORMING` | Accepted typed execution boundary used in wall/geometry paths. | Extend semantics with typed domain inputs, not universal dicts. |
-| Coverage | `PARTIALLY_CONFORMING` | Correctly used by wall/geometry orchestration; not yet universal across material/result domains. | Mandatory readiness boundary for every canonical check. |
-| Canonical `CheckResult` | `CONFORMING` | `tbdy_engine/checks/result.py` is used by accepted engine path. | Remain sole formal DTO. |
+| Coverage | `PARTIALLY_CONFORMING` | Correctly used by wall/geometry orchestration; not yet universal across material/result domains. | Mandatory `RUNNABLE/PARTIAL/BLOCKED` readiness boundary for every canonical check. |
+| Canonical `CheckResult` | `CONFORMING` | `tbdy_engine/checks/result.py` is used by accepted engine path. | Remain sole formal DTO with exact canonical status set. |
 | `WallAssessment` | `CONFORMING` | Reconciles accepted wall expected/observed results rather than becoming a wall formula engine. | Reuse semantics only when second domain proves common abstraction. |
 | `product_reports/check_results.py` | `LEGACY_DEBT` | Builds parallel formal-looking `check_result.v1` dictionaries and owns material/modal/drift/A1 status/limit/selection behavior. | Compatibility serializer over canonical `CheckResult` only. |
 | `tools/render_product_report.py` | `LEGACY_DEBT` | Owns geometry/modal thresholds, ratios/statuses, reporter-only column checks, magnitude-based length conversion. | Serialization/display only. |
 | `engine/unit_context.py` | `PARTIALLY_CONFORMING` | Has immutable explicit `UnitContext` and fail-closed engineering requirement; also compatibility heuristic fallback paths. | Explicit acquisition unit context; heuristics excluded from canonical engineering. |
-| `etabs/connection.py` | `PARTIALLY_CONFORMING` | Attaches to running ETABS with multiple COM fallbacks, validates SapModel/tables, but changes present units and lacks ratified session transaction contract. | Safe explicit session identity + state transaction semantics. |
+| `etabs/connection.py` | `PARTIALLY_CONFORMING` | Attaches to running ETABS with multiple COM fallbacks, validates SapModel/tables, but calls `SetPresentUnits(6)` and lacks ratified serialized acquisition/session safety contract. | Read unit provenance without canonical normalization mutation; safe explicit session identity. |
 | `etabs_com_attach.py` | `NOT_IMPLEMENTED` | No separate file with this exact responsibility/name was found on audited baseline; attach behavior resides in `tbdy_engine/etabs/connection.py`. | Exact attach API shape pending ETABS Safety ratification. |
-| Display-table fetcher | `PARTIALLY_CONFORMING` | Shared fetcher probes COM signatures and records rich diagnostics; may mutate display case/combination selection without baseline transaction restore contract. | Read-safe transactional acquisition with observable snapshot/restore. |
-| Result-evidence capture | `PARTIALLY_CONFORMING` | `features/result_evidence.py` provides identity/capture foundations, not yet adopted consistently by modal/drift/A1. | Shared stable identity + explicit FULL/PARTIAL semantics for all result domains. |
-| Shared `SelectionTrace` | `NOT_IMPLEMENTED` | No complete shared canonical trace boundary verified at baseline. | Required for migrated result-selection domains. |
+| Display-table fetcher | `PARTIALLY_CONFORMING` | Shared fetcher probes COM signatures and records rich diagnostics; may mutate display case/combination selection without baseline transaction restore contract. | Serialized acquisition owner + observable bounded display-state transaction. |
+| Result-evidence capture | `PARTIALLY_CONFORMING` | `features/result_evidence.py` provides identity/capture foundations, not yet adopted consistently by modal/drift/A1. | Shared source-specific identity + exact `FULL/PARTIAL/SAMPLED/TRUNCATED/UNKNOWN` contract. |
+| Shared `SelectionTrace` | `NOT_IMPLEMENTED` | No complete shared canonical trace boundary verified at baseline. | Required deterministic trace for migrated result-selection domains. |
 | Beam geometry | `PARTIALLY_CONFORMING` | Canonical engine/input/Coverage pieces exist, but reporter duplicates limits/status/unit behavior. | B1 single canonical vertical slice. |
 | Column geometry | `PARTIALLY_CONFORMING` | Canonical engine/input/Coverage pieces exist; reporter also owns area/aspect checks not present in engine inventory. | B1 reconcile/promote/retire inventory, then single authority. |
 | Concrete material strength | `LEGACY_DEBT` | Evidence module is mostly factual, but unit normalization uses magnitude heuristic; product result builder owns minimum fck/status. | B2 explicit-unit factual feature -> Coverage -> engine. |
-| Modal mass participation | `LEGACY_DEBT` | Reporter/product path owns threshold/status/selected-row behavior; no complete canonical result-selection trace path. | B3 full result evidence -> selection trace -> engine. |
-| Story drift | `LEGACY_DEBT` | Product result path owns frozen threshold/status and case-selection heuristics. | B4 explicit selection/context -> engine. |
-| Torsional A1 | `LEGACY_DEBT` | Product path owns threshold/status and permits case-name fallback for generic/missing case metadata. | B4 explicit authoritative selection/context -> engine. |
-| Beam legacy design | `LEGACY_DEBT` | `design/beams/*` contains independent engineering calculation paths outside canonical engine. | B5 family-by-family canonical migration. |
-| Column legacy design | `LEGACY_DEBT` | `design/columns/*` contains independent engineering calculation paths outside canonical engine. | B5 family-by-family canonical migration. |
+| Modal mass participation | `LEGACY_DEBT` | Reporter/product path owns threshold/status/selected-row behavior; no complete canonical result-selection trace path. | Later result wave: exact binding -> policy -> EngineeringQuantity/trace -> engine. |
+| Story drift | `LEGACY_DEBT` | Product result path owns frozen threshold/status and case-selection heuristics. | Later result wave: exact reviewed binding/selection -> engine. |
+| Torsional A1 | `LEGACY_DEBT` | Product path owns threshold/status and permits case-name fallback for generic/missing case metadata. | Later result wave: exact reviewed binding/selection -> engine. |
+| Beam legacy design | `LEGACY_DEBT` | `design/beams/*` contains independent engineering calculation paths outside canonical engine. | Family-by-family canonical migration. |
+| Column legacy design | `LEGACY_DEBT` | `design/columns/*` contains independent engineering calculation paths outside canonical engine. | Family-by-family canonical migration. |
 | Registration exact implementation | `PENDING_IMPLEMENTATION` | Existing registry/engine composition works for accepted checks but is a shared hotspot and not the ratified B1 end state. | Deterministic additive composition; exact API pending B1 ratification. |
-| ETABS safety transaction API | `PENDING_IMPLEMENTATION` | Current connection/fetching behavior lacks ratified end-to-end state/session transaction interface. | Frozen safety semantics; exact API pending ETABS Safety ratification. |
+| ETABS safety transaction API | `PENDING_IMPLEMENTATION` | Current connection/fetching behavior lacks ratified one-live-owner session/state transaction interface. | Frozen safety semantics; exact API pending ETABS Safety ratification. |
 
 ### 27.2 Material debt register
 
-| Path | Current behavior | Violated constitutional rule | Target authority | Planned migration batch | Severity |
+| Path | Current behavior | Violated constitutional rule | Target authority | Planned migration batch/wave | Severity |
 |---|---|---|---|---|---|
-| `tools/render_product_report.py` | Defines geometry thresholds including beam width/depth/ratio and column limits; computes ratios/status; performs magnitude-based `_length_to_mm`; owns modal threshold/status behavior. | Reporter MUST be serialization-only; units MUST be explicit; CheckEngine sole verdict authority. | FeatureSnapshot/Coverage/CheckEngine/canonical `CheckResult`; reporter delegates. | B1 + B3 | **CRITICAL** |
-| `tbdy_engine/product_reports/check_results.py` | Builds parallel `check_result.v1`; owns `MIN_FCK_MPA`, modal aggregation, `MAX_STORY_DRIFT_RATIO`, `MAX_TORSION_A1_COEFFICIENT`, selection/status behavior. | One formal result DTO; CheckEngine sole regulatory authority; selection separate from compliance. | Canonical result-selection boundary + CheckEngine + canonical `CheckResult`. | B2 + B3 + B4 | **CRITICAL** |
+| `tools/render_product_report.py` | Defines geometry thresholds including beam width/depth/ratio and column limits; computes ratios/status; performs magnitude-based `_length_to_mm`; owns modal threshold/status behavior. | Reporter MUST be serialization-only; units MUST be explicit; CheckEngine sole verdict authority. | FeatureSnapshot/Coverage/CheckEngine/canonical `CheckResult`; reporter delegates. | B1 + later modal wave | **CRITICAL** |
+| `tbdy_engine/product_reports/check_results.py` | Builds parallel `check_result.v1`; owns `MIN_FCK_MPA`, modal aggregation, `MAX_STORY_DRIFT_RATIO`, `MAX_TORSION_A1_COEFFICIENT`, selection/status behavior. | One formal result DTO; CheckEngine sole regulatory authority; selection separate from compliance. | Canonical result-selection boundary + CheckEngine + canonical `CheckResult`. | B2 + result-selection waves | **CRITICAL** |
 | `tbdy_engine/product_reports/material_evidence.py` | Mostly factual evidence/provenance, but `_fck_to_mpa` divides values >1000 and otherwise assumes MPa. | No magnitude-based unit inference. | Explicit source `UnitContext` + factual material resolver. | B2 | **HIGH** |
 | `tbdy_engine/engine/unit_context.py` | Provides explicit unit context and fail-closed requirement but retains heuristic fallback/discovery compatibility paths. | Heuristic authority MUST NOT enter canonical engineering. | Explicit ETABS acquisition unit context; heuristic APIs compatibility/diagnostic only. | ETABS Safety + B1/B2 | **HIGH** |
-| `tbdy_engine/etabs/connection.py` | Attaches to active ETABS, validates tables, calls `SetPresentUnits(6)` during connect/get_sap without a ratified snapshot/restore transaction abstraction. | ETABS mutation MUST be explicit/bounded/restored when temporary; source units are evidence. | ETABS acquisition/session transaction boundary. | ETABS Safety Foundation | **HIGH** |
-| `tbdy_engine/providers/etabs_display_table_fetcher.py` | Robust COM signature probing/diagnostics; may call display-selection mutators before result fetch; baseline does not establish restoration transaction. | No hidden/unbounded ETABS state mutation. | ETABS acquisition read/display transaction. | ETABS Safety Foundation | **HIGH** |
+| `tbdy_engine/etabs/connection.py` | Attaches to active ETABS, validates tables, calls `SetPresentUnits(6)` during connect/get_sap. | Canonical acquisition MUST NOT use `SetPresentUnits`/`SetPresentUnits_2` merely to normalize data; source unit provenance must be read/preserved. | ETABS acquisition/session boundary with Python downstream conversion. | ETABS Safety Foundation | **HIGH** |
+| `tbdy_engine/providers/etabs_display_table_fetcher.py` | Robust COM signature probing/diagnostics; may call display-selection mutators before result fetch; baseline does not establish restoration transaction or one-live-owner serialization. | No hidden/unbounded ETABS state mutation; one live acquisition owner. | ETABS acquisition read/display transaction. | ETABS Safety Foundation | **HIGH** |
 | `tbdy_engine/checks/engine.py` + `tools/render_product_report.py` | Beam/column geometry authority is split: engine has canonical geometry checks while reporter repeats numeric policy/status. | One authority per decision. | Canonical CheckEngine/catalog path. | B1 | **HIGH** |
 | `tools/render_product_report.py` | Contains reporter-only column minimum-area and aspect-ratio criteria not represented in accepted engine inventory. | Check inventory and regulatory authority MUST be explicit/canonical. | Explicit promote-to-canonical or retire decision, then CheckEngine. | B1 | **HIGH** |
-| `tbdy_engine/product_reports/check_results.py` + report path | Modal selected-row/threshold/status flow remains outside canonical result evidence/selection/engine architecture. | Raw result identity + SelectionTrace + CheckEngine authority. | ResultRowEvidenceBundle -> SelectionTrace -> typed input -> CheckEngine. | B3 | **HIGH** |
-| `tbdy_engine/product_reports/check_results.py` | Drift case selector uses metadata/name patterns and owns product threshold/status. | Selection MUST be explicit/traceable; regulatory status belongs to engine; no heuristic substitution for missing authority. | Result selection + SelectionTrace + CheckEngine. | B4 | **CRITICAL** |
-| `tbdy_engine/product_reports/check_results.py` | Torsion A1 selector permits name fallback when metadata is generic/missing and owns threshold/status. | Same as drift; case-name fallback MUST NOT be canonical authority. | Result selection + SelectionTrace + CheckEngine. | B4 | **CRITICAL** |
-| `tbdy_engine/design/beams/*` | Independent legacy beam engineering calculations exist outside canonical execution boundary. | One regulatory authority / one formal result path. | Domain vertical slices through canonical CheckEngine. | B5 | **HIGH** |
-| `tbdy_engine/design/columns/*` | Independent legacy column engineering calculations exist outside canonical execution boundary. | One regulatory authority / one formal result path. | Domain vertical slices through canonical CheckEngine. | B5 | **HIGH** |
+| `tbdy_engine/product_reports/check_results.py` + report path | Modal selected-row/threshold/status flow remains outside canonical result evidence/selection/engine architecture. | Raw result identity + exact reviewed binding + SelectionTrace + CheckEngine authority. | ResultRowEvidenceBundle -> reviewed binding -> ResultSelectionPolicy -> EngineeringQuantity/SelectionTrace -> CheckEngine. | later modal wave | **HIGH** |
+| `tbdy_engine/product_reports/check_results.py` | Drift case selector uses metadata/name patterns and owns product threshold/status. | Runtime name heuristics MUST NOT be formal authority; regulatory status belongs to engine. | Exact reviewed binding -> ResultSelectionPolicy -> SelectionTrace -> CheckEngine. | Story Drift + Torsional A1 wave | **CRITICAL** |
+| `tbdy_engine/product_reports/check_results.py` | Torsion A1 selector permits name fallback when metadata is generic/missing and owns threshold/status. | Runtime name fallback MUST NOT be canonical authority; final status belongs to engine. | Exact reviewed binding -> ResultSelectionPolicy -> SelectionTrace -> CheckEngine. | Story Drift + Torsional A1 wave | **CRITICAL** |
+| `tbdy_engine/design/beams/*` | Independent legacy beam engineering calculations exist outside canonical execution boundary. | One regulatory authority / one formal result path. | Domain vertical slices through canonical CheckEngine. | remaining legacy cleanup | **HIGH** |
+| `tbdy_engine/design/columns/*` | Independent legacy column engineering calculations exist outside canonical execution boundary. | One regulatory authority / one formal result path. | Domain vertical slices through canonical CheckEngine. | remaining legacy cleanup | **HIGH** |
 
 ### 27.3 Current authority map by audited domain
 
-| Domain | Facts | Coverage/input | Formula/limit/status | Formal result | Reporter | State |
+| Domain | Facts / result evidence | Coverage/input | Formula/limit/status | Formal result | Reporter | State |
 |---|---|---|---|---|---|---|
 | Wall | canonical factual/evidence path | canonical | CheckEngine | canonical `CheckResult` | downstream display | **canonical reference** |
 | Beam geometry | factual features exist | canonical pieces exist | engine + duplicate reporter | canonical + report duplicate behavior | calculates | **split authority** |
@@ -1149,7 +1468,7 @@ This section records the audited state at exactly `46ed7f087290393786bd06feef3a7
 
 ### 27.4 Debt interpretation rule
 
-The presence of legacy debt does not invalidate the accepted wall architecture. It means new work MUST migrate toward the wall-established boundaries rather than copying product/report authority patterns.
+The presence of legacy debt does not invalidate the accepted wall architecture. It means new work MUST migrate toward the constitutional boundaries rather than copying product/report authority patterns.
 
 No test-only threshold constant is classified as duplicate production authority merely because its numeric value matches production policy.
 
@@ -1159,79 +1478,67 @@ No test-only threshold constant is classified as duplicate production authority 
 
 ### FROZEN CONSTITUTIONAL RULE
 
-The fastest safe route is authority convergence, not framework replacement.
+The current project roadmap is dependency-driven. Legacy batch names remain useful for debt accounting, but the actual execution order is the following.
 
-### Batch 1 — Beam + Column Geometry
+### DONE
 
-Goal: make geometry the second broadly canonical domain and prove additive composition.
+- Wall Inventory
+- Wall Pack A
+- Wall Pack B
+- Wall Pack C
 
-Required moves:
+### CURRENT PARALLEL SPRINT
 
-- retain raw/factual geometry resolution,
-- require explicit units,
-- preserve Coverage and typed geometry input,
-- keep `CheckEngine` as sole geometry verdict authority,
-- move reporter to serialization-only,
-- resolve column minimum-area/aspect inventory explicitly: promote or retire,
-- establish additive deterministic registration with duplicate-id failure,
-- pass the twenty-item B1 gate in Section 26.
+- B1 Beam + Column Canonicalization
+- ETABS Safety Foundation
+- Architecture Constitution
 
-This batch SHOULD NOT introduce a new generic framework.
+The exact B1 registration/composition implementation and exact ETABS Safety API remain pending implementation ratification; their frozen semantics are defined by this constitution.
 
-### Batch 2 — Concrete Material Strength
+### NEXT PARALLEL WAVE
 
-Goal: convert material from factual evidence + product verdict into a canonical vertical slice.
+- B2 Concrete Material
+- `ResultSelectionPolicy` + **Ndm first real consumer**
 
-Required moves:
+Ndm MUST be the first `ResultSelectionPolicy` implementation. The project MUST NOT prebuild Vt, drift, torsion, modal, and every possible context/result abstraction before Ndm proves the selection/binding/trace model with a real engineering consumer.
 
-- expose explicit source unit metadata,
-- remove magnitude-based `fck` normalization from canonical path,
-- resolve canonical `concrete_fck_mpa` or equivalent typed factual feature,
-- pass through FeatureSnapshot/Coverage/typed input/context,
-- make CheckEngine own minimum strength/applicability/status,
-- make product result/report paths delegate.
+### THEN
 
-### Batch 3 — Modal Mass Participation
+- Vt / Eq7.14 as the second result/context consumer
 
-Goal: prove the result-evidence selection architecture.
+Vt / Eq7.14 SHOULD reuse only the semantics actually proven by Ndm. New shared abstractions MUST be justified by the second consumer rather than by framework preference.
 
-Required moves:
+### THEN PARALLEL
 
-- capture all relevant modal candidates with stable identity,
-- require `FULL` capture for governing/final-mode policy where complete universe is required,
-- represent applicable directions/case identity/type and governing policy explicitly,
-- emit `SelectionTrace`,
-- make CheckEngine own 0.95 or other authoritative limit/comparison/status,
-- remove reporter/product threshold/status/selection authority.
+- Modal Mass
+- next Wall vertical slice
 
-### Batch 4 — Story Drift + Torsional A1
+### THEN
 
-Goal: reuse the result-selection constitution for two more real domains.
+- Story Drift + Torsional A1
 
-Required moves:
+### THEN
 
-- share stable result identity/capture semantics,
-- establish explicit seismic case classification/policy context,
-- emit traces for row/case selection,
-- make CheckEngine own regulatory applicability/limits/status,
-- remove case-name fallback as canonical authority,
-- remove product thresholds/verdict recomputation.
+- remaining legacy design/result authority cleanup
 
-### Batch 5 — Remaining legacy design/result authorities
+### THEN
 
-Goal: migrate independent design families without a giant rewrite.
+- broader FULL TBDY expansion
 
-Required moves:
+### Roadmap-change rule
 
-- inventory real production callers,
-- choose small check/result families,
-- construct canonical vertical slices,
-- preserve compatibility by delegation,
-- delete duplicate design authority only after accepted replacement.
+The roadmap MAY change only in response to real:
 
-### Acceleration rule
+- engineering dependency,
+- regulatory discovery,
+- architecture regression,
+- ETABS/source constraint.
 
-Parallelization SHOULD increase only after the shared registration seam and result-evidence semantics have been proven by real vertical slices. Architecture speed is measured by reduction of duplicate authority, not by number of new abstraction files.
+A new framework preference, naming preference, or desire to generalize earlier is not sufficient reason to reorder the dependency sequence.
+
+### Acceleration invariant
+
+Architecture speed is measured by reduction of duplicate authority and successful reuse by real consumers. Ndm proves the first result-selection abstraction; Vt/Eq7.14 is the next validation point.
 
 ---
 
@@ -1263,20 +1570,27 @@ The B1 branch MUST be reviewed against these semantics after merge-ready impleme
 Frozen semantics:
 
 - explicit session/model identity,
-- explicit source unit context,
-- bounded ETABS state mutation,
+- explicit source/present/database unit provenance,
+- canonical normalization MUST NOT call `SetPresentUnits(...)` or `SetPresentUnits_2(...)`,
+- one live ETABS acquisition owner at a time per live session within enforced repository/process scope,
+- canonical acquisition/state mutation serialized through that owner,
+- bounded display/read-state mutation only where genuinely required,
 - transaction-style snapshot/mutate/fetch/restore evidence where temporary display/read state changes are required,
 - failure/restore diagnostics,
 - fail-closed ambiguous or untrusted session state,
-- live versus replay provenance.
+- live versus replay provenance,
+- immutable acquired evidence MAY be consumed in parallel.
 
 Not yet ratified:
 
 - exact attach/session class names,
 - exact transaction context-manager/API shape,
+- exact one-live-owner enforcement mechanism,
 - exact snapshot object schema,
 - exact restore mechanism for every ETABS API variant,
 - whether attachment and display-state transactions reside in one module or multiple modules.
+
+The constitution does NOT pre-ratify cross-process or OS-global locking.
 
 ### Rule
 
@@ -1321,48 +1635,30 @@ Future conformance audits MUST identify the exact commit audited. They MUST NOT 
 
 ## Appendix A — Constitutional invariants
 
-The following condensed list is normative and is intended for implementation reviews.
+The following condensed list is normative and uses stable semantic IDs for implementation reviews.
 
-1. All implementation workers MUST conform to this constitution.
-2. Conflicting requests MUST stop and surface the conflict; workers MUST NOT silently create parallel architecture.
-3. ETABS acquisition MUST own source/session acquisition and MUST NOT own regulatory verdicts.
-4. ETABS state mutation MUST be explicit, bounded, and restorable where temporary mutation is required.
-5. Source units MUST be explicit evidence.
-6. Magnitude-based unit inference MUST NOT enter canonical engineering execution.
-7. Raw evidence/canonical tables MUST contain facts, not PASS/FAIL policy.
-8. FeatureResolver MUST resolve facts and explicit units only.
-9. FeatureSnapshot MUST contain facts/evidence only, not regulatory verdicts.
-10. Raw result identity MUST be distinct from numeric payload.
-11. Result capture completeness MUST be explicit.
-12. Derived governing/envelope selection requiring the full universe MUST require `FULL` capture.
-13. Result selection MUST use explicit deterministic policy.
-14. Result selection MUST emit `SelectionTrace`.
-15. Result selection MUST NOT own regulatory PASS/FAIL.
-16. Case-name fallback MUST NOT replace missing authoritative metadata in canonical selection.
-17. Coverage MUST own availability/readiness only.
-18. Missing required fact/unit/context MUST fail closed.
-19. Typed `CheckInput` + explicit `CheckExecutionContext` MUST be the formal execution boundary.
-20. Mandatory execution policy MUST NOT be hidden in globals/reporters/defaults.
-21. `CheckEngine` MUST be sole regulatory authority.
-22. Pure evaluators MUST be deterministic math only.
-23. There MUST be one canonical formal `CheckResult` DTO.
-24. Product/report dictionaries MUST NOT become a parallel formal result authority.
-25. Assessment MUST reconcile expected versus observed results and MUST NOT recompute engineering formulas.
-26. Missing/duplicate expected formal results MUST prevent structurally complete assessment.
-27. Reporter MUST serialize/display only.
-28. Reporter MUST NOT own thresholds, ratios, applicability, result selection, unit inference, or formal status.
-29. Registration MUST be deterministic and duplicate check ids MUST fail.
-30. Registration SHOULD be additive to support safe parallel domain work.
-31. Shared abstractions SHOULD generalize proven semantics, not create universal untyped data bags.
-32. Compatibility APIs MUST delegate after migration and MUST NOT preserve duplicate verdict authority.
-33. Legacy authority MUST be removed only after canonical acceptance/parity is demonstrated.
-34. The accepted wall path is a reference implementation, not permission to make every wall class generic.
-35. B1 exact registration/composition shape is pending ratification; semantics are frozen.
-36. ETABS Safety exact session/transaction API shape is pending ratification; semantics are frozen.
-37. Unmerged sprint work MUST NOT be used as accepted baseline evidence.
-38. A feature branch MUST NOT silently amend this constitution by precedent.
-39. Architecture incompleteness is not itself an architecture contradiction.
-40. When authority is unclear, canonical execution MUST block rather than guess.
+- **ARCH-WORKER** — All implementation workers MUST conform to this constitution. Conflicting requests MUST stop and surface the conflict; workers MUST NOT silently create parallel architecture.
+- **ARCH-AUTH** — There MUST be one authority per engineering decision. `CheckEngine` MUST be sole regulatory verdict authority; pure evaluators are math only; Assessment reconciles only; Reporter serializes/displays only.
+- **ARCH-CTX** — Regulatory/project context grains are MODEL, BUILDING, STRUCTURAL_SYSTEM, DIRECTION, STORY/LEVEL, COMPONENT, CHECK_EXECUTION. Where a rule is direction-dependent, structural-system authority MUST be keyed at least by `structural_zone × direction`. Global R/D/system fallback is prohibited where directional authority is required. Building/system/reference truth MUST NOT be copied into per-component factual truth merely for convenience. A giant `ModelContext` is prohibited.
+- **ARCH-ETABS** — Canonical acquisition MUST NOT call `SetPresentUnits(...)` or `SetPresentUnits_2(...)` merely to normalize data. It MUST read/preserve source/present/database unit provenance and convert in Python downstream. There MUST be one live ETABS acquisition owner at a time per live session within enforced repository/process scope; canonical acquisition/state mutation is serialized through it. Immutable evidence MAY be consumed in parallel.
+- **ARCH-UNITS** — Source units are explicit evidence. Magnitude-based or plausibility-based unit inference MUST NOT enter canonical engineering execution.
+- **ARCH-FEAT** — Raw evidence/canonical tables and `FeatureSnapshot` contain facts/evidence only. A policy-derived governing `EngineeringQuantity` MUST NOT be disguised as a factual FeatureSnapshot value.
+- **ARCH-CAP** — Canonical `RuntimeCaptureStatus` is exactly `FULL`, `PARTIAL`, `SAMPLED`, `TRUNCATED`, `UNKNOWN`. Any complete-population selection requires `FULL`; otherwise governing demand is unresolved and formal execution is blocked.
+- **ARCH-ID** — Result-row identity is source-specific and MUST be distinct from payload components. There is no universal ETABS result identity.
+- **ARCH-BIND** — Formal runtime result selection consumes a reviewed, versioned, materialized exact binding manifest. Runtime case-name/regex/lexical/first-match heuristics MAY support discovery/review only and MUST NOT be formal authority.
+- **ARCH-SEL** — `ResultSelectionPolicy` has no default Max/Min/abs-max/Top/Bottom/first-row/lexical-case/envelope/sign semantics. Relevant semantics MUST be explicit. Selection MAY derive `EngineeringQuantity` but MUST NOT issue final PASS/FAIL/OUT_OF_SCOPE. Same immutable bundle + same reviewed bindings + same request + same policy version MUST produce the same `SelectionTrace`.
+- **ARCH-COV** — Coverage readiness statuses are exactly `RUNNABLE`, `PARTIAL`, `BLOCKED`. Coverage owns readiness only. Missing authority or ambiguous meaning is `BLOCKED`; missing mandatory context is `BLOCKED`. Missing information MUST NOT imply OUT_OF_SCOPE/NOT_APPLICABLE.
+- **ARCH-EXEC** — Typed `CheckInput` + explicit `CheckExecutionContext` is the formal execution boundary. Mandatory execution dependencies MUST NOT be hidden in globals, reporters, defaults, or a giant model context.
+- **ARCH-RES** — The canonical formal `CheckResult.status` set is exactly `OK`, `FAIL`, `WARNING`, `NO_DATA`, `BLOCKED`, `OUT_OF_SCOPE`. `CheckEngine` constructs final `CheckResult`. Final regulatory `OUT_OF_SCOPE` belongs only to `CheckEngine`.
+- **ARCH-NODATA** — `NO_DATA` is not generic missing information. It is valid only when semantics/source/context are resolved and authoritative factual data is genuinely absent.
+- **ARCH-ASSESS** — Assessment MUST reconcile expected versus observed canonical results and MUST NOT recompute engineering formulas. Missing/duplicate expected results prevent structurally complete assessment.
+- **ARCH-REPORT** — Reporter MUST NOT own thresholds, ratios, applicability, result selection, unit inference, formal status, or full-TBDY promotion.
+- **ARCH-REG** — Registration MUST be deterministic and additive; duplicate check IDs MUST fail hard. Exact B1 implementation shape remains pending ratification.
+- **ARCH-COMPAT** — Compatibility APIs MUST delegate after migration and MUST NOT preserve duplicate verdict/selection/unit authority. Legacy authority is removed only after canonical acceptance/parity.
+- **ARCH-GLOBAL** — Product target is FULL TBDY ENGINE, not screening-only. Until every mandatory applicable TBDY domain has authoritative dependencies, implemented formal checks, complete Coverage, and canonical Assessment, `full_tbdy_compliance_status = NOT_EVALUATED`. Partial slice success MUST NOT become FULL TBDY PASS.
+- **ARCH-ROADMAP** — Ndm is the first `ResultSelectionPolicy` implementation; Vt/Eq7.14 is the second result/context consumer. Abstractions MUST be proven by these real consumers before broader result-domain generalization.
+- **ARCH-RATIFY** — B1 exact registration/composition shape and ETABS Safety exact session/transaction API shape remain pending implementation ratification; their semantics are frozen. Unmerged sprint work MUST NOT be treated as accepted baseline evidence.
+- **ARCH-AMEND** — A feature branch MUST NOT silently amend this constitution by precedent. Architecture incompleteness is not itself a contradiction. A real conflict between frozen rules requires the Section 30 amendment/conflict process.
 
 ---
 
@@ -1401,91 +1697,136 @@ If a current reporter contains a column area/aspect criterion that the canonical
 
 ### B.3 Concrete `fck`
 
-**Allowed:** acquisition records source strength unit -> resolver converts by explicit mapping -> snapshot stores normalized MPa -> Coverage verifies readiness -> engine binds minimum-strength rule.
+**Allowed:** acquisition records source strength unit -> resolver converts by explicit mapping in Python -> snapshot stores normalized MPa -> Coverage verifies readiness -> engine binds minimum-strength rule.
 
 **Prohibited:** “value > 1000 means kN/m², divide by 1000; otherwise assume MPa.”
 
-### B.4 Modal mass participation
+### B.4 Ndm governing demand — first ResultSelectionPolicy consumer
 
-**Allowed:** acquire complete modal rows with case/direction/mode identities -> mark capture `FULL` -> explicit policy selects governing/final mode and emits `SelectionTrace` -> engine decides applicable regulatory threshold/status.
+**Allowed:**
+
+```text
+Raw Result Evidence with source-specific identity and FULL capture
+ -> reviewed/versioned load-family binding expanded against exact current ETABS inventory
+ -> materialized exact binding manifest reviewed/frozen
+ -> ResultSelectionPolicy with explicit direction/step/location/sign/envelope/tie semantics
+ -> EngineeringQuantity(Ndm) + deterministic SelectionTrace
+ -> Coverage
+ -> typed CheckInput + CheckExecutionContext
+ -> CheckEngine
+```
+
+**Prohibited:** identify “seismic” cases at runtime by `EQX` substring/regex/lexical preference and choose a visible maximum.
+
+### B.5 Modal mass participation
+
+**Allowed:** acquire required modal rows with source-specific identities -> mark capture `FULL` where complete-population selection requires it -> consume reviewed exact binding/policy -> derive the required `EngineeringQuantity` and `SelectionTrace` -> engine decides applicable regulatory threshold/status.
 
 **Prohibited:** reporter selects a visible mode, applies `0.95`, and calls the report compliant.
 
-### B.5 Story drift
+### B.6 Story drift
 
-**Allowed:** result evidence records authoritative case metadata and row identities -> explicit selection policy selects intended seismic candidates -> trace records inclusions/exclusions -> engine decides applicability and drift limit.
+**Allowed:** result evidence records source-specific identities -> reviewed exact seismic binding is materialized/frozen -> explicit `ResultSelectionPolicy` derives intended demand and trace -> engine decides applicability and drift limit.
 
-**Prohibited:** product code treats any case name containing `drift`, `seismic`, or similar text as authoritative when required metadata is unresolved, then applies a hardcoded drift limit.
+**Prohibited:** product/runtime code treats any case name containing `drift`, `seismic`, `EQX`, or similar text as authoritative, then applies a hardcoded drift limit.
 
-### B.6 Torsional A1
+### B.7 Torsional A1
 
-**Allowed:** explicit case/result metadata plus selection policy produce traceable selected A1 evidence -> CheckEngine decides the regulatory comparison.
+**Allowed:** exact reviewed case/result binding plus explicit selection policy produce a traceable `EngineeringQuantity` -> CheckEngine decides the regulatory comparison.
 
-**Prohibited:** generic/missing case metadata is repaired through a name fallback and directly converted into PASS/FAIL by a product-result builder.
+**Prohibited:** generic/missing case metadata is repaired through a runtime name fallback and directly converted into PASS/FAIL by a product-result builder.
 
-### B.7 Partial result capture
+### B.8 Partial/sampled/truncated/unknown result capture
 
 Suppose ten candidate rows are required to establish a maximum but only six are captured.
 
-**Allowed:** capture status `PARTIAL`; selection says governing value unresolved; Coverage blocks the check requiring the full envelope.
+**Allowed:** classify the source accurately as `PARTIAL`, `SAMPLED`, `TRUNCATED`, or `UNKNOWN` according to acquisition facts; selection says governing value unresolved; Coverage blocks the check requiring the full population.
 
 **Prohibited:** choose the maximum of the six visible rows and label it governing.
 
-### B.8 ETABS display selection mutation
+### B.9 ETABS unit acquisition
 
-**Allowed:** acquisition transaction records previous display state, selects the required case/combination, fetches, restores previous state, records restoration evidence, and exposes source/capture diagnostics.
+**Allowed:** canonical acquisition reads source/present/database unit provenance without normalizing ETABS through `SetPresentUnits`; downstream Python performs explicit conversion.
 
-**Prohibited:** a reporter or resolver changes display selection and leaves ETABS in a different state without restoration evidence.
+**Prohibited:** call `SetPresentUnits(6)` merely so all fetched values “look normalized,” even if code intends to restore units later.
 
-### B.9 UnitContext fallback
+### B.10 ETABS display selection mutation
+
+**Allowed:** the serialized canonical acquisition owner records previous display state where supported, selects the required exact reviewed case/combination for acquisition, fetches, restores previous state where required/supported, records transaction evidence, and exposes source/capture diagnostics.
+
+**Prohibited:** a reporter, resolver, or parallel worker changes display selection on the shared live session outside the canonical acquisition owner.
+
+### B.11 UnitContext fallback
 
 **Allowed:** a legacy UI diagnostic uses a heuristic to suggest likely units and labels the result non-authoritative.
 
 **Prohibited:** the same heuristic output enters a canonical `CheckInput` without explicit source-unit evidence.
 
-### B.10 Assessment
+### B.12 Coverage versus OUT_OF_SCOPE
+
+**Allowed:** mandatory structural-system direction authority is missing; Coverage returns `BLOCKED`; no formal OUT_OF_SCOPE result is invented.
+
+**Allowed:** all dependencies are resolved and CheckEngine determines from the canonical rule that the check is outside assessed regulatory scope; CheckEngine emits `CheckResult.OUT_OF_SCOPE`.
+
+**Prohibited:** selector/resolver/coverage equates “could not resolve applicability” with OUT_OF_SCOPE.
+
+### B.13 NO_DATA
+
+**Allowed:** exact source meaning, unit, reviewed binding, context, and applicability dependencies are resolved; the authoritative factual row is genuinely absent; CheckEngine emits `NO_DATA` according to the check contract.
+
+**Prohibited:** missing case semantics or unknown units are labeled `NO_DATA` to avoid a blocked result.
+
+### B.14 Assessment
 
 **Allowed:** expected checks are `{A, B, C}` and observed canonical results are `{A, B}`; Assessment marks the set incomplete because `C` is missing.
 
 **Prohibited:** Assessment calculates `C` itself or treats missing `C` as PASS.
 
-### B.11 Reporter
+### B.15 Reporter
 
 **Allowed:** reporter formats `0.007812` as `0.0078` for display while preserving the canonical underlying result/status.
 
 **Prohibited:** reporter rounds the source value first and then re-evaluates a threshold, causing status to change.
 
-### B.12 Compatibility API
+### B.16 Compatibility API
 
 **Allowed:** legacy caller receives the historical JSON shape, but every value/limit/status is serialized from the canonical `CheckResult` and provenance is retained where compatible.
 
 **Prohibited:** the compatibility serializer keeps its old threshold constants and recomputes status “for parity.”
 
-### B.13 Registration
+### B.17 Registration
 
 **Allowed:** beam and column domains contribute additive definitions to a deterministic composer; duplicate `check_id` aborts composition.
 
 **Prohibited:** import order decides which duplicate check implementation wins.
 
-### B.14 Parallel worker conflict
+### B.18 Parallel worker conflict
 
-**Allowed:** a domain worker adds a domain evaluator/overlay while an architecture owner controls the shared composer seam.
+**Allowed:** domain workers operate in parallel on immutable acquired evidence while an architecture owner controls the shared composer seam and a single canonical live ETABS acquisition owner serializes live-session access/mutation.
 
-**Prohibited:** each worker creates a private registry/engine because editing the shared registry is inconvenient.
+**Prohibited:** each worker creates a private registry/engine or independently mutates the same live ETABS session because shared ownership is inconvenient.
 
-### B.15 New domain
+### B.19 Direction-dependent structural-system authority
+
+**Allowed:** reviewed structural-system authority is resolved by `structural_zone × direction`, and the X-direction check consumes the X binding while the Y-direction check consumes the Y binding.
+
+**Prohibited:** one global R/D/system value is copied onto every component and used for both directions when the rule is direction-dependent.
+
+### B.20 New domain
 
 A new domain MUST first answer these questions before formal evaluation code is accepted:
 
-1. What is the source evidence?
-2. What is its identity and unit contract?
-3. Does it require result selection?
-4. If yes, what proves capture completeness and what is the explicit selection policy?
-5. What factual features enter FeatureSnapshot?
-6. What makes Coverage ready?
-7. What mandatory `CheckExecutionContext` exists?
-8. What check id is registered with CheckEngine?
-9. What pure evaluator, if any, performs math?
-10. How is the canonical `CheckResult` assessed and reported without recomputation?
+1. What is the authoritative source evidence?
+2. What is its source-specific identity and unit contract?
+3. Which regulatory context grains are required: MODEL, BUILDING, STRUCTURAL_SYSTEM, DIRECTION, STORY/LEVEL, COMPONENT, CHECK_EXECUTION?
+4. What factual dependencies belong in `FeatureSnapshot`?
+5. Does the domain require result selection or a derived governing quantity?
+6. If yes, what is the exact five-state capture status, reviewed binding authority, explicit `ResultSelectionPolicy`, resulting `EngineeringQuantity`, and deterministic `SelectionTrace`?
+7. What makes Coverage `RUNNABLE`, `PARTIAL`, or `BLOCKED`?
+8. What mandatory `CheckExecutionContext` dependencies exist?
+9. What check id is registered with CheckEngine?
+10. What pure evaluator, if any, performs math?
+11. How is the canonical `CheckResult` assessed and reported without recomputation?
+12. Does this slice change only domain compliance, or is full TBDY compliance still `NOT_EVALUATED`?
 
 If those questions cannot be answered, the domain is not ready to claim canonical engineering execution.
