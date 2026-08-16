@@ -8,14 +8,16 @@ metadata:
     - TBDY 2018 §7.6.2.3
   notes:
     - Hw, Hcr, Hw/lw applicability and critical-region membership are engineering-derived inside the shared CheckEngine path, never FeatureSnapshot facts.
-    - Vertical continuity, regulatory reference facts, section-reduction evidence and end-region topology fail closed when unproven.
+    - Vertical continuity, run-level regulatory reference facts and section-reduction evidence fail closed when unproven.
+    - End-region topology is conditionally required by CheckEngine only after Hw/lw > 2.0 is proven; Coverage does not decide this applicability branch.
+    - TBDY §7.6.2.3 additionally requires factual rectangular section-shape proof; proven non-rectangular is OUT_OF_SCOPE and unknown shape is BLOCKED.
 checks:
   WALL_END_REGIONS_REQUIRED_HW_LW_GT2:
     title: Wall end regions required when Hw/lw > 2.0
     element_type: wall
     category: GEOMETRY
     required_features: [wall_length_mm, wall_thickness_mm]
-    required_execution_context: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence, wall_end_region_topology]
+    required_execution_context: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence]
     optional_features: []
     formula_ref: TBDY_7_6_2_1_HW_OVER_LW_GT2_END_REGIONS
     pass_rule: {ratio_type: actual_over_minimum, ok_if: '>= 1.0'}
@@ -63,7 +65,7 @@ checks:
     element_type: wall
     category: GEOMETRY
     required_features: [wall_length_mm, wall_thickness_mm]
-    required_execution_context: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence, wall_end_region_topology]
+    required_execution_context: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence]
     optional_features: []
     formula_ref: TBDY_7_6_2_3_END_REGION_GE_MAX_0_2LW_2BW
     pass_rule: {ratio_type: actual_over_minimum, ok_if: '>= 1.0'}
@@ -75,5 +77,7 @@ policies:
     no_property_name_inference: true
     no_magnitude_unit_heuristic: true
     derived_hw_hcr_not_feature_snapshot: true
+    regulatory_reference_is_run_level: true
+    end_region_topology_is_engine_conditioned: true
     execution_context_must_be_canonical_check_input: true
     full_tbdy_compliance_status: NOT_EVALUATED
