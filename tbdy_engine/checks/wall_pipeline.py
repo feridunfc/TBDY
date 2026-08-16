@@ -1,0 +1,300 @@
+"""Single reusable wall-check orchestration authority for P2.10 and later packs."""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from types import MappingProxyType
+from typing import Any, Mapping, Sequence
+
+from tbdy_engine.assessment.wall import WallAssessment, assess_wall_results
+from tbdy_engine.checks.engine import MinimalCheckEngine
+from tbdy_engine.checks.input_adapter import CheckExecutionContext, GeometryCheckInput
+from tbdy_engine.checks.result import CheckResult
+from tbdy_engine.checks.wall_applicability import ReviewedWallSystemContext, special_branch_context_readiness
+from tbdy_engine.checks.wall_contract import WALL_CHECK_DEFINITIONS
+from tbdy_engine.contracts.models import ContractBundle, freeze_data
+from tbdy_engine.coverage.builder import CoverageBuilder
+from tbdy_engine.coverage.models import CoverageExecutionContextReadiness, CoverageExecutionContextStatus, CoverageRow
+from tbdy_engine.features.evidence import FeatureEvidence
+from tbdy_engine.features.result_evidence import ResultRowEvidenceBundle
+from tbdy_engine.features.snapshot import FeatureSnapshot
+from tbdy_engine.features.value import FeatureValueStatus
+from tbdy_engine.features.wall_geometry_contract import (
+    WALL_GEOMETRY_SUPPLEMENTAL_FEATURE_DEFINITIONS,
+    WALL_PACK_B_FEATURE_DEFINITIONS,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class WallExecutionEvidence:
+    """Run-level evidence from which per-check canonical CheckInput context is frozen."""
+
+    wall_system_context: ReviewedWallSystemContext | None = None
+    highest_applicable_story_height_mm_by_component: Mapping[str, float] = field(default_factory=dict)
+    result_bundles: Mapping[str, ResultRowEvidenceBundle] = field(default_factory=dict)
+    wall_to_pier: Mapping[str, str] = field(default_factory=dict)
+    net_section_topology_by_component: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if self.wall_system_context is not None and not isinstance(self.wall_system_context, ReviewedWallSystemContext):
+            raise TypeError("wall_system_context must be ReviewedWallSystemContext or None")
+        bundles = dict(self.result_bundles or {})
+        if any(not isinstance(bundle, ResultRowEvidenceBundle) for bundle in bundles.values()):
+            raise TypeError("result_bundles values must be ResultRowEvidenceBundle objects")
+        object.__setattr__(self, "highest_applicable_story_height_mm_by_component", freeze_data(dict(self.highest_applicable_story_height_mm_by_component or {})))
+        object.__setattr__(self, "result_bundles", MappingProxyType(bundles))
+        object.__setattr__(self, "wall_to_pier", freeze_data(dict(self.wall_to_pier or {})))
+        object.__setattr__(self, "net_section_topology_by_component", freeze_data(dict(self.net_section_topology_by_component or {})))
+
+
+@dataclass(frozen=True, slots=True)
+class WallCheckRun:
+    snapshots: tuple[FeatureSnapshot, ...]
+    coverage_rows: tuple[CoverageRow, ...]
+    check_inputs: tuple[GeometryCheckInput, ...]
+    check_results: tuple[CheckResult, ...]
+    assessment: WallAssessment
+
+
+def wall_coverage_builder(contract_bundle: ContractBundle) -> CoverageBuilder:
+    builder = CoverageBuilder(contract_bundle)
+    existing_features = dict(builder.feature_catalog)
+    missing = [name for name in ("wall_thickness_mm", "wall_length_mm", "story_height_mm") if name not in existing_features]
+    if missing:
+        raise ValueError("Wall checks require existing canonical feature(s): " + ", ".join(missing))
+    builder.check_catalog = {**dict(builder.check_catalog), **dict(WALL_CHECK_DEFINITIONS)}
+    supplements = {
+        **dict(WALL_GEOMETRY_SUPPLEMENTAL_FEATURE_DEFINITIONS),
+        **dict(WALL_PACK_B_FEATURE_DEFINITIONS),
+    }
+    for key, definition in supplements.items():
+        existing_features.setdefault(key, definition)
+    builder.feature_catalog = existing_features
+    return builder
+
+
+def build_wall_check_input(
+    snapshot: FeatureSnapshot,
+    coverage: CoverageRow,
+    execution_context: CheckExecutionContext | None = None,
+) -> GeometryCheckInput:
+    definition = WALL_CHECK_DEFINITIONS.get(coverage.check_id)
+    if definition is None:
+        raise ValueError("Coverage row is not a registered canonical wall check")
+    expected = tuple(str(name) for name in definition.get("required_features", ()))
+    if tuple(coverage.required_features) != expected:
+        raise ValueError("Coverage required_features differ from registered wall check contract")
+    if coverage.component_id != snapshot.component_id:
+        raise ValueError("Coverage and FeatureSnapshot component identity differ")
+    if str(coverage.component_type).casefold() != "wall" or str(snapshot.component_type).casefold() != "wall":
+        raise ValueError("Wall CheckInput requires wall component type")
+    evidence_by_feature: dict[str, tuple[FeatureEvidence, ...]] = {}
+    for feature_id in expected:
+        feature = snapshot.features.get(feature_id)
+        evidence_by_feature[feature_id] = tuple(feature.evidence) if feature is not None else ()
+    return GeometryCheckInput(
+        check_id=coverage.check_id,
+        component_id=snapshot.component_id,
+        component_type=snapshot.component_type,
+        story=None if snapshot.identity.get("story") is None else str(snapshot.identity.get("story")),
+        section=None if snapshot.identity.get("assigned_wall_property") is None else str(snapshot.identity.get("assigned_wall_property")),
+        required_features=expected,
+        snapshot=snapshot,
+        coverage=coverage,
+        evidence_by_feature=evidence_by_feature,
+        execution_context=execution_context or CheckExecutionContext(),
+    )
+
+
+def _known_basement(snapshot: FeatureSnapshot) -> bool:
+    feature = snapshot.features.get("wall_is_basement")
+    return bool(
+        feature is not None
+        and feature.status == FeatureValueStatus.RESOLVED
+        and feature.value is True
+    )
+
+
+def _system_context_readiness(
+    system_context: ReviewedWallSystemContext | None,
+    *,
+    known_out_of_scope: bool,
+) -> CoverageExecutionContextReadiness:
+    if known_out_of_scope:
+        return CoverageExecutionContextReadiness(
+            context_name="wall_system_context",
+            status=CoverageExecutionContextStatus.READY,
+        )
+    ready, reason = special_branch_context_readiness(system_context)
+    if not ready:
+        return CoverageExecutionContextReadiness(
+            context_name="wall_system_context",
+            status=CoverageExecutionContextStatus.BLOCKED,
+            reason=reason or "System-level §7.6.1.3 execution context is unresolved",
+        )
+    return CoverageExecutionContextReadiness(
+        context_name="wall_system_context",
+        status=CoverageExecutionContextStatus.READY,
+    )
+
+
+def _execution_materialization(
+    *,
+    snapshot: FeatureSnapshot,
+    check_id: str,
+    execution_evidence: WallExecutionEvidence,
+) -> tuple[Mapping[str, CoverageExecutionContextReadiness], CheckExecutionContext]:
+    component_id = snapshot.component_id
+    definition = WALL_CHECK_DEFINITIONS[check_id]
+    required = tuple(str(name) for name in (definition.get("required_execution_context", ()) or ()))
+    readiness: dict[str, CoverageExecutionContextReadiness] = {}
+    values: dict[str, Any] = {}
+    evidence: dict[str, Any] = {}
+    for name in required:
+        if name == "wall_system_context":
+            row = _system_context_readiness(
+                execution_evidence.wall_system_context,
+                known_out_of_scope=_known_basement(snapshot),
+            )
+            readiness[name] = row
+            if execution_evidence.wall_system_context is not None:
+                values[name] = execution_evidence.wall_system_context
+        elif name == "highest_applicable_story_height_mm":
+            if _known_basement(snapshot):
+                readiness[name] = CoverageExecutionContextReadiness(context_name=name, status=CoverageExecutionContextStatus.READY)
+                continue
+            value = execution_evidence.highest_applicable_story_height_mm_by_component.get(component_id)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or float(value) <= 0:
+                readiness[name] = CoverageExecutionContextReadiness(
+                    context_name=name,
+                    status=CoverageExecutionContextStatus.BLOCKED,
+                    reason="Highest applicable story height is absent or unproven for this wall",
+                )
+            else:
+                readiness[name] = CoverageExecutionContextReadiness(context_name=name, status=CoverageExecutionContextStatus.READY)
+                values[name] = float(value)
+        elif name == "pier_forces_result_bundle":
+            if _known_basement(snapshot):
+                readiness[name] = CoverageExecutionContextReadiness(context_name=name, status=CoverageExecutionContextStatus.READY)
+                continue
+            bundle = execution_evidence.result_bundles.get("pier_forces")
+            if bundle is None:
+                readiness[name] = CoverageExecutionContextReadiness(
+                    context_name=name,
+                    status=CoverageExecutionContextStatus.BLOCKED,
+                    reason="Pier Forces raw result bundle is absent",
+                )
+            elif not bundle.is_full_capture:
+                readiness[name] = CoverageExecutionContextReadiness(
+                    context_name=name,
+                    status=CoverageExecutionContextStatus.PARTIAL,
+                    reason="Pier Forces runtime acquisition is not FULL",
+                )
+                evidence[name] = bundle
+            else:
+                readiness[name] = CoverageExecutionContextReadiness(context_name=name, status=CoverageExecutionContextStatus.READY)
+                evidence[name] = bundle
+        elif name == "wall_to_pier_binding":
+            if _known_basement(snapshot):
+                readiness[name] = CoverageExecutionContextReadiness(context_name=name, status=CoverageExecutionContextStatus.READY)
+                continue
+            pier = execution_evidence.wall_to_pier.get(component_id)
+            if not isinstance(pier, str) or not pier:
+                readiness[name] = CoverageExecutionContextReadiness(
+                    context_name=name,
+                    status=CoverageExecutionContextStatus.BLOCKED,
+                    reason="Wall-to-pier result identity is unavailable",
+                )
+            else:
+                readiness[name] = CoverageExecutionContextReadiness(context_name=name, status=CoverageExecutionContextStatus.READY)
+                values[name] = pier
+        elif name == "ndm_policy_authority":
+            if _known_basement(snapshot):
+                readiness[name] = CoverageExecutionContextReadiness(context_name=name, status=CoverageExecutionContextStatus.READY)
+                continue
+            readiness[name] = CoverageExecutionContextReadiness(
+                context_name=name,
+                status=CoverageExecutionContextStatus.BLOCKED,
+                reason=(
+                    "Authoritative Ndm policy is not implemented: directional selection, response-spectrum, "
+                    "Max/Min, signed-envelope, and governing-location semantics remain unresolved"
+                ),
+            )
+        elif name == "net_section_topology":
+            if _known_basement(snapshot):
+                readiness[name] = CoverageExecutionContextReadiness(context_name=name, status=CoverageExecutionContextStatus.READY)
+                continue
+            topology = execution_evidence.net_section_topology_by_component.get(component_id)
+            if not isinstance(topology, Mapping):
+                readiness[name] = CoverageExecutionContextReadiness(
+                    context_name=name,
+                    status=CoverageExecutionContextStatus.BLOCKED,
+                    reason="Exact wall net-section/opening topology is unavailable",
+                )
+            elif topology.get("topology_verified") is not True or topology.get("section_semantics_verified") is not True:
+                readiness[name] = CoverageExecutionContextReadiness(
+                    context_name=name,
+                    status=CoverageExecutionContextStatus.PARTIAL,
+                    reason="Wall net-section/opening topology exists but is not fully verified",
+                )
+                values[name] = topology
+            else:
+                readiness[name] = CoverageExecutionContextReadiness(context_name=name, status=CoverageExecutionContextStatus.READY)
+                values[name] = topology
+        else:
+            readiness[name] = CoverageExecutionContextReadiness(
+                context_name=name,
+                status=CoverageExecutionContextStatus.BLOCKED,
+                reason="Unknown mandatory wall execution context contract",
+            )
+    return MappingProxyType(readiness), CheckExecutionContext(values=values, evidence=evidence)
+
+
+def run_wall_checks(
+    contract_bundle: ContractBundle,
+    snapshots: Sequence[FeatureSnapshot],
+    check_ids: Sequence[str],
+    *,
+    execution_evidence: WallExecutionEvidence | None = None,
+) -> WallCheckRun:
+    selected = tuple(str(check_id) for check_id in check_ids)
+    unknown = sorted(set(selected) - set(WALL_CHECK_DEFINITIONS))
+    if unknown:
+        raise ValueError("Unknown wall check ID(s): " + ", ".join(unknown))
+    normalized_snapshots = tuple(snapshots)
+    component_ids = tuple(snapshot.component_id for snapshot in normalized_snapshots)
+    if len(component_ids) != len(set(component_ids)):
+        raise ValueError("run_wall_checks requires unique wall component_id values")
+    builder = wall_coverage_builder(contract_bundle)
+    engine = MinimalCheckEngine(builder.check_catalog)
+    run_evidence = execution_evidence or WallExecutionEvidence()
+    coverage_rows: list[CoverageRow] = []
+    check_inputs: list[GeometryCheckInput] = []
+    results: list[CheckResult] = []
+    for snapshot in normalized_snapshots:
+        if str(snapshot.component_type).casefold() != "wall":
+            raise ValueError("run_wall_checks accepts wall FeatureSnapshot objects only")
+        for check_id in selected:
+            readiness, frozen_context = _execution_materialization(
+                snapshot=snapshot,
+                check_id=check_id,
+                execution_evidence=run_evidence,
+            )
+            coverage = builder.build_row(snapshot, check_id, execution_context_readiness=readiness)
+            check_input = build_wall_check_input(snapshot, coverage, frozen_context)
+            result = engine.run_input(check_input)
+            coverage_rows.append(coverage)
+            check_inputs.append(check_input)
+            results.append(result)
+    return WallCheckRun(
+        snapshots=normalized_snapshots,
+        coverage_rows=tuple(coverage_rows),
+        check_inputs=tuple(check_inputs),
+        check_results=tuple(results),
+        assessment=assess_wall_results(results, check_ids=selected, component_ids=component_ids),
+    )
+
+
+__all__ = [
+    "WallCheckRun", "WallExecutionEvidence", "build_wall_check_input",
+    "run_wall_checks", "wall_coverage_builder",
+]

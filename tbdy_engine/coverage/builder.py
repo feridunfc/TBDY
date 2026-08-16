@@ -1,8 +1,8 @@
 """Coverage matrix builder for C5/C5.1.
 
-The builder inspects FeatureSnapshot availability against check_catalog required
-features and records expected source diagnostics. It does not read provider/ETABS
-tables, resolve features, execute checks, compute ratios, or emit decisions.
+The builder inspects FeatureSnapshot availability plus declared execution-context
+readiness. It does not read ETABS, resolve features, execute checks, calculate
+formulas, or emit engineering verdicts.
 """
 from __future__ import annotations
 
@@ -13,6 +13,8 @@ from tbdy_engine.contracts.models import ContractBundle
 from tbdy_engine.coverage.diagnostics import CoverageDiagnostic, CoverageDiagnosticCode, CoverageDiagnosticSeverity
 from tbdy_engine.coverage.models import (
     CoverageEvidenceStatus,
+    CoverageExecutionContextReadiness,
+    CoverageExecutionContextStatus,
     CoverageExpectedSource,
     CoverageMatrix,
     CoverageMissingDesignContext,
@@ -28,7 +30,7 @@ from tbdy_engine.features.value import FeatureValueStatus
 
 
 class CoverageBuilder:
-    """Build runnability rows from contracts and FeatureSnapshot objects."""
+    """Build runnability rows from contracts, snapshots, and readiness evidence."""
 
     def __init__(self, contract_bundle: ContractBundle) -> None:
         self.contract_bundle = contract_bundle
@@ -58,6 +60,9 @@ class CoverageBuilder:
         check_id: str,
         *,
         design_context: Mapping[str, Any] | None = None,
+        execution_context_readiness: Mapping[
+            str, CoverageExecutionContextReadiness | CoverageExecutionContextStatus | str | Mapping[str, Any]
+        ] | None = None,
     ) -> CoverageRow:
         check_def = self.check_catalog.get(check_id)
         if check_def is None:
@@ -69,6 +74,7 @@ class CoverageBuilder:
         unknown_features = [feature for feature in required_features if feature not in self.feature_catalog]
         if unknown_features:
             raise ValueError(f"Check {check_id} references unknown required features: {', '.join(unknown_features)}")
+
         resolved_features: list[str] = []
         missing_features: list[CoverageMissingFeature] = []
         missing_feature_sources: dict[str, CoverageExpectedSource] = {}
@@ -84,89 +90,73 @@ class CoverageBuilder:
             if feature_value is None or feature_value.status == FeatureValueStatus.MISSING:
                 missing_features.append(CoverageMissingFeature(feature_name, "FeatureSnapshot does not contain a resolved feature value"))
                 missing_feature_sources[feature_name] = expected_source
-                diagnostics.append(
-                    CoverageDiagnostic(
-                        severity=CoverageDiagnosticSeverity.ERROR,
-                        code=CoverageDiagnosticCode.FEATURE_MISSING,
-                        message="Required feature is missing from FeatureSnapshot",
-                        details={"check_id": check_id, "feature_name": feature_name},
-                    )
-                )
-                source_diagnostics.append(
-                    CoverageDiagnostic(
-                        severity=CoverageDiagnosticSeverity.INFO,
-                        code=CoverageDiagnosticCode.EXPECTED_SOURCE_RECORDED,
-                        message="Expected source metadata recorded for missing feature",
-                        details={"check_id": check_id, "feature_name": feature_name, "source_kind": expected_source.source_kind.value},
-                    )
-                )
+                diagnostics.append(CoverageDiagnostic(
+                    severity=CoverageDiagnosticSeverity.ERROR,
+                    code=CoverageDiagnosticCode.FEATURE_MISSING,
+                    message="Required feature is missing from FeatureSnapshot",
+                    details={"check_id": check_id, "feature_name": feature_name},
+                ))
+                source_diagnostics.append(CoverageDiagnostic(
+                    severity=CoverageDiagnosticSeverity.INFO,
+                    code=CoverageDiagnosticCode.EXPECTED_SOURCE_RECORDED,
+                    message="Expected source metadata recorded for missing feature",
+                    details={"check_id": check_id, "feature_name": feature_name, "source_kind": expected_source.source_kind.value},
+                ))
                 evidence_status = CoverageEvidenceStatus.MISSING
                 continue
             if feature_value.status == FeatureValueStatus.PARTIAL:
                 resolved_features.append(feature_name)
                 evidence_status = CoverageEvidenceStatus.PARTIAL
-                diagnostics.append(
-                    CoverageDiagnostic(
-                        severity=CoverageDiagnosticSeverity.WARNING,
-                        code=CoverageDiagnosticCode.EVIDENCE_PARTIAL,
-                        message="Required feature is only partially resolved",
-                        details={"check_id": check_id, "feature_name": feature_name},
-                    )
-                )
-                source_diagnostics.append(
-                    CoverageDiagnostic(
-                        severity=CoverageDiagnosticSeverity.INFO,
-                        code=CoverageDiagnosticCode.EXPECTED_SOURCE_RECORDED,
-                        message="Expected evidence requirements recorded for partial feature",
-                        details={"check_id": check_id, "feature_name": feature_name},
-                    )
-                )
+                diagnostics.append(CoverageDiagnostic(
+                    severity=CoverageDiagnosticSeverity.WARNING,
+                    code=CoverageDiagnosticCode.EVIDENCE_PARTIAL,
+                    message="Required feature is only partially resolved",
+                    details={"check_id": check_id, "feature_name": feature_name},
+                ))
+                source_diagnostics.append(CoverageDiagnostic(
+                    severity=CoverageDiagnosticSeverity.INFO,
+                    code=CoverageDiagnosticCode.EXPECTED_SOURCE_RECORDED,
+                    message="Expected evidence requirements recorded for partial feature",
+                    details={"check_id": check_id, "feature_name": feature_name},
+                ))
                 continue
             if not feature_value.evidence:
                 missing_features.append(CoverageMissingFeature(feature_name, "Resolved feature is missing evidence"))
                 missing_feature_sources[feature_name] = expected_source
                 evidence_status = CoverageEvidenceStatus.MISSING
-                diagnostics.append(
-                    CoverageDiagnostic(
-                        severity=CoverageDiagnosticSeverity.ERROR,
-                        code=CoverageDiagnosticCode.EVIDENCE_MISSING,
-                        message="Resolved feature is missing evidence",
-                        details={"check_id": check_id, "feature_name": feature_name},
-                    )
-                )
+                diagnostics.append(CoverageDiagnostic(
+                    severity=CoverageDiagnosticSeverity.ERROR,
+                    code=CoverageDiagnosticCode.EVIDENCE_MISSING,
+                    message="Resolved feature is missing evidence",
+                    details={"check_id": check_id, "feature_name": feature_name},
+                ))
                 continue
             if any(ev.evidence_status == FeatureEvidenceStatus.PARTIAL for ev in feature_value.evidence):
                 resolved_features.append(feature_name)
                 evidence_status = CoverageEvidenceStatus.PARTIAL
-                diagnostics.append(
-                    CoverageDiagnostic(
-                        severity=CoverageDiagnosticSeverity.WARNING,
-                        code=CoverageDiagnosticCode.EVIDENCE_PARTIAL,
-                        message="Required feature has partial evidence",
-                        details={"check_id": check_id, "feature_name": feature_name},
-                    )
-                )
-                source_diagnostics.append(
-                    CoverageDiagnostic(
-                        severity=CoverageDiagnosticSeverity.INFO,
-                        code=CoverageDiagnosticCode.EXPECTED_SOURCE_RECORDED,
-                        message="Expected evidence requirements recorded for partial evidence",
-                        details={"check_id": check_id, "feature_name": feature_name},
-                    )
-                )
+                diagnostics.append(CoverageDiagnostic(
+                    severity=CoverageDiagnosticSeverity.WARNING,
+                    code=CoverageDiagnosticCode.EVIDENCE_PARTIAL,
+                    message="Required feature has partial evidence",
+                    details={"check_id": check_id, "feature_name": feature_name},
+                ))
+                source_diagnostics.append(CoverageDiagnostic(
+                    severity=CoverageDiagnosticSeverity.INFO,
+                    code=CoverageDiagnosticCode.EXPECTED_SOURCE_RECORDED,
+                    message="Expected evidence requirements recorded for partial evidence",
+                    details={"check_id": check_id, "feature_name": feature_name},
+                ))
                 continue
             if any(ev.evidence_status == FeatureEvidenceStatus.MISSING for ev in feature_value.evidence):
                 missing_features.append(CoverageMissingFeature(feature_name, "Required feature has missing evidence"))
                 missing_feature_sources[feature_name] = expected_source
                 evidence_status = CoverageEvidenceStatus.MISSING
-                diagnostics.append(
-                    CoverageDiagnostic(
-                        severity=CoverageDiagnosticSeverity.ERROR,
-                        code=CoverageDiagnosticCode.EVIDENCE_MISSING,
-                        message="Required feature has missing evidence",
-                        details={"check_id": check_id, "feature_name": feature_name},
-                    )
-                )
+                diagnostics.append(CoverageDiagnostic(
+                    severity=CoverageDiagnosticSeverity.ERROR,
+                    code=CoverageDiagnosticCode.EVIDENCE_MISSING,
+                    message="Required feature has missing evidence",
+                    details={"check_id": check_id, "feature_name": feature_name},
+                ))
                 continue
             resolved_features.append(feature_name)
 
@@ -175,45 +165,74 @@ class CoverageBuilder:
         resolved_context = tuple(name for name in required_context if name in context and context[name] is not None)
         missing_context = tuple(
             CoverageMissingDesignContext(name, "Required design context is missing")
-            for name in required_context
-            if name not in resolved_context
+            for name in required_context if name not in resolved_context
         )
         missing_context_sources = {
             item.context_field: self._expected_source_for_design_context(item.context_field)
             for item in missing_context
         }
         if missing_context:
-            diagnostics.append(
-                CoverageDiagnostic(
-                    severity=CoverageDiagnosticSeverity.WARNING,
-                    code=CoverageDiagnosticCode.DESIGN_CONTEXT_MISSING,
-                    message="Required design context is missing for coverage",
-                    details={"check_id": check_id, "missing_design_context": [item.context_field for item in missing_context]},
-                )
-            )
-            source_diagnostics.append(
-                CoverageDiagnostic(
-                    severity=CoverageDiagnosticSeverity.INFO,
-                    code=CoverageDiagnosticCode.EXPECTED_SOURCE_RECORDED,
-                    message="Expected source metadata recorded for missing design context",
-                    details={"check_id": check_id, "missing_design_context": list(missing_context_sources)},
-                )
-            )
+            diagnostics.append(CoverageDiagnostic(
+                severity=CoverageDiagnosticSeverity.WARNING,
+                code=CoverageDiagnosticCode.DESIGN_CONTEXT_MISSING,
+                message="Required design context is missing for coverage",
+                details={"check_id": check_id, "missing_design_context": [item.context_field for item in missing_context]},
+            ))
+            source_diagnostics.append(CoverageDiagnostic(
+                severity=CoverageDiagnosticSeverity.INFO,
+                code=CoverageDiagnosticCode.EXPECTED_SOURCE_RECORDED,
+                message="Expected source metadata recorded for missing design context",
+                details={"check_id": check_id, "missing_design_context": list(missing_context_sources)},
+            ))
+
+        required_execution = tuple(str(name) for name in (check_def.get("required_execution_context", ()) or ()))
+        supplied_execution = execution_context_readiness or {}
+        execution_rows: list[CoverageExecutionContextReadiness] = []
+        for name in required_execution:
+            raw = supplied_execution.get(name)
+            if raw is None:
+                execution_rows.append(CoverageExecutionContextReadiness(
+                    context_name=name,
+                    status=CoverageExecutionContextStatus.BLOCKED,
+                    reason="Mandatory execution context/evidence is absent",
+                ))
+                continue
+            if isinstance(raw, CoverageExecutionContextReadiness):
+                if raw.context_name != name:
+                    raise ValueError("Execution-context readiness key differs from context_name")
+                execution_rows.append(raw)
+                continue
+            if isinstance(raw, Mapping):
+                data = dict(raw)
+                data.setdefault("context_name", name)
+                execution_rows.append(CoverageExecutionContextReadiness(**data))
+                continue
+            execution_rows.append(CoverageExecutionContextReadiness(context_name=name, status=raw))
+        blocked_execution = [row for row in execution_rows if row.status == CoverageExecutionContextStatus.BLOCKED]
+        partial_execution = [row for row in execution_rows if row.status == CoverageExecutionContextStatus.PARTIAL]
+
         combo_status = self._combo_policy_status(check_id)
         section_state_status = self._section_state_status(check_id)
         ductility_status = CoveragePolicyStatus.RESOLVED if not missing_context else CoveragePolicyStatus.MISSING
         if missing_features:
             coverage_status = CoverageStatus.BLOCKED
             reason = "One or more required features are missing"
+        elif blocked_execution:
+            coverage_status = CoverageStatus.BLOCKED
+            reason = "; ".join(row.reason or row.context_name for row in blocked_execution)
         elif evidence_status == CoverageEvidenceStatus.PARTIAL:
             coverage_status = CoverageStatus.PARTIAL
             reason = "One or more required features have partial evidence"
+        elif partial_execution:
+            coverage_status = CoverageStatus.PARTIAL
+            reason = "; ".join(row.reason or row.context_name for row in partial_execution)
         elif missing_context:
             coverage_status = CoverageStatus.PARTIAL
             reason = "Required design context is incomplete"
         else:
             coverage_status = CoverageStatus.RUNNABLE
             reason = None
+
         return CoverageRow(
             check_id=check_id,
             component_type=component_type,
@@ -235,6 +254,8 @@ class CoverageBuilder:
             missing_design_context_sources=missing_context_sources,
             expected_evidence_requirements=expected_evidence_requirements if coverage_status != CoverageStatus.RUNNABLE else {},
             source_diagnostics=tuple(source_diagnostics),
+            required_execution_context=required_execution,
+            execution_context_readiness=tuple(execution_rows),
         )
 
     def validate_contract_alignment(self) -> tuple[CoverageDiagnostic, ...]:
@@ -247,43 +268,36 @@ class CoverageBuilder:
             reverse = {str(item.get("check_catalog_key")) for item in reverse_raw if isinstance(item, Mapping)}
         for check_id in check_ids:
             if check_id not in reverse:
-                diagnostics.append(
-                    CoverageDiagnostic(
-                        severity=CoverageDiagnosticSeverity.ERROR,
-                        code=CoverageDiagnosticCode.CONTRACT_ALIGNMENT_MISSING,
-                        message="Check has no scope alignment mapping",
-                        details={"check_id": check_id},
-                    )
-                )
+                diagnostics.append(CoverageDiagnostic(
+                    severity=CoverageDiagnosticSeverity.ERROR,
+                    code=CoverageDiagnosticCode.CONTRACT_ALIGNMENT_MISSING,
+                    message="Check has no scope alignment mapping",
+                    details={"check_id": check_id},
+                ))
         for item in self.scope_items:
             if item.get("status") != "CONTRACTED":
                 continue
             keys = tuple(item.get("related_check_catalog_keys", ()) or ())
             if not keys and not item.get("missing_alignment_reason"):
-                diagnostics.append(
-                    CoverageDiagnostic(
+                diagnostics.append(CoverageDiagnostic(
+                    severity=CoverageDiagnosticSeverity.ERROR,
+                    code=CoverageDiagnosticCode.CONTRACT_ALIGNMENT_MISSING,
+                    message="CONTRACTED scope item lacks check mapping or pending reason",
+                    details={"scope_id": item.get("check_scope_id")},
+                ))
+            for candidate in keys:
+                if candidate not in check_ids:
+                    diagnostics.append(CoverageDiagnostic(
                         severity=CoverageDiagnosticSeverity.ERROR,
-                        code=CoverageDiagnosticCode.CONTRACT_ALIGNMENT_MISSING,
-                        message="CONTRACTED scope item lacks check mapping or pending reason",
-                        details={"scope_id": item.get("check_scope_id")},
-                    )
-                )
-            for check_id in keys:
-                if check_id not in check_ids:
-                    diagnostics.append(
-                        CoverageDiagnostic(
-                            severity=CoverageDiagnosticSeverity.ERROR,
-                            code=CoverageDiagnosticCode.CHECK_UNKNOWN,
-                            message="Scope item maps to unknown check_id",
-                            details={"scope_id": item.get("check_scope_id"), "check_id": check_id},
-                        )
-                    )
+                        code=CoverageDiagnosticCode.CHECK_UNKNOWN,
+                        message="Scope item maps to unknown check_id",
+                        details={"scope_id": item.get("check_scope_id"), "check_id": candidate},
+                    ))
         return tuple(diagnostics)
 
     def _checks_for_component_type(self, component_type: str) -> tuple[str, ...]:
         return tuple(
-            check_id
-            for check_id, check_def in self.check_catalog.items()
+            check_id for check_id, check_def in self.check_catalog.items()
             if str(check_def.get("element_type")) == component_type
         )
 

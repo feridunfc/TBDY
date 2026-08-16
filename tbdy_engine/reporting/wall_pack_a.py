@@ -1,26 +1,15 @@
-"""Dumb Pack A serialization.
-
-No engineering threshold, ratio, applicability, or status computation is
-allowed here. The serializer only renders canonical CheckResult + Assessment.
-"""
+"""Pack A compatibility serializer over the single wall reporter."""
 from __future__ import annotations
 
 from typing import Sequence
 
 from tbdy_engine.assessment.wall_pack_a import WallPackAAssessment
 from tbdy_engine.checks.result import CheckResult
+from tbdy_engine.reporting.wall import serialize_wall_results
 
 
 def serialize_wall_pack_a(results: Sequence[CheckResult], assessment: WallPackAAssessment) -> dict[str, object]:
-    if any(not isinstance(result, CheckResult) for result in results):
-        raise TypeError("Reporter accepts canonical CheckResult objects only")
-    if not isinstance(assessment, WallPackAAssessment):
-        raise TypeError("Reporter accepts WallPackAAssessment")
-    return {
-        "report_contract": "P2_10_WALL_CHECK_PACK_A",
-        "results": [result.as_dict() for result in results],
-        "assessment": assessment.as_dict(),
-    }
+    return serialize_wall_results(results, assessment, report_contract="P2_10_WALL_CHECK_PACK_A")
 
 
 __all__ = ["serialize_wall_pack_a"]

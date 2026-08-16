@@ -10,7 +10,7 @@ metadata:
   notes:
     - WALL11_LENGTH_TO_THICKNESS_GE7 is historical metadata only and is never executable.
     - Official wall-definition threshold is lw/bw >= 6.
-    - §7.6.1.3 eligibility is an engineering applicability decision and is not stored as a FeatureSnapshot fact.
+    - §7.6.1.3 eligibility is a system-level engineering applicability decision and is not stored as a FeatureSnapshot fact.
 checks:
   WALL_GEOM_DEFINITION_LW_BW_GE6:
     title: Wall definition lw/bw >= 6
@@ -48,17 +48,19 @@ checks:
     category: GEOMETRY
     readiness:
       status: partial
-      reason: Formula is frozen; execution is blocked until §7.6.1.3 eligibility is derived inside the engineering applicability path from factual inputs.
+      reason: Formula is frozen; execution is blocked until system-level §7.6.1.3 eligibility is proven through canonical execution context.
     required_features:
       - wall_thickness_mm
       - story_height_mm
       - wall_body_classification
       - wall_is_basement
+    required_execution_context:
+      - wall_system_context
     optional_features: []
     formula_ref: TBDY_7_6_1_2_A_BW_GE_H16
     pass_rule: {ratio_type: actual_over_minimum, ok_if: '>= 1.0'}
     status_logic:
-      BLOCKED: §7.6.1.3 applicability is not yet derivable from canonical factual inputs
+      BLOCKED: §7.6.1.3 applicability is not yet derivable from canonical execution context
       OUT_OF_SCOPE: basement or non-body classification
     evaluation_level_policy:
       DESIGN_LEVEL: Formula is reserved for formal evaluation after applicability is derived.
@@ -77,16 +79,18 @@ checks:
     category: GEOMETRY
     readiness:
       status: partial
-      reason: Formula is frozen; execution is blocked until §7.6.1.3 eligibility is derived inside the engineering applicability path from factual inputs.
+      reason: Formula is frozen; execution is blocked until system-level §7.6.1.3 eligibility is proven through canonical execution context.
     required_features:
       - wall_thickness_mm
       - wall_body_classification
       - wall_is_basement
+    required_execution_context:
+      - wall_system_context
     optional_features: []
     formula_ref: TBDY_7_6_1_2_A_BW_GE_250MM
     pass_rule: {ratio_type: actual_over_minimum, ok_if: '>= 1.0'}
     status_logic:
-      BLOCKED: §7.6.1.3 applicability is not yet derivable from canonical factual inputs
+      BLOCKED: §7.6.1.3 applicability is not yet derivable from canonical execution context
       OUT_OF_SCOPE: basement or non-body classification
     evaluation_level_policy:
       DESIGN_LEVEL: Formula is reserved for formal evaluation after applicability is derived.
