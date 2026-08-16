@@ -9,7 +9,7 @@ from tbdy_engine.assessment.wall import WallAssessment, assess_wall_results
 from tbdy_engine.checks.engine import MinimalCheckEngine
 from tbdy_engine.checks.input_adapter import CheckExecutionContext, GeometryCheckInput
 from tbdy_engine.checks.result import CheckResult
-from tbdy_engine.checks.wall_applicability import ReviewedWallSystemContext, resolve_special_branch_applicability
+from tbdy_engine.checks.wall_applicability import ReviewedWallSystemContext, special_branch_context_readiness
 from tbdy_engine.checks.wall_contract import WALL_CHECK_DEFINITIONS
 from tbdy_engine.contracts.models import ContractBundle, freeze_data
 from tbdy_engine.coverage.builder import CoverageBuilder
@@ -124,13 +124,12 @@ def _system_context_readiness(
             context_name="wall_system_context",
             status=CoverageExecutionContextStatus.READY,
         )
-    decision, reason = resolve_special_branch_applicability(system_context)
-    # Coverage records determinability only. CheckEngine alone executes the applicability decision.
-    if decision is None:
+    ready, reason = special_branch_context_readiness(system_context)
+    if not ready:
         return CoverageExecutionContextReadiness(
             context_name="wall_system_context",
             status=CoverageExecutionContextStatus.BLOCKED,
-            reason=reason or "System-level §7.6.1.3 applicability is unresolved",
+            reason=reason or "System-level §7.6.1.3 execution context is unresolved",
         )
     return CoverageExecutionContextReadiness(
         context_name="wall_system_context",
@@ -180,12 +179,14 @@ def _execution_materialization(
             bundle = execution_evidence.result_bundles.get("pier_forces")
             if bundle is None:
                 readiness[name] = CoverageExecutionContextReadiness(
-                    context_name=name, status=CoverageExecutionContextStatus.BLOCKED,
+                    context_name=name,
+                    status=CoverageExecutionContextStatus.BLOCKED,
                     reason="Pier Forces raw result bundle is absent",
                 )
             elif not bundle.is_full_capture:
                 readiness[name] = CoverageExecutionContextReadiness(
-                    context_name=name, status=CoverageExecutionContextStatus.PARTIAL,
+                    context_name=name,
+                    status=CoverageExecutionContextStatus.PARTIAL,
                     reason="Pier Forces runtime acquisition is not FULL",
                 )
                 evidence[name] = bundle
@@ -199,7 +200,8 @@ def _execution_materialization(
             pier = execution_evidence.wall_to_pier.get(component_id)
             if not isinstance(pier, str) or not pier:
                 readiness[name] = CoverageExecutionContextReadiness(
-                    context_name=name, status=CoverageExecutionContextStatus.BLOCKED,
+                    context_name=name,
+                    status=CoverageExecutionContextStatus.BLOCKED,
                     reason="Wall-to-pier result identity is unavailable",
                 )
             else:
@@ -224,12 +226,14 @@ def _execution_materialization(
             topology = execution_evidence.net_section_topology_by_component.get(component_id)
             if not isinstance(topology, Mapping):
                 readiness[name] = CoverageExecutionContextReadiness(
-                    context_name=name, status=CoverageExecutionContextStatus.BLOCKED,
+                    context_name=name,
+                    status=CoverageExecutionContextStatus.BLOCKED,
                     reason="Exact wall net-section/opening topology is unavailable",
                 )
             elif topology.get("topology_verified") is not True or topology.get("section_semantics_verified") is not True:
                 readiness[name] = CoverageExecutionContextReadiness(
-                    context_name=name, status=CoverageExecutionContextStatus.PARTIAL,
+                    context_name=name,
+                    status=CoverageExecutionContextStatus.PARTIAL,
                     reason="Wall net-section/opening topology exists but is not fully verified",
                 )
                 values[name] = topology
