@@ -203,7 +203,7 @@ def derive_ndm_n(
     if selection_policy is not None and policy is None:
         return DerivedQuantity(
             None, "BLOCKED",
-            "Legacy selection_policy mapping is not an implemented ReviewedNdmPolicy authority",
+            "Legacy selection_policy mapping is not implemented as a ReviewedNdmPolicy authority",
         )
     if not isinstance(story_name, str) or not story_name.strip():
         return DerivedQuantity(None, "BLOCKED", "Exact wall Story result identity is unavailable for Ndm selection")
