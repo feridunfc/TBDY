@@ -30,6 +30,7 @@ def directional_eq714_quantities(
     vt_n_by_axis: Mapping[str, float] | None = None,
     fctd_mpa: float | None = None,
 ) -> Mapping[str, float | None]:
+    """Derive directional Eq.7.14 quantities without collapsing X/Y or floor areas."""
     sum_ag_x = sum(float(v) for v in gross_wall_areas_mm2_by_axis.get("X", ()))
     sum_ag_y = sum(float(v) for v in gross_wall_areas_mm2_by_axis.get("Y", ()))
     sum_ap = sum(float(v) for v in floor_plan_areas_mm2_by_story.values())
@@ -57,15 +58,31 @@ def resolve_special_branch_applicability(
     *, component_id: str, reviewed_structural_system_classification: Any,
     engineering_context: Mapping[str, Any] | None,
 ) -> tuple[bool | None, str | None]:
+    """Derive general-vs-special branch only from explicit engineering proof.
+
+    No precomputed ``applies`` boolean is accepted. If the reviewed regulatory
+    system is not wall-only, the special branch is proven inapplicable. If it is
+    wall-only, both Eq.7.14 condition proofs are mandatory and special applies
+    only when both are true. Missing/ambiguous proof fails closed.
+    """
     if not isinstance(reviewed_structural_system_classification, str) or not reviewed_structural_system_classification.strip():
         return None, "Regulatory structural-system classification is UNKNOWN"
-    decisions = (engineering_context or {}).get("TBDY_7_6_1_3_applies")
-    if not isinstance(decisions, Mapping):
+    proofs = (engineering_context or {}).get("TBDY_7_6_1_3_proof")
+    if not isinstance(proofs, Mapping):
         return None, "§7.6.1.3 engineering applicability proof is unavailable"
-    decision = decisions.get(component_id)
-    if not isinstance(decision, bool):
-        return None, "§7.6.1.3 engineering applicability is unresolved; no default branch assumption is allowed"
-    return decision, None
+    proof = proofs.get(component_id)
+    if not isinstance(proof, Mapping):
+        return None, "§7.6.1.3 engineering applicability proof is unavailable for this wall"
+    wall_only = proof.get("wall_only_structural_system")
+    if not isinstance(wall_only, bool):
+        return None, "Reviewed wall-only structural-system applicability is unresolved"
+    if wall_only is False:
+        return False, None
+    condition_1 = proof.get("eq714_condition_1_satisfied")
+    condition_2 = proof.get("eq714_condition_2_satisfied")
+    if not isinstance(condition_1, bool) or not isinstance(condition_2, bool):
+        return None, "Both Eq.7.14 engineering condition proofs are required for a wall-only structural system"
+    return condition_1 and condition_2, None
 
 
 def derive_highest_applicable_story_height_mm(component_id: str, engineering_context: Mapping[str, Any] | None) -> DerivedQuantity:
@@ -139,6 +156,7 @@ def derive_ndm_n(
 
 
 def derive_net_section_area_mm2(component_id: str, topology_context: Mapping[str, Any] | None) -> DerivedQuantity:
+    """Derive net Ac from proven section/opening topology only."""
     context = topology_context if isinstance(topology_context, Mapping) else {}
     if "shell_surface_area" in context or "wall_shell_surface_area" in context:
         return DerivedQuantity(None, "BLOCKED", "Vertical shell surface Area is not wall net cross-sectional Ac")
