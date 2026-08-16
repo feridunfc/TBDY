@@ -1,0 +1,452 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import pytest
+
+from tbdy_engine.engine.unit_context import attach_unit_context
+from tbdy_engine.etabs.safety import (
+    AnalysisReadiness,
+    CapabilityState,
+    DatabaseTablesReadTransaction,
+    EtabsCapabilityError,
+    EtabsIdentityMismatchError,
+    EtabsStateRestoreError,
+    ResultsSetupReadTransaction,
+    RuntimeCaptureStatus,
+    attach_verified_to_running_etabs,
+    classify_capture_status,
+    read_analysis_readiness,
+    read_capability_snapshot,
+    read_etabs_unit_snapshot,
+)
+from tbdy_engine.features.etabs_com_attach import (
+    STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS,
+    attach_to_running_etabs,
+)
+from tbdy_engine.providers.etabs_display_table_fetcher import (
+    fetch_display_table,
+    fetch_display_table_for_output,
+    select_output_for_display,
+)
+
+
+class FakeAnalyze:
+    def __init__(self, statuses=None):
+        self.statuses = statuses or {"DEAD": 4, "MODAL": 1}
+
+    def GetCaseStatus(self):
+        names = list(self.statuses)
+        values = [self.statuses[name] for name in names]
+        return len(names), names, values, 0
+
+
+class FakeSap:
+    def __init__(self, model_path=r"C:\tmp\B-BLOK_Revised.EDB"):
+        self.model_path = model_path
+        self.set_present_units_calls = 0
+        self.Analyze = FakeAnalyze()
+        self.DatabaseTables = None
+        self.Results = None
+        self.LoadCases = None
+        self.RespCombo = None
+
+    def GetModelFilename(self, include_path=True):
+        return self.model_path if include_path else self.model_path.rsplit("\\", 1)[-1]
+
+    def GetModelFilepath(self):
+        return self.model_path.rsplit("\\", 1)[0]
+
+    def GetVersion(self):
+        return "22.7.0", 22.7, 0
+
+    def GetProgramInfo(self):
+        return "ETABS", "22.7.0", "Ultimate", 0
+
+    def GetModelIsLocked(self):
+        return True
+
+    def GetPresentUnits(self):
+        return 6
+
+    def GetDatabaseUnits(self):
+        return 9
+
+    def GetPresentUnits_2(self):
+        return 3, 6, 2, 0
+
+    def GetDatabaseUnits_2(self):
+        return 4, 7, 2, 0
+
+    def SetPresentUnits(self, value):
+        self.set_present_units_calls += 1
+        raise AssertionError("canonical acquisition must not call SetPresentUnits")
+
+
+class FakeEtabsObject:
+    def __init__(self, sap):
+        self.SapModel = sap
+
+    def GetOAPIVersionNumber(self):
+        return 2.3
+
+
+class FakeHelper:
+    def __init__(self, process_object):
+        self.process_object = process_object
+        self.process_calls = []
+        self.get_object_calls = []
+
+    def GetObjectProcess(self, prog_id, pid):
+        self.process_calls.append((prog_id, pid))
+        return self.process_object
+
+    def GetObject(self, prog_id):
+        self.get_object_calls.append(prog_id)
+        return self.process_object
+
+
+class FakeComtypesClient:
+    def __init__(self, etabs_object, *, helper=None):
+        self.etabs_object = etabs_object
+        self.helper = helper or FakeHelper(etabs_object)
+        self.active_calls = []
+        self.create_calls = []
+
+    def CreateObject(self, prog_id):
+        self.create_calls.append(prog_id)
+        return self.helper
+
+    def GetActiveObject(self, prog_id):
+        self.active_calls.append(prog_id)
+        return self.etabs_object
+
+
+class FailingWin32:
+    def GetActiveObject(self, prog_id):
+        raise RuntimeError(prog_id)
+
+
+def test_exact_target_identity_accepted():
+    sap = FakeSap()
+    client = FakeComtypesClient(FakeEtabsObject(sap))
+    session = attach_verified_to_running_etabs(
+        r"C:\tmp\B-BLOK_Revised.EDB",
+        comtypes_client=client,
+        win32com_client=FailingWin32(),
+    )
+    assert session.identity.model_full_path == r"C:\tmp\B-BLOK_Revised.EDB"
+    assert session.identity.model_locked is True
+    assert session.identity.program_version == "22.7.0"
+
+
+def test_wrong_model_is_hard_failure():
+    sap = FakeSap(r"C:\tmp\WRONG.EDB")
+    client = FakeComtypesClient(FakeEtabsObject(sap))
+    with pytest.raises(EtabsIdentityMismatchError):
+        attach_verified_to_running_etabs(
+            r"C:\tmp\B-BLOK_Revised.EDB",
+            comtypes_client=client,
+            win32com_client=FailingWin32(),
+        )
+
+
+def test_pid_attach_is_preferred_when_requested():
+    sap = FakeSap()
+    etabs = FakeEtabsObject(sap)
+    helper = FakeHelper(etabs)
+    client = FakeComtypesClient(etabs, helper=helper)
+    result = attach_to_running_etabs(pid=4321, comtypes_client=client, win32com_client=FailingWin32())
+    assert result.strategy == STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS
+    assert helper.process_calls[0][1] == 4321
+    assert client.active_calls == []
+
+
+def test_pid_verified_session_records_pid_only_for_exact_process_strategy():
+    sap = FakeSap()
+    etabs = FakeEtabsObject(sap)
+    client = FakeComtypesClient(etabs)
+    session = attach_verified_to_running_etabs(
+        r"C:\tmp\B-BLOK_Revised.EDB",
+        pid=77,
+        comtypes_client=client,
+        win32com_client=FailingWin32(),
+    )
+    assert session.identity.process_id == 77
+    assert session.capabilities.pid_attach is CapabilityState.SUPPORTED
+
+
+def test_fallback_attach_is_identity_verified():
+    sap = FakeSap()
+    client = FakeComtypesClient(FakeEtabsObject(sap))
+    session = attach_verified_to_running_etabs(
+        r"c:\TMP\B-BLOK_Revised.EDB",
+        comtypes_client=client,
+        win32com_client=FailingWin32(),
+    )
+    assert session.identity.process_id is None
+    assert session.identity.model_full_path.lower().endswith("b-blok_revised.edb")
+
+
+def test_present_units_are_never_changed_by_canonical_unit_read():
+    sap = FakeSap()
+    units = read_etabs_unit_snapshot(sap)
+    assert sap.set_present_units_calls == 0
+    assert units.present_units == 6
+    assert units.database_units == 9
+    assert units.present_force_unit == 3
+    assert units.database_force_unit == 4
+
+
+@dataclass
+class FakeContext:
+    design_basis: dict
+    unit_system: dict | None = None
+
+
+def test_attach_unit_context_is_read_only_by_default():
+    sap = FakeSap()
+    ctx = FakeContext(design_basis={})
+    attach_unit_context(ctx, sap)
+    assert sap.set_present_units_calls == 0
+    assert ctx.unit_system["set_present_units_attempted"] is False
+    assert ctx.unit_system["etabs_unit_provenance"]["present_units"] == 6
+    assert ctx.unit_system["etabs_unit_provenance"]["database_units"] == 9
+
+
+@pytest.mark.parametrize(
+    ("code", "expected"),
+    [
+        (1, AnalysisReadiness.ANALYSIS_NOT_RUN),
+        (2, AnalysisReadiness.ANALYSIS_COULD_NOT_START),
+        (3, AnalysisReadiness.ANALYSIS_INCOMPLETE),
+        (4, AnalysisReadiness.ANALYSIS_FINISHED),
+    ],
+)
+def test_analysis_status_mapping_is_factual(code, expected):
+    sap = FakeSap()
+    sap.Analyze = FakeAnalyze({"CASE": code})
+    status = read_analysis_readiness(sap, "CASE")
+    assert status.readiness is expected
+    assert "CURRENT" not in status.readiness.value
+
+
+def test_incomplete_database_selection_capability_fails_before_mutation():
+    class IncompleteDB:
+        def __init__(self):
+            self.setter_calls = 0
+
+        def SetLoadCasesSelectedForDisplay(self, names):
+            self.setter_calls += 1
+            return 0
+
+        def SetLoadCombinationsSelectedForDisplay(self, names):
+            self.setter_calls += 1
+            return 0
+
+    db = IncompleteDB()
+    with pytest.raises(EtabsCapabilityError):
+        with DatabaseTablesReadTransaction(db):
+            pass
+    assert db.setter_calls == 0
+
+
+class FakeDatabaseTables:
+    def __init__(self):
+        self.cases = ["OLD_CASE"]
+        self.combos = ["OLD_COMBO"]
+        self.patterns = ["DEAD"]
+        self.fail_combo_target = True
+        self.fail_restore_combo = False
+        self.table_call_arg_counts = []
+
+    def GetLoadCasesSelectedForDisplay(self):
+        return len(self.cases), list(self.cases), 0
+
+    def SetLoadCasesSelectedForDisplay(self, names):
+        self.cases = list(names)
+        return 0
+
+    def GetLoadCombinationsSelectedForDisplay(self):
+        return len(self.combos), list(self.combos), 0
+
+    def SetLoadCombinationsSelectedForDisplay(self, names):
+        if self.fail_restore_combo and list(names) == ["OLD_COMBO"]:
+            return 1
+        if self.fail_combo_target and list(names) != ["OLD_COMBO"]:
+            return 1
+        self.combos = list(names)
+        return 0
+
+    def GetLoadPatternsSelectedForDisplay(self):
+        return len(self.patterns), list(self.patterns), 0
+
+    def SetLoadPatternsSelectedForDisplay(self, names):
+        self.patterns = list(names)
+        return 0
+
+    def GetOutputOptionsForDisplay(self):
+        return False, 0.0, 0.0, 0.0, True, 1, 12, True, 1, 12, 2, 2, 2, 2, 2, 0
+
+    def SetOutputOptionsForDisplay(self, *args):
+        return 0
+
+    def GetTableForDisplayArray(self, *args):
+        self.table_call_arg_counts.append(len(args))
+        if len(args) != 3:
+            raise TypeError("fake supports only legacy 3-arg shape")
+        return {
+            "return_code": 0,
+            "field_keys": ["Story", "OutputCase"],
+            "number_records": 1,
+            "table_data": ["L1", "CASE_X"],
+        }
+
+
+def test_database_transaction_restores_state_on_success():
+    db = FakeDatabaseTables()
+    with DatabaseTablesReadTransaction(db) as tx:
+        selected = tx.select_output("CASE_X")
+        assert selected["display_selection_success"] is True
+        assert db.cases == ["CASE_X"]
+    assert db.cases == ["OLD_CASE"]
+    assert db.combos == ["OLD_COMBO"]
+
+
+def test_database_transaction_restores_state_when_fetch_raises():
+    db = FakeDatabaseTables()
+    with pytest.raises(RuntimeError, match="fetch exploded"):
+        with DatabaseTablesReadTransaction(db) as tx:
+            tx.select_output("CASE_X")
+            raise RuntimeError("fetch exploded")
+    assert db.cases == ["OLD_CASE"]
+    assert db.combos == ["OLD_COMBO"]
+
+
+def test_restore_failure_invalidates_acquisition():
+    db = FakeDatabaseTables()
+    db.fail_restore_combo = True
+    with pytest.raises(EtabsStateRestoreError):
+        with DatabaseTablesReadTransaction(db) as tx:
+            tx.select_output("CASE_X")
+
+
+def test_standalone_selection_fails_closed_without_mutation():
+    db = FakeDatabaseTables()
+    diagnostic = select_output_for_display(db, "CASE_X")
+    assert diagnostic["display_selection_success"] is False
+    assert diagnostic["display_selection_attempted"] is False
+    assert db.cases == ["OLD_CASE"]
+    assert db.combos == ["OLD_COMBO"]
+
+
+def test_safe_display_fetch_restores_and_preserves_signature_compatibility():
+    db = FakeDatabaseTables()
+    result = fetch_display_table_for_output(
+        db,
+        "Story Drifts",
+        preferred_output_case="CASE_X",
+    )
+    assert result.selected_signature["signature_name"] == "sig_3_group_field_key"
+    assert db.table_call_arg_counts[:4] == [7, 7, 6, 3]
+    assert result.capture_status is RuntimeCaptureStatus.FULL
+    assert result.display_selection["display_selection_success"] is True
+    assert db.cases == ["OLD_CASE"]
+    assert db.combos == ["OLD_COMBO"]
+    assert any(item.get("phase") == "restore_verify" for item in result.state_diagnostics)
+
+
+def test_display_fetch_sampling_cannot_claim_full():
+    class TwoRowDB:
+        def GetTableForDisplayArray(self, *args):
+            return {
+                "return_code": 0,
+                "field_keys": ["Story", "OutputCase"],
+                "number_records": 2,
+                "table_data": ["L1", "C1", "L2", "C1"],
+            }
+
+    result = fetch_display_table(TwoRowDB(), "Story Drifts", max_rows=1)
+    assert result.capture_status is RuntimeCaptureStatus.SAMPLED
+
+
+def test_full_and_partial_capture_semantics():
+    assert classify_capture_status(
+        return_code=0,
+        row_count_reported=2,
+        row_count_captured=2,
+        header_count=3,
+        flat_payload_length=6,
+    ) is RuntimeCaptureStatus.FULL
+    assert classify_capture_status(
+        return_code=0,
+        row_count_reported=2,
+        row_count_captured=1,
+        header_count=3,
+        flat_payload_length=3,
+    ) is RuntimeCaptureStatus.PARTIAL
+
+
+class FakeNameList:
+    def __init__(self, names):
+        self.names = list(names)
+
+    def GetNameList(self):
+        return len(self.names), list(self.names), 0
+
+
+class FakeResultsSetup:
+    def __init__(self):
+        self.case_flags = {"DEAD": True, "MODAL": False}
+        self.combo_flags = {"COMB": True}
+
+    def GetCaseSelectedForOutput(self, name):
+        return self.case_flags[name], 0
+
+    def SetCaseSelectedForOutput(self, name, selected=True):
+        self.case_flags[name] = bool(selected)
+        return 0
+
+    def GetComboSelectedForOutput(self, name):
+        return self.combo_flags[name], 0
+
+    def SetComboSelectedForOutput(self, name, selected=True):
+        self.combo_flags[name] = bool(selected)
+        return 0
+
+    def DeselectAllCasesAndCombosForOutput(self):
+        for name in self.case_flags:
+            self.case_flags[name] = False
+        for name in self.combo_flags:
+            self.combo_flags[name] = False
+        return 0
+
+
+class FakeResults:
+    def __init__(self, setup):
+        self.Setup = setup
+
+
+def test_results_setup_is_independent_and_reversible():
+    sap = FakeSap()
+    setup = FakeResultsSetup()
+    sap.Results = FakeResults(setup)
+    sap.LoadCases = FakeNameList(["DEAD", "MODAL"])
+    sap.RespCombo = FakeNameList(["COMB"])
+    before_cases = dict(setup.case_flags)
+    before_combos = dict(setup.combo_flags)
+    with ResultsSetupReadTransaction(sap) as tx:
+        tx.select_case("MODAL")
+        assert setup.case_flags == {"DEAD": False, "MODAL": True}
+        assert setup.combo_flags == {"COMB": False}
+    assert setup.case_flags == before_cases
+    assert setup.combo_flags == before_combos
+
+
+def test_capability_snapshot_keeps_unknown_pid_explicit():
+    sap = FakeSap()
+    caps = read_capability_snapshot(sap)
+    assert caps.pid_attach is CapabilityState.UNKNOWN
+    assert caps.present_units_2 is CapabilityState.SUPPORTED
+    assert caps.database_units_2 is CapabilityState.SUPPORTED
+    assert caps.case_status is CapabilityState.SUPPORTED
