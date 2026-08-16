@@ -21,7 +21,7 @@ def test_pack_c_reuses_only_existing_live_promoted_geometry_identity_sources():
         "pier_section_properties",
         "story_definitions",
         "area_assignments_summary",
-        "area_assignments_pier_labels",
+        "pier_assignments",
     ):
         assert key in registry.tables
         assert _status(registry.tables[key]) == "VERIFIED_LIVE"
@@ -31,6 +31,9 @@ def test_pack_c_reuses_only_existing_live_promoted_geometry_identity_sources():
     story = registry.tables["story_definitions"]
     story_columns = set(story.get("required_columns") or story.get("columns") or ())
     assert {"Story", "Height", "BSElev"}.issubset(story_columns)
+    assignments = registry.tables["pier_assignments"]
+    assignment_columns = set(assignments.get("required_columns") or assignments.get("columns") or ())
+    assert {"Story", "Label", "Pier"}.issubset(assignment_columns)
 
 
 def test_pack_c_does_not_promote_unproven_connectivity_or_end_region_source_by_name():
