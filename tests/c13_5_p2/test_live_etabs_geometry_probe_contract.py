@@ -138,7 +138,7 @@ def test_output_files_are_deterministic(tmp_path: Path):
     assert all(content.endswith("\n") for content in first.values())
 
 
-def test_fake_feature_snapshot_can_feed_existing_product_smoke_and_produce_six_results(tmp_path: Path):
+def test_fake_feature_snapshot_can_feed_existing_product_smoke_and_produce_six_blocked_results(tmp_path: Path):
     probe_out = tmp_path / "probe"
     product_out = tmp_path / "product"
 
@@ -156,7 +156,8 @@ def test_fake_feature_snapshot_can_feed_existing_product_smoke_and_produce_six_r
     assert product.p4_check_result_count == 6
     check_results = _read_json(product_out / "artifacts" / "check_results.json")
     assert len(check_results) == 6
-    assert {item["status"] for item in check_results} == {"OK"}
+    # Geometry facts alone do not prove rectangular-column or §7.4.1.1 beam applicability.
+    assert {item["status"] for item in check_results} == {"BLOCKED"}
 
 
 def test_p9_offline_acceptance_includes_c13_5_p2_before_golden_regression(tmp_path: Path):
@@ -166,6 +167,7 @@ def test_p9_offline_acceptance_includes_c13_5_p2_before_golden_regression(tmp_pa
     assert ("pytest_c13_5_p2", ("PY", "-m", "pytest", "-q", "tests/c13_5_p2")) in plan
     assert "p8_golden_regression" in names
     assert names.index("pytest_c13_5_p2") < names.index("p8_golden_regression")
+
 
 def test_p10_workflow_still_delegates_to_p9_cli_only():
     workflow = (ROOT / ".github" / "workflows" / "c13_4_offline_acceptance.yml").read_text(encoding="utf-8")
