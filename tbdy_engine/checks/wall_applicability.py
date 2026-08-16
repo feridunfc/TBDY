@@ -11,7 +11,10 @@ from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 
 from tbdy_engine.features.result_evidence import ResultRowEvidenceBundle
-from tbdy_engine.features.wall_critical_evidence import WallCriticalHeightFactualEvidence
+from tbdy_engine.features.wall_critical_evidence import (
+    WallCriticalHeightFactualEvidence,
+    WallRegulatoryReferenceFacts,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -231,8 +234,9 @@ def derive_net_section_area_mm2(component_id: str, topology_context: Mapping[str
     return DerivedQuantity(net, "RESOLVED", evidence=tuple(evidence))
 
 
-def _rigid_basement_state(bundle: WallCriticalHeightFactualEvidence) -> tuple[bool | None, str | None]:
-    facts = bundle.reference_facts
+def _rigid_basement_state(
+    facts: WallRegulatoryReferenceFacts | None,
+) -> tuple[bool | None, str | None]:
     if facts is None:
         return None, "Foundation/regulatory reference facts are unavailable"
     perimeter = facts.rigid_basement_perimeter_walls
@@ -244,12 +248,16 @@ def _rigid_basement_state(bundle: WallCriticalHeightFactualEvidence) -> tuple[bo
     return None, "Rigid-basement applicability facts are incomplete"
 
 
-def derive_wall_critical_height(bundle: WallCriticalHeightFactualEvidence | None) -> WallCriticalHeightDerivation:
+def derive_wall_critical_height(
+    bundle: WallCriticalHeightFactualEvidence | None,
+    reference_facts: WallRegulatoryReferenceFacts | None,
+) -> WallCriticalHeightDerivation:
     """Derive Hw, reference levels, applicability and governing Hcr from facts.
 
     Reduction detection is engineering-side: plan length reduction is strict
-    >20% and section-width/thickness reduction is strict >50%. No property-name
-    or magnitude-unit inference is used.
+    >20% and section-width/thickness reduction is strict >50%. Regulatory
+    reference truth is supplied once at run/system grain. No property-name or
+    magnitude-unit inference is used.
     """
     if bundle is None or not isinstance(bundle, WallCriticalHeightFactualEvidence):
         return WallCriticalHeightDerivation("BLOCKED", diagnostic="Canonical wall critical-height factual evidence is unavailable")
@@ -263,23 +271,24 @@ def derive_wall_critical_height(bundle: WallCriticalHeightFactualEvidence | None
     for lower, upper in zip(rows, rows[1:]):
         if abs(lower.top_elevation_mm - upper.base_elevation_mm) > 1e-6:
             return WallCriticalHeightDerivation("BLOCKED", diagnostic="Wall story geometry has an elevation gap despite continuity proof")
-    facts = bundle.reference_facts
-    if facts is None or facts.foundation_top_elevation_mm is None:
+    if reference_facts is None or not isinstance(reference_facts, WallRegulatoryReferenceFacts):
+        return WallCriticalHeightDerivation("BLOCKED", diagnostic="Run-level foundation/regulatory reference facts are unavailable")
+    if reference_facts.foundation_top_elevation_mm is None:
         return WallCriticalHeightDerivation("BLOCKED", diagnostic="Foundation-top elevation is not proven")
-    rigid, rigid_reason = _rigid_basement_state(bundle)
+    rigid, rigid_reason = _rigid_basement_state(reference_facts)
     if rigid is None:
         return WallCriticalHeightDerivation("BLOCKED", diagnostic=rigid_reason)
     below_extension = 0.0
     if rigid:
-        if facts.ground_floor_elevation_mm is None:
+        if reference_facts.ground_floor_elevation_mm is None:
             return WallCriticalHeightDerivation("BLOCKED", diagnostic="Rigid-basement case requires proven ground-floor elevation")
-        if facts.first_basement_story_height_mm is None:
+        if reference_facts.first_basement_story_height_mm is None:
             return WallCriticalHeightDerivation("BLOCKED", diagnostic="Rigid-basement case requires proven first-basement story height")
-        base_reference = float(facts.ground_floor_elevation_mm)
-        below_extension = float(facts.first_basement_story_height_mm)
+        base_reference = float(reference_facts.ground_floor_elevation_mm)
+        below_extension = float(reference_facts.first_basement_story_height_mm)
         base_reason = "RIGID_BASEMENT_GROUND_FLOOR"
     else:
-        base_reference = float(facts.foundation_top_elevation_mm)
+        base_reference = float(reference_facts.foundation_top_elevation_mm)
         base_reason = "FOUNDATION_TOP"
     eligible = tuple(row for row in rows if row.top_elevation_mm > base_reference + 1e-6)
     if not eligible:
