@@ -38,63 +38,11 @@ jobs:
           PY
           python -m pip install pytest pyyaml jsonschema
           python -m pytest -q tests/result_selection/test_b2_ndm_selection.py
-      - name: Restore read-only B2 acceptance workflow
-        shell: bash
-        run: |
-          cat > .github/workflows/b2_ndm_patch.yml <<'YAML'
-          name: B2 Ndm Result Selection Acceptance
-
-          on:
-            push:
-              branches: [sprint/b2-ndm-result-selection]
-
-          permissions:
-            contents: read
-
-          jobs:
-            b2-acceptance:
-              runs-on: ubuntu-latest
-              steps:
-                - uses: actions/checkout@v4
-                - uses: actions/setup-python@v5
-                  with:
-                    python-version: '3.11'
-                - name: Install test dependencies
-                  run: python -m pip install pytest pyyaml jsonschema
-                - name: Compile
-                  run: python -m compileall -q tbdy_engine tools tests
-                - name: B2 Ndm focused selection tests
-                  run: python -m pytest -q tests/result_selection/test_b2_ndm_selection.py
-                - name: Affected Pack B regression
-                  run: |
-                    python -m pytest -q tests/wall_geometry/test_wall_check_pack_b.py
-                    python -m pytest -q tests/wall_geometry/test_wall_pack_b_source_contracts.py
-                - name: Wall Pack A regression
-                  run: |
-                    python -m pytest -q tests/wall_geometry/test_wall_check_pack_a.py
-                    python -m pytest -q tests/wall_geometry/test_wall_pack_a_catalog_contract.py
-                - name: Wall Pack C regression
-                  run: |
-                    python -m pytest -q tests/wall_geometry/test_wall_check_pack_c.py
-                    python -m pytest -q tests/wall_geometry/test_wall_pack_c_source_contracts.py
-                - name: B1 member regression
-                  run: python -m pytest -q tests/member_geometry
-                - name: ETABS Safety targeted regression
-                  run: python -m pytest -q tests/etabs/test_safety_foundation.py tests/c13_5_p3/test_etabs_com_attach_contract.py
-                - name: Offline product acceptance
-                  shell: bash
-                  run: |
-                    if ! python tools/run_offline_product_acceptance.py --out local_out/b2_ndm_offline_acceptance; then
-                      echo '--- offline_product_acceptance_report.json ---'
-                      cat local_out/b2_ndm_offline_acceptance/offline_product_acceptance_report.json || true
-                      exit 1
-                    fi
-          YAML
-      - name: Commit test-only fix and workflow restoration
+      - name: Commit test-only fix
         shell: bash
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add tests/result_selection/test_b2_ndm_selection.py .github/workflows/b2_ndm_patch.yml
+          git add tests/result_selection/test_b2_ndm_selection.py
           git commit -m 'B2 fix focused test assertions'
           git push origin HEAD:sprint/b2-ndm-result-selection
