@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+from collections.abc import Mapping
 
 import pytest
 
@@ -265,7 +266,7 @@ def test_full_resolved_lookup_with_no_matching_final_row_is_no_data():
 def test_selection_result_has_availability_not_regulatory_verdict_or_ratio():
     trace = select_ndm_demand(_request(), _bundle(_resolved_rows()), _binding(), _policy()).trace.as_dict()
     assert trace["availability"] == "RESOLVED" and "status" not in trace and "ratio" not in trace
-    assert not any(value in {"PASS", "FAIL", "WARNING", "OUT_OF_SCOPE"} for value in trace.values())
+    assert not any(isinstance(value, str) and value in {"PASS", "FAIL", "WARNING", "OUT_OF_SCOPE"} for value in trace.values())
 
 
 def test_derive_ndm_n_is_the_single_adapter_and_preserves_selection_trace():
@@ -312,7 +313,7 @@ def test_pack_b_pipeline_materializes_ndm_before_engine_and_existing_formula_exe
     result = run.check_results[0]
     assert result.status == CheckStatus.OK
     assert result.limit == pytest.approx(demand.value / (0.35 * 35.0))
-    assert any("selection_trace" in evidence for evidence in result.evidence if isinstance(evidence, dict))
+    assert any("selection_trace" in evidence for evidence in result.evidence if isinstance(evidence, Mapping))
 
 
 def test_pack_b_pipeline_propagates_authoritative_no_data_not_blocked():
