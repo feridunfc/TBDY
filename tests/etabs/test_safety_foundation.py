@@ -17,6 +17,7 @@ from tbdy_engine.etabs.safety import (
     EtabsStateVerificationError,
     ResultsSetupReadTransaction,
     RuntimeCaptureStatus,
+    _decode_database_selected_names,
     attach_verified_to_running_etabs,
     classify_capture_status,
     read_analysis_readiness,
@@ -378,12 +379,16 @@ class FakeDatabaseTables:
         self.fail_restore_combo = False
         self.table_call_arg_counts = []
         self.selection_seen_by_fetch = []
+        self.case_set_calls = []
+        self.combo_set_calls = []
 
     def GetLoadCasesSelectedForDisplay(self):
         return len(self.cases), list(self.cases), 0
 
     def SetLoadCasesSelectedForDisplay(self, names):
-        self.cases = list(names)
+        names = list(names)
+        self.case_set_calls.append(tuple(names))
+        self.cases = names
         return 0
 
     def GetLoadCombinationsSelectedForDisplay(self):
@@ -391,6 +396,7 @@ class FakeDatabaseTables:
 
     def SetLoadCombinationsSelectedForDisplay(self, names):
         names = list(names)
+        self.combo_set_calls.append(tuple(names))
         if self.fail_restore_combo and names == ["OLD_COMBO"]:
             return 1
         if self.fail_combo_target and names not in ([], ["OLD_COMBO"]):
@@ -424,6 +430,146 @@ class FakeDatabaseTables:
         }
 
 
+class FakeEtabs23PaddedDatabaseTables(FakeDatabaseTables):
+    """Reproduce ETABS 23.2 count + old-capacity SAFEARRAY padding."""
+
+    def __init__(self):
+        super().__init__()
+        self.cases = [
+            "Modal", "RSX", "RSY", "LC_DL", "LC_SDL", "LC_WDL", "LC_LL", "LC_DDL",
+            "LC_S", "LC_T", "LC_H", "LC_HE", "LC_EQX", "LC_EQY", "EDZ", "~ChineseX",
+            "~ChineseY", "~StaticRSX", "~Static+EccRSX", "~Static-EccRSX", "~StaticRSY",
+            "~Static+EccRSY", "~Static-EccRSY",
+        ]
+        self.combos = ["ENV_GRAV", "ENV_UNC", "ENV_CRK", "ENV_D"]
+        self.case_capacity = len(self.cases)
+        self.combo_capacity = len(self.combos)
+
+    @staticmethod
+    def _padded(names, capacity):
+        payload = tuple(list(names) + [None] * (capacity - len(names)))
+        return [len(names), payload, 0]
+
+    def GetLoadCasesSelectedForDisplay(self):
+        return self._padded(self.cases, self.case_capacity)
+
+    def SetLoadCasesSelectedForDisplay(self, names):
+        names = list(names)
+        self.case_set_calls.append(tuple(names))
+        self.cases = names
+        return [tuple(names), 0]
+
+    def GetLoadCombinationsSelectedForDisplay(self):
+        return self._padded(self.combos, self.combo_capacity)
+
+    def SetLoadCombinationsSelectedForDisplay(self, names):
+        names = list(names)
+        self.combo_set_calls.append(tuple(names))
+        if self.fail_combo_target and names not in (["ENV_GRAV"], ["ENV_UNC"], ["ENV_CRK"], ["ENV_D"]):
+            return [tuple(names), 1]
+        self.combos = names
+        return [tuple(names), 0]
+
+
+def test_count_aware_getter_decodes_only_authoritative_prefix():
+    raw = [1, ("LC_DL", None, None, None), 0]
+    assert _decode_database_selected_names(
+        raw,
+        "GetLoadCasesSelectedForDisplay",
+        error_code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+    ) == ("LC_DL",)
+
+
+def test_count_aware_getter_ignores_none_padding_after_count():
+    raw = [2, ("ENV_GRAV", "ENV_UNC", None, None, None), 0]
+    assert _decode_database_selected_names(
+        raw,
+        "GetLoadCombinationsSelectedForDisplay",
+        error_code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+    ) == ("ENV_GRAV", "ENV_UNC")
+
+
+def test_count_aware_getter_nonzero_return_fails_closed():
+    with pytest.raises(EtabsCapabilityError) as caught:
+        _decode_database_selected_names(
+            [0, (None, None), 1],
+            "GetLoadCasesSelectedForDisplay",
+            error_code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        )
+    assert caught.value.code is EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED
+    assert caught.value.details["api_return_code"] == 1
+
+
+def test_count_aware_getter_count_greater_than_payload_fails_closed():
+    with pytest.raises(EtabsCapabilityError) as caught:
+        _decode_database_selected_names(
+            [2, ("LC_DL",), 0],
+            "GetLoadCasesSelectedForDisplay",
+            error_code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        )
+    assert caught.value.code is EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED
+
+
+def test_count_aware_getter_non_string_inside_authoritative_prefix_fails_closed():
+    with pytest.raises(EtabsCapabilityError) as caught:
+        _decode_database_selected_names(
+            [2, ("LC_DL", None, "IGNORED_TAIL"), 0],
+            "GetLoadCasesSelectedForDisplay",
+            error_code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        )
+    assert caught.value.code is EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED
+
+
+def test_live_padded_singleton_case_shape_verifies_exactly_and_preserves_combos():
+    db = FakeEtabs23PaddedDatabaseTables()
+    original_cases = tuple(db.cases)
+    original_combos = tuple(db.combos)
+    db.fail_combo_target = True
+    with DatabaseTablesReadTransaction(db) as tx:
+        selected = tx.select_output("LC_DL")
+        assert tuple(db.cases) == ("LC_DL",)
+        assert tuple(db.combos) == original_combos
+        assert db.GetLoadCasesSelectedForDisplay()[1][1] is None
+        assert selected["target_kind"] == "case"
+        assert selected["target_name"] == "LC_DL"
+        assert selected["temporary_cases_exact"] == ["LC_DL"]
+        assert selected["temporary_combos_exact"] == list(original_combos)
+        assert selected["opposite_domain_preserved"] is True
+        assert selected["temporary_state_verified_exact"] is True
+        assert selected["selection_scope"] == "VERIFIED_SUPERSET_SELECTION"
+        assert selected["target_only_capture_claimed"] is False
+        case_diag = next(
+            item for item in tx.diagnostics if item.get("phase") == "temporary_selection_case"
+        )
+        assert case_diag["temporary_cases_verified_exact"] is True
+        assert case_diag["temporary_combos_verified_exact"] is True
+    assert tuple(db.cases) == original_cases
+    assert tuple(db.combos) == original_combos
+
+
+def test_live_padded_singleton_combo_shape_verifies_exactly_and_preserves_cases():
+    db = FakeEtabs23PaddedDatabaseTables()
+    original_cases = tuple(db.cases)
+    original_combos = tuple(db.combos)
+    db.fail_combo_target = False
+    with DatabaseTablesReadTransaction(db) as tx:
+        selected = tx.select_output("ENV_GRAV")
+        assert tuple(db.cases) == original_cases
+        assert tuple(db.combos) == ("ENV_GRAV",)
+        assert db.GetLoadCombinationsSelectedForDisplay()[1][1] is None
+        assert selected["target_kind"] == "combo"
+        assert selected["temporary_cases_exact"] == list(original_cases)
+        assert selected["temporary_combos_exact"] == ["ENV_GRAV"]
+        assert selected["opposite_domain_preserved"] is True
+        combo_diag = next(
+            item for item in tx.diagnostics if item.get("phase") == "temporary_selection_combo"
+        )
+        assert combo_diag["temporary_cases_verified_exact"] is True
+        assert combo_diag["temporary_combos_verified_exact"] is True
+    assert tuple(db.cases) == original_cases
+    assert tuple(db.combos) == original_combos
+
+
 def test_database_transaction_restores_state_on_success():
     db = FakeDatabaseTables()
     with DatabaseTablesReadTransaction(db) as tx:
@@ -431,7 +577,7 @@ def test_database_transaction_restores_state_on_success():
         assert selected["display_selection_success"] is True
         assert selected["temporary_state_verified_exact"] is True
         assert db.cases == ["CASE_X"]
-        assert db.combos == []
+        assert db.combos == ["OLD_COMBO"]
     assert db.cases == ["OLD_CASE"]
     assert db.combos == ["OLD_COMBO"]
 
@@ -455,6 +601,27 @@ def test_restore_failure_invalidates_acquisition_with_stable_code():
     assert caught.value.code is EtabsSafetyErrorCode.STATE_RESTORE_FAILED
 
 
+def test_restore_mismatch_remains_hard_failure():
+    class RestoreMismatchDB(FakeDatabaseTables):
+        def __init__(self):
+            super().__init__()
+            self.fail_combo_target = False
+
+        def SetLoadCombinationsSelectedForDisplay(self, names):
+            names = list(names)
+            self.combo_set_calls.append(tuple(names))
+            if names == ["OLD_COMBO"] and self.combos != ["OLD_COMBO"]:
+                return 0
+            self.combos = names
+            return 0
+
+    db = RestoreMismatchDB()
+    with pytest.raises(EtabsStateRestoreError) as caught:
+        with DatabaseTablesReadTransaction(db) as tx:
+            tx.select_output("COMBO_X")
+    assert caught.value.code is EtabsSafetyErrorCode.STATE_RESTORE_VERIFY_FAILED
+
+
 def test_standalone_selection_fails_closed_without_mutation():
     db = FakeDatabaseTables()
     diagnostic = select_output_for_display(db, "CASE_X")
@@ -464,7 +631,7 @@ def test_standalone_selection_fails_closed_without_mutation():
     assert db.combos == ["OLD_COMBO"]
 
 
-def test_case_fetch_has_exact_temporary_population_no_old_combo_leak():
+def test_case_fetch_preserves_snapshot_combos_as_verified_superset():
     db = FakeDatabaseTables()
     result = fetch_display_table_for_output(
         db,
@@ -472,14 +639,16 @@ def test_case_fetch_has_exact_temporary_population_no_old_combo_leak():
         preferred_output_case="CASE_X",
     )
     assert db.selection_seen_by_fetch
-    assert set(db.selection_seen_by_fetch) == {(("CASE_X",), ())}
+    assert set(db.selection_seen_by_fetch) == {(("CASE_X",), ("OLD_COMBO",))}
     assert result.display_selection["temporary_cases_exact"] == ["CASE_X"]
-    assert result.display_selection["temporary_combos_exact"] == []
+    assert result.display_selection["temporary_combos_exact"] == ["OLD_COMBO"]
+    assert result.display_selection["opposite_domain_preserved"] is True
+    assert result.display_selection["selection_scope"] == "VERIFIED_SUPERSET_SELECTION"
     assert db.cases == ["OLD_CASE"]
     assert db.combos == ["OLD_COMBO"]
 
 
-def test_combo_fetch_has_exact_temporary_population_no_old_case_leak():
+def test_combo_fetch_preserves_snapshot_cases_as_verified_superset():
     db = FakeDatabaseTables()
     db.fail_combo_target = False
     result = fetch_display_table_for_output(
@@ -488,9 +657,10 @@ def test_combo_fetch_has_exact_temporary_population_no_old_case_leak():
         preferred_output_case="COMBO_X",
     )
     assert db.selection_seen_by_fetch
-    assert set(db.selection_seen_by_fetch) == {((), ("COMBO_X",))}
-    assert result.display_selection["temporary_cases_exact"] == []
+    assert set(db.selection_seen_by_fetch) == {(('OLD_CASE',), ("COMBO_X",))}
+    assert result.display_selection["temporary_cases_exact"] == ["OLD_CASE"]
     assert result.display_selection["temporary_combos_exact"] == ["COMBO_X"]
+    assert result.display_selection["opposite_domain_preserved"] is True
     assert db.cases == ["OLD_CASE"]
     assert db.combos == ["OLD_COMBO"]
 
@@ -503,20 +673,16 @@ def test_temporary_selection_verify_mismatch_fails_before_fetch_and_restores():
 
         def SetLoadCombinationsSelectedForDisplay(self, names):
             names = list(names)
+            self.combo_set_calls.append(tuple(names))
             if names == ["OLD_COMBO"]:
-                self.combos = names
-                return 0
-            if names == []:
                 self.combos = names
                 return 0
             return 0
 
         def SetLoadCasesSelectedForDisplay(self, names):
             names = list(names)
+            self.case_set_calls.append(tuple(names))
             if names == ["OLD_CASE"]:
-                self.cases = names
-                return 0
-            if names == []:
                 self.cases = names
                 return 0
             return 0
@@ -532,6 +698,51 @@ def test_temporary_selection_verify_mismatch_fails_before_fetch_and_restores():
     assert db.table_calls == 0
     assert db.cases == ["OLD_CASE"]
     assert db.combos == ["OLD_COMBO"]
+
+
+def test_opposite_domain_is_never_deliberately_cleared_in_normal_selection():
+    case_db = FakeDatabaseTables()
+    with DatabaseTablesReadTransaction(case_db) as tx:
+        tx.select_output("CASE_X")
+    assert () not in case_db.case_set_calls
+    assert () not in case_db.combo_set_calls
+
+    combo_db = FakeDatabaseTables()
+    combo_db.fail_combo_target = False
+    with DatabaseTablesReadTransaction(combo_db) as tx:
+        tx.select_output("COMBO_X")
+    assert () not in combo_db.case_set_calls
+    assert () not in combo_db.combo_set_calls
+
+
+def test_mixed_outputcase_full_table_is_not_filtered_by_acquisition():
+    class MixedOutputCaseDB(FakeDatabaseTables):
+        def __init__(self):
+            super().__init__()
+            self.fail_combo_target = False
+
+        def GetTableForDisplayArray(self, *args):
+            self.selection_seen_by_fetch.append((tuple(self.cases), tuple(self.combos)))
+            self.table_call_arg_counts.append(len(args))
+            if len(args) != 3:
+                raise TypeError("fake supports only legacy 3-arg shape")
+            return {
+                "return_code": 0,
+                "field_keys": ["OutputCase", "FX"],
+                "number_records": 2,
+                "table_data": ["OLD_CASE", "1.0", "COMBO_X", "2.0"],
+            }
+
+    db = MixedOutputCaseDB()
+    result = fetch_display_table_for_output(
+        db,
+        "Base Reactions",
+        preferred_output_case="COMBO_X",
+    )
+    assert result.capture_status is RuntimeCaptureStatus.FULL
+    assert [row["OutputCase"] for row in result.parsed.rows] == ["OLD_CASE", "COMBO_X"]
+    assert result.display_selection["target_only_capture_claimed"] is False
+    assert result.display_selection["selection_scope"] == "VERIFIED_SUPERSET_SELECTION"
 
 
 def test_safe_display_fetch_restores_and_preserves_signature_compatibility():
@@ -604,6 +815,46 @@ def test_known_schema_legitimate_empty_table_may_be_full():
 def test_missing_success_return_code_cannot_be_full():
     assert classify_capture_status(
         return_code=None,
+        row_count_reported=0,
+        row_count_captured=0,
+        header_count=2,
+        flat_payload_length=0,
+    ) is RuntimeCaptureStatus.UNKNOWN
+
+
+def test_capture_status_five_state_contract_unchanged():
+    assert classify_capture_status(
+        return_code=0,
+        row_count_reported=1,
+        row_count_captured=1,
+        header_count=2,
+        flat_payload_length=2,
+    ) is RuntimeCaptureStatus.FULL
+    assert classify_capture_status(
+        return_code=0,
+        row_count_reported=2,
+        row_count_captured=1,
+        header_count=2,
+        flat_payload_length=2,
+    ) is RuntimeCaptureStatus.PARTIAL
+    assert classify_capture_status(
+        return_code=0,
+        row_count_reported=2,
+        row_count_captured=1,
+        header_count=2,
+        flat_payload_length=2,
+        max_rows=1,
+    ) is RuntimeCaptureStatus.SAMPLED
+    assert classify_capture_status(
+        return_code=0,
+        row_count_reported=2,
+        row_count_captured=1,
+        header_count=2,
+        flat_payload_length=2,
+        explicitly_truncated=True,
+    ) is RuntimeCaptureStatus.TRUNCATED
+    assert classify_capture_status(
+        return_code=1,
         row_count_reported=0,
         row_count_captured=0,
         header_count=2,
