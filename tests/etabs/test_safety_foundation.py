@@ -444,6 +444,7 @@ class FakeEtabs23PaddedDatabaseTables(FakeDatabaseTables):
         self.combos = ["ENV_GRAV", "ENV_UNC", "ENV_CRK", "ENV_D"]
         self.case_capacity = len(self.cases)
         self.combo_capacity = len(self.combos)
+        self.original_combos = tuple(self.combos)
 
     @staticmethod
     def _padded(names, capacity):
@@ -465,7 +466,7 @@ class FakeEtabs23PaddedDatabaseTables(FakeDatabaseTables):
     def SetLoadCombinationsSelectedForDisplay(self, names):
         names = list(names)
         self.combo_set_calls.append(tuple(names))
-        if self.fail_combo_target and names not in (["ENV_GRAV"], ["ENV_UNC"], ["ENV_CRK"], ["ENV_D"]):
+        if self.fail_combo_target and names != list(self.original_combos):
             return [tuple(names), 1]
         self.combos = names
         return [tuple(names), 0]
@@ -504,6 +505,16 @@ def test_count_aware_getter_count_greater_than_payload_fails_closed():
     with pytest.raises(EtabsCapabilityError) as caught:
         _decode_database_selected_names(
             [2, ("LC_DL",), 0],
+            "GetLoadCasesSelectedForDisplay",
+            error_code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+        )
+    assert caught.value.code is EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED
+
+
+def test_count_aware_getter_requires_integer_count():
+    with pytest.raises(EtabsCapabilityError) as caught:
+        _decode_database_selected_names(
+            [1.0, ("LC_DL",), 0],
             "GetLoadCasesSelectedForDisplay",
             error_code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
         )
@@ -657,7 +668,7 @@ def test_combo_fetch_preserves_snapshot_cases_as_verified_superset():
         preferred_output_case="COMBO_X",
     )
     assert db.selection_seen_by_fetch
-    assert set(db.selection_seen_by_fetch) == {(('OLD_CASE',), ("COMBO_X",))}
+    assert set(db.selection_seen_by_fetch) == {(("OLD_CASE",), ("COMBO_X",))}
     assert result.display_selection["temporary_cases_exact"] == ["OLD_CASE"]
     assert result.display_selection["temporary_combos_exact"] == ["COMBO_X"]
     assert result.display_selection["opposite_domain_preserved"] is True
