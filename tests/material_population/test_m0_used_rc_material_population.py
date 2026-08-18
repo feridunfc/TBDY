@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+import tbdy_engine.features.used_rc_material_population as m0_module
 from tbdy_engine.etabs.safety import (
     EtabsCapabilitySnapshot,
     EtabsSessionIdentity,
@@ -21,6 +22,7 @@ from tbdy_engine.features.used_rc_material_population import (
     MaterialApiFact,
     MaterialPopulationReadiness,
     MaterialPopulationSources,
+    MaterialSourceContractResolutionError,
     MaterialUnitContext,
     MaterialUsageStatus,
     WallPropertyFact,
@@ -55,9 +57,9 @@ FRAME_SECTIONS = (
 )
 
 
-def _wall_inventory(*, unique: str = "A-W1", prop: str = "WP-1"):
+def _wall_inventory(*, unique: str = "A-W1", prop: str = "WP-1", model: str = MODEL):
     return build_wall_inventory(
-        model_fingerprint=MODEL,
+        model_fingerprint=model,
         area_assignment_rows=[
             {
                 "UniqueName": unique,
@@ -157,19 +159,46 @@ def test_complete_beam_column_wall_population_reconciles_exactly():
     assert population.readiness is MaterialPopulationReadiness.COMPLETE
 
     beam = _reconciliation(population, "Beam")
-    assert (beam.expected, beam.resolved_concrete, beam.proven_non_concrete, beam.unresolved) == (2, 2, 0, 0)
-    assert beam.expected == beam.resolved_concrete + beam.proven_non_concrete + beam.unresolved
-    assert beam.complete
+    assert beam.expected_identities == ("B-1", "B-2")
+    assert beam.actual_identities == ("B-1", "B-2")
+    assert beam.missing_identities == ()
+    assert beam.unexpected_identities == ()
+    assert beam.duplicate_identities == ()
+    assert (beam.expected_count, beam.resolved_concrete, beam.proven_non_concrete, beam.unresolved, beam.actual_count) == (2, 2, 0, 0, 2)
+    assert beam.reconciled and beam.complete
 
     column = _reconciliation(population, "Column")
-    assert (column.expected, column.resolved_concrete, column.proven_non_concrete, column.unresolved) == (2, 1, 1, 0)
-    assert column.expected == column.resolved_concrete + column.proven_non_concrete + column.unresolved
-    assert column.complete
+    assert column.expected_identities == ("C-1", "C-2")
+    assert column.actual_identities == ("C-1", "C-2")
+    assert (column.expected_count, column.resolved_concrete, column.proven_non_concrete, column.unresolved, column.actual_count) == (2, 1, 1, 0, 2)
+    assert column.reconciled and column.complete
 
     wall = _reconciliation(population, "Wall")
-    assert (wall.expected, wall.resolved_concrete, wall.proven_non_concrete, wall.unresolved) == (1, 1, 0, 0)
-    assert wall.expected == wall.resolved_concrete + wall.proven_non_concrete + wall.unresolved
-    assert wall.complete
+    assert wall.expected_identities == ("A-W1",)
+    assert wall.actual_identities == ("A-W1",)
+    assert (wall.expected_count, wall.resolved_concrete, wall.proven_non_concrete, wall.unresolved, wall.actual_count) == (1, 1, 0, 0, 1)
+    assert wall.reconciled and wall.complete
+
+
+def test_reconciliation_expected_population_is_independent_of_emitted_usage(monkeypatch):
+    original = m0_module._frame_usages
+
+    def drop_one_expected_usage(fingerprint, sources, material_facts, frame_population):
+        rows = original(fingerprint, sources, material_facts, frame_population)
+        return [row for row in rows if row.component_identity != "B-1"]
+
+    monkeypatch.setattr(m0_module, "_frame_usages", drop_one_expected_usage)
+    population = _build()
+    beam = _reconciliation(population, "Beam")
+
+    assert beam.expected_identities == ("B-1", "B-2")
+    assert beam.actual_identities == ("B-2",)
+    assert beam.missing_identities == ("B-1",)
+    assert beam.expected_count == 2
+    assert beam.actual_count == 1
+    assert not beam.reconciled
+    assert not beam.complete
+    assert population.readiness is MaterialPopulationReadiness.PARTIAL
 
 
 def test_many_usages_of_same_material_deduplicate_to_one_definition_and_keep_references():
@@ -213,7 +242,9 @@ def test_missing_exact_section_assignment_is_unresolved_and_retained():
     assert usage.status is MaterialUsageStatus.UNRESOLVED
     assert {d.code for d in usage.diagnostics} == {"FRAME_SECTION_ASSIGNMENT_MISSING"}
     beam = _reconciliation(population, "Beam")
-    assert beam.expected == 2 and beam.unresolved == 1
+    assert beam.expected_count == 2 and beam.actual_count == 2 and beam.unresolved == 1
+    assert beam.reconciled
+    assert not beam.complete
     assert population.readiness is MaterialPopulationReadiness.PARTIAL
 
 
@@ -253,8 +284,70 @@ def test_duplicate_frame_object_identity_is_detected_without_double_counting_obj
     assert b1.status is MaterialUsageStatus.UNRESOLVED
     assert {d.code for d in b1.diagnostics} == {"DUPLICATE_OBJECT_IDENTITY"}
     beam = _reconciliation(population, "Beam")
-    assert beam.expected == 2
+    assert beam.expected_identities == ("B-1", "B-2")
+    assert beam.actual_identities == ("B-1", "B-2")
+    assert beam.duplicate_identities == ()
+    assert beam.expected_count == 2
     assert beam.unresolved == 1
+    assert beam.reconciled and not beam.complete
+
+
+def test_missing_frame_type_is_retained_as_population_uncertainty_and_prevents_complete():
+    summary = tuple(
+        {k: v for k, v in row.items() if k != "Type"} if row["UniqueName"] == "B-1" else row
+        for row in FRAME_SUMMARY
+    )
+    population = _build(summary=summary)
+    usage = _usage(population, "B-1")
+    assert usage.component_type == "Frame"
+    assert usage.status is MaterialUsageStatus.UNRESOLVED
+    assert {d.code for d in usage.diagnostics} == {"FRAME_COMPONENT_TYPE_MISSING"}
+    assert _reconciliation(population, "Beam").expected_identities == ("B-2",)
+    assert population.readiness is MaterialPopulationReadiness.PARTIAL
+
+
+def test_conflicting_frame_type_is_retained_as_population_uncertainty_and_prevents_complete():
+    summary = FRAME_SUMMARY + (
+        {"UniqueName": "B-1", "Type": "Column", "Story": "S1", "Label": "B1"},
+    )
+    population = _build(summary=summary)
+    usage = _usage(population, "B-1")
+    assert usage.component_type == "Frame"
+    assert usage.status is MaterialUsageStatus.UNRESOLVED
+    assert {d.code for d in usage.diagnostics} == {"FRAME_COMPONENT_TYPE_CONFLICT"}
+    assert "B-1" not in _reconciliation(population, "Beam").expected_identities
+    assert "B-1" not in _reconciliation(population, "Column").expected_identities
+    assert population.readiness is MaterialPopulationReadiness.PARTIAL
+
+
+def test_unrecognized_frame_type_is_not_guessed_from_name_section_or_geometry():
+    summary = tuple(
+        ({**row, "Type": "Girder"} if row["UniqueName"] == "B-1" else row)
+        for row in FRAME_SUMMARY
+    )
+    population = _build(summary=summary)
+    usage = _usage(population, "B-1")
+    assert usage.component_type == "Frame"
+    assert usage.status is MaterialUsageStatus.UNRESOLVED
+    assert {d.code for d in usage.diagnostics} == {"FRAME_COMPONENT_TYPE_UNRECOGNIZED"}
+    assert population.readiness is MaterialPopulationReadiness.PARTIAL
+
+
+def test_proven_brace_is_positively_excluded_with_factual_provenance_without_blocking():
+    population = _build()
+    assert all(row.component_identity != "BR-1" for row in population.usages)
+    exclusions = [
+        diagnostic
+        for diagnostic in population.diagnostics
+        if diagnostic.code == "FRAME_NON_TARGET_POSITIVELY_EXCLUDED"
+        and diagnostic.component_identity == "BR-1"
+    ]
+    assert len(exclusions) == 1
+    exclusion = exclusions[0]
+    assert exclusion.details["raw_type"] == "brace"
+    assert exclusion.details["source_table"] == "Frame Assignments - Summary"
+    assert exclusion.details["source_references"]
+    assert population.readiness is MaterialPopulationReadiness.COMPLETE
 
 
 def test_layered_wall_without_layer_material_source_is_unresolved_even_if_name_is_present():
@@ -271,7 +364,7 @@ def test_layered_wall_without_layer_material_source_is_unresolved_even_if_name_i
     assert usage.status is MaterialUsageStatus.UNRESOLVED
     assert {d.code for d in usage.diagnostics} == {"LAYERED_WALL_MATERIAL_SOURCE_UNAVAILABLE"}
     wall = _reconciliation(population, "Wall")
-    assert wall.expected == 1 and wall.unresolved == 1
+    assert wall.expected_count == 1 and wall.actual_count == 1 and wall.unresolved == 1
 
 
 @pytest.mark.parametrize(
@@ -334,6 +427,16 @@ def test_reorder_invariance_for_all_factual_sources():
         material_facts=tuple(reversed(_sources().material_facts)),
     )
     assert canonical_material_population_json(a) == canonical_material_population_json(b)
+
+
+def test_reorder_invariance_with_conflicting_type_and_positive_exclusion():
+    summary = FRAME_SUMMARY + (
+        {"UniqueName": "B-1", "Type": "Column", "Story": "S1", "Label": "B1"},
+    )
+    a = _build(summary=summary)
+    b = _build(summary=tuple(reversed(summary)))
+    assert canonical_material_population_json(a) == canonical_material_population_json(b)
+    assert a.readiness is MaterialPopulationReadiness.PARTIAL
 
 
 def test_wall_inventory_is_not_mutated_by_material_population_builder():
@@ -417,11 +520,11 @@ class FakePropMaterial:
     def GetOConcrete_1(self, name):
         self.concrete_calls.append(name)
         fc = self.concrete_fc[name]
-        return fc, False, 0.0, 1, 1, 0.002, 0.004, 0.0, 0.0, 0.0, 0
+        return fc, False, 0.0, 1, 1, 0.002, 0.004, 0.0, 0.0, 0
 
 
 class FakeSap:
-    def __init__(self, *, layered=False):
+    def __init__(self):
         self.DatabaseTables = FakeDatabaseTables(
             {
                 "Frame Assignments - Summary": list(FRAME_SUMMARY),
@@ -430,15 +533,19 @@ class FakeSap:
             }
         )
         self.AreaObj = FakeAreaObj({"A-W1": "WP-1"})
-        shell = 6 if layered else 1
-        self.PropArea = FakePropArea({"WP-1": (1, shell, CONCRETE, 0.3, 0, "", "GUID")})
+        self.PropArea = FakePropArea({"WP-1": (1, 1, CONCRETE, 0.3, 0, "", "GUID")})
         self.PropMaterial = FakePropMaterial(
             {CONCRETE: 2, NON_CONCRETE: 1},
             {CONCRETE: 32000.0},
         )
 
 
-def _verified_session(sap):
+def _verified_session(
+    sap,
+    *,
+    model_fingerprint=None,
+    model_fingerprint_source="UNAVAILABLE_FROM_CONSUMED_API",
+):
     attach = EtabsAttachResult(
         status=ATTACH_STATUS_ATTACHED,
         strategy=STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS,
@@ -455,8 +562,8 @@ def _verified_session(sap):
         program_level="Ultimate",
         internal_program_version=23.2,
         model_full_path=r"C:\tmp\MODEL.EDB",
-        model_fingerprint=None,
-        model_fingerprint_source="UNAVAILABLE_FROM_CONSUMED_API",
+        model_fingerprint=model_fingerprint,
+        model_fingerprint_source=model_fingerprint_source,
         model_locked=True,
         units=EtabsUnitSnapshot(
             present_units=6,
@@ -474,43 +581,66 @@ def _verified_session(sap):
     return EtabsVerifiedSession(attach, identity, EtabsCapabilitySnapshot())
 
 
-def test_live_reader_uses_exact_wall_unique_name_and_read_only_factual_calls():
-    sap = FakeSap()
-    sources = read_material_population_sources_from_verified_session(
-        session=_verified_session(sap),
-        wall_inventory=_wall_inventory(),
-    )
-    assert sap.DatabaseTables.calls == [
-        "Frame Assignments - Summary",
-        "Frame Assignments - Section Properties",
-        "Frame Section Property Definitions - Summary",
-    ]
-    assert sap.AreaObj.calls == ["A-W1"]
-    assert sap.PropArea.calls == ["WP-1"]
-    assert set(sap.PropMaterial.type_calls) == {CONCRETE, NON_CONCRETE}
-    assert sap.PropMaterial.concrete_calls == [CONCRETE]
-    population = build_used_rc_material_population(model_fingerprint=MODEL, sources=sources)
-    assert population.readiness is MaterialPopulationReadiness.COMPLETE
-
-
-def test_live_reader_does_not_use_getwall_material_for_layered_wall():
-    sap = FakeSap(layered=True)
-    sources = read_material_population_sources_from_verified_session(
-        session=_verified_session(sap),
-        wall_inventory=_wall_inventory(),
-    )
-    wall_fact = sources.wall_property_facts[0]
-    assert wall_fact.shell_type_code == 6
-    assert wall_fact.material_name is None
-    population = build_used_rc_material_population(model_fingerprint=MODEL, sources=sources)
-    wall_usage = _usage(population, "A-W1")
-    assert wall_usage.status is MaterialUsageStatus.UNRESOLVED
-    assert {d.code for d in wall_usage.diagnostics} == {"LAYERED_WALL_MATERIAL_SOURCE_UNAVAILABLE"}
-
-
 def test_direct_reader_requires_verified_session_contract():
     with pytest.raises(TypeError):
         read_material_population_sources_from_verified_session(
             session=object(),
             wall_inventory=_wall_inventory(),
         )
+
+
+def test_direct_reader_blocks_before_any_etabs_read_when_model_binding_contract_is_unresolved():
+    sap = FakeSap()
+    session = _verified_session(sap)
+    wall = _wall_inventory()
+
+    with pytest.raises(MaterialSourceContractResolutionError) as exc_info:
+        read_material_population_sources_from_verified_session(
+            session=session,
+            wall_inventory=wall,
+        )
+
+    exc = exc_info.value
+    assert exc.verdict == "NEEDS_SOURCE_CONTRACT_RESOLUTION"
+    assert exc.details["session_model_full_path"] == r"C:\tmp\MODEL.EDB"
+    assert exc.details["session_model_fingerprint"] is None
+    assert exc.details["session_model_fingerprint_source"] == "UNAVAILABLE_FROM_CONSUMED_API"
+    assert exc.details["wall_inventory_model_fingerprint"] == MODEL
+    assert "minimum_missing_binding" in exc.details
+    assert sap.DatabaseTables.calls == []
+    assert sap.AreaObj.calls == []
+    assert sap.PropArea.calls == []
+    assert sap.PropMaterial.type_calls == []
+    assert sap.PropMaterial.concrete_calls == []
+
+
+def test_unrelated_nonempty_session_fingerprint_is_not_treated_as_wall_inventory_binding():
+    sap = FakeSap()
+    session = _verified_session(
+        sap,
+        model_fingerprint=MODEL,
+        model_fingerprint_source="SOME_OTHER_IDENTITY_SEMANTIC",
+    )
+
+    with pytest.raises(MaterialSourceContractResolutionError):
+        read_material_population_sources_from_verified_session(
+            session=session,
+            wall_inventory=_wall_inventory(),
+        )
+
+    assert sap.DatabaseTables.calls == []
+
+
+def test_cross_model_wall_inventory_never_silently_executes_while_binding_contract_is_unresolved():
+    sap = FakeSap()
+    session = _verified_session(sap)
+    other_wall = _wall_inventory(model="MODEL::OTHER")
+
+    with pytest.raises(MaterialSourceContractResolutionError) as exc_info:
+        read_material_population_sources_from_verified_session(
+            session=session,
+            wall_inventory=other_wall,
+        )
+
+    assert exc_info.value.details["wall_inventory_model_fingerprint"] == "MODEL::OTHER"
+    assert sap.DatabaseTables.calls == []
