@@ -1,0 +1,35 @@
+
+===== compile | rc=0 =====
+
+===== m0 | rc=0 =====
+.....................                                                    [100%]
+21 passed in 0.10s
+
+===== wall_inventory | rc=0 =====
+...................................                                      [100%]
+35 passed in 0.12s
+
+===== b1 | rc=0 =====
+...............................                                          [100%]
+31 passed in 0.15s
+
+===== wall_packs | rc=0 =====
+...................................................................      [100%]
+67 passed in 0.61s
+
+===== b2_ndm | rc=0 =====
+....................................................                     [100%]
+52 passed in 0.21s
+
+===== etabs_safety | rc=0 =====
+................................................                         [100%]
+48 passed in 0.18s
+
+===== offline_acceptance | rc=0 =====
+Offline product acceptance: OK
+Output: local_out/b2_material_m0_offline_acceptance
+Report: local_out/b2_material_m0_offline_acceptance/offline_product_acceptance_report.json
+Commands: 18
+Failed: 0
+
+===== OVERALL | rc=0 =====
