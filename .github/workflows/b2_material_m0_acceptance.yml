@@ -7,6 +7,7 @@ on:
 permissions:
   contents: read
 
+# Temporary offline-only branch acceptance; removed before final handoff.
 jobs:
   m0-offline-acceptance:
     runs-on: ubuntu-latest
