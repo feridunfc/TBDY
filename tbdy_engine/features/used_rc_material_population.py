@@ -8,17 +8,27 @@ from __future__ import annotations
 
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass, field, is_dataclass
+from dataclasses import asdict, dataclass, field, is_dataclass, replace
 from enum import StrEnum
 import hashlib
 import json
 import math
 from typing import Any
 
-from tbdy_engine.etabs.safety import EtabsVerifiedSession, process_local_acquisition_lock
+from tbdy_engine.etabs.safety import (
+    EtabsVerifiedSession,
+    RuntimeCaptureStatus,
+    process_local_acquisition_lock,
+)
 from tbdy_engine.features.etabs_com_attach import ATTACH_STATUS_ATTACHED
 from tbdy_engine.features.live_etabs_geometry_probe import read_live_etabs_table_for_geometry
-from tbdy_engine.features.wall_inventory import WallInventory, WallInventoryStatus
+from tbdy_engine.features.wall_inventory import (
+    WallInventory,
+    WallInventoryStatus,
+    build_wall_inventory,
+)
+from tbdy_engine.providers.etabs_display_table_fetcher import fetch_display_table
+from tbdy_engine.providers.table_registry import TableRegistry
 
 
 _FRAME_SUMMARY = "Frame Assignments - Summary"
@@ -31,6 +41,12 @@ _CONCRETE_TYPE = 2
 _SPECIFIED_WALL = 1
 _LAYERED_SHELL = 6
 _NON_BLOCKING_DIAGNOSTICS = frozenset({"FRAME_NON_TARGET_POSITIVELY_EXCLUDED"})
+_SAME_SESSION_BINDING_METHOD = "SAME_VERIFIED_SESSION_ACQUISITION"
+_WALL_INVENTORY_SOURCE_KEYS = (
+    "area_assignments_summary",
+    "wall_section_properties",
+    "pier_assignments",
+)
 
 # ETABS eForce -> N and eLength -> mm. The factor is selected only from
 # explicitly captured GetPresentUnits_2 enum values.
@@ -250,6 +266,30 @@ class MaterialDomainReconciliation:
 
 
 @dataclass(frozen=True, slots=True)
+class MaterialSourceBinding:
+    binding_method: str
+    model_full_path: str
+    process_id: int | None
+    attach_strategy: str | None
+    program_version: str | None
+    inventory_identity_namespace: str
+
+    def __post_init__(self) -> None:
+        if self.binding_method != _SAME_SESSION_BINDING_METHOD:
+            raise ValueError("MaterialSourceBinding requires same verified session acquisition")
+        model_path = _text(self.model_full_path)
+        namespace = _text(self.inventory_identity_namespace)
+        if not model_path:
+            raise ValueError("MaterialSourceBinding requires exact model_full_path")
+        if not namespace:
+            raise ValueError("MaterialSourceBinding requires inventory identity namespace")
+        object.__setattr__(self, "model_full_path", model_path)
+        object.__setattr__(self, "inventory_identity_namespace", namespace)
+        object.__setattr__(self, "attach_strategy", _id(self.attach_strategy))
+        object.__setattr__(self, "program_version", _id(self.program_version))
+
+
+@dataclass(frozen=True, slots=True)
 class UsedRcMaterialPopulation:
     model_fingerprint: str
     usages: tuple[MaterialUsageReference, ...]
@@ -257,13 +297,14 @@ class UsedRcMaterialPopulation:
     reconciliations: tuple[MaterialDomainReconciliation, ...]
     readiness: MaterialPopulationReadiness
     diagnostics: tuple[MaterialPopulationDiagnostic, ...]
+    source_binding: MaterialSourceBinding | None = None
 
     @property
     def used_concrete_material_definitions(self) -> tuple[UsedMaterialDefinition, ...]:
         return tuple(x for x in self.used_material_definitions if x.is_concrete)
 
     def as_dict(self) -> dict[str, Any]:
-        return {
+        payload = {
             "inventory_contract": "USED_RC_MATERIAL_POPULATION_M0",
             "model_fingerprint": self.model_fingerprint,
             "readiness": self.readiness.value,
@@ -275,6 +316,9 @@ class UsedRcMaterialPopulation:
             "reconciliations": [_plain(x) | {"complete": x.complete} for x in self.reconciliations],
             "diagnostics": [_plain(x) for x in self.diagnostics],
         }
+        if self.source_binding is not None:
+            payload["source_binding"] = _plain(self.source_binding)
+        return payload
 
 
 @dataclass(frozen=True, slots=True)
@@ -392,12 +436,7 @@ def canonical_material_population_json(population: UsedRcMaterialPopulation) -> 
 def read_material_population_sources_from_verified_session(
     *, session: EtabsVerifiedSession, wall_inventory: WallInventory
 ) -> MaterialPopulationSources:
-    """Read exact sources through an already verified exact-model session.
-
-    This reader intentionally blocks before any ETABS factual acquisition
-    until WallInventory carries an identity that is explicitly comparable to
-    EtabsVerifiedSession identity by an accepted source contract.
-    """
+    """Compatibility path for a prebuilt WallInventory; it remains closed."""
     if not isinstance(session, EtabsVerifiedSession):
         raise TypeError("session must be EtabsVerifiedSession")
     if session.attach_result.status != ATTACH_STATUS_ATTACHED:
@@ -465,12 +504,181 @@ def read_material_population_sources_from_verified_session(
 def build_used_rc_material_population_from_verified_session(
     *, session: EtabsVerifiedSession, wall_inventory: WallInventory
 ) -> UsedRcMaterialPopulation:
+    """Compatibility live path; arbitrary prebuilt inventory remains blocked."""
     return build_used_rc_material_population(
         model_fingerprint=wall_inventory.model_fingerprint,
         sources=read_material_population_sources_from_verified_session(
             session=session, wall_inventory=wall_inventory
         ),
     )
+
+
+def build_used_rc_material_population_from_same_verified_session(
+    *, session: EtabsVerifiedSession, inventory_identity_namespace: str
+) -> UsedRcMaterialPopulation:
+    """Acquire WallInventory and all M0 material facts from one verified session."""
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+    if session.attach_result.status != ATTACH_STATUS_ATTACHED:
+        raise ValueError("Verified ETABS session is not attached")
+    sap_model = session.attach_result.sap_model
+    if sap_model is None or not _text(session.identity.model_full_path):
+        raise ValueError("Verified ETABS session does not expose the verified model")
+    namespace = _text(inventory_identity_namespace)
+    if not namespace:
+        raise ValueError("inventory_identity_namespace is required")
+
+    binding = MaterialSourceBinding(
+        binding_method=_SAME_SESSION_BINDING_METHOD,
+        model_full_path=session.identity.model_full_path,
+        process_id=session.identity.process_id,
+        attach_strategy=session.identity.attach_strategy,
+        program_version=session.identity.program_version,
+        inventory_identity_namespace=namespace,
+    )
+
+    with process_local_acquisition_lock():
+        area_rows, wall_property_rows, pier_rows = _read_accepted_wall_inventory_rows(
+            sap_model.DatabaseTables
+        )
+        wall_inventory = build_wall_inventory(
+            model_fingerprint=namespace,
+            area_assignment_rows=area_rows,
+            wall_property_rows=wall_property_rows,
+            pier_assignment_rows=pier_rows,
+        )
+
+        summary = read_live_etabs_table_for_geometry(sap_model.DatabaseTables, _FRAME_SUMMARY)
+        assignments = read_live_etabs_table_for_geometry(sap_model.DatabaseTables, _FRAME_ASSIGNMENTS)
+        sections = read_live_etabs_table_for_geometry(sap_model.DatabaseTables, _FRAME_SECTIONS)
+        source_diags = tuple(
+            MaterialPopulationDiagnostic(
+                code=f"{role}_SOURCE_UNAVAILABLE",
+                message="Required exact factual frame source is unavailable",
+                source_api="DatabaseTables.GetTableForDisplayArray",
+                details={"table": result.table_key, "source_status": result.status, "message": result.message},
+            )
+            for role, result in (
+                ("FRAME_POPULATION", summary),
+                ("FRAME_ASSIGNMENT", assignments),
+                ("FRAME_SECTION_MATERIAL", sections),
+            )
+            if result.status != "FETCHED"
+        )
+        wall_facts = tuple(
+            _read_wall_fact(sap_model, record)
+            for record in wall_inventory.records
+            if record.classification_status is WallInventoryStatus.STRUCTURAL_WALL_CANDIDATE
+        )
+        names = _exact_used_material_names(
+            summary.rows, assignments.rows, sections.rows, wall_facts
+        )
+        material_facts = tuple(_read_material_fact(sap_model, name) for name in sorted(names))
+
+    units = session.identity.units
+    sources = MaterialPopulationSources(
+        frame_summary_rows=summary.rows,
+        frame_assignment_rows=assignments.rows,
+        frame_section_material_rows=sections.rows,
+        wall_inventory=wall_inventory,
+        wall_property_facts=wall_facts,
+        material_facts=material_facts,
+        unit_context=MaterialUnitContext(
+            present_force_unit_code=_int(units.present_force_unit),
+            present_length_unit_code=_int(units.present_length_unit),
+            source_api=units.present_units_api,
+            raw_present_units=units.present_units,
+        ),
+        frame_summary_available=summary.status == "FETCHED",
+        frame_assignment_available=assignments.status == "FETCHED",
+        frame_section_material_available=sections.status == "FETCHED",
+        source_diagnostics=source_diags,
+    )
+    population = build_used_rc_material_population(
+        model_fingerprint=namespace,
+        sources=sources,
+    )
+    return replace(population, source_binding=binding)
+
+
+def _read_accepted_wall_inventory_rows(
+    database_tables: Any,
+) -> tuple[
+    tuple[Mapping[str, Any], ...],
+    tuple[Mapping[str, Any], ...],
+    tuple[Mapping[str, Any], ...],
+]:
+    registry = TableRegistry.from_catalog_dir()
+    acquired: dict[str, tuple[Mapping[str, Any], ...]] = {}
+    for table_key in _WALL_INVENTORY_SOURCE_KEYS:
+        contract = registry.tables.get(table_key)
+        if not isinstance(contract, Mapping):
+            raise MaterialSourceContractResolutionError(
+                "Accepted wall live-source contract is unavailable.",
+                details={"table_key": table_key, "contract_present": False},
+            )
+        live_table_name = _id(contract.get("live_table_name"))
+        if (
+            str(contract.get("provider") or "").casefold() != "etabs"
+            or str(contract.get("evidence_status") or "") != "VERIFIED_LIVE"
+            or live_table_name is None
+        ):
+            raise MaterialSourceContractResolutionError(
+                "Accepted wall live-source contract is not usable for same-session acquisition.",
+                details={
+                    "table_key": table_key,
+                    "provider": contract.get("provider"),
+                    "evidence_status": contract.get("evidence_status"),
+                    "live_table_name": live_table_name,
+                },
+            )
+
+        fetched = fetch_display_table(database_tables, live_table_name)
+        missing_headers = _missing_required_contract_headers(
+            fetched.parsed.field_keys,
+            contract,
+        )
+        if fetched.capture_status is not RuntimeCaptureStatus.FULL or missing_headers:
+            raise MaterialSourceContractResolutionError(
+                "Accepted wall live-source acquisition is incomplete.",
+                details={
+                    "table_key": table_key,
+                    "live_table_name": live_table_name,
+                    "capture_status": fetched.capture_status.value,
+                    "fetch_status": fetched.parsed.fetch_status,
+                    "headers": list(fetched.parsed.field_keys),
+                    "missing_required_columns": list(missing_headers),
+                },
+            )
+        acquired[table_key] = tuple(dict(row) for row in fetched.parsed.rows)
+
+    return (
+        acquired["area_assignments_summary"],
+        acquired["wall_section_properties"],
+        acquired["pier_assignments"],
+    )
+
+
+def _missing_required_contract_headers(
+    headers: Sequence[Any], contract: Mapping[str, Any]
+) -> tuple[str, ...]:
+    observed = {_header_key(value) for value in headers if _header_key(value)}
+    required = contract.get("required_columns")
+    required = required if isinstance(required, Mapping) else {}
+    missing: list[str] = []
+    for logical_name, raw_spec in required.items():
+        spec = raw_spec if isinstance(raw_spec, Mapping) else {}
+        raw_aliases = spec.get("aliases")
+        aliases = list(raw_aliases) if isinstance(raw_aliases, (list, tuple)) else []
+        candidates = {_header_key(logical_name), *(_header_key(value) for value in aliases)}
+        candidates.discard("")
+        if not observed.intersection(candidates):
+            missing.append(str(logical_name))
+    return tuple(sorted(missing))
+
+
+def _header_key(value: Any) -> str:
+    return " ".join(str(value or "").strip().casefold().split())
 
 
 def _require_wall_inventory_session_binding(
@@ -1137,6 +1345,7 @@ __all__ = [
     "MaterialPopulationDiagnostic",
     "MaterialPopulationReadiness",
     "MaterialPopulationSources",
+    "MaterialSourceBinding",
     "MaterialSourceContractResolutionError",
     "MaterialUnitContext",
     "MaterialUsageReference",
@@ -1145,6 +1354,7 @@ __all__ = [
     "UsedRcMaterialPopulation",
     "WallPropertyFact",
     "build_used_rc_material_population",
+    "build_used_rc_material_population_from_same_verified_session",
     "build_used_rc_material_population_from_verified_session",
     "canonical_material_population_json",
     "read_material_population_sources_from_verified_session",
