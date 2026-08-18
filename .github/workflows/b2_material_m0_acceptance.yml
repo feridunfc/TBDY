@@ -1,0 +1,35 @@
+name: B2 Material M0 Acceptance
+
+on:
+  push:
+    branches: [sprint/b2-material-population]
+
+permissions:
+  contents: read
+
+jobs:
+  m0-offline-acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependencies
+        run: python -m pip install pytest pyyaml jsonschema
+      - name: Compile
+        run: python -m compileall -q tbdy_engine tools tests
+      - name: M0 factual material population
+        run: python -m pytest -q tests/material_population/test_m0_used_rc_material_population.py
+      - name: WallInventory regression
+        run: python -m pytest -q tests/wall_inventory/test_wall_inventory_slice_1.py
+      - name: B1 regression
+        run: python -m pytest -q tests/member_geometry
+      - name: Wall Packs regression
+        run: python -m pytest -q tests/wall_geometry
+      - name: B2 Ndm regression
+        run: python -m pytest -q tests/result_selection
+      - name: ETABS Safety regression
+        run: python -m pytest -q tests/etabs/test_safety_foundation.py
+      - name: Offline product acceptance
+        run: python tools/run_offline_product_acceptance.py --out local_out/b2_material_m0_offline_acceptance
