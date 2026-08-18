@@ -644,3 +644,244 @@ def test_cross_model_wall_inventory_never_silently_executes_while_binding_contra
 
     assert exc_info.value.details["wall_inventory_model_fingerprint"] == "MODEL::OTHER"
     assert sap.DatabaseTables.calls == []
+
+
+class Sc1FakeDatabaseTables(FakeDatabaseTables):
+    def __init__(self):
+        super().__init__({
+            "Area Assignments - Summary": [
+                {"UniqueName": "A-W1", "Story": "S1", "Label": "W1", "SectProp": "WP-1", "PropType": "Wall"},
+            ],
+            "Wall Property Definitions - Specified": [
+                {"Name": "WP-1", "Material": "TABLE-MATERIAL-IS-NOT-M0-AUTHORITY", "Thickness": 0.3, "ModelType": "Shell"},
+            ],
+            "Area Assignments - Pier Labels": [
+                {"UniqueName": "A-W1", "Story": "S1", "Label": "W1", "PierName": "P1"},
+            ],
+            "Frame Assignments - Summary": list(FRAME_SUMMARY),
+            "Frame Assignments - Section Properties": list(FRAME_ASSIGNMENTS),
+            "Frame Section Property Definitions - Summary": list(FRAME_SECTIONS),
+        })
+        self.mutation_calls = []
+
+    def GetTableForDisplayArray(self, table_key, *args):
+        self.calls.append(table_key)
+        rows = self.tables[table_key]
+        columns = tuple(dict.fromkeys(key for row in rows for key in row))
+        return {
+            "return_code": 0,
+            "field_keys": columns,
+            "number_records": len(rows),
+            "rows": [dict(row) for row in rows],
+        }
+
+    def SetLoadCasesSelectedForDisplay(self, *args):
+        self.mutation_calls.append(("SetLoadCasesSelectedForDisplay", args))
+        raise AssertionError("SC1 material acquisition must not mutate display selection")
+
+    def SetLoadCombinationsSelectedForDisplay(self, *args):
+        self.mutation_calls.append(("SetLoadCombinationsSelectedForDisplay", args))
+        raise AssertionError("SC1 material acquisition must not mutate display selection")
+
+
+class Sc1FakeSap(FakeSap):
+    def __init__(self):
+        super().__init__()
+        self.DatabaseTables = Sc1FakeDatabaseTables()
+        self.mutation_calls = []
+
+    def SetPresentUnits(self, *args):
+        self.mutation_calls.append(("SetPresentUnits", args))
+        raise AssertionError("SC1 material acquisition must not change units")
+
+    def SetModelIsLocked(self, *args):
+        self.mutation_calls.append(("SetModelIsLocked", args))
+        raise AssertionError("SC1 material acquisition must not unlock the model")
+
+
+def _sc1_verified_session(
+    sap,
+    *,
+    process_id=4321,
+    model_full_path=r"C:\tmp\MODEL.EDB",
+    program_version="23.2.0",
+    model_fingerprint=None,
+    model_fingerprint_source="UNAVAILABLE_FROM_CONSUMED_API",
+    present_units=6,
+    present_force_unit=4,
+    present_length_unit=6,
+):
+    attach = EtabsAttachResult(
+        status=ATTACH_STATUS_ATTACHED,
+        strategy=STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS,
+        etabs_object=object(),
+        sap_model=sap,
+        attempts=(),
+    )
+    identity = EtabsSessionIdentity(
+        process_id=process_id,
+        attach_strategy=STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS,
+        program_api_version=2.3,
+        program_name="ETABS",
+        program_version=program_version,
+        program_level="Ultimate",
+        internal_program_version=23.2,
+        model_full_path=model_full_path,
+        model_fingerprint=model_fingerprint,
+        model_fingerprint_source=model_fingerprint_source,
+        model_locked=True,
+        units=EtabsUnitSnapshot(
+            present_units=present_units,
+            database_units=6,
+            present_force_unit=present_force_unit,
+            present_length_unit=present_length_unit,
+            present_temperature_unit=2,
+            database_force_unit=4,
+            database_length_unit=6,
+            database_temperature_unit=2,
+            present_units_api="GetPresentUnits_2",
+            database_units_api="GetDatabaseUnits_2",
+        ),
+    )
+    return EtabsVerifiedSession(attach, identity, EtabsCapabilitySnapshot())
+
+
+def test_sc1_production_entrypoint_cannot_receive_arbitrary_prebuilt_wall_inventory():
+    sap = Sc1FakeSap()
+    with pytest.raises(TypeError):
+        m0_module.build_used_rc_material_population_from_same_verified_session(
+            session=_sc1_verified_session(sap),
+            inventory_identity_namespace=MODEL,
+            wall_inventory=_wall_inventory(),
+        )
+    assert sap.DatabaseTables.calls == []
+    assert sap.PropMaterial.type_calls == []
+
+
+def test_sc1_wall_inventory_is_built_inside_same_session_material_acquisition(monkeypatch):
+    sap = Sc1FakeSap()
+    session = _sc1_verified_session(sap)
+    captured = {}
+    original = m0_module.build_wall_inventory
+
+    def spy_build_wall_inventory(**kwargs):
+        captured.update(kwargs)
+        return original(**kwargs)
+
+    monkeypatch.setattr(m0_module, "build_wall_inventory", spy_build_wall_inventory)
+    population = m0_module.build_used_rc_material_population_from_same_verified_session(
+        session=session,
+        inventory_identity_namespace=MODEL,
+    )
+
+    assert population.readiness is MaterialPopulationReadiness.COMPLETE
+    assert captured["model_fingerprint"] == MODEL
+    assert tuple(captured["area_assignment_rows"]) == tuple(sap.DatabaseTables.tables["Area Assignments - Summary"])
+    assert tuple(captured["wall_property_rows"]) == tuple(sap.DatabaseTables.tables["Wall Property Definitions - Specified"])
+    assert tuple(captured["pier_assignment_rows"]) == tuple(sap.DatabaseTables.tables["Area Assignments - Pier Labels"])
+    assert sap.DatabaseTables.calls == [
+        "Area Assignments - Summary",
+        "Wall Property Definitions - Specified",
+        "Area Assignments - Pier Labels",
+        "Frame Assignments - Summary",
+        "Frame Assignments - Section Properties",
+        "Frame Section Property Definitions - Summary",
+    ]
+    assert sap.AreaObj.calls == ["A-W1"]
+    assert sap.PropArea.calls == ["WP-1"]
+    assert set(sap.PropMaterial.type_calls) == {CONCRETE, NON_CONCRETE}
+    assert sap.PropMaterial.concrete_calls == [CONCRETE]
+
+
+def test_sc1_identity_namespace_is_not_used_as_session_provenance_comparison():
+    sap = Sc1FakeSap()
+    session = _sc1_verified_session(
+        sap,
+        model_fingerprint="UNRELATED::SESSION::IDENTITY",
+        model_fingerprint_source="SOME_OTHER_IDENTITY_SEMANTIC",
+    )
+    namespace = "OPAQUE::INVENTORY::NAMESPACE"
+    population = m0_module.build_used_rc_material_population_from_same_verified_session(
+        session=session,
+        inventory_identity_namespace=namespace,
+    )
+
+    assert population.model_fingerprint == namespace
+    assert population.source_binding is not None
+    assert population.source_binding.inventory_identity_namespace == namespace
+    assert population.source_binding.model_full_path == session.identity.model_full_path
+    assert not hasattr(population.source_binding, "model_fingerprint")
+    binding_payload = population.as_dict()["source_binding"]
+    assert "model_fingerprint" not in binding_payload
+
+
+def test_sc1_different_namespace_changes_stable_ids_but_not_provenance_method():
+    first = m0_module.build_used_rc_material_population_from_same_verified_session(
+        session=_sc1_verified_session(Sc1FakeSap()),
+        inventory_identity_namespace="NS::ONE",
+    )
+    second = m0_module.build_used_rc_material_population_from_same_verified_session(
+        session=_sc1_verified_session(Sc1FakeSap()),
+        inventory_identity_namespace="NS::TWO",
+    )
+
+    assert first.source_binding is not None and second.source_binding is not None
+    assert first.source_binding.binding_method == "SAME_VERIFIED_SESSION_ACQUISITION"
+    assert second.source_binding.binding_method == "SAME_VERIFIED_SESSION_ACQUISITION"
+    assert first.source_binding.model_full_path == second.source_binding.model_full_path
+    assert {x.material_id for x in first.used_material_definitions} != {x.material_id for x in second.used_material_definitions}
+    assert {x.usage_id for x in first.usages} != {x.usage_id for x in second.usages}
+    assert {x.component_identity for x in first.usages} == {x.component_identity for x in second.usages}
+
+
+def test_sc1_binding_evidence_survives_deterministic_population_serialization():
+    first = m0_module.build_used_rc_material_population_from_same_verified_session(
+        session=_sc1_verified_session(Sc1FakeSap(), process_id=4321),
+        inventory_identity_namespace=MODEL,
+    )
+    second = m0_module.build_used_rc_material_population_from_same_verified_session(
+        session=_sc1_verified_session(Sc1FakeSap(), process_id=4321),
+        inventory_identity_namespace=MODEL,
+    )
+    first_json = canonical_material_population_json(first)
+    assert first_json == canonical_material_population_json(second)
+
+    payload = __import__("json").loads(first_json)
+    assert payload["source_binding"] == {
+        "attach_strategy": STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS,
+        "binding_method": "SAME_VERIFIED_SESSION_ACQUISITION",
+        "inventory_identity_namespace": MODEL,
+        "model_full_path": r"C:\tmp\MODEL.EDB",
+        "process_id": 4321,
+        "program_version": "23.2.0",
+    }
+
+
+def test_sc1_unit_context_is_taken_from_same_verified_session_identity():
+    sap = Sc1FakeSap()
+    session = _sc1_verified_session(
+        sap,
+        present_units=777,
+        present_force_unit=3,
+        present_length_unit=4,
+    )
+    population = m0_module.build_used_rc_material_population_from_same_verified_session(
+        session=session,
+        inventory_identity_namespace=MODEL,
+    )
+    concrete = next(x for x in population.used_material_definitions if x.is_concrete)
+    assert concrete.unit_context is not None
+    assert concrete.unit_context.present_force_unit_code == 3
+    assert concrete.unit_context.present_length_unit_code == 4
+    assert concrete.unit_context.source_api == "GetPresentUnits_2"
+    assert concrete.unit_context.raw_present_units == 777
+
+
+def test_sc1_same_session_production_path_calls_no_etabs_mutation_api():
+    sap = Sc1FakeSap()
+    m0_module.build_used_rc_material_population_from_same_verified_session(
+        session=_sc1_verified_session(sap),
+        inventory_identity_namespace=MODEL,
+    )
+    assert sap.mutation_calls == []
+    assert sap.DatabaseTables.mutation_calls == []
