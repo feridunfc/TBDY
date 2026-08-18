@@ -2,7 +2,7 @@
 
 The slice is intentionally narrow: exact Beam/Column source population,
 structural-wall candidates, exact material identity/type, and explicit-unit Fc
-normalization.  It contains no material engineering decision.
+normalization. It contains no material engineering decision.
 """
 from __future__ import annotations
 
@@ -25,12 +25,14 @@ _FRAME_SUMMARY = "Frame Assignments - Summary"
 _FRAME_ASSIGNMENTS = "Frame Assignments - Section Properties"
 _FRAME_SECTIONS = "Frame Section Property Definitions - Summary"
 _FRAME_TYPES = frozenset({"beam", "column"})
+_POSITIVELY_EXCLUDED_FRAME_TYPES = frozenset({"brace", "null"})
 _KNOWN_MATERIAL_TYPES = frozenset(range(1, 9))
 _CONCRETE_TYPE = 2
 _SPECIFIED_WALL = 1
 _LAYERED_SHELL = 6
+_NON_BLOCKING_DIAGNOSTICS = frozenset({"FRAME_NON_TARGET_POSITIVELY_EXCLUDED"})
 
-# ETABS eForce -> N and eLength -> mm.  The factor is selected only from
+# ETABS eForce -> N and eLength -> mm. The factor is selected only from
 # explicitly captured GetPresentUnits_2 enum values.
 _FORCE_TO_N = {1: 4.4482216152605, 2: 4448.2216152605, 3: 1.0, 4: 1000.0, 5: 9.80665, 6: 9806.65}
 _LENGTH_TO_MM = {1: 25.4, 2: 304.8, 3: 0.001, 4: 1.0, 5: 10.0, 6: 1000.0}
@@ -52,6 +54,16 @@ class ConcreteStrengthFactStatus(StrEnum):
     RESOLVED = "RESOLVED"
     UNRESOLVED = "UNRESOLVED"
     NOT_APPLICABLE = "NOT_APPLICABLE"
+
+
+class MaterialSourceContractResolutionError(RuntimeError):
+    """Closed-gate signal for an unresolved M0 factual source binding."""
+
+    verdict = "NEEDS_SOURCE_CONTRACT_RESOLUTION"
+
+    def __init__(self, message: str, *, details: Mapping[str, Any]) -> None:
+        super().__init__(message)
+        self.details = dict(details)
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,6 +198,11 @@ class MaterialUsageReference:
     source_references: tuple[Mapping[str, Any], ...]
     diagnostics: tuple[MaterialPopulationDiagnostic, ...] = ()
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "status", MaterialUsageStatus(self.status))
+        object.__setattr__(self, "source_references", tuple(dict(x) for x in self.source_references))
+        object.__setattr__(self, "diagnostics", tuple(self.diagnostics))
+
     @property
     def sort_key(self) -> tuple[str, str, str]:
         return self.component_type, self.component_identity or self.usage_id, self.usage_id
@@ -209,12 +226,23 @@ class UsedMaterialDefinition:
 @dataclass(frozen=True, slots=True)
 class MaterialDomainReconciliation:
     domain: str
-    expected: int
+    expected_identities: tuple[str, ...]
+    actual_identities: tuple[str, ...]
+    missing_identities: tuple[str, ...]
+    unexpected_identities: tuple[str, ...]
+    duplicate_identities: tuple[str, ...]
+    expected_count: int
     resolved_concrete: int
     proven_non_concrete: int
     unresolved: int
+    actual_count: int
     source_available: bool
     reconciled: bool
+
+    @property
+    def expected(self) -> int:
+        """Compatibility alias for the pre-intervention M0 field."""
+        return self.expected_count
 
     @property
     def complete(self) -> bool:
@@ -249,6 +277,15 @@ class UsedRcMaterialPopulation:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class _FramePopulationAccounting:
+    expected_beam_identities: tuple[str, ...]
+    expected_column_identities: tuple[str, ...]
+    target_groups: tuple[tuple[str, str, tuple[Mapping[str, Any], ...]], ...]
+    uncertainty_usages: tuple[MaterialUsageReference, ...]
+    diagnostics: tuple[MaterialPopulationDiagnostic, ...]
+
+
 def build_used_rc_material_population(
     *, model_fingerprint: str, sources: MaterialPopulationSources
 ) -> UsedRcMaterialPopulation:
@@ -270,21 +307,43 @@ def build_used_rc_material_population(
         for name in duplicate_material_names
     )
 
-    usages = tuple(sorted(
-        _frame_usages(fingerprint, sources, material_facts)
-        + _wall_usages(sources, material_facts),
-        key=lambda x: x.sort_key,
-    ))
-    if len({x.usage_id for x in usages}) != len(usages):
-        raise ValueError("Duplicate material usage identity")
+    frame_population = _frame_population_accounting(fingerprint, sources.frame_summary_rows)
+    diagnostics.extend(frame_population.diagnostics)
+
+    frame_usages = _frame_usages(fingerprint, sources, material_facts, frame_population)
+    wall_usages = _wall_usages(sources, material_facts)
+    usages = tuple(sorted((*frame_usages, *wall_usages), key=lambda x: x.sort_key))
+
+    usage_id_counts = Counter(x.usage_id for x in usages)
+    duplicate_usage_ids = tuple(sorted(key for key, count in usage_id_counts.items() if count > 1))
+    diagnostics.extend(
+        MaterialPopulationDiagnostic(
+            code="DUPLICATE_MATERIAL_USAGE_IDENTITY",
+            message="Emitted MaterialUsageReference identity is duplicated",
+            component_identity=usage_id,
+            details={"usage_id": usage_id},
+        )
+        for usage_id in duplicate_usage_ids
+    )
 
     definitions = _material_definitions(
         fingerprint, usages, material_facts, sources.unit_context
     )
+    wall_expected = _wall_expected_identities(sources.wall_inventory)
+    expected_by_domain = {
+        "Beam": frame_population.expected_beam_identities,
+        "Column": frame_population.expected_column_identities,
+        "Wall": wall_expected,
+    }
     reconciliations = tuple(
-        _reconcile(domain, usages, source_available=(
-            sources.frame_summary_available if domain in {"Beam", "Column"} else True
-        ))
+        _reconcile(
+            domain,
+            expected_by_domain[domain],
+            usages,
+            source_available=(
+                sources.frame_summary_available if domain in {"Beam", "Column"} else True
+            ),
+        )
         for domain in ("Beam", "Column", "Wall")
     )
 
@@ -299,15 +358,17 @@ def build_used_rc_material_population(
         for x in definitions
     )
     domain_incomplete = any(not x.complete for x in reconciliations)
+    blocking_diagnostic = any(x.code not in _NON_BLOCKING_DIAGNOSTICS for x in diagnostics)
+
     if source_blocked:
         readiness = MaterialPopulationReadiness.BLOCKED
-    elif unresolved_usage or unresolved_fc or domain_incomplete or diagnostics:
+    elif unresolved_usage or unresolved_fc or domain_incomplete or blocking_diagnostic:
         readiness = MaterialPopulationReadiness.PARTIAL
     else:
         readiness = MaterialPopulationReadiness.COMPLETE
 
     if readiness is MaterialPopulationReadiness.COMPLETE and (
-        unresolved_usage or unresolved_fc or domain_incomplete
+        unresolved_usage or unresolved_fc or domain_incomplete or blocking_diagnostic
     ):
         raise ValueError("Complete inventory cannot contain unresolved facts")
 
@@ -317,7 +378,7 @@ def build_used_rc_material_population(
         used_material_definitions=definitions,
         reconciliations=reconciliations,
         readiness=readiness,
-        diagnostics=tuple(diagnostics),
+        diagnostics=tuple(sorted(diagnostics, key=_diagnostic_sort_key)),
     )
 
 
@@ -331,7 +392,12 @@ def canonical_material_population_json(population: UsedRcMaterialPopulation) -> 
 def read_material_population_sources_from_verified_session(
     *, session: EtabsVerifiedSession, wall_inventory: WallInventory
 ) -> MaterialPopulationSources:
-    """Read exact sources through an already verified exact-model session."""
+    """Read exact sources through an already verified exact-model session.
+
+    This reader intentionally blocks before any ETABS factual acquisition
+    until WallInventory carries an identity that is explicitly comparable to
+    EtabsVerifiedSession identity by an accepted source contract.
+    """
     if not isinstance(session, EtabsVerifiedSession):
         raise TypeError("session must be EtabsVerifiedSession")
     if session.attach_result.status != ATTACH_STATUS_ATTACHED:
@@ -340,6 +406,8 @@ def read_material_population_sources_from_verified_session(
         raise ValueError("Verified ETABS session does not expose the verified model")
     if not isinstance(wall_inventory, WallInventory):
         raise TypeError("wall_inventory must be WallInventory")
+
+    _require_wall_inventory_session_binding(session, wall_inventory)
 
     sap_model = session.attach_result.sap_model
     with process_local_acquisition_lock():
@@ -405,34 +473,180 @@ def build_used_rc_material_population_from_verified_session(
     )
 
 
-def _frame_usages(
-    fingerprint: str, sources: MaterialPopulationSources,
-    material_facts: Mapping[str, MaterialApiFact],
-) -> list[MaterialUsageReference]:
-    if not sources.frame_summary_available:
-        return []
-    assignments = _index(sources.frame_assignment_rows, "UniqueName")
-    sections = _index(sources.frame_section_material_rows, "Name")
+def _require_wall_inventory_session_binding(
+    session: EtabsVerifiedSession, wall_inventory: WallInventory
+) -> None:
+    identity = session.identity
+    raise MaterialSourceContractResolutionError(
+        "WallInventory and EtabsVerifiedSession do not expose an existing "
+        "directly comparable model-binding identity contract; live material "
+        "acquisition is blocked before any ETABS read.",
+        details={
+            "session_model_full_path": identity.model_full_path,
+            "session_model_fingerprint": identity.model_fingerprint,
+            "session_model_fingerprint_source": identity.model_fingerprint_source,
+            "wall_inventory_model_fingerprint": wall_inventory.model_fingerprint,
+            "wall_inventory_source_contract_status": dict(wall_inventory.source_contract_status),
+            "minimum_missing_binding": (
+                "An explicit accepted source contract binding WallInventory to the same "
+                "exact verified EtabsVerifiedSession model identity."
+            ),
+            "forbidden_inference_not_used": [
+                "model_full_path_hash",
+                "unrelated_fingerprint_equality",
+                "manufactured_session_fingerprint",
+            ],
+        },
+    )
 
+
+def _frame_population_accounting(
+    fingerprint: str, rows: Sequence[Mapping[str, Any]]
+) -> _FramePopulationAccounting:
     grouped: defaultdict[str, list[Mapping[str, Any]]] = defaultdict(list)
     anonymous: list[Mapping[str, Any]] = []
-    for row in sorted((dict(x) for x in sources.frame_summary_rows), key=_canonical):
-        token = (_id(row.get("Type")) or "").casefold()
-        if token not in _FRAME_TYPES:
-            continue
-        unique = _id(row.get("UniqueName"))
+    for raw in sorted((dict(x) for x in rows), key=_canonical):
+        unique = _id(raw.get("UniqueName"))
         if unique is None:
-            anonymous.append(row)
+            anonymous.append(raw)
         else:
-            grouped[unique].append(row)
+            grouped[unique].append(raw)
 
-    result: list[MaterialUsageReference] = []
-    for unique, rows in sorted(grouped.items()):
-        domain = _domain(rows[0].get("Type"))
+    expected: dict[str, set[str]] = {"Beam": set(), "Column": set()}
+    target_groups: list[tuple[str, str, tuple[Mapping[str, Any], ...]]] = []
+    uncertainty: list[MaterialUsageReference] = []
+    diagnostics: list[MaterialPopulationDiagnostic] = []
+
+    for unique, grouped_rows in sorted(grouped.items()):
+        exact_rows = tuple(grouped_rows)
+        tokens = {_frame_type_token(row.get("Type")) for row in exact_rows}
+        if len(tokens) == 1:
+            token = next(iter(tokens))
+            if token in _FRAME_TYPES:
+                domain = "Beam" if token == "beam" else "Column"
+                expected[domain].add(unique)
+                target_groups.append((domain, unique, exact_rows))
+                continue
+            if token in _POSITIVELY_EXCLUDED_FRAME_TYPES:
+                diagnostics.append(_frame_exclusion_diagnostic(unique, token, exact_rows))
+                continue
+
+        code = _frame_type_uncertainty_code(tokens)
+        uncertainty.append(_unresolved(
+            f"frame-population:{_sha(fingerprint + chr(31) + unique)}",
+            "Frame",
+            unique,
+            _one(exact_rows, "Story"),
+            _one(exact_rows, "Label"),
+            None,
+            None,
+            tuple(_ref(_FRAME_SUMMARY, row) for row in exact_rows),
+            code,
+            _frame_type_uncertainty_message(code),
+        ))
+
+    for position, row in enumerate(anonymous):
+        token = _frame_type_token(row.get("Type"))
+        refs = (_ref(_FRAME_SUMMARY, row),)
+        if token in _FRAME_TYPES:
+            domain = "Beam" if token == "beam" else "Column"
+            digest = _sha(f"{fingerprint}\x1f{domain}\x1f{_canonical(row)}\x1f{position}")
+            uncertainty.append(_unresolved(
+                f"frame-anonymous:{digest}",
+                domain,
+                None,
+                _id(row.get("Story")),
+                _id(row.get("Label")),
+                None,
+                None,
+                refs,
+                "FRAME_OBJECT_IDENTITY_MISSING",
+                "Beam/Column population row has no exact string UniqueName",
+            ))
+        elif token in _POSITIVELY_EXCLUDED_FRAME_TYPES:
+            diagnostics.append(_frame_exclusion_diagnostic(None, token, (row,)))
+        else:
+            code = _frame_type_uncertainty_code({token})
+            digest = _sha(f"{fingerprint}\x1fFrame\x1f{_canonical(row)}\x1f{position}")
+            uncertainty.append(_unresolved(
+                f"frame-anonymous:{digest}",
+                "Frame",
+                None,
+                _id(row.get("Story")),
+                _id(row.get("Label")),
+                None,
+                None,
+                refs,
+                code,
+                _frame_type_uncertainty_message(code),
+            ))
+
+    return _FramePopulationAccounting(
+        expected_beam_identities=tuple(sorted(expected["Beam"])),
+        expected_column_identities=tuple(sorted(expected["Column"])),
+        target_groups=tuple(sorted(target_groups, key=lambda item: (item[0], item[1]))),
+        uncertainty_usages=tuple(sorted(uncertainty, key=lambda item: item.sort_key)),
+        diagnostics=tuple(sorted(diagnostics, key=_diagnostic_sort_key)),
+    )
+
+
+def _frame_exclusion_diagnostic(
+    unique: str | None, token: str, rows: Sequence[Mapping[str, Any]]
+) -> MaterialPopulationDiagnostic:
+    return MaterialPopulationDiagnostic(
+        code="FRAME_NON_TARGET_POSITIVELY_EXCLUDED",
+        message="Authoritative frame population proves a non-target frame type",
+        domain="Frame",
+        component_identity=unique,
+        source_api="DatabaseTables.GetTableForDisplayArray",
+        details={
+            "raw_type": token,
+            "source_table": _FRAME_SUMMARY,
+            "source_references": [_plain(_ref(_FRAME_SUMMARY, row)) for row in rows],
+        },
+    )
+
+
+def _frame_type_uncertainty_code(tokens: set[str | None]) -> str:
+    if tokens == {None}:
+        return "FRAME_COMPONENT_TYPE_MISSING"
+    if len(tokens) > 1:
+        return "FRAME_COMPONENT_TYPE_CONFLICT"
+    return "FRAME_COMPONENT_TYPE_UNRECOGNIZED"
+
+
+def _frame_type_uncertainty_message(code: str) -> str:
+    return {
+        "FRAME_COMPONENT_TYPE_MISSING": "Authoritative frame population row has no explicit component Type",
+        "FRAME_COMPONENT_TYPE_CONFLICT": "Authoritative frame population rows conflict on component Type",
+        "FRAME_COMPONENT_TYPE_UNRECOGNIZED": "Authoritative frame population Type is not an accepted target or positive exclusion",
+    }[code]
+
+
+def _frame_usages(
+    fingerprint: str,
+    sources: MaterialPopulationSources,
+    material_facts: Mapping[str, MaterialApiFact],
+    frame_population: _FramePopulationAccounting,
+) -> list[MaterialUsageReference]:
+    if not sources.frame_summary_available:
+        return list(frame_population.uncertainty_usages)
+
+    assignments = _index(sources.frame_assignment_rows, "UniqueName")
+    sections = _index(sources.frame_section_material_rows, "Name")
+    result: list[MaterialUsageReference] = list(frame_population.uncertainty_usages)
+
+    for domain, unique, rows in frame_population.target_groups:
         usage_id = _frame_usage_id(fingerprint, domain, unique)
-        if len(rows) != 1 or any(_domain(x.get("Type")) != domain for x in rows):
+        if len(rows) != 1:
             result.append(_unresolved(
-                usage_id, domain, unique, _one(rows, "Story"), _one(rows, "Label"), None, None,
+                usage_id,
+                domain,
+                unique,
+                _one(rows, "Story"),
+                _one(rows, "Label"),
+                None,
+                None,
                 tuple(_ref(_FRAME_SUMMARY, x) for x in rows),
                 "DUPLICATE_OBJECT_IDENTITY",
                 "Authoritative frame population repeats exact object identity",
@@ -440,15 +654,6 @@ def _frame_usages(
             continue
         result.append(_resolve_frame(
             fingerprint, domain, unique, rows[0], assignments, sections, material_facts
-        ))
-
-    for position, row in enumerate(anonymous):
-        domain = _domain(row.get("Type"))
-        token = _sha(f"{fingerprint}\x1f{domain}\x1f{_canonical(row)}\x1f{position}")
-        result.append(_unresolved(
-            f"frame-anonymous:{token}", domain, None, _id(row.get("Story")), _id(row.get("Label")),
-            None, None, (_ref(_FRAME_SUMMARY, row),),
-            "FRAME_OBJECT_IDENTITY_MISSING", "Beam/Column population row has no exact string UniqueName",
         ))
     return result
 
@@ -599,6 +804,16 @@ def _wall_usages(
     return result
 
 
+def _wall_expected_identities(wall_inventory: WallInventory) -> tuple[str, ...]:
+    identities: list[str] = []
+    for record in wall_inventory.records:
+        if record.classification_status is not WallInventoryStatus.STRUCTURAL_WALL_CANDIDATE:
+            continue
+        unique = _id(record.etabs_area_unique_name)
+        identities.append(unique if unique is not None else record.inventory_record_id)
+    return tuple(sorted(identities))
+
+
 def _material_definitions(
     fingerprint: str, usages: Sequence[MaterialUsageReference],
     facts: Mapping[str, MaterialApiFact], unit_context: MaterialUnitContext | None,
@@ -649,18 +864,53 @@ def _material_definitions(
 
 
 def _reconcile(
-    domain: str, usages: Sequence[MaterialUsageReference], *, source_available: bool
+    domain: str,
+    expected_identities: Sequence[str],
+    usages: Sequence[MaterialUsageReference],
+    *,
+    source_available: bool,
 ) -> MaterialDomainReconciliation:
+    expected = tuple(sorted(str(x) for x in expected_identities))
+    expected_set = set(expected)
     rows = tuple(x for x in usages if x.component_type == domain)
+    actual_values = tuple(_usage_population_identity(x) for x in rows)
+    actual_counts = Counter(actual_values)
+    actual_set = set(actual_values)
+    duplicates = tuple(sorted(identity for identity, count in actual_counts.items() if count > 1))
+    missing = tuple(sorted(expected_set - actual_set))
+    unexpected = tuple(sorted(actual_set - expected_set))
     counts = Counter(x.status for x in rows)
-    expected = len(rows)
     concrete = counts[MaterialUsageStatus.RESOLVED_CONCRETE_USAGE]
     non_concrete = counts[MaterialUsageStatus.PROVEN_NON_CONCRETE]
     unresolved = counts[MaterialUsageStatus.UNRESOLVED]
-    return MaterialDomainReconciliation(
-        domain, expected, concrete, non_concrete, unresolved, source_available,
-        expected == concrete + non_concrete + unresolved,
+    actual_count = len(rows)
+    terminal_count = concrete + non_concrete + unresolved
+    reconciled = (
+        not missing
+        and not unexpected
+        and not duplicates
+        and actual_count == len(expected)
+        and terminal_count == actual_count
     )
+    return MaterialDomainReconciliation(
+        domain=domain,
+        expected_identities=expected,
+        actual_identities=tuple(sorted(actual_values)),
+        missing_identities=missing,
+        unexpected_identities=unexpected,
+        duplicate_identities=duplicates,
+        expected_count=len(expected),
+        resolved_concrete=concrete,
+        proven_non_concrete=non_concrete,
+        unresolved=unresolved,
+        actual_count=actual_count,
+        source_available=source_available,
+        reconciled=reconciled,
+    )
+
+
+def _usage_population_identity(usage: MaterialUsageReference) -> str:
+    return usage.component_identity or usage.usage_id
 
 
 def _exact_used_material_names(
@@ -668,12 +918,17 @@ def _exact_used_material_names(
     section_rows: Sequence[Mapping[str, Any]], wall_facts: Sequence[WallPropertyFact],
 ) -> frozenset[str]:
     assignments, sections = _index(assignment_rows, "UniqueName"), _index(section_rows, "Name")
-    summaries = _index(
-        tuple(x for x in summary_rows if (_id(x.get("Type")) or "").casefold() in _FRAME_TYPES),
-        "UniqueName",
-    )
+    grouped: defaultdict[str, list[Mapping[str, Any]]] = defaultdict(list)
+    for row in summary_rows:
+        unique = _id(row.get("UniqueName"))
+        if unique is not None:
+            grouped[unique].append(dict(row))
+
     names: set[str] = set()
-    for unique, rows in summaries.items():
+    for unique, rows in grouped.items():
+        tokens = {_frame_type_token(row.get("Type")) for row in rows}
+        if len(tokens) != 1 or next(iter(tokens)) not in _FRAME_TYPES:
+            continue
         if len(rows) != 1 or len(assignments.get(unique, ())) != 1:
             continue
         section = _id(assignments[unique][0].get("SectProp"))
@@ -682,6 +937,7 @@ def _exact_used_material_names(
         material = _id(sections[section][0].get("Material"))
         if material is not None:
             names.add(material)
+
     for fact in wall_facts:
         if (
             fact.diagnostic_code is None and not fact.layered
@@ -789,13 +1045,9 @@ def _api_result(raw: Any, outputs: int) -> tuple[tuple[Any, ...], int | None]:
     return tuple(values[:outputs]), ret
 
 
-def _domain(value: Any) -> str:
-    token = (_id(value) or "").casefold()
-    if token == "beam":
-        return "Beam"
-    if token == "column":
-        return "Column"
-    raise ValueError("Frame source row is not explicit Beam/Column")
+def _frame_type_token(value: Any) -> str | None:
+    text = _id(value)
+    return None if text is None else text.casefold()
 
 
 def _frame_usage_id(fingerprint: str, domain: str, unique: str) -> str:
@@ -844,7 +1096,19 @@ def _finite(value: Any) -> float | None:
 
 
 def _canonical(row: Mapping[str, Any]) -> str:
-    return json.dumps(_plain(dict(row)), ensure_ascii=False, allow_nan=False, sort_keys=True, separators=(",", ":"), default=str)
+    return json.dumps(
+        _plain(dict(row)), ensure_ascii=False, allow_nan=False,
+        sort_keys=True, separators=(",", ":"), default=str,
+    )
+
+
+def _diagnostic_sort_key(value: MaterialPopulationDiagnostic) -> tuple[str, str, str, str]:
+    return (
+        value.code,
+        value.domain or "",
+        value.component_identity or "",
+        value.material_name or "",
+    )
 
 
 def _plain(value: Any) -> Any:
@@ -867,10 +1131,21 @@ def _sha(value: str) -> str:
 
 
 __all__ = [
-    "ConcreteStrengthFactStatus", "MaterialApiFact", "MaterialDomainReconciliation",
-    "MaterialPopulationDiagnostic", "MaterialPopulationReadiness", "MaterialPopulationSources",
-    "MaterialUnitContext", "MaterialUsageReference", "MaterialUsageStatus",
-    "UsedMaterialDefinition", "UsedRcMaterialPopulation", "WallPropertyFact",
-    "build_used_rc_material_population", "build_used_rc_material_population_from_verified_session",
-    "canonical_material_population_json", "read_material_population_sources_from_verified_session",
+    "ConcreteStrengthFactStatus",
+    "MaterialApiFact",
+    "MaterialDomainReconciliation",
+    "MaterialPopulationDiagnostic",
+    "MaterialPopulationReadiness",
+    "MaterialPopulationSources",
+    "MaterialSourceContractResolutionError",
+    "MaterialUnitContext",
+    "MaterialUsageReference",
+    "MaterialUsageStatus",
+    "UsedMaterialDefinition",
+    "UsedRcMaterialPopulation",
+    "WallPropertyFact",
+    "build_used_rc_material_population",
+    "build_used_rc_material_population_from_verified_session",
+    "canonical_material_population_json",
+    "read_material_population_sources_from_verified_session",
 ]
