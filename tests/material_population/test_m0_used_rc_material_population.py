@@ -668,10 +668,13 @@ class Sc1FakeDatabaseTables(FakeDatabaseTables):
         self.calls.append(table_key)
         rows = self.tables[table_key]
         columns = tuple(dict.fromkeys(key for row in rows for key in row))
+        flat = [row.get(column) for row in rows for column in columns]
         return {
             "return_code": 0,
+            "columns": columns,
             "field_keys": columns,
             "number_records": len(rows),
+            "table_data": flat,
             "rows": [dict(row) for row in rows],
         }
 
