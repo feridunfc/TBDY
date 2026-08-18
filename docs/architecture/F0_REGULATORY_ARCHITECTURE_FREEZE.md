@@ -1277,7 +1277,7 @@ Preserve means preserve the architectural property. It does not mean every curre
 
 ### 18.3 RETIRE AS PRODUCTION AUTHORITY AFTER PARITY CUTOVER
 
-The following SHALL remain untouched by this documentation task but SHALL NOT remain final production authority after F0.4 parity cutover:
+The following SHALL remain untouched by this documentation task but SHALL NOT remain final production authority after F0.5 production cutover:
 
 - hardcoded `_ALLOWED_CHECKS` production authority;
 - member-versus-wall `if` dispatch as regulatory composition authority;
@@ -1295,7 +1295,11 @@ Concrete current examples include legacy material verdict generation and name-pa
 
 `CONCRETE_MATERIAL_MIN_STRENGTH` SHALL NOT be added as a new rule to the legacy hardcoded `MinimalCheckEngine` architecture.
 
-It is repositioned to **F0.5**, the first genuinely new DAG-native formal rule after the F0 kernel and parity cutover.
+It is repositioned to **F0.3**, the first genuinely new DAG-native formal rule after F0.2 proves one existing formal check can execute with exact canonical parity on the new kernel.
+
+Its purpose is to prove that the new architecture can deliver a real new regulatory check before full legacy migration. A full canonical B1/Wall migration is NOT a prerequisite for this new material rule.
+
+During transition, accepted legacy checks MAY continue on the accepted legacy path while `CONCRETE_MATERIAL_MIN_STRENGTH` runs exclusively on the DAG path, provided the same formal regulatory authority is never active in both paths.
 
 Its future input MAY remain the factual canonical material-strength value supplied by the accepted used-material population. A pointless `RegulatoryQuantity` wrapper MUST NOT be invented merely because the DAG exists.
 
@@ -1406,17 +1410,21 @@ Implement compiler, plan, typed dependency binding, static validation, determini
 
 Migrate one already-accepted formal check to prove exact canonical `CheckResult` parity and exercise the new kernel end-to-end.
 
-### F0.3 — Existing Canonical B1 / Wall Parity Migration
+### F0.3 — First New DAG-native Formal Rule
+
+Introduce `CONCRETE_MATERIAL_MIN_STRENGTH` as the first genuinely new formal rule implemented natively on the DAG architecture.
+
+Its purpose is to prove that the new architecture can deliver a real new regulatory check before full legacy migration. A full canonical B1/Wall migration is NOT a prerequisite for this phase.
+
+During transition, accepted legacy checks MAY continue on the accepted legacy path while this new material rule runs exclusively on the DAG path, provided the same formal regulatory authority is never active in both paths.
+
+### F0.4 — Existing Canonical B1 / Wall Parity Migration
 
 Migrate accepted canonical member/wall formal checks and their existing authoritative domain knowledge without changing engineering behavior.
 
-### F0.4 — Production Cutover
+### F0.5 — Production Cutover of Migrated Legacy Composition/Dispatch Authority
 
-Only after parity is proven may the hardcoded `MinimalCheckEngine` composition/dispatch authority be retired from production. Legacy paths SHALL remain until cutover criteria are satisfied.
-
-### F0.5 — First New DAG-native Formal Rule
-
-Introduce `CONCRETE_MATERIAL_MIN_STRENGTH` as the first new formal rule implemented natively on the DAG architecture. This phase, not F0 architecture freeze, owns its future engineering rule implementation.
+Only after the relevant legacy authorities have proven parity may their hardcoded `MinimalCheckEngine` composition/dispatch authority be retired from production. Legacy paths SHALL remain for authorities not yet migrated; no formal regulatory authority may be simultaneously active on both legacy and DAG paths.
 
 ### F1.0 — Reviewed Directional System Declaration
 
