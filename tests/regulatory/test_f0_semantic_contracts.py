@@ -50,6 +50,11 @@ class ToyInput:
     pass
 
 
+class MutablePayload:
+    def __init__(self) -> None:
+        self.items = []
+
+
 def _applies(_: object) -> ApplicabilityState:
     return ApplicabilityState.APPLIES
 
@@ -87,13 +92,16 @@ def _bindings():
     )
 
 
-def test_rule_id_rejects_blank_and_preserves_validated_value():
+def test_rule_id_rejects_blank_and_padded_aliases():
     with pytest.raises(ValueError):
         RuleId("")
     with pytest.raises(ValueError):
         RuleId("   ")
-    value = "  TOY_RULE  "
-    assert RuleId(value).value == value
+    with pytest.raises(ValueError, match="leading or trailing whitespace"):
+        RuleId(" TOY_RULE")
+    with pytest.raises(ValueError, match="leading or trailing whitespace"):
+        RuleId("TOY_RULE ")
+    assert RuleId("TOY_RULE").value == "TOY_RULE"
 
 
 def test_rule_id_deterministic_equality_and_hash():
@@ -106,10 +114,24 @@ def test_rule_instance_id_is_deterministic_and_candidate_identity_is_not_implici
     first = RuleInstanceId.build(rule_id=rule, grain=Grain.COMPONENT, scope_ref="C1", direction="X")
     second = RuleInstanceId.build(rule_id=rule, grain=Grain.COMPONENT, scope_ref="C1", direction="X")
     assert first == second
-    assert first.value == "TOY_RULE|COMPONENT|C1|X"
+    assert first.value == '["TOY_RULE","COMPONENT","C1","X"]'
     assert "candidate" not in inspect.signature(RuleInstanceId.build).parameters
     with pytest.raises(ValueError, match="deterministic canonical construction"):
         RuleInstanceId(rule_id=rule, grain=Grain.COMPONENT, scope_ref="C1", direction="X", value="unstable")
+
+
+def test_rule_instance_id_structured_serialization_is_collision_safe():
+    rule = RuleId("TOY_RULE")
+    first = RuleInstanceId.build(
+        rule_id=rule, grain=Grain.COMPONENT, scope_ref="S|X", direction="Y"
+    )
+    second = RuleInstanceId.build(
+        rule_id=rule, grain=Grain.COMPONENT, scope_ref="S", direction="X|Y"
+    )
+    assert "|".join((rule.value, Grain.COMPONENT.value, "S|X", "Y")) == "|".join(
+        (rule.value, Grain.COMPONENT.value, "S", "X|Y")
+    )
+    assert first.value != second.value
 
 
 def test_grain_and_physical_dimension_are_bounded():
@@ -153,6 +175,10 @@ def test_semantic_type_is_bounded_and_neutral():
 def test_unit_contract_dimension_and_explicit_conversion_authority():
     with pytest.raises(TypeError):
         Unit("bad", "FORCE")  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="leading or trailing whitespace"):
+        Unit(" kN", PhysicalDimension.FORCE)
+    with pytest.raises(ValueError, match="leading or trailing whitespace"):
+        Unit("kN ", PhysicalDimension.FORCE)
     assert conversion_factor(UNIT_KN_M, UNIT_N_MM) == Fraction(1_000_000, 1)
     assert conversion_factor(UNIT_N_MM, UNIT_KN_M) == Fraction(1, 1_000_000)
     assert units_convertible(UNIT_KN_M, UNIT_N_MM)
@@ -173,6 +199,10 @@ def test_unit_api_has_no_magnitude_or_field_name_inference_surface():
 def test_dependency_key_and_spec_are_typed_immutable_and_population_aware():
     with pytest.raises(ValueError):
         DependencyKey(" ")
+    with pytest.raises(ValueError, match="leading or trailing whitespace"):
+        DependencyKey(" FACT_A")
+    with pytest.raises(ValueError, match="leading or trailing whitespace"):
+        DependencyKey("FACT_A ")
     dep = _dep(full=True)
     assert dep.population_completeness_requirement is PopulationRequirement.FULL
     assert dep.source_kind is DependencySourceKind.FACT
@@ -218,12 +248,12 @@ def test_applicability_and_availability_state_vocabularies_are_exact_and_separat
         "BLOCKED",
         "NO_DATA",
         "NOT_APPLICABLE",
-    )
+     )
     assert AvailabilityState is not CheckStatus
     assert not issubclass(AvailabilityState, CheckStatus)
 
 
-def test_regulatory_quantity_is_immutable_freezes_trace_and_has_no_check_status_authority():
+def test_regulatory_quantity_freezes_nested_containers_and_remains_immutable():
     instance = RuleInstanceId.build(
         rule_id=RuleId("TOY_DERIVE"), grain=Grain.COMPONENT, scope_ref="C1"
     )
@@ -235,7 +265,7 @@ def test_regulatory_quantity_is_immutable_freezes_trace_and_has_no_check_status_
         grain=Grain.COMPONENT,
         scope_ref="C1",
         direction=None,
-        value={"state": True},
+        value={"series": [1, 2]},
         unit=UNIT_DIMENSIONLESS,
         availability=AvailabilityState.RESOLVED,
         code_refs=("TOY",),
@@ -243,14 +273,52 @@ def test_regulatory_quantity_is_immutable_freezes_trace_and_has_no_check_status_
         dependency_refs=(DependencyKey("FACT_A"),),
         evidence_refs=("evidence:1",),
         provenance={"source": ["fact:1"]},
-        derivation_trace={"candidate": [1, 2]},
-        governing_trace={"selected": 2},
+        derivation_trace=[{"candidate": [1, 2]}],
+        governing_trace={"selected": [2]},
     )
-    assert not hasattr(quantity, "status")
-    assert not hasattr(quantity, "check_status")
-    assert type(quantity.provenance).__name__ == "mappingproxy"
+    assert tuple(quantity.value["series"]) == (1, 2)
+    assert tuple(quantity.provenance["source"]) == ("fact:1",)
+    assert tuple(quantity.derivation_trace[0]["candidate"]) == (1, 2)
+    assert tuple(quantity.governing_trace["selected"]) == (2,)
+    with pytest.raises(TypeError):
+        quantity.value["series"] = (3,)  # type: ignore[index]
+    with pytest.raises(TypeError):
+        quantity.provenance["source"] = ("changed",)  # type: ignore[index]
+    with pytest.raises(TypeError):
+        quantity.derivation_trace[0]["candidate"] = (3,)  # type: ignore[index]
+    with pytest.raises(TypeError):
+        quantity.governing_trace["selected"] = (3,)  # type: ignore[index]
     with pytest.raises(FrozenInstanceError):
         quantity.value = 3  # type: ignore[misc]
+
+
+@pytest.mark.parametrize(
+    "field_name",
+    ("value", "provenance", "derivation_trace", "governing_trace"),
+)
+def test_regulatory_quantity_rejects_unsupported_custom_payload(field_name):
+    instance = RuleInstanceId.build(
+        rule_id=RuleId("TOY_DERIVE"), grain=Grain.COMPONENT, scope_ref="C1"
+    )
+    kwargs = {
+        "quantity_key": DependencyKey("TOY_OUT"),
+        "producer_instance_id": instance,
+        "semantic_type": SemanticType.TOY_DERIVED_STATE,
+        "physical_dimension": PhysicalDimension.DIMENSIONLESS,
+        "grain": Grain.COMPONENT,
+        "scope_ref": "C1",
+        "direction": None,
+        "value": {"series": [1, 2]},
+        "unit": UNIT_DIMENSIONLESS,
+        "availability": AvailabilityState.RESOLVED,
+        "rule_version": "v1",
+        "provenance": {"source": ["fact:1"]},
+        "derivation_trace": [{"candidate": 1}],
+        "governing_trace": {"selected": [1]},
+    }
+    kwargs[field_name] = MutablePayload()
+    with pytest.raises(TypeError, match="unsupported payload type"):
+        RegulatoryQuantity(**kwargs)
 
 
 def test_regulatory_quantity_rejects_unit_dimension_mismatch():
@@ -328,7 +396,7 @@ def test_closure_record_and_outcome_are_separate_immutable_contracts():
         compiled_record_ref=instance,
         execution_status=ClosureExecutionStatus.NOT_EXECUTED,
         diagnostic_refs=("diag:1",),
-     )
+    )
     assert not hasattr(record, "execution_status")
     assert outcome.compiled_record_ref == record.instance_id
     with pytest.raises(FrozenInstanceError):
@@ -351,7 +419,7 @@ def test_execution_plan_is_immutable_shell_without_compile_or_execute_methods():
         code_refs=("TOY",),
         rule_version="v1",
     )
-    plan = TBDYExecutionPlan(
+    plan = TBDYExecutionPlan((
         registry_version="f0.0:test",
         plan_identity="plan:test",
         compiled_rule_instances=(instance,),
@@ -361,11 +429,29 @@ def test_execution_plan_is_immutable_shell_without_compile_or_execute_methods():
         deterministic_execution_order=(instance,),
         analysis_basis_compatibility_refs=("basis:test",),
         compile_diagnostics=(),
-    )
+     )
     assert not hasattr(plan, "compile")
     assert not hasattr(plan, "execute")
     with pytest.raises(FrozenInstanceError):
         plan.plan_identity = "changed"  # type: ignore[misc]
+
+
+def test_execution_plan_compile_diagnostics_reject_non_string_without_coercion():
+    instance = RuleInstanceId.build(
+        rule_id=RuleId("TOY_CHECK"), grain=Grain.COMPONENT, scope_ref="C1"
+    )
+    with pytest.raises(TypeError, match="strings only"):
+        TBDYExecutionPlan(
+            registry_version="f0.0:test",
+            plan_identity="plan:test",
+            compiled_rule_instances=(instance,),
+            compiled_dependency_bindings=(),
+            typed_dag=TypedDagContract((instance,), ()),
+            compiled_closure_inventory=(),
+            deterministic_execution_order=(instance,),
+            analysis_basis_compatibility_refs=(),
+            compile_diagnostics=(object(),),  # type: ignore[arg-type]
+        )
 
 
 def test_regulatory_package_static_architecture_guards():

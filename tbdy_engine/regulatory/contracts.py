@@ -3,10 +3,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+import json
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Callable, TypeVar
 
 from tbdy_engine.checks.result import CheckResult
-from tbdy_engine.contracts.models import freeze_data
 
 if TYPE_CHECKING:
     from .units import Unit
@@ -20,9 +21,47 @@ def _nonblank(value: str, label: str) -> str:
     return value
 
 
+def _canonical_identifier(value: str, label: str) -> str:
+    _nonblank(value, label)
+    if value != value.strip():
+        raise ValueError(f"{label} must not contain leading or trailing whitespace")
+    return value
+
+
+def _rule_instance_value(
+    *, rule_id: "RuleId", grain: "Grain", scope_ref: str, direction: str | None
+) -> str:
+    return json.dumps(
+        [rule_id.value, grain.value, scope_ref, direction],
+        ensure_ascii=True,
+        separators=(",", ":"),
+    )
+
+
+def _freeze_regulatory_payload(value: object, label: str) -> object:
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if type(value) in (dict, MappingProxyType):
+        frozen: dict[str, object] = {}
+        for key, item in value.items():
+            if not isinstance(key, str):
+                raise TypeError(f"{label} mapping keys must be strings")
+            frozen[key] = _freeze_regulatory_payload(item, label)
+        return MappingProxyType(frozen)
+    if type(value) in (list, tuple):
+        return tuple(_freeze_regulatory_payload(item, label) for item in value)
+    if type(value) in (set, frozenset):
+        return frozenset(_freeze_regulatory_payload(item, label) for item in value)
+    raise TypeError(f"{label} contains unsupported payload type: {type(value).__name__}")
+
+
 def _strings(values: tuple[str, ...] | list[str], label: str) -> tuple[str, ...]:
+    if type(values) not in (tuple, list):
+        raise TypeError(f"{label} values must be a tuple or list of strings")
     frozen = tuple(values)
     for value in frozen:
+        if not isinstance(value, str):
+            raise TypeError(f"{label} values must contain strings only")
         _nonblank(value, label)
     return frozen
 
@@ -39,7 +78,7 @@ class RuleId:
     value: str
 
     def __post_init__(self) -> None:
-        _nonblank(self.value, "RuleId")
+        _canonical_identifier(self.value, "RuleId")
 
     def __str__(self) -> str:
         return self.value
@@ -81,7 +120,7 @@ class DependencyKey:
     value: str
 
     def __post_init__(self) -> None:
-        _nonblank(self.value, "DependencyKey")
+        _canonical_identifier(self.value, "DependencyKey")
 
     def __str__(self) -> str:
         return self.value
@@ -153,8 +192,12 @@ class RuleInstanceId:
         if self.direction is not None:
             _nonblank(self.direction, "direction")
         _nonblank(self.value, "RuleInstanceId")
-        direction = self.direction if self.direction is not None else "-"
-        expected = f"{self.rule_id.value}|{self.grain.value}|{self.scope_ref}|{direction}"
+        expected = _rule_instance_value(
+            rule_id=self.rule_id,
+            grain=self.grain,
+            scope_ref=self.scope_ref,
+            direction=self.direction,
+        )
         if self.value != expected:
             raise ValueError("RuleInstanceId value must match deterministic canonical construction")
 
@@ -170,13 +213,17 @@ class RuleInstanceId:
         _nonblank(scope_ref, "scope_ref")
         if direction is not None:
             _nonblank(direction, "direction")
-        direction_token = direction if direction is not None else "-"
         return cls(
             rule_id=rule_id,
             grain=grain,
             scope_ref=scope_ref,
             direction=direction,
-            value=f"{rule_id.value}|{grain.value}|{scope_ref}|{direction_token}",
+            value=_rule_instance_value(
+                rule_id=rule_id,
+                grain=grain,
+                scope_ref=scope_ref,
+                direction=direction,
+            ),
         )
 
     def __str__(self) -> str:
@@ -277,13 +324,13 @@ class RegulatoryQuantity:
             raise TypeError("unit must be Unit")
         if self.unit.physical_dimension is not self.physical_dimension:
             raise ValueError("unit physical dimension mismatch")
-        object.__setattr__(self, "value", freeze_data(self.value))
+        object.__setattr__(self, "value", _freeze_regulatory_payload(self.value, "value"))
         object.__setattr__(self, "code_refs", _strings(self.code_refs, "code_ref"))
         object.__setattr__(self, "dependency_refs", _typed_tuple(self.dependency_refs, DependencyKey, "dependency_refs"))
         object.__setattr__(self, "evidence_refs", _strings(self.evidence_refs, "evidence_ref"))
-        object.__setattr__(self, "provenance", freeze_data(self.provenance))
-        object.__setattr__(self, "derivation_trace", freeze_data(self.derivation_trace))
-        object.__setattr__(self, "governing_trace", freeze_data(self.governing_trace))
+        object.__setattr__(self, "provenance", _freeze_regulatory_payload(self.provenance, "provenance"))
+        object.__setattr__(self, "derivation_trace", _freeze_regulatory_payload(self.derivation_trace, "derivation_trace"))
+        object.__setattr__(self, "governing_trace", _freeze_regulatory_payload(self.governing_trace, "governing_trace"))
 
 
 ApplicabilityCallable = Callable[[object], ApplicabilityState]
@@ -469,7 +516,7 @@ class TBDYExecutionPlan:
         object.__setattr__(self, "compiled_closure_inventory", _typed_tuple(self.compiled_closure_inventory, CompiledClosureRecord, "compiled_closure_inventory"))
         object.__setattr__(self, "deterministic_execution_order", _typed_tuple(self.deterministic_execution_order, RuleInstanceId, "deterministic_execution_order"))
         object.__setattr__(self, "analysis_basis_compatibility_refs", _strings(self.analysis_basis_compatibility_refs, "analysis_basis_compatibility_ref"))
-        object.__setattr__(self, "compile_diagnostics", tuple(str(item) for item in self.compile_diagnostics))
+        object.__setattr__(self, "compile_diagnostics", _strings(self.compile_diagnostics, "compile_diagnostic"))
 
 
 __all__ = [

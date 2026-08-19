@@ -12,6 +12,8 @@ from .contracts import PhysicalDimension
 def _require_nonblank(value: str, label: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError(f"{label} must be a nonblank string")
+    if value != value.strip():
+        raise ValueError(f"{label} must not contain leading or trailing whitespace")
     return value
 
 
