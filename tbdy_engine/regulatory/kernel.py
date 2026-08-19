@@ -1,8 +1,8 @@
 """Deterministic F0.1 regulatory DAG kernel; no TBDY engineering authority."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from enum import StrEnum
+from dataclasses import dataclass, field, fields as dataclass_fields, is_dataclass
+from enum import Enum, StrEnum
 from fractions import Fraction
 import hashlib
 import json
@@ -104,6 +104,25 @@ def _freeze(value: object) -> object:
     raise TypeError(f"unsupported payload type: {type(value).__name__}")
 
 
+def _require_immutable_applicability_input(value: object, label: str = "applicability_input") -> None:
+    """Reject mutable compile-time applicability state instead of retaining a live escape hatch."""
+
+    if value is None or isinstance(value, (bool, int, float, str, bytes, Enum)):
+        return
+    if isinstance(value, tuple | frozenset):
+        for index, item in enumerate(value):
+            _require_immutable_applicability_input(item, f"{label}[{index}]")
+        return
+    if is_dataclass(value) and not isinstance(value, type):
+        params = getattr(type(value), "__dataclass_params__", None)
+        if params is None or not params.frozen:
+            raise TypeError(f"{label} must be a frozen typed dataclass or bounded immutable value")
+        for item in dataclass_fields(value):
+            _require_immutable_applicability_input(getattr(value, item.name), f"{label}.{item.name}")
+        return
+    raise TypeError(f"{label} must be a frozen typed dataclass or bounded immutable value")
+
+
 @dataclass(frozen=True, slots=True)
 class RuleScopeTarget:
     rule_id: RuleId
@@ -191,6 +210,8 @@ class RegulatoryCompileInputs:
             raise TypeError("rule_targets must contain RuleScopeTarget")
         if any(not isinstance(item, ExternalDependencyAuthority) for item in authorities):
             raise TypeError("external_authorities must contain ExternalDependencyAuthority")
+        for item in targets:
+            _require_immutable_applicability_input(item.applicability_input)
         ids = [item.authority_id for item in authorities]
         if len(ids) != len(set(ids)):
             raise ValueError("duplicate external authority_id")
@@ -267,9 +288,13 @@ class MaterializedDependency:
     population_completeness: PopulationCompleteness
     value: object
     authority_ref: str
+    evidence_refs: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "value", _freeze(self.value))
+        _text(self.authority_ref, "authority_ref")
+        refs = tuple(_text(item, "evidence_ref") for item in self.evidence_refs)
+        object.__setattr__(self, "evidence_refs", refs)
 
 
 @dataclass(frozen=True, slots=True)
@@ -325,13 +350,13 @@ class RegulatoryStoreSnapshot:
     diagnostics: tuple[str, ...]
 
     def quantities_for(self, instance_id: RuleInstanceId) -> tuple[RegulatoryQuantity, ...]:
-        return tuple(x for x in self.regulatory_quantities if x.producer_instance_id == instance_id)
+        return tuple(x for x in self.regulatory_quantities if getattr(x, "producer_instance_id", None) == instance_id)
 
     def formal_results_for(self, instance_id: RuleInstanceId) -> tuple[CheckResult, ...]:
-        return tuple(x.result for x in self.formal_results if x.instance_id == instance_id)
+        return tuple(x.result for x in self.formal_results if getattr(x, "instance_id", None) == instance_id)
 
     def outcome_for(self, instance_id: RuleInstanceId) -> RuleClosureOutcome | None:
-        matches = tuple(x for x in self.closure_outcomes if x.compiled_record_ref == instance_id)
+        matches = tuple(x for x in self.closure_outcomes if getattr(x, "compiled_record_ref", None) == instance_id)
         if len(matches) > 1:
             raise ValueError("duplicate closure outcomes in store snapshot")
         return matches[0] if matches else None
@@ -498,8 +523,6 @@ class RegulatoryCompiler:
         cls, consumer: RuleInstanceId, dep: DependencySpec, registry: RegulatoryRegistry,
         instances: Mapping[RuleInstanceId, RuleDefinition], inputs: RegulatoryCompileInputs,
     ) -> CompiledDependencyBinding:
-        # Binding establishes one authority identity. Contract compatibility is
-        # validated later in the frozen F0 order, before graph cycle validation.
         if dep.source_kind is DependencySourceKind.REGULATORY_QUANTITY:
             producers = tuple(s for s in registry.derivations if s.output_contract.authority_key == dep.key)
             if not producers:
@@ -568,9 +591,6 @@ class RegulatoryCompiler:
             assert isinstance(producer_spec, RegulatoryDerivationSpec)
             return producer_spec.output_contract
 
-        # Frozen normative order from F0 architecture §§8–8.1. Existence and
-        # single-authority checks occur during _bind above. The remaining
-        # compatibility classes are validated as ordered passes over all bindings.
         for binding in bindings:
             src = source(binding)
             if src.semantic_type is not binding.dependency.semantic_type:
@@ -728,17 +748,35 @@ class RegulatoryEngine:
             if binding.external_authority_id is not None:
                 authority = program.authority(binding.external_authority_id)
                 value = cls._convert(authority.value, authority.unit, dep.unit_requirement)
-                out.append(MaterializedDependency(dep.key, dep.source_kind, authority.semantic_type, authority.physical_dimension, authority.grain, authority.scope_ref, authority.direction, dep.unit_requirement, authority.availability, authority.population_completeness, value, f"external:{authority.authority_id}"))
+                authority_ref = f"external:{authority.authority_id}"
+                out.append(MaterializedDependency(
+                    dep.key, dep.source_kind, authority.semantic_type, authority.physical_dimension,
+                    authority.grain, authority.scope_ref, authority.direction, dep.unit_requirement,
+                    authority.availability, authority.population_completeness, value, authority_ref,
+                    (authority_ref, *authority.provenance_refs),
+                ))
                 continue
             assert binding.producer_instance_id is not None
+            authority_ref = f"regulatory:{binding.producer_instance_id.value}"
             quantity = store.quantity(binding.producer_instance_id, dep.key)
             if quantity is None:
                 upstream = store.outcome(binding.producer_instance_id)
                 availability = AvailabilityState.NO_DATA if upstream and upstream.execution_status is ClosureExecutionStatus.NO_DATA else AvailabilityState.BLOCKED
-                out.append(MaterializedDependency(dep.key, dep.source_kind, dep.semantic_type, dep.physical_dimension, dep.grain, node.instance_id.scope_ref, node.instance_id.direction if dep.direction_policy is not DirectionPolicy.NO_DIRECTION else None, dep.unit_requirement, availability, PopulationCompleteness.FULL, None, f"regulatory:{binding.producer_instance_id.value}"))
+                out.append(MaterializedDependency(
+                    dep.key, dep.source_kind, dep.semantic_type, dep.physical_dimension, dep.grain,
+                    node.instance_id.scope_ref,
+                    node.instance_id.direction if dep.direction_policy is not DirectionPolicy.NO_DIRECTION else None,
+                    dep.unit_requirement, availability, PopulationCompleteness.FULL, None, authority_ref,
+                    (authority_ref,),
+                ))
             else:
                 value = cls._convert(quantity.value, quantity.unit, dep.unit_requirement)
-                out.append(MaterializedDependency(dep.key, dep.source_kind, quantity.semantic_type, quantity.physical_dimension, quantity.grain, quantity.scope_ref, quantity.direction, dep.unit_requirement, quantity.availability, PopulationCompleteness.FULL, value, f"regulatory:{binding.producer_instance_id.value}"))
+                out.append(MaterializedDependency(
+                    dep.key, dep.source_kind, quantity.semantic_type, quantity.physical_dimension,
+                    quantity.grain, quantity.scope_ref, quantity.direction, dep.unit_requirement,
+                    quantity.availability, PopulationCompleteness.FULL, value, authority_ref,
+                    (authority_ref, *quantity.evidence_refs),
+                ))
         return DeclaredDependencyView(tuple(out))
 
     @staticmethod
@@ -782,8 +820,19 @@ class RegulatoryEngine:
             (tuple(sorted(k.value for k in quantity.dependency_refs)) == tuple(sorted(d.key.value for d in deps.dependencies)), "dependency refs"),
         )
         errors = [label for ok, label in checks if not ok]
+        allowed_evidence_refs = {
+            ref for dependency in deps.dependencies for ref in dependency.evidence_refs
+        }
+        unknown_evidence_refs = tuple(
+            ref for ref in quantity.evidence_refs if ref not in allowed_evidence_refs
+        )
+        if unknown_evidence_refs:
+            errors.append("evidence refs")
         if errors:
-            raise KernelExecutionError("invalid derivation output contract: " + ", ".join(errors))
+            details = ""
+            if unknown_evidence_refs:
+                details = "; unresolved evidence refs=" + ",".join(unknown_evidence_refs)
+            raise KernelExecutionError("invalid derivation output contract: " + ", ".join(errors) + details)
 
     @staticmethod
     def _validate_result(node: CompiledRuleNode, result: object) -> None:
@@ -795,26 +844,211 @@ class RegulatoryEngine:
 
 class AssessmentEngine:
     @staticmethod
+    def _invalid(instance_id: RuleInstanceId, reason: str) -> RuleClosureOutcome:
+        return RuleClosureOutcome(instance_id, ClosureExecutionStatus.INVALID, diagnostic_refs=(reason,))
+
+    @staticmethod
+    def _duplicate(instance_id: RuleInstanceId, reason: str) -> RuleClosureOutcome:
+        return RuleClosureOutcome(instance_id, ClosureExecutionStatus.DUPLICATE, diagnostic_refs=(reason,))
+
+    @staticmethod
+    def _missing_or_nonexecution(
+        instance_id: RuleInstanceId, observed: tuple[RuleClosureOutcome, ...]
+    ) -> RuleClosureOutcome:
+        if len(observed) > 1:
+            return AssessmentEngine._duplicate(instance_id, "duplicate runtime closure outcomes")
+        if not observed:
+            return RuleClosureOutcome(
+                instance_id, ClosureExecutionStatus.MISSING,
+                diagnostic_refs=("required canonical artifact is missing",),
+            )
+        outcome = observed[0]
+        if type(outcome) is not RuleClosureOutcome or outcome.compiled_record_ref != instance_id:
+            return AssessmentEngine._invalid(instance_id, "invalid runtime closure outcome identity/type")
+        if outcome.execution_status is ClosureExecutionStatus.EXECUTED:
+            return RuleClosureOutcome(
+                instance_id, ClosureExecutionStatus.MISSING,
+                diagnostic_refs=("EXECUTED outcome has no required canonical artifact",),
+            )
+        if outcome.formal_result_ref is not None or outcome.regulatory_quantity_refs:
+            return AssessmentEngine._invalid(instance_id, "runtime outcome references a missing canonical artifact")
+        if outcome.execution_status is ClosureExecutionStatus.PROVEN_NOT_APPLICABLE:
+            return AssessmentEngine._invalid(instance_id, "runtime outcome cannot invent non-applicability")
+        if outcome.execution_status is ClosureExecutionStatus.NOT_EXECUTED:
+            return RuleClosureOutcome(instance_id, ClosureExecutionStatus.MISSING, diagnostic_refs=outcome.diagnostic_refs)
+        return RuleClosureOutcome(instance_id, outcome.execution_status, diagnostic_refs=outcome.diagnostic_refs)
+
+    @staticmethod
+    def _check_outcome(
+        node: CompiledRuleNode,
+        formal_records: tuple[FormalResultRecord, ...],
+        producer_quantities: tuple[RegulatoryQuantity, ...],
+        observed: tuple[RuleClosureOutcome, ...],
+    ) -> RuleClosureOutcome:
+        instance_id = node.instance_id
+        if producer_quantities:
+            return AssessmentEngine._invalid(instance_id, "check instance has RegulatoryQuantity artifact")
+        if len(formal_records) > 1:
+            return AssessmentEngine._duplicate(instance_id, "duplicate CheckResult artifacts")
+        if not formal_records:
+            return AssessmentEngine._missing_or_nonexecution(instance_id, observed)
+        record = formal_records[0]
+        if type(record) is not FormalResultRecord or type(record.result) is not CheckResult:
+            return AssessmentEngine._invalid(instance_id, "formal artifact is not canonical CheckResult")
+        result = record.result
+        if record.instance_id != instance_id or result.check_id != instance_id.rule_id.value or result.component != instance_id.scope_ref:
+            return AssessmentEngine._invalid(instance_id, "CheckResult identity does not reconcile to compiled instance")
+        derived_status = (
+            ClosureExecutionStatus.NO_DATA if result.status is CheckStatus.NO_DATA
+            else ClosureExecutionStatus.BLOCKED if result.status is CheckStatus.BLOCKED
+            else ClosureExecutionStatus.EXECUTED
+        )
+        if len(observed) > 1:
+            return AssessmentEngine._duplicate(instance_id, "duplicate runtime closure outcomes")
+        expected_ref = f"{instance_id.value}:CheckResult"
+        if observed:
+            runtime = observed[0]
+            if type(runtime) is not RuleClosureOutcome or runtime.compiled_record_ref != instance_id:
+                return AssessmentEngine._invalid(instance_id, "invalid runtime closure outcome identity/type")
+            if runtime.execution_status is not derived_status:
+                return AssessmentEngine._invalid(instance_id, "runtime closure outcome disagrees with CheckResult")
+            if runtime.regulatory_quantity_refs:
+                return AssessmentEngine._invalid(instance_id, "check runtime outcome references derivation artifact")
+            if runtime.formal_result_ref not in (None, expected_ref):
+                return AssessmentEngine._invalid(instance_id, "runtime CheckResult reference is inconsistent")
+        return RuleClosureOutcome(
+            instance_id, derived_status,
+            formal_result_ref=expected_ref,
+            diagnostic_refs=observed[0].diagnostic_refs if observed else (),
+        )
+
+    @staticmethod
+    def _quantity_identity_valid(node: CompiledRuleNode, quantity: object) -> bool:
+        if type(quantity) is not RegulatoryQuantity or not isinstance(node.spec, RegulatoryDerivationSpec):
+            return False
+        contract = node.spec.output_contract
+        return all((
+            quantity.quantity_key == contract.authority_key,
+            quantity.producer_instance_id == node.instance_id,
+            quantity.semantic_type is contract.semantic_type,
+            quantity.physical_dimension is contract.physical_dimension,
+            quantity.grain is contract.grain,
+            quantity.scope_ref == node.instance_id.scope_ref,
+            quantity.direction == node.instance_id.direction,
+            quantity.unit == contract.unit,
+            quantity.rule_version == node.spec.rule_version,
+            tuple(sorted(k.value for k in quantity.dependency_refs))
+            == tuple(sorted(k.value for k in node.closure_record.declared_dependency_refs)),
+        ))
+
+    @staticmethod
+    def _derivation_outcome(
+        node: CompiledRuleNode,
+        formal_records: tuple[FormalResultRecord, ...],
+        all_quantities: tuple[RegulatoryQuantity, ...],
+        observed: tuple[RuleClosureOutcome, ...],
+    ) -> RuleClosureOutcome:
+        instance_id = node.instance_id
+        assert isinstance(node.spec, RegulatoryDerivationSpec)
+        contract = node.spec.output_contract
+        if formal_records:
+            return AssessmentEngine._invalid(instance_id, "derivation instance has CheckResult artifact")
+        producer_quantities = tuple(
+            item for item in all_quantities
+            if getattr(item, "producer_instance_id", None) == instance_id
+        )
+        expected = tuple(
+            item for item in producer_quantities
+            if type(item) is RegulatoryQuantity and item.quantity_key == contract.authority_key
+        )
+        wrong_from_producer = tuple(item for item in producer_quantities if item not in expected)
+        same_output_wrong_producer = tuple(
+            item for item in all_quantities
+            if type(item) is RegulatoryQuantity
+            and item.quantity_key == contract.authority_key
+            and item.scope_ref == instance_id.scope_ref
+            and item.direction == instance_id.direction
+            and item.producer_instance_id != instance_id
+        )
+        if len(expected) > 1:
+            return AssessmentEngine._duplicate(instance_id, "duplicate RegulatoryQuantity output authority")
+        if wrong_from_producer or same_output_wrong_producer:
+            return AssessmentEngine._invalid(instance_id, "RegulatoryQuantity producer/output identity is invalid")
+        if not expected:
+            return AssessmentEngine._missing_or_nonexecution(instance_id, observed)
+        quantity = expected[0]
+        if not AssessmentEngine._quantity_identity_valid(node, quantity):
+            return AssessmentEngine._invalid(instance_id, "RegulatoryQuantity identity does not reconcile to compiled output")
+        derived_status = (
+            ClosureExecutionStatus.EXECUTED if quantity.availability is AvailabilityState.RESOLVED
+            else ClosureExecutionStatus.NO_DATA if quantity.availability is AvailabilityState.NO_DATA
+            else ClosureExecutionStatus.BLOCKED
+        )
+        if len(observed) > 1:
+            return AssessmentEngine._duplicate(instance_id, "duplicate runtime closure outcomes")
+        if observed:
+            runtime = observed[0]
+            if type(runtime) is not RuleClosureOutcome or runtime.compiled_record_ref != instance_id:
+                return AssessmentEngine._invalid(instance_id, "invalid runtime closure outcome identity/type")
+            if runtime.execution_status is not derived_status:
+                return AssessmentEngine._invalid(instance_id, "runtime closure outcome disagrees with RegulatoryQuantity")
+            if runtime.formal_result_ref is not None:
+                return AssessmentEngine._invalid(instance_id, "derivation runtime outcome references CheckResult")
+            if tuple(runtime.regulatory_quantity_refs) != (contract.authority_key,):
+                return AssessmentEngine._invalid(instance_id, "runtime RegulatoryQuantity reference is inconsistent")
+        return RuleClosureOutcome(
+            instance_id, derived_status,
+            regulatory_quantity_refs=(contract.authority_key,),
+            diagnostic_refs=observed[0].diagnostic_refs if observed else (),
+        )
+
+    @staticmethod
     def reconcile(program: CompiledRegulatoryProgram, snapshot: RegulatoryStoreSnapshot) -> StructuralAssessment:
         if snapshot.plan_identity != program.plan.plan_identity:
             raise KernelExecutionError("store snapshot plan identity mismatch")
         outcomes: list[RuleClosureOutcome] = []
         incomplete: list[RuleInstanceId] = []
         for record in program.plan.compiled_closure_inventory:
-            observed = tuple(x for x in snapshot.closure_outcomes if x.compiled_record_ref == record.instance_id)
-            formal = snapshot.formal_results_for(record.instance_id)
-            quantities = snapshot.quantities_for(record.instance_id)
             node = program.node(record.instance_id)
-            if len(observed) > 1 or len(formal) > 1 or len(quantities) > (1 if node.is_derivation else 0):
-                outcome = RuleClosureOutcome(record.instance_id, ClosureExecutionStatus.DUPLICATE, diagnostic_refs=("duplicate runtime output/outcome",))
-            elif observed:
-                outcome = observed[0]
-            elif record.applicability is ApplicabilityState.PROVEN_NOT_APPLICABLE:
-                outcome = RuleClosureOutcome(record.instance_id, ClosureExecutionStatus.PROVEN_NOT_APPLICABLE)
+            observed = tuple(
+                item for item in snapshot.closure_outcomes
+                if getattr(item, "compiled_record_ref", None) == record.instance_id
+            )
+            formal_records = tuple(
+                item for item in snapshot.formal_results
+                if getattr(item, "instance_id", None) == record.instance_id
+            )
+            producer_quantities = tuple(
+                item for item in snapshot.regulatory_quantities
+                if getattr(item, "producer_instance_id", None) == record.instance_id
+            )
+            if record.applicability is ApplicabilityState.PROVEN_NOT_APPLICABLE:
+                if formal_records or producer_quantities:
+                    outcome = AssessmentEngine._invalid(record.instance_id, "PROVEN_NOT_APPLICABLE instance has canonical runtime artifact")
+                elif len(observed) > 1:
+                    outcome = AssessmentEngine._duplicate(record.instance_id, "duplicate runtime closure outcomes")
+                elif observed and (
+                    type(observed[0]) is not RuleClosureOutcome
+                    or observed[0].execution_status is not ClosureExecutionStatus.PROVEN_NOT_APPLICABLE
+                    or observed[0].formal_result_ref is not None
+                    or observed[0].regulatory_quantity_refs
+                ):
+                    outcome = AssessmentEngine._invalid(record.instance_id, "runtime outcome disagrees with compile-time non-applicability")
+                else:
+                    outcome = RuleClosureOutcome(record.instance_id, ClosureExecutionStatus.PROVEN_NOT_APPLICABLE)
+            elif node.is_derivation:
+                outcome = AssessmentEngine._derivation_outcome(
+                    node, formal_records, snapshot.regulatory_quantities, observed
+                )
             else:
-                outcome = RuleClosureOutcome(record.instance_id, ClosureExecutionStatus.MISSING, diagnostic_refs=("compiled closure has no runtime outcome",))
+                outcome = AssessmentEngine._check_outcome(
+                    node, formal_records, producer_quantities, observed
+                )
             outcomes.append(outcome)
-            if record.mandatory and outcome.execution_status not in {ClosureExecutionStatus.EXECUTED, ClosureExecutionStatus.PROVEN_NOT_APPLICABLE}:
+            if record.mandatory and outcome.execution_status not in {
+                ClosureExecutionStatus.EXECUTED,
+                ClosureExecutionStatus.PROVEN_NOT_APPLICABLE,
+            }:
                 incomplete.append(record.instance_id)
         diagnostics = (f"incomplete mandatory closure count={len(incomplete)}",) if incomplete else ()
         return StructuralAssessment(
