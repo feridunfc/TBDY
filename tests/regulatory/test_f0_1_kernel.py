@@ -13,7 +13,7 @@ from tbdy_engine.regulatory import (
     DependencyKey, DependencySourceKind, DependencySpec,
     DerivationEvaluatorBinding, DirectionPolicy, Grain, PhysicalDimension,
     PopulationRequirement, RegulatoryDerivationSpec, RegulatoryOutputContract,
-    RegulatoryQuantity, RegulatoryRegistry, RuleId, ScopePolicy, SemanticType,
+    RegulatoryQuantity, RegulatoryRegistry, RuleClosureOutcome, RuleId, ScopePolicy, SemanticType,
     UNIT_DIMENSIONLESS, UNIT_MM, UNIT_N, Unit,
 )
 from tbdy_engine.regulatory.kernel import (
@@ -404,3 +404,224 @@ def test_T10_f0_1_kernel_has_no_ETABS_import():
         elif isinstance(node, ast.ImportFrom):
             modules.append(node.module or "")
     assert all("etabs" not in name.casefold() for name in modules)
+
+
+def test_supervisor_P0_check_executed_outcome_without_CheckResult_is_missing():
+    c = check("C")
+    program = RegulatoryCompiler.compile(
+        RegulatoryRegistry(checks=(c,)), RegulatoryCompileInputs(rule_targets=(target("C"),))
+    )
+    instance = program.plan.compiled_rule_instances[0]
+    store = RegulatoryStore(plan_identity=program.plan.plan_identity)
+    store.record_outcome(
+        RuleClosureOutcome(
+            instance, ClosureExecutionStatus.EXECUTED,
+            formal_result_ref=f"{instance.value}:CheckResult",
+        )
+    )
+    assessment = AssessmentEngine.reconcile(program, store.snapshot())
+    assert assessment.structural_status is StructuralAssessmentStatus.INCOMPLETE
+    assert assessment.closure_outcomes[0].execution_status is ClosureExecutionStatus.MISSING
+
+
+def test_supervisor_P0_derivation_executed_outcome_without_quantity_is_missing():
+    d = derivation("D", "OUT")
+    program = RegulatoryCompiler.compile(
+        RegulatoryRegistry(derivations=(d,)), RegulatoryCompileInputs(rule_targets=(target("D"),))
+    )
+    instance = program.plan.compiled_rule_instances[0]
+    store = RegulatoryStore(plan_identity=program.plan.plan_identity)
+    store.record_outcome(
+        RuleClosureOutcome(
+            instance, ClosureExecutionStatus.EXECUTED,
+            regulatory_quantity_refs=(DependencyKey("OUT"),),
+        )
+    )
+    assessment = AssessmentEngine.reconcile(program, store.snapshot())
+    assert assessment.structural_status is StructuralAssessmentStatus.INCOMPLETE
+    assert assessment.closure_outcomes[0].execution_status is ClosureExecutionStatus.MISSING
+
+
+def test_supervisor_P0_single_valid_CheckResult_structurally_completes():
+    c = check("C")
+    program = RegulatoryCompiler.compile(
+        RegulatoryRegistry(checks=(c,)), RegulatoryCompileInputs(rule_targets=(target("C"),))
+    )
+    assessment = AssessmentEngine.reconcile(program, RegulatoryEngine.execute(program))
+    assert assessment.structural_status is StructuralAssessmentStatus.COMPLETE
+    assert assessment.closure_outcomes[0].execution_status is ClosureExecutionStatus.EXECUTED
+
+
+def test_supervisor_P0_single_valid_RegulatoryQuantity_structurally_completes():
+    d = derivation("D", "OUT")
+    program = RegulatoryCompiler.compile(
+        RegulatoryRegistry(derivations=(d,)), RegulatoryCompileInputs(rule_targets=(target("D"),))
+    )
+    assessment = AssessmentEngine.reconcile(program, RegulatoryEngine.execute(program))
+    assert assessment.structural_status is StructuralAssessmentStatus.COMPLETE
+    assert assessment.closure_outcomes[0].execution_status is ClosureExecutionStatus.EXECUTED
+
+
+def test_supervisor_P0_runtime_outcome_inconsistent_with_CheckResult_is_invalid():
+    c = check("C")
+    program = RegulatoryCompiler.compile(
+        RegulatoryRegistry(checks=(c,)), RegulatoryCompileInputs(rule_targets=(target("C"),))
+    )
+    instance = program.plan.compiled_rule_instances[0]
+    store = RegulatoryStore(plan_identity=program.plan.plan_identity)
+    store.record_check_result(
+        instance,
+        CheckResult(check_id="C", component="C1", component_type="toy", status=CheckStatus.OK),
+    )
+    store.record_outcome(RuleClosureOutcome(instance, ClosureExecutionStatus.BLOCKED))
+    assessment = AssessmentEngine.reconcile(program, store.snapshot())
+    assert assessment.structural_status is StructuralAssessmentStatus.INCOMPLETE
+    assert assessment.closure_outcomes[0].execution_status is ClosureExecutionStatus.INVALID
+
+
+def test_supervisor_P1_fabricated_derivation_evidence_ref_is_rejected():
+    fact = dep("FACT")
+
+    def evaluator(inp: ExecInput):
+        return RegulatoryQuantity(
+            quantity_key=DependencyKey("OUT"), producer_instance_id=inp.envelope.instance_id,
+            semantic_type=SemanticType.TOY_DERIVED_STATE,
+            physical_dimension=PhysicalDimension.DIMENSIONLESS,
+            grain=Grain.COMPONENT, scope_ref="C1", direction=None, value=1.0,
+            unit=UNIT_DIMENSIONLESS, availability=AvailabilityState.RESOLVED,
+            rule_version="v1", dependency_refs=inp.envelope.declared_dependency_refs,
+            evidence_refs=("source:FABRICATED",),
+        )
+
+    program = RegulatoryCompiler.compile(
+        RegulatoryRegistry(derivations=(derivation("D", "OUT", dependencies=(fact,), evaluator=evaluator),)),
+        RegulatoryCompileInputs(rule_targets=(target("D"),), external_authorities=(external("A", "FACT"),)),
+    )
+    with pytest.raises(KernelExecutionError, match="evidence refs"):
+        RegulatoryEngine.execute(program)
+
+
+def test_supervisor_P1_external_materialized_evidence_ref_is_accepted():
+    fact = dep("FACT")
+
+    def evaluator(inp: ExecInput):
+        materialized = inp.dependencies.one(DependencyKey("FACT"))
+        assert materialized.authority_ref == "external:A"
+        assert "source:A" in materialized.evidence_refs
+        return RegulatoryQuantity(
+            quantity_key=DependencyKey("OUT"), producer_instance_id=inp.envelope.instance_id,
+            semantic_type=SemanticType.TOY_DERIVED_STATE,
+            physical_dimension=PhysicalDimension.DIMENSIONLESS,
+            grain=Grain.COMPONENT, scope_ref="C1", direction=None, value=1.0,
+            unit=UNIT_DIMENSIONLESS, availability=AvailabilityState.RESOLVED,
+            rule_version="v1", dependency_refs=inp.envelope.declared_dependency_refs,
+            evidence_refs=("source:A",),
+        )
+
+    program = RegulatoryCompiler.compile(
+        RegulatoryRegistry(derivations=(derivation("D", "OUT", dependencies=(fact,), evaluator=evaluator),)),
+        RegulatoryCompileInputs(rule_targets=(target("D"),), external_authorities=(external("A", "FACT"),)),
+    )
+    snapshot = RegulatoryEngine.execute(program)
+    assert snapshot.regulatory_quantities[0].evidence_refs == ("source:A",)
+
+
+def test_supervisor_P1_downstream_quantity_preserves_permitted_upstream_trace():
+    fact = dep("FACT")
+    upstream = dep(
+        "OUT", kind=DependencySourceKind.REGULATORY_QUANTITY,
+        semantic=SemanticType.TOY_DERIVED_STATE,
+    )
+
+    def first(inp: ExecInput):
+        return RegulatoryQuantity(
+            quantity_key=DependencyKey("OUT"), producer_instance_id=inp.envelope.instance_id,
+            semantic_type=SemanticType.TOY_DERIVED_STATE,
+            physical_dimension=PhysicalDimension.DIMENSIONLESS,
+            grain=Grain.COMPONENT, scope_ref="C1", direction=None, value=1.0,
+            unit=UNIT_DIMENSIONLESS, availability=AvailabilityState.RESOLVED,
+            rule_version="v1", dependency_refs=inp.envelope.declared_dependency_refs,
+            evidence_refs=("source:A",),
+        )
+
+    def second(inp: ExecInput):
+        materialized = inp.dependencies.one(DependencyKey("OUT"))
+        assert "source:A" in materialized.evidence_refs
+        assert any(ref.startswith("regulatory:") for ref in materialized.evidence_refs)
+        return RegulatoryQuantity(
+            quantity_key=DependencyKey("OUT2"), producer_instance_id=inp.envelope.instance_id,
+            semantic_type=SemanticType.TOY_DERIVED_STATE,
+            physical_dimension=PhysicalDimension.DIMENSIONLESS,
+            grain=Grain.COMPONENT, scope_ref="C1", direction=None, value=2.0,
+            unit=UNIT_DIMENSIONLESS, availability=AvailabilityState.RESOLVED,
+            rule_version="v1", dependency_refs=inp.envelope.declared_dependency_refs,
+            evidence_refs=("source:A",),
+        )
+
+    registry = RegulatoryRegistry(
+        derivations=(
+            derivation("D1", "OUT", dependencies=(fact,), evaluator=first),
+            derivation("D2", "OUT2", dependencies=(upstream,), evaluator=second),
+        )
+    )
+    program = RegulatoryCompiler.compile(
+        registry,
+        RegulatoryCompileInputs(
+            rule_targets=(target("D1"), target("D2")),
+            external_authorities=(external("A", "FACT"),),
+        ),
+    )
+    snapshot = RegulatoryEngine.execute(program)
+    downstream = next(q for q in snapshot.regulatory_quantities if q.quantity_key == DependencyKey("OUT2"))
+    assert downstream.evidence_refs == ("source:A",)
+
+
+def test_supervisor_P1_undeclared_external_authority_evidence_ref_is_rejected():
+    fact = dep("FACT")
+
+    def evaluator(inp: ExecInput):
+        assert inp.dependencies.one(DependencyKey("FACT")).authority_ref == "external:A"
+        return RegulatoryQuantity(
+            quantity_key=DependencyKey("OUT"), producer_instance_id=inp.envelope.instance_id,
+            semantic_type=SemanticType.TOY_DERIVED_STATE,
+            physical_dimension=PhysicalDimension.DIMENSIONLESS,
+            grain=Grain.COMPONENT, scope_ref="C1", direction=None, value=1.0,
+            unit=UNIT_DIMENSIONLESS, availability=AvailabilityState.RESOLVED,
+            rule_version="v1", dependency_refs=inp.envelope.declared_dependency_refs,
+            evidence_refs=("source:SECRET",),
+        )
+
+    program = RegulatoryCompiler.compile(
+        RegulatoryRegistry(derivations=(derivation("D", "OUT", dependencies=(fact,), evaluator=evaluator),)),
+        RegulatoryCompileInputs(
+            rule_targets=(target("D"),),
+            external_authorities=(external("A", "FACT"), external("SECRET", "UNUSED")),
+        ),
+    )
+    with pytest.raises(KernelExecutionError, match="unresolved evidence refs=source:SECRET"):
+        RegulatoryEngine.execute(program)
+
+
+def test_supervisor_P1_mutable_applicability_input_is_rejected_at_compile_input_boundary():
+    @dataclass
+    class MutableApplicabilityInput:
+        state: ApplicabilityState = ApplicabilityState.APPLIES
+
+    scope = RuleScopeTarget(
+        rule_id=RuleId("C"), grain=Grain.COMPONENT, scope_ref="C1",
+        applicability_input=MutableApplicabilityInput(),
+    )
+    with pytest.raises(TypeError, match="frozen typed dataclass"):
+        RegulatoryCompileInputs(rule_targets=(scope,))
+
+
+def test_supervisor_P1_equivalent_immutable_applicability_inputs_produce_same_plan():
+    registry = RegulatoryRegistry(checks=(check("C"),))
+    first = RegulatoryCompiler.compile(
+        registry, RegulatoryCompileInputs(rule_targets=(target("C"),))
+    )
+    second = RegulatoryCompiler.compile(
+        registry, RegulatoryCompileInputs(rule_targets=(target("C"),))
+    )
+    assert first.plan.plan_identity == second.plan.plan_identity
+    assert first.plan.compiled_closure_inventory == second.plan.compiled_closure_inventory
