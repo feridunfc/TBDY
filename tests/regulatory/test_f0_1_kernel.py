@@ -162,7 +162,7 @@ def test_B_missing_regulatory_producer_and_external_source_fail():
     [
         (external("A", "FACT", semantic=SemanticType.TOY_RESULT), "semantic type mismatch"),
         (external("A", "FACT", dimension=PhysicalDimension.LENGTH, unit=UNIT_MM), "physical dimension mismatch"),
-        (external("A", "FACT", grain=Grain.MODEL, scope_ref="MODEL"), "external source scope mismatch"),
+        (external("A", "FACT", scope_ref="C2"), "scope mismatch"),
     ],
 )
 def test_C_D_and_scope_mismatch_fail(authority, message):
