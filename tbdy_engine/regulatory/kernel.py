@@ -444,6 +444,7 @@ class RegulatoryCompiler:
             bindings.extend(node_bindings)
             nodes.append(CompiledRuleNode(instance_id, spec, closure, node_bindings, target.analysis_basis_status))
         bindings.sort(key=lambda x: x.sort_key)
+        cls._validate_bindings(tuple(bindings), registry, specs, inputs)
         order = cls._topological(tuple(nodes), tuple(bindings))
         refs = tuple(DependencyBindingRef(x.consumer_instance_id, x.dependency.key, x.producer_ref) for x in bindings)
         edges = tuple(ref for ref, binding in zip(refs, bindings) if binding.authority_kind is BindingAuthorityKind.REGULATORY_PRODUCER)
@@ -497,67 +498,137 @@ class RegulatoryCompiler:
         cls, consumer: RuleInstanceId, dep: DependencySpec, registry: RegulatoryRegistry,
         instances: Mapping[RuleInstanceId, RuleDefinition], inputs: RegulatoryCompileInputs,
     ) -> CompiledDependencyBinding:
+        # Binding establishes one authority identity. Contract compatibility is
+        # validated later in the frozen F0 order, before graph cycle validation.
         if dep.source_kind is DependencySourceKind.REGULATORY_QUANTITY:
             producers = tuple(s for s in registry.derivations if s.output_contract.authority_key == dep.key)
             if not producers:
                 raise cls._error(consumer, dep, "missing regulatory producer")
             if len(producers) != 1:
                 raise cls._error(consumer, dep, "multiple regulatory producers")
-            producer = producers[0]
-            cls._types(consumer, dep, producer.output_contract.semantic_type, producer.output_contract.physical_dimension, producer.output_contract.grain)
-            scoped = tuple(i for i, s in instances.items() if s.rule_id == producer.rule_id and cls._scope(dep.scope_policy, consumer, i))
-            if not scoped:
-                raise cls._error(consumer, dep, "regulatory producer scope mismatch")
-            directed = tuple(i for i in scoped if cls._direction(dep.direction_policy, consumer.direction, i.direction))
-            if not directed:
-                raise cls._error(consumer, dep, "regulatory producer direction mismatch")
-            if len(directed) != 1:
-                raise cls._error(consumer, dep, "ambiguous regulatory producer instances")
-            cls._unit(consumer, dep, producer.output_contract.unit)
-            return CompiledDependencyBinding(consumer, dep, BindingAuthorityKind.REGULATORY_PRODUCER, producer_instance_id=directed[0])
-        candidates = tuple(a for a in inputs.external_authorities if a.key == dep.key and a.source_kind is dep.source_kind)
+            candidates = tuple(i for i, spec in instances.items() if spec.rule_id == producers[0].rule_id)
+            chosen = cls._choose_regulatory_instance(consumer, dep, candidates)
+            return CompiledDependencyBinding(
+                consumer, dep, BindingAuthorityKind.REGULATORY_PRODUCER, producer_instance_id=chosen
+            )
+        candidates = tuple(
+            a for a in inputs.external_authorities
+            if a.key == dep.key and a.source_kind is dep.source_kind
+        )
         if not candidates:
             raise cls._error(consumer, dep, "missing declared external source authority")
-        scoped = tuple(a for a in candidates if cls._scope_external(dep.scope_policy, consumer, a))
-        if not scoped:
-            raise cls._error(consumer, dep, "external source scope mismatch")
-        directed = tuple(a for a in scoped if cls._direction(dep.direction_policy, consumer.direction, a.direction))
-        if not directed:
-            raise cls._error(consumer, dep, "external source direction mismatch")
-        if len(directed) != 1:
-            raise cls._error(consumer, dep, "multiple matching external source authorities")
-        authority = directed[0]
-        cls._types(consumer, dep, authority.semantic_type, authority.physical_dimension, authority.grain)
-        cls._unit(consumer, dep, authority.unit)
-        if dep.population_completeness_requirement is PopulationRequirement.FULL and authority.population_completeness is not PopulationCompleteness.FULL:
-            raise cls._error(consumer, dep, "FULL population requirement is not satisfiable")
-        return CompiledDependencyBinding(consumer, dep, BindingAuthorityKind.EXTERNAL_AUTHORITY, external_authority_id=authority.authority_id)
+        chosen = cls._choose_external_authority(consumer, dep, candidates)
+        return CompiledDependencyBinding(
+            consumer, dep, BindingAuthorityKind.EXTERNAL_AUTHORITY, external_authority_id=chosen.authority_id
+        )
 
-    @staticmethod
-    def _types(consumer: RuleInstanceId, dep: DependencySpec, semantic: SemanticType, dimension: PhysicalDimension, grain: Grain) -> None:
-        if semantic is not dep.semantic_type:
-            raise RegulatoryCompiler._error(consumer, dep, "semantic type mismatch")
-        if dimension is not dep.physical_dimension:
-            raise RegulatoryCompiler._error(consumer, dep, "physical dimension mismatch")
-        if grain is not dep.grain:
-            raise RegulatoryCompiler._error(consumer, dep, "grain mismatch")
+    @classmethod
+    def _choose_regulatory_instance(
+        cls, consumer: RuleInstanceId, dep: DependencySpec, candidates: tuple[RuleInstanceId, ...]
+    ) -> RuleInstanceId:
+        if len(candidates) == 1:
+            return candidates[0]
+        exact = tuple(
+            item for item in candidates
+            if cls._scope(dep.scope_policy, consumer, item)
+            and cls._direction(dep.direction_policy, consumer.direction, item.direction)
+        )
+        if len(exact) == 1:
+            return exact[0]
+        raise cls._error(consumer, dep, "multiple regulatory producer instances cannot resolve uniquely")
 
-    @staticmethod
-    def _unit(consumer: RuleInstanceId, dep: DependencySpec, source: Unit) -> None:
-        if not units_convertible(source, dep.unit_requirement):
-            raise RegulatoryCompiler._error(consumer, dep, f"unit mismatch: {source.identifier}->{dep.unit_requirement.identifier}")
+    @classmethod
+    def _choose_external_authority(
+        cls, consumer: RuleInstanceId, dep: DependencySpec,
+        candidates: tuple[ExternalDependencyAuthority, ...],
+    ) -> ExternalDependencyAuthority:
+        if len(candidates) == 1:
+            return candidates[0]
+        exact = tuple(
+            item for item in candidates
+            if cls._scope_external(dep.scope_policy, consumer, item)
+            and cls._direction(dep.direction_policy, consumer.direction, item.direction)
+        )
+        if len(exact) == 1:
+            return exact[0]
+        raise cls._error(consumer, dep, "multiple external source authorities cannot resolve uniquely")
+
+    @classmethod
+    def _validate_bindings(
+        cls, bindings: tuple[CompiledDependencyBinding, ...], registry: RegulatoryRegistry,
+        instances: Mapping[RuleInstanceId, RuleDefinition], inputs: RegulatoryCompileInputs,
+    ) -> None:
+        authorities = {item.authority_id: item for item in inputs.external_authorities}
+
+        def source(binding: CompiledDependencyBinding):
+            if binding.external_authority_id is not None:
+                return authorities[binding.external_authority_id]
+            assert binding.producer_instance_id is not None
+            producer_spec = instances[binding.producer_instance_id]
+            assert isinstance(producer_spec, RegulatoryDerivationSpec)
+            return producer_spec.output_contract
+
+        # Frozen normative order from F0 architecture §§8–8.1. Existence and
+        # single-authority checks occur during _bind above. The remaining
+        # compatibility classes are validated as ordered passes over all bindings.
+        for binding in bindings:
+            src = source(binding)
+            if src.semantic_type is not binding.dependency.semantic_type:
+                raise cls._error(binding.consumer_instance_id, binding.dependency, "semantic type mismatch")
+        for binding in bindings:
+            src = source(binding)
+            if src.physical_dimension is not binding.dependency.physical_dimension:
+                raise cls._error(binding.consumer_instance_id, binding.dependency, "physical dimension mismatch")
+        for binding in bindings:
+            src = source(binding)
+            if src.grain is not binding.dependency.grain:
+                raise cls._error(binding.consumer_instance_id, binding.dependency, "grain mismatch")
+        for binding in bindings:
+            dep = binding.dependency
+            if binding.external_authority_id is not None:
+                ok = cls._scope_external(dep.scope_policy, binding.consumer_instance_id, authorities[binding.external_authority_id])
+            else:
+                assert binding.producer_instance_id is not None
+                ok = cls._scope(dep.scope_policy, binding.consumer_instance_id, binding.producer_instance_id)
+            if not ok:
+                raise cls._error(binding.consumer_instance_id, dep, "scope mismatch")
+        for binding in bindings:
+            dep = binding.dependency
+            source_direction = (
+                authorities[binding.external_authority_id].direction
+                if binding.external_authority_id is not None
+                else binding.producer_instance_id.direction
+            )
+            if not cls._direction(dep.direction_policy, binding.consumer_instance_id.direction, source_direction):
+                raise cls._error(binding.consumer_instance_id, dep, "direction mismatch")
+        for binding in bindings:
+            src = source(binding)
+            if not units_convertible(src.unit, binding.dependency.unit_requirement):
+                raise cls._error(
+                    binding.consumer_instance_id, binding.dependency,
+                    f"unit mismatch: {src.unit.identifier}->{binding.dependency.unit_requirement.identifier}",
+                )
+        for binding in bindings:
+            dep = binding.dependency
+            if dep.population_completeness_requirement is not PopulationRequirement.FULL:
+                continue
+            if binding.external_authority_id is None:
+                continue
+            authority = authorities[binding.external_authority_id]
+            if authority.population_completeness is not PopulationCompleteness.FULL:
+                raise cls._error(binding.consumer_instance_id, dep, "FULL population requirement is not satisfiable")
 
     @staticmethod
     def _scope(policy: ScopePolicy, consumer: RuleInstanceId, producer: RuleInstanceId) -> bool:
         if policy in {ScopePolicy.EXACT_SCOPE, ScopePolicy.SAME_SCOPE}:
             return consumer.scope_ref == producer.scope_ref
-        return producer.grain is Grain.MODEL and producer.scope_ref == "MODEL"
+        return policy is ScopePolicy.GLOBAL_SCOPE and producer.grain is Grain.MODEL and producer.scope_ref == "MODEL"
 
     @staticmethod
     def _scope_external(policy: ScopePolicy, consumer: RuleInstanceId, source: ExternalDependencyAuthority) -> bool:
         if policy in {ScopePolicy.EXACT_SCOPE, ScopePolicy.SAME_SCOPE}:
             return consumer.scope_ref == source.scope_ref
-        return source.grain is Grain.MODEL and source.scope_ref == "MODEL"
+        return policy is ScopePolicy.GLOBAL_SCOPE and source.grain is Grain.MODEL and source.scope_ref == "MODEL"
 
     @staticmethod
     def _direction(policy: DirectionPolicy, consumer: str | None, source: str | None) -> bool:
