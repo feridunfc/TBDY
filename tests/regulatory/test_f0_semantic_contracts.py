@@ -419,7 +419,7 @@ def test_execution_plan_is_immutable_shell_without_compile_or_execute_methods():
         code_refs=("TOY",),
         rule_version="v1",
     )
-    plan = TBDYExecutionPlan((
+    plan = TBDYExecutionPlan(
         registry_version="f0.0:test",
         plan_identity="plan:test",
         compiled_rule_instances=(instance,),
