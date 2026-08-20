@@ -37,6 +37,44 @@ def evidence_epoch_ref(epoch: EvidenceEpoch) -> str:
     return f"epoch:{epoch.epoch_id}"
 
 
+def _analysis_basis_snapshot_identity(
+    *,
+    epoch_ref: str,
+    structural_zone_ref: str,
+    direction: str,
+    reviewed_declaration_ref: str,
+    resolved_policy_ref: str,
+    analysis_assumption_ref: str,
+    compatibility_ref: str,
+    analysis_evidence_refs: tuple[str, ...],
+    provenance_refs: tuple[str, ...],
+) -> str:
+    """Return the deterministic identity of the stored join fields only."""
+
+    payload = {
+        "epoch_ref": _canonical_epoch_ref(epoch_ref),
+        "structural_zone_ref": _canonical_text(structural_zone_ref, "structural_zone_ref"),
+        "direction": _canonical_text(direction, "direction"),
+        "reviewed_declaration_ref": _canonical_text(
+            reviewed_declaration_ref, "reviewed_declaration_ref"
+        ),
+        "resolved_policy_ref": _canonical_text(resolved_policy_ref, "resolved_policy_ref"),
+        "analysis_assumption_ref": _canonical_text(
+            analysis_assumption_ref, "analysis_assumption_ref"
+        ),
+        "compatibility_ref": _canonical_text(compatibility_ref, "compatibility_ref"),
+        "analysis_evidence_refs": list(_refs(analysis_evidence_refs, "analysis_evidence_ref")),
+        "provenance_refs": list(_refs(provenance_refs, "provenance_ref")),
+    }
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    ).encode("utf-8")
+    return "analysis-basis-snapshot:" + hashlib.sha256(encoded).hexdigest()
+
+
 @dataclass(frozen=True, slots=True)
 class ReviewedDirectionalSystemDeclaration:
     declaration_id: str
@@ -122,17 +160,35 @@ class AnalysisBasisSnapshot:
         digest = snapshot_id.removeprefix("analysis-basis-snapshot:")
         if len(digest) != 64 or any(ch not in "0123456789abcdef" for ch in digest):
             raise ValueError("snapshot_id must contain a lowercase sha256 digest")
-        _canonical_epoch_ref(self.epoch_ref)
-        _canonical_text(self.structural_zone_ref, "structural_zone_ref")
-        _canonical_text(self.direction, "direction")
-        _canonical_text(self.reviewed_declaration_ref, "reviewed_declaration_ref")
-        _canonical_text(self.resolved_policy_ref, "resolved_policy_ref")
-        _canonical_text(self.analysis_assumption_ref, "analysis_assumption_ref")
-        _canonical_text(self.compatibility_ref, "compatibility_ref")
-        object.__setattr__(
-            self, "analysis_evidence_refs", _refs(self.analysis_evidence_refs, "analysis_evidence_ref")
+        epoch_ref = _canonical_epoch_ref(self.epoch_ref)
+        structural_zone_ref = _canonical_text(self.structural_zone_ref, "structural_zone_ref")
+        direction = _canonical_text(self.direction, "direction")
+        reviewed_declaration_ref = _canonical_text(
+            self.reviewed_declaration_ref, "reviewed_declaration_ref"
         )
-        object.__setattr__(self, "provenance_refs", _refs(self.provenance_refs, "provenance_ref"))
+        resolved_policy_ref = _canonical_text(self.resolved_policy_ref, "resolved_policy_ref")
+        analysis_assumption_ref = _canonical_text(
+            self.analysis_assumption_ref, "analysis_assumption_ref"
+        )
+        compatibility_ref = _canonical_text(self.compatibility_ref, "compatibility_ref")
+        analysis_evidence_refs = _refs(self.analysis_evidence_refs, "analysis_evidence_ref")
+        provenance_refs = _refs(self.provenance_refs, "provenance_ref")
+        object.__setattr__(self, "analysis_evidence_refs", analysis_evidence_refs)
+        object.__setattr__(self, "provenance_refs", provenance_refs)
+
+        expected_id = _analysis_basis_snapshot_identity(
+            epoch_ref=epoch_ref,
+            structural_zone_ref=structural_zone_ref,
+            direction=direction,
+            reviewed_declaration_ref=reviewed_declaration_ref,
+            resolved_policy_ref=resolved_policy_ref,
+            analysis_assumption_ref=analysis_assumption_ref,
+            compatibility_ref=compatibility_ref,
+            analysis_evidence_refs=analysis_evidence_refs,
+            provenance_refs=provenance_refs,
+        )
+        if snapshot_id != expected_id:
+            raise ValueError("snapshot_id does not match canonical stored join fields")
 
 
 @dataclass(frozen=True, slots=True)
@@ -197,24 +253,17 @@ def build_analysis_basis_snapshot(
     if compatibility.required_basis_ref != resolved_policy_ref:
         raise ValueError("compatibility required_basis_ref does not match resolved_policy_ref")
 
-    identity_payload = {
-        "epoch_ref": current_epoch_ref,
-        "structural_zone_ref": declaration.structural_zone_ref,
-        "direction": declaration.direction,
-        "reviewed_declaration_ref": declaration.declaration_id,
-        "resolved_policy_ref": resolved_policy_ref,
-        "analysis_assumption_ref": assumption.assumption_id,
-        "compatibility_ref": compatibility.compatibility_id,
-        "analysis_evidence_refs": list(analysis_evidence_refs),
-        "provenance_refs": list(provenance_refs),
-    }
-    encoded = json.dumps(
-        identity_payload,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-    ).encode("utf-8")
-    snapshot_id = "analysis-basis-snapshot:" + hashlib.sha256(encoded).hexdigest()
+    snapshot_id = _analysis_basis_snapshot_identity(
+        epoch_ref=current_epoch_ref,
+        structural_zone_ref=declaration.structural_zone_ref,
+        direction=declaration.direction,
+        reviewed_declaration_ref=declaration.declaration_id,
+        resolved_policy_ref=resolved_policy_ref,
+        analysis_assumption_ref=assumption.assumption_id,
+        compatibility_ref=compatibility.compatibility_id,
+        analysis_evidence_refs=analysis_evidence_refs,
+        provenance_refs=provenance_refs,
+    )
     return AnalysisBasisSnapshot(
         snapshot_id=snapshot_id,
         epoch_ref=current_epoch_ref,

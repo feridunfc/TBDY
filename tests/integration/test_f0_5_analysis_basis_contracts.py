@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import FrozenInstanceError, fields
+from dataclasses import FrozenInstanceError, fields, replace
 from pathlib import Path
 
 import pytest
@@ -208,6 +208,94 @@ def test_snapshot_identity_is_deterministic_and_changes_only_with_join_inputs() 
         provenance_refs=("fixture:snapshot-provenance",),
     )
     assert changed_epoch.snapshot_id != first.snapshot_id
+
+
+def test_snapshot_direct_construction_rejects_format_valid_unrelated_digest() -> None:
+    snapshot = build_analysis_basis_snapshot(
+        epoch=_epoch(),
+        declaration=_declaration(),
+        resolved_policy_ref="fixture:policy:X",
+        assumption=_assumption(),
+        compatibility=_compatibility(compatibility_id="fixture:compatibility:X:integrity"),
+        analysis_evidence_refs=("fixture:analysis-evidence:X",),
+        provenance_refs=("fixture:snapshot-provenance",),
+    )
+    with pytest.raises(ValueError, match="canonical stored join fields"):
+        AnalysisBasisSnapshot(
+            snapshot_id="analysis-basis-snapshot:" + "0" * 64,
+            epoch_ref=snapshot.epoch_ref,
+            structural_zone_ref=snapshot.structural_zone_ref,
+            direction=snapshot.direction,
+            reviewed_declaration_ref=snapshot.reviewed_declaration_ref,
+            resolved_policy_ref=snapshot.resolved_policy_ref,
+            analysis_assumption_ref=snapshot.analysis_assumption_ref,
+            compatibility_ref=snapshot.compatibility_ref,
+            analysis_evidence_refs=snapshot.analysis_evidence_refs,
+            provenance_refs=snapshot.provenance_refs,
+        )
+
+
+@pytest.mark.parametrize(
+    "field_name,new_value",
+    [
+        ("epoch_ref", "epoch:E18"),
+        ("structural_zone_ref", "OTHER_ZONE"),
+        ("direction", "Y"),
+        ("reviewed_declaration_ref", "fixture:declaration:changed"),
+        ("resolved_policy_ref", "fixture:policy:changed"),
+        ("analysis_assumption_ref", "fixture:assumption:changed"),
+        ("compatibility_ref", "fixture:compatibility:changed"),
+        ("analysis_evidence_refs", ("fixture:analysis-evidence:changed",)),
+        ("provenance_refs", ("fixture:snapshot-provenance:changed",)),
+    ],
+)
+def test_snapshot_rejects_changed_identity_field_with_old_id(field_name: str, new_value: object) -> None:
+    snapshot = build_analysis_basis_snapshot(
+        epoch=_epoch(),
+        declaration=_declaration(),
+        resolved_policy_ref="fixture:policy:X",
+        assumption=_assumption(),
+        compatibility=_compatibility(compatibility_id="fixture:compatibility:X:integrity"),
+        analysis_evidence_refs=("fixture:analysis-evidence:X",),
+        provenance_refs=("fixture:snapshot-provenance",),
+    )
+    with pytest.raises(ValueError, match="canonical stored join fields"):
+        replace(snapshot, **{field_name: new_value})
+
+
+def test_snapshot_tuple_order_is_stable_and_identity_bearing() -> None:
+    kwargs = dict(
+        epoch=_epoch(),
+        declaration=_declaration(),
+        resolved_policy_ref="fixture:policy:X",
+        assumption=_assumption(),
+        compatibility=_compatibility(compatibility_id="fixture:compatibility:X:ordering"),
+    )
+    first = build_analysis_basis_snapshot(
+        **kwargs,
+        analysis_evidence_refs=("fixture:evidence:1", "fixture:evidence:2"),
+        provenance_refs=("fixture:provenance:1", "fixture:provenance:2"),
+    )
+    same = build_analysis_basis_snapshot(
+        **kwargs,
+        analysis_evidence_refs=("fixture:evidence:1", "fixture:evidence:2"),
+        provenance_refs=("fixture:provenance:1", "fixture:provenance:2"),
+    )
+    reversed_evidence = build_analysis_basis_snapshot(
+        **kwargs,
+        analysis_evidence_refs=("fixture:evidence:2", "fixture:evidence:1"),
+        provenance_refs=("fixture:provenance:1", "fixture:provenance:2"),
+    )
+    reversed_provenance = build_analysis_basis_snapshot(
+        **kwargs,
+        analysis_evidence_refs=("fixture:evidence:1", "fixture:evidence:2"),
+        provenance_refs=("fixture:provenance:2", "fixture:provenance:1"),
+    )
+    assert first.snapshot_id == same.snapshot_id
+    assert first.analysis_evidence_refs == ("fixture:evidence:1", "fixture:evidence:2")
+    assert first.provenance_refs == ("fixture:provenance:1", "fixture:provenance:2")
+    assert reversed_evidence.snapshot_id != first.snapshot_id
+    assert reversed_provenance.snapshot_id != first.snapshot_id
 
 
 @pytest.mark.parametrize(
