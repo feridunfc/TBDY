@@ -167,6 +167,10 @@ def test_semantic_type_is_bounded_and_neutral():
         SemanticType.TOY_INPUT,
         SemanticType.TOY_DERIVED_STATE,
         SemanticType.TOY_RESULT,
+        SemanticType.BEAM_WIDTH,
+        SemanticType.COMPONENT_STORY,
+        SemanticType.COMPONENT_SECTION,
+        SemanticType.CHECK_EVIDENCE_TRACE,
     }
     with pytest.raises(ValueError):
         SemanticType("ARBITRARY_RUNTIME_TEXT")
