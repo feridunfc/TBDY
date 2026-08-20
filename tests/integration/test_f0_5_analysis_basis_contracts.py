@@ -259,6 +259,58 @@ def test_snapshot_builder_rejects_structural_incoherence(mutator: str, match: st
         )
 
 
+def test_snapshot_builder_preserves_inputs_and_contracts_reject_noncanonical_refs() -> None:
+    epoch = _epoch()
+    declaration = _declaration()
+    assumption = _assumption()
+    compatibility = _compatibility()
+    before = (
+        epoch.as_dict(),
+        declaration,
+        assumption,
+        compatibility,
+    )
+    build_analysis_basis_snapshot(
+        epoch=epoch,
+        declaration=declaration,
+        resolved_policy_ref="fixture:policy:X",
+        assumption=assumption,
+        compatibility=compatibility,
+        analysis_evidence_refs=("fixture:analysis-evidence:X",),
+        provenance_refs=("fixture:snapshot-provenance",),
+    )
+    assert epoch.as_dict() == before[0]
+    assert declaration == before[1]
+    assert assumption == before[2]
+    assert compatibility == before[3]
+
+    with pytest.raises(ValueError, match="direction"):
+        ReviewedDirectionalSystemDeclaration(
+            declaration_id="fixture:declaration",
+            structural_zone_ref=ZONE,
+            direction=" ",
+            declared_basis_ref="fixture:declared",
+        )
+    with pytest.raises(ValueError, match="epoch_ref"):
+        AnalysisSystemAssumption(
+            assumption_id="fixture:assumption",
+            epoch_ref="E17",
+            structural_zone_ref=ZONE,
+            direction="X",
+            observed_basis_ref="fixture:observed",
+        )
+    with pytest.raises(ValueError, match="required_basis_ref"):
+        AnalysisBasisCompatibility(
+            compatibility_id="fixture:compatibility",
+            epoch_ref="epoch:E17",
+            structural_zone_ref=ZONE,
+            direction="X",
+            required_basis_ref=" ",
+            analysis_assumption_ref="fixture:assumption",
+            status=AnalysisBasisStatus.MATCH,
+        )
+
+
 def test_requirement_is_exact_rule_instance_binding_and_validates_scope_direction() -> None:
     target = _target("X")
     requirement = _requirement(target, "fixture:compatibility:X")
