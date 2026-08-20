@@ -54,7 +54,11 @@ class EvidenceEpoch:
             "predecessor_epoch_ref",
             _optional_text(self.predecessor_epoch_ref, "predecessor_epoch_ref"),
         )
-        refs = tuple(self.provenance_refs)
+        if type(self.provenance_refs) is not tuple:
+            raise TypeError("provenance_refs must be a tuple of strings")
+        refs = self.provenance_refs
+        if any(not isinstance(item, str) for item in refs):
+            raise TypeError("provenance_refs must contain strings only")
         object.__setattr__(
             self,
             "provenance_refs",
