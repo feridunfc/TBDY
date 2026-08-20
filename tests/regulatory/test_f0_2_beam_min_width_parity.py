@@ -213,6 +213,7 @@ def _dag_result(width_mm: float, evidence: FeatureEvidence) -> CheckResult:
     program = _compile_program(width_mm=width_mm, evidence=evidence)
     snapshot = RegulatoryEngine.execute(program)
     instance = program.plan.compiled_rule_instances[0]
+    assert instance.grain is Grain.COMPONENT
     results = snapshot.formal_results_for(instance)
     assert len(results) == 1
     return results[0]
@@ -224,6 +225,7 @@ def test_f0_2_registry_contains_exactly_one_real_check_spec() -> None:
     assert len(F0_2_BEAM_MIN_WIDTH_REGISTRY.checks) == 1
     assert F0_2_BEAM_MIN_WIDTH_REGISTRY.checks[0] is BEAM_MIN_WIDTH_CHECK_SPEC
     assert BEAM_MIN_WIDTH_CHECK_SPEC.rule_id == RuleId("beam_geometry_min_width")
+    assert BEAM_MIN_WIDTH_CHECK_SPEC.evaluator.input_type is BeamMinWidthExecutionInput
     assert RULE_ID == RuleId(BEAM_MIN_WIDTH)
     assert RULE_VERSION == "f0.2-parity-v1"
 
