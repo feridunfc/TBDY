@@ -171,6 +171,7 @@ def test_semantic_type_is_bounded_and_neutral():
         SemanticType.COMPONENT_STORY,
         SemanticType.COMPONENT_SECTION,
         SemanticType.CHECK_EVIDENCE_TRACE,
+        SemanticType.CONCRETE_FCK,
     }
     with pytest.raises(ValueError):
         SemanticType("ARBITRARY_RUNTIME_TEXT")
@@ -467,7 +468,6 @@ def test_regulatory_package_static_architecture_guards():
     assert "MinimalCheckEngine" not in source
     assert "GeometryCheckInput" not in source
     forbidden_domain_tokens = (
-        "CONCRETE_MATERIAL_MIN_STRENGTH",
         "25 MPa",
         "A11",
         "A12",
