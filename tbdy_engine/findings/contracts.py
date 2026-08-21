@@ -51,13 +51,51 @@ def _dependency_keys(values: tuple[DependencyKey, ...]) -> tuple[DependencyKey, 
 
 
 def _validate_source_status(source_kind: FindingSourceKind, source_status: FindingSourceStatus) -> None:
-    expected = {
-        FindingSourceKind.CHECK_RESULT: CheckStatus,
-        FindingSourceKind.RULE_CLOSURE: ClosureExecutionStatus,
-        FindingSourceKind.ANALYSIS_BASIS_COMPATIBILITY: AnalysisBasisStatus,
-    }[source_kind]
+    if not isinstance(source_kind, FindingSourceKind):
+        raise TypeError("source_kind must be FindingSourceKind")
+    contracts = {
+        FindingSourceKind.CHECK_RESULT: (
+            CheckStatus,
+            frozenset(
+                {
+                    CheckStatus.FAIL,
+                    CheckStatus.WARNING,
+                    CheckStatus.NO_DATA,
+                    CheckStatus.BLOCKED,
+                }
+            ),
+        ),
+        FindingSourceKind.RULE_CLOSURE: (
+            ClosureExecutionStatus,
+            frozenset(
+                {
+                    ClosureExecutionStatus.NOT_EXECUTED,
+                    ClosureExecutionStatus.BLOCKED,
+                    ClosureExecutionStatus.NO_DATA,
+                    ClosureExecutionStatus.MISSING,
+                    ClosureExecutionStatus.DUPLICATE,
+                    ClosureExecutionStatus.INVALID,
+                }
+            ),
+        ),
+        FindingSourceKind.ANALYSIS_BASIS_COMPATIBILITY: (
+            AnalysisBasisStatus,
+            frozenset(
+                {
+                    AnalysisBasisStatus.REANALYSIS_REQUIRED,
+                    AnalysisBasisStatus.UNRESOLVED,
+                    AnalysisBasisStatus.INVALID,
+                }
+            ),
+        ),
+    }
+    expected, eligible = contracts[source_kind]
     if type(source_status) is not expected:
         raise TypeError(f"{source_kind.value} requires source_status type {expected.__name__}")
+    if source_status not in eligible:
+        raise ValueError(
+            f"{source_kind.value} source_status {source_status.value} is not Finding-eligible"
+        )
 
 
 def _validate_source_coherence(

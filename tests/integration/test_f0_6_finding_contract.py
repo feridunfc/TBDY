@@ -412,3 +412,99 @@ def test_all_three_existing_builders_create_source_coherent_findings() -> None:
     assert basis_finding.scope_ref == compatibility.structural_zone_ref
     assert basis_finding.direction == compatibility.direction
     assert basis_finding.rule_instance_ref is None
+
+
+def test_direct_check_result_finding_rejects_ok_status() -> None:
+    instance = _instance()
+    with pytest.raises(ValueError, match="not Finding-eligible"):
+        Finding(
+            finding_id="finding:" + "0" * 64,
+            source_kind=FindingSourceKind.CHECK_RESULT,
+            source_ref=f"check-result:{instance.value}",
+            source_status=CheckStatus.OK,
+            scope_ref=instance.scope_ref,
+            direction=instance.direction,
+            rule_instance_ref=instance,
+        )
+
+
+def test_direct_check_result_finding_rejects_out_of_scope_status() -> None:
+    instance = _instance()
+    with pytest.raises(ValueError, match="not Finding-eligible"):
+        Finding(
+            finding_id="finding:" + "0" * 64,
+            source_kind=FindingSourceKind.CHECK_RESULT,
+            source_ref=f"check-result:{instance.value}",
+            source_status=CheckStatus.OUT_OF_SCOPE,
+            scope_ref=instance.scope_ref,
+            direction=instance.direction,
+            rule_instance_ref=instance,
+        )
+
+
+def test_direct_rule_closure_finding_rejects_executed_status() -> None:
+    instance = _instance("TEST_CLOSURE")
+    with pytest.raises(ValueError, match="not Finding-eligible"):
+        Finding(
+            finding_id="finding:" + "0" * 64,
+            source_kind=FindingSourceKind.RULE_CLOSURE,
+            source_ref=f"rule-closure:{instance.value}",
+            source_status=ClosureExecutionStatus.EXECUTED,
+            scope_ref=instance.scope_ref,
+            direction=instance.direction,
+            rule_instance_ref=instance,
+        )
+
+
+def test_direct_rule_closure_finding_rejects_proven_not_applicable_status() -> None:
+    instance = _instance("TEST_CLOSURE")
+    with pytest.raises(ValueError, match="not Finding-eligible"):
+        Finding(
+            finding_id="finding:" + "0" * 64,
+            source_kind=FindingSourceKind.RULE_CLOSURE,
+            source_ref=f"rule-closure:{instance.value}",
+            source_status=ClosureExecutionStatus.PROVEN_NOT_APPLICABLE,
+            scope_ref=instance.scope_ref,
+            direction=instance.direction,
+            rule_instance_ref=instance,
+        )
+
+
+def test_direct_analysis_basis_finding_rejects_match_status() -> None:
+    compatibility = _compat(AnalysisBasisStatus.MATCH)
+    with pytest.raises(ValueError, match="not Finding-eligible"):
+        Finding(
+            finding_id="finding:" + "0" * 64,
+            source_kind=FindingSourceKind.ANALYSIS_BASIS_COMPATIBILITY,
+            source_ref=f"analysis-basis-compatibility:{compatibility.compatibility_id}",
+            source_status=AnalysisBasisStatus.MATCH,
+            scope_ref=compatibility.structural_zone_ref,
+            direction=compatibility.direction,
+            rule_instance_ref=None,
+        )
+
+
+def test_replace_valid_findings_rejects_noneligible_status_before_identity_check() -> None:
+    check_finding = build_finding_from_check_result(
+        instance_id=_instance(),
+        result=_result(CheckStatus.FAIL),
+    )
+    record, outcome = _closure(ClosureExecutionStatus.BLOCKED)
+    closure_finding = build_finding_from_rule_closure(
+        compiled_record=record,
+        outcome=outcome,
+    )
+    basis_finding = build_finding_from_analysis_basis(
+        compatibility=_compat(AnalysisBasisStatus.REANALYSIS_REQUIRED),
+    )
+    assert check_finding is not None
+    assert closure_finding is not None
+    assert basis_finding is not None
+
+    for finding, noneligible_status in (
+        (check_finding, CheckStatus.OK),
+        (closure_finding, ClosureExecutionStatus.EXECUTED),
+        (basis_finding, AnalysisBasisStatus.MATCH),
+    ):
+        with pytest.raises(ValueError, match="not Finding-eligible"):
+            replace(finding, source_status=noneligible_status)
