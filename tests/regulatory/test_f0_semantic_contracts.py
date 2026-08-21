@@ -172,6 +172,13 @@ def test_semantic_type_is_bounded_and_neutral():
         SemanticType.COMPONENT_SECTION,
         SemanticType.CHECK_EVIDENCE_TRACE,
         SemanticType.CONCRETE_FCK,
+        SemanticType.BEAM_DEPTH,
+        SemanticType.COLUMN_WIDTH,
+        SemanticType.COLUMN_DEPTH,
+        SemanticType.WALL_LENGTH,
+        SemanticType.WALL_THICKNESS,
+        SemanticType.WALL_STORY_HEIGHT,
+        SemanticType.WALL_UNRESTRAINED_PLAN_LENGTH,
     }
     with pytest.raises(ValueError):
         SemanticType("ARBITRARY_RUNTIME_TEXT")
