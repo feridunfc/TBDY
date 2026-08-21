@@ -76,6 +76,10 @@ class ConcreteMaterialMinStrengthExecutionInput:
     def __post_init__(self) -> None:
         if not isinstance(self.envelope, RuleExecutionEnvelope):
             raise TypeError("envelope must be RuleExecutionEnvelope")
+        if self.envelope.instance_id.grain is not Grain.MATERIAL_DEFINITION:
+            raise ValueError("concrete material minimum-strength execution requires Grain.MATERIAL_DEFINITION")
+        if self.envelope.instance_id.direction is not None:
+            raise ValueError("Grain.MATERIAL_DEFINITION concrete material minimum-strength execution requires direction=None")
         if not isinstance(self.material_ref, str) or not self.material_ref.strip():
             raise ValueError("material_ref must be a nonblank string")
         if self.material_ref != self.envelope.instance_id.scope_ref:

@@ -315,3 +315,29 @@ def test_material_rule_remains_executable_when_unrelated_rule_requires_reanalysi
     assert snapshot.outcome_for(material_instance).execution_status is ClosureExecutionStatus.EXECUTED
     assert snapshot.formal_results_for(beam_instance) == ()
     assert snapshot.outcome_for(beam_instance).execution_status is ClosureExecutionStatus.BLOCKED
+
+
+def test_wrong_component_target_grain_compiles_but_execution_fails_closed_at_material_boundary() -> None:
+    scope = "MAT_C25"
+    inputs = RegulatoryCompileInputs(
+        rule_targets=(
+            RuleScopeTarget(
+                rule_id=RULE_ID,
+                grain=Grain.COMPONENT,
+                scope_ref=scope,
+                applicability_input=ConcreteMaterialMinStrengthApplicabilityInput(
+                    is_concrete_material=True,
+                    used_in_scope_rc_building=True,
+                ),
+            ),
+        ),
+        external_authorities=(
+            _fck_authority(scope, value=25.0),
+            _trace_authority(scope),
+        ),
+    )
+    program = _program(inputs)
+    instance = _instance_for(program, scope)
+    assert instance.grain is Grain.COMPONENT
+    with pytest.raises(ValueError, match="MATERIAL_DEFINITION"):
+        RegulatoryEngine.execute(program)

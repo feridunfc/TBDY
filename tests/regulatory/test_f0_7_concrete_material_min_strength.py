@@ -197,6 +197,43 @@ def test_execution_input_requires_exact_declared_dependency_keys_and_shapes() ->
         ConcreteMaterialMinStrengthExecutionInput.from_declared_dependencies(envelope, (fck, object()))  # type: ignore[arg-type]
 
 
+def test_execution_input_rejects_non_material_definition_instance_grain_before_evaluation() -> None:
+    envelope = RuleExecutionEnvelope(
+        plan_identity="plan:f0.7:wrong-grain",
+        instance_id=RuleInstanceId.build(rule_id=RULE_ID, grain=Grain.COMPONENT, scope_ref="MAT_C25"),
+        rule_id=RULE_ID,
+        rule_version=RULE_VERSION,
+        declared_dependency_refs=(FCK_KEY, EVIDENCE_TRACE_KEY),
+    )
+    dependencies = (
+        _dep(FCK_KEY, value=25.0, semantic=SemanticType.CONCRETE_FCK, dimension=PhysicalDimension.STRESS, unit=UNIT_MPA),
+        _dep(EVIDENCE_TRACE_KEY, value=("evidence:1",), semantic=SemanticType.CHECK_EVIDENCE_TRACE, dimension=PhysicalDimension.DIMENSIONLESS, unit=UNIT_DIMENSIONLESS),
+    )
+    with pytest.raises(ValueError, match="MATERIAL_DEFINITION"):
+        ConcreteMaterialMinStrengthExecutionInput.from_declared_dependencies(envelope, dependencies)
+
+
+def test_execution_input_rejects_directional_material_definition_instance() -> None:
+    envelope = RuleExecutionEnvelope(
+        plan_identity="plan:f0.7:directional-material",
+        instance_id=RuleInstanceId.build(
+            rule_id=RULE_ID,
+            grain=Grain.MATERIAL_DEFINITION,
+            scope_ref="MAT_C25",
+            direction="X",
+        ),
+        rule_id=RULE_ID,
+        rule_version=RULE_VERSION,
+        declared_dependency_refs=(FCK_KEY, EVIDENCE_TRACE_KEY),
+    )
+    dependencies = (
+        _dep(FCK_KEY, value=25.0, semantic=SemanticType.CONCRETE_FCK, dimension=PhysicalDimension.STRESS, unit=UNIT_MPA),
+        _dep(EVIDENCE_TRACE_KEY, value=("evidence:1",), semantic=SemanticType.CHECK_EVIDENCE_TRACE, dimension=PhysicalDimension.DIMENSIONLESS, unit=UNIT_DIMENSIONLESS),
+    )
+    with pytest.raises(ValueError, match="MATERIAL_DEFINITION.*direction=None"):
+        ConcreteMaterialMinStrengthExecutionInput.from_declared_dependencies(envelope, dependencies)
+
+
 def test_material_identity_comes_only_from_envelope_scope_and_input_is_frozen() -> None:
     inp = _execution_input(25.0, evidence=("material_ref:NOT_THE_SCOPE",))
     assert inp.material_ref == "MAT_C25"
