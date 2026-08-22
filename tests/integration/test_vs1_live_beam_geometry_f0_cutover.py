@@ -134,6 +134,71 @@ def _snapshot(
     return snapshot
 
 
+def _column_snapshot() -> FeatureSnapshot:
+    source_table = "Frame Section Property Definitions - Concrete Rectangular"
+    common_row = {
+        "component_id": "C1",
+        "story": "S1",
+        "section": "C400x400",
+        "width_mm": 400.0,
+        "depth_mm": 400.0,
+        "source_table_assignment": "Frame Assignments - Section Properties",
+        "source_table_property": source_table,
+    }
+    width_evidence = FeatureEvidence(
+        evidence_status=FeatureEvidenceStatus.FULL,
+        source_table=source_table,
+        actual_table_name=source_table,
+        source_column="t2",
+        source_row=common_row,
+        raw_value=400.0,
+        normalized_value=400.0,
+        unit="mm",
+        resolver="c13_5_p6_1_design_type_alias_probe",
+    )
+    depth_evidence = FeatureEvidence(
+        evidence_status=FeatureEvidenceStatus.FULL,
+        source_table=source_table,
+        actual_table_name=source_table,
+        source_column="t3",
+        source_row=common_row,
+        raw_value=400.0,
+        normalized_value=400.0,
+        unit="mm",
+        resolver="c13_5_p6_1_design_type_alias_probe",
+    )
+    snapshot = FeatureSnapshot(
+        component_type="column",
+        component_id="C1",
+        identity={
+            "story": "S1",
+            "label": "C1",
+            "section": "C400x400",
+            "unique_name": "C1",
+        },
+        features={
+            "column_width_mm": FeatureValue(
+                feature_name="column_width_mm",
+                value=400.0,
+                unit="mm",
+                semantic_role="GEOMETRY",
+                status=FeatureValueStatus.RESOLVED,
+                evidence=(width_evidence,),
+            ),
+            "column_depth_mm": FeatureValue(
+                feature_name="column_depth_mm",
+                value=400.0,
+                unit="mm",
+                semantic_role="GEOMETRY",
+                status=FeatureValueStatus.RESOLVED,
+                evidence=(depth_evidence,),
+            ),
+        },
+    )
+    assert "tbdy_7411_applies" not in snapshot.identity
+    return snapshot
+
+
 def _write_capture(path: Path, snapshot: FeatureSnapshot) -> bytes:
     raw = (
         json.dumps(
@@ -403,13 +468,9 @@ def test_scenario_b_same_context_is_deterministic(tmp_path: Path) -> None:
 
 
 def test_scenario_c_column_unknown_context_is_proven_not_applicable() -> None:
-    snapshot = FeatureSnapshot(
-        component_type="column",
-        component_id="C1",
-        identity={"story": "S1", "section": "C400x400"},
-        features={},
-    )
+    snapshot = _column_snapshot()
     run = _run(snapshot, tbdy_7411_applies=None)
+    assert "tbdy_7411_applies" not in snapshot.identity
     assert run.store.formal_results == ()
     assert len(run.assessment.closure_outcomes) == 3
     assert all(
