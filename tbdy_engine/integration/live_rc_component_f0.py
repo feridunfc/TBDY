@@ -79,12 +79,7 @@ MATERIAL_DOMAIN_BLOCK_REASON = "USED_RC_MATERIAL_POPULATION_NOT_COMPLETE"
 WALL_NOT_EVALUATED_REASON = "LIVE_FACTUAL_WALL_GEOMETRY_SEAM_NOT_PROMOTED"
 
 VS2_COMPONENT_REGISTRY = RegulatoryRegistry(
-    checks=(
-        BEAM_MIN_WIDTH_CHECK_SPEC,
-        BEAM_MIN_DEPTH_CHECK_SPEC,
-        BEAM_DEPTH_WIDTH_RATIO_CHECK_SPEC,
-        COLUMN_MIN_DIMENSION_CHECK_SPEC,
-    )
+    checks=(BEAM_MIN_WIDTH_CHECK_SPEC, BEAM_MIN_DEPTH_CHECK_SPEC, BEAM_DEPTH_WIDTH_RATIO_CHECK_SPEC, COLUMN_MIN_DIMENSION_CHECK_SPEC)
 )
 VS2_RC_REGISTRY = RegulatoryRegistry(
     checks=(*VS2_COMPONENT_REGISTRY.checks, CONCRETE_MATERIAL_MIN_STRENGTH_CHECK_SPEC)
@@ -159,13 +154,20 @@ def _evidence_from_payload(payload: object) -> FeatureEvidence:
     if not isinstance(payload, Mapping):
         raise VS2RcComponentIntegrationError("Feature evidence payload must be a mapping")
     return FeatureEvidence(
-        evidence_status=payload.get("evidence_status"), source_table=payload.get("source_table"),
-        actual_table_name=payload.get("actual_table_name"), source_column=payload.get("source_column"),
-        source_row=payload.get("source_row") or {}, output_case=payload.get("output_case"),
-        combo_family=payload.get("combo_family"), governing_combo=payload.get("governing_combo"),
-        section_state=payload.get("section_state"), ductility_class=payload.get("ductility_class"),
-        raw_value=payload.get("raw_value"), normalized_value=payload.get("normalized_value"),
-        unit=str(payload.get("unit") or ""), resolver=str(payload.get("resolver") or "generic_table_resolver"),
+        evidence_status=payload.get("evidence_status"),
+        source_table=payload.get("source_table"),
+        actual_table_name=payload.get("actual_table_name"),
+        source_column=payload.get("source_column"),
+        source_row=payload.get("source_row") or {},
+        output_case=payload.get("output_case"),
+        combo_family=payload.get("combo_family"),
+        governing_combo=payload.get("governing_combo"),
+        section_state=payload.get("section_state"),
+        ductility_class=payload.get("ductility_class"),
+        raw_value=payload.get("raw_value"),
+        normalized_value=payload.get("normalized_value"),
+        unit=str(payload.get("unit") or ""),
+        resolver=str(payload.get("resolver") or "generic_table_resolver"),
         reason=payload.get("reason"),
     )
 
@@ -177,8 +179,11 @@ def _feature_from_payload(name: str, payload: object) -> FeatureValue:
     if not isinstance(raw_evidence, Sequence) or isinstance(raw_evidence, (str, bytes, bytearray)):
         raise VS2RcComponentIntegrationError("Feature evidence list is invalid")
     return FeatureValue(
-        feature_name=name, value=payload.get("value"), unit=str(payload.get("unit") or ""),
-        semantic_role=str(payload.get("semantic_role") or "UNKNOWN"), status=payload.get("status"),
+        feature_name=name,
+        value=payload.get("value"),
+        unit=str(payload.get("unit") or ""),
+        semantic_role=str(payload.get("semantic_role") or "UNKNOWN"),
+        status=payload.get("status"),
         evidence=tuple(_evidence_from_payload(item) for item in raw_evidence),
     )
 
@@ -190,8 +195,10 @@ def _snapshot_from_payload(payload: object) -> FeatureSnapshot:
     if not isinstance(identity, Mapping) or not isinstance(features, Mapping):
         raise VS2RcComponentIntegrationError("FeatureSnapshot artifact shape is invalid")
     return FeatureSnapshot(
-        component_type=str(payload.get("component_type") or ""), component_id=str(payload.get("component_id") or ""),
-        identity=dict(identity), features={str(name): _feature_from_payload(str(name), value) for name, value in features.items()},
+        component_type=str(payload.get("component_type") or ""),
+        component_id=str(payload.get("component_id") or ""),
+        identity=dict(identity),
+        features={str(name): _feature_from_payload(str(name), value) for name, value in features.items()},
     )
 
 
@@ -213,7 +220,7 @@ def load_rc_geometry_capture(feature_snapshot_path: Path) -> RcGeometryCaptureAr
         raise VS2RcComponentIntegrationError("Geometry capture contains duplicate component_id")
     beams = tuple(item for item in snapshots if item.component_type.strip().casefold() == "beam")
     columns = tuple(item for item in snapshots if item.component_type.strip().casefold() == "column")
-    return RcGeometryCaptureArtifact(path, raw_bytes, snapshots, beams, columns)
+    return RcGeometryCaptureArtifact(path=path, raw_bytes=raw_bytes, snapshots=snapshots, beam_snapshots=beams, column_snapshots=columns)
 
 
 def material_source_fingerprint(source_bytes: bytes) -> str:
@@ -228,8 +235,10 @@ def build_material_live_capture_epoch(*, model_fingerprint: str, source_bytes: b
     source_fingerprint = material_source_fingerprint(source_bytes)
     return EvidenceEpoch(
         epoch_id=live_epoch_id(model_fingerprint=model_fingerprint, source_fingerprint=source_fingerprint),
-        model_fingerprint=model_fingerprint, origin=EvidenceEpochOrigin.LIVE_CAPTURE,
-        source_fingerprint=source_fingerprint, provenance_refs=(model_fingerprint, source_fingerprint),
+        model_fingerprint=model_fingerprint,
+        origin=EvidenceEpochOrigin.LIVE_CAPTURE,
+        source_fingerprint=source_fingerprint,
+        provenance_refs=(model_fingerprint, source_fingerprint),
     )
 
 
@@ -237,10 +246,27 @@ def _trace_feature(snapshot: FeatureSnapshot) -> FeatureValue:
     evidence = tuple(item for name in sorted(snapshot.features) for item in snapshot.features[name].evidence)
     full = tuple(item for item in evidence if item.evidence_status is FeatureEvidenceStatus.FULL)
     if full:
-        return FeatureValue(COMPONENT_TRACE_FEATURE, "LIVE_RC_COMPONENT_GEOMETRY_CAPTURE", semantic_role="TRACEABILITY", status=FeatureValueStatus.RESOLVED, evidence=full)
+        return FeatureValue(
+            feature_name=COMPONENT_TRACE_FEATURE,
+            value="LIVE_RC_COMPONENT_GEOMETRY_CAPTURE",
+            semantic_role="TRACEABILITY",
+            status=FeatureValueStatus.RESOLVED,
+            evidence=full,
+        )
     if evidence:
-        return FeatureValue(COMPONENT_TRACE_FEATURE, "LIVE_RC_COMPONENT_GEOMETRY_CAPTURE", semantic_role="TRACEABILITY", status=FeatureValueStatus.PARTIAL, evidence=evidence)
-    return FeatureValue(COMPONENT_TRACE_FEATURE, None, semantic_role="TRACEABILITY", status=FeatureValueStatus.MISSING)
+        return FeatureValue(
+            feature_name=COMPONENT_TRACE_FEATURE,
+            value="LIVE_RC_COMPONENT_GEOMETRY_CAPTURE",
+            semantic_role="TRACEABILITY",
+            status=FeatureValueStatus.PARTIAL,
+            evidence=evidence,
+        )
+    return FeatureValue(
+        feature_name=COMPONENT_TRACE_FEATURE,
+        value=None,
+        semantic_role="TRACEABILITY",
+        status=FeatureValueStatus.MISSING,
+    )
 
 
 def prepare_component_snapshot(snapshot: FeatureSnapshot) -> FeatureSnapshot:
@@ -248,14 +274,20 @@ def prepare_component_snapshot(snapshot: FeatureSnapshot) -> FeatureSnapshot:
     if COMPONENT_TRACE_FEATURE in features:
         raise VS2RcComponentIntegrationError("capture already contains integration trace feature")
     features[COMPONENT_TRACE_FEATURE] = _trace_feature(snapshot)
-    return FeatureSnapshot(snapshot.component_type, snapshot.component_id, dict(snapshot.identity), features, snapshot.diagnostics)
+    return FeatureSnapshot(
+        component_type=snapshot.component_type,
+        component_id=snapshot.component_id,
+        identity=dict(snapshot.identity),
+        features=features,
+        diagnostics=snapshot.diagnostics,
+    )
 
 
 def _context_bindings() -> tuple[F0EvidenceBinding, ...]:
     return (
-        F0EvidenceBinding(EvidenceBindingSource.SNAPSHOT_IDENTITY, "story", STORY_KEY, DependencySourceKind.CONTEXT, SemanticType.COMPONENT_STORY, PhysicalDimension.ENUM_STATE, Grain.COMPONENT, UNIT_ENUM_STATE),
-        F0EvidenceBinding(EvidenceBindingSource.SNAPSHOT_IDENTITY, "section", SECTION_KEY, DependencySourceKind.CONTEXT, SemanticType.COMPONENT_SECTION, PhysicalDimension.ENUM_STATE, Grain.COMPONENT, UNIT_ENUM_STATE),
-        F0EvidenceBinding(EvidenceBindingSource.EVIDENCE_TRACE, COMPONENT_TRACE_FEATURE, EVIDENCE_TRACE_KEY, DependencySourceKind.CONTEXT, SemanticType.CHECK_EVIDENCE_TRACE, PhysicalDimension.DIMENSIONLESS, Grain.COMPONENT, UNIT_DIMENSIONLESS),
+        F0EvidenceBinding(source_location=EvidenceBindingSource.SNAPSHOT_IDENTITY, source_key="story", dependency_key=STORY_KEY, source_kind=DependencySourceKind.CONTEXT, semantic_type=SemanticType.COMPONENT_STORY, physical_dimension=PhysicalDimension.ENUM_STATE, grain=Grain.COMPONENT, unit=UNIT_ENUM_STATE),
+        F0EvidenceBinding(source_location=EvidenceBindingSource.SNAPSHOT_IDENTITY, source_key="section", dependency_key=SECTION_KEY, source_kind=DependencySourceKind.CONTEXT, semantic_type=SemanticType.COMPONENT_SECTION, physical_dimension=PhysicalDimension.ENUM_STATE, grain=Grain.COMPONENT, unit=UNIT_ENUM_STATE),
+        F0EvidenceBinding(source_location=EvidenceBindingSource.EVIDENCE_TRACE, source_key=COMPONENT_TRACE_FEATURE, dependency_key=EVIDENCE_TRACE_KEY, source_kind=DependencySourceKind.CONTEXT, semantic_type=SemanticType.CHECK_EVIDENCE_TRACE, physical_dimension=PhysicalDimension.DIMENSIONLESS, grain=Grain.COMPONENT, unit=UNIT_DIMENSIONLESS),
     )
 
 
@@ -263,13 +295,13 @@ def component_bindings(component_type: str) -> tuple[F0EvidenceBinding, ...]:
     kind = str(component_type).strip().casefold()
     if kind == "beam":
         dims = (
-            F0EvidenceBinding(EvidenceBindingSource.FEATURE_VALUE, "beam_width_mm", BEAM_WIDTH_KEY, DependencySourceKind.FACT, SemanticType.BEAM_WIDTH, PhysicalDimension.LENGTH, Grain.COMPONENT, UNIT_MM, "mm"),
-            F0EvidenceBinding(EvidenceBindingSource.FEATURE_VALUE, "beam_depth_mm", BEAM_DEPTH_KEY, DependencySourceKind.FACT, SemanticType.BEAM_DEPTH, PhysicalDimension.LENGTH, Grain.COMPONENT, UNIT_MM, "mm"),
+            F0EvidenceBinding(source_location=EvidenceBindingSource.FEATURE_VALUE, source_key="beam_width_mm", dependency_key=BEAM_WIDTH_KEY, source_kind=DependencySourceKind.FACT, semantic_type=SemanticType.BEAM_WIDTH, physical_dimension=PhysicalDimension.LENGTH, grain=Grain.COMPONENT, unit=UNIT_MM, expected_source_unit="mm"),
+            F0EvidenceBinding(source_location=EvidenceBindingSource.FEATURE_VALUE, source_key="beam_depth_mm", dependency_key=BEAM_DEPTH_KEY, source_kind=DependencySourceKind.FACT, semantic_type=SemanticType.BEAM_DEPTH, physical_dimension=PhysicalDimension.LENGTH, grain=Grain.COMPONENT, unit=UNIT_MM, expected_source_unit="mm"),
         )
     elif kind == "column":
         dims = (
-            F0EvidenceBinding(EvidenceBindingSource.FEATURE_VALUE, "column_width_mm", COLUMN_WIDTH_KEY, DependencySourceKind.FACT, SemanticType.COLUMN_WIDTH, PhysicalDimension.LENGTH, Grain.COMPONENT, UNIT_MM, "mm"),
-            F0EvidenceBinding(EvidenceBindingSource.FEATURE_VALUE, "column_depth_mm", COLUMN_DEPTH_KEY, DependencySourceKind.FACT, SemanticType.COLUMN_DEPTH, PhysicalDimension.LENGTH, Grain.COMPONENT, UNIT_MM, "mm"),
+            F0EvidenceBinding(source_location=EvidenceBindingSource.FEATURE_VALUE, source_key="column_width_mm", dependency_key=COLUMN_WIDTH_KEY, source_kind=DependencySourceKind.FACT, semantic_type=SemanticType.COLUMN_WIDTH, physical_dimension=PhysicalDimension.LENGTH, grain=Grain.COMPONENT, unit=UNIT_MM, expected_source_unit="mm"),
+            F0EvidenceBinding(source_location=EvidenceBindingSource.FEATURE_VALUE, source_key="column_depth_mm", dependency_key=COLUMN_DEPTH_KEY, source_kind=DependencySourceKind.FACT, semantic_type=SemanticType.COLUMN_DEPTH, physical_dimension=PhysicalDimension.LENGTH, grain=Grain.COMPONENT, unit=UNIT_MM, expected_source_unit="mm"),
         )
     else:
         raise VS2RcComponentIntegrationError("VS-2 component must be beam or column")
@@ -298,14 +330,14 @@ def component_targets(snapshot: FeatureSnapshot, *, tbdy_7411_applies: bool | No
     if kind == "beam":
         context = validate_tbdy_7411_applies(tbdy_7411_applies)
         return (
-            RuleScopeTarget(rule_id=BEAM_MIN_WIDTH_RULE_ID, applicability_input=BeamMinWidthApplicabilityInput("beam", context), **common),
-            RuleScopeTarget(rule_id=BEAM_MIN_DEPTH_RULE_ID, applicability_input=Beam7411ApplicabilityInput(True, context), **common),
-            RuleScopeTarget(rule_id=BEAM_DEPTH_WIDTH_RATIO_RULE_ID, applicability_input=Beam7411ApplicabilityInput(True, context), **common),
+            RuleScopeTarget(rule_id=BEAM_MIN_WIDTH_RULE_ID, applicability_input=BeamMinWidthApplicabilityInput(component_type="beam", tbdy_7411_applies=context), **common),
+            RuleScopeTarget(rule_id=BEAM_MIN_DEPTH_RULE_ID, applicability_input=Beam7411ApplicabilityInput(is_beam=True, tbdy_7411_applies=context), **common),
+            RuleScopeTarget(rule_id=BEAM_DEPTH_WIDTH_RATIO_RULE_ID, applicability_input=Beam7411ApplicabilityInput(is_beam=True, tbdy_7411_applies=context), **common),
         )
     if kind == "column":
         return (RuleScopeTarget(
             rule_id=COLUMN_MIN_DIMENSION_RULE_ID,
-            applicability_input=ColumnMinDimensionApplicabilityInput(True, _rectangular_source_proven(snapshot)),
+            applicability_input=ColumnMinDimensionApplicabilityInput(is_column=True, is_rectangular_section=_rectangular_source_proven(snapshot)),
             **common,
         ),)
     raise VS2RcComponentIntegrationError("VS-2 target component must be beam or column")
@@ -324,9 +356,12 @@ def _material_fact_ref(population: UsedRcMaterialPopulation, material: UsedMater
 
 def _material_authority_id(*, epoch: EvidenceEpoch, material_id: str, dependency_key: str, factual_ref: str) -> str:
     digest = hashlib.sha256(_canonical_json_bytes({
-        "epoch_id": epoch.epoch_id, "model_fingerprint": epoch.model_fingerprint,
-        "source_fingerprint": epoch.source_fingerprint, "material_id": material_id,
-        "dependency_key": dependency_key, "factual_ref": factual_ref,
+        "epoch_id": epoch.epoch_id,
+        "model_fingerprint": epoch.model_fingerprint,
+        "source_fingerprint": epoch.source_fingerprint,
+        "material_id": material_id,
+        "dependency_key": dependency_key,
+        "factual_ref": factual_ref,
     })).hexdigest()
     return f"vs2:material-authority:sha256:{digest}"
 
@@ -339,28 +374,44 @@ def material_authorities(*, epoch: EvidenceEpoch, population: UsedRcMaterialPopu
     factual_ref = _material_fact_ref(population, material)
     provenance = tuple(dict.fromkeys((f"epoch:{epoch.epoch_id}", epoch.model_fingerprint, f"source:{epoch.source_fingerprint}", f"material:{material.material_id}", factual_ref)))
     common = {
-        "grain": Grain.MATERIAL_DEFINITION, "scope_ref": material.material_id, "direction": None,
-        "population_completeness": PopulationCompleteness.FULL, "provenance_refs": provenance,
+        "grain": Grain.MATERIAL_DEFINITION,
+        "scope_ref": material.material_id,
+        "direction": None,
+        "population_completeness": PopulationCompleteness.FULL,
+        "provenance_refs": provenance,
     }
     return (
         ExternalDependencyAuthority(
             authority_id=_material_authority_id(epoch=epoch, material_id=material.material_id, dependency_key=FCK_KEY.value, factual_ref=factual_ref),
-            key=FCK_KEY, source_kind=DependencySourceKind.FACT, semantic_type=SemanticType.CONCRETE_FCK,
-            physical_dimension=PhysicalDimension.STRESS, unit=UNIT_MPA, availability=AvailabilityState.RESOLVED,
-            value=material.canonical_fck_mpa, **common,
+            key=FCK_KEY,
+            source_kind=DependencySourceKind.FACT,
+            semantic_type=SemanticType.CONCRETE_FCK,
+            physical_dimension=PhysicalDimension.STRESS,
+            unit=UNIT_MPA,
+            availability=AvailabilityState.RESOLVED,
+            value=material.canonical_fck_mpa,
+            **common,
         ),
         ExternalDependencyAuthority(
             authority_id=_material_authority_id(epoch=epoch, material_id=material.material_id, dependency_key=MATERIAL_EVIDENCE_TRACE_KEY.value, factual_ref=factual_ref),
-            key=MATERIAL_EVIDENCE_TRACE_KEY, source_kind=DependencySourceKind.CONTEXT, semantic_type=SemanticType.CHECK_EVIDENCE_TRACE,
-            physical_dimension=PhysicalDimension.DIMENSIONLESS, unit=UNIT_DIMENSIONLESS, availability=AvailabilityState.RESOLVED,
-            value=provenance, **common,
+            key=MATERIAL_EVIDENCE_TRACE_KEY,
+            source_kind=DependencySourceKind.CONTEXT,
+            semantic_type=SemanticType.CHECK_EVIDENCE_TRACE,
+            physical_dimension=PhysicalDimension.DIMENSIONLESS,
+            unit=UNIT_DIMENSIONLESS,
+            availability=AvailabilityState.RESOLVED,
+            value=provenance,
+            **common,
         ),
     )
 
 
 def material_target(material: UsedMaterialDefinition) -> RuleScopeTarget:
     return RuleScopeTarget(
-        rule_id=MATERIAL_RULE_ID, grain=Grain.MATERIAL_DEFINITION, scope_ref=material.material_id, direction=None,
+        rule_id=MATERIAL_RULE_ID,
+        grain=Grain.MATERIAL_DEFINITION,
+        scope_ref=material.material_id,
+        direction=None,
         applicability_input=ConcreteMaterialMinStrengthApplicabilityInput(is_concrete_material=True, used_in_scope_rc_building=True),
     )
 
@@ -371,8 +422,12 @@ def _finding_provenance(*, instance, geometry_epoch: EvidenceEpoch, material_epo
 
 
 def run_live_rc_component_f0_pack(
-    *, geometry_epoch: EvidenceEpoch, snapshots: Sequence[FeatureSnapshot], material_epoch: EvidenceEpoch,
-    material_population: UsedRcMaterialPopulation, tbdy_7411_applies: bool | None,
+    *,
+    geometry_epoch: EvidenceEpoch,
+    snapshots: Sequence[FeatureSnapshot],
+    material_epoch: EvidenceEpoch,
+    material_population: UsedRcMaterialPopulation,
+    tbdy_7411_applies: bool | None,
 ) -> LiveRcComponentPackRun:
     context = validate_tbdy_7411_applies(tbdy_7411_applies)
     if geometry_epoch.origin is not EvidenceEpochOrigin.LIVE_CAPTURE or material_epoch.origin is not EvidenceEpochOrigin.LIVE_CAPTURE:
@@ -389,7 +444,9 @@ def run_live_rc_component_f0_pack(
         raise VS2RcComponentIntegrationError("VS-2 geometry population contains duplicate component_id")
 
     component_external = tuple(authority for snapshot in prepared for authority in build_component_f0_authorities(
-        epoch=geometry_epoch, snapshot=snapshot, bindings=component_bindings(snapshot.component_type)
+        epoch=geometry_epoch,
+        snapshot=snapshot,
+        bindings=component_bindings(snapshot.component_type),
     ))
     component_rule_targets = tuple(target for snapshot in prepared for target in component_targets(snapshot, tbdy_7411_applies=context))
 
@@ -414,22 +471,30 @@ def run_live_rc_component_f0_pack(
 
     check_findings = tuple(finding for record in store.formal_results for finding in (
         build_finding_from_check_result(
-            instance_id=record.instance_id, result=record.result,
+            instance_id=record.instance_id,
+            result=record.result,
             provenance_refs=_finding_provenance(instance=record.instance_id, geometry_epoch=geometry_epoch, material_epoch=material_epoch),
         ),
     ) if finding is not None)
     closure_records = {item.instance_id: item for item in program.plan.compiled_closure_inventory}
     closure_findings = tuple(finding for outcome in assessment.closure_outcomes for finding in (
         build_finding_from_rule_closure(
-            compiled_record=closure_records[outcome.compiled_record_ref], outcome=outcome,
+            compiled_record=closure_records[outcome.compiled_record_ref],
+            outcome=outcome,
             provenance_refs=_finding_provenance(instance=outcome.compiled_record_ref, geometry_epoch=geometry_epoch, material_epoch=material_epoch),
         ),
     ) if finding is not None)
 
     return LiveRcComponentPackRun(
-        geometry_epoch=geometry_epoch, material_epoch=material_epoch, snapshots=prepared,
-        material_population=material_population, tbdy_7411_applies=context, registry=registry,
-        program=program, store=store, assessment=assessment,
+        geometry_epoch=geometry_epoch,
+        material_epoch=material_epoch,
+        snapshots=prepared,
+        material_population=material_population,
+        tbdy_7411_applies=context,
+        registry=registry,
+        program=program,
+        store=store,
+        assessment=assessment,
         authorities=tuple((*component_external, *material_external)),
         check_findings=tuple(sorted(check_findings, key=lambda item: item.finding_id)),
         closure_findings=tuple(sorted(closure_findings, key=lambda item: item.finding_id)),
@@ -438,10 +503,25 @@ def run_live_rc_component_f0_pack(
 
 
 __all__ = [
-    "COMPONENT_TRACE_FEATURE", "LOCKED_RECTANGULAR_PROPERTY_TABLE", "MATERIAL_SOURCE_FINGERPRINT_PREFIX",
-    "MATERIAL_DOMAIN_BLOCK_REASON", "WALL_NOT_EVALUATED_REASON", "VS2_COMPONENT_REGISTRY", "VS2_RC_REGISTRY",
-    "VS2RcComponentIntegrationError", "MissingLiveMaterialEvidenceError", "RealComponentPackConflictError",
-    "RcGeometryCaptureArtifact", "LiveRcComponentPackRun", "load_rc_geometry_capture", "material_source_fingerprint",
-    "build_material_live_capture_epoch", "prepare_component_snapshot", "component_bindings", "component_targets",
-    "material_authorities", "material_target", "run_live_rc_component_f0_pack",
+    "COMPONENT_TRACE_FEATURE",
+    "LOCKED_RECTANGULAR_PROPERTY_TABLE",
+    "MATERIAL_SOURCE_FINGERPRINT_PREFIX",
+    "MATERIAL_DOMAIN_BLOCK_REASON",
+    "WALL_NOT_EVALUATED_REASON",
+    "VS2_COMPONENT_REGISTRY",
+    "VS2_RC_REGISTRY",
+    "VS2RcComponentIntegrationError",
+    "MissingLiveMaterialEvidenceError",
+    "RealComponentPackConflictError",
+    "RcGeometryCaptureArtifact",
+    "LiveRcComponentPackRun",
+    "load_rc_geometry_capture",
+    "material_source_fingerprint",
+    "build_material_live_capture_epoch",
+    "prepare_component_snapshot",
+    "component_bindings",
+    "component_targets",
+    "material_authorities",
+    "material_target",
+    "run_live_rc_component_f0_pack",
 ]
