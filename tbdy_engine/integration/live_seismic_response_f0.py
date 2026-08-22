@@ -231,9 +231,10 @@ def _fetch_exact(database_tables: object, table_name: str, case_name: str):
         raise LiveSeismicEvidenceConflictError(
             f"exact ETABS output selection was not verified for {table_name} / {case_name}"
         )
-    if summary["capture_status"] == RuntimeCaptureStatus.TRUNCATED.value:
+    if summary["capture_status"] != RuntimeCaptureStatus.FULL.value:
         raise LiveSeismicEvidenceConflictError(
-            f"formal/factual seismic source was truncated: {table_name} / {case_name}"
+            "formal/factual seismic source capture is not FULL: "
+            f"{table_name} / {case_name}; capture_status={summary['capture_status']}"
         )
     return fetched, summary
 
