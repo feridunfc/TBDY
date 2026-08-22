@@ -23,12 +23,15 @@ from tbdy_engine.integration.live_beam_geometry_f0 import (
     load_live_beam_capture_artifact,
     read_observed_etabs_model_path,
     run_live_beam_f0_slice,
+    validate_tbdy_7411_applies,
 )
 from tbdy_engine.json_safe import to_jsonable
+from tbdy_engine.regulatory.kernel import StructuralAssessmentStatus
 
 PRODUCT_CONTRACT = "VS1_LIVE_BEAM_GEOMETRY_F0_PRODUCT_V1"
 PRODUCT_FILENAME = "live_beam_geometry_f0_product.json"
 CAPTURE_DIRNAME = "live_beam_geometry_capture"
+APPLICABILITY_SOURCE_KIND = "EXPLICIT_CALLER_INPUT"
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +72,10 @@ def _beam_payload(run: LiveBeamSliceRun) -> dict[str, object]:
         outcome.compiled_record_ref: outcome
         for outcome in run.assessment.closure_outcomes
     }
+    compiled_by_instance = {
+        record.instance_id: record
+        for record in run.program.plan.compiled_closure_inventory
+    }
     instances = tuple(
         sorted(run.program.plan.compiled_rule_instances, key=lambda item: item.value)
     )
@@ -77,6 +84,7 @@ def _beam_payload(run: LiveBeamSliceRun) -> dict[str, object]:
         {
             "rule_id": instance.rule_id.value,
             "rule_instance_id": instance.value,
+            "applicability": compiled_by_instance[instance].applicability.value,
             "closure_status": closure_by_instance[instance].execution_status.value,
         }
         for instance in instances
@@ -106,8 +114,12 @@ def _beam_payload(run: LiveBeamSliceRun) -> dict[str, object]:
         "component_id": run.snapshot.component_id,
         "story": run.snapshot.identity.get("story"),
         "section": run.snapshot.identity.get("section"),
-        "epoch_ref": f"epoch:{run.epoch.epoch_id}",
+        "epoch_ref": run.epoch.epoch_id,
         "plan_identity": run.program.plan.plan_identity,
+        "applicability_input": {
+            "tbdy_7411_applies": run.tbdy_7411_applies,
+            "source_kind": APPLICABILITY_SOURCE_KIND,
+        },
         "rule_instance_count": len(instances),
         "check_result_count": len(check_results),
         "closure_inventory": closure_inventory,
@@ -127,7 +139,12 @@ def _beam_payload(run: LiveBeamSliceRun) -> dict[str, object]:
     }
 
 
-def _product_payload(*, epoch, runs: tuple[LiveBeamSliceRun, ...]) -> dict[str, Any]:
+def _product_payload(
+    *,
+    epoch,
+    runs: tuple[LiveBeamSliceRun, ...],
+    tbdy_7411_applies: bool | None,
+) -> dict[str, Any]:
     beam_payloads = tuple(
         _beam_payload(run)
         for run in sorted(runs, key=lambda item: item.snapshot.component_id)
@@ -145,16 +162,29 @@ def _product_payload(*, epoch, runs: tuple[LiveBeamSliceRun, ...]) -> dict[str, 
             key=lambda item: item.finding_id,
         )
     )
+    structural_status = (
+        StructuralAssessmentStatus.COMPLETE.value
+        if all(
+            run.assessment.structural_status is StructuralAssessmentStatus.COMPLETE
+            for run in runs
+        )
+        else StructuralAssessmentStatus.INCOMPLETE.value
+    )
     return {
         "contract": PRODUCT_CONTRACT,
         "origin": epoch.origin.value,
         "epoch_id": epoch.epoch_id,
-        "epoch_ref": f"epoch:{epoch.epoch_id}",
+        "epoch_ref": epoch.epoch_id,
         "model_fingerprint": epoch.model_fingerprint,
         "source_fingerprint": epoch.source_fingerprint,
+        "applicability_input": {
+            "tbdy_7411_applies": tbdy_7411_applies,
+            "source_kind": APPLICABILITY_SOURCE_KIND,
+        },
         "regulatory_authority": "F0_ONLY",
         "legacy_minimal_check_engine_executed": False,
         "legacy_yaml_authority_executed": False,
+        "structural_assessment_status": structural_status,
         "full_tbdy_compliance_status": "NOT_EVALUATED",
         "beam_count": len(beam_payloads),
         "selected_rule_instance_count": sum(
@@ -189,8 +219,10 @@ def build_live_beam_geometry_f0_product_from_capture(
     model_path: object,
     feature_snapshot_path: Path,
     output_path: Path,
+    tbdy_7411_applies: bool | None,
 ) -> LiveBeamGeometryF0ProductResult:
-    """Consume exact capture bytes and build the deterministic F0-only product."""
+    """Consume exact factual capture bytes and explicit regulatory context."""
+    tbdy_7411_applies = validate_tbdy_7411_applies(tbdy_7411_applies)
     capture = load_live_beam_capture_artifact(feature_snapshot_path)
     if not capture.beam_snapshots:
         raise VS1LiveBeamIntegrationError(
@@ -201,10 +233,18 @@ def build_live_beam_geometry_f0_product_from_capture(
         source_bytes=capture.raw_bytes,
     )
     runs = tuple(
-        run_live_beam_f0_slice(epoch=epoch, snapshot=snapshot)
+        run_live_beam_f0_slice(
+            epoch=epoch,
+            snapshot=snapshot,
+            tbdy_7411_applies=tbdy_7411_applies,
+        )
         for snapshot in capture.beam_snapshots
     )
-    payload = _product_payload(epoch=epoch, runs=runs)
+    payload = _product_payload(
+        epoch=epoch,
+        runs=runs,
+        tbdy_7411_applies=tbdy_7411_applies,
+    )
     path = Path(output_path)
     _write_product(path, payload)
     return LiveBeamGeometryF0ProductResult(
@@ -218,13 +258,15 @@ def build_live_beam_geometry_f0_product_from_capture(
 def run_live_beam_geometry_f0_product(
     *,
     output_dir: Path,
+    tbdy_7411_applies: bool | None,
     target_story: str | None = None,
     target_label: str | None = None,
     target_component: str | None = None,
     max_rows: int = 20,
     attach_result: EtabsAttachResult | None = None,
 ) -> LiveBeamGeometryF0ProductResult:
-    """Run accepted live geometry capture once, then feed its exact artifact to F0."""
+    """Run accepted factual live capture once, then compile with explicit context."""
+    tbdy_7411_applies = validate_tbdy_7411_applies(tbdy_7411_applies)
     resolved_attach = attach_result or attach_to_running_etabs()
     if resolved_attach.status != "ATTACHED":
         raise EtabsAttachFailure(resolved_attach)
@@ -249,6 +291,7 @@ def run_live_beam_geometry_f0_product(
         model_path=model_path,
         feature_snapshot_path=probe.feature_snapshot_path,
         output_path=out_dir / PRODUCT_FILENAME,
+        tbdy_7411_applies=tbdy_7411_applies,
     )
 
 
@@ -256,6 +299,7 @@ __all__ = [
     "PRODUCT_CONTRACT",
     "PRODUCT_FILENAME",
     "CAPTURE_DIRNAME",
+    "APPLICABILITY_SOURCE_KIND",
     "LiveBeamGeometryF0ProductResult",
     "build_live_beam_geometry_f0_product_from_capture",
     "run_live_beam_geometry_f0_product",
