@@ -1,0 +1,81 @@
+name: VS1 Temporary Acceptance Harness
+
+on:
+  push:
+    branches:
+      - sprint/vs-1-live-beam-geometry-f0-cutover
+
+permissions:
+  contents: read
+
+jobs:
+  vs1-acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout VS-1
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml jsonschema
+
+      - name: Compileall
+        run: python -m compileall -q tbdy_engine tools tests
+
+      - name: Focused VS-1
+        run: python -m pytest -q tests/integration/test_vs1_live_beam_geometry_f0_cutover.py
+
+      - name: VS-0 integration
+        run: python -m pytest -q tests/integration/test_vs0_architecture_vertical_slice.py
+
+      - name: F0.4 adapter regressions
+        run: |
+          python -m pytest -q tests/integration/test_f0_4_evidence_authority_adapter.py
+          python -m pytest -q tests/integration/test_f0_4_supervisor_corrections.py
+
+      - name: F0.8 B1 parity
+        run: python -m pytest -q tests/regulatory/test_f0_8_b1_geometry_parity.py
+
+      - name: F0.8 DAG parity
+        run: python -m pytest -q tests/integration/test_f0_8_existing_checks_dag_parity.py
+
+      - name: Finding tests
+        run: python -m pytest -q tests/integration/test_f0_6_finding_contract.py
+
+      - name: Regulatory suite
+        run: python -m pytest -q tests/regulatory
+
+      - name: Features suite
+        run: python -m pytest -q tests/features
+
+      - name: Canonical CheckResult
+        run: python -m pytest -q tests/checks/test_check_result.py
+
+      - name: Existing offline product acceptance
+        run: python tools/run_offline_product_acceptance.py --out local_out/vs1_offline_regression
+
+      - name: Full pytest VS-1
+        id: full_vs1
+        continue-on-error: true
+        run: python -m pytest -q
+
+      - name: Full pytest frozen baseline
+        id: full_base
+        continue-on-error: true
+        run: |
+          git worktree add ../vs1_frozen_base 64cfc1b1464f42c6d5a027609973cc84fd5eb68d
+          cd ../vs1_frozen_base
+          python -m pytest -q
+
+      - name: Report full-suite conclusions
+        run: |
+          echo "VS1_FULL=${{ steps.full_vs1.outcome }}"
+          echo "BASE_FULL=${{ steps.full_base.outcome }}"
