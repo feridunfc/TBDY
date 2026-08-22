@@ -1,141 +1,45 @@
-VS1_HEAD=f0e3fe9ef3767bfa83e03f2ef9e302b9493a9c64
+VS1_HEAD=6ce8cc8dd70bacedb6eca849ea6cf446b8b22c3d
 FROZEN_BASE=64cfc1b1464f42c6d5a027609973cc84fd5eb68d
 
 ===== compileall EXIT=0 =====
 
-===== focused_vs1 EXIT=1 =====
-....................F......                                              [100%]
-=================================== FAILURES ===================================
-_______ test_scenario_c_column_unknown_context_is_proven_not_applicable ________
-
-    def test_scenario_c_column_unknown_context_is_proven_not_applicable() -> None:
-        snapshot = FeatureSnapshot(
-            component_type="column",
-            component_id="C1",
-            identity={"story": "S1", "section": "C400x400"},
-            features={},
-        )
->       run = _run(snapshot, tbdy_7411_applies=None)
-              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-tests/integration/test_vs1_live_beam_geometry_f0_cutover.py:412: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-tests/integration/test_vs1_live_beam_geometry_f0_cutover.py:177: in _run
-    return vs1.run_live_beam_f0_slice(
-tbdy_engine/integration/live_beam_geometry_f0.py:501: in run_live_beam_f0_slice
-    program = RegulatoryCompiler.compile(VS1_BEAM_REGISTRY, compile_inputs)
-              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-tbdy_engine/regulatory/kernel.py:472: in compile
-    cls._validate_bindings(tuple(bindings), registry, specs, inputs)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-
-cls = <class 'tbdy_engine.regulatory.kernel.RegulatoryCompiler'>
-bindings = (CompiledDependencyBinding(consumer_instance_id=RuleInstanceId(rule_id=RuleId(value='beam_depth_width_ratio'), grain=<..._authority_id='f0.4:13e709a30a2b0f26fd7aff0d378204e2391875ed13d940d2f4754f98015d10e9', producer_instance_id=None), ...)
-registry = RegulatoryRegistry(derivations=(), checks=(CheckSpec(rule_id=RuleId(value='beam_depth_width_ratio'), code_refs=('TBDY-..._width at 0x7f95e43df4c0>))), registry_version='f0.0:9c1c0c4bc3c6c6a46fdf8d2d360bfda50aeba9fa28929b41f6847de949574dbc')
-instances = {RuleInstanceId(rule_id=RuleId(value='beam_depth_width_ratio'), grain=<Grain.COMPONENT: 'COMPONENT'>, scope_ref='C1', ...gulatory.beam_min_width.BeamMinWidthExecutionInput'>, evaluator=<function evaluate_beam_min_width at 0x7f95e43df4c0>))}
-inputs = RegulatoryCompileInputs(rule_targets=(RuleScopeTarget(rule_id=RuleId(value='beam_depth_width_ratio'), grain=<Grain.COM...abs:live-geometry-source:sha256:460ee6aa3a80359181b794cc31a7185addba77626e9f719c10e3c8efb8668a1d', 'identity:story'))))
-
-    @classmethod
-    def _validate_bindings(
-        cls, bindings: tuple[CompiledDependencyBinding, ...], registry: RegulatoryRegistry,
-        instances: Mapping[RuleInstanceId, RuleDefinition], inputs: RegulatoryCompileInputs,
-    ) -> None:
-        authorities = {item.authority_id: item for item in inputs.external_authorities}
-    
-        def source(binding: CompiledDependencyBinding):
-            if binding.external_authority_id is not None:
-                return authorities[binding.external_authority_id]
-            assert binding.producer_instance_id is not None
-            producer_spec = instances[binding.producer_instance_id]
-            assert isinstance(producer_spec, RegulatoryDerivationSpec)
-            return producer_spec.output_contract
-    
-        for binding in bindings:
-            src = source(binding)
-            if src.semantic_type is not binding.dependency.semantic_type:
-                raise cls._error(binding.consumer_instance_id, binding.dependency, "semantic type mismatch")
-        for binding in bindings:
-            src = source(binding)
-            if src.physical_dimension is not binding.dependency.physical_dimension:
-                raise cls._error(binding.consumer_instance_id, binding.dependency, "physical dimension mismatch")
-        for binding in bindings:
-            src = source(binding)
-            if src.grain is not binding.dependency.grain:
-                raise cls._error(binding.consumer_instance_id, binding.dependency, "grain mismatch")
-        for binding in bindings:
-            dep = binding.dependency
-            if binding.external_authority_id is not None:
-                ok = cls._scope_external(dep.scope_policy, binding.consumer_instance_id, authorities[binding.external_authority_id])
-            else:
-                assert binding.producer_instance_id is not None
-                ok = cls._scope(dep.scope_policy, binding.consumer_instance_id, binding.producer_instance_id)
-            if not ok:
-                raise cls._error(binding.consumer_instance_id, dep, "scope mismatch")
-        for binding in bindings:
-            dep = binding.dependency
-            source_direction = (
-                authorities[binding.external_authority_id].direction
-                if binding.external_authority_id is not None
-                else binding.producer_instance_id.direction
-            )
-            if not cls._direction(dep.direction_policy, binding.consumer_instance_id.direction, source_direction):
-                raise cls._error(binding.consumer_instance_id, dep, "direction mismatch")
-        for binding in bindings:
-            src = source(binding)
-            if not units_convertible(src.unit, binding.dependency.unit_requirement):
-                raise cls._error(
-                    binding.consumer_instance_id, binding.dependency,
-                    f"unit mismatch: {src.unit.identifier}->{binding.dependency.unit_requirement.identifier}",
-                )
-        for binding in bindings:
-            dep = binding.dependency
-            if dep.population_completeness_requirement is not PopulationRequirement.FULL:
-                continue
-            if binding.external_authority_id is None:
-                continue
-            authority = authorities[binding.external_authority_id]
-            if authority.population_completeness is not PopulationCompleteness.FULL:
->               raise cls._error(binding.consumer_instance_id, dep, "FULL population requirement is not satisfiable")
-E               tbdy_engine.regulatory.kernel.KernelCompileError: FULL population requirement is not satisfiable; consumer=["beam_depth_width_ratio","COMPONENT","C1",null]; dependency=check_evidence_trace; source_kind=CONTEXT
-
-tbdy_engine/regulatory/kernel.py:639: KernelCompileError
-=========================== short test summary info ============================
-FAILED tests/integration/test_vs1_live_beam_geometry_f0_cutover.py::test_scenario_c_column_unknown_context_is_proven_not_applicable - tbdy_engine.regulatory.kernel.KernelCompileError: FULL population requirement is not satisfiable; consumer=["beam_depth_width_ratio","COMPONENT","C1",null]; dependency=check_evidence_trace; source_kind=CONTEXT
-1 failed, 26 passed in 0.36s
+===== focused_vs1 EXIT=0 =====
+...........................                                              [100%]
+27 passed in 0.27s
 
 ===== vs0_integration EXIT=0 =====
 ........                                                                 [100%]
-8 passed in 0.24s
+8 passed in 0.23s
 
 ===== f0_4_adapter EXIT=0 =====
 .........................                                                [100%]
-25 passed in 0.25s
+25 passed in 0.23s
 
 ===== f0_8_b1 EXIT=0 =====
 .......................                                                  [100%]
-23 passed in 0.19s
+23 passed in 0.17s
 
 ===== f0_8_dag EXIT=0 =====
 ..........                                                               [100%]
-10 passed in 0.21s
+10 passed in 0.19s
 
 ===== finding_tests EXIT=0 =====
 ........................................                                 [100%]
-40 passed in 0.28s
+40 passed in 0.26s
 
 ===== regulatory_suite EXIT=0 =====
 ........................................................................ [ 48%]
 ........................................................................ [ 96%]
 ......                                                                   [100%]
-150 passed in 0.47s
+150 passed in 0.43s
 
 ===== features_suite EXIT=0 =====
 .....................                                                    [100%]
-21 passed in 4.27s
+21 passed in 3.65s
 
 ===== canonical_checkresult EXIT=0 =====
 ...                                                                      [100%]
-3 passed in 0.12s
+3 passed in 0.11s
 
 ===== offline_product_acceptance EXIT=0 =====
 Offline product acceptance: OK
@@ -263,7 +167,7 @@ ERROR tests/test_module_evidence_emission.py
 ERROR tests/test_module_evidence_emission_expected.py
 ERROR tests/test_sprint3_runner_full.py
 !!!!!!!!!!!!!!!!!!! Interrupted: 10 errors during collection !!!!!!!!!!!!!!!!!!!
-10 errors in 4.11s
+10 errors in 3.82s
 
 ===== baseline_worktree EXIT=0 =====
 Preparing worktree (detached HEAD 64cfc1b)
@@ -388,5 +292,5 @@ ERROR tests/test_module_evidence_emission.py
 ERROR tests/test_module_evidence_emission_expected.py
 ERROR tests/test_sprint3_runner_full.py
 !!!!!!!!!!!!!!!!!!! Interrupted: 10 errors during collection !!!!!!!!!!!!!!!!!!!
-10 errors in 5.18s
+10 errors in 4.94s
 
