@@ -625,3 +625,99 @@ def test_supervisor_P1_equivalent_immutable_applicability_inputs_produce_same_pl
     )
     assert first.plan.plan_identity == second.plan.plan_identity
     assert first.plan.compiled_closure_inventory == second.plan.compiled_closure_inventory
+
+
+def test_vs3_story_direction_kernel_extension_contract():
+    rule = RuleId("C_STORY_DIRECTION")
+    story_none = RuleScopeTarget(
+        rule_id=rule,
+        grain=Grain.STORY,
+        scope_ref="S1",
+        direction=None,
+        applicability_input=AppInput(),
+    )
+    story_x = RuleScopeTarget(
+        rule_id=rule,
+        grain=Grain.STORY,
+        scope_ref="S1",
+        direction="X",
+        applicability_input=AppInput(),
+    )
+    story_y = RuleScopeTarget(
+        rule_id=rule,
+        grain=Grain.STORY,
+        scope_ref="S1",
+        direction="Y",
+        applicability_input=AppInput(),
+    )
+    assert story_none.instance_id != story_x.instance_id
+    assert story_none.instance_id != story_y.instance_id
+    assert story_x.instance_id != story_y.instance_id
+    assert story_none.instance_id.direction is None
+    assert story_x.instance_id.direction == "X"
+    assert story_y.instance_id.direction == "Y"
+    assert "STORY_DIRECTION" not in Grain.__members__
+
+    authority_x = external(
+        "A_STORY_X", "FACT_STORY", grain=Grain.STORY, scope_ref="S1", direction="X"
+    )
+    authority_y = external(
+        "A_STORY_Y", "FACT_STORY", grain=Grain.STORY, scope_ref="S1", direction="Y"
+    )
+    assert authority_x.direction == "X"
+    assert authority_y.direction == "Y"
+
+    with pytest.raises(ValueError, match="requires direction"):
+        target("REQ", grain=Grain.DIRECTION, scope_ref="BUILDING", direction=None)
+    with pytest.raises(ValueError, match="forbids direction"):
+        target("FORBID", grain=Grain.COMPONENT, scope_ref="C1", direction="X")
+
+
+def test_vs3_story_exact_direction_binding_is_deterministic_and_never_crosses():
+    story_dep = dep(
+        "FACT_STORY",
+        grain=Grain.STORY,
+        scope=ScopePolicy.EXACT_SCOPE,
+        direction=DirectionPolicy.EXACT_DIRECTION,
+    )
+    registry = RegulatoryRegistry(
+        checks=(check("C_STORY_DIRECTION", dependencies=(story_dep,)),)
+    )
+    targets = (
+        target("C_STORY_DIRECTION", grain=Grain.STORY, scope_ref="S1", direction="X"),
+        target("C_STORY_DIRECTION", grain=Grain.STORY, scope_ref="S1", direction="Y"),
+    )
+    authorities = (
+        external("A_STORY_X", "FACT_STORY", grain=Grain.STORY, scope_ref="S1", direction="X"),
+        external("A_STORY_Y", "FACT_STORY", grain=Grain.STORY, scope_ref="S1", direction="Y"),
+    )
+
+    first = RegulatoryCompiler.compile(
+        registry,
+        RegulatoryCompileInputs(rule_targets=targets, external_authorities=authorities),
+    )
+    second = RegulatoryCompiler.compile(
+        registry,
+        RegulatoryCompileInputs(
+            rule_targets=tuple(reversed(targets)),
+            external_authorities=tuple(reversed(authorities)),
+        ),
+    )
+
+    assert first.plan.plan_identity == second.plan.plan_identity
+    assert first.plan.deterministic_execution_order == second.plan.deterministic_execution_order
+    assert first.plan.compiled_dependency_bindings == second.plan.compiled_dependency_bindings
+
+    bound = {
+        binding.consumer_instance_id.direction: binding.external_authority_id
+        for node in first.nodes
+        for binding in node.dependency_bindings
+    }
+    assert bound == {"X": "A_STORY_X", "Y": "A_STORY_Y"}
+    assert all(
+        binding.consumer_instance_id.direction
+        == first.authority(binding.external_authority_id).direction
+        for node in first.nodes
+        for binding in node.dependency_bindings
+        if binding.external_authority_id is not None
+    )
