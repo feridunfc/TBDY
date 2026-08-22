@@ -1,12 +1,11 @@
 """VS-1 live beam geometry -> F0 regulatory cutover.
 
-This module is the bounded integration seam for one production slice:
-existing live beam FeatureSnapshot evidence -> LIVE_CAPTURE EvidenceEpoch ->
-existing F0 evidence adapter -> three existing beam geometry rules -> canonical
-regulatory execution/assessment -> Findings.
+Bounded composition only:
+canonical live geometry FeatureSnapshot -> LIVE_CAPTURE EvidenceEpoch ->
+existing F0 evidence adapter -> the three existing beam geometry CheckSpecs ->
+RegulatoryCompiler/RegulatoryEngine -> AssessmentEngine -> canonical Findings.
 
-It intentionally owns no engineering rules and performs no ETABS geometry
-acquisition.
+No engineering rule or ETABS geometry acquisition lives here.
 """
 from __future__ import annotations
 
@@ -16,9 +15,7 @@ import hashlib
 import json
 import ntpath
 from pathlib import Path
-from typing import Any
 
-from tbdy_engine.features.diagnostics import FeatureDiagnostic
 from tbdy_engine.features.evidence import FeatureEvidence, FeatureEvidenceStatus
 from tbdy_engine.features.evidence_epoch import EvidenceEpoch, EvidenceEpochOrigin
 from tbdy_engine.features.snapshot import FeatureSnapshot
@@ -88,7 +85,7 @@ class VS1LiveBeamIntegrationError(RuntimeError):
 
 
 class MissingLiveEpochIdentityError(VS1LiveBeamIntegrationError):
-    """Raised when the accepted ETABS API exposes no truthful model path."""
+    """Accepted ETABS model-path source did not yield truthful identity."""
 
     status = MISSING_LIVE_EPOCH_IDENTITY_STATUS
 
@@ -135,7 +132,6 @@ def _canonical_json_bytes(payload: Mapping[str, object]) -> bytes:
 
 
 def normalize_observed_etabs_model_path(model_path: object) -> str:
-    """Normalize only the factual ETABS model path approved for VS-1 identity."""
     if not isinstance(model_path, str) or not model_path.strip():
         raise MissingLiveEpochIdentityError(MISSING_LIVE_EPOCH_IDENTITY_STATUS)
     return ntpath.normcase(ntpath.normpath(model_path.strip()))
@@ -164,11 +160,7 @@ def source_fingerprint_from_path(feature_snapshot_path: Path) -> str:
     return source_fingerprint_from_bytes(Path(feature_snapshot_path).read_bytes())
 
 
-def live_epoch_id(
-    *,
-    model_fingerprint: str,
-    source_fingerprint: str,
-) -> str:
+def live_epoch_id(*, model_fingerprint: str, source_fingerprint: str) -> str:
     digest = hashlib.sha256(
         _canonical_json_bytes(
             {
@@ -182,19 +174,14 @@ def live_epoch_id(
     return f"{EPOCH_ID_PREFIX}{digest}"
 
 
-def build_live_capture_epoch(
-    *,
-    model_path: object,
-    source_bytes: bytes,
-) -> EvidenceEpoch:
+def build_live_capture_epoch(*, model_path: object, source_bytes: bytes) -> EvidenceEpoch:
     model_fingerprint = model_fingerprint_from_path(model_path)
     source_fingerprint = source_fingerprint_from_bytes(source_bytes)
-    epoch_id = live_epoch_id(
-        model_fingerprint=model_fingerprint,
-        source_fingerprint=source_fingerprint,
-    )
     return EvidenceEpoch(
-        epoch_id=epoch_id,
+        epoch_id=live_epoch_id(
+            model_fingerprint=model_fingerprint,
+            source_fingerprint=source_fingerprint,
+        ),
         model_fingerprint=model_fingerprint,
         origin=EvidenceEpochOrigin.LIVE_CAPTURE,
         source_fingerprint=source_fingerprint,
@@ -203,7 +190,7 @@ def build_live_capture_epoch(
 
 
 def read_observed_etabs_model_path(sap_model: object) -> str:
-    """Read the existing ETABS model-path API without fallback identity values."""
+    """Read only SapModel.GetModelFilename; never substitute another identity."""
     if sap_model is None:
         raise MissingLiveEpochIdentityError(MISSING_LIVE_EPOCH_IDENTITY_STATUS)
     getter = getattr(sap_model, "GetModelFilename", None)
@@ -216,26 +203,11 @@ def read_observed_etabs_model_path(sap_model: object) -> str:
 
     if isinstance(raw, str):
         return normalize_observed_etabs_model_path(raw)
-
     if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes, bytearray)):
-        observed_strings = tuple(
-            item for item in raw if isinstance(item, str) and item.strip()
-        )
-        if len(observed_strings) == 1:
-            return normalize_observed_etabs_model_path(observed_strings[0])
-
+        strings = tuple(item for item in raw if isinstance(item, str) and item.strip())
+        if len(strings) == 1:
+            return normalize_observed_etabs_model_path(strings[0])
     raise MissingLiveEpochIdentityError(MISSING_LIVE_EPOCH_IDENTITY_STATUS)
-
-
-def _diagnostic_from_payload(payload: object) -> FeatureDiagnostic:
-    if not isinstance(payload, Mapping):
-        raise VS1LiveBeamIntegrationError("Feature diagnostic payload must be a mapping")
-    return FeatureDiagnostic(
-        severity=payload.get("severity"),
-        code=payload.get("code"),
-        message=str(payload.get("message") or ""),
-        details=payload.get("details") or {},
-    )
 
 
 def _evidence_from_payload(payload: object) -> FeatureEvidence:
@@ -261,23 +233,15 @@ def _evidence_from_payload(payload: object) -> FeatureEvidence:
 
 
 def _feature_from_payload(feature_name: str, payload: object) -> FeatureValue:
-    if not isinstance(payload, Mapping):
-        raise VS1LiveBeamIntegrationError("Feature value payload must be a mapping")
-    payload_name = payload.get("feature_name")
-    if payload_name != feature_name:
+    if not isinstance(payload, Mapping) or payload.get("feature_name") != feature_name:
         raise VS1LiveBeamIntegrationError(
             "FeatureSnapshot artifact feature mapping key/name mismatch"
         )
     evidence_payload = payload.get("evidence") or ()
-    diagnostic_payload = payload.get("diagnostics") or ()
     if not isinstance(evidence_payload, Sequence) or isinstance(
         evidence_payload, (str, bytes, bytearray)
     ):
         raise VS1LiveBeamIntegrationError("Feature evidence list is invalid")
-    if not isinstance(diagnostic_payload, Sequence) or isinstance(
-        diagnostic_payload, (str, bytes, bytearray)
-    ):
-        raise VS1LiveBeamIntegrationError("Feature diagnostic list is invalid")
     return FeatureValue(
         feature_name=feature_name,
         value=payload.get("value"),
@@ -285,7 +249,6 @@ def _feature_from_payload(feature_name: str, payload: object) -> FeatureValue:
         semantic_role=str(payload.get("semantic_role") or "UNKNOWN"),
         status=payload.get("status"),
         evidence=tuple(_evidence_from_payload(item) for item in evidence_payload),
-        diagnostics=tuple(_diagnostic_from_payload(item) for item in diagnostic_payload),
     )
 
 
@@ -293,32 +256,24 @@ def _snapshot_from_payload(payload: object) -> FeatureSnapshot:
     if not isinstance(payload, Mapping):
         raise VS1LiveBeamIntegrationError("FeatureSnapshot payload must be a mapping")
     features_payload = payload.get("features") or {}
-    diagnostics_payload = payload.get("diagnostics") or ()
     identity = payload.get("identity") or {}
-    if not isinstance(features_payload, Mapping):
-        raise VS1LiveBeamIntegrationError("FeatureSnapshot.features must be a mapping")
-    if not isinstance(identity, Mapping):
-        raise VS1LiveBeamIntegrationError("FeatureSnapshot.identity must be a mapping")
-    if not isinstance(diagnostics_payload, Sequence) or isinstance(
-        diagnostics_payload, (str, bytes, bytearray)
-    ):
-        raise VS1LiveBeamIntegrationError("FeatureSnapshot diagnostics must be a sequence")
-    features = {
-        str(name): _feature_from_payload(str(name), value)
-        for name, value in features_payload.items()
-    }
+    if not isinstance(features_payload, Mapping) or not isinstance(identity, Mapping):
+        raise VS1LiveBeamIntegrationError("FeatureSnapshot artifact shape is invalid")
     return FeatureSnapshot(
         component_type=str(payload.get("component_type") or ""),
         component_id=str(payload.get("component_id") or ""),
         identity=dict(identity),
-        features=features,
-        diagnostics=tuple(_diagnostic_from_payload(item) for item in diagnostics_payload),
+        features={
+            str(name): _feature_from_payload(str(name), value)
+            for name, value in features_payload.items()
+        },
     )
 
 
 def load_live_beam_capture_artifact(
     feature_snapshot_path: Path,
 ) -> LiveBeamCaptureArtifact:
+    """Read once: these exact bytes are both consumed and source-fingerprinted."""
     path = Path(feature_snapshot_path)
     raw_bytes = path.read_bytes()
     try:
@@ -355,12 +310,13 @@ def load_live_beam_capture_artifact(
 
 
 def _trace_feature(snapshot: FeatureSnapshot) -> FeatureValue:
-    evidence: list[FeatureEvidence] = []
-    for feature_name in ("beam_width_mm", "beam_depth_mm"):
-        feature = snapshot.features.get(feature_name)
-        if isinstance(feature, FeatureValue):
-            evidence.extend(feature.evidence)
-
+    evidence = tuple(
+        item
+        for feature_name in ("beam_width_mm", "beam_depth_mm")
+        for feature in (snapshot.features.get(feature_name),)
+        if isinstance(feature, FeatureValue)
+        for item in feature.evidence
+    )
     full = tuple(
         item for item in evidence if item.evidence_status is FeatureEvidenceStatus.FULL
     )
@@ -368,7 +324,6 @@ def _trace_feature(snapshot: FeatureSnapshot) -> FeatureValue:
         return FeatureValue(
             feature_name=GEOMETRY_TRACE_FEATURE,
             value="LIVE_BEAM_GEOMETRY_CAPTURE",
-            unit="",
             semantic_role="TRACEABILITY",
             status=FeatureValueStatus.RESOLVED,
             evidence=full,
@@ -377,29 +332,26 @@ def _trace_feature(snapshot: FeatureSnapshot) -> FeatureValue:
         return FeatureValue(
             feature_name=GEOMETRY_TRACE_FEATURE,
             value="LIVE_BEAM_GEOMETRY_CAPTURE",
-            unit="",
             semantic_role="TRACEABILITY",
             status=FeatureValueStatus.PARTIAL,
-            evidence=tuple(evidence),
+            evidence=evidence,
         )
     return FeatureValue(
         feature_name=GEOMETRY_TRACE_FEATURE,
         value=None,
-        unit="",
         semantic_role="TRACEABILITY",
         status=FeatureValueStatus.MISSING,
     )
 
 
 def prepare_live_beam_snapshot(snapshot: FeatureSnapshot) -> FeatureSnapshot:
+    """Add provenance-only common trace; do not calculate any verdict."""
     if not isinstance(snapshot, FeatureSnapshot):
         raise TypeError("snapshot must be FeatureSnapshot")
-    if snapshot.component_type.strip().casefold() != "beam":
-        raise VS1LiveBeamIntegrationError("VS-1 production slice accepts beam snapshots only")
     features = dict(snapshot.features)
     if GEOMETRY_TRACE_FEATURE in features:
         raise VS1LiveBeamIntegrationError(
-            "live beam capture unexpectedly already contains integration trace feature"
+            "live capture unexpectedly already contains integration trace feature"
         )
     features[GEOMETRY_TRACE_FEATURE] = _trace_feature(snapshot)
     return FeatureSnapshot(
@@ -469,45 +421,43 @@ def vs1_beam_bindings() -> tuple[F0EvidenceBinding, ...]:
 
 
 def vs1_beam_targets(snapshot: FeatureSnapshot) -> tuple[RuleScopeTarget, ...]:
-    scope_ref = snapshot.component_id
+    component_type = snapshot.component_type.strip()
+    is_beam = component_type.casefold() == "beam"
+    common = {
+        "grain": Grain.COMPONENT,
+        "scope_ref": snapshot.component_id,
+        "direction": None,
+    }
     return (
         RuleScopeTarget(
             rule_id=BEAM_MIN_WIDTH_RULE_ID,
-            grain=Grain.COMPONENT,
-            scope_ref=scope_ref,
-            direction=None,
             applicability_input=BeamMinWidthApplicabilityInput(
-                component_type="beam",
+                component_type=component_type,
                 tbdy_7411_applies=True,
             ),
+            **common,
         ),
         RuleScopeTarget(
             rule_id=BEAM_MIN_DEPTH_RULE_ID,
-            grain=Grain.COMPONENT,
-            scope_ref=scope_ref,
-            direction=None,
             applicability_input=Beam7411ApplicabilityInput(
-                is_beam=True,
+                is_beam=is_beam,
                 tbdy_7411_applies=True,
             ),
+            **common,
         ),
         RuleScopeTarget(
             rule_id=BEAM_DEPTH_WIDTH_RATIO_RULE_ID,
-            grain=Grain.COMPONENT,
-            scope_ref=scope_ref,
-            direction=None,
             applicability_input=Beam7411ApplicabilityInput(
-                is_beam=True,
+                is_beam=is_beam,
                 tbdy_7411_applies=True,
             ),
+            **common,
         ),
     )
 
 
 def run_live_beam_f0_slice(
-    *,
-    epoch: EvidenceEpoch,
-    snapshot: FeatureSnapshot,
+    *, epoch: EvidenceEpoch, snapshot: FeatureSnapshot
 ) -> LiveBeamSliceRun:
     if not isinstance(epoch, EvidenceEpoch):
         raise TypeError("epoch must be EvidenceEpoch")
@@ -529,36 +479,42 @@ def run_live_beam_f0_slice(
     store = RegulatoryEngine.execute(program)
     assessment = AssessmentEngine.reconcile(program, store)
 
-    provenance_refs = (
-        f"epoch:{epoch.epoch_id}",
-        epoch.model_fingerprint,
-        epoch.source_fingerprint or "",
-    )
-    provenance_refs = tuple(item for item in provenance_refs if item)
-
-    check_findings: list[Finding] = []
-    for record in store.formal_results:
-        finding = build_finding_from_check_result(
-            instance_id=record.instance_id,
-            result=record.result,
-            provenance_refs=provenance_refs,
+    provenance_refs = tuple(
+        item
+        for item in (
+            f"epoch:{epoch.epoch_id}",
+            epoch.model_fingerprint,
+            epoch.source_fingerprint,
         )
-        if finding is not None:
-            check_findings.append(finding)
-
+        if item
+    )
+    check_findings = tuple(
+        finding
+        for record in store.formal_results
+        for finding in (
+            build_finding_from_check_result(
+                instance_id=record.instance_id,
+                result=record.result,
+                provenance_refs=provenance_refs,
+            ),
+        )
+        if finding is not None
+    )
     closure_records = {
         item.instance_id: item for item in program.plan.compiled_closure_inventory
     }
-    closure_findings: list[Finding] = []
-    for outcome in assessment.closure_outcomes:
-        finding = build_finding_from_rule_closure(
-            compiled_record=closure_records[outcome.compiled_record_ref],
-            outcome=outcome,
-            provenance_refs=provenance_refs,
+    closure_findings = tuple(
+        finding
+        for outcome in assessment.closure_outcomes
+        for finding in (
+            build_finding_from_rule_closure(
+                compiled_record=closure_records[outcome.compiled_record_ref],
+                outcome=outcome,
+                provenance_refs=provenance_refs,
+            ),
         )
-        if finding is not None:
-            closure_findings.append(finding)
-
+        if finding is not None
+    )
     return LiveBeamSliceRun(
         epoch=epoch,
         snapshot=prepared,
@@ -569,9 +525,7 @@ def run_live_beam_f0_slice(
         program=program,
         store=store,
         assessment=assessment,
-        check_findings=tuple(
-            sorted(check_findings, key=lambda item: item.finding_id)
-        ),
+        check_findings=tuple(sorted(check_findings, key=lambda item: item.finding_id)),
         closure_findings=tuple(
             sorted(closure_findings, key=lambda item: item.finding_id)
         ),
@@ -579,13 +533,7 @@ def run_live_beam_f0_slice(
 
 
 __all__ = [
-    "MODEL_IDENTITY_CONTRACT",
-    "LIVE_EPOCH_CONTRACT",
-    "MODEL_FINGERPRINT_PREFIX",
-    "SOURCE_FINGERPRINT_PREFIX",
-    "EPOCH_ID_PREFIX",
     "MISSING_LIVE_EPOCH_IDENTITY_STATUS",
-    "GEOMETRY_TRACE_FEATURE",
     "VS1_BEAM_REGISTRY",
     "VS1LiveBeamIntegrationError",
     "MissingLiveEpochIdentityError",
