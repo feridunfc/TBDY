@@ -5,7 +5,9 @@ canonical live geometry FeatureSnapshot -> LIVE_CAPTURE EvidenceEpoch ->
 existing F0 evidence adapter -> the three existing beam geometry CheckSpecs ->
 RegulatoryCompiler/RegulatoryEngine -> AssessmentEngine -> canonical Findings.
 
-No engineering rule or ETABS geometry acquisition lives here.
+No engineering rule or ETABS geometry acquisition lives here. Regulatory
+applicability is explicit compile-time caller context and is never read from or
+written into the factual FeatureSnapshot.
 """
 from __future__ import annotations
 
@@ -70,7 +72,6 @@ SOURCE_FINGERPRINT_PREFIX = "etabs:live-geometry-source:sha256:"
 EPOCH_ID_PREFIX = "epoch:live:sha256:"
 MISSING_LIVE_EPOCH_IDENTITY_STATUS = "BLOCKED_BY_MISSING_LIVE_EPOCH_IDENTITY"
 GEOMETRY_TRACE_FEATURE = "beam_geometry_trace"
-TBDY_7411_APPLIES_IDENTITY_KEY = "tbdy_7411_applies"
 
 VS1_BEAM_REGISTRY = RegulatoryRegistry(
     checks=(
@@ -102,6 +103,7 @@ class LiveBeamCaptureArtifact:
 class LiveBeamSliceRun:
     epoch: EvidenceEpoch
     snapshot: FeatureSnapshot
+    tbdy_7411_applies: bool | None
     bindings: tuple[F0EvidenceBinding, ...]
     authorities: tuple[object, ...]
     compile_inputs: object
@@ -120,6 +122,13 @@ class LiveBeamSliceRun:
                 key=lambda item: item.finding_id,
             )
         )
+
+
+def validate_tbdy_7411_applies(value: bool | None) -> bool | None:
+    """Accept the explicit regulatory applicability scalar and nothing else."""
+    if value is not None and type(value) is not bool:
+        raise TypeError("tbdy_7411_applies must be bool or None")
+    return value
 
 
 def _canonical_json_bytes(payload: Mapping[str, object]) -> bytes:
@@ -421,19 +430,15 @@ def vs1_beam_bindings() -> tuple[F0EvidenceBinding, ...]:
     )
 
 
-def _tbdy_7411_applies(snapshot: FeatureSnapshot) -> bool | None:
-    raw = snapshot.identity.get(TBDY_7411_APPLIES_IDENTITY_KEY)
-    if raw is not None and type(raw) is not bool:
-        raise VS1LiveBeamIntegrationError(
-            "tbdy_7411_applies snapshot context must be bool or absent"
-        )
-    return raw
-
-
-def vs1_beam_targets(snapshot: FeatureSnapshot) -> tuple[RuleScopeTarget, ...]:
+def vs1_beam_targets(
+    snapshot: FeatureSnapshot,
+    *,
+    tbdy_7411_applies: bool | None,
+) -> tuple[RuleScopeTarget, ...]:
+    """Build typed existing rule targets from explicit regulatory context."""
+    tbdy_7411_applies = validate_tbdy_7411_applies(tbdy_7411_applies)
     component_type = snapshot.component_type.strip()
     is_beam = component_type.casefold() == "beam"
-    tbdy_7411_applies = _tbdy_7411_applies(snapshot)
     common = {
         "grain": Grain.COMPONENT,
         "scope_ref": snapshot.component_id,
@@ -468,12 +473,16 @@ def vs1_beam_targets(snapshot: FeatureSnapshot) -> tuple[RuleScopeTarget, ...]:
 
 
 def run_live_beam_f0_slice(
-    *, epoch: EvidenceEpoch, snapshot: FeatureSnapshot
+    *,
+    epoch: EvidenceEpoch,
+    snapshot: FeatureSnapshot,
+    tbdy_7411_applies: bool | None,
 ) -> LiveBeamSliceRun:
     if not isinstance(epoch, EvidenceEpoch):
         raise TypeError("epoch must be EvidenceEpoch")
     if epoch.origin is not EvidenceEpochOrigin.LIVE_CAPTURE:
         raise VS1LiveBeamIntegrationError("VS-1 production slice requires LIVE_CAPTURE epoch")
+    tbdy_7411_applies = validate_tbdy_7411_applies(tbdy_7411_applies)
 
     prepared = prepare_live_beam_snapshot(snapshot)
     bindings = vs1_beam_bindings()
@@ -483,7 +492,10 @@ def run_live_beam_f0_slice(
         bindings=bindings,
     )
     compile_inputs = build_f0_compile_inputs(
-        rule_targets=vs1_beam_targets(prepared),
+        rule_targets=vs1_beam_targets(
+            prepared,
+            tbdy_7411_applies=tbdy_7411_applies,
+        ),
         external_authorities=authorities,
     )
     program = RegulatoryCompiler.compile(VS1_BEAM_REGISTRY, compile_inputs)
@@ -493,7 +505,7 @@ def run_live_beam_f0_slice(
     provenance_refs = tuple(
         item
         for item in (
-            f"epoch:{epoch.epoch_id}",
+            epoch.epoch_id,
             epoch.model_fingerprint,
             epoch.source_fingerprint,
         )
@@ -529,6 +541,7 @@ def run_live_beam_f0_slice(
     return LiveBeamSliceRun(
         epoch=epoch,
         snapshot=prepared,
+        tbdy_7411_applies=tbdy_7411_applies,
         bindings=bindings,
         authorities=authorities,
         compile_inputs=compile_inputs,
@@ -544,13 +557,15 @@ def run_live_beam_f0_slice(
 
 
 __all__ = [
+    "MODEL_IDENTITY_CONTRACT",
+    "LIVE_EPOCH_CONTRACT",
     "MISSING_LIVE_EPOCH_IDENTITY_STATUS",
-    "TBDY_7411_APPLIES_IDENTITY_KEY",
     "VS1_BEAM_REGISTRY",
     "VS1LiveBeamIntegrationError",
     "MissingLiveEpochIdentityError",
     "LiveBeamCaptureArtifact",
     "LiveBeamSliceRun",
+    "validate_tbdy_7411_applies",
     "normalize_observed_etabs_model_path",
     "model_fingerprint_from_path",
     "source_fingerprint_from_bytes",
