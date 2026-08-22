@@ -3,7 +3,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from tbdy_engine.features.etabs_com_attach import EtabsAttachFailure
 from tbdy_engine.integration.live_beam_geometry_f0 import (
