@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from tbdy_engine.etabs.safety import (
+    EtabsCapabilityError,
     EtabsVerifiedSession,
     read_capability_snapshot,
     read_session_identity,
@@ -22,6 +23,7 @@ from tbdy_engine.features.live_etabs_geometry_probe import (
 )
 from tbdy_engine.features.used_rc_material_population import (
     MaterialPopulationReadiness,
+    MaterialSourceContractResolutionError,
     UsedRcMaterialPopulation,
     build_used_rc_material_population_from_same_verified_session,
     canonical_material_population_json,
@@ -352,7 +354,12 @@ def run_live_rc_component_f0_product(
 
     model_path = read_observed_etabs_model_path(resolved_attach.sap_model)
     model_fingerprint = model_fingerprint_from_path(model_path)
-    verified_session = _verified_same_session(resolved_attach, model_path)
+    try:
+        verified_session = _verified_same_session(resolved_attach, model_path)
+    except EtabsCapabilityError as exc:
+        raise MissingLiveMaterialEvidenceError(
+            "verified ETABS session lacks required factual material/unit evidence"
+        ) from exc
 
     out_dir = Path(output_dir)
     probe, geometry_summary = _capture_full_geometry(
@@ -367,10 +374,16 @@ def run_live_rc_component_f0_product(
         source_bytes=geometry_capture.raw_bytes,
     )
 
-    material_population = build_used_rc_material_population_from_same_verified_session(
-        verified_session,
-        inventory_identity_namespace=model_fingerprint,
-    )
+    try:
+        material_population = build_used_rc_material_population_from_same_verified_session(
+            session=verified_session,
+            inventory_identity_namespace=model_fingerprint,
+        )
+    except MaterialSourceContractResolutionError as exc:
+        raise MissingLiveMaterialEvidenceError(
+            "authoritative same-session used-RC material factual seam is unresolved"
+        ) from exc
+
     material_text = canonical_material_population_json(material_population)
     material_path = out_dir / MATERIAL_CAPTURE_FILENAME
     material_path.parent.mkdir(parents=True, exist_ok=True)
@@ -388,6 +401,10 @@ def run_live_rc_component_f0_product(
     if material_population.readiness is not MaterialPopulationReadiness.COMPLETE:
         raise MissingLiveMaterialEvidenceError(
             "authoritative used-RC material population is not COMPLETE"
+        )
+    if not material_population.used_concrete_material_definitions:
+        raise MissingLiveMaterialEvidenceError(
+            "authoritative COMPLETE material population contains no used concrete definition"
         )
 
     return build_live_rc_component_f0_product(
