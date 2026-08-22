@@ -172,6 +172,8 @@ def test_semantic_type_is_bounded_and_neutral():
         SemanticType.COMPONENT_SECTION,
         SemanticType.CHECK_EVIDENCE_TRACE,
         SemanticType.CONCRETE_FCK,
+        SemanticType.MODAL_CUMULATIVE_EFFECTIVE_MASS_RATIO,
+        SemanticType.TORSIONAL_IRREGULARITY_COEFFICIENT,
         SemanticType.BEAM_DEPTH,
         SemanticType.COLUMN_WIDTH,
         SemanticType.COLUMN_DEPTH,
