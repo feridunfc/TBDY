@@ -10,6 +10,12 @@ from types import MappingProxyType
 from typing import Mapping, Sequence
 
 from tbdy_engine.checks.result import CheckResult, CheckStatus
+from .authority import (
+    RegulatoryAuthorityCatalog,
+    RegulatoryAuthorityError,
+    ValidatedRuleAuthority,
+    validate_registry_authority,
+)
 from .contracts import (
     ApplicabilityState,
     AvailabilityState,
@@ -208,10 +214,12 @@ class ExternalDependencyAuthority:
 class RegulatoryCompileInputs:
     rule_targets: tuple[RuleScopeTarget, ...]
     external_authorities: tuple[ExternalDependencyAuthority, ...] = field(default_factory=tuple)
+    regulatory_authority_catalog: RegulatoryAuthorityCatalog | None = None
 
     def __init__(
         self, *, rule_targets: Sequence[RuleScopeTarget],
         external_authorities: Sequence[ExternalDependencyAuthority] = (),
+        regulatory_authority_catalog: RegulatoryAuthorityCatalog | None = None,
     ) -> None:
         targets = tuple(rule_targets)
         authorities = tuple(external_authorities)
@@ -219,6 +227,10 @@ class RegulatoryCompileInputs:
             raise TypeError("rule_targets must contain RuleScopeTarget")
         if any(not isinstance(item, ExternalDependencyAuthority) for item in authorities):
             raise TypeError("external_authorities must contain ExternalDependencyAuthority")
+        if regulatory_authority_catalog is not None and not isinstance(
+            regulatory_authority_catalog, RegulatoryAuthorityCatalog
+        ):
+            raise TypeError("regulatory_authority_catalog must be RegulatoryAuthorityCatalog or None")
         for item in targets:
             _require_immutable_applicability_input(item.applicability_input)
         ids = [item.authority_id for item in authorities]
@@ -226,6 +238,7 @@ class RegulatoryCompileInputs:
             raise ValueError("duplicate external authority_id")
         object.__setattr__(self, "rule_targets", tuple(sorted(targets, key=lambda x: x.sort_key)))
         object.__setattr__(self, "external_authorities", tuple(sorted(authorities, key=lambda x: x.sort_key)))
+        object.__setattr__(self, "regulatory_authority_catalog", regulatory_authority_catalog)
 
 
 @dataclass(frozen=True, slots=True)
@@ -461,6 +474,17 @@ class RegulatoryCompiler:
         if not isinstance(registry, RegulatoryRegistry) or not isinstance(inputs, RegulatoryCompileInputs):
             raise TypeError("compile requires RegulatoryRegistry and RegulatoryCompileInputs")
         specs, targets = cls._expand(registry, inputs)
+
+        validated_authorities: tuple[ValidatedRuleAuthority, ...] = ()
+        if inputs.regulatory_authority_catalog is not None:
+            try:
+                validated_authorities = validate_registry_authority(
+                    registry, inputs.regulatory_authority_catalog
+                )
+            except RegulatoryAuthorityError as exc:
+                raise KernelCompileError(str(exc)) from exc
+        validated_by_rule = {item.rule_id: item for item in validated_authorities}
+
         nodes: list[CompiledRuleNode] = []
         bindings: list[CompiledDependencyBinding] = []
         for instance_id in sorted(specs, key=lambda x: x.value):
@@ -483,16 +507,59 @@ class RegulatoryCompiler:
         refs = tuple(DependencyBindingRef(x.consumer_instance_id, x.dependency.key, x.producer_ref) for x in bindings)
         edges = tuple(ref for ref, binding in zip(refs, bindings) if binding.authority_kind is BindingAuthorityKind.REGULATORY_PRODUCER)
         instances = tuple(sorted(specs, key=lambda x: x.value))
+
+        catalog_version: str | None = None
+        authority_binding_refs: tuple[str, ...] = ()
+        authority_fingerprints: tuple[str, ...] = ()
+        compile_diagnostics = (
+            "F0.1_COMPILE_OK",
+            "TOPOLOGICAL_TIE_BREAK=RuleInstanceId.value lexical order",
+        )
+        if inputs.regulatory_authority_catalog is not None:
+            catalog_version = inputs.regulatory_authority_catalog.catalog_version
+            authority_binding_refs = tuple(
+                json.dumps(
+                    [instance.value, validated_by_rule[instance.rule_id].binding_id],
+                    ensure_ascii=True,
+                    separators=(",", ":"),
+                )
+                for instance in instances
+            )
+            authority_fingerprints = tuple(
+                json.dumps(
+                    [
+                        instance.value,
+                        validated_by_rule[instance.rule_id].approved_implementation_fingerprint,
+                    ],
+                    ensure_ascii=True,
+                    separators=(",", ":"),
+                )
+                for instance in instances
+            )
+            compile_diagnostics = (*compile_diagnostics, "F0.9_SOURCE_AUTHORITY_OK")
+
         plan = TBDYExecutionPlan(
             registry_version=registry.registry_version,
-            plan_identity=cls._identity(registry, tuple(nodes), tuple(bindings), order, inputs.external_authorities),
+            plan_identity=cls._identity(
+                registry,
+                tuple(nodes),
+                tuple(bindings),
+                order,
+                inputs.external_authorities,
+                authority_catalog_version=catalog_version,
+                authority_binding_refs=authority_binding_refs,
+                authority_fingerprints=authority_fingerprints,
+            ),
             compiled_rule_instances=instances,
             compiled_dependency_bindings=refs,
             typed_dag=TypedDagContract(node_refs=instances, edge_refs=edges),
             compiled_closure_inventory=tuple(sorted((n.closure_record for n in nodes), key=lambda x: x.instance_id.value)),
             deterministic_execution_order=order,
             analysis_basis_compatibility_refs=tuple(f"{n.instance_id.value}:{n.analysis_basis_status.value}" for n in sorted(nodes, key=lambda x: x.instance_id.value)),
-            compile_diagnostics=("F0.1_COMPILE_OK", "TOPOLOGICAL_TIE_BREAK=RuleInstanceId.value lexical order"),
+            compile_diagnostics=compile_diagnostics,
+            regulatory_authority_catalog_version=catalog_version,
+            compiled_authority_binding_refs=authority_binding_refs,
+            compiled_authority_fingerprints=authority_fingerprints,
         )
         return CompiledRegulatoryProgram(plan, tuple(sorted(nodes, key=lambda x: x.instance_id.value)), inputs.external_authorities)
 
@@ -706,6 +773,10 @@ class RegulatoryCompiler:
     def _identity(
         registry: RegulatoryRegistry, nodes: tuple[CompiledRuleNode, ...], bindings: tuple[CompiledDependencyBinding, ...],
         order: tuple[RuleInstanceId, ...], authorities: tuple[ExternalDependencyAuthority, ...],
+        *,
+        authority_catalog_version: str | None = None,
+        authority_binding_refs: tuple[str, ...] = (),
+        authority_fingerprints: tuple[str, ...] = (),
     ) -> str:
         payload = {
             "kernel": "F0.1", "registry": registry.registry_version,
@@ -714,6 +785,12 @@ class RegulatoryCompiler:
             "external": [(a.authority_id, a.key.value, a.source_kind.value, a.semantic_type.value, a.physical_dimension.value, a.grain.value, a.scope_ref, a.direction, a.unit.identifier, a.availability.value, a.population_completeness.value) for a in sorted(authorities, key=lambda x: x.sort_key)],
             "order": [item.value for item in order],
         }
+        if authority_catalog_version is not None:
+            payload["source_authority"] = {
+                "catalog_version": authority_catalog_version,
+                "binding_refs": list(authority_binding_refs),
+                "implementation_fingerprints": list(authority_fingerprints),
+            }
         encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
         return "f0.1:" + hashlib.sha256(encoded).hexdigest()
 
