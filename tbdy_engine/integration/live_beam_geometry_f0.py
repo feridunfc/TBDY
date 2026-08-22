@@ -70,6 +70,7 @@ SOURCE_FINGERPRINT_PREFIX = "etabs:live-geometry-source:sha256:"
 EPOCH_ID_PREFIX = "epoch:live:sha256:"
 MISSING_LIVE_EPOCH_IDENTITY_STATUS = "BLOCKED_BY_MISSING_LIVE_EPOCH_IDENTITY"
 GEOMETRY_TRACE_FEATURE = "beam_geometry_trace"
+TBDY_7411_APPLIES_IDENTITY_KEY = "tbdy_7411_applies"
 
 VS1_BEAM_REGISTRY = RegulatoryRegistry(
     checks=(
@@ -420,9 +421,19 @@ def vs1_beam_bindings() -> tuple[F0EvidenceBinding, ...]:
     )
 
 
+def _tbdy_7411_applies(snapshot: FeatureSnapshot) -> bool | None:
+    raw = snapshot.identity.get(TBDY_7411_APPLIES_IDENTITY_KEY)
+    if raw is not None and type(raw) is not bool:
+        raise VS1LiveBeamIntegrationError(
+            "tbdy_7411_applies snapshot context must be bool or absent"
+        )
+    return raw
+
+
 def vs1_beam_targets(snapshot: FeatureSnapshot) -> tuple[RuleScopeTarget, ...]:
     component_type = snapshot.component_type.strip()
     is_beam = component_type.casefold() == "beam"
+    tbdy_7411_applies = _tbdy_7411_applies(snapshot)
     common = {
         "grain": Grain.COMPONENT,
         "scope_ref": snapshot.component_id,
@@ -433,7 +444,7 @@ def vs1_beam_targets(snapshot: FeatureSnapshot) -> tuple[RuleScopeTarget, ...]:
             rule_id=BEAM_MIN_WIDTH_RULE_ID,
             applicability_input=BeamMinWidthApplicabilityInput(
                 component_type=component_type,
-                tbdy_7411_applies=True,
+                tbdy_7411_applies=tbdy_7411_applies,
             ),
             **common,
         ),
@@ -441,7 +452,7 @@ def vs1_beam_targets(snapshot: FeatureSnapshot) -> tuple[RuleScopeTarget, ...]:
             rule_id=BEAM_MIN_DEPTH_RULE_ID,
             applicability_input=Beam7411ApplicabilityInput(
                 is_beam=is_beam,
-                tbdy_7411_applies=True,
+                tbdy_7411_applies=tbdy_7411_applies,
             ),
             **common,
         ),
@@ -449,7 +460,7 @@ def vs1_beam_targets(snapshot: FeatureSnapshot) -> tuple[RuleScopeTarget, ...]:
             rule_id=BEAM_DEPTH_WIDTH_RATIO_RULE_ID,
             applicability_input=Beam7411ApplicabilityInput(
                 is_beam=is_beam,
-                tbdy_7411_applies=True,
+                tbdy_7411_applies=tbdy_7411_applies,
             ),
             **common,
         ),
@@ -534,6 +545,7 @@ def run_live_beam_f0_slice(
 
 __all__ = [
     "MISSING_LIVE_EPOCH_IDENTITY_STATUS",
+    "TBDY_7411_APPLIES_IDENTITY_KEY",
     "VS1_BEAM_REGISTRY",
     "VS1LiveBeamIntegrationError",
     "MissingLiveEpochIdentityError",
