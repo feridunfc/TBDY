@@ -20,6 +20,12 @@ def _parser() -> argparse.ArgumentParser:
         description="Run the VS-1 F0-only live beam geometry product slice."
     )
     parser.add_argument("--out", required=True, type=Path)
+    parser.add_argument(
+        "--tbdy-7411-applies",
+        required=True,
+        choices=("true", "false", "unknown"),
+        help="Explicit reviewed compile-time TBDY 7.4.1.1 applicability context.",
+    )
     parser.add_argument("--target-story")
     parser.add_argument("--target-label")
     parser.add_argument("--target-component")
@@ -27,11 +33,20 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _tbdy_7411_cli_value(value: str) -> bool | None:
+    mapping = {"true": True, "false": False, "unknown": None}
+    try:
+        return mapping[value]
+    except KeyError as exc:
+        raise ValueError("unsupported --tbdy-7411-applies value") from exc
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
         result = run_live_beam_geometry_f0_product(
             output_dir=args.out,
+            tbdy_7411_applies=_tbdy_7411_cli_value(args.tbdy_7411_applies),
             target_story=args.target_story,
             target_label=args.target_label,
             target_component=args.target_component,
