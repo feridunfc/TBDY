@@ -43,6 +43,8 @@ def _fetched(table_name: str, case_name: str, rows, *, capture_status=RuntimeCap
             "preferred_output_case": case_name,
             "display_selection_success": True,
             "display_selection_selected_method": "SetLoadCasesSelectedForDisplay",
+            "selection_scope": "VERIFIED_SUPERSET_SELECTION",
+            "target_only_capture_claimed": False,
             "fetch_after_display_selection": True,
         },
     )
@@ -59,13 +61,13 @@ def _source_rows(*, modal_x=0.96, modal_y=0.97, a1_x=1.10, a1_y=1.25, drift=0.02
         ],
     }
     for case in ("EXP", "EXN"):
-        a1_rows = [] if (case == "EXN" and omit_exn_s1) else [{"Story": "S1", "Direction": "X", "Ratio": a1_x}]
+        a1_rows = [] if (case == "EXN" and omit_exn_s1) else [{"OutputCase": case, "Story": "S1", "Direction": "X", "Ratio": a1_x}]
         rows[(A1_TABLE, case)] = a1_rows
-        rows[(STORY_DRIFT_TABLE, case)] = [{"Story": "S1", "Direction": "X", "Drift": drift}]
+        rows[(STORY_DRIFT_TABLE, case)] = [{"OutputCase": case, "Story": "S1", "Direction": "X", "Drift": drift}]
         rows[(BASE_REACTIONS_TABLE, case)] = [{"OutputCase": case, "FX": 100.0, "FY": 10.0}]
     for case in ("EYP", "EYN"):
-        rows[(A1_TABLE, case)] = [{"Story": "S1", "Direction": "Y", "Ratio": a1_y}]
-        rows[(STORY_DRIFT_TABLE, case)] = [{"Story": "S1", "Direction": "Y", "Drift": drift}]
+        rows[(A1_TABLE, case)] = [{"OutputCase": case, "Story": "S1", "Direction": "Y", "Ratio": a1_y}]
+        rows[(STORY_DRIFT_TABLE, case)] = [{"OutputCase": case, "Story": "S1", "Direction": "Y", "Drift": drift}]
         rows[(BASE_REACTIONS_TABLE, case)] = [{"OutputCase": case, "FX": 20.0, "FY": 120.0}]
     return rows
 
@@ -299,3 +301,212 @@ def test_formal_capture_rejects_every_non_full_selected_table_through_production
         )
     assert exc.value.status == seismic.BLOCKED_BY_LIVE_SEISMIC_EVIDENCE_CONFLICT
     assert "not FULL" in str(exc.value)
+
+
+LIVE_MODAL_CASE = "Modal"
+LIVE_X_CASES = ("~Static+EccRSX", "~Static-EccRSX")
+LIVE_Y_CASES = ("~Static+EccRSY", "~Static-EccRSY")
+
+
+def _live_superset_source_rows(*, target_y_eta=1.10, unrelated_y_eta=5.0, missing_y_minus_target=False):
+    rows = {
+        (MODAL_TABLE, LIVE_MODAL_CASE): [
+            {"Case": "Crack_SeisX", "Mode": 99, "SumUX": 1.0, "SumUY": 1.0},
+            {"Case": LIVE_MODAL_CASE, "Mode": 1, "SumUX": 0.70, "SumUY": 0.72},
+            {"Case": LIVE_MODAL_CASE, "Mode": 2, "SumUX": 0.96, "SumUY": 0.97},
+        ]
+    }
+    for case in (*LIVE_X_CASES, *LIVE_Y_CASES):
+        direction = "X" if case in LIVE_X_CASES else "Y"
+        eta = 1.10 if direction == "X" else target_y_eta
+        target_a1 = {"OutputCase": case, "Story": "S1", "Direction": direction, "Ratio": eta}
+        if case == "~Static-EccRSY":
+            a1_rows = [
+                {"OutputCase": "Crack_SeisX", "Story": "S1", "Direction": "X", "Ratio": unrelated_y_eta},
+                {"OutputCase": "Duct_SeisY", "Story": "S1", "Direction": "Y", "Ratio": 1.05},
+            ]
+            if not missing_y_minus_target:
+                a1_rows.append(target_a1)
+        else:
+            a1_rows = [target_a1]
+        rows[(A1_TABLE, case)] = a1_rows
+        rows[(STORY_DRIFT_TABLE, case)] = [
+            {"OutputCase": "Crack_SeisX", "Story": "S1", "Direction": direction, "Drift": 0.50},
+            {"OutputCase": case, "Story": "S1", "Direction": direction, "Drift": 0.020},
+        ]
+        rows[(BASE_REACTIONS_TABLE, case)] = [
+            {"OutputCase": "Crack_SeisX", "FX": 9999.0, "FY": 9999.0},
+            {"OutputCase": case, "FX": 100.0 if direction == "X" else 20.0, "FY": 10.0 if direction == "X" else 120.0},
+        ]
+    return rows
+
+
+def _live_superset_capture(monkeypatch, *, rows=None, reverse=False):
+    rows = rows or _live_superset_source_rows()
+
+    def fake_fetch(database_tables, table_name, *, preferred_output_case, max_rows=None):
+        assert max_rows is None
+        selected = list(rows.get((table_name, preferred_output_case), []))
+        if reverse:
+            selected.reverse()
+        return _fetched(table_name, preferred_output_case, selected)
+
+    monkeypatch.setattr(seismic, "fetch_display_table_for_output", fake_fetch)
+    return capture_seismic_response(
+        database_tables=object(),
+        model_path=MODEL_PATH,
+        modal_case=LIVE_MODAL_CASE,
+        a1_x_cases=LIVE_X_CASES,
+        a1_y_cases=LIVE_Y_CASES,
+        unit_provenance={"present_force_unit": "kN"},
+    )
+
+
+def _isolation_diag(capture, table_name, case_name):
+    return next(
+        item
+        for item in capture.payload["capture_diagnostics"]
+        if item["source_table"] == table_name and item["capture_case"] == case_name
+    )
+
+
+def test_live_superset_a1_retains_only_exact_requested_output_case(monkeypatch):
+    capture = _live_superset_capture(monkeypatch)
+    rows = [
+        row
+        for row in capture.payload["a1"]["by_direction"]["Y"]["rows"]
+        if row["capture_case"] == "~Static-EccRSY"
+    ]
+    assert len(rows) == 1
+    assert rows[0]["factual_output_case"] == "~Static-EccRSY"
+    assert rows[0]["output_identity_field"] == "OutputCase"
+    assert rows[0]["raw_values"]["OutputCase"] == "~Static-EccRSY"
+    diag = _isolation_diag(capture, A1_TABLE, "~Static-EccRSY")
+    assert diag["fetched_superset_row_count"] == 3
+    assert diag["exact_target_row_count"] == 1
+    assert diag["excluded_non_target_row_count"] == 2
+    assert diag["output_identity_field"] == "OutputCase"
+    assert diag["target_only_capture_proven"] is True
+
+
+def test_unrelated_high_a1_ratio_cannot_create_warning(monkeypatch, tmp_path):
+    capture = _live_superset_capture(
+        monkeypatch,
+        rows=_live_superset_source_rows(target_y_eta=1.10, unrelated_y_eta=5.0),
+    )
+    result = _product(tmp_path, capture)
+    row = next(
+        item for item in result.payload["results"]
+        if item["rule_id"] == A1_RULE_ID.value and item["direction"] == "Y"
+    )
+    assert row["check_result"]["status"] == "OK"
+    assert row["check_result"]["value"] == 1.10
+
+
+def test_target_high_a1_ratio_creates_warning_even_when_unrelated_is_low(monkeypatch, tmp_path):
+    capture = _live_superset_capture(
+        monkeypatch,
+        rows=_live_superset_source_rows(target_y_eta=1.30, unrelated_y_eta=1.05),
+    )
+    result = _product(tmp_path, capture)
+    row = next(
+        item for item in result.payload["results"]
+        if item["rule_id"] == A1_RULE_ID.value and item["direction"] == "Y"
+    )
+    assert row["check_result"]["status"] == "WARNING"
+    assert row["check_result"]["value"] == 1.30
+
+
+def test_required_a1_case_with_only_unrelated_superset_rows_is_no_data(monkeypatch, tmp_path):
+    capture = _live_superset_capture(
+        monkeypatch,
+        rows=_live_superset_source_rows(missing_y_minus_target=True),
+    )
+    assert _isolation_diag(capture, A1_TABLE, "~Static-EccRSY")["exact_target_row_count"] == 0
+    result = _product(tmp_path, capture)
+    row = next(
+        item for item in result.payload["results"]
+        if item["rule_id"] == A1_RULE_ID.value and item["direction"] == "Y"
+    )
+    assert row["check_result"] is None
+    assert row["closure_status"] == "NO_DATA"
+
+
+def test_story_drifts_superset_retains_only_exact_requested_output_case(monkeypatch):
+    capture = _live_superset_capture(monkeypatch)
+    rows = [
+        row
+        for row in capture.payload["story_drift"]["rows"]
+        if row["capture_case"] == "~Static-EccRSY"
+    ]
+    assert len(rows) == 1
+    assert rows[0]["factual_output_case"] == "~Static-EccRSY"
+    assert rows[0]["raw_values"]["OutputCase"] == "~Static-EccRSY"
+    assert _isolation_diag(capture, STORY_DRIFT_TABLE, "~Static-EccRSY")["excluded_non_target_row_count"] == 1
+
+
+def test_base_reactions_superset_retains_only_exact_requested_output_case(monkeypatch):
+    capture = _live_superset_capture(monkeypatch)
+    rows = [
+        row
+        for row in capture.payload["base_reactions"]["rows"]
+        if row["capture_case"] == "~Static-EccRSY"
+    ]
+    assert len(rows) == 1
+    assert rows[0]["factual_output_case"] == "~Static-EccRSY"
+    assert rows[0]["raw_values"]["OutputCase"] == "~Static-EccRSY"
+    assert _isolation_diag(capture, BASE_REACTIONS_TABLE, "~Static-EccRSY")["excluded_non_target_row_count"] == 1
+
+
+def test_modal_superset_retains_only_exact_modal_case_using_case_identity(monkeypatch):
+    capture = _live_superset_capture(monkeypatch)
+    rows = capture.payload["modal"]["rows"]
+    assert len(rows) == 2
+    assert all(row["factual_output_case"] == LIVE_MODAL_CASE for row in rows)
+    assert all(row["output_identity_field"] == "Case" for row in rows)
+    assert all(row["raw_values"]["Case"] == LIVE_MODAL_CASE for row in rows)
+    diag = _isolation_diag(capture, MODAL_TABLE, LIVE_MODAL_CASE)
+    assert diag["fetched_superset_row_count"] == 3
+    assert diag["exact_target_row_count"] == 2
+    assert diag["excluded_non_target_row_count"] == 1
+    assert diag["output_identity_field"] == "Case"
+    assert diag["target_only_capture_proven"] is True
+
+
+@pytest.mark.parametrize(
+    "table_name, case_name, identity_field",
+    (
+        (MODAL_TABLE, LIVE_MODAL_CASE, "Case"),
+        (A1_TABLE, LIVE_X_CASES[0], "OutputCase"),
+        (STORY_DRIFT_TABLE, LIVE_X_CASES[0], "OutputCase"),
+        (BASE_REACTIONS_TABLE, LIVE_X_CASES[0], "OutputCase"),
+    ),
+)
+def test_nonempty_fetched_row_without_factual_case_identity_fails_closed(
+    monkeypatch, table_name, case_name, identity_field
+):
+    rows = _live_superset_source_rows()
+    selected = [dict(row) for row in rows[(table_name, case_name)]]
+    selected[0].pop(identity_field, None)
+    rows[(table_name, case_name)] = selected
+    with pytest.raises(seismic.LiveSeismicEvidenceConflictError) as exc:
+        _live_superset_capture(monkeypatch, rows=rows)
+    assert exc.value.status == seismic.BLOCKED_BY_LIVE_SEISMIC_EVIDENCE_CONFLICT
+    assert "output-case identity" in str(exc.value)
+
+
+def test_superset_reordering_is_deterministic_after_exact_target_isolation(monkeypatch, tmp_path):
+    rows = _live_superset_source_rows(target_y_eta=1.10, unrelated_y_eta=5.0)
+    first_capture = _live_superset_capture(monkeypatch, rows=rows, reverse=False)
+    first = _product(tmp_path, first_capture, name="superset-a.json")
+    second_capture = _live_superset_capture(monkeypatch, rows=rows, reverse=True)
+    second = _product(tmp_path, second_capture, name="superset-b.json")
+    assert first_capture.raw_bytes == second_capture.raw_bytes
+    assert first_capture.epoch.source_fingerprint == second_capture.epoch.source_fingerprint
+    assert first_capture.epoch.epoch_id == second_capture.epoch.epoch_id
+    assert [item.authority_id for item in build_seismic_authorities(first_capture)] == [
+        item.authority_id for item in build_seismic_authorities(second_capture)
+    ]
+    assert first.payload["results"] == second.payload["results"]
+    assert first.payload["findings"] == second.payload["findings"]
+    assert first.output_path.read_bytes() == second.output_path.read_bytes()
