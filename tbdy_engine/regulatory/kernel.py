@@ -76,16 +76,25 @@ def _text(value: str, label: str) -> str:
     return value
 
 
-def _directional(grain: Grain) -> bool:
-    return grain in {Grain.DIRECTION, Grain.COMPONENT_DIRECTION, Grain.COMPONENT_END_DIRECTION}
+_DIRECTION_REQUIRED_GRAINS = frozenset({
+    Grain.DIRECTION,
+    Grain.COMPONENT_DIRECTION,
+    Grain.COMPONENT_END_DIRECTION,
+})
+_DIRECTION_OPTIONAL_GRAINS = frozenset({Grain.STORY})
 
 
 def _scope_direction(grain: Grain, direction: str | None, label: str) -> None:
-    if _directional(grain):
+    if grain in _DIRECTION_REQUIRED_GRAINS:
         if direction is None:
             raise ValueError(f"{label} requires direction for {grain.value}")
         _text(direction, f"{label}.direction")
-    elif direction is not None:
+        return
+    if grain in _DIRECTION_OPTIONAL_GRAINS:
+        if direction is not None:
+            _text(direction, f"{label}.direction")
+        return
+    if direction is not None:
         raise ValueError(f"{label} forbids direction for {grain.value}")
 
 
