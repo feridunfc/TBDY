@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import hashlib
 import inspect
 import json
+import ntpath
 from pathlib import Path
 
 import pytest
@@ -20,7 +22,6 @@ from tbdy_engine.product.live_beam_geometry_f0_product import (
     build_live_beam_geometry_f0_product_from_capture,
 )
 from tbdy_engine.regulatory.contracts import ClosureExecutionStatus
-
 
 MODEL_PATH = r"C:\Projects\TBDY\Kres.edb"
 
@@ -57,8 +58,10 @@ def _snapshot(
     *,
     width: float | None = 249.0,
     depth: float | None = 600.0,
+    component_type: str = "beam",
+    component_id: str = "297",
 ) -> FeatureSnapshot:
-    features = {}
+    features: dict[str, FeatureValue] = {}
     if width is None:
         features["beam_width_mm"] = FeatureValue(
             feature_name="beam_width_mm",
@@ -108,13 +111,13 @@ def _snapshot(
             ),
         )
     return FeatureSnapshot(
-        component_type="beam",
-        component_id="297",
+        component_type=component_type,
+        component_id=component_id,
         identity={
             "story": "+14.5",
             "label": "B1",
             "section": "B40x70",
-            "unique_name": "297",
+            "unique_name": component_id,
         },
         features=features,
     )
@@ -133,6 +136,25 @@ def _write_capture(path: Path, snapshot: FeatureSnapshot) -> bytes:
     ).encode("utf-8")
     path.write_bytes(raw)
     return raw
+
+
+def _expected_model_fingerprint(model_path: str) -> str:
+    payload = {
+        "contract": "ETABS_MODEL_IDENTITY_V1",
+        "model_path": ntpath.normcase(ntpath.normpath(model_path.strip())),
+    }
+    encoded = json.dumps(
+        payload,
+        ensure_ascii=False,
+        allow_nan=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return "etabs:model-identity:sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def test_model_fingerprint_exact_supervisor_representation() -> None:
+    assert vs1.model_fingerprint_from_path(MODEL_PATH) == _expected_model_fingerprint(MODEL_PATH)
 
 
 def test_identical_path_has_identical_model_fingerprint() -> None:
@@ -165,6 +187,7 @@ def test_identical_model_and_source_have_identical_epoch_id() -> None:
     second = vs1.build_live_capture_epoch(model_path=MODEL_PATH, source_bytes=b"capture")
     assert first.epoch_id == second.epoch_id
     assert first.origin is EvidenceEpochOrigin.LIVE_CAPTURE
+    assert first.epoch_id.startswith("epoch:live:sha256:")
 
 
 def test_changed_source_changes_epoch_id() -> None:
@@ -208,6 +231,20 @@ def test_get_model_filename_blank_fails_closed() -> None:
         vs1.read_observed_etabs_model_path(Sap())
 
 
+def test_get_model_filename_is_only_live_identity_source() -> None:
+    calls: list[str] = []
+
+    class Sap:
+        def GetModelFilename(self):
+            calls.append("GetModelFilename")
+            return MODEL_PATH
+
+    assert vs1.read_observed_etabs_model_path(Sap()) == ntpath.normcase(
+        ntpath.normpath(MODEL_PATH)
+    )
+    assert calls == ["GetModelFilename"]
+
+
 def test_exact_snapshot_artifact_bytes_are_source_fingerprint_authority(tmp_path: Path) -> None:
     capture_path = tmp_path / "feature_snapshot.json"
     raw = _write_capture(capture_path, _snapshot())
@@ -217,14 +254,13 @@ def test_exact_snapshot_artifact_bytes_are_source_fingerprint_authority(tmp_path
     assert epoch.source_fingerprint != vs1.source_fingerprint_from_path(capture_path)
 
 
-def test_vs1_scenario_a_executes_exact_three_existing_rules_and_one_finding(tmp_path: Path) -> None:
+def test_vs1_scenario_a_three_existing_rules_and_one_finding(tmp_path: Path) -> None:
     capture_path = tmp_path / "feature_snapshot.json"
     _write_capture(capture_path, _snapshot(width=249.0, depth=600.0))
-    output = tmp_path / "product.json"
     result = build_live_beam_geometry_f0_product_from_capture(
         model_path=MODEL_PATH,
         feature_snapshot_path=capture_path,
-        output_path=output,
+        output_path=tmp_path / "product.json",
     )
 
     product = result.payload
@@ -239,20 +275,96 @@ def test_vs1_scenario_a_executes_exact_three_existing_rules_and_one_finding(tmp_
     assert product["finding_count"] == 1
 
     beam = product["beams"][0]
+    assert beam["epoch_ref"] == product["epoch_ref"]
+    assert beam["plan_identity"]
     assert beam["rule_instance_count"] == 3
-    rules = {item["rule_id"]: item for item in beam["rules"]}
-    assert set(rules) == {BEAM_MIN_WIDTH, BEAM_MIN_DEPTH_300, BEAM_DEPTH_WIDTH_RATIO}
-    assert all(item["closure_status"] == ClosureExecutionStatus.EXECUTED.value for item in rules.values())
-    assert rules[BEAM_MIN_WIDTH]["check_result"]["status"] == "FAIL"
-    assert rules[BEAM_MIN_DEPTH_300]["check_result"]["status"] == "OK"
-    assert rules[BEAM_DEPTH_WIDTH_RATIO]["check_result"]["status"] == "OK"
-    assert rules[BEAM_DEPTH_WIDTH_RATIO]["check_result"]["value"] == pytest.approx(600.0 / 249.0)
+    closures = {item["rule_id"]: item for item in beam["closure_inventory"]}
+    assert set(closures) == {BEAM_MIN_WIDTH, BEAM_MIN_DEPTH_300, BEAM_DEPTH_WIDTH_RATIO}
+    assert all(
+        item["closure_status"] == ClosureExecutionStatus.EXECUTED.value
+        for item in closures.values()
+    )
+
+    check_results = {item["check_id"]: item for item in beam["check_results"]}
+    assert check_results[BEAM_MIN_WIDTH]["status"] == "FAIL"
+    assert check_results[BEAM_MIN_DEPTH_300]["status"] == "OK"
+    assert check_results[BEAM_DEPTH_WIDTH_RATIO]["status"] == "OK"
+    assert check_results[BEAM_DEPTH_WIDTH_RATIO]["value"] == pytest.approx(600.0 / 249.0)
     assert beam["finding_count"] == 1
     assert beam["findings"][0]["source_kind"] == "CHECK_RESULT"
     assert beam["findings"][0]["source_status"] == "FAIL"
+    assert beam["assessment"]["full_tbdy_compliance_status"] == "NOT_EVALUATED"
 
 
-def test_missing_width_does_not_block_independent_depth_rule(tmp_path: Path) -> None:
+def test_vs1_scenario_b_deterministic_plan_assessment_findings_and_artifact(tmp_path: Path) -> None:
+    capture_path = tmp_path / "feature_snapshot.json"
+    _write_capture(capture_path, _snapshot())
+    first_path = tmp_path / "first.json"
+    second_path = tmp_path / "second.json"
+    first = build_live_beam_geometry_f0_product_from_capture(
+        model_path=MODEL_PATH,
+        feature_snapshot_path=capture_path,
+        output_path=first_path,
+    )
+    second = build_live_beam_geometry_f0_product_from_capture(
+        model_path=MODEL_PATH,
+        feature_snapshot_path=capture_path,
+        output_path=second_path,
+    )
+    first_beam = first.payload["beams"][0]
+    second_beam = second.payload["beams"][0]
+    assert first_beam["plan_identity"] == second_beam["plan_identity"]
+    assert first_beam["assessment"] == second_beam["assessment"]
+    assert [item["finding_id"] for item in first.payload["findings"]] == [
+        item["finding_id"] for item in second.payload["findings"]
+    ]
+    assert first_path.read_bytes() == second_path.read_bytes()
+
+
+def test_vs1_scenario_c_nonbeam_is_canonically_proven_not_applicable() -> None:
+    snapshot = FeatureSnapshot(
+        component_type="column",
+        component_id="C1",
+        identity={"story": "S1", "section": "C400x400"},
+        features={},
+    )
+    epoch = vs1.build_live_capture_epoch(model_path=MODEL_PATH, source_bytes=b"column")
+    run = vs1.run_live_beam_f0_slice(epoch=epoch, snapshot=snapshot)
+    assert run.store.formal_results == ()
+    assert len(run.assessment.closure_outcomes) == 3
+    assert all(
+        item.execution_status is ClosureExecutionStatus.PROVEN_NOT_APPLICABLE
+        for item in run.assessment.closure_outcomes
+    )
+    assert run.findings == ()
+
+
+def test_vs1_scenario_d_product_preserves_actual_feature_evidence_trace(tmp_path: Path) -> None:
+    capture_path = tmp_path / "feature_snapshot.json"
+    _write_capture(capture_path, _snapshot())
+    result = build_live_beam_geometry_f0_product_from_capture(
+        model_path=MODEL_PATH,
+        feature_snapshot_path=capture_path,
+        output_path=tmp_path / "product.json",
+    )
+    beam = result.payload["beams"][0]
+    assert beam["evidence_refs"]
+    assert any(ref.startswith("evidence:") for ref in beam["provenance_refs"])
+    assert any(ref.startswith("epoch:") for ref in beam["provenance_refs"])
+    for check_result in beam["check_results"]:
+        assert check_result["evidence"]
+        assert all(
+            row["source_table"]
+            == "Frame Section Property Definitions - Concrete Rectangular"
+            for row in check_result["evidence"]
+        )
+        assert all(
+            row["resolver"] == "c13_5_live_etabs_read_only_geometry_probe"
+            for row in check_result["evidence"]
+        )
+
+
+def test_vs1_scenario_e_missing_width_scoped_invalidation_no_guessing(tmp_path: Path) -> None:
     capture_path = tmp_path / "feature_snapshot.json"
     raw = _write_capture(capture_path, _snapshot(width=None, depth=600.0))
     capture = vs1.load_live_beam_capture_artifact(capture_path)
@@ -273,33 +385,28 @@ def test_missing_width_does_not_block_independent_depth_rule(tmp_path: Path) -> 
     assert closure_by_rule[BEAM_MIN_WIDTH].execution_status is ClosureExecutionStatus.NO_DATA
     assert closure_by_rule[BEAM_MIN_DEPTH_300].execution_status is ClosureExecutionStatus.EXECUTED
     assert closure_by_rule[BEAM_DEPTH_WIDTH_RATIO].execution_status is ClosureExecutionStatus.NO_DATA
+    assert run.snapshot.identity["section"] == "B40x70"
+    assert run.snapshot.features["beam_width_mm"].value is None
 
 
-def test_product_bytes_are_deterministic_for_identical_model_and_capture(tmp_path: Path) -> None:
-    capture_path = tmp_path / "feature_snapshot.json"
-    _write_capture(capture_path, _snapshot())
-    first = tmp_path / "first.json"
-    second = tmp_path / "second.json"
-    build_live_beam_geometry_f0_product_from_capture(
-        model_path=MODEL_PATH,
-        feature_snapshot_path=capture_path,
-        output_path=first,
+def test_vs1_production_path_excludes_legacy_authority_and_direct_rule_evaluation() -> None:
+    production_paths = (
+        Path("tbdy_engine/integration/live_beam_geometry_f0.py"),
+        Path("tbdy_engine/product/live_beam_geometry_f0_product.py"),
+        Path("tools/run_live_beam_geometry_f0_product.py"),
     )
-    build_live_beam_geometry_f0_product_from_capture(
-        model_path=MODEL_PATH,
-        feature_snapshot_path=capture_path,
-        output_path=second,
-    )
-    assert first.read_bytes() == second.read_bytes()
-
-
-def test_vs1_production_module_excludes_legacy_authority_imports() -> None:
-    source = inspect.getsource(vs1)
+    source = "\n".join(path.read_text(encoding="utf-8") for path in production_paths)
     for forbidden in (
         "MinimalCheckEngine",
-        "runner_v2",
-        "load_contracts",
-        "check_catalog.yaml",
-        "checks.yaml",
+        "EngineContractLoader",
+        "geometry_vertical_slice",
+        "geometry_product_smoke",
+        "import yaml",
+        "from yaml",
+        "product_reports",
+        "evaluate_member_rule",
+        "evaluate_beam_min_width",
+        "evaluate_beam_min_depth",
+        "evaluate_beam_depth_width_ratio",
     ):
         assert forbidden not in source
