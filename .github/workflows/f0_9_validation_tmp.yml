@@ -1,0 +1,36 @@
+name: F0.9 Temporary Validation
+
+on:
+  push:
+    branches: [sprint/f0-9-source-bound-regulatory-algorithm-foundation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install test dependencies
+        run: python -m pip install pytest pyyaml jsonschema openpyxl
+      - name: Compile candidate
+        run: python -m compileall -q tbdy_engine tools tests
+      - name: F0.9 focused authority tests
+        run: python -m pytest -q tests/regulatory/test_source_authority.py
+      - name: Regulatory regression
+        run: python -m pytest -q tests/regulatory
+      - name: Features regression
+        run: python -m pytest -q tests/features
+      - name: VS-3 seismic focused regression
+        run: python -m pytest -q tests/regulatory/test_seismic_response.py
+      - name: Offline product acceptance
+        run: python tools/run_offline_product_acceptance.py --out local_out/f0_9_validation
+      - name: Candidate full pytest
+        run: python -m pytest -q
