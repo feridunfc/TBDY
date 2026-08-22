@@ -77,6 +77,22 @@ class _CachedGeometryProvider:
         return self.rows, self.diagnostics, self.summary, self.population_audit
 
 
+def _canonical_geometry_rows(rows) -> tuple[dict[str, object], ...]:
+    """Stabilize factual provider ordering before the existing probe serializes it."""
+    return tuple(
+        sorted(
+            (dict(item) for item in rows),
+            key=lambda row: json.dumps(
+                to_jsonable(row),
+                ensure_ascii=False,
+                allow_nan=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ),
+        )
+    )
+
+
 def _finding_payload(finding: Finding) -> dict[str, object]:
     return {
         "finding_id": finding.finding_id,
@@ -313,7 +329,7 @@ def _capture_full_geometry(*, attach_result: EtabsAttachResult, output_dir: Path
     if not callable(bundle_reader):
         raise RealComponentPackConflictError("existing live geometry provider has no full-population bundle")
     rows, diagnostics, summary, population_audit = bundle_reader()
-    rows = tuple(dict(item) for item in rows)
+    rows = _canonical_geometry_rows(rows)
     if not rows:
         raise RealComponentPackConflictError("live geometry provider returned no in-scope beam/column rows")
     cached = _CachedGeometryProvider(
