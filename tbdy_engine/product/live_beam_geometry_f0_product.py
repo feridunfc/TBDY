@@ -25,7 +25,6 @@ from tbdy_engine.integration.live_beam_geometry_f0 import (
     run_live_beam_f0_slice,
 )
 from tbdy_engine.json_safe import to_jsonable
-from tbdy_engine.regulatory.kernel import StructuralAssessmentStatus
 
 PRODUCT_CONTRACT = "VS1_LIVE_BEAM_GEOMETRY_F0_PRODUCT_V1"
 PRODUCT_FILENAME = "live_beam_geometry_f0_product.json"
@@ -70,33 +69,51 @@ def _beam_payload(run: LiveBeamSliceRun) -> dict[str, object]:
         outcome.compiled_record_ref: outcome
         for outcome in run.assessment.closure_outcomes
     }
+    instances = tuple(
+        sorted(run.program.plan.compiled_rule_instances, key=lambda item: item.value)
+    )
 
-    rules: list[dict[str, object]] = []
-    for instance in sorted(
-        run.program.plan.compiled_rule_instances,
-        key=lambda item: item.value,
-    ):
-        outcome = closure_by_instance[instance]
-        result = result_by_instance.get(instance)
-        rules.append(
+    closure_inventory = [
+        {
+            "rule_id": instance.rule_id.value,
+            "rule_instance_id": instance.value,
+            "closure_status": closure_by_instance[instance].execution_status.value,
+        }
+        for instance in instances
+    ]
+    check_results = [
+        result_by_instance[instance].as_dict()
+        for instance in instances
+        if instance in result_by_instance
+    ]
+    findings = [_finding_payload(item) for item in run.findings]
+
+    provenance_refs = tuple(
+        sorted(
             {
-                "rule_id": instance.rule_id.value,
-                "rule_instance_id": instance.value,
-                "closure_status": outcome.execution_status.value,
-                "check_result": None if result is None else result.as_dict(),
+                ref
+                for authority in run.authorities
+                for ref in authority.provenance_refs
             }
         )
-
-    findings = [_finding_payload(item) for item in run.findings]
+    )
+    evidence_refs = tuple(
+        ref for ref in provenance_refs if ref.startswith("evidence:")
+    )
     assessment = run.assessment
     return {
         "component_type": run.snapshot.component_type,
         "component_id": run.snapshot.component_id,
         "story": run.snapshot.identity.get("story"),
         "section": run.snapshot.identity.get("section"),
-        "rule_instance_count": len(rules),
-        "check_result_count": len(result_by_instance),
-        "rules": rules,
+        "epoch_ref": f"epoch:{run.epoch.epoch_id}",
+        "plan_identity": run.program.plan.plan_identity,
+        "rule_instance_count": len(instances),
+        "check_result_count": len(check_results),
+        "closure_inventory": closure_inventory,
+        "check_results": check_results,
+        "evidence_refs": list(evidence_refs),
+        "provenance_refs": list(provenance_refs),
         "assessment": {
             "structural_status": assessment.structural_status.value,
             "full_tbdy_compliance_status": assessment.full_tbdy_compliance_status,
@@ -110,28 +127,10 @@ def _beam_payload(run: LiveBeamSliceRun) -> dict[str, object]:
     }
 
 
-def _product_payload(
-    *,
-    epoch,
-    runs: tuple[LiveBeamSliceRun, ...],
-) -> dict[str, Any]:
+def _product_payload(*, epoch, runs: tuple[LiveBeamSliceRun, ...]) -> dict[str, Any]:
     beam_payloads = tuple(
         _beam_payload(run)
         for run in sorted(runs, key=lambda item: item.snapshot.component_id)
-    )
-    all_findings = tuple(
-        sorted(
-            (
-                finding
-                for run in runs
-                for finding in run.findings
-            ),
-            key=lambda item: item.finding_id,
-        )
-    )
-    all_complete = all(
-        run.assessment.structural_status is StructuralAssessmentStatus.COMPLETE
-        for run in runs
     )
     if any(
         run.assessment.full_tbdy_compliance_status != "NOT_EVALUATED"
@@ -140,20 +139,22 @@ def _product_payload(
         raise VS1LiveBeamIntegrationError(
             "VS-1 may not emit a full-TBDY compliance verdict"
         )
+    all_findings = tuple(
+        sorted(
+            (finding for run in runs for finding in run.findings),
+            key=lambda item: item.finding_id,
+        )
+    )
     return {
         "contract": PRODUCT_CONTRACT,
         "origin": epoch.origin.value,
         "epoch_id": epoch.epoch_id,
+        "epoch_ref": f"epoch:{epoch.epoch_id}",
         "model_fingerprint": epoch.model_fingerprint,
         "source_fingerprint": epoch.source_fingerprint,
         "regulatory_authority": "F0_ONLY",
         "legacy_minimal_check_engine_executed": False,
         "legacy_yaml_authority_executed": False,
-        "structural_assessment_status": (
-            StructuralAssessmentStatus.COMPLETE.value
-            if all_complete
-            else StructuralAssessmentStatus.INCOMPLETE.value
-        ),
         "full_tbdy_compliance_status": "NOT_EVALUATED",
         "beam_count": len(beam_payloads),
         "selected_rule_instance_count": sum(
@@ -170,10 +171,9 @@ def _product_payload(
 
 def _write_product(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    jsonable = to_jsonable(payload)
     path.write_text(
         json.dumps(
-            jsonable,
+            to_jsonable(payload),
             ensure_ascii=False,
             allow_nan=False,
             sort_keys=True,
@@ -224,18 +224,15 @@ def run_live_beam_geometry_f0_product(
     max_rows: int = 20,
     attach_result: EtabsAttachResult | None = None,
 ) -> LiveBeamGeometryF0ProductResult:
-    """Run the accepted live geometry probe once, then cut its artifact into F0."""
+    """Run accepted live geometry capture once, then feed its exact artifact to F0."""
     resolved_attach = attach_result or attach_to_running_etabs()
     if resolved_attach.status != "ATTACHED":
         raise EtabsAttachFailure(resolved_attach)
-    sap_model = resolved_attach.sap_model
-    model_path = read_observed_etabs_model_path(sap_model)
+    model_path = read_observed_etabs_model_path(resolved_attach.sap_model)
 
     out_dir = Path(output_dir)
     capture_dir = out_dir / CAPTURE_DIRNAME
-    provider = create_live_etabs_geometry_provider(
-        attach_result=resolved_attach,
-    )
+    provider = create_live_etabs_geometry_provider(attach_result=resolved_attach)
     probe = probe_geometry_feature_snapshots(
         provider=provider,
         output_dir=capture_dir,
@@ -244,15 +241,13 @@ def run_live_beam_geometry_f0_product(
         target_component=target_component,
         max_rows=max_rows,
     )
-    feature_snapshot_path = probe.feature_snapshot_path
-    if not feature_snapshot_path.exists():
+    if not probe.feature_snapshot_path.exists():
         raise VS1LiveBeamIntegrationError(
             "Live geometry probe did not produce the canonical FeatureSnapshot artifact"
         )
-
     return build_live_beam_geometry_f0_product_from_capture(
         model_path=model_path,
-        feature_snapshot_path=feature_snapshot_path,
+        feature_snapshot_path=probe.feature_snapshot_path,
         output_path=out_dir / PRODUCT_FILENAME,
     )
 
