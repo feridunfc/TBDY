@@ -29,7 +29,7 @@ from tbdy_engine.regulatory.seismic_response import A1_RULE_ID, MODAL_RULE_ID
 MODEL_PATH = r"C:\Projects\TBDY\Kres.edb"
 
 
-def _fetched(table_name: str, case_name: str, rows):
+def _fetched(table_name: str, case_name: str, rows, *, capture_status=RuntimeCaptureStatus.FULL):
     return SimpleNamespace(
         table_name=table_name,
         parsed=SimpleNamespace(
@@ -38,7 +38,7 @@ def _fetched(table_name: str, case_name: str, rows):
             debug={},
             fetch_status="FETCHED",
         ),
-        capture_status=RuntimeCaptureStatus.FULL,
+        capture_status=capture_status,
         display_selection={
             "preferred_output_case": case_name,
             "display_selection_success": True,
@@ -251,3 +251,51 @@ def test_scenario_J_legacy_authority_is_excluded_from_new_production_files():
     for token in forbidden[:-2]:
         assert token not in rule_text
     assert PRODUCT_CONTRACT == "VS3_LIVE_SEISMIC_RESPONSE_PRODUCT_V1"
+
+
+def test_formal_capture_accepts_only_full_status_through_production_boundary(monkeypatch):
+    capture = _capture(monkeypatch)
+    assert capture.raw_bytes
+    diagnostics = capture.payload["capture_diagnostics"]
+    assert diagnostics
+    assert all(item["capture_status"] == RuntimeCaptureStatus.FULL.value for item in diagnostics)
+
+
+@pytest.mark.parametrize(
+    "blocked_table",
+    (MODAL_TABLE, A1_TABLE, STORY_DRIFT_TABLE, BASE_REACTIONS_TABLE),
+)
+@pytest.mark.parametrize(
+    "capture_status",
+    (
+        RuntimeCaptureStatus.TRUNCATED,
+        RuntimeCaptureStatus.PARTIAL,
+        RuntimeCaptureStatus.SAMPLED,
+        "UNKNOWN",
+    ),
+)
+def test_formal_capture_rejects_every_non_full_selected_table_through_production_boundary(
+    monkeypatch,
+    blocked_table,
+    capture_status,
+):
+    rows = _source_rows()
+
+    def fake_fetch(database_tables, table_name, *, preferred_output_case, max_rows=None):
+        assert max_rows is None
+        selected = rows.get((table_name, preferred_output_case), [])
+        status = capture_status if table_name == blocked_table else RuntimeCaptureStatus.FULL
+        return _fetched(table_name, preferred_output_case, selected, capture_status=status)
+
+    monkeypatch.setattr(seismic, "fetch_display_table_for_output", fake_fetch)
+    with pytest.raises(seismic.LiveSeismicEvidenceConflictError) as exc:
+        capture_seismic_response(
+            database_tables=object(),
+            model_path=MODEL_PATH,
+            modal_case="MODAL",
+            a1_x_cases=("EXP", "EXN"),
+            a1_y_cases=("EYP", "EYN"),
+            unit_provenance={"present_force_unit": "kN"},
+        )
+    assert exc.value.status == seismic.BLOCKED_BY_LIVE_SEISMIC_EVIDENCE_CONFLICT
+    assert "not FULL" in str(exc.value)
