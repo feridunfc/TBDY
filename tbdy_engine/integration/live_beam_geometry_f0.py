@@ -320,9 +320,10 @@ def load_live_beam_capture_artifact(
 
 
 def _trace_feature(snapshot: FeatureSnapshot) -> FeatureValue:
+    """Project deterministic provenance from factual FeatureValues only."""
     evidence = tuple(
         item
-        for feature_name in ("beam_width_mm", "beam_depth_mm")
+        for feature_name in sorted(snapshot.features)
         for feature in (snapshot.features.get(feature_name),)
         if isinstance(feature, FeatureValue)
         for item in feature.evidence
@@ -333,7 +334,7 @@ def _trace_feature(snapshot: FeatureSnapshot) -> FeatureValue:
     if full:
         return FeatureValue(
             feature_name=GEOMETRY_TRACE_FEATURE,
-            value="LIVE_BEAM_GEOMETRY_CAPTURE",
+            value="LIVE_GEOMETRY_CAPTURE",
             semantic_role="TRACEABILITY",
             status=FeatureValueStatus.RESOLVED,
             evidence=full,
@@ -341,7 +342,7 @@ def _trace_feature(snapshot: FeatureSnapshot) -> FeatureValue:
     if evidence:
         return FeatureValue(
             feature_name=GEOMETRY_TRACE_FEATURE,
-            value="LIVE_BEAM_GEOMETRY_CAPTURE",
+            value="LIVE_GEOMETRY_CAPTURE",
             semantic_role="TRACEABILITY",
             status=FeatureValueStatus.PARTIAL,
             evidence=evidence,
