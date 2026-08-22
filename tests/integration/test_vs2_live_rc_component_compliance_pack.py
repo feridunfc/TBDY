@@ -4,8 +4,16 @@ from pathlib import Path
 
 import pytest
 
+import tbdy_engine.product.live_rc_component_f0_product as live_rc_product
 from tbdy_engine.checks.result import CheckStatus
 from tbdy_engine.features.evidence import FeatureEvidence, FeatureEvidenceStatus
+from tbdy_engine.features.population_audit import (
+    IN_SCOPE_CONCRETE_RECTANGULAR_BEAM,
+    IN_SCOPE_CONCRETE_RECTANGULAR_COLUMN,
+    PopulationAudit,
+    PopulationAuditRow,
+    PopulationDisposition,
+)
 from tbdy_engine.features.snapshot import FeatureSnapshot
 from tbdy_engine.features.used_rc_material_population import (
     ConcreteStrengthFactStatus,
@@ -420,6 +428,126 @@ def test_scenario_g_deterministic_order_epochs_authorities_plan_results_findings
         item["finding_id"] for item in second.payload["findings"]
     ]
     assert first_path.read_bytes() == second_path.read_bytes()
+
+
+def test_production_full_geometry_capture_is_order_independent_at_raw_provider_boundary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rows = (
+        {
+            "actual_table_name": LOCKED_RECTANGULAR_PROPERTY_TABLE,
+            "component_id": "B1",
+            "component_type": "beam",
+            "depth_mm": 600.0,
+            "depth_mm_source_column": "t3",
+            "depth_mm_unit": "mm",
+            "label": "B1",
+            "section": "B250x600",
+            "source_table": LOCKED_RECTANGULAR_PROPERTY_TABLE,
+            "story": "S1",
+            "unique_name": "B1",
+            "unit": "mm",
+            "width_mm": 250.0,
+            "width_mm_source_column": "t2",
+            "width_mm_unit": "mm",
+        },
+        {
+            "actual_table_name": LOCKED_RECTANGULAR_PROPERTY_TABLE,
+            "component_id": "C1",
+            "component_type": "column",
+            "depth_mm": 400.0,
+            "depth_mm_source_column": "t3",
+            "depth_mm_unit": "mm",
+            "label": "C1",
+            "section": "C300x400",
+            "source_table": LOCKED_RECTANGULAR_PROPERTY_TABLE,
+            "story": "S1",
+            "unique_name": "C1",
+            "unit": "mm",
+            "width_mm": 300.0,
+            "width_mm_source_column": "t2",
+            "width_mm_unit": "mm",
+        },
+    )
+    audit = PopulationAudit(
+        (
+            PopulationAuditRow(
+                component_id="B1",
+                label="B1",
+                story="S1",
+                raw_component_type="beam",
+                assigned_section="B250x600",
+                analysis_section="B250x600",
+                design_section="B250x600",
+                section_shape="Concrete Rectangular",
+                disposition=PopulationDisposition.IN_SCOPE,
+                reason_code=IN_SCOPE_CONCRETE_RECTANGULAR_BEAM,
+                source_table="Frame Assignments - Summary",
+            ),
+            PopulationAuditRow(
+                component_id="C1",
+                label="C1",
+                story="S1",
+                raw_component_type="column",
+                assigned_section="C300x400",
+                analysis_section="C300x400",
+                design_section="C300x400",
+                section_shape="Concrete Rectangular",
+                disposition=PopulationDisposition.IN_SCOPE,
+                reason_code=IN_SCOPE_CONCRETE_RECTANGULAR_COLUMN,
+                source_table="Frame Assignments - Summary",
+            ),
+        )
+    )
+
+    class OrderedProvider:
+        def __init__(self, provider_rows):
+            self.provider_rows = tuple(dict(row) for row in provider_rows)
+
+        def live_geometry_probe_data(self):
+            return (
+                self.provider_rows,
+                (),
+                {"resolved_geometry_row_count": len(self.provider_rows)},
+                audit,
+            )
+
+    provider_orders = (rows, tuple(reversed(rows)))
+    assert [row["component_id"] for row in provider_orders[0]] == ["B1", "C1"]
+    assert [row["component_id"] for row in provider_orders[1]] == ["C1", "B1"]
+
+    captures = []
+    for index, provider_rows in enumerate(provider_orders):
+        provider = OrderedProvider(provider_rows)
+        monkeypatch.setattr(
+            live_rc_product,
+            "create_live_etabs_geometry_provider",
+            lambda *, attach_result, _provider=provider: _provider,
+        )
+        probe, summary = live_rc_product._capture_full_geometry(
+            attach_result=object(),
+            output_dir=tmp_path / f"capture-{index}",
+        )
+        artifact_bytes = probe.feature_snapshot_path.read_bytes()
+        epoch = build_live_capture_epoch(
+            model_path=MODEL_PATH,
+            source_bytes=artifact_bytes,
+        )
+        assert summary["truncation_applied"] is False
+        assert summary["candidate_row_count"] == 2
+        assert summary["selected_row_count"] == 2
+        captures.append(
+            (
+                artifact_bytes,
+                epoch.source_fingerprint,
+                epoch.epoch_id,
+            )
+        )
+
+    assert captures[0][0] == captures[1][0]
+    assert captures[0][1] == captures[1][1]
+    assert captures[0][2] == captures[1][2]
 
 
 def test_material_authority_ids_are_bound_to_epoch_material_dependency_and_fact() -> None:
