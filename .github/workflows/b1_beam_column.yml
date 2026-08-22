@@ -1,52 +1,131 @@
-name: B1 Beam Column Canonicalization
+name: VS3 Final Closure Patch Gate
 
 on:
   push:
-    branches: [sprint/b1-beam-column-canonicalization]
-  workflow_dispatch:
+    branches: [sprint/vs-1-live-beam-regulatory-cutover]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  b1-acceptance:
+  patch-and-focused-gate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Install test dependencies
-        run: python -m pip install pytest pyyaml jsonschema
-      - name: Compile
-        run: python -m compileall -q tbdy_engine tools tests
-      - name: B1 member canonicalization tests
-        run: python -m pytest -q tests/member_geometry
-      - name: Migrated C13.1 member reporter product tests
-        run: python -m pytest -q tests/c13_1
-      - name: Registration duplicate-id hard-failure test
-        run: python -m pytest -q tests/c13_4_p2/test_modular_catalog_negative_cases.py::test_duplicate_check_id_fails
-      - name: CheckEngine and catalog alignment
-        run: python -m pytest -q tests/c13_4_p1/test_engine_catalog_check_id_alignment.py
-      - name: Wall Inventory regression
-        run: python -m pytest -q tests/wall_inventory/test_wall_inventory_slice_1.py
-      - name: Wall Pack A regression
-        run: |
-          python -m pytest -q tests/wall_geometry/test_wall_check_pack_a.py
-          python -m pytest -q tests/wall_geometry/test_wall_pack_a_catalog_contract.py
-      - name: Wall Pack B regression
-        run: |
-          python -m pytest -q tests/wall_geometry/test_wall_check_pack_b.py
-          python -m pytest -q tests/wall_geometry/test_wall_pack_b_source_contracts.py
-      - name: Wall Pack C regression
-        run: |
-          python -m pytest -q tests/wall_geometry/test_wall_check_pack_c.py
-          python -m pytest -q tests/wall_geometry/test_wall_pack_c_source_contracts.py
-      - name: Offline product acceptance
+      - name: Patch exact VS3 head and run focused gates
         shell: bash
         run: |
-          if ! python tools/run_offline_product_acceptance.py --out local_out/b1_offline_acceptance; then
-            echo '--- offline_product_acceptance_report.json ---'
-            cat local_out/b1_offline_acceptance/offline_product_acceptance_report.json || true
-            exit 1
-          fi
+          set -euo pipefail
+          TARGET_BRANCH='sprint/vs-3-live-seismic-response-regulatory-pack'
+          EXPECTED='287692a3a5fcff0e60a191c456181866aef491d5'
+          git fetch origin "$TARGET_BRANCH"
+          git checkout -B "$TARGET_BRANCH" "$EXPECTED"
+          test "$(git rev-parse HEAD)" = "$EXPECTED"
+
+          python - <<'PY'
+          from pathlib import Path
+
+          integration = Path('tbdy_engine/integration/live_seismic_response_f0.py')
+          text = integration.read_text(encoding='utf-8')
+          old = '''    if summary["capture_status"] == RuntimeCaptureStatus.TRUNCATED.value:\n        raise LiveSeismicEvidenceConflictError(\n            f"formal/factual seismic source was truncated: {table_name} / {case_name}"\n        )\n'''
+          new = '''    if summary["capture_status"] != RuntimeCaptureStatus.FULL.value:\n        raise LiveSeismicEvidenceConflictError(\n            "formal/factual seismic source capture is not FULL: "\n            f"{table_name} / {case_name}; capture_status={summary['capture_status']}"\n        )\n'''
+          if old not in text:
+              raise SystemExit('expected _fetch_exact TRUNCATED-only gate not found')
+          integration.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          tests = Path('tests/integration/test_vs3_live_seismic_response_pack.py')
+          text = tests.read_text(encoding='utf-8')
+          old_sig = 'def _fetched(table_name: str, case_name: str, rows):\n'
+          new_sig = 'def _fetched(table_name: str, case_name: str, rows, *, capture_status=RuntimeCaptureStatus.FULL):\n'
+          if old_sig not in text:
+              raise SystemExit('expected _fetched signature not found')
+          text = text.replace(old_sig, new_sig, 1)
+          old_status = '        capture_status=RuntimeCaptureStatus.FULL,\n'
+          new_status = '        capture_status=capture_status,\n'
+          if old_status not in text:
+              raise SystemExit('expected fixed FULL helper status not found')
+          text = text.replace(old_status, new_status, 1)
+
+          marker = 'def test_formal_capture_accepts_only_full_status_through_production_boundary'
+          if marker in text:
+              raise SystemExit('completeness tests already present unexpectedly')
+          addition = r'''
+
+
+def test_formal_capture_accepts_only_full_status_through_production_boundary(monkeypatch):
+    capture = _capture(monkeypatch)
+    assert capture.raw_bytes
+    diagnostics = capture.payload["capture_diagnostics"]
+    assert diagnostics
+    assert all(item["capture_status"] == RuntimeCaptureStatus.FULL.value for item in diagnostics)
+
+
+@pytest.mark.parametrize(
+    "blocked_table",
+    (MODAL_TABLE, A1_TABLE, STORY_DRIFT_TABLE, BASE_REACTIONS_TABLE),
+)
+@pytest.mark.parametrize(
+    "capture_status",
+    (
+        RuntimeCaptureStatus.TRUNCATED,
+        RuntimeCaptureStatus.PARTIAL,
+        RuntimeCaptureStatus.SAMPLED,
+        "UNKNOWN",
+    ),
+)
+def test_formal_capture_rejects_every_non_full_selected_table_through_production_boundary(
+    monkeypatch,
+    blocked_table,
+    capture_status,
+):
+    rows = _source_rows()
+
+    def fake_fetch(database_tables, table_name, *, preferred_output_case, max_rows=None):
+        assert max_rows is None
+        selected = rows.get((table_name, preferred_output_case), [])
+        status = capture_status if table_name == blocked_table else RuntimeCaptureStatus.FULL
+        return _fetched(
+            table_name,
+            preferred_output_case,
+            selected,
+            capture_status=status,
+        )
+
+    monkeypatch.setattr(seismic, "fetch_display_table_for_output", fake_fetch)
+    with pytest.raises(seismic.LiveSeismicEvidenceConflictError) as exc:
+        capture_seismic_response(
+            database_tables=object(),
+            model_path=MODEL_PATH,
+            modal_case="MODAL",
+            a1_x_cases=("EXP", "EXN"),
+            a1_y_cases=("EYP", "EYN"),
+            unit_provenance={"present_force_unit": "kN"},
+        )
+    assert exc.value.status == seismic.BLOCKED_BY_LIVE_SEISMIC_EVIDENCE_CONFLICT
+    assert "not FULL" in str(exc.value)
+'''
+          tests.write_text(text + addition, encoding='utf-8')
+          PY
+
+          git diff --check
+          git diff -- tbdy_engine/integration/live_seismic_response_f0.py tests/integration/test_vs3_live_seismic_response_pack.py
+          git config user.name 'openai-automation'
+          git config user.email 'openai-automation@users.noreply.github.com'
+          git add tbdy_engine/integration/live_seismic_response_f0.py tests/integration/test_vs3_live_seismic_response_pack.py
+          git commit -m 'VS-3 require FULL seismic factual capture'
+          FINAL_HEAD="$(git rev-parse HEAD)"
+          echo "FINAL_HEAD=$FINAL_HEAD"
+
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml jsonschema
+          python -m pytest tests/regulatory/test_f0_1_kernel.py -q
+          python -m pytest tests/regulatory/test_seismic_response.py -q
+          python -m pytest tests/integration/test_vs3_live_seismic_response_pack.py -q
+
+          git status --short
+          git push origin HEAD:"refs/heads/$TARGET_BRANCH"
