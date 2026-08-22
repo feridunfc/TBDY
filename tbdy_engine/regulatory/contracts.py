@@ -519,6 +519,9 @@ class TBDYExecutionPlan:
     deterministic_execution_order: tuple[RuleInstanceId, ...]
     analysis_basis_compatibility_refs: tuple[str, ...]
     compile_diagnostics: tuple[str, ...]
+    regulatory_authority_catalog_version: str | None = None
+    compiled_authority_binding_refs: tuple[str, ...] = field(default_factory=tuple)
+    compiled_authority_fingerprints: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
         _nonblank(self.registry_version, "registry_version")
@@ -531,6 +534,16 @@ class TBDYExecutionPlan:
         object.__setattr__(self, "deterministic_execution_order", _typed_tuple(self.deterministic_execution_order, RuleInstanceId, "deterministic_execution_order"))
         object.__setattr__(self, "analysis_basis_compatibility_refs", _strings(self.analysis_basis_compatibility_refs, "analysis_basis_compatibility_ref"))
         object.__setattr__(self, "compile_diagnostics", _strings(self.compile_diagnostics, "compile_diagnostic"))
+        if self.regulatory_authority_catalog_version is not None:
+            _nonblank(self.regulatory_authority_catalog_version, "regulatory_authority_catalog_version")
+        object.__setattr__(self, "compiled_authority_binding_refs", _strings(self.compiled_authority_binding_refs, "compiled_authority_binding_ref"))
+        object.__setattr__(self, "compiled_authority_fingerprints", _strings(self.compiled_authority_fingerprints, "compiled_authority_fingerprint"))
+        if self.regulatory_authority_catalog_version is None and (
+            self.compiled_authority_binding_refs or self.compiled_authority_fingerprints
+        ):
+            raise ValueError("authority refs require regulatory_authority_catalog_version")
+        if len(self.compiled_authority_binding_refs) != len(self.compiled_authority_fingerprints):
+            raise ValueError("authority binding refs and fingerprints must have equal cardinality")
 
 
 __all__ = [
