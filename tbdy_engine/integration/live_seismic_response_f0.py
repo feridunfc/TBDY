@@ -50,6 +50,12 @@ MODAL_TABLE = "Modal Participating Mass Ratios"
 STORY_DRIFT_TABLE = "Story Drifts"
 A1_TABLE = "Story Max Over Avg Drifts"
 BASE_REACTIONS_TABLE = "Base Reactions"
+_OUTPUT_CASE_FIELDS_BY_TABLE: dict[str, tuple[str, ...]] = {
+    MODAL_TABLE: ("Case",),
+    A1_TABLE: ("OutputCase", "Output Case"),
+    STORY_DRIFT_TABLE: ("OutputCase", "Output Case"),
+    BASE_REACTIONS_TABLE: ("OutputCase", "Output Case"),
+}
 BLOCKED_BY_LIVE_SEISMIC_EVIDENCE_CONFLICT = "BLOCKED_BY_LIVE_SEISMIC_EVIDENCE_CONFLICT"
 BLOCKED_BY_MODAL_SOURCE_SEMANTICS = "BLOCKED_BY_MODAL_SOURCE_SEMANTICS"
 
@@ -192,6 +198,8 @@ def _selection_summary(fetched) -> dict[str, object]:
         "preferred_output_case": selection.get("preferred_output_case"),
         "display_selection_success": bool(selection.get("display_selection_success", False)),
         "display_selection_selected_method": selection.get("display_selection_selected_method"),
+        "selection_scope": selection.get("selection_scope"),
+        "target_only_capture_claimed": selection.get("target_only_capture_claimed"),
         "fetch_after_display_selection": bool(selection.get("fetch_after_display_selection", False)),
         "capture_status": _capture_status(fetched),
         "parser_status": _parser_status(fetched),
@@ -199,19 +207,101 @@ def _selection_summary(fetched) -> dict[str, object]:
     }
 
 
-def _stable_rows(*, fetched, requested_case: str, capture_direction: str | None) -> list[dict[str, object]]:
-    raw_rows = [dict(to_jsonable(row)) for row in fetched.parsed.rows]
-    raw_rows.sort(key=_canonical_text)
+def _factual_output_case_identity(
+    *, row: Mapping[str, object], table_name: str
+) -> tuple[str, str]:
+    aliases = _OUTPUT_CASE_FIELDS_BY_TABLE.get(table_name)
+    if aliases is None:
+        raise LiveSeismicEvidenceConflictError(
+            f"VS-3 has no reviewed factual output-case identity contract for {table_name}"
+        )
+    observed: list[tuple[str, str]] = []
+    for field in aliases:
+        if field not in row:
+            continue
+        value = row[field]
+        if not isinstance(value, str) or not value:
+            raise LiveSeismicEvidenceConflictError(
+                "factual output-case identity is not a nonblank string: "
+                f"{table_name} / field={field!r}"
+            )
+        observed.append((field, value))
+    if not observed:
+        raise LiveSeismicEvidenceConflictError(
+            "fetched seismic row has no provable factual output-case identity: "
+            f"{table_name}; expected one of {aliases!r}"
+        )
+    identities = {value for _field, value in observed}
+    if len(identities) != 1:
+        raise LiveSeismicEvidenceConflictError(
+            "fetched seismic row has conflicting factual output-case identities: "
+            f"{table_name}; identities={sorted(identities)!r}"
+        )
+    return observed[0]
+
+
+def _isolate_exact_target_rows(
+    *, fetched, requested_case: str
+) -> tuple[tuple[tuple[Mapping[str, object], str, str], ...], dict[str, object]]:
+    raw_rows = tuple(dict(to_jsonable(row)) for row in fetched.parsed.rows)
+    if not raw_rows:
+        return (), {
+            "fetched_superset_row_count": 0,
+            "exact_target_row_count": 0,
+            "excluded_non_target_row_count": 0,
+            "output_identity_field": None,
+            "target_only_capture_proven": True,
+        }
+
+    retained: list[tuple[Mapping[str, object], str, str]] = []
+    identity_fields: set[str] = set()
+    for row in raw_rows:
+        identity_field, actual_case = _factual_output_case_identity(
+            row=row, table_name=fetched.table_name
+        )
+        identity_fields.add(identity_field)
+        if actual_case == requested_case:
+            retained.append((row, identity_field, actual_case))
+
+    if len(identity_fields) != 1:
+        raise LiveSeismicEvidenceConflictError(
+            "fetched seismic population does not expose one stable factual output-case identity field: "
+            f"{fetched.table_name}; fields={sorted(identity_fields)!r}"
+        )
+    output_identity_field = next(iter(identity_fields))
+    return tuple(retained), {
+        "fetched_superset_row_count": len(raw_rows),
+        "exact_target_row_count": len(retained),
+        "excluded_non_target_row_count": len(raw_rows) - len(retained),
+        "output_identity_field": output_identity_field,
+        "target_only_capture_proven": True,
+    }
+
+
+def _stable_rows(
+    *,
+    fetched,
+    exact_rows: Sequence[tuple[Mapping[str, object], str, str]],
+    requested_case: str,
+    capture_direction: str | None,
+) -> list[dict[str, object]]:
+    canonical_rows = [
+        (dict(to_jsonable(row)), identity_field, actual_case)
+        for row, identity_field, actual_case in exact_rows
+    ]
+    canonical_rows.sort(key=lambda item: _canonical_text(item[0]))
     rows: list[dict[str, object]] = []
-    for index, row in enumerate(raw_rows):
+    for index, (row, identity_field, actual_case) in enumerate(canonical_rows):
         rows.append(
             {
                 "source_table": fetched.table_name,
                 "actual_table_name": fetched.parsed.actual_table_name,
                 "capture_case": requested_case,
+                "factual_output_case": actual_case,
+                "output_identity_field": identity_field,
                 "capture_direction": capture_direction,
                 "row_index": index,
-                "row_index_basis": "CANONICALIZED_CAPTURE_ORDER",
+                "row_index_basis": "CANONICALIZED_EXACT_TARGET_ORDER",
                 "raw_values": row,
                 "normalized_numeric_values": _normalized_numeric_values(row),
             }
@@ -236,7 +326,11 @@ def _fetch_exact(database_tables: object, table_name: str, case_name: str):
             "formal/factual seismic source capture is not FULL: "
             f"{table_name} / {case_name}; capture_status={summary['capture_status']}"
         )
-    return fetched, summary
+    exact_rows, isolation = _isolate_exact_target_rows(
+        fetched=fetched, requested_case=case_name
+    )
+    summary.update(isolation)
+    return fetched, summary, exact_rows
 
 
 def _modal_final_row(rows: Sequence[Mapping[str, object]]) -> Mapping[str, object]:
@@ -446,8 +540,13 @@ def capture_seismic_response(
     y_cases = _case_tuple(a1_y_cases, "a1_y_cases")
     model_fingerprint = model_fingerprint_from_path(model_path)
 
-    modal_fetch, modal_diag = _fetch_exact(database_tables, MODAL_TABLE, modal_case)
-    modal_rows = _stable_rows(fetched=modal_fetch, requested_case=modal_case, capture_direction=None)
+    modal_fetch, modal_diag, modal_exact_rows = _fetch_exact(database_tables, MODAL_TABLE, modal_case)
+    modal_rows = _stable_rows(
+        fetched=modal_fetch,
+        exact_rows=modal_exact_rows,
+        requested_case=modal_case,
+        capture_direction=None,
+    )
 
     a1_direction_payload: dict[str, object] = {}
     story_drift_rows: list[dict[str, object]] = []
@@ -458,12 +557,33 @@ def capture_seismic_response(
     for direction, cases in (("X", x_cases), ("Y", y_cases)):
         a1_rows: list[dict[str, object]] = []
         for case_name in cases:
-            a1_fetch, a1_diag = _fetch_exact(database_tables, A1_TABLE, case_name)
-            drift_fetch, drift_diag = _fetch_exact(database_tables, STORY_DRIFT_TABLE, case_name)
-            base_fetch, base_diag = _fetch_exact(database_tables, BASE_REACTIONS_TABLE, case_name)
-            a1_rows.extend(_stable_rows(fetched=a1_fetch, requested_case=case_name, capture_direction=direction))
-            story_drift_rows.extend(_stable_rows(fetched=drift_fetch, requested_case=case_name, capture_direction=direction))
-            base_reaction_rows.extend(_stable_rows(fetched=base_fetch, requested_case=case_name, capture_direction=direction))
+            a1_fetch, a1_diag, a1_exact_rows = _fetch_exact(database_tables, A1_TABLE, case_name)
+            drift_fetch, drift_diag, drift_exact_rows = _fetch_exact(database_tables, STORY_DRIFT_TABLE, case_name)
+            base_fetch, base_diag, base_exact_rows = _fetch_exact(database_tables, BASE_REACTIONS_TABLE, case_name)
+            a1_rows.extend(
+                _stable_rows(
+                    fetched=a1_fetch,
+                    exact_rows=a1_exact_rows,
+                    requested_case=case_name,
+                    capture_direction=direction,
+                )
+            )
+            story_drift_rows.extend(
+                _stable_rows(
+                    fetched=drift_fetch,
+                    exact_rows=drift_exact_rows,
+                    requested_case=case_name,
+                    capture_direction=direction,
+                )
+            )
+            base_reaction_rows.extend(
+                _stable_rows(
+                    fetched=base_fetch,
+                    exact_rows=base_exact_rows,
+                    requested_case=case_name,
+                    capture_direction=direction,
+                )
+            )
             diagnostics.extend(
                 (
                     {"source_table": A1_TABLE, "capture_case": case_name, "capture_direction": direction, **a1_diag},
