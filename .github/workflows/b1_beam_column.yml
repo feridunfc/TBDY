@@ -1,4 +1,4 @@
-name: VS3 Final Closure Patch Gate
+name: VS3 Patch And Focused Result
 
 on:
   push:
@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 jobs:
-  patch-and-focused-gate:
+  patch-focused:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,15 +17,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Patch exact VS3 head and run focused gates
+      - name: Patch, push, test, publish result
         shell: bash
         run: |
-          set -euo pipefail
-          TARGET_BRANCH='sprint/vs-3-live-seismic-response-regulatory-pack'
+          set -u
+          REPO='feridunfc/TBDY'
+          TARGET='sprint/vs-3-live-seismic-response-regulatory-pack'
+          CARRIER='sprint/vs-1-live-beam-regulatory-cutover'
           EXPECTED='287692a3a5fcff0e60a191c456181866aef491d5'
-          git fetch origin "$TARGET_BRANCH"
-          git checkout -B "$TARGET_BRANCH" "$EXPECTED"
-          test "$(git rev-parse HEAD)" = "$EXPECTED"
+          RESULT=/tmp/vs3_patch_gate_result.txt
+          : > "$RESULT"
+          exec > >(tee -a "$RESULT") 2>&1
+
+          git fetch origin "$TARGET" "$CARRIER"
+          git checkout -B "$TARGET" "$EXPECTED" || exit 90
+          echo "START_HEAD=$(git rev-parse HEAD)"
+          test "$(git rev-parse HEAD)" = "$EXPECTED" || exit 91
 
           python - <<'PY'
           from pathlib import Path
@@ -46,14 +53,10 @@ jobs:
               raise SystemExit('expected _fetched signature not found')
           text = text.replace(old_sig, new_sig, 1)
           old_status = '        capture_status=RuntimeCaptureStatus.FULL,\n'
-          new_status = '        capture_status=capture_status,\n'
           if old_status not in text:
               raise SystemExit('expected fixed FULL helper status not found')
-          text = text.replace(old_status, new_status, 1)
+          text = text.replace(old_status, '        capture_status=capture_status,\n', 1)
 
-          marker = 'def test_formal_capture_accepts_only_full_status_through_production_boundary'
-          if marker in text:
-              raise SystemExit('completeness tests already present unexpectedly')
           addition = r'''
 
 
@@ -89,12 +92,7 @@ def test_formal_capture_rejects_every_non_full_selected_table_through_production
         assert max_rows is None
         selected = rows.get((table_name, preferred_output_case), [])
         status = capture_status if table_name == blocked_table else RuntimeCaptureStatus.FULL
-        return _fetched(
-            table_name,
-            preferred_output_case,
-            selected,
-            capture_status=status,
-        )
+        return _fetched(table_name, preferred_output_case, selected, capture_status=status)
 
     monkeypatch.setattr(seismic, "fetch_display_table_for_output", fake_fetch)
     with pytest.raises(seismic.LiveSeismicEvidenceConflictError) as exc:
@@ -109,23 +107,54 @@ def test_formal_capture_rejects_every_non_full_selected_table_through_production
     assert exc.value.status == seismic.BLOCKED_BY_LIVE_SEISMIC_EVIDENCE_CONFLICT
     assert "not FULL" in str(exc.value)
 '''
+          if 'test_formal_capture_accepts_only_full_status_through_production_boundary' in text:
+              raise SystemExit('completeness tests already present unexpectedly')
           tests.write_text(text + addition, encoding='utf-8')
           PY
+          PATCH_EXIT=$?
+          echo "PATCH_EXIT=$PATCH_EXIT"
+          if [ "$PATCH_EXIT" -ne 0 ]; then
+            exit "$PATCH_EXIT"
+          fi
 
           git diff --check
-          git diff -- tbdy_engine/integration/live_seismic_response_f0.py tests/integration/test_vs3_live_seismic_response_pack.py
           git config user.name 'openai-automation'
           git config user.email 'openai-automation@users.noreply.github.com'
           git add tbdy_engine/integration/live_seismic_response_f0.py tests/integration/test_vs3_live_seismic_response_pack.py
           git commit -m 'VS-3 require FULL seismic factual capture'
           FINAL_HEAD="$(git rev-parse HEAD)"
           echo "FINAL_HEAD=$FINAL_HEAD"
+          git push origin HEAD:"refs/heads/$TARGET"
+          PUSH_EXIT=$?
+          echo "TARGET_PUSH_EXIT=$PUSH_EXIT"
 
-          python -m pip install --upgrade pip
-          python -m pip install pytest pyyaml jsonschema
+          python -m pip install --upgrade pip >/dev/null 2>&1
+          python -m pip install pytest pyyaml jsonschema >/dev/null 2>&1
+          set +e
           python -m pytest tests/regulatory/test_f0_1_kernel.py -q
+          KERNEL_EXIT=$?
+          echo "KERNEL_EXIT=$KERNEL_EXIT"
           python -m pytest tests/regulatory/test_seismic_response.py -q
+          REG_EXIT=$?
+          echo "SEISMIC_REG_EXIT=$REG_EXIT"
           python -m pytest tests/integration/test_vs3_live_seismic_response_pack.py -q
-
+          INT_EXIT=$?
+          echo "VS3_INT_EXIT=$INT_EXIT"
+          set -e
+          echo "POST_TEST_HEAD=$(git rev-parse HEAD)"
+          echo "POST_TEST_STATUS_BEGIN"
           git status --short
-          git push origin HEAD:"refs/heads/$TARGET_BRANCH"
+          echo "POST_TEST_STATUS_END"
+
+          cp "$RESULT" /tmp/vs3_result_copy.txt
+          git fetch origin "$CARRIER"
+          git checkout -B "$CARRIER" "origin/$CARRIER"
+          cp /tmp/vs3_result_copy.txt .github/vs3_patch_gate_result.txt
+          git add .github/vs3_patch_gate_result.txt
+          git commit -m '[skip ci] VS3 patch gate result'
+          git push origin HEAD:"refs/heads/$CARRIER"
+
+          test "$PUSH_EXIT" -eq 0
+          test "$KERNEL_EXIT" -eq 0
+          test "$REG_EXIT" -eq 0
+          test "$INT_EXIT" -eq 0
