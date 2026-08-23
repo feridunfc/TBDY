@@ -116,6 +116,19 @@ class SemanticType(StrEnum):
     WALL_UNRESTRAINED_PLAN_LENGTH = "WALL_UNRESTRAINED_PLAN_LENGTH"
     MODAL_CUMULATIVE_EFFECTIVE_MASS_RATIO = "MODAL_CUMULATIVE_EFFECTIVE_MASS_RATIO"
     TORSIONAL_IRREGULARITY_COEFFICIENT = "TORSIONAL_IRREGULARITY_COEFFICIENT"
+    RC_TABLE_4_1_ROW = "RC_TABLE_4_1_ROW"
+    RC_DTS = "RC_DTS"
+    RC_BYS = "RC_BYS"
+    RC_DUCTILITY_CLASS = "RC_DUCTILITY_CLASS"
+    RC_BASE_R = "RC_BASE_R"
+    RC_BASE_D = "RC_BASE_D"
+    RC_BYS_POLICY = "RC_BYS_POLICY"
+    RC_POST_ANALYSIS_QUALIFICATION_REQUIREMENT = "RC_POST_ANALYSIS_QUALIFICATION_REQUIREMENT"
+    RC_DIRECTIONAL_BASELINE_SYSTEM_POLICY = "RC_DIRECTIONAL_BASELINE_SYSTEM_POLICY"
+    RC_ORTHOGONAL_SYSTEM_DECLARATION = "RC_ORTHOGONAL_SYSTEM_DECLARATION"
+    RC_A16_SPECIAL_CONTEXT = "RC_A16_SPECIAL_CONTEXT"
+    RC_ANALYSIS_SYSTEM_ASSUMPTION = "RC_ANALYSIS_SYSTEM_ASSUMPTION"
+    RC_ANALYSIS_BASIS_STATUS = "RC_ANALYSIS_BASIS_STATUS"
 
 
 class PhysicalDimension(StrEnum):
@@ -207,10 +220,7 @@ class RuleInstanceId:
             _nonblank(self.direction, "direction")
         _nonblank(self.value, "RuleInstanceId")
         expected = _rule_instance_value(
-            rule_id=self.rule_id,
-            grain=self.grain,
-            scope_ref=self.scope_ref,
-            direction=self.direction,
+            rule_id=self.rule_id, grain=self.grain, scope_ref=self.scope_ref, direction=self.direction
         )
         if self.value != expected:
             raise ValueError("RuleInstanceId value must match deterministic canonical construction")
@@ -233,10 +243,7 @@ class RuleInstanceId:
             scope_ref=scope_ref,
             direction=direction,
             value=_rule_instance_value(
-                rule_id=rule_id,
-                grain=grain,
-                scope_ref=scope_ref,
-                direction=direction,
+                rule_id=rule_id, grain=grain, scope_ref=scope_ref, direction=direction
             ),
         )
 
