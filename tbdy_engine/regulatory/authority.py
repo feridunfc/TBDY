@@ -473,6 +473,12 @@ def _module_source_bytes(module_name: str) -> bytes:
     return path.read_bytes()
 
 
+def _canonical_python_source_bytes(source: bytes) -> bytes:
+    """Normalize only platform newline representation for authority hashing."""
+
+    return source.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
+
+
 def implementation_fingerprint(
     *,
     rule_id: RuleId,
@@ -488,7 +494,12 @@ def implementation_fingerprint(
     evaluator_binding_id = _text(evaluator_binding_id, "evaluator_binding_id")
     modules = _strings(implementation_modules, "implementation_module", require_nonempty=True)
     module_hashes = [
-        [module_name, hashlib.sha256(_module_source_bytes(module_name)).hexdigest()]
+        [
+            module_name,
+            hashlib.sha256(
+                _canonical_python_source_bytes(_module_source_bytes(module_name))
+            ).hexdigest(),
+        ]
         for module_name in modules
     ]
     payload = {
