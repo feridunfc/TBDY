@@ -11,8 +11,15 @@ from collections.abc import Sequence
 from tbdy_engine.features import _etabs_mdev_mo_evidence_core as _core
 from tbdy_engine.features._etabs_mdev_mo_evidence_core import *  # noqa: F401,F403
 
-# Keep these names patchable at the public module boundary. Existing tests and
-# live callers must not need to reach through the private implementation module.
+# Keep factual table keys and acquisition callables explicit at the public
+# boundary.  The core's __all__ intentionally exposes behavior/contracts rather
+# than these implementation constants, but the directional override needs the
+# exact reviewed table keys without inventing alternate names.
+BASE_REACTIONS_TABLE = _core.BASE_REACTIONS_TABLE
+PIER_FORCES_TABLE = _core.PIER_FORCES_TABLE
+STORY_FORCES_TABLE = _core.STORY_FORCES_TABLE
+PIER_SECTIONS_TABLE = _core.PIER_SECTIONS_TABLE
+PIER_LABELS_TABLE = _core.PIER_LABELS_TABLE
 fetch_display_table = _core.fetch_display_table
 fetch_display_table_for_output = _core.fetch_display_table_for_output
 process_local_acquisition_lock = _core.process_local_acquisition_lock
