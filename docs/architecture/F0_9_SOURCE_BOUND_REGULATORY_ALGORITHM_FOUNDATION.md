@@ -45,9 +45,9 @@ A `code_ref` is trace/display metadata. It is not executable regulatory authorit
 Executable regulatory authority requires all of the following:
 
 ```text
-Source Anchor
+Exact Source Chain
 +
-Reviewed Regulatory Claim
+Exact Reviewed Regulatory Claim Snapshot
 +
 Approved Implementation Binding
 +
@@ -79,7 +79,7 @@ The catalog is a deterministic immutable composition root. Duplicate identities 
 
 `RegulatoryClaim.normalized_statement` is a reviewed proposition/summary. It is not executable code and must not evolve into a formula scripting language.
 
-## 5. Review semantics
+## 5. Review semantics and freshness
 
 Review status is bounded to:
 
@@ -91,6 +91,38 @@ REJECTED
 ```
 
 Only referenced `APPROVED` review records can support production authority. A binding must reference reviewed claims, and each bound claim must have a referenced approved review.
+
+A review is not bound only to `claim_id`. `AuthorityReviewRecord.reviewed_claim_fingerprint` captures the exact claim/source-chain snapshot that was reviewed. The deterministic `regulatory_claim_fingerprint(...)` includes, at minimum:
+
+```text
+RegulatoryClaim
+- claim_id
+- claim_version
+- normalized_statement
+- anchor_refs
+
+Each resolved SourceAnchor
+- anchor_id
+- source_id
+- locator
+
+Each resolved RegulatorySourceDocument
+- source_id
+- edition
+- source_fingerprint
+```
+
+The current implementation also includes deterministic source metadata (`title`, `issuer`, `jurisdiction`). It includes no repository HEAD SHA and no copyrighted source text.
+
+During strict authority validation the current claim and its complete resolved source chain are fingerprinted again. The current fingerprint must exactly equal `reviewed_claim_fingerprint`. A mismatch raises:
+
+```text
+STALE_REGULATORY_CLAIM_REVIEW
+```
+
+and compilation fails before execution. Therefore changing `claim_version`, `normalized_statement`, an anchor locator, source edition, or source fingerprint invalidates the old review even when `claim_id` is unchanged. A new matching `APPROVED` review is required before strict compilation can succeed.
+
+`reviewed_claim_fingerprint` participates in deterministic `RegulatoryAuthorityCatalog` identity. Identical source/claim/review state therefore produces the same catalog version; a re-review or changed reviewed authority produces a different catalog version.
 
 ## 6. Implementation fingerprint
 
@@ -140,7 +172,7 @@ regulatory_authority_catalog is supplied
 → no TBDYExecutionPlan is emitted
 ```
 
-Strict validation checks rule identity, claim/review/source-chain integrity, evaluator binding identity, rule version, explicit evaluator-module review membership, and implementation fingerprint freshness.
+Strict validation checks rule identity, exact claim-review/source-chain freshness, review approval status, evaluator binding identity, rule version, explicit evaluator-module review membership, and implementation fingerprint freshness.
 
 ## 8. Plan provenance and identity
 
@@ -152,7 +184,7 @@ When strict source authority is active, `TBDYExecutionPlan` carries immutable re
 
 The plan does not duplicate source documents, claims, or review objects inside every closure.
 
-Strict plan identity includes authority catalog version, validated binding refs, and approved implementation fingerprints. Therefore a reviewed authority change changes plan identity even when evidence, context, and regulatory rules are otherwise unchanged.
+Strict plan identity includes authority catalog version, validated binding refs, and approved implementation fingerprints. Therefore a successfully re-reviewed authority change changes plan identity even when evidence, context, and regulatory rules are otherwise unchanged. A stale claim review does not reach plan creation at all.
 
 With no catalog, the legacy F0.1 plan-identity payload remains unchanged.
 
@@ -172,6 +204,19 @@ strict catalog-enabled compilation
 
 `code_refs` cannot authorize an evaluator.
 
+The review-freshness proof is:
+
+```text
+same claim_id
++
+changed reviewed claim/source-chain content
++
+old APPROVED review fingerprint
+
+→ STALE_REGULATORY_CLAIM_REVIEW
+→ COMPILE FAILS
+```
+
 ## 10. Future rule-authoring pattern
 
 All new regulatory domain work after F0.9 should follow:
@@ -181,7 +226,9 @@ SOURCE DOCUMENT
     ↓
 ANCHOR
     ↓
-CLAIM + REVIEW
+CLAIM
+    ↓
+EXACT CLAIM/SOURCE FINGERPRINT + APPROVED REVIEW
     ↓
 typed dependencies
     ↓
@@ -234,4 +281,4 @@ F0.9 intentionally does not implement:
 - bulk migration of the 147-rule research inventory;
 - authoritative real TBDY claims without a separate reviewed source package.
 
-The purpose of F0.9 is narrower: make future executable regulatory algorithms mechanically source-bound before they enter production authority.
+The purpose of F0.9 is narrower: make future executable regulatory algorithms mechanically source-bound and review-fresh before they enter production authority.
