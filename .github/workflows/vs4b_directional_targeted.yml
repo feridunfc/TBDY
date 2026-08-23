@@ -1,0 +1,38 @@
+name: VS-4B Directional Targeted Gate
+
+on:
+  push:
+    branches:
+      - sprint/vs-4b-a-a15-mdev-mo
+
+permissions:
+  contents: read
+
+jobs:
+  targeted:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install targeted test dependencies
+        run: python -m pip install pytest pyyaml jsonschema
+      - name: Compile touched VS-4B modules
+        run: |
+          python -m compileall -q \
+            tbdy_engine/features/etabs_mdev_mo_evidence.py \
+            tbdy_engine/features/_etabs_mdev_mo_evidence_core.py \
+            tbdy_engine/regulatory/vs4b_program.py \
+            tbdy_engine/regulatory/rc_a15_wall_share.py \
+            tbdy_engine/regulatory/sources/tbdy2018_vs4b.py \
+            tools/run_live_vs4b_a15.py
+      - name: Directional boundary and VS-4B targeted tests
+        run: |
+          python -m pytest -q \
+            tests/features/test_vs4b_directional_capture_boundary.py \
+            tests/integration/test_vs4b_directional_authority_boundary.py \
+            tests/features/test_etabs_mdev_mo_evidence.py \
+            tests/regulatory/test_rc_a15_wall_share.py \
+            tests/regulatory/test_vs4b_source_authority.py \
+            tests/integration/test_vs4b_a15_program.py
