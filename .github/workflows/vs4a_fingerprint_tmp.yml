@@ -39,3 +39,5 @@ jobs:
           git add local_out/vs4a_fingerprints.json
           git commit -m "VS-4A temporary evaluator fingerprints"
           git push origin HEAD:sprint/vs-4a-rc-system-baseline-policy
+
+# retrigger after workflow registration
