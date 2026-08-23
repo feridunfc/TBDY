@@ -354,6 +354,26 @@ def test_N_implementation_fingerprint_is_deterministic_and_module_order_independ
     assert first == second
 
 
+def test_N1_implementation_fingerprint_is_cross_platform_newline_stable(module_sources):
+    spec = _spec()
+    module_sources[__name__] = b"value = 1\n# reviewed\n"
+    lf = _fingerprint(spec)
+    module_sources[__name__] = b"value = 1\r\n# reviewed\r\n"
+    crlf = _fingerprint(spec)
+    module_sources[__name__] = b"value = 1\r# reviewed\r"
+    cr = _fingerprint(spec)
+    assert lf == crlf == cr
+
+
+def test_N2_implementation_fingerprint_changes_for_real_source_byte_change(module_sources):
+    spec = _spec()
+    module_sources[__name__] = b"value = 1\n"
+    before = _fingerprint(spec)
+    module_sources[__name__] = b"value = 2\n"
+    after = _fingerprint(spec)
+    assert before != after
+
+
 def test_O_reviewed_implementation_module_change_changes_fingerprint(module_sources):
     spec = _spec()
     before = _fingerprint(spec)
