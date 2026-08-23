@@ -1,0 +1,94 @@
+name: F0.9 Temporary Validation
+
+on:
+  push:
+    branches: [sprint/f0-9-source-bound-regulatory-algorithm-foundation]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run acceptance matrix and publish temporary result
+        shell: bash
+        run: |
+          set +e
+          BRANCH="sprint/f0-9-source-bound-regulatory-algorithm-foundation"
+          BASE="1395261d800a0636851dd65fcbe1b883bafa7cbc"
+          CANDIDATE="$GITHUB_SHA"
+          RESULT="/tmp/f0_9_ci_result.txt"
+          : > "$RESULT"
+          printf 'F0.9 TEMPORARY VALIDATION\nBASE=%s\nCANDIDATE=%s\n\n' "$BASE" "$CANDIDATE" >> "$RESULT"
+
+          failures=0
+          run_case() {
+            name="$1"
+            shift
+            log="/tmp/f09_${name}.log"
+            echo "== $name ==" >> "$RESULT"
+            "$@" >"$log" 2>&1
+            rc=$?
+            echo "exit=$rc" >> "$RESULT"
+            tail -n 40 "$log" >> "$RESULT"
+            echo >> "$RESULT"
+            if [ "$rc" -ne 0 ]; then failures=$((failures + 1)); fi
+          }
+
+          run_case install python -m pip install pytest pyyaml jsonschema openpyxl
+          run_case compile_candidate python -m compileall -q tbdy_engine tools tests
+          run_case authority_focused python -m pytest -q tests/regulatory/test_source_authority.py
+          run_case contracts python -m pytest -q tests/regulatory/test_f0_semantic_contracts.py
+          run_case kernel python -m pytest -q tests/regulatory/test_f0_1_kernel.py
+          run_case regulatory python -m pytest -q tests/regulatory
+          run_case features python -m pytest -q tests/features
+          run_case vs3 python -m pytest -q tests/integration/test_vs3_live_seismic_response_pack.py
+          run_case vs2 python -m pytest -q tests/integration/test_vs2_live_rc_component_compliance_pack.py
+          run_case vs1 python -m pytest -q tests/integration/test_vs1_live_beam_geometry_f0_cutover.py
+          run_case vs0 python -m pytest -q tests/integration/test_vs0_architecture_vertical_slice.py
+          run_case f0_4 python -m pytest -q tests/integration/test_f0_4_evidence_authority_adapter.py tests/integration/test_f0_4_supervisor_corrections.py
+          run_case f0_6 python -m pytest -q tests/integration/test_f0_6_basis_report.py tests/integration/test_f0_6_finding_contract.py tests/integration/test_f0_6_remediation_contract.py
+          run_case f0_7 python -m pytest -q tests/integration/test_f0_7_concrete_material_dag.py
+          run_case f0_8 python -m pytest -q tests/integration/test_f0_8_existing_checks_dag_parity.py
+          run_case offline_product python tools/run_offline_product_acceptance.py --out local_out/f0_9_validation
+          run_case candidate_full python -m pytest -q
+          cp "$RESULT" /tmp/f0_9_candidate_result.txt
+          candidate_failures="$failures"
+
+          git reset --hard "$BASE" >/dev/null 2>&1
+          git clean -fdx >/dev/null 2>&1
+          RESULT="/tmp/f0_9_base_result.txt"
+          : > "$RESULT"
+          printf 'F0.9 FROZEN BASE COMPARISON\nBASE=%s\n\n' "$BASE" >> "$RESULT"
+          failures=0
+          run_case base_compile python -m compileall -q tbdy_engine tools tests
+          run_case base_full python -m pytest -q
+          base_failures="$failures"
+
+          git checkout -f "$BRANCH" >/dev/null 2>&1
+          git reset --hard "$CANDIDATE" >/dev/null 2>&1
+          git clean -fdx >/dev/null 2>&1
+          mkdir -p local_out
+          {
+            cat /tmp/f0_9_candidate_result.txt
+            echo
+            cat /tmp/f0_9_base_result.txt
+            echo
+            echo "CANDIDATE_FAILURES=$candidate_failures"
+            echo "BASE_FAILURES=$base_failures"
+          } > local_out/f0_9_ci_result.txt
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add local_out/f0_9_ci_result.txt
+          git commit -m "F0.9 temporary validation result" || true
+          git push origin "HEAD:$BRANCH"
+          exit "$candidate_failures"
