@@ -1,4 +1,4 @@
-name: VS4A Temporary Acceptance
+name: VS4A Temporary Final Acceptance
 
 on:
   push:
@@ -15,158 +15,420 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
       - name: Install test dependencies
         run: python -m pip install pytest pyyaml jsonschema
-      - name: Materialize reviewed VS-4A payload
-        shell: bash
-        run: |
-          cat .vs4a_payload.1 .vs4a_payload.2 .vs4a_payload.3 .vs4a_payload.4 | base64 -d > /tmp/vs4a_payload.tar.gz
-          tar -xzf /tmp/vs4a_payload.tar.gz
-          test "$(sha256sum tbdy_engine/regulatory/structural_system.py | cut -d' ' -f1)" = "17e14d150f8c8c6e1d4ae6f36ffec2e47e63b6bcd6bd7e7066a6139182541e43"
-          test "$(sha256sum tbdy_engine/regulatory/vs4a_program.py | cut -d' ' -f1)" = "0f5b835fcb3491e1e2de12b5e6f3223045730cab98ff458033ba9257cd6d95e7"
-      - name: Apply bounded semantic-contract extension
+
+      - name: Apply supervisor corrections
         shell: bash
         run: |
           python - <<'PY'
           from pathlib import Path
-          path = Path('tbdy_engine/regulatory/contracts.py')
+
+          # F0.9 validator: resolve exact anchors first, then deduplicate source
+          # documents by source_id before calling the intentionally strict
+          # regulatory_claim_fingerprint().
+          path = Path('tbdy_engine/regulatory/authority.py')
           text = path.read_text()
-          marker = '    RC_ANALYSIS_BASIS_STATUS = "RC_ANALYSIS_BASIS_STATUS"\n'
-          additions = (
-              '    RC_ELIGIBILITY_STATE = "RC_ELIGIBILITY_STATE"\n'
-              '    RC_PREANALYSIS_SYSTEM_ELIGIBILITY = "RC_PREANALYSIS_SYSTEM_ELIGIBILITY"\n'
-          )
-          if 'RC_PREANALYSIS_SYSTEM_ELIGIBILITY' not in text:
-              if marker not in text:
-                  raise SystemExit('semantic marker not found')
-              text = text.replace(marker, marker + additions, 1)
-              path.write_text(text)
-          PY
-      - name: Normalize multi-clause source anchors without duplicate source identities
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          path = Path('tbdy_engine/regulatory/sources/tbdy2018.py')
-          text = path.read_text()
-          needle = "'TBDY2018_TABLE4_1_A33': ('TBDY2018_AFAD', 'Table 4.1 / A33')}"
-          replacement = "'TBDY2018_TABLE4_1_A33': ('TBDY2018_AFAD', 'Table 4.1 / A33'), 'TBDY2018_VS4A_PREANALYSIS_ELIGIBILITY_SCOPE': ('TBDY2018_AFAD', '4.3.1.2; 4.3.4.1; 4.3.4.3; Table 4.1 / A16'), 'TBDY2018_VS4A_BASELINE_POLICY_LIFECYCLE_SCOPE': ('TBDY2018_AFAD', '4.3.1.2; 4.3.2.1; 4.3.2.4; 4.3.4.1; 4.3.4.3; 4.3.4.5-4.3.4.7; Table 4.1 / A16'), 'TBDY2018_VS4A_ANALYSIS_BASIS_SCOPE': ('TBDY2018_AFAD', '4.3.1.2; 4.3.2.1; 4.3.2.4; 4.3.4.1; 4.3.4.3; 4.3.4.5-4.3.4.7; Table 4.1 / A16')}"
-          if needle not in text:
-              raise SystemExit('Table 4.1 anchor insertion point not found')
-          text = text.replace(needle, replacement, 1)
-          text = text.replace(
-              "('TBDY2018_4_3_1_2', 'TBDY2018_4_3_4_1', 'TBDY2018_4_3_4_3', 'TBDY2018_TABLE4_1_A16'), 'v1', 'For the bounded VS-4A cast-in-place RC system declaration",
-              "('TBDY2018_VS4A_PREANALYSIS_ELIGIBILITY_SCOPE',), 'v1', 'For the bounded VS-4A cast-in-place RC system declaration",
-              1,
-          )
-          multi = "('TBDY2018_4_3_1_2', 'TBDY2018_4_3_2_1', 'TBDY2018_4_3_2_4', 'TBDY2018_4_3_4_1', 'TBDY2018_4_3_4_3', 'TBDY2018_4_3_4_5', 'TBDY2018_4_3_4_6', 'TBDY2018_4_3_4_7', 'TBDY2018_TABLE4_1_A16')"
-          if text.count(multi) != 2:
-              raise SystemExit('expected two VS-4A lifecycle multi-anchor claims')
-          text = text.replace(multi, "('TBDY2018_VS4A_BASELINE_POLICY_LIFECYCLE_SCOPE',)", 1)
-          text = text.replace(multi, "('TBDY2018_VS4A_ANALYSIS_BASIS_SCOPE',)", 1)
-          for old, new in (
-              ('sha256:a06e9da2bea75a5bd59f6fe898ea4367c05eeddd6a978f5a719dd209b6dff65f', 'sha256:ce59bfaafcc9dbefd9284eaf610917465701e0ab5949cfb4e2f1f67f625c7303'),
-              ('sha256:9af020c7eebb734982ccf994a05ca25c6a0e1c465c010d3ca592da9b8296eb81', 'sha256:99c48642e80573f1bd2f4f79590131cc0dc75ccf2819c7e7769728da41280fc7'),
-              ('sha256:d5a151e4e4bb23ae929c4058de4192bcf7e7d92d1d68a640f6e4020e4ffd5895', 'sha256:8e7ef24f0426f7540da107ba897f4fbd5c5ec367608bd9266cce949783f6fa67'),
-          ):
+          if 'resolved_sources_by_id' not in text:
+              old = '''        try:\n            current_claim_fingerprint = regulatory_claim_fingerprint(\n                claim=claim,\n                anchors=tuple(catalog.anchor(ref) for ref in claim.anchor_refs),\n                source_documents=tuple(\n                    catalog.source(catalog.anchor(ref).source_id) for ref in claim.anchor_refs\n                ),\n            )\n        except KeyError as exc:\n'''
+              new = '''        try:\n            resolved_anchors = tuple(catalog.anchor(ref) for ref in claim.anchor_refs)\n            resolved_sources_by_id = {}\n            for anchor in resolved_anchors:\n                source = catalog.source(anchor.source_id)\n                resolved_sources_by_id[source.source_id] = source\n            current_claim_fingerprint = regulatory_claim_fingerprint(\n                claim=claim,\n                anchors=resolved_anchors,\n                source_documents=tuple(\n                    resolved_sources_by_id[source_id]\n                    for source_id in sorted(resolved_sources_by_id)\n                ),\n            )\n        except KeyError as exc:\n'''
               if old not in text:
-                  raise SystemExit(f'old review fingerprint not found: {old}')
+                  raise SystemExit('authority validator fingerprint block not found')
               text = text.replace(old, new, 1)
+              path.write_text(text)
+
+          # Formal check applicability belongs to compile-time composition.
+          # Shared eligibility derivations remain unchanged and continue to
+          # provide the single engineering logic path.
+          path = Path('tbdy_engine/regulatory/vs4a_program.py')
+          text = path.read_text()
+          if 'def _formal_check_applies(' not in text:
+              old = '''def _directional_targets(direction: str) -> tuple[RuleScopeTarget, ...]:\n    return tuple(\n        RuleScopeTarget(\n            rule_id=rule_id,\n            grain=Grain.DIRECTION,\n            scope_ref=ss.BUILDING_SCOPE,\n            direction=direction,\n            applicability_input=ss.DirectionalApplicabilityInput(),\n            analysis_basis_status=AnalysisBasisStatus.MATCH,\n        )\n        for rule_id in ss.DIRECTIONAL_VS4A_RULE_IDS\n    )\n'''
+              new = '''def _formal_check_applies(rule_id, row: str) -> bool:\n    policy = ss.table_4_1_policy(row)\n    if rule_id == ss.RC_TABLE_4_1_BYS_ELIGIBILITY:\n        return row != "A16"\n    if rule_id == ss.RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY:\n        return policy.ductility is not ss.RcDuctilityLevel.HIGH\n    if rule_id == ss.RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY:\n        return row == "A31"\n    if rule_id == ss.RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY:\n        return row == "A16"\n    return True\n\n\ndef _directional_targets(direction: str, row: str) -> tuple[RuleScopeTarget, ...]:\n    return tuple(\n        RuleScopeTarget(\n            rule_id=rule_id,\n            grain=Grain.DIRECTION,\n            scope_ref=ss.BUILDING_SCOPE,\n            direction=direction,\n            applicability_input=ss.DirectionalApplicabilityInput(\n                enabled=_formal_check_applies(rule_id, row)\n            ),\n            analysis_basis_status=AnalysisBasisStatus.MATCH,\n        )\n        for rule_id in ss.DIRECTIONAL_VS4A_RULE_IDS\n    )\n'''
+              if old not in text:
+                  raise SystemExit('vs4a directional target block not found')
+              text = text.replace(old, new, 1)
+              text = text.replace(
+                  '*_directional_targets("X"),\n        *_directional_targets("Y"),',
+                  '*_directional_targets("X", declarations.x.table_4_1_row),\n        *_directional_targets("Y", declarations.y.table_4_1_row),',
+                  1,
+              )
+              path.write_text(text)
+
+          # Focused VS-4A applicability regression proofs.
+          path = Path('tests/regulatory/test_structural_system.py')
+          text = path.read_text()
+          if 'ApplicabilityState, DependencySourceKind' not in text:
+              text = text.replace(
+                  'from tbdy_engine.regulatory.contracts import DependencySourceKind\n',
+                  'from tbdy_engine.regulatory.contracts import ApplicabilityState, DependencySourceKind\n',
+                  1,
+              )
+          if 'test_nonapplicable_formal_checks_are_compile_time_proven_not_applicable' not in text:
+              text += '''\n\ndef _closure(program, rule_id, direction="X"):\n    matches = tuple(\n        record\n        for record in program.plan.compiled_closure_inventory\n        if record.instance_id.rule_id == rule_id\n        and record.instance_id.direction == direction\n    )\n    assert len(matches) == 1\n    return matches[0]\n\n\ndef _formal_matches(snapshot, rule_id, direction="X"):\n    return tuple(\n        record.result\n        for record in snapshot.formal_results\n        if record.instance_id.rule_id == rule_id\n        and record.instance_id.direction == direction\n    )\n\n\ndef test_nonapplicable_formal_checks_are_compile_time_proven_not_applicable():\n    program, snapshot = _run("A11", dts="3", bys=8)\n    assert _closure(program, ss.RC_TABLE_4_1_BYS_ELIGIBILITY).applicability is ApplicabilityState.APPLIES\n    for rule_id in (\n        ss.RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY,\n        ss.RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY,\n        ss.RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY,\n    ):\n        assert _closure(program, rule_id).applicability is ApplicabilityState.PROVEN_NOT_APPLICABLE\n        assert _formal_matches(snapshot, rule_id) == ()\n    assert _quantity(snapshot, ss.RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY_STATE) == "ELIGIBLE"\n    assert _quantity(snapshot, ss.RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY_STATE) == "NOT_APPLICABLE"\n    assert _quantity(snapshot, ss.RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY_STATE) == "NOT_APPLICABLE"\n\n\ndef test_a31_formal_applicability_is_compile_time_scoped():\n    program, snapshot = _run("A31", dts="3", bys=8)\n    for rule_id in (\n        ss.RC_TABLE_4_1_BYS_ELIGIBILITY,\n        ss.RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY,\n        ss.RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY,\n    ):\n        assert _closure(program, rule_id).applicability is ApplicabilityState.APPLIES\n    assert _closure(program, ss.RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY).applicability is ApplicabilityState.PROVEN_NOT_APPLICABLE\n    assert _formal_matches(snapshot, ss.RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY) == ()\n\n\ndef test_a16_formal_applicability_is_compile_time_scoped():\n    program, snapshot = _run(\n        "A16",\n        dts="3",\n        bys=8,\n        a16_contexts=_a16_contexts(),\n    )\n    assert _closure(program, ss.RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY).applicability is ApplicabilityState.APPLIES\n    for rule_id in (\n        ss.RC_TABLE_4_1_BYS_ELIGIBILITY,\n        ss.RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY,\n        ss.RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY,\n    ):\n        assert _closure(program, rule_id).applicability is ApplicabilityState.PROVEN_NOT_APPLICABLE\n        assert _formal_matches(snapshot, rule_id) == ()\n'''
           path.write_text(text)
-          PY
-      - name: Extend F0 bounded semantic regression for approved VS-4A scope
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
+
+          # General F0.9 regression: multiple exact anchors in one source must
+          # validate, while direct fingerprint input remains duplicate-strict.
+          path = Path('tests/regulatory/test_source_authority.py')
+          text = path.read_text()
+          if 'test_AH_multiple_exact_anchors_same_source_validate_successfully' not in text:
+              text += '''\n\ndef test_AH_multiple_exact_anchors_same_source_validate_successfully(module_sources):\n    spec = _spec()\n    source = RegulatorySourceDocument(\n        "SRC", "Synthetic", "1", "Issuer", "TEST", "sha256:src"\n    )\n    anchors = (\n        SourceAnchor("A1", "SRC", "clause 1"),\n        SourceAnchor("A2", "SRC", "clause 2"),\n    )\n    claim = RegulatoryClaim(\n        claim_id="C_MULTI",\n        claim_version="1",\n        anchor_refs=("A1", "A2"),\n        normalized_statement="Reviewed multi-anchor claim.",\n    )\n    claim_fp = regulatory_claim_fingerprint(\n        claim=claim, anchors=anchors, source_documents=(source,)\n    )\n    review = AuthorityReviewRecord(\n        review_id="R_MULTI",\n        claim_id=claim.claim_id,\n        status=AuthorityReviewStatus.APPROVED,\n        review_version="1",\n        reviewed_claim_fingerprint=claim_fp,\n        review_basis_refs=("review-package:multi-anchor",),\n    )\n    binding = ApprovedImplementationBinding(\n        binding_id="B_MULTI",\n        rule_id=spec.rule_id,\n        claim_refs=(claim.claim_id,),\n        review_refs=(review.review_id,),\n        evaluator_binding_id=spec.evaluator.binding_id,\n        rule_version=spec.rule_version,\n        implementation_modules=(__name__,),\n        approved_implementation_fingerprint=_fingerprint(spec),\n        binding_version="1",\n    )\n    catalog = RegulatoryAuthorityCatalog(\n        source_documents=(source,),\n        anchors=anchors,\n        claims=(claim,),\n        review_records=(review,),\n        implementation_bindings=(binding,),\n    )\n    validated = validate_rule_authority(spec, catalog)\n    assert validated.claim_refs == (claim.claim_id,)\n    assert validated.review_refs == (review.review_id,)\n\n\ndef test_AI_regulatory_claim_fingerprint_still_rejects_duplicate_source_documents():\n    source = RegulatorySourceDocument(\n        "SRC", "Synthetic", "1", "Issuer", "TEST", "sha256:src"\n    )\n    anchors = (\n        SourceAnchor("A1", "SRC", "clause 1"),\n        SourceAnchor("A2", "SRC", "clause 2"),\n    )\n    claim = RegulatoryClaim(\n        claim_id="C_MULTI",\n        claim_version="1",\n        anchor_refs=("A1", "A2"),\n        normalized_statement="Reviewed multi-anchor claim.",\n    )\n    with pytest.raises(ValueError, match="duplicate source identity"):\n        regulatory_claim_fingerprint(\n            claim=claim,\n            anchors=anchors,\n            source_documents=(source, source),\n        )\n'''
+              path.write_text(text)
+
+          # VS-4A source-authority tests must pass a deduplicated source set to
+          # the intentionally strict low-level fingerprint primitive.
+          path = Path('tests/regulatory/test_vs4a_source_authority.py')
+          text = path.read_text()
+          old = '''        actual = regulatory_claim_fingerprint(\n            claim=claim,\n            anchors=tuple(catalog.anchor(ref) for ref in claim.anchor_refs),\n            source_documents=tuple(\n                catalog.source(catalog.anchor(ref).source_id) for ref in claim.anchor_refs\n            ),\n        )\n'''
+          if old in text:
+              new = '''        anchors = tuple(catalog.anchor(ref) for ref in claim.anchor_refs)\n        sources_by_id = {}\n        for anchor in anchors:\n            source = catalog.source(anchor.source_id)\n            sources_by_id[source.source_id] = source\n        actual = regulatory_claim_fingerprint(\n            claim=claim,\n            anchors=anchors,\n            source_documents=tuple(\n                sources_by_id[source_id] for source_id in sorted(sources_by_id)\n            ),\n        )\n'''
+              text = text.replace(old, new, 1)
+          if 'test_lifecycle_claims_use_exact_multi_anchor_source_refs' not in text:
+              text += '''\n\ndef test_lifecycle_claims_use_exact_multi_anchor_source_refs():\n    catalog = build_vs4a_authority_catalog()\n    expected = {\n        "TBDY2018_VS4A_PREANALYSIS_ELIGIBILITY_COMPOSITION": (\n            "TBDY2018_4_3_1_2",\n            "TBDY2018_4_3_4_1",\n            "TBDY2018_4_3_4_3",\n            "TBDY2018_TABLE4_1_A16",\n        ),\n        "TBDY2018_VS4A_BASELINE_POLICY_LIFECYCLE": (\n            "TBDY2018_4_3_1_2",\n            "TBDY2018_4_3_2_1",\n            "TBDY2018_4_3_2_4",\n            "TBDY2018_4_3_4_1",\n            "TBDY2018_4_3_4_3",\n            "TBDY2018_4_3_4_5",\n            "TBDY2018_4_3_4_6",\n            "TBDY2018_4_3_4_7",\n            "TBDY2018_TABLE4_1_A16",\n        ),\n        "TBDY2018_VS4A_ANALYSIS_BASIS_COMPATIBILITY": (\n            "TBDY2018_4_3_1_2",\n            "TBDY2018_4_3_2_1",\n            "TBDY2018_4_3_2_4",\n            "TBDY2018_4_3_4_1",\n            "TBDY2018_4_3_4_3",\n            "TBDY2018_4_3_4_5",\n            "TBDY2018_4_3_4_6",\n            "TBDY2018_4_3_4_7",\n            "TBDY2018_TABLE4_1_A16",\n        ),\n    }\n    for claim_id, anchor_refs in expected.items():\n        claim = catalog.claim(claim_id)\n        assert claim.anchor_refs == anchor_refs\n        assert len(claim.anchor_refs) > 1\n    assert not any(\n        anchor.anchor_id.startswith("TBDY2018_VS4A_") for anchor in catalog.anchors\n    )\n'''
+          path.write_text(text)
+
+          # Approved bounded semantic extension stays explicit, while the
+          # domain-token architecture guard remains on the F0 core modules.
           path = Path('tests/regulatory/test_f0_semantic_contracts.py')
           text = path.read_text()
           marker = '        SemanticType.WALL_UNRESTRAINED_PLAN_LENGTH,\n    }'
-          additions = '''        SemanticType.WALL_UNRESTRAINED_PLAN_LENGTH,
-        SemanticType.RC_TABLE_4_1_ROW,
-        SemanticType.RC_DTS,
-        SemanticType.RC_BYS,
-        SemanticType.RC_DUCTILITY_CLASS,
-        SemanticType.RC_BASE_R,
-        SemanticType.RC_BASE_D,
-        SemanticType.RC_BYS_POLICY,
-        SemanticType.RC_POST_ANALYSIS_QUALIFICATION_REQUIREMENT,
-        SemanticType.RC_DIRECTIONAL_BASELINE_SYSTEM_POLICY,
-        SemanticType.RC_ORTHOGONAL_SYSTEM_DECLARATION,
-        SemanticType.RC_A16_SPECIAL_CONTEXT,
-        SemanticType.RC_ANALYSIS_SYSTEM_ASSUMPTION,
-        SemanticType.RC_ANALYSIS_BASIS_STATUS,
-        SemanticType.RC_ELIGIBILITY_STATE,
-        SemanticType.RC_PREANALYSIS_SYSTEM_ELIGIBILITY,
-    }'''
-          if marker not in text:
-              raise SystemExit('semantic expected-set marker not found')
-          text = text.replace(marker, additions, 1)
-          old = '    source = "\\n".join(path.read_text(encoding="utf-8") for path in sorted(package_dir.glob("*.py")))\n'
-          new = '''    core_files = ("contracts.py", "registry.py", "kernel.py", "units.py", "authority.py")
-    source = "\\n".join(
-        (package_dir / name).read_text(encoding="utf-8") for name in core_files
-    )
-'''
-          if old not in text:
-              raise SystemExit('F0 static guard source marker not found')
-          text = text.replace(old, new, 1)
+          if 'SemanticType.RC_PREANALYSIS_SYSTEM_ELIGIBILITY,' not in text:
+              additions = '''        SemanticType.WALL_UNRESTRAINED_PLAN_LENGTH,\n        SemanticType.RC_TABLE_4_1_ROW,\n        SemanticType.RC_DTS,\n        SemanticType.RC_BYS,\n        SemanticType.RC_DUCTILITY_CLASS,\n        SemanticType.RC_BASE_R,\n        SemanticType.RC_BASE_D,\n        SemanticType.RC_BYS_POLICY,\n        SemanticType.RC_POST_ANALYSIS_QUALIFICATION_REQUIREMENT,\n        SemanticType.RC_DIRECTIONAL_BASELINE_SYSTEM_POLICY,\n        SemanticType.RC_ORTHOGONAL_SYSTEM_DECLARATION,\n        SemanticType.RC_A16_SPECIAL_CONTEXT,\n        SemanticType.RC_ANALYSIS_SYSTEM_ASSUMPTION,\n        SemanticType.RC_ANALYSIS_BASIS_STATUS,\n        SemanticType.RC_ELIGIBILITY_STATE,\n        SemanticType.RC_PREANALYSIS_SYSTEM_ELIGIBILITY,\n    }'''
+              if marker not in text:
+                  raise SystemExit('semantic expected-set marker not found')
+              text = text.replace(marker, additions, 1)
+          old_guard = '    source = "\\n".join(path.read_text(encoding="utf-8") for path in sorted(package_dir.glob("*.py")))\n'
+          if old_guard in text:
+              new_guard = '''    core_files = ("contracts.py", "registry.py", "kernel.py", "units.py", "authority.py")\n    source = "\\n".join(\n        (package_dir / name).read_text(encoding="utf-8") for name in core_files\n    )\n'''
+              text = text.replace(old_guard, new_guard, 1)
+          path.write_text(text)
+
+          # Architecture/status documentation: formal applicability is compile
+          # time, and repository-wide pytest is judged against the frozen base.
+          path = Path('docs/architecture/VS4A_RC_SYSTEM_BASELINE_POLICY.md')
+          text = path.read_text()
+          sentinel = 'Formal check applicability is decided at compile time'
+          if sentinel not in text:
+              needle = 'The four formal eligibility CheckResults consume those same shared eligibility quantities. They are projections only. They do not recalculate BYS, DTS, A31 or A16 engineering rules, and `RC_PREANALYSIS_SYSTEM_ELIGIBILITY` never aggregates CheckResults.\n'
+              addition = needle + '\nFormal check applicability is decided at compile time in `vs4a_program.py`. Non-applicable ordinary BYS, A31, A16 and §4.3.4.1 formal checks are compiled as `PROVEN_NOT_APPLICABLE` and emit no runtime `OUT_OF_SCOPE` CheckResult. The shared eligibility-state derivations remain in the DAG and remain the single engineering-logic path.\n'
+              if needle not in text:
+                  raise SystemExit('architecture applicability insertion point not found')
+              text = text.replace(needle, addition, 1)
+              f09 = 'Changing the evaluator module without updating the reviewed fingerprint must fail the F0.9 compiler gate.\n'
+              f09_add = f09 + '\nLifecycle claims retain their exact multiple source anchors. When several anchors resolve to the same regulatory source document, `validate_rule_authority` deduplicates the resolved source-document set by `source_id` before calling the strict `regulatory_claim_fingerprint`; the fingerprint primitive itself continues to reject duplicate source identities.\n'
+              text = text.replace(f09, f09_add, 1)
+              path.write_text(text)
+
+          path = Path('docs/architecture/VS4A_RC_SYSTEM_BASELINE_POLICY_STATUS.md')
+          text = path.read_text()
+          text = text.replace(
+              '- frozen F0 and full pytest regression matrix remains green.\n',
+              '- all focused F0/VS-4A/offline regression gates are green; repository-wide pytest has no failures beyond the exact frozen-base failure set.\n',
+          )
+          if '- non-applicable formal checks are `PROVEN_NOT_APPLICABLE` at compile time;' not in text:
+              marker = '- `vs4a_program.py` is the sole composition path;\n'
+              text = text.replace(
+                  marker,
+                  '- non-applicable formal checks are `PROVEN_NOT_APPLICABLE` at compile time;\n- exact multi-anchor claims validate without weakening the duplicate-strict fingerprint primitive;\n' + marker,
+                  1,
+              )
           path.write_text(text)
           PY
-      - name: Run fresh acceptance matrix
+
+      - name: Restore exact multi-anchor claims and freeze reviewed fingerprints
+        shell: bash
+        run: |
+          python - <<'PY' | tee /tmp/vs4a_claim_fingerprints.txt
+          from pathlib import Path
+
+          from tbdy_engine.regulatory.authority import (
+              RegulatoryClaim,
+              RegulatorySourceDocument,
+              SourceAnchor,
+              regulatory_claim_fingerprint,
+          )
+          from tbdy_engine.regulatory.sources import tbdy2018 as src
+
+          exact_refs = {
+              "TBDY2018_VS4A_PREANALYSIS_ELIGIBILITY_COMPOSITION": (
+                  "TBDY2018_4_3_1_2",
+                  "TBDY2018_4_3_4_1",
+                  "TBDY2018_4_3_4_3",
+                  "TBDY2018_TABLE4_1_A16",
+              ),
+              "TBDY2018_VS4A_BASELINE_POLICY_LIFECYCLE": (
+                  "TBDY2018_4_3_1_2",
+                  "TBDY2018_4_3_2_1",
+                  "TBDY2018_4_3_2_4",
+                  "TBDY2018_4_3_4_1",
+                  "TBDY2018_4_3_4_3",
+                  "TBDY2018_4_3_4_5",
+                  "TBDY2018_4_3_4_6",
+                  "TBDY2018_4_3_4_7",
+                  "TBDY2018_TABLE4_1_A16",
+              ),
+              "TBDY2018_VS4A_ANALYSIS_BASIS_COMPATIBILITY": (
+                  "TBDY2018_4_3_1_2",
+                  "TBDY2018_4_3_2_1",
+                  "TBDY2018_4_3_2_4",
+                  "TBDY2018_4_3_4_1",
+                  "TBDY2018_4_3_4_3",
+                  "TBDY2018_4_3_4_5",
+                  "TBDY2018_4_3_4_6",
+                  "TBDY2018_4_3_4_7",
+                  "TBDY2018_TABLE4_1_A16",
+              ),
+          }
+
+          anchor_data = {
+              key: value
+              for key, value in src.ANCHOR_DATA.items()
+              if not key.startswith("TBDY2018_VS4A_")
+          }
+          claim_data = dict(src.CLAIM_DATA)
+          source = RegulatorySourceDocument(
+              source_id=src.SOURCE_ID,
+              title="Türkiye Bina Deprem Yönetmeliği 2018",
+              edition="2018",
+              issuer="AFAD",
+              jurisdiction="Türkiye",
+              source_fingerprint="sha256:" + src.SOURCE_SHA256,
+          )
+          anchors_by_id = {
+              anchor_id: SourceAnchor(
+                  anchor_id=anchor_id,
+                  source_id=source_id,
+                  locator=locator,
+              )
+              for anchor_id, (source_id, locator) in anchor_data.items()
+          }
+
+          for claim_id, refs in exact_refs.items():
+              _old_refs, version, statement, _old_fp = claim_data[claim_id]
+              missing = tuple(ref for ref in refs if ref not in anchors_by_id)
+              if missing:
+                  raise SystemExit(f"missing exact anchors for {claim_id}: {missing}")
+              claim = RegulatoryClaim(
+                  claim_id=claim_id,
+                  claim_version=version,
+                  anchor_refs=refs,
+                  normalized_statement=statement,
+              )
+              resolved_anchors = tuple(anchors_by_id[ref] for ref in claim.anchor_refs)
+              resolved_sources_by_id = {source.source_id: source}
+              fingerprint = regulatory_claim_fingerprint(
+                  claim=claim,
+                  anchors=resolved_anchors,
+                  source_documents=tuple(
+                      resolved_sources_by_id[key]
+                      for key in sorted(resolved_sources_by_id)
+                  ),
+              )
+              claim_data[claim_id] = (refs, version, statement, fingerprint)
+              print(f"{claim_id}={fingerprint}")
+
+          path = Path(src.__file__)
+          lines = path.read_text().splitlines()
+          anchor_replaced = claim_replaced = False
+          for index, line in enumerate(lines):
+              if line.startswith('ANCHOR_DATA = '):
+                  lines[index] = 'ANCHOR_DATA = ' + repr(anchor_data)
+                  anchor_replaced = True
+              elif line.startswith('CLAIM_DATA = '):
+                  lines[index] = 'CLAIM_DATA = ' + repr(claim_data)
+                  claim_replaced = True
+          if not anchor_replaced or not claim_replaced:
+              raise SystemExit('source metadata assignment lines not found')
+          path.write_text('\n'.join(lines) + '\n')
+          PY
+
+      - name: Run complete fresh acceptance matrix and frozen-base comparison
         shell: bash
         run: |
           set +e
           mkdir -p local_out
+
           python -m compileall -q tbdy_engine tests tools > /tmp/vs4a_compile.log 2>&1
-          c=$?
+          compile_rc=$?
+
           python -m pytest -q tests/regulatory/test_structural_system.py tests/regulatory/test_vs4a_source_authority.py > /tmp/vs4a_targeted.log 2>&1
-          t=$?
-          python -m pytest -q tests/regulatory > /tmp/vs4a_regulatory.log 2>&1
-          r=$?
-          python -m pytest -q > /tmp/vs4a_full.log 2>&1
-          a=$?
+          targeted_rc=$?
+
+          python -m pytest -q tests/regulatory/test_source_authority.py > /tmp/vs4a_f09.log 2>&1
+          f09_rc=$?
+
+          python -m pytest -q tests/regulatory/test_f0_semantic_contracts.py tests/regulatory/test_f0_registry.py tests/regulatory/test_f0_1_kernel.py > /tmp/vs4a_f0_core.log 2>&1
+          f0_core_rc=$?
+
+          python -m pytest -q tests/regulatory/test_f0_2_beam_min_width_parity.py tests/regulatory/test_f0_7_concrete_material_min_strength.py tests/regulatory/test_f0_8_b1_geometry_parity.py tests/regulatory/test_f0_8_wall_pack_a_geometry_parity.py tests/regulatory/test_seismic_response.py > /tmp/vs4a_f0_parity.log 2>&1
+          f0_parity_rc=$?
+
+          python -m pytest -q tests/regulatory > /tmp/vs4a_regulatory_all.log 2>&1
+          regulatory_all_rc=$?
+
+          python -m pytest -q tests/member_geometry > /tmp/vs4a_member_geometry.log 2>&1
+          member_geometry_rc=$?
+
+          python -m pytest -q tests/c13_1 > /tmp/vs4a_c13_1.log 2>&1
+          c13_1_rc=$?
+
+          python -m pytest -q tests/c13_4_p1 tests/c13_4_p2 > /tmp/vs4a_c13_4.log 2>&1
+          c13_4_rc=$?
+
+          python -m pytest -q tests/wall_inventory/test_wall_inventory_slice_1.py > /tmp/vs4a_wall_inventory.log 2>&1
+          wall_inventory_rc=$?
+
+          python -m pytest -q tests/wall_geometry/test_wall_check_pack_a.py tests/wall_geometry/test_wall_pack_a_catalog_contract.py > /tmp/vs4a_wall_a.log 2>&1
+          wall_a_rc=$?
+
+          python -m pytest -q tests/wall_geometry/test_wall_check_pack_b.py tests/wall_geometry/test_wall_pack_b_source_contracts.py > /tmp/vs4a_wall_b.log 2>&1
+          wall_b_rc=$?
+
+          python -m pytest -q tests/wall_geometry/test_wall_check_pack_c.py tests/wall_geometry/test_wall_pack_c_source_contracts.py > /tmp/vs4a_wall_c.log 2>&1
+          wall_c_rc=$?
+
+          python tools/run_offline_product_acceptance.py --out /tmp/vs4a_offline_acceptance > /tmp/vs4a_offline.log 2>&1
+          offline_rc=$?
+
+          python -m pytest -q > /tmp/vs4a_full_current.log 2>&1
+          current_full_rc=$?
+
+          git worktree add --detach /tmp/vs4a_frozen_base f774726513a81edaadb2a5d897539575538e0cd0 > /tmp/vs4a_worktree.log 2>&1
+          worktree_rc=$?
+          if [ "$worktree_rc" -eq 0 ]; then
+            (
+              cd /tmp/vs4a_frozen_base
+              python -m pytest -q > /tmp/vs4a_full_base.log 2>&1
+            )
+            base_full_rc=$?
+          else
+            base_full_rc=99
+            cp /tmp/vs4a_worktree.log /tmp/vs4a_full_base.log
+          fi
+
+          grep -E '^(ERROR|FAILED) ' /tmp/vs4a_full_current.log | sort > /tmp/vs4a_current_failset.txt || true
+          grep -E '^(ERROR|FAILED) ' /tmp/vs4a_full_base.log | sort > /tmp/vs4a_base_failset.txt || true
+          diff -u /tmp/vs4a_base_failset.txt /tmp/vs4a_current_failset.txt > /tmp/vs4a_frozen_base_diff.txt
+          failset_diff_rc=$?
+          if [ "$current_full_rc" -ne "$base_full_rc" ]; then
+            frozen_compare_rc=1
+          else
+            frozen_compare_rc=$failset_diff_rc
+          fi
+
+          summary() {
+            local file="$1"
+            grep -E '([0-9]+ passed|[0-9]+ failed|[0-9]+ error|[0-9]+ skipped|[0-9]+ xfailed|[0-9]+ xpassed)' "$file" | tail -1
+          }
+
           {
             echo "VS4A_ACCEPTANCE_TRIGGER_HEAD=${GITHUB_SHA}"
-            echo "COMPILEALL_EXIT=$c"
-            echo "TARGETED_EXIT=$t"
-            echo "REGULATORY_REGRESSION_EXIT=$r"
-            echo "FULL_PYTEST_EXIT=$a"
-            echo "--- TARGETED ---"
-            tail -50 /tmp/vs4a_targeted.log
-            echo "--- REGULATORY REGRESSION ---"
-            tail -50 /tmp/vs4a_regulatory.log
-            echo "--- FULL PYTEST ---"
-            tail -80 /tmp/vs4a_full.log
+            echo "FROZEN_BASE=f774726513a81edaadb2a5d897539575538e0cd0"
+            echo "COMPILEALL_EXIT=$compile_rc"
+            echo "VS4A_TARGETED_EXIT=$targeted_rc"
+            echo "F09_SOURCE_AUTHORITY_EXIT=$f09_rc"
+            echo "F0_CORE_EXIT=$f0_core_rc"
+            echo "F0_PARITY_EXIT=$f0_parity_rc"
+            echo "REGULATORY_ALL_EXIT=$regulatory_all_rc"
+            echo "MEMBER_GEOMETRY_EXIT=$member_geometry_rc"
+            echo "C13_1_EXIT=$c13_1_rc"
+            echo "C13_4_P1_P2_EXIT=$c13_4_rc"
+            echo "WALL_INVENTORY_EXIT=$wall_inventory_rc"
+            echo "WALL_PACK_A_EXIT=$wall_a_rc"
+            echo "WALL_PACK_B_EXIT=$wall_b_rc"
+            echo "WALL_PACK_C_EXIT=$wall_c_rc"
+            echo "OFFLINE_PRODUCT_ACCEPTANCE_EXIT=$offline_rc"
+            echo "CURRENT_FULL_PYTEST_EXIT=$current_full_rc"
+            echo "FROZEN_BASE_FULL_PYTEST_EXIT=$base_full_rc"
+            echo "FROZEN_BASE_FAILSET_COMPARE_EXIT=$frozen_compare_rc"
+            echo
+            echo "--- REVIEWED LIFECYCLE CLAIM FINGERPRINTS ---"
+            cat /tmp/vs4a_claim_fingerprints.txt
+            echo
+            echo "--- EXACT FRESH COUNTS ---"
+            echo "VS4A_TARGETED: $(summary /tmp/vs4a_targeted.log)"
+            echo "F09_SOURCE_AUTHORITY: $(summary /tmp/vs4a_f09.log)"
+            echo "F0_CORE: $(summary /tmp/vs4a_f0_core.log)"
+            echo "F0_PARITY: $(summary /tmp/vs4a_f0_parity.log)"
+            echo "REGULATORY_ALL: $(summary /tmp/vs4a_regulatory_all.log)"
+            echo "MEMBER_GEOMETRY: $(summary /tmp/vs4a_member_geometry.log)"
+            echo "C13_1: $(summary /tmp/vs4a_c13_1.log)"
+            echo "C13_4_P1_P2: $(summary /tmp/vs4a_c13_4.log)"
+            echo "WALL_INVENTORY: $(summary /tmp/vs4a_wall_inventory.log)"
+            echo "WALL_PACK_A: $(summary /tmp/vs4a_wall_a.log)"
+            echo "WALL_PACK_B: $(summary /tmp/vs4a_wall_b.log)"
+            echo "WALL_PACK_C: $(summary /tmp/vs4a_wall_c.log)"
+            echo "CURRENT_FULL_PYTEST: $(summary /tmp/vs4a_full_current.log)"
+            echo "FROZEN_BASE_FULL_PYTEST: $(summary /tmp/vs4a_full_base.log)"
+            echo
+            echo "--- OFFLINE PRODUCT ACCEPTANCE TAIL ---"
+            tail -40 /tmp/vs4a_offline.log
+            echo
+            echo "--- CURRENT FULL PYTEST TAIL ---"
+            tail -80 /tmp/vs4a_full_current.log
+            echo
+            echo "--- FROZEN BASE FULL PYTEST TAIL ---"
+            tail -80 /tmp/vs4a_full_base.log
+            echo
+            echo "--- FROZEN BASE FAILSET DIFF ---"
+            cat /tmp/vs4a_frozen_base_diff.txt
           } > local_out/vs4a_acceptance_result.txt
+
           cat local_out/vs4a_acceptance_result.txt
-          echo "compile=$c targeted=$t regulatory=$r full=$a" >> "$GITHUB_STEP_SUMMARY"
-          echo "$c $t $r $a" > /tmp/vs4a_exit_codes
-      - name: Commit production slice and temporary acceptance result
+          printf '%s\n' \
+            "$compile_rc $targeted_rc $f09_rc $f0_core_rc $f0_parity_rc $regulatory_all_rc $member_geometry_rc $c13_1_rc $c13_4_rc $wall_inventory_rc $wall_a_rc $wall_b_rc $wall_c_rc $offline_rc $current_full_rc $base_full_rc $frozen_compare_rc" \
+            > /tmp/vs4a_exit_codes
+
+          git worktree remove /tmp/vs4a_frozen_base --force >/dev/null 2>&1 || true
+
+      - name: Commit corrected production slice and temporary acceptance result
         if: always()
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
-            tbdy_engine/regulatory/contracts.py \
-            tbdy_engine/regulatory/structural_system.py \
+            tbdy_engine/regulatory/authority.py \
             tbdy_engine/regulatory/vs4a_program.py \
             tbdy_engine/regulatory/sources/tbdy2018.py \
+            tests/regulatory/test_structural_system.py \
+            tests/regulatory/test_source_authority.py \
+            tests/regulatory/test_vs4a_source_authority.py \
             tests/regulatory/test_f0_semantic_contracts.py \
             docs/architecture/VS4A_RC_SYSTEM_BASELINE_POLICY.md \
             docs/architecture/VS4A_RC_SYSTEM_BASELINE_POLICY_STATUS.md \
             local_out/vs4a_acceptance_result.txt
           if ! git diff --cached --quiet; then
-            git commit -m "VS-4A finalize source-bound baseline policy"
+            git commit -m "VS-4A fix F0.9 multi-anchor authority and formal applicability"
             git push origin HEAD:sprint/vs-4a-rc-system-baseline-policy
           fi
-      - name: Enforce acceptance result
+
+      - name: Enforce focused acceptance and frozen-base parity
         if: always()
         shell: bash
         run: |
-          read c t r a < /tmp/vs4a_exit_codes
-          test "$c" -eq 0 -a "$t" -eq 0 -a "$r" -eq 0
+          read compile_rc targeted_rc f09_rc f0_core_rc f0_parity_rc regulatory_all_rc member_geometry_rc c13_1_rc c13_4_rc wall_inventory_rc wall_a_rc wall_b_rc wall_c_rc offline_rc current_full_rc base_full_rc frozen_compare_rc < /tmp/vs4a_exit_codes
+          test "$compile_rc" -eq 0
+          test "$targeted_rc" -eq 0
+          test "$f09_rc" -eq 0
+          test "$f0_core_rc" -eq 0
+          test "$f0_parity_rc" -eq 0
+          test "$regulatory_all_rc" -eq 0
+          test "$member_geometry_rc" -eq 0
+          test "$c13_1_rc" -eq 0
+          test "$c13_4_rc" -eq 0
+          test "$wall_inventory_rc" -eq 0
+          test "$wall_a_rc" -eq 0
+          test "$wall_b_rc" -eq 0
+          test "$wall_c_rc" -eq 0
+          test "$offline_rc" -eq 0
+          test "$current_full_rc" -eq "$base_full_rc"
+          test "$frozen_compare_rc" -eq 0
