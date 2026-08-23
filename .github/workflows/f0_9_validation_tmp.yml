@@ -92,3 +92,5 @@ jobs:
           git commit -m "F0.9 temporary validation result" || true
           git push origin "HEAD:$BRANCH"
           exit "$candidate_failures"
+
+# retrigger exact corrected production/doc tree
