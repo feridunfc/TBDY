@@ -24,6 +24,7 @@ from tbdy_engine.regulatory import (
     RuleId,
     SourceAnchor,
     implementation_fingerprint,
+    regulatory_claim_fingerprint,
     validate_rule_authority,
 )
 from tbdy_engine.regulatory.kernel import (
@@ -66,7 +67,12 @@ def _evaluate(inp: ExecInput) -> CheckResult:
     )
 
 
-def _spec(rule_id: str = "SYNTHETIC_AUTHORITY_RULE", *, rule_version: str = "v1", evaluator_binding_id: str | None = None) -> CheckSpec:
+def _spec(
+    rule_id: str = "SYNTHETIC_AUTHORITY_RULE",
+    *,
+    rule_version: str = "v1",
+    evaluator_binding_id: str | None = None,
+) -> CheckSpec:
     rid = RuleId(rule_id)
     return CheckSpec(
         rule_id=rid,
@@ -112,7 +118,12 @@ def _catalog(
     fingerprint: str,
     review_status: AuthorityReviewStatus = AuthorityReviewStatus.APPROVED,
     normalized_statement: str = "Synthetic reviewed proposition for F0.9 infrastructure tests.",
+    claim_version: str = "c1",
+    anchor_locator: str = "clause TEST.1",
+    source_edition: str = "test-edition",
+    source_fingerprint: str = "sha256:synthetic-source",
     review_version: str = "r1",
+    reviewed_claim_fingerprint: str | None = None,
     binding_id: str | None = None,
     binding_version: str = "b1",
     evaluator_binding_id: str | None = None,
@@ -123,23 +134,29 @@ def _catalog(
     source = RegulatorySourceDocument(
         source_id="SRC",
         title="Synthetic Test Regulation",
-        edition="test-edition",
+        edition=source_edition,
         issuer="OpenAI test fixture",
         jurisdiction="TEST",
-        source_fingerprint="sha256:synthetic-source",
+        source_fingerprint=source_fingerprint,
     )
-    anchor = SourceAnchor(anchor_id="ANCHOR", source_id=source.source_id, locator="clause TEST.1")
+    anchor = SourceAnchor(anchor_id="ANCHOR", source_id=source.source_id, locator=anchor_locator)
     claim = RegulatoryClaim(
         claim_id="CLAIM",
-        claim_version="c1",
+        claim_version=claim_version,
         anchor_refs=(anchor.anchor_id,),
         normalized_statement=normalized_statement,
+    )
+    current_claim_fingerprint = regulatory_claim_fingerprint(
+        claim=claim,
+        anchors=(anchor,),
+        source_documents=(source,),
     )
     review = AuthorityReviewRecord(
         review_id="REVIEW",
         claim_id=claim.claim_id,
         status=review_status,
         review_version=review_version,
+        reviewed_claim_fingerprint=reviewed_claim_fingerprint or current_claim_fingerprint,
         review_basis_refs=("review-package:test",),
     )
     binding = ApprovedImplementationBinding(
@@ -181,6 +198,10 @@ def _compile(spec: CheckSpec, catalog: RegulatoryAuthorityCatalog | None):
     )
 
 
+def _old_review_fingerprint(catalog: RegulatoryAuthorityCatalog) -> str:
+    return catalog.review_records[0].reviewed_claim_fingerprint
+
+
 def test_A_source_catalog_is_immutable_deterministic_and_canonically_ordered(module_sources):
     spec = _spec()
     fp = _fingerprint(spec)
@@ -196,6 +217,8 @@ def test_A_source_catalog_is_immutable_deterministic_and_canonically_ordered(mod
     assert first.source_documents == second.source_documents
     with pytest.raises(FrozenInstanceError):
         first.source_documents[0].title = "mutated"  # type: ignore[misc]
+    with pytest.raises(FrozenInstanceError):
+        first.review_records[0].reviewed_claim_fingerprint = "sha256:mutated"  # type: ignore[misc]
 
 
 @pytest.mark.parametrize("family", ["source", "anchor", "claim", "review", "binding"])
@@ -203,14 +226,25 @@ def test_B_duplicate_authority_identities_fail(family):
     source = RegulatorySourceDocument("SRC", "Synthetic", "1", "Issuer", "TEST", "sha256:src")
     anchor = SourceAnchor("A", "SRC", "clause 1")
     claim = RegulatoryClaim(claim_id="C", claim_version="1", anchor_refs=("A",), normalized_statement="Claim")
+    claim_fp = regulatory_claim_fingerprint(claim=claim, anchors=(anchor,), source_documents=(source,))
     review = AuthorityReviewRecord(
-        review_id="R", claim_id="C", status=AuthorityReviewStatus.APPROVED,
-        review_version="1", review_basis_refs=(),
+        review_id="R",
+        claim_id="C",
+        status=AuthorityReviewStatus.APPROVED,
+        review_version="1",
+        reviewed_claim_fingerprint=claim_fp,
+        review_basis_refs=(),
     )
     binding = ApprovedImplementationBinding(
-        binding_id="B", rule_id=RuleId("RULE"), claim_refs=("C",), review_refs=("R",),
-        evaluator_binding_id="eval:RULE", rule_version="v1", implementation_modules=(__name__,),
-        approved_implementation_fingerprint="sha256:test", binding_version="1",
+        binding_id="B",
+        rule_id=RuleId("RULE"),
+        claim_refs=("C",),
+        review_refs=("R",),
+        evaluator_binding_id="eval:RULE",
+        rule_version="v1",
+        implementation_modules=(__name__,),
+        approved_implementation_fingerprint="sha256:test",
+        binding_version="1",
     )
     kwargs = {
         "source_documents": (source,),
@@ -245,14 +279,18 @@ def test_D_missing_claim_anchor_fails():
 
 def test_E_missing_review_claim_fails():
     review = AuthorityReviewRecord(
-        review_id="R", claim_id="MISSING", status=AuthorityReviewStatus.APPROVED,
-        review_version="1", review_basis_refs=(),
+        review_id="R",
+        claim_id="MISSING",
+        status=AuthorityReviewStatus.APPROVED,
+        review_version="1",
+        reviewed_claim_fingerprint="sha256:reviewed",
+        review_basis_refs=(),
     )
     with pytest.raises(ValueError, match="missing claim for review"):
         RegulatoryAuthorityCatalog(review_records=(review,))
 
 
-def test_F_approved_review_produces_validated_authority(module_sources):
+def test_F_approved_exact_review_produces_validated_authority(module_sources):
     spec = _spec()
     catalog = _catalog(spec, fingerprint=_fingerprint(spec))
     validated = validate_rule_authority(spec, catalog)
@@ -295,9 +333,15 @@ def test_L_rule_version_mismatch_is_rejected(module_sources):
 def test_M_missing_claim_or_review_binding_reference_is_rejected():
     source = RegulatorySourceDocument("SRC", "Synthetic", "1", "Issuer", "TEST", "sha256:src")
     binding = ApprovedImplementationBinding(
-        binding_id="B", rule_id=RuleId("RULE"), claim_refs=("MISSING",), review_refs=("MISSING_REVIEW",),
-        evaluator_binding_id="eval:RULE", rule_version="v1", implementation_modules=(__name__,),
-        approved_implementation_fingerprint="sha256:test", binding_version="1",
+        binding_id="B",
+        rule_id=RuleId("RULE"),
+        claim_refs=("MISSING",),
+        review_refs=("MISSING_REVIEW",),
+        evaluator_binding_id="eval:RULE",
+        rule_version="v1",
+        implementation_modules=(__name__,),
+        approved_implementation_fingerprint="sha256:test",
+        binding_version="1",
     )
     with pytest.raises(ValueError, match="missing claim for implementation binding"):
         RegulatoryAuthorityCatalog(source_documents=(source,), implementation_bindings=(binding,))
@@ -374,24 +418,108 @@ def test_U_same_authoritative_compile_produces_identical_plan_identity(module_so
     assert "F0.9_SOURCE_AUTHORITY_OK" in first.plan.compile_diagnostics
 
 
-@pytest.mark.parametrize("change", ["claim", "review", "binding"])
-def test_V_changed_approved_authority_changes_catalog_and_plan_identity(module_sources, change):
+def test_V_normalized_statement_change_with_old_review_is_stale(module_sources):
     spec = _spec()
-    fp = _fingerprint(spec)
-    base = _catalog(spec, fingerprint=fp)
-    kwargs = {}
-    if change == "claim":
-        kwargs["normalized_statement"] = "Changed reviewed proposition."
-    elif change == "review":
-        kwargs["review_version"] = "r2"
-    else:
-        kwargs["binding_version"] = "b2"
-    changed = _catalog(spec, fingerprint=fp, **kwargs)
+    base = _catalog(spec, fingerprint=_fingerprint(spec))
+    changed = _catalog(
+        spec,
+        fingerprint=_fingerprint(spec),
+        normalized_statement="Changed reviewed proposition.",
+        reviewed_claim_fingerprint=_old_review_fingerprint(base),
+    )
+    with pytest.raises(KernelCompileError, match="STALE_REGULATORY_CLAIM_REVIEW"):
+        _compile(spec, changed)
+
+
+def test_W_claim_version_change_with_old_review_is_stale(module_sources):
+    spec = _spec()
+    base = _catalog(spec, fingerprint=_fingerprint(spec))
+    changed = _catalog(
+        spec,
+        fingerprint=_fingerprint(spec),
+        claim_version="c2",
+        reviewed_claim_fingerprint=_old_review_fingerprint(base),
+    )
+    with pytest.raises(KernelCompileError, match="STALE_REGULATORY_CLAIM_REVIEW"):
+        _compile(spec, changed)
+
+
+def test_X_anchor_locator_change_with_old_review_is_stale(module_sources):
+    spec = _spec()
+    base = _catalog(spec, fingerprint=_fingerprint(spec))
+    changed = _catalog(
+        spec,
+        fingerprint=_fingerprint(spec),
+        anchor_locator="clause TEST.2",
+        reviewed_claim_fingerprint=_old_review_fingerprint(base),
+    )
+    with pytest.raises(KernelCompileError, match="STALE_REGULATORY_CLAIM_REVIEW"):
+        _compile(spec, changed)
+
+
+def test_Y_source_edition_change_with_old_review_is_stale(module_sources):
+    spec = _spec()
+    base = _catalog(spec, fingerprint=_fingerprint(spec))
+    changed = _catalog(
+        spec,
+        fingerprint=_fingerprint(spec),
+        source_edition="test-edition-2",
+        reviewed_claim_fingerprint=_old_review_fingerprint(base),
+    )
+    with pytest.raises(KernelCompileError, match="STALE_REGULATORY_CLAIM_REVIEW"):
+        _compile(spec, changed)
+
+
+def test_Z_source_fingerprint_change_with_old_review_is_stale(module_sources):
+    spec = _spec()
+    base = _catalog(spec, fingerprint=_fingerprint(spec))
+    changed = _catalog(
+        spec,
+        fingerprint=_fingerprint(spec),
+        source_fingerprint="sha256:synthetic-source-v2",
+        reviewed_claim_fingerprint=_old_review_fingerprint(base),
+    )
+    with pytest.raises(KernelCompileError, match="STALE_REGULATORY_CLAIM_REVIEW"):
+        _compile(spec, changed)
+
+
+def test_AA_changed_claim_with_new_matching_review_compiles(module_sources):
+    spec = _spec()
+    changed = _catalog(
+        spec,
+        fingerprint=_fingerprint(spec),
+        normalized_statement="Changed and re-reviewed proposition.",
+        review_version="r2",
+    )
+    program = _compile(spec, changed)
+    assert "F0.9_SOURCE_AUTHORITY_OK" in program.plan.compile_diagnostics
+
+
+def test_AB_successful_rereview_changes_catalog_version_and_plan_identity(module_sources):
+    spec = _spec()
+    base = _catalog(spec, fingerprint=_fingerprint(spec))
+    changed = _catalog(
+        spec,
+        fingerprint=_fingerprint(spec),
+        normalized_statement="Changed and re-reviewed proposition.",
+        review_version="r2",
+    )
     assert base.catalog_version != changed.catalog_version
     assert _compile(spec, base).plan.plan_identity != _compile(spec, changed).plan.plan_identity
 
 
-def test_W_catalog_enabled_program_executes_through_existing_compiler_and_engine(module_sources):
+def test_AC_review_fingerprint_participates_in_catalog_identity(module_sources):
+    spec = _spec()
+    base = _catalog(spec, fingerprint=_fingerprint(spec))
+    altered_review = _catalog(
+        spec,
+        fingerprint=_fingerprint(spec),
+        reviewed_claim_fingerprint="sha256:different-reviewed-snapshot",
+    )
+    assert base.catalog_version != altered_review.catalog_version
+
+
+def test_AD_catalog_enabled_program_executes_through_existing_compiler_and_engine(module_sources):
     spec = _spec()
     catalog = _catalog(spec, fingerprint=_fingerprint(spec))
     program = _compile(spec, catalog)
@@ -409,20 +537,23 @@ def test_W_catalog_enabled_program_executes_through_existing_compiler_and_engine
     assert source.source_id == "SRC"
 
 
-def test_X_no_catalog_preserves_legacy_compiler_path_and_diagnostics():
+def test_AE_no_catalog_preserves_legacy_compiler_path_identity_and_diagnostics():
     spec = _spec()
-    program = _compile(spec, None)
-    assert program.plan.regulatory_authority_catalog_version is None
-    assert program.plan.compiled_authority_binding_refs == ()
-    assert program.plan.compiled_authority_fingerprints == ()
-    assert program.plan.compile_diagnostics == (
+    first = _compile(spec, None)
+    second = _compile(spec, None)
+    assert first.plan.plan_identity == second.plan.plan_identity
+    assert first.plan.regulatory_authority_catalog_version is None
+    assert first.plan.compiled_authority_binding_refs == ()
+    assert first.plan.compiled_authority_fingerprints == ()
+    assert first.plan.compile_diagnostics == (
         "F0.1_COMPILE_OK",
         "TOPOLOGICAL_TIE_BREAK=RuleInstanceId.value lexical order",
     )
-    assert RegulatoryEngine.execute(program).formal_results_for(program.plan.compiled_rule_instances[0])[0].status is CheckStatus.OK
+    result = RegulatoryEngine.execute(first).formal_results_for(first.plan.compiled_rule_instances[0])[0]
+    assert result.status is CheckStatus.OK
 
 
-def test_evaluator_module_must_be_explicitly_reviewed(module_sources):
+def test_AF_evaluator_module_must_be_explicitly_reviewed(module_sources):
     spec = _spec()
     fp = _fingerprint(spec, modules=("synthetic.helper",))
     catalog = _catalog(
@@ -432,3 +563,24 @@ def test_evaluator_module_must_be_explicitly_reviewed(module_sources):
     )
     with pytest.raises(RegulatoryAuthorityError, match="EVALUATOR_IMPLEMENTATION_MODULE_NOT_REVIEWED"):
         validate_rule_authority(spec, catalog)
+
+
+def test_AG_regulatory_claim_fingerprint_is_deterministic_and_exact():
+    source = RegulatorySourceDocument("SRC", "Synthetic", "1", "Issuer", "TEST", "sha256:src")
+    anchor = SourceAnchor("A", "SRC", "clause 1")
+    claim = RegulatoryClaim(
+        claim_id="C",
+        claim_version="1",
+        anchor_refs=("A",),
+        normalized_statement="Reviewed claim.",
+    )
+    first = regulatory_claim_fingerprint(claim=claim, anchors=(anchor,), source_documents=(source,))
+    second = regulatory_claim_fingerprint(claim=claim, anchors=(anchor,), source_documents=(source,))
+    assert first == second
+    changed = RegulatoryClaim(
+        claim_id="C",
+        claim_version="1",
+        anchor_refs=("A",),
+        normalized_statement="Changed claim.",
+    )
+    assert first != regulatory_claim_fingerprint(claim=changed, anchors=(anchor,), source_documents=(source,))
