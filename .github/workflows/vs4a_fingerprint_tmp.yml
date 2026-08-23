@@ -1,43 +1,86 @@
-name: VS4A Temporary Fingerprints
+name: VS4A Temporary Acceptance
 
 on:
   push:
     branches: [sprint/vs-4a-rc-system-baseline-policy]
+    paths:
+      - .vs4a_acceptance_trigger
 
 permissions:
   contents: write
 
 jobs:
-  fingerprint:
+  acceptance:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-      - name: Compute reviewed evaluator fingerprints
+      - name: Install test dependencies
+        run: python -m pip install pytest pyyaml jsonschema
+      - name: Apply bounded semantic-contract extension
         shell: bash
         run: |
           python - <<'PY'
-          import json
           from pathlib import Path
-          from tbdy_engine.regulatory.authority import implementation_fingerprint
-          from tbdy_engine.regulatory.structural_system import VS4A_REGISTRY
-          out = {}
-          for spec in (*VS4A_REGISTRY.derivations, *VS4A_REGISTRY.checks):
-              out[spec.rule_id.value] = implementation_fingerprint(
-                  rule_id=spec.rule_id,
-                  rule_version=spec.rule_version,
-                  evaluator_binding_id=spec.evaluator.binding_id,
-                  implementation_modules=("tbdy_engine.regulatory.structural_system",),
-              )
-          Path("local_out").mkdir(exist_ok=True)
-          Path("local_out/vs4a_fingerprints.json").write_text(json.dumps(out, indent=2, sort_keys=True)+"\n")
+          path = Path('tbdy_engine/regulatory/contracts.py')
+          text = path.read_text()
+          marker = '    RC_ANALYSIS_BASIS_STATUS = "RC_ANALYSIS_BASIS_STATUS"\n'
+          additions = (
+              '    RC_ELIGIBILITY_STATE = "RC_ELIGIBILITY_STATE"\n'
+              '    RC_PREANALYSIS_SYSTEM_ELIGIBILITY = "RC_PREANALYSIS_SYSTEM_ELIGIBILITY"\n'
+          )
+          if 'RC_PREANALYSIS_SYSTEM_ELIGIBILITY' not in text:
+              if marker not in text:
+                  raise SystemExit('semantic marker not found')
+              text = text.replace(marker, marker + additions, 1)
+              path.write_text(text)
           PY
+      - name: Run fresh acceptance matrix
+        shell: bash
+        run: |
+          set +e
+          mkdir -p local_out
+          python -m compileall -q tbdy_engine tests tools > /tmp/vs4a_compile.log 2>&1
+          c=$?
+          python -m pytest -q tests/regulatory/test_structural_system.py tests/regulatory/test_vs4a_source_authority.py > /tmp/vs4a_targeted.log 2>&1
+          t=$?
+          python -m pytest -q tests/regulatory/test_f0_semantic_contracts.py tests/regulatory/test_f0_registry.py tests/regulatory/test_f0_1_kernel.py tests/regulatory/test_source_authority.py tests/regulatory/test_seismic_response.py > /tmp/vs4a_f0.log 2>&1
+          f=$?
+          python -m pytest -q > /tmp/vs4a_full.log 2>&1
+          a=$?
+          {
+            echo "VS4A_ACCEPTANCE_HEAD=${GITHUB_SHA}"
+            echo "COMPILEALL_EXIT=$c"
+            echo "TARGETED_EXIT=$t"
+            echo "F0_REGRESSION_EXIT=$f"
+            echo "FULL_PYTEST_EXIT=$a"
+            echo "--- TARGETED ---"
+            tail -40 /tmp/vs4a_targeted.log
+            echo "--- F0 REGRESSION ---"
+            tail -40 /tmp/vs4a_f0.log
+            echo "--- FULL PYTEST ---"
+            tail -60 /tmp/vs4a_full.log
+          } > local_out/vs4a_acceptance_result.txt
+          cat local_out/vs4a_acceptance_result.txt
+          echo "compile=$c targeted=$t f0=$f full=$a" >> "$GITHUB_STEP_SUMMARY"
+          echo "$c $t $f $a" > /tmp/vs4a_exit_codes
+      - name: Commit contract patch and temporary acceptance result
+        if: always()
+        shell: bash
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add local_out/vs4a_fingerprints.json
-          git commit -m "VS-4A temporary evaluator fingerprints"
-          git push origin HEAD:sprint/vs-4a-rc-system-baseline-policy
-
-# retrigger after workflow registration
+          git add tbdy_engine/regulatory/contracts.py local_out/vs4a_acceptance_result.txt
+          if ! git diff --cached --quiet; then
+            git commit -m "VS-4A temporary acceptance proof"
+            git push origin HEAD:sprint/vs-4a-rc-system-baseline-policy
+          fi
+      - name: Enforce acceptance result
+        if: always()
+        shell: bash
+        run: |
+          read c t f a < /tmp/vs4a_exit_codes
+          test "$c" -eq 0 -a "$t" -eq 0 -a "$f" -eq 0 -a "$a" -eq 0
