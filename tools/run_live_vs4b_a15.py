@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""Read-only live runner for the bounded VS-4B-A A15 MDEV/Mo slice."""
+"""Read-only directional live runner for bounded VS-4B-A A15 MDEV/Mo."""
 from __future__ import annotations
 
 import argparse
@@ -31,24 +31,28 @@ from tbdy_engine.regulatory.structural_system import (
     ReviewedDirectionalRcSystemDeclaration,
     ReviewedSeismicClassificationContext,
 )
-from tbdy_engine.regulatory.vs4b_program import run_vs4b_a15_direction
+from tbdy_engine.regulatory.vs4b_program import (
+    STATUS_PROVEN_NOT_APPLICABLE,
+    run_vs4b_a15_direction,
+)
 
 
 def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description=(
-            "Capture read-only ETABS MDEV/Mo facts and, only when the analysis-method/result-population "
-            "gate is resolved, evaluate TBDY 2018 4.3.4.5 A15."
+            "Capture one directional read-only ETABS MDEV/Mo factual population and, "
+            "only for an explicitly reviewed A15 declaration with a compatible result "
+            "population, evaluate TBDY 2018 4.3.4.5."
         )
     )
     p.add_argument("--out", required=True, type=Path)
     p.add_argument("--expected-model-fingerprint", required=True)
+    p.add_argument("--direction", required=True, choices=("X", "Y"))
+    p.add_argument("--declared-row", required=True)
     p.add_argument("--regulatory-base-elevation-m", required=True, type=float)
     p.add_argument("--rigid-basement-above-base", required=True, choices=("true", "false"))
-    p.add_argument("--x-piers", required=True)
-    p.add_argument("--y-piers", required=True)
-    p.add_argument("--x-cases", required=True)
-    p.add_argument("--y-cases", required=True)
+    p.add_argument("--piers", required=True)
+    p.add_argument("--cases", required=True)
     p.add_argument(
         "--reviewed-analysis-method",
         required=True,
@@ -60,18 +64,13 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--population-mapping-review-refs", default="")
     p.add_argument("--dts", required=True)
     p.add_argument("--bys", required=True, type=int)
-    p.add_argument("--x-assumed-row", required=True)
-    p.add_argument("--x-assumed-r", required=True, type=float)
-    p.add_argument("--x-assumed-d", required=True, type=float)
-    p.add_argument("--y-assumed-row", required=True)
-    p.add_argument("--y-assumed-r", required=True, type=float)
-    p.add_argument("--y-assumed-d", required=True, type=float)
+    p.add_argument("--assumed-row", required=True)
+    p.add_argument("--assumed-r", required=True, type=float)
+    p.add_argument("--assumed-d", required=True, type=float)
     p.add_argument("--base-review-refs", required=True)
     p.add_argument("--base-provenance-refs", required=True)
-    p.add_argument("--x-wall-review-refs", required=True)
-    p.add_argument("--x-wall-provenance-refs", required=True)
-    p.add_argument("--y-wall-review-refs", required=True)
-    p.add_argument("--y-wall-provenance-refs", required=True)
+    p.add_argument("--wall-review-refs", required=True)
+    p.add_argument("--wall-provenance-refs", required=True)
     p.add_argument("--result-review-refs", required=True)
     p.add_argument("--result-provenance-refs", required=True)
     p.add_argument("--declaration-review-refs", required=True)
@@ -99,8 +98,13 @@ def _optional_items(value: str) -> tuple[str, ...]:
 def _write(path: Path, payload: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        json.dumps(to_jsonable(payload), ensure_ascii=False, allow_nan=False, indent=2, sort_keys=True)
-        + "\n",
+        json.dumps(
+            to_jsonable(payload),
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=2,
+            sort_keys=True,
+        ) + "\n",
         encoding="utf-8",
     )
 
@@ -108,6 +112,30 @@ def _write(path: Path, payload: object) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     args.out.mkdir(parents=True, exist_ok=True)
+    direction = args.direction
+
+    declaration = ReviewedDirectionalRcSystemDeclaration(
+        direction=direction,
+        table_4_1_row=args.declared_row,
+        review_refs=_items(args.declaration_review_refs, "declaration review refs"),
+        provenance_refs=_items(
+            args.declaration_provenance_refs,
+            "declaration provenance refs",
+        ),
+    )
+    if declaration.table_4_1_row != "A15":
+        payload = {
+            "status": STATUS_PROVEN_NOT_APPLICABLE,
+            "VS4B_A15_APPLICABILITY": STATUS_PROVEN_NOT_APPLICABLE,
+            "FACTUAL_MDEV_MO_ACQUISITION": "NOT_REQUIRED",
+            "direction": direction,
+            "reviewed_declared_row": declaration.table_4_1_row,
+            "effective_policy": None,
+            "analysis_basis_status": None,
+        }
+        _write(args.out / "vs4b_a15_product.json", payload)
+        print(json.dumps(payload, sort_keys=True))
+        return 0
 
     attach = attach_to_running_etabs()
     if attach.status != ATTACH_STATUS_ATTACHED:
@@ -143,18 +171,13 @@ def main(argv: list[str] | None = None) -> int:
             review_refs=_items(args.base_review_refs, "base review refs"),
             provenance_refs=_items(args.base_provenance_refs, "base provenance refs"),
         )
-        walls = (
-            ReviewedDirectionalWallPopulation(
-                "X",
-                _items(args.x_piers, "X piers"),
-                _items(args.x_wall_review_refs, "X wall review refs"),
-                _items(args.x_wall_provenance_refs, "X wall provenance refs"),
-            ),
-            ReviewedDirectionalWallPopulation(
-                "Y",
-                _items(args.y_piers, "Y piers"),
-                _items(args.y_wall_review_refs, "Y wall review refs"),
-                _items(args.y_wall_provenance_refs, "Y wall provenance refs"),
+        wall = ReviewedDirectionalWallPopulation(
+            direction=direction,
+            pier_refs=_items(args.piers, "directional piers"),
+            review_refs=_items(args.wall_review_refs, "wall review refs"),
+            provenance_refs=_items(
+                args.wall_provenance_refs,
+                "wall provenance refs",
             ),
         )
         result_context = ReviewedResultPopulationContext(
@@ -163,22 +186,33 @@ def main(argv: list[str] | None = None) -> int:
             result_operator_id=args.result_operator_id,
             wall_to_total_sign_factor=args.wall_to_total_sign_factor,
             review_refs=_items(args.result_review_refs, "result review refs"),
-            provenance_refs=_items(args.result_provenance_refs, "result provenance refs"),
-            population_mapping_review_refs=_optional_items(args.population_mapping_review_refs),
+            provenance_refs=_items(
+                args.result_provenance_refs,
+                "result provenance refs",
+            ),
+            population_mapping_review_refs=_optional_items(
+                args.population_mapping_review_refs
+            ),
         )
         bundle = capture_live_mdev_mo_evidence(
             database_tables=attach.sap_model.DatabaseTables,
             model_fingerprint=model_fingerprint,
+            direction=direction,
             base_context=base,
-            wall_populations=walls,
+            wall_population=wall,
             result_context=result_context,
-            x_cases=_items(args.x_cases, "X cases"),
-            y_cases=_items(args.y_cases, "Y cases"),
+            case_names=_items(args.cases, "directional cases"),
         )
     except (MdevMoEvidenceError, ValueError, TypeError) as exc:
         payload = {
-            "status": getattr(exc, "status", "BLOCKED_MDEV_MO_FACTUAL_ACQUISITION"),
+            "status": getattr(
+                exc,
+                "status",
+                "BLOCKED_MDEV_MO_FACTUAL_ACQUISITION",
+            ),
             "message": str(exc),
+            "direction": direction,
+            "reviewed_declared_row": declaration.table_4_1_row,
             "model_fingerprint": model_fingerprint,
             "observed_model_path": identity.model_full_path,
         }
@@ -188,57 +222,42 @@ def main(argv: list[str] | None = None) -> int:
 
     _write(args.out / "factual_mdev_mo_evidence.json", bundle.as_dict())
 
-    declaration_refs = _items(args.declaration_review_refs, "declaration review refs")
-    declaration_prov = _items(args.declaration_provenance_refs, "declaration provenance refs")
     seismic = ReviewedSeismicClassificationContext(
         dts=args.dts,
         bys=args.bys,
         review_refs=_items(args.seismic_review_refs, "seismic review refs"),
-        provenance_refs=_items(args.seismic_provenance_refs, "seismic provenance refs"),
+        provenance_refs=_items(
+            args.seismic_provenance_refs,
+            "seismic provenance refs",
+        ),
     )
-    analysis_refs = _items(args.analysis_evidence_refs, "analysis evidence refs")
-    analysis_prov = _items(args.analysis_provenance_refs, "analysis provenance refs")
-
-    runs = []
-    for direction in ("X", "Y"):
-        declaration = ReviewedDirectionalRcSystemDeclaration(
-            direction=direction,
-            table_4_1_row="A15",
-            review_refs=declaration_refs,
-            provenance_refs=declaration_prov,
-        )
-        if direction == "X":
-            assumption = DirectionalAnalysisSystemAssumption(
-                direction="X",
-                assumed_table_4_1_row=args.x_assumed_row,
-                assumed_r=args.x_assumed_r,
-                assumed_d=args.x_assumed_d,
-                analysis_evidence_refs=analysis_refs,
-                provenance_refs=analysis_prov,
-            )
-        else:
-            assumption = DirectionalAnalysisSystemAssumption(
-                direction="Y",
-                assumed_table_4_1_row=args.y_assumed_row,
-                assumed_r=args.y_assumed_r,
-                assumed_d=args.y_assumed_d,
-                analysis_evidence_refs=analysis_refs,
-                provenance_refs=analysis_prov,
-            )
-        runs.append(
-            run_vs4b_a15_direction(
-                declaration=declaration,
-                seismic=seismic,
-                analysis_assumption=assumption,
-                evidence=bundle.direction(direction),
-            )
-        )
+    assumption = DirectionalAnalysisSystemAssumption(
+        direction=direction,
+        assumed_table_4_1_row=args.assumed_row,
+        assumed_r=args.assumed_r,
+        assumed_d=args.assumed_d,
+        analysis_evidence_refs=_items(
+            args.analysis_evidence_refs,
+            "analysis evidence refs",
+        ),
+        provenance_refs=_items(
+            args.analysis_provenance_refs,
+            "analysis provenance refs",
+        ),
+    )
+    run = run_vs4b_a15_direction(
+        declaration=declaration,
+        seismic=seismic,
+        analysis_assumption=assumption,
+        evidence=bundle.direction(direction),
+    )
 
     product = {
-        "status": (
-            "OK" if all(item.regulatory_resolved for item in runs) else "OK_WITH_REGULATORY_BLOCK"
-        ),
+        "status": "OK" if run.regulatory_resolved else "OK_WITH_REGULATORY_BLOCK",
         "FACTUAL_MDEV_MO_ACQUISITION": "PROVEN",
+        "REGULATORY_A15_4345": run.status,
+        "direction": direction,
+        "reviewed_declared_row": declaration.table_4_1_row,
         "model_identity": {
             "model_fingerprint": model_fingerprint,
             "observed_model_path": identity.model_full_path,
@@ -255,7 +274,7 @@ def main(argv: list[str] | None = None) -> int:
             "base_provenance_refs": list(base.provenance_refs),
         },
         "evidence_epoch_id": bundle.evidence_epoch_id,
-        "directions": [item.as_dict() for item in runs],
+        "direction_result": run.as_dict(),
         "safety": {
             "analysis_run": False,
             "design_run": False,
