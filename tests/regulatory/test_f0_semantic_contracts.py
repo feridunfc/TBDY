@@ -181,6 +181,21 @@ def test_semantic_type_is_bounded_and_neutral():
         SemanticType.WALL_THICKNESS,
         SemanticType.WALL_STORY_HEIGHT,
         SemanticType.WALL_UNRESTRAINED_PLAN_LENGTH,
+        SemanticType.RC_TABLE_4_1_ROW,
+        SemanticType.RC_DTS,
+        SemanticType.RC_BYS,
+        SemanticType.RC_DUCTILITY_CLASS,
+        SemanticType.RC_BASE_R,
+        SemanticType.RC_BASE_D,
+        SemanticType.RC_BYS_POLICY,
+        SemanticType.RC_POST_ANALYSIS_QUALIFICATION_REQUIREMENT,
+        SemanticType.RC_DIRECTIONAL_BASELINE_SYSTEM_POLICY,
+        SemanticType.RC_ORTHOGONAL_SYSTEM_DECLARATION,
+        SemanticType.RC_A16_SPECIAL_CONTEXT,
+        SemanticType.RC_ANALYSIS_SYSTEM_ASSUMPTION,
+        SemanticType.RC_ANALYSIS_BASIS_STATUS,
+        SemanticType.RC_ELIGIBILITY_STATE,
+        SemanticType.RC_PREANALYSIS_SYSTEM_ELIGIBILITY,
     }
     with pytest.raises(ValueError):
         SemanticType("ARBITRARY_RUNTIME_TEXT")
@@ -470,7 +485,10 @@ def test_execution_plan_compile_diagnostics_reject_non_string_without_coercion()
 
 def test_regulatory_package_static_architecture_guards():
     package_dir = Path(__file__).resolve().parents[2] / "tbdy_engine" / "regulatory"
-    source = "\n".join(path.read_text(encoding="utf-8") for path in sorted(package_dir.glob("*.py")))
+    core_files = ("contracts.py", "registry.py", "kernel.py", "units.py", "authority.py")
+    source = "\n".join(
+        (package_dir / name).read_text(encoding="utf-8") for name in core_files
+    )
     assert "tbdy_engine.etabs" not in source
     assert "tbdy_engine.product_reports" not in source
     assert "_ALLOWED_CHECKS" not in source

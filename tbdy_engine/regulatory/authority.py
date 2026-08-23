@@ -587,11 +587,17 @@ def validate_rule_authority(
                 f"review {review.review_id} references missing claim {review.claim_id}",
             ) from exc
         try:
+            resolved_anchors = tuple(catalog.anchor(ref) for ref in claim.anchor_refs)
+            resolved_sources_by_id = {}
+            for anchor in resolved_anchors:
+                source = catalog.source(anchor.source_id)
+                resolved_sources_by_id[source.source_id] = source
             current_claim_fingerprint = regulatory_claim_fingerprint(
                 claim=claim,
-                anchors=tuple(catalog.anchor(ref) for ref in claim.anchor_refs),
+                anchors=resolved_anchors,
                 source_documents=tuple(
-                    catalog.source(catalog.anchor(ref).source_id) for ref in claim.anchor_refs
+                    resolved_sources_by_id[source_id]
+                    for source_id in sorted(resolved_sources_by_id)
                 ),
             )
         except KeyError as exc:
