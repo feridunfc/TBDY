@@ -584,3 +584,74 @@ def test_AG_regulatory_claim_fingerprint_is_deterministic_and_exact():
         normalized_statement="Changed claim.",
     )
     assert first != regulatory_claim_fingerprint(claim=changed, anchors=(anchor,), source_documents=(source,))
+
+
+def test_AH_multiple_exact_anchors_same_source_validate_successfully(module_sources):
+    spec = _spec()
+    source = RegulatorySourceDocument(
+        "SRC", "Synthetic", "1", "Issuer", "TEST", "sha256:src"
+    )
+    anchors = (
+        SourceAnchor("A1", "SRC", "clause 1"),
+        SourceAnchor("A2", "SRC", "clause 2"),
+    )
+    claim = RegulatoryClaim(
+        claim_id="C_MULTI",
+        claim_version="1",
+        anchor_refs=("A1", "A2"),
+        normalized_statement="Reviewed multi-anchor claim.",
+    )
+    claim_fp = regulatory_claim_fingerprint(
+        claim=claim, anchors=anchors, source_documents=(source,)
+    )
+    review = AuthorityReviewRecord(
+        review_id="R_MULTI",
+        claim_id=claim.claim_id,
+        status=AuthorityReviewStatus.APPROVED,
+        review_version="1",
+        reviewed_claim_fingerprint=claim_fp,
+        review_basis_refs=("review-package:multi-anchor",),
+    )
+    binding = ApprovedImplementationBinding(
+        binding_id="B_MULTI",
+        rule_id=spec.rule_id,
+        claim_refs=(claim.claim_id,),
+        review_refs=(review.review_id,),
+        evaluator_binding_id=spec.evaluator.binding_id,
+        rule_version=spec.rule_version,
+        implementation_modules=(__name__,),
+        approved_implementation_fingerprint=_fingerprint(spec),
+        binding_version="1",
+    )
+    catalog = RegulatoryAuthorityCatalog(
+        source_documents=(source,),
+        anchors=anchors,
+        claims=(claim,),
+        review_records=(review,),
+        implementation_bindings=(binding,),
+    )
+    validated = validate_rule_authority(spec, catalog)
+    assert validated.claim_refs == (claim.claim_id,)
+    assert validated.review_refs == (review.review_id,)
+
+
+def test_AI_regulatory_claim_fingerprint_still_rejects_duplicate_source_documents():
+    source = RegulatorySourceDocument(
+        "SRC", "Synthetic", "1", "Issuer", "TEST", "sha256:src"
+    )
+    anchors = (
+        SourceAnchor("A1", "SRC", "clause 1"),
+        SourceAnchor("A2", "SRC", "clause 2"),
+    )
+    claim = RegulatoryClaim(
+        claim_id="C_MULTI",
+        claim_version="1",
+        anchor_refs=("A1", "A2"),
+        normalized_statement="Reviewed multi-anchor claim.",
+    )
+    with pytest.raises(ValueError, match="duplicate source identity"):
+        regulatory_claim_fingerprint(
+            claim=claim,
+            anchors=anchors,
+            source_documents=(source, source),
+        )

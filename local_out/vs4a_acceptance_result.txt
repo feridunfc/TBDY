@@ -1,91 +1,72 @@
-VS4A_ACCEPTANCE_TRIGGER_HEAD=0aa202d4408de2a066809d559bb433922c1f896c
+VS4A_ACCEPTANCE_TRIGGER_HEAD=6698b577299d2cf0074db37aaad7ee7bc3fd4ed6
+FROZEN_BASE=f774726513a81edaadb2a5d897539575538e0cd0
 COMPILEALL_EXIT=0
-TARGETED_EXIT=1
-F0_REGRESSION_EXIT=1
-FULL_PYTEST_EXIT=2
---- TARGETED ---
-        catalog = build_vs4a_authority_catalog()
-        for review in catalog.review_records:
-            claim = catalog.claim(review.claim_id)
->           actual = regulatory_claim_fingerprint(
-                claim=claim,
-                anchors=tuple(catalog.anchor(ref) for ref in claim.anchor_refs),
-                source_documents=tuple(
-                    catalog.source(catalog.anchor(ref).source_id) for ref in claim.anchor_refs
-                ),
-            )
+VS4A_TARGETED_EXIT=0
+F09_SOURCE_AUTHORITY_EXIT=0
+F0_CORE_EXIT=0
+F0_PARITY_EXIT=0
+REGULATORY_ALL_EXIT=0
+MEMBER_GEOMETRY_EXIT=0
+C13_1_EXIT=0
+C13_4_P1_P2_EXIT=0
+WALL_INVENTORY_EXIT=0
+WALL_PACK_A_EXIT=0
+WALL_PACK_B_EXIT=0
+WALL_PACK_C_EXIT=0
+OFFLINE_PRODUCT_ACCEPTANCE_EXIT=0
+CURRENT_FULL_PYTEST_EXIT=2
+FROZEN_BASE_FULL_PYTEST_EXIT=2
+FROZEN_BASE_FAILSET_COMPARE_EXIT=0
 
-tests/regulatory/test_vs4a_source_authority.py:40: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
-tbdy_engine/regulatory/authority.py:136: in regulatory_claim_fingerprint
-    _unique(source_items, "source_id", "source")
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+--- REVIEWED LIFECYCLE CLAIM FINGERPRINTS ---
+TBDY2018_VS4A_PREANALYSIS_ELIGIBILITY_COMPOSITION=sha256:a06e9da2bea75a5bd59f6fe898ea4367c05eeddd6a978f5a719dd209b6dff65f
+TBDY2018_VS4A_BASELINE_POLICY_LIFECYCLE=sha256:9af020c7eebb734982ccf994a05ca25c6a0e1c465c010d3ca592da9b8296eb81
+TBDY2018_VS4A_ANALYSIS_BASIS_COMPATIBILITY=sha256:d5a151e4e4bb23ae929c4058de4192bcf7e7d92d1d68a640f6e4020e4ffd5895
 
-items = (RegulatorySourceDocument(source_id='TBDY2018_AFAD', title='Türkiye Bina Deprem Yönetmeliği 2018', edition='2018', iss...sdiction='Türkiye', source_fingerprint='sha256:8d3a9a463d4a534ec2c6834c557b5f706e2ad976c2d6837f6c9b6242e38a6bb2'), ...)
-attr = 'source_id', label = 'source'
+--- EXACT FRESH COUNTS ---
+VS4A_TARGETED: 23 passed in 0.31s
+F09_SOURCE_AUTHORITY: 39 passed in 0.21s
+F0_CORE: 70 passed in 0.27s
+F0_PARITY: 95 passed in 0.31s
+REGULATORY_ALL: 227 passed in 0.46s
+MEMBER_GEOMETRY: 31 passed in 0.17s
+C13_1: 7 passed in 0.05s
+C13_4_P1_P2: 42 passed in 1.55s
+WALL_INVENTORY: 35 passed in 0.14s
+WALL_PACK_A: 22 passed in 0.33s
+WALL_PACK_B: 20 passed in 0.31s
+WALL_PACK_C: 25 passed in 0.34s
+CURRENT_FULL_PYTEST: 10 errors in 3.55s
+FROZEN_BASE_FULL_PYTEST: 10 errors in 4.53s
 
-    def _unique(items: Sequence[object], attr: str, label: str) -> None:
-        identities = [getattr(item, attr) for item in items]
-        if len(identities) != len(set(identities)):
->           raise ValueError(f"duplicate {label} identity")
-E           ValueError: duplicate source identity
+--- OFFLINE PRODUCT ACCEPTANCE TAIL ---
+Offline product acceptance: OK
+Output: /tmp/vs4a_offline_acceptance
+Report: /tmp/vs4a_offline_acceptance/offline_product_acceptance_report.json
+Commands: 18
+Failed: 0
 
-tbdy_engine/regulatory/authority.py:61: ValueError
-=========================== short test summary info ============================
-FAILED tests/regulatory/test_structural_system.py::test_bys_fail_cannot_yield_resolved_policy_or_match_basis - ValueError: duplicate source identity
-FAILED tests/regulatory/test_structural_system.py::test_dts_fail_cannot_yield_resolved_policy - ValueError: duplicate source identity
-FAILED tests/regulatory/test_structural_system.py::test_a31_dts_fail_maps_to_invalid - ValueError: duplicate source identity
-FAILED tests/regulatory/test_structural_system.py::test_a16_fail_maps_to_invalid - ValueError: duplicate source identity
-FAILED tests/regulatory/test_structural_system.py::test_a16_unreviewed_maps_to_unresolved - ValueError: duplicate source identity
-FAILED tests/regulatory/test_structural_system.py::test_baseline_matching_assumption_plus_eligibility_fail_is_not_match - ValueError: duplicate source identity
-FAILED tests/regulatory/test_structural_system.py::test_baseline_matching_assumption_plus_postqual_pending_is_unresolved - ValueError: duplicate source identity
-FAILED tests/regulatory/test_structural_system.py::test_eligible_resolved_exact_assumption_is_match - ValueError: duplicate source identity
-FAILED tests/regulatory/test_structural_system.py::test_eligible_resolved_mismatch_requires_reanalysis - ValueError: duplicate source identity
-FAILED tests/regulatory/test_vs4a_source_authority.py::test_every_vs4a_rule_has_current_strict_f0_9_authority - ValueError: duplicate source identity
-FAILED tests/regulatory/test_vs4a_source_authority.py::test_every_approved_claim_review_matches_current_source_chain - ValueError: duplicate source identity
-11 failed, 8 passed in 0.81s
---- F0 REGRESSION ---
-  <SemanticType.RC_DIRECTIONAL_BASELINE_SYSTEM_POLICY: 'RC_DIRECTIONAL_BASELINE_SYSTEM_POLICY'>
-  
-  Full diff:
-    {
-        <SemanticType.BEAM_DEPTH: 'BEAM_DEPTH'>,
-        <SemanticType.BEAM_WIDTH: 'BEAM_WIDTH'>,
-        <SemanticType.CHECK_EVIDENCE_TRACE: 'CHECK_EVIDENCE_TRACE'>,
-        <SemanticType.COLUMN_DEPTH: 'COLUMN_DEPTH'>,
-        <SemanticType.COLUMN_WIDTH: 'COLUMN_WIDTH'>,
-        <SemanticType.COMPONENT_SECTION: 'COMPONENT_SECTION'>,
-        <SemanticType.COMPONENT_STORY: 'COMPONENT_STORY'>,
-        <SemanticType.CONCRETE_FCK: 'CONCRETE_FCK'>,
-        <SemanticType.MODAL_CUMULATIVE_EFFECTIVE_MASS_RATIO: 'MODAL_CUMULATIVE_EFFECTIVE_MASS_RATIO'>,
-  +     <SemanticType.RC_A16_SPECIAL_CONTEXT: 'RC_A16_SPECIAL_CONTEXT'>,
-  +     <SemanticType.RC_ANALYSIS_BASIS_STATUS: 'RC_ANALYSIS_BASIS_STATUS'>,
-  +     <SemanticType.RC_ANALYSIS_SYSTEM_ASSUMPTION: 'RC_ANALYSIS_SYSTEM_ASSUMPTION'>,
-  +     <SemanticType.RC_BASE_D: 'RC_BASE_D'>,
-  +     <SemanticType.RC_BASE_R: 'RC_BASE_R'>,
-  +     <SemanticType.RC_BYS: 'RC_BYS'>,
-  +     <SemanticType.RC_BYS_POLICY: 'RC_BYS_POLICY'>,
-  +     <SemanticType.RC_DIRECTIONAL_BASELINE_SYSTEM_POLICY: 'RC_DIRECTIONAL_BASELINE_SYSTEM_POLICY'>,
-  +     <SemanticType.RC_DTS: 'RC_DTS'>,
-  +     <SemanticType.RC_DUCTILITY_CLASS: 'RC_DUCTILITY_CLASS'>,
-  +     <SemanticType.RC_ELIGIBILITY_STATE: 'RC_ELIGIBILITY_STATE'>,
-  +     <SemanticType.RC_ORTHOGONAL_SYSTEM_DECLARATION: 'RC_ORTHOGONAL_SYSTEM_DECLARATION'>,
-  +     <SemanticType.RC_POST_ANALYSIS_QUALIFICATION_REQUIREMENT: 'RC_POST_ANALYSIS_QUALIFICATION_REQUIREMENT'>,
-  +     <SemanticType.RC_PREANALYSIS_SYSTEM_ELIGIBILITY: 'RC_PREANALYSIS_SYSTEM_ELIGIBILITY'>,
-  +     <SemanticType.RC_TABLE_4_1_ROW: 'RC_TABLE_4_1_ROW'>,
-        <SemanticType.TORSIONAL_IRREGULARITY_COEFFICIENT: 'TORSIONAL_IRREGULARITY_COEFFICIENT'>,
-        <SemanticType.TOY_DERIVED_STATE: 'TOY_DERIVED_STATE'>,
-        <SemanticType.TOY_INPUT: 'TOY_INPUT'>,
-        <SemanticType.TOY_RESULT: 'TOY_RESULT'>,
-        <SemanticType.WALL_LENGTH: 'WALL_LENGTH'>,
-        <SemanticType.WALL_STORY_HEIGHT: 'WALL_STORY_HEIGHT'>,
-        <SemanticType.WALL_THICKNESS: 'WALL_THICKNESS'>,
-        <SemanticType.WALL_UNRESTRAINED_PLAN_LENGTH: 'WALL_UNRESTRAINED_PLAN_LENGTH'>,
-    }
-FAILED tests/regulatory/test_f0_semantic_contracts.py::test_regulatory_package_static_architecture_guards - assert False
- +  where False = all(<generator object test_regulatory_package_static_architecture_guards.<locals>.<genexpr> at 0x7fa47f78a6c0>)
-2 failed, 118 passed in 0.48s
---- FULL PYTEST ---
+--- CURRENT FULL PYTEST TAIL ---
+tests/test_column_rebar_minimum_output.py:8: in <module>
+    from tbdy_engine.contracts.loader import EngineContractLoader
+E   ImportError: cannot import name 'EngineContractLoader' from 'tbdy_engine.contracts.loader' (/home/runner/work/TBDY/TBDY/tbdy_engine/contracts/loader.py)
+______________ ERROR collecting tests/test_combo_traceability.py _______________
+ImportError while importing test module '/home/runner/work/TBDY/TBDY/tests/test_combo_traceability.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_combo_traceability.py:8: in <module>
+    from tbdy_engine.contracts.loader import EngineContractLoader
+E   ImportError: cannot import name 'EngineContractLoader' from 'tbdy_engine.contracts.loader' (/home/runner/work/TBDY/TBDY/tbdy_engine/contracts/loader.py)
+_______________ ERROR collecting tests/test_contract_schemas.py ________________
+ImportError while importing test module '/home/runner/work/TBDY/TBDY/tests/test_contract_schemas.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 tests/test_contract_schemas.py:3: in <module>
     from tbdy_engine.contracts.export_schema import export_all_schemas
 tbdy_engine/contracts/export_schema.py:5: in <module>
@@ -145,4 +126,88 @@ ERROR tests/test_module_evidence_emission.py
 ERROR tests/test_module_evidence_emission_expected.py
 ERROR tests/test_sprint3_runner_full.py
 !!!!!!!!!!!!!!!!!!! Interrupted: 10 errors during collection !!!!!!!!!!!!!!!!!!!
-10 errors in 5.14s
+10 errors in 3.55s
+
+--- FROZEN BASE FULL PYTEST TAIL ---
+tests/test_column_rebar_minimum_output.py:8: in <module>
+    from tbdy_engine.contracts.loader import EngineContractLoader
+E   ImportError: cannot import name 'EngineContractLoader' from 'tbdy_engine.contracts.loader' (/tmp/vs4a_frozen_base/tbdy_engine/contracts/loader.py)
+______________ ERROR collecting tests/test_combo_traceability.py _______________
+ImportError while importing test module '/tmp/vs4a_frozen_base/tests/test_combo_traceability.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_combo_traceability.py:8: in <module>
+    from tbdy_engine.contracts.loader import EngineContractLoader
+E   ImportError: cannot import name 'EngineContractLoader' from 'tbdy_engine.contracts.loader' (/tmp/vs4a_frozen_base/tbdy_engine/contracts/loader.py)
+_______________ ERROR collecting tests/test_contract_schemas.py ________________
+ImportError while importing test module '/tmp/vs4a_frozen_base/tests/test_contract_schemas.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_contract_schemas.py:3: in <module>
+    from tbdy_engine.contracts.export_schema import export_all_schemas
+tbdy_engine/contracts/export_schema.py:5: in <module>
+    from .models import ChecksContract, CombosContract, DatasetsContract, EvaluationsContract, ReportsContract, RuntimeCatalog, model_json_schema_compat
+E   ImportError: cannot import name 'ChecksContract' from 'tbdy_engine.contracts.models' (/tmp/vs4a_frozen_base/tbdy_engine/contracts/models.py)
+__________ ERROR collecting tests/test_generated_schema_freshness.py ___________
+ImportError while importing test module '/tmp/vs4a_frozen_base/tests/test_generated_schema_freshness.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_generated_schema_freshness.py:5: in <module>
+    from tbdy_engine.contracts.export_schema import export_all_schemas
+tbdy_engine/contracts/export_schema.py:5: in <module>
+    from .models import ChecksContract, CombosContract, DatasetsContract, EvaluationsContract, ReportsContract, RuntimeCatalog, model_json_schema_compat
+E   ImportError: cannot import name 'ChecksContract' from 'tbdy_engine.contracts.models' (/tmp/vs4a_frozen_base/tbdy_engine/contracts/models.py)
+___________ ERROR collecting tests/test_module_evidence_emission.py ____________
+ImportError while importing test module '/tmp/vs4a_frozen_base/tests/test_module_evidence_emission.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_module_evidence_emission.py:6: in <module>
+    from tbdy_engine.contracts.loader import EngineContractLoader
+E   ImportError: cannot import name 'EngineContractLoader' from 'tbdy_engine.contracts.loader' (/tmp/vs4a_frozen_base/tbdy_engine/contracts/loader.py)
+_______ ERROR collecting tests/test_module_evidence_emission_expected.py _______
+ImportError while importing test module '/tmp/vs4a_frozen_base/tests/test_module_evidence_emission_expected.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_module_evidence_emission_expected.py:6: in <module>
+    from tbdy_engine.contracts.loader import EngineContractLoader
+E   ImportError: cannot import name 'EngineContractLoader' from 'tbdy_engine.contracts.loader' (/tmp/vs4a_frozen_base/tbdy_engine/contracts/loader.py)
+______________ ERROR collecting tests/test_sprint3_runner_full.py ______________
+ImportError while importing test module '/tmp/vs4a_frozen_base/tests/test_sprint3_runner_full.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_sprint3_runner_full.py:12: in <module>
+    from tbdy_engine.runner import _build_context_async, run_all_checks
+E   ModuleNotFoundError: No module named 'tbdy_engine.runner'
+=========================== short test summary info ============================
+ERROR tests/c13_2_p3/test_c13_2_p3_full_input_export_inventory.py
+ERROR tests/golden/test_c7_golden_json.py
+ERROR tests/test_check_adapter_traceability.py
+ERROR tests/test_column_rebar_minimum_output.py
+ERROR tests/test_combo_traceability.py
+ERROR tests/test_contract_schemas.py
+ERROR tests/test_generated_schema_freshness.py
+ERROR tests/test_module_evidence_emission.py
+ERROR tests/test_module_evidence_emission_expected.py
+ERROR tests/test_sprint3_runner_full.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 10 errors during collection !!!!!!!!!!!!!!!!!!!
+10 errors in 4.53s
+
+--- FROZEN BASE FAILSET DIFF ---

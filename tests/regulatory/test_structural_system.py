@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 from tbdy_engine.checks.result import CheckStatus
-from tbdy_engine.regulatory.contracts import DependencySourceKind
+from tbdy_engine.regulatory.contracts import ApplicabilityState, DependencySourceKind
 from tbdy_engine.regulatory.kernel import AnalysisBasisStatus
 from tbdy_engine.regulatory import structural_system as ss
 from tbdy_engine.regulatory.vs4a_program import compile_vs4a_program, execute_vs4a_program
@@ -248,3 +248,67 @@ def test_eligible_resolved_mismatch_requires_reanalysis():
 def test_no_duplicated_orchestration_path():
     assert not hasattr(ss, "compile_vs4a_program")
     assert compile_vs4a_program.__module__ == "tbdy_engine.regulatory.vs4a_program"
+
+
+def _closure(program, rule_id, direction="X"):
+    matches = tuple(
+        record
+        for record in program.plan.compiled_closure_inventory
+        if record.instance_id.rule_id == rule_id
+        and record.instance_id.direction == direction
+    )
+    assert len(matches) == 1
+    return matches[0]
+
+
+def _formal_matches(snapshot, rule_id, direction="X"):
+    return tuple(
+        record.result
+        for record in snapshot.formal_results
+        if record.instance_id.rule_id == rule_id
+        and record.instance_id.direction == direction
+    )
+
+
+def test_nonapplicable_formal_checks_are_compile_time_proven_not_applicable():
+    program, snapshot = _run("A11", dts="3", bys=8)
+    assert _closure(program, ss.RC_TABLE_4_1_BYS_ELIGIBILITY).applicability is ApplicabilityState.APPLIES
+    for rule_id in (
+        ss.RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY,
+        ss.RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY,
+        ss.RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY,
+    ):
+        assert _closure(program, rule_id).applicability is ApplicabilityState.PROVEN_NOT_APPLICABLE
+        assert _formal_matches(snapshot, rule_id) == ()
+    assert _quantity(snapshot, ss.RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY_STATE) == "ELIGIBLE"
+    assert _quantity(snapshot, ss.RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY_STATE) == "NOT_APPLICABLE"
+    assert _quantity(snapshot, ss.RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY_STATE) == "NOT_APPLICABLE"
+
+
+def test_a31_formal_applicability_is_compile_time_scoped():
+    program, snapshot = _run("A31", dts="3", bys=8)
+    for rule_id in (
+        ss.RC_TABLE_4_1_BYS_ELIGIBILITY,
+        ss.RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY,
+        ss.RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY,
+    ):
+        assert _closure(program, rule_id).applicability is ApplicabilityState.APPLIES
+    assert _closure(program, ss.RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY).applicability is ApplicabilityState.PROVEN_NOT_APPLICABLE
+    assert _formal_matches(snapshot, ss.RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY) == ()
+
+
+def test_a16_formal_applicability_is_compile_time_scoped():
+    program, snapshot = _run(
+        "A16",
+        dts="3",
+        bys=8,
+        a16_contexts=_a16_contexts(),
+    )
+    assert _closure(program, ss.RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY).applicability is ApplicabilityState.APPLIES
+    for rule_id in (
+        ss.RC_TABLE_4_1_BYS_ELIGIBILITY,
+        ss.RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY,
+        ss.RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY,
+    ):
+        assert _closure(program, rule_id).applicability is ApplicabilityState.PROVEN_NOT_APPLICABLE
+        assert _formal_matches(snapshot, rule_id) == ()

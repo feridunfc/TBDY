@@ -25,9 +25,11 @@ The sprint is not auditable merely because code exists. The final branch must pr
 - pending post-analysis qualification produces UNRESOLVED compatibility;
 - eligible resolved exact assumption produces MATCH;
 - eligible resolved mismatch produces REANALYSIS_REQUIRED;
+- non-applicable formal checks are `PROVEN_NOT_APPLICABLE` at compile time;
+- exact multi-anchor claims validate without weakening the duplicate-strict fingerprint primitive;
 - `vs4a_program.py` is the sole composition path;
 - current F0.9 claims/reviews/implementation fingerprints validate;
-- frozen F0 and full pytest regression matrix remains green.
+- all focused F0/VS-4A/offline regression gates are green; repository-wide pytest has no failures beyond the exact frozen-base failure set.
 
 ## Finalization rule
 

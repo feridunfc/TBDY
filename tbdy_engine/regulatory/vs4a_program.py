@@ -59,14 +59,29 @@ def _external(
     )
 
 
-def _directional_targets(direction: str) -> tuple[RuleScopeTarget, ...]:
+def _formal_check_applies(rule_id, row: str) -> bool:
+    policy = ss.table_4_1_policy(row)
+    if rule_id == ss.RC_TABLE_4_1_BYS_ELIGIBILITY:
+        return row != "A16"
+    if rule_id == ss.RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY:
+        return policy.ductility is not ss.RcDuctilityLevel.HIGH
+    if rule_id == ss.RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY:
+        return row == "A31"
+    if rule_id == ss.RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY:
+        return row == "A16"
+    return True
+
+
+def _directional_targets(direction: str, row: str) -> tuple[RuleScopeTarget, ...]:
     return tuple(
         RuleScopeTarget(
             rule_id=rule_id,
             grain=Grain.DIRECTION,
             scope_ref=ss.BUILDING_SCOPE,
             direction=direction,
-            applicability_input=ss.DirectionalApplicabilityInput(),
+            applicability_input=ss.DirectionalApplicabilityInput(
+                enabled=_formal_check_applies(rule_id, row)
+            ),
             analysis_basis_status=AnalysisBasisStatus.MATCH,
         )
         for rule_id in ss.DIRECTIONAL_VS4A_RULE_IDS
@@ -125,8 +140,8 @@ def compile_vs4a_program(
         )
 
     targets = [
-        *_directional_targets("X"),
-        *_directional_targets("Y"),
+        *_directional_targets("X", declarations.x.table_4_1_row),
+        *_directional_targets("Y", declarations.y.table_4_1_row),
         RuleScopeTarget(
             rule_id=ss.RC_TBDY_4_3_4_2_ORTHOGONAL_DUCTILITY_CONSISTENCY,
             grain=Grain.MODEL,

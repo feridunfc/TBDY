@@ -37,11 +37,16 @@ def test_every_approved_claim_review_matches_current_source_chain():
     catalog = build_vs4a_authority_catalog()
     for review in catalog.review_records:
         claim = catalog.claim(review.claim_id)
+        anchors = tuple(catalog.anchor(ref) for ref in claim.anchor_refs)
+        sources_by_id = {}
+        for anchor in anchors:
+            source = catalog.source(anchor.source_id)
+            sources_by_id[source.source_id] = source
         actual = regulatory_claim_fingerprint(
             claim=claim,
-            anchors=tuple(catalog.anchor(ref) for ref in claim.anchor_refs),
+            anchors=anchors,
             source_documents=tuple(
-                catalog.source(catalog.anchor(ref).source_id) for ref in claim.anchor_refs
+                sources_by_id[source_id] for source_id in sorted(sources_by_id)
             ),
         )
         assert review.reviewed_claim_fingerprint == actual
@@ -81,4 +86,45 @@ def test_shared_eligibility_and_lifecycle_rules_have_explicit_claim_bindings():
     ]
     assert CLAIMS_FOR_RULE[ss.RC_ANALYSIS_BASIS_COMPATIBILITY.value] == (
         "TBDY2018_VS4A_ANALYSIS_BASIS_COMPATIBILITY",
+    )
+
+
+def test_lifecycle_claims_use_exact_multi_anchor_source_refs():
+    catalog = build_vs4a_authority_catalog()
+    expected = {
+        "TBDY2018_VS4A_PREANALYSIS_ELIGIBILITY_COMPOSITION": (
+            "TBDY2018_4_3_1_2",
+            "TBDY2018_4_3_4_1",
+            "TBDY2018_4_3_4_3",
+            "TBDY2018_TABLE4_1_A16",
+        ),
+        "TBDY2018_VS4A_BASELINE_POLICY_LIFECYCLE": (
+            "TBDY2018_4_3_1_2",
+            "TBDY2018_4_3_2_1",
+            "TBDY2018_4_3_2_4",
+            "TBDY2018_4_3_4_1",
+            "TBDY2018_4_3_4_3",
+            "TBDY2018_4_3_4_5",
+            "TBDY2018_4_3_4_6",
+            "TBDY2018_4_3_4_7",
+            "TBDY2018_TABLE4_1_A16",
+        ),
+        "TBDY2018_VS4A_ANALYSIS_BASIS_COMPATIBILITY": (
+            "TBDY2018_4_3_1_2",
+            "TBDY2018_4_3_2_1",
+            "TBDY2018_4_3_2_4",
+            "TBDY2018_4_3_4_1",
+            "TBDY2018_4_3_4_3",
+            "TBDY2018_4_3_4_5",
+            "TBDY2018_4_3_4_6",
+            "TBDY2018_4_3_4_7",
+            "TBDY2018_TABLE4_1_A16",
+        ),
+    }
+    for claim_id, anchor_refs in expected.items():
+        claim = catalog.claim(claim_id)
+        assert claim.anchor_refs == anchor_refs
+        assert len(claim.anchor_refs) > 1
+    assert not any(
+        anchor.anchor_id.startswith("TBDY2018_VS4A_") for anchor in catalog.anchors
     )

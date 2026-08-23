@@ -40,6 +40,8 @@ reviewed row / DTS / BYS / A16 context
 
 The four formal eligibility CheckResults consume those same shared eligibility quantities. They are projections only. They do not recalculate BYS, DTS, A31 or A16 engineering rules, and `RC_PREANALYSIS_SYSTEM_ELIGIBILITY` never aggregates CheckResults.
 
+Formal check applicability is decided at compile time in `vs4a_program.py`. Non-applicable ordinary BYS, A31, A16 and §4.3.4.1 formal checks are compiled as `PROVEN_NOT_APPLICABLE` and emit no runtime `OUT_OF_SCOPE` CheckResult. The shared eligibility-state derivations remain in the DAG and remain the single engineering-logic path.
+
 ## Lifecycle semantics
 
 `RC_PREANALYSIS_SYSTEM_ELIGIBILITY` resolves applicable source-bound prerequisites to `ELIGIBLE`, `INELIGIBLE`, or `BLOCKED`; non-applicable subchecks remain `NOT_APPLICABLE` at their own quantity.
@@ -78,6 +80,8 @@ Contracts named `Reviewed` fail closed on missing review/provenance references. 
 `tbdy_engine/regulatory/sources/tbdy2018.py` binds exact TBDY 2018 anchors to normalized claims and approved review records. Table 4.1 rows use separate row claims/anchors. Every executable VS-4A derivation/check has an approved implementation binding and exact implementation fingerprint for `tbdy_engine.regulatory.structural_system`.
 
 Changing the evaluator module without updating the reviewed fingerprint must fail the F0.9 compiler gate.
+
+Lifecycle claims retain their exact multiple source anchors. When several anchors resolve to the same regulatory source document, `validate_rule_authority` deduplicates the resolved source-document set by `source_id` before calling the strict `regulatory_claim_fingerprint`; the fingerprint primitive itself continues to reject duplicate source identities.
 
 ## Deferred work
 
