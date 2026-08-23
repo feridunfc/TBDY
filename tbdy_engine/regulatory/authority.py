@@ -112,12 +112,79 @@ class RegulatoryClaim:
         return self.claim_id, self.claim_version
 
 
+def regulatory_claim_fingerprint(
+    *,
+    claim: RegulatoryClaim,
+    anchors: Sequence[SourceAnchor],
+    source_documents: Sequence[RegulatorySourceDocument],
+) -> str:
+    """Fingerprint the exact reviewed claim and its resolved source chain.
+
+    The digest contains no source text and no repository identity.  Only the
+    normalized claim plus deterministic anchor/source metadata are included.
+    """
+
+    if not isinstance(claim, RegulatoryClaim):
+        raise TypeError("claim must be RegulatoryClaim")
+    anchor_items = tuple(anchors)
+    source_items = tuple(source_documents)
+    if any(not isinstance(item, SourceAnchor) for item in anchor_items):
+        raise TypeError("anchors must contain SourceAnchor")
+    if any(not isinstance(item, RegulatorySourceDocument) for item in source_items):
+        raise TypeError("source_documents must contain RegulatorySourceDocument")
+    _unique(anchor_items, "anchor_id", "anchor")
+    _unique(source_items, "source_id", "source")
+
+    anchors_by_id = {item.anchor_id: item for item in anchor_items}
+    sources_by_id = {item.source_id: item for item in source_items}
+    resolved_anchors: list[SourceAnchor] = []
+    resolved_sources: dict[str, RegulatorySourceDocument] = {}
+    for anchor_ref in claim.anchor_refs:
+        try:
+            anchor = anchors_by_id[anchor_ref]
+            source = sources_by_id[anchor.source_id]
+        except KeyError as exc:
+            raise RegulatoryAuthorityError(
+                "BROKEN_REGULATORY_SOURCE_CHAIN",
+                f"claim {claim.claim_id} cannot resolve anchor/source {anchor_ref}",
+            ) from exc
+        resolved_anchors.append(anchor)
+        resolved_sources[source.source_id] = source
+
+    payload = {
+        "claim": [
+            claim.claim_id,
+            claim.claim_version,
+            claim.normalized_statement,
+            list(claim.anchor_refs),
+        ],
+        "anchors": [
+            [item.anchor_id, item.source_id, item.locator]
+            for item in sorted(resolved_anchors, key=lambda x: x.anchor_id)
+        ],
+        "sources": [
+            [
+                item.source_id,
+                item.edition,
+                item.source_fingerprint,
+                item.title,
+                item.issuer,
+                item.jurisdiction,
+            ]
+            for item in sorted(resolved_sources.values(), key=lambda x: x.source_id)
+        ],
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
 @dataclass(frozen=True, slots=True)
 class AuthorityReviewRecord:
     review_id: str
     claim_id: str
     status: AuthorityReviewStatus
     review_version: str
+    reviewed_claim_fingerprint: str
     review_basis_refs: tuple[str, ...] = field(default_factory=tuple)
 
     def __init__(
@@ -127,6 +194,7 @@ class AuthorityReviewRecord:
         claim_id: str,
         status: AuthorityReviewStatus,
         review_version: str,
+        reviewed_claim_fingerprint: str,
         review_basis_refs: Sequence[str] = (),
     ) -> None:
         if not isinstance(status, AuthorityReviewStatus):
@@ -135,6 +203,11 @@ class AuthorityReviewRecord:
         object.__setattr__(self, "claim_id", _text(claim_id, "claim_id"))
         object.__setattr__(self, "status", status)
         object.__setattr__(self, "review_version", _text(review_version, "review_version"))
+        object.__setattr__(
+            self,
+            "reviewed_claim_fingerprint",
+            _text(reviewed_claim_fingerprint, "reviewed_claim_fingerprint"),
+        )
         object.__setattr__(self, "review_basis_refs", _strings(review_basis_refs, "review_basis_ref"))
 
     @property
@@ -322,6 +395,7 @@ class RegulatoryAuthorityCatalog:
                     item.claim_id,
                     item.status.value,
                     item.review_version,
+                    item.reviewed_claim_fingerprint,
                     list(item.review_basis_refs),
                 ]
                 for item in reviews
@@ -504,9 +578,37 @@ def validate_rule_authority(
             f"binding {binding.binding_id} references non-approved reviews {','.join(nonapproved)}",
         )
 
-    # Resolve the complete source chain mechanically even though the catalog
-    # constructor already rejects broken references.  Validation remains
-    # fail-closed if future catalog construction changes.
+    for review in bound_reviews:
+        try:
+            claim = catalog.claim(review.claim_id)
+        except KeyError as exc:
+            raise RegulatoryAuthorityError(
+                "MISSING_REGULATORY_CLAIM",
+                f"review {review.review_id} references missing claim {review.claim_id}",
+            ) from exc
+        try:
+            current_claim_fingerprint = regulatory_claim_fingerprint(
+                claim=claim,
+                anchors=tuple(catalog.anchor(ref) for ref in claim.anchor_refs),
+                source_documents=tuple(
+                    catalog.source(catalog.anchor(ref).source_id) for ref in claim.anchor_refs
+                ),
+            )
+        except KeyError as exc:
+            raise RegulatoryAuthorityError(
+                "BROKEN_REGULATORY_SOURCE_CHAIN",
+                f"claim {claim.claim_id} cannot resolve its reviewed source chain",
+            ) from exc
+        if current_claim_fingerprint != review.reviewed_claim_fingerprint:
+            raise RegulatoryAuthorityError(
+                "STALE_REGULATORY_CLAIM_REVIEW",
+                (
+                    f"review {review.review_id} approved={review.reviewed_claim_fingerprint} "
+                    f"actual={current_claim_fingerprint}"
+                ),
+            )
+
+    # Resolve every bound claim/source chain independently of review matching.
     for claim_ref in binding.claim_refs:
         try:
             claim = catalog.claim(claim_ref)
@@ -583,6 +685,7 @@ __all__ = [
     "RegulatoryAuthorityCatalog",
     "ValidatedRuleAuthority",
     "RegulatoryAuthorityError",
+    "regulatory_claim_fingerprint",
     "implementation_fingerprint",
     "validate_rule_authority",
     "validate_registry_authority",
