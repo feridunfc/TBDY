@@ -59,19 +59,6 @@ def _external(
     )
 
 
-def _formal_check_applies(rule_id, row: str) -> bool:
-    policy = ss.table_4_1_policy(row)
-    if rule_id == ss.RC_TABLE_4_1_BYS_ELIGIBILITY:
-        return row != "A16"
-    if rule_id == ss.RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY:
-        return policy.ductility is not ss.RcDuctilityLevel.HIGH
-    if rule_id == ss.RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY:
-        return row == "A31"
-    if rule_id == ss.RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY:
-        return row == "A16"
-    return True
-
-
 def _directional_targets(direction: str, row: str) -> tuple[RuleScopeTarget, ...]:
     return tuple(
         RuleScopeTarget(
@@ -79,9 +66,7 @@ def _directional_targets(direction: str, row: str) -> tuple[RuleScopeTarget, ...
             grain=Grain.DIRECTION,
             scope_ref=ss.BUILDING_SCOPE,
             direction=direction,
-            applicability_input=ss.DirectionalApplicabilityInput(
-                enabled=_formal_check_applies(rule_id, row)
-            ),
+            applicability_input=ss.formal_check_applicability_input(rule_id, row),
             analysis_basis_status=AnalysisBasisStatus.MATCH,
         )
         for rule_id in ss.DIRECTIONAL_VS4A_RULE_IDS
@@ -132,7 +117,7 @@ def compile_vs4a_program(
     required_a16_directions = {
         declaration.direction
         for declaration in (declarations.x, declarations.y)
-        if declaration.table_4_1_row == "A16"
+        if ss.requires_a16_special_context(declaration.table_4_1_row)
     }
     if set(a16_by_direction) != required_a16_directions:
         raise ValueError(
@@ -179,7 +164,7 @@ def compile_vs4a_program(
             assumption.analysis_evidence_refs, assumption.provenance_refs
         )
 
-        if declaration.table_4_1_row == "A16":
+        if ss.requires_a16_special_context(declaration.table_4_1_row):
             context = a16_by_direction[direction]
             a16_value: object = {
                 "applicable": True,

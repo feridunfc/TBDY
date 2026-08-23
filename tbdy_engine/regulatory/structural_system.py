@@ -380,6 +380,113 @@ def _applies(value: DirectionalApplicabilityInput) -> ApplicabilityState:
     )
 
 
+def requires_a16_special_context(table_4_1_row: str) -> bool:
+    """Reviewed Table 4.1 scope predicate used by composition only."""
+    return table_4_1_policy(table_4_1_row).row == "A16"
+
+
+@dataclass(frozen=True, slots=True)
+class BysEligibilityFormalApplicabilityInput:
+    table_4_1_row: str
+
+    def __post_init__(self) -> None:
+        table_4_1_policy(self.table_4_1_row)
+
+
+@dataclass(frozen=True, slots=True)
+class Dts4341FormalApplicabilityInput:
+    table_4_1_row: str
+
+    def __post_init__(self) -> None:
+        table_4_1_policy(self.table_4_1_row)
+
+
+@dataclass(frozen=True, slots=True)
+class A31FormalApplicabilityInput:
+    table_4_1_row: str
+
+    def __post_init__(self) -> None:
+        table_4_1_policy(self.table_4_1_row)
+
+
+@dataclass(frozen=True, slots=True)
+class A16FormalApplicabilityInput:
+    table_4_1_row: str
+
+    def __post_init__(self) -> None:
+        table_4_1_policy(self.table_4_1_row)
+
+
+def evaluate_bys_eligibility_formal_applicability(
+    value: BysEligibilityFormalApplicabilityInput,
+) -> ApplicabilityState:
+    if not isinstance(value, BysEligibilityFormalApplicabilityInput):
+        raise TypeError("BYS formal applicability requires BysEligibilityFormalApplicabilityInput")
+    return (
+        ApplicabilityState.PROVEN_NOT_APPLICABLE
+        if requires_a16_special_context(value.table_4_1_row)
+        else ApplicabilityState.APPLIES
+    )
+
+
+def evaluate_dts_4_3_4_1_formal_applicability(
+    value: Dts4341FormalApplicabilityInput,
+) -> ApplicabilityState:
+    if not isinstance(value, Dts4341FormalApplicabilityInput):
+        raise TypeError("4.3.4.1 formal applicability requires Dts4341FormalApplicabilityInput")
+    policy = table_4_1_policy(value.table_4_1_row)
+    return (
+        ApplicabilityState.PROVEN_NOT_APPLICABLE
+        if policy.ductility is RcDuctilityLevel.HIGH
+        else ApplicabilityState.APPLIES
+    )
+
+
+def evaluate_a31_formal_applicability(
+    value: A31FormalApplicabilityInput,
+) -> ApplicabilityState:
+    if not isinstance(value, A31FormalApplicabilityInput):
+        raise TypeError("A31 formal applicability requires A31FormalApplicabilityInput")
+    return (
+        ApplicabilityState.APPLIES
+        if table_4_1_policy(value.table_4_1_row).row == "A31"
+        else ApplicabilityState.PROVEN_NOT_APPLICABLE
+    )
+
+
+def evaluate_a16_formal_applicability(
+    value: A16FormalApplicabilityInput,
+) -> ApplicabilityState:
+    if not isinstance(value, A16FormalApplicabilityInput):
+        raise TypeError("A16 formal applicability requires A16FormalApplicabilityInput")
+    return (
+        ApplicabilityState.APPLIES
+        if requires_a16_special_context(value.table_4_1_row)
+        else ApplicabilityState.PROVEN_NOT_APPLICABLE
+    )
+
+
+_FORMAL_CHECK_APPLICABILITY_INPUT_TYPES = MappingProxyType(
+    {
+        RC_TABLE_4_1_BYS_ELIGIBILITY: BysEligibilityFormalApplicabilityInput,
+        RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY: Dts4341FormalApplicabilityInput,
+        RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY: A31FormalApplicabilityInput,
+        RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY: A16FormalApplicabilityInput,
+    }
+)
+
+
+def formal_check_applicability_input(rule_id: RuleId, table_4_1_row: str) -> object:
+    """Return the reviewed typed applicability input required by one VS-4A rule."""
+    if not isinstance(rule_id, RuleId):
+        raise TypeError("rule_id must be RuleId")
+    row = table_4_1_policy(table_4_1_row).row
+    input_type = _FORMAL_CHECK_APPLICABILITY_INPUT_TYPES.get(rule_id)
+    if input_type is None:
+        return DirectionalApplicabilityInput()
+    return input_type(row)
+
+
 @dataclass(frozen=True, slots=True)
 class StructuralSystemExecutionInput:
     envelope: RuleExecutionEnvelope
@@ -1071,6 +1178,8 @@ def _check(
     dependencies: tuple[DependencySpec, ...],
     evaluator,
     code_refs: tuple[str, ...],
+    *,
+    applicability: ApplicabilityBinding | None = None,
 ) -> CheckSpec:
     return CheckSpec(
         rule_id=rule_id,
@@ -1078,7 +1187,8 @@ def _check(
         rule_version=RULE_VERSION,
         formal_result_type=CheckResult,
         dependencies=dependencies,
-        applicability=ApplicabilityBinding(
+        applicability=applicability
+        or ApplicabilityBinding(
             f"vs4a:{rule_id.value}:applicability",
             DirectionalApplicabilityInput,
             _applies,
@@ -1296,12 +1406,22 @@ BYS_CHECK_SPEC = _check(
     (ROW_DEP, BYS_DEP, EFFECTIVE_BYS_REG_DEP, BYS_ELIGIBILITY_REG_DEP),
     evaluate_bys_eligibility,
     ("TBDY 2018 4.3.1.2; Table 4.1",),
+    applicability=ApplicabilityBinding(
+        f"vs4a:{RC_TABLE_4_1_BYS_ELIGIBILITY.value}:applicability",
+        BysEligibilityFormalApplicabilityInput,
+        evaluate_bys_eligibility_formal_applicability,
+    ),
 )
 DTS_CHECK_SPEC = _check(
     RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY,
     (DTS_DEP, BYS_DEP, DUCTILITY_REG_DEP, DTS_ELIGIBILITY_REG_DEP),
     evaluate_dts_system_eligibility,
     ("TBDY 2018 4.3.4.1",),
+    applicability=ApplicabilityBinding(
+        f"vs4a:{RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY.value}:applicability",
+        Dts4341FormalApplicabilityInput,
+        evaluate_dts_4_3_4_1_formal_applicability,
+    ),
 )
 ORTHOGONAL_CHECK_SPEC = CheckSpec(
     rule_id=RC_TBDY_4_3_4_2_ORTHOGONAL_DUCTILITY_CONSISTENCY,
@@ -1332,12 +1452,22 @@ A31_CHECK_SPEC = _check(
     (ROW_DEP, DTS_DEP, A31_ELIGIBILITY_REG_DEP),
     evaluate_a31_dts_eligibility,
     ("TBDY 2018 4.3.4.3",),
+    applicability=ApplicabilityBinding(
+        f"vs4a:{RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY.value}:applicability",
+        A31FormalApplicabilityInput,
+        evaluate_a31_formal_applicability,
+    ),
 )
 A16_CHECK_SPEC = _check(
     RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY,
     (ROW_DEP, A16_CONTEXT_DEP, A16_ELIGIBILITY_REG_DEP),
     evaluate_a16_special_eligibility,
     ("TBDY 2018 Table 4.1 A16",),
+    applicability=ApplicabilityBinding(
+        f"vs4a:{RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY.value}:applicability",
+        A16FormalApplicabilityInput,
+        evaluate_a16_formal_applicability,
+    ),
 )
 
 VS4A_REGISTRY = RegulatoryRegistry(
@@ -1407,6 +1537,17 @@ __all__ = [
     "ReviewedOrthogonalRcSystemDeclaration",
     "A16SpecialContext",
     "DirectionalAnalysisSystemAssumption",
+    "DirectionalApplicabilityInput",
+    "BysEligibilityFormalApplicabilityInput",
+    "Dts4341FormalApplicabilityInput",
+    "A31FormalApplicabilityInput",
+    "A16FormalApplicabilityInput",
+    "requires_a16_special_context",
+    "formal_check_applicability_input",
+    "evaluate_bys_eligibility_formal_applicability",
+    "evaluate_dts_4_3_4_1_formal_applicability",
+    "evaluate_a31_formal_applicability",
+    "evaluate_a16_formal_applicability",
     "table_4_1_policy",
     "directional_quantity",
     "VS4A_REGISTRY",

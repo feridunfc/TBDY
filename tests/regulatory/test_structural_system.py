@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import inspect
 import pytest
 
 from tbdy_engine.checks.result import CheckStatus
 from tbdy_engine.regulatory.contracts import ApplicabilityState, DependencySourceKind
 from tbdy_engine.regulatory.kernel import AnalysisBasisStatus
 from tbdy_engine.regulatory import structural_system as ss
+from tbdy_engine.regulatory import vs4a_program as vs4a_program_module
 from tbdy_engine.regulatory.vs4a_program import compile_vs4a_program, execute_vs4a_program
 
 
@@ -312,3 +314,37 @@ def test_a16_formal_applicability_is_compile_time_scoped():
     ):
         assert _closure(program, rule_id).applicability is ApplicabilityState.PROVEN_NOT_APPLICABLE
         assert _formal_matches(snapshot, rule_id) == ()
+
+
+
+def test_formal_applicability_evaluators_are_reviewed_structural_system_code():
+    for spec in (
+        ss.BYS_CHECK_SPEC,
+        ss.DTS_CHECK_SPEC,
+        ss.A31_CHECK_SPEC,
+        ss.A16_CHECK_SPEC,
+    ):
+        assert spec.applicability.evaluator.__module__ == "tbdy_engine.regulatory.structural_system"
+        assert spec.applicability.input_type.__module__ == "tbdy_engine.regulatory.structural_system"
+
+
+def test_vs4a_program_contains_no_regulatory_formal_applicability_branching():
+    source = inspect.getsource(vs4a_program_module)
+    assert "_formal_check_applies" not in source
+    assert 'table_4_1_row == "A16"' not in source
+    assert 'table_4_1_row != "A16"' not in source
+    assert "ss.formal_check_applicability_input(" in source
+    assert "ss.requires_a16_special_context(" in source
+
+
+def test_4_3_4_1_high_mixed_limited_applicability_boundaries_are_exact():
+    for row, policy in ss.TABLE_4_1_A_SERIES.items():
+        actual = ss.evaluate_dts_4_3_4_1_formal_applicability(
+            ss.Dts4341FormalApplicabilityInput(row)
+        )
+        expected = (
+            ApplicabilityState.PROVEN_NOT_APPLICABLE
+            if policy.ductility is ss.RcDuctilityLevel.HIGH
+            else ApplicabilityState.APPLIES
+        )
+        assert actual is expected, row

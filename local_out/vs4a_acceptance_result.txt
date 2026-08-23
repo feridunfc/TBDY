@@ -1,0 +1,222 @@
+VS4A_ACCEPTANCE_TRIGGER_HEAD=debd76ebfe2b8c48f54a5d807862f13b15b6ec9b
+FROZEN_BASE=f774726513a81edaadb2a5d897539575538e0cd0
+COMPILEALL_EXIT=0
+VS4A_TARGETED_EXIT=0
+F09_SOURCE_AUTHORITY_EXIT=0
+F0_CORE_EXIT=0
+F0_PARITY_EXIT=0
+REGULATORY_ALL_EXIT=0
+MEMBER_GEOMETRY_EXIT=0
+C13_1_EXIT=0
+C13_4_P1_P2_EXIT=0
+WALL_INVENTORY_EXIT=0
+WALL_PACK_A_EXIT=0
+WALL_PACK_B_EXIT=0
+WALL_PACK_C_EXIT=0
+OFFLINE_PRODUCT_ACCEPTANCE_EXIT=0
+CURRENT_FULL_PYTEST_EXIT=2
+FROZEN_BASE_FULL_PYTEST_EXIT=2
+FROZEN_BASE_FAILSET_COMPARE_EXIT=0
+
+--- AUTHORITY-BOUNDARY FINGERPRINT DELTA ---
+RC_TABLE_4_1_BYS_ELIGIBILITY: old=sha256:54c7063cc2577afa272b6f6f3b590a1d6234e131d8f674f221a6caa9bc589ff8 new=sha256:26c06e13683873eb20fe55cb06da8e62e57e0f5bb6c6d4addeb12313fcdb1503
+RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY: old=sha256:c0d5d9d2961f4ff115fafb9c42c81ef7b5ff6e71258c886b60f44174b1b20328 new=sha256:fb12cf8eeed818132ccfcee442de501a6bc7a736d88d97e6992e8af44b788354
+RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY: old=sha256:2d68e88ee5bbdb87b25b85df7a033787c29859fc8e436df26c4d9d8dd6a8d3e5 new=sha256:7854b73804d00167c09b9752d66b4faa45346ca734a898b29eb011d2b4fd45e3
+RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY: old=sha256:acfce13cc9d22cc65501f66645ace05750c9185a1aa2e17899c58280760c65b7 new=sha256:b961460c8f10bea95a3be7dcc3a6ad251a79160380613e598fcc2fc9d5678dbf
+
+--- EXACT FRESH COUNTS ---
+VS4A_TARGETED: 27 passed in 0.34s
+F09_SOURCE_AUTHORITY: 39 passed in 0.22s
+F0_CORE: 70 passed in 0.29s
+F0_PARITY: 95 passed in 0.32s
+REGULATORY_ALL: 231 passed in 0.50s
+MEMBER_GEOMETRY: 31 passed in 0.17s
+C13_1: 7 passed in 0.06s
+C13_4_P1_P2: 42 passed in 1.69s
+WALL_INVENTORY: 35 passed in 0.15s
+WALL_PACK_A: 22 passed in 0.36s
+WALL_PACK_B: 20 passed in 0.32s
+WALL_PACK_C: 25 passed in 0.36s
+CURRENT_FULL_PYTEST: 10 errors in 3.89s
+FROZEN_BASE_FULL_PYTEST: 10 errors in 4.89s
+
+--- TARGETED TAIL ---
+...........................                                              [100%]
+27 passed in 0.34s
+
+--- F0.9 TAIL ---
+.......................................                                  [100%]
+39 passed in 0.22s
+
+--- OFFLINE PRODUCT ACCEPTANCE TAIL ---
+Offline product acceptance: OK
+Output: /tmp/vs4a_offline_acceptance
+Report: /tmp/vs4a_offline_acceptance/offline_product_acceptance_report.json
+Commands: 18
+Failed: 0
+
+--- CURRENT FULL PYTEST TAIL ---
+tests/test_column_rebar_minimum_output.py:8: in <module>
+    from tbdy_engine.contracts.loader import EngineContractLoader
+E   ImportError: cannot import name 'EngineContractLoader' from 'tbdy_engine.contracts.loader' (/home/runner/work/TBDY/TBDY/tbdy_engine/contracts/loader.py)
+______________ ERROR collecting tests/test_combo_traceability.py _______________
+ImportError while importing test module '/home/runner/work/TBDY/TBDY/tests/test_combo_traceability.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_combo_traceability.py:8: in <module>
+    from tbdy_engine.contracts.loader import EngineContractLoader
+E   ImportError: cannot import name 'EngineContractLoader' from 'tbdy_engine.contracts.loader' (/home/runner/work/TBDY/TBDY/tbdy_engine/contracts/loader.py)
+_______________ ERROR collecting tests/test_contract_schemas.py ________________
+ImportError while importing test module '/home/runner/work/TBDY/TBDY/tests/test_contract_schemas.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_contract_schemas.py:3: in <module>
+    from tbdy_engine.contracts.export_schema import export_all_schemas
+tbdy_engine/contracts/export_schema.py:5: in <module>
+    from .models import ChecksContract, CombosContract, DatasetsContract, EvaluationsContract, ReportsContract, RuntimeCatalog, model_json_schema_compat
+E   ImportError: cannot import name 'ChecksContract' from 'tbdy_engine.contracts.models' (/home/runner/work/TBDY/TBDY/tbdy_engine/contracts/models.py)
+__________ ERROR collecting tests/test_generated_schema_freshness.py ___________
+ImportError while importing test module '/home/runner/work/TBDY/TBDY/tests/test_generated_schema_freshness.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_generated_schema_freshness.py:5: in <module>
+    from tbdy_engine.contracts.export_schema import export_all_schemas
+tbdy_engine/contracts/export_schema.py:5: in <module>
+    from .models import ChecksContract, CombosContract, DatasetsContract, EvaluationsContract, ReportsContract, RuntimeCatalog, model_json_schema_compat
+E   ImportError: cannot import name 'ChecksContract' from 'tbdy_engine.contracts.models' (/home/runner/work/TBDY/TBDY/tbdy_engine/contracts/models.py)
+___________ ERROR collecting tests/test_module_evidence_emission.py ____________
+ImportError while importing test module '/home/runner/work/TBDY/TBDY/tests/test_module_evidence_emission.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_module_evidence_emission.py:6: in <module>
+    from tbdy_engine.contracts.loader import EngineContractLoader
+E   ImportError: cannot import name 'EngineContractLoader' from 'tbdy_engine.contracts.loader' (/home/runner/work/TBDY/TBDY/tbdy_engine/contracts/loader.py)
+_______ ERROR collecting tests/test_module_evidence_emission_expected.py _______
+ImportError while importing test module '/home/runner/work/TBDY/TBDY/tests/test_module_evidence_emission_expected.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_module_evidence_emission_expected.py:6: in <module>
+    from tbdy_engine.contracts.loader import EngineContractLoader
+E   ImportError: cannot import name 'EngineContractLoader' from 'tbdy_engine.contracts.loader' (/home/runner/work/TBDY/TBDY/tbdy_engine/contracts/loader.py)
+______________ ERROR collecting tests/test_sprint3_runner_full.py ______________
+ImportError while importing test module '/home/runner/work/TBDY/TBDY/tests/test_sprint3_runner_full.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_sprint3_runner_full.py:12: in <module>
+    from tbdy_engine.runner import _build_context_async, run_all_checks
+E   ModuleNotFoundError: No module named 'tbdy_engine.runner'
+=========================== short test summary info ============================
+ERROR tests/c13_2_p3/test_c13_2_p3_full_input_export_inventory.py
+ERROR tests/golden/test_c7_golden_json.py
+ERROR tests/test_check_adapter_traceability.py
+ERROR tests/test_column_rebar_minimum_output.py
+ERROR tests/test_combo_traceability.py
+ERROR tests/test_contract_schemas.py
+ERROR tests/test_generated_schema_freshness.py
+ERROR tests/test_module_evidence_emission.py
+ERROR tests/test_module_evidence_emission_expected.py
+ERROR tests/test_sprint3_runner_full.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 10 errors during collection !!!!!!!!!!!!!!!!!!!
+10 errors in 3.89s
+
+--- FROZEN BASE FULL PYTEST TAIL ---
+tests/test_column_rebar_minimum_output.py:8: in <module>
+    from tbdy_engine.contracts.loader import EngineContractLoader
+E   ImportError: cannot import name 'EngineContractLoader' from 'tbdy_engine.contracts.loader' (/tmp/vs4a_frozen_base/tbdy_engine/contracts/loader.py)
+______________ ERROR collecting tests/test_combo_traceability.py _______________
+ImportError while importing test module '/tmp/vs4a_frozen_base/tests/test_combo_traceability.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_combo_traceability.py:8: in <module>
+    from tbdy_engine.contracts.loader import EngineContractLoader
+E   ImportError: cannot import name 'EngineContractLoader' from 'tbdy_engine.contracts.loader' (/tmp/vs4a_frozen_base/tbdy_engine/contracts/loader.py)
+_______________ ERROR collecting tests/test_contract_schemas.py ________________
+ImportError while importing test module '/tmp/vs4a_frozen_base/tests/test_contract_schemas.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_contract_schemas.py:3: in <module>
+    from tbdy_engine.contracts.export_schema import export_all_schemas
+tbdy_engine/contracts/export_schema.py:5: in <module>
+    from .models import ChecksContract, CombosContract, DatasetsContract, EvaluationsContract, ReportsContract, RuntimeCatalog, model_json_schema_compat
+E   ImportError: cannot import name 'ChecksContract' from 'tbdy_engine.contracts.models' (/tmp/vs4a_frozen_base/tbdy_engine/contracts/models.py)
+__________ ERROR collecting tests/test_generated_schema_freshness.py ___________
+ImportError while importing test module '/tmp/vs4a_frozen_base/tests/test_generated_schema_freshness.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_generated_schema_freshness.py:5: in <module>
+    from tbdy_engine.contracts.export_schema import export_all_schemas
+tbdy_engine/contracts/export_schema.py:5: in <module>
+    from .models import ChecksContract, CombosContract, DatasetsContract, EvaluationsContract, ReportsContract, RuntimeCatalog, model_json_schema_compat
+E   ImportError: cannot import name 'ChecksContract' from 'tbdy_engine.contracts.models' (/tmp/vs4a_frozen_base/tbdy_engine/contracts/models.py)
+___________ ERROR collecting tests/test_module_evidence_emission.py ____________
+ImportError while importing test module '/tmp/vs4a_frozen_base/tests/test_module_evidence_emission.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_module_evidence_emission.py:6: in <module>
+    from tbdy_engine.contracts.loader import EngineContractLoader
+E   ImportError: cannot import name 'EngineContractLoader' from 'tbdy_engine.contracts.loader' (/tmp/vs4a_frozen_base/tbdy_engine/contracts/loader.py)
+_______ ERROR collecting tests/test_module_evidence_emission_expected.py _______
+ImportError while importing test module '/tmp/vs4a_frozen_base/tests/test_module_evidence_emission_expected.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_module_evidence_emission_expected.py:6: in <module>
+    from tbdy_engine.contracts.loader import EngineContractLoader
+E   ImportError: cannot import name 'EngineContractLoader' from 'tbdy_engine.contracts.loader' (/tmp/vs4a_frozen_base/tbdy_engine/contracts/loader.py)
+______________ ERROR collecting tests/test_sprint3_runner_full.py ______________
+ImportError while importing test module '/tmp/vs4a_frozen_base/tests/test_sprint3_runner_full.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+/opt/hostedtoolcache/Python/3.11.16/x64/lib/python3.11/importlib/__init__.py:126: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests/test_sprint3_runner_full.py:12: in <module>
+    from tbdy_engine.runner import _build_context_async, run_all_checks
+E   ModuleNotFoundError: No module named 'tbdy_engine.runner'
+=========================== short test summary info ============================
+ERROR tests/c13_2_p3/test_c13_2_p3_full_input_export_inventory.py
+ERROR tests/golden/test_c7_golden_json.py
+ERROR tests/test_check_adapter_traceability.py
+ERROR tests/test_column_rebar_minimum_output.py
+ERROR tests/test_combo_traceability.py
+ERROR tests/test_contract_schemas.py
+ERROR tests/test_generated_schema_freshness.py
+ERROR tests/test_module_evidence_emission.py
+ERROR tests/test_module_evidence_emission_expected.py
+ERROR tests/test_sprint3_runner_full.py
+!!!!!!!!!!!!!!!!!!! Interrupted: 10 errors during collection !!!!!!!!!!!!!!!!!!!
+10 errors in 4.89s
+
+--- FROZEN BASE FAILSET DIFF ---

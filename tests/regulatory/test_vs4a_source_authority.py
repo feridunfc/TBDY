@@ -9,6 +9,7 @@ from tbdy_engine.regulatory import structural_system as ss
 from tbdy_engine.regulatory.sources.tbdy2018 import (
     APPROVED_IMPLEMENTATION_FINGERPRINTS,
     CLAIMS_FOR_RULE,
+    IMPLEMENTATION_MODULE,
     SOURCE_ID,
     build_vs4a_authority_catalog,
 )
@@ -128,3 +129,30 @@ def test_lifecycle_claims_use_exact_multi_anchor_source_refs():
     assert not any(
         anchor.anchor_id.startswith("TBDY2018_VS4A_") for anchor in catalog.anchors
     )
+
+
+
+def test_formal_applicability_bindings_are_fresh_under_reviewed_module_boundary():
+    catalog = build_vs4a_authority_catalog()
+    validated = {
+        item.rule_id: item for item in validate_registry_authority(ss.VS4A_REGISTRY, catalog)
+    }
+    affected = (
+        ss.RC_TABLE_4_1_BYS_ELIGIBILITY,
+        ss.RC_TBDY_4_3_4_1_DTS_SYSTEM_ELIGIBILITY,
+        ss.RC_TBDY_4_3_4_3_A31_DTS_ELIGIBILITY,
+        ss.RC_TABLE_4_1_A16_SPECIAL_ELIGIBILITY,
+    )
+    for rule_id in affected:
+        spec = next(item for item in ss.VS4A_REGISTRY.checks if item.rule_id == rule_id)
+        binding = catalog.binding(validated[rule_id].binding_id)
+        assert binding.implementation_modules == (IMPLEMENTATION_MODULE,)
+        assert spec.applicability.evaluator.__module__ == IMPLEMENTATION_MODULE
+        actual = implementation_fingerprint(
+            rule_id=spec.rule_id,
+            rule_version=spec.rule_version,
+            evaluator_binding_id=spec.evaluator.binding_id,
+            implementation_modules=binding.implementation_modules,
+        )
+        assert binding.approved_implementation_fingerprint == actual
+        assert APPROVED_IMPLEMENTATION_FINGERPRINTS[rule_id.value] == actual

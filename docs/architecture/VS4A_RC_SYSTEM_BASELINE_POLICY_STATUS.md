@@ -34,3 +34,8 @@ The sprint is not auditable merely because code exists. The final branch must pr
 ## Finalization rule
 
 `READY_FOR_SUPERVISOR_AUDIT` may be stated only after a fresh acceptance matrix is captured, the temporary `.github/workflows/vs4a_fingerprint_tmp.yml`, `.vs4a_acceptance_trigger`, and VS-4A temporary result artifacts are deleted, and the exact final branch HEAD is recorded.
+
+
+## Authority-boundary correction
+
+Formal regulatory applicability for BYS, TBDY 4.3.4.1, A31, and A16 is evaluated by typed applicability contracts implemented in `tbdy_engine.regulatory.structural_system`. `vs4a_program.py` only composes reviewed row/context inputs and delegates both formal applicability input construction and the A16-special-context requirement to reviewed helpers in that module. The F0.9 implementation boundary therefore remains exactly `tbdy_engine.regulatory.structural_system`; orchestration is not broadened into executable regulatory authority.
