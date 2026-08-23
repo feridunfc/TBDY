@@ -6,10 +6,11 @@ on:
       - sprint/vs-4b-a-a15-mdev-mo
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   targeted:
+    if: ${{ !contains(github.event.head_commit.message, '[vs4b-targeted-result]') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,8 +19,10 @@ jobs:
           python-version: '3.11'
       - name: Install targeted test dependencies
         run: python -m pip install pytest pyyaml jsonschema
-      - name: Compile touched VS-4B modules
+      - name: Run targeted gate and publish exact result
+        shell: bash
         run: |
+          set +e
           python -m compileall -q \
             tbdy_engine/features/etabs_mdev_mo_evidence.py \
             tbdy_engine/features/_etabs_mdev_mo_evidence_core.py \
@@ -27,12 +30,36 @@ jobs:
             tbdy_engine/regulatory/rc_a15_wall_share.py \
             tbdy_engine/regulatory/sources/tbdy2018_vs4b.py \
             tools/run_live_vs4b_a15.py
-      - name: Directional boundary and VS-4B targeted tests
-        run: |
+          COMPILE_RC=$?
           python -m pytest -q \
             tests/features/test_vs4b_directional_capture_boundary.py \
             tests/integration/test_vs4b_directional_authority_boundary.py \
             tests/features/test_etabs_mdev_mo_evidence.py \
             tests/regulatory/test_rc_a15_wall_share.py \
             tests/regulatory/test_vs4b_source_authority.py \
-            tests/integration/test_vs4b_a15_program.py
+            tests/integration/test_vs4b_a15_program.py \
+            2>&1 | tee /tmp/vs4b_targeted_pytest.txt
+          PYTEST_RC=${PIPESTATUS[0]}
+          TARGET_SHA=$(git rev-parse HEAD)
+          python - "$TARGET_SHA" "$COMPILE_RC" "$PYTEST_RC" <<'PY'
+          import json, pathlib, sys
+          target_sha, compile_rc, pytest_rc = sys.argv[1:]
+          output = pathlib.Path('/tmp/vs4b_targeted_pytest.txt').read_text(encoding='utf-8', errors='replace')
+          payload = {
+              'target_sha': target_sha,
+              'compile_rc': int(compile_rc),
+              'pytest_rc': int(pytest_rc),
+              'pytest_output': output,
+          }
+          pathlib.Path('.github/vs4b_directional_targeted_result.json').write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+          )
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/vs4b_directional_targeted_result.json
+          git commit -m "[vs4b-targeted-result] record directional gate" || true
+          git push origin HEAD:sprint/vs-4b-a-a15-mdev-mo
+          if [ "$COMPILE_RC" -ne 0 ] || [ "$PYTEST_RC" -ne 0 ]; then
+            exit 1
+          fi
