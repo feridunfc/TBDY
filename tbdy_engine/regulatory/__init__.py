@@ -10,6 +10,7 @@ from .authority import (
     SourceAnchor,
     ValidatedRuleAuthority,
     implementation_fingerprint,
+    regulatory_claim_fingerprint,
     validate_registry_authority,
     validate_rule_authority,
 )
@@ -98,6 +99,7 @@ __all__ = [
     "RegulatoryAuthorityCatalog",
     "ValidatedRuleAuthority",
     "RegulatoryAuthorityError",
+    "regulatory_claim_fingerprint",
     "implementation_fingerprint",
     "validate_rule_authority",
     "validate_registry_authority",
