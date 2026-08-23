@@ -1,0 +1,21 @@
+name: VS4A Temporary Actions Smoke
+on:
+  push:
+    branches: [sprint/vs-4a-rc-system-baseline-policy]
+permissions:
+  contents: write
+jobs:
+  smoke:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write smoke marker
+        run: echo "smoke=${GITHUB_SHA}" > .vs4a_smoke_result
+      - name: Commit marker
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .vs4a_smoke_result
+          git commit -m "VS-4A actions smoke result"
+          git push origin HEAD:sprint/vs-4a-rc-system-baseline-policy
