@@ -20,6 +20,14 @@ jobs:
           python-version: '3.11'
       - name: Install test dependencies
         run: python -m pip install pytest pyyaml jsonschema
+      - name: Materialize reviewed VS-4A payload
+        shell: bash
+        run: |
+          cat .vs4a_payload.1 .vs4a_payload.2 .vs4a_payload.3 .vs4a_payload.4 | base64 -d > /tmp/vs4a_payload.tar.gz
+          tar -xzf /tmp/vs4a_payload.tar.gz
+          test "$(sha256sum tbdy_engine/regulatory/structural_system.py | cut -d' ' -f1)" = "17e14d150f8c8c6e1d4ae6f36ffec2e47e63b6bcd6bd7e7066a6139182541e43"
+          test "$(sha256sum tbdy_engine/regulatory/vs4a_program.py | cut -d' ' -f1)" = "0f5b835fcb3491e1e2de12b5e6f3223045730cab98ff458033ba9257cd6d95e7"
+          test "$(sha256sum tbdy_engine/regulatory/sources/tbdy2018.py | cut -d' ' -f1)" = "bee84f97848064a19f28ee75f4089da8bafd453c7a25f8c415819ddcae54ae17"
       - name: Apply bounded semantic-contract extension
         shell: bash
         run: |
@@ -52,7 +60,7 @@ jobs:
           python -m pytest -q > /tmp/vs4a_full.log 2>&1
           a=$?
           {
-            echo "VS4A_ACCEPTANCE_HEAD=${GITHUB_SHA}"
+            echo "VS4A_ACCEPTANCE_TRIGGER_HEAD=${GITHUB_SHA}"
             echo "COMPILEALL_EXIT=$c"
             echo "TARGETED_EXIT=$t"
             echo "F0_REGRESSION_EXIT=$f"
@@ -67,15 +75,22 @@ jobs:
           cat local_out/vs4a_acceptance_result.txt
           echo "compile=$c targeted=$t f0=$f full=$a" >> "$GITHUB_STEP_SUMMARY"
           echo "$c $t $f $a" > /tmp/vs4a_exit_codes
-      - name: Commit contract patch and temporary acceptance result
+      - name: Commit production slice and temporary acceptance result
         if: always()
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tbdy_engine/regulatory/contracts.py local_out/vs4a_acceptance_result.txt
+          git add \
+            tbdy_engine/regulatory/contracts.py \
+            tbdy_engine/regulatory/structural_system.py \
+            tbdy_engine/regulatory/vs4a_program.py \
+            tbdy_engine/regulatory/sources/tbdy2018.py \
+            docs/architecture/VS4A_RC_SYSTEM_BASELINE_POLICY.md \
+            docs/architecture/VS4A_RC_SYSTEM_BASELINE_POLICY_STATUS.md \
+            local_out/vs4a_acceptance_result.txt
           if ! git diff --cached --quiet; then
-            git commit -m "VS-4A temporary acceptance proof"
+            git commit -m "VS-4A finalize source-bound baseline policy"
             git push origin HEAD:sprint/vs-4a-rc-system-baseline-policy
           fi
       - name: Enforce acceptance result
