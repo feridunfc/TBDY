@@ -90,21 +90,47 @@ def _evidence(value: object) -> tuple[object, ...]:
 class ColumnAxialApplicabilityInput:
     component_type: str
     reinforced_concrete: bool | None
+    tbdy_7312_high_ductility_applies: bool | None
 
     def __post_init__(self) -> None:
         _text(self.component_type, "component_type")
         if self.reinforced_concrete is not None and type(self.reinforced_concrete) is not bool:
             raise TypeError("reinforced_concrete must be bool or None")
+        if (
+            self.tbdy_7312_high_ductility_applies is not None
+            and type(self.tbdy_7312_high_ductility_applies) is not bool
+        ):
+            raise TypeError("tbdy_7312_high_ductility_applies must be bool or None")
 
 
-def column_axial_applicability(value: ColumnAxialApplicabilityInput) -> ApplicabilityState:
+def _rc_column_applicability(value: ColumnAxialApplicabilityInput) -> ApplicabilityState | None:
     if not isinstance(value, ColumnAxialApplicabilityInput):
         raise TypeError("column axial applicability requires ColumnAxialApplicabilityInput")
     if value.component_type.casefold() != "column":
         return ApplicabilityState.PROVEN_NOT_APPLICABLE
     if value.reinforced_concrete is None:
         return ApplicabilityState.UNRESOLVED
-    return ApplicabilityState.APPLIES if value.reinforced_concrete else ApplicabilityState.PROVEN_NOT_APPLICABLE
+    if value.reinforced_concrete is False:
+        return ApplicabilityState.PROVEN_NOT_APPLICABLE
+    return None
+
+
+def tbdy_column_axial_applicability(value: ColumnAxialApplicabilityInput) -> ApplicabilityState:
+    common = _rc_column_applicability(value)
+    if common is not None:
+        return common
+    if value.tbdy_7312_high_ductility_applies is None:
+        return ApplicabilityState.UNRESOLVED
+    return (
+        ApplicabilityState.APPLIES
+        if value.tbdy_7312_high_ductility_applies
+        else ApplicabilityState.PROVEN_NOT_APPLICABLE
+    )
+
+
+def ts500_column_axial_applicability(value: ColumnAxialApplicabilityInput) -> ApplicabilityState:
+    common = _rc_column_applicability(value)
+    return ApplicabilityState.APPLIES if common is None else common
 
 
 @dataclass(frozen=True, slots=True)
@@ -353,10 +379,16 @@ _TS500_DEPENDENCIES = _COMMON_DEPENDENCIES + (
     ),
 )
 
-_APPLICABILITY = ApplicabilityBinding(
-    "vs5:column_axial:applicability",
+_TBDY_APPLICABILITY = ApplicabilityBinding(
+    "vs5:tbdy_7_3_1_2:applicability",
     ColumnAxialApplicabilityInput,
-    column_axial_applicability,
+    tbdy_column_axial_applicability,
+)
+
+_TS500_APPLICABILITY = ApplicabilityBinding(
+    "vs5:ts500_7_4_1:applicability",
+    ColumnAxialApplicabilityInput,
+    ts500_column_axial_applicability,
 )
 
 TBDY_COLUMN_AXIAL_CHECK_SPEC = CheckSpec(
@@ -365,7 +397,7 @@ TBDY_COLUMN_AXIAL_CHECK_SPEC = CheckSpec(
     rule_version=TBDY_RULE_VERSION,
     formal_result_type=CheckResult,
     dependencies=_TBDY_DEPENDENCIES,
-    applicability=_APPLICABILITY,
+    applicability=_TBDY_APPLICABILITY,
     evaluator=CheckEvaluatorBinding(
         "vs5:tbdy_7_3_1_2:column_axial",
         TbdyColumnAxialExecutionInput,
@@ -379,7 +411,7 @@ TS500_COLUMN_AXIAL_CHECK_SPEC = CheckSpec(
     rule_version=TS500_RULE_VERSION,
     formal_result_type=CheckResult,
     dependencies=_TS500_DEPENDENCIES,
-    applicability=_APPLICABILITY,
+    applicability=_TS500_APPLICABILITY,
     evaluator=CheckEvaluatorBinding(
         "vs5:ts500_7_4_1:column_axial",
         Ts500ColumnAxialExecutionInput,
@@ -408,6 +440,8 @@ __all__ = [
     "SECTION_KEY",
     "EVIDENCE_TRACE_KEY",
     "ColumnAxialApplicabilityInput",
+    "tbdy_column_axial_applicability",
+    "ts500_column_axial_applicability",
     "TbdyColumnAxialExecutionInput",
     "Ts500ColumnAxialExecutionInput",
     "evaluate_tbdy_column_axial",
