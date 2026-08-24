@@ -231,10 +231,12 @@ def test_upper_keeps_declared_a15_but_uses_a13_parameter_basis_and_requires_rean
 
 
 def test_live_runner_never_manufactures_a15_and_exposes_only_directional_inputs():
-    source = Path("tools/run_live_vs4b_a15.py").read_text(encoding="utf-8")
-    assert 'table_4_1_row="A15"' not in source
-    assert "table_4_1_row=args.declared_row" in source
+    runner_source = Path("tools/run_live_vs4b_a15.py").read_text(encoding="utf-8")
+    execution_source = Path("tbdy_engine/engine/project_execution.py").read_text(encoding="utf-8")
+    assert 'table_4_1_row="A15"' not in runner_source
+    assert "declared_row=args.declared_row" in runner_source
+    assert "table_4_1_row=declared_row" in execution_source
     for required in ("--direction", "--declared-row", "--piers", "--cases"):
-        assert required in source
+        assert required in runner_source
     for forbidden in ("--x-piers", "--y-piers", "--x-cases", "--y-cases"):
-        assert forbidden not in source
+        assert forbidden not in runner_source
