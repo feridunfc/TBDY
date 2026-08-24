@@ -58,8 +58,8 @@ CLAIM_DATA = {
     "TBDY2018_7_3_1_2_COLUMN_AXIAL": (
         ("TBDY2018_4_4_4_1", "TBDY2018_7_3_1_2", "TS498_13"),
         "v1",
-        "For reinforced-concrete columns in the bounded VS5 slice, Ndm is the greatest axial compression from the reviewed common G, Q and earthquake-effect population with TS 498 live-load reduction explicitly reviewed and the Eq. (4.11) snow coefficient equal to 0.2; the gross concrete section shall satisfy Ndm <= 0.40 Ac fck.",
-        "sha256:936bc4a4da59866e560cb6fd83d166fd4fa6f5eca9fb12a169a203d363199a48",
+        "For high-ductility reinforced-concrete columns in the bounded VS5 slice, Ndm is the greatest axial compression from the reviewed common G, Q and earthquake-effect population with TS 498 live-load reduction explicitly reviewed and the Eq. (4.11) snow coefficient equal to 0.2; the gross concrete section shall satisfy Ndm <= 0.40 Ac fck.",
+        "sha256:6d24be6d801572d84cdfdbc63f0bf8547f38d9198cce0a5da8290c9ecde929fd",
     ),
     "TS500_7_4_1_COLUMN_AXIAL": (
         ("TS500_6_2_5", "TS500_6_2_6", "TS500_7_4_1"),
@@ -80,8 +80,8 @@ IMPLEMENTATION_MODULES = (
 )
 
 APPROVED_IMPLEMENTATION_FINGERPRINTS = {
-    "TBDY_7_3_1_2_COLUMN_AXIAL": "sha256:6847965478f7ed4e58a09d93b64d3cdbe2ea5bda868c1c447f3fdd307039fcfa",
-    "TS500_7_4_1_COLUMN_AXIAL": "sha256:c8aaa8ac874576bc8513a133e3dad56f104a23a78882c5a807f3c60405818106",
+    "TBDY_7_3_1_2_COLUMN_AXIAL": "sha256:2e9ae5ac19b656fc898d12a33aa772924d4acedc4c335670281c11ae34748fdc",
+    "TS500_7_4_1_COLUMN_AXIAL": "sha256:8e10e0927bf220ab0973c6eaf1d8fa8e8ec453a90185803adb418696f57a7287",
 }
 
 
