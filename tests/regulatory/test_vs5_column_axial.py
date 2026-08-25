@@ -344,4 +344,3 @@ def test_column_force_bundle_canonicalizes_absent_optional_step_number():
 
     assert "StepNumber" in bundle.rows[0]
     assert bundle.rows[0]["StepNumber"] is None
-
