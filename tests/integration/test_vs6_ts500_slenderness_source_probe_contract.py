@@ -14,6 +14,7 @@ def test_slenderness_source_probe_is_read_only_and_factual_only():
         "SetSection(",
         "resolve_ts500_column_slenderness_basis(",
         "evaluate_ts500_column_slenderness(",
+        "evaluate_ts500_story_stability_index(",
         "ENGINE_SELECTED_REBAR",
     ):
         assert forbidden not in source
@@ -50,3 +51,18 @@ def test_probe_reads_ln_status_from_canonical_topology_projection():
     assert "column_projection = column.as_dict()" in source
     assert 'column_projection["regulatory_ln_status"]' in source
     assert "column.regulatory_ln_status" not in source
+
+
+def test_selected_story_projection_is_exact_and_does_not_infer_quantity_semantics():
+    rows = (
+        {"Story": "+0.00", "OutputCase": "A", "Drift": "0.001"},
+        {"Story": "+3.20", "OutputCase": "A", "Drift": "0.002"},
+        {"Story": "+0.00", "OutputCase": "B", "Drift": "0.003"},
+    )
+    selected = probe._selected_story_rows(rows, "+0.00")
+    assert selected == [
+        {"Story": "+0.00", "OutputCase": "A", "Drift": "0.001"},
+        {"Story": "+0.00", "OutputCase": "B", "Drift": "0.003"},
+    ]
+    source = inspect.getsource(probe)
+    assert "No ETABS quantity is interpreted as Delta_i, V_fi or sum(N_di) here" in source
