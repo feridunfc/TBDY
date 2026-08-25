@@ -30,6 +30,8 @@ def test_integrated_live_runner_is_read_only_and_uses_production_engines():
     assert "capture_etabs_rebar_catalog_evidence" in source
     assert "promote_live_proven_etabs_rebar_catalog" in source
     assert "capture_etabs_strict_column_topology" in source
+    assert "capture_etabs_column_endpoint_restraints" in source
+    assert "resolve_ts500_column_free_length" in source
     assert "build_factual_slenderness_evidence_from_topology" in source
     assert "evaluate_column_design" in source
     assert "build_vs6_column_design_engine_reports" in source
@@ -50,24 +52,29 @@ def test_minimum_eccentricity_is_engine_derived_not_cli_authorized():
     assert '"minimum_eccentricity_status": "ENGINE_DERIVED_TS500_6.3.10"' in source
 
 
-def test_slenderness_is_engine_derived_and_factual_clear_length_is_not_promoted_to_ln():
+def test_slenderness_and_free_length_are_engine_derived_not_cli_authorized():
     source = inspect.getsource(runner)
     assert "--slenderness-status" not in source
+    assert "--regulatory-ln" not in source
     assert 'slenderness_status="BLOCKED"' in source
     assert 'slenderness_evidence=slenderness_evidence' in source
     assert "slenderness_basis=" not in source
-    assert "regulatory_free_length_ln_mm=" not in source
-    assert '"regulatory_ln_status": "NOT_PROMOTED_FROM_FACTUAL_CLEAR_LENGTH_CANDIDATE"' in source
+    assert "capture_etabs_column_endpoint_restraints" in source
+    assert "resolve_ts500_column_free_length" in source
+    assert "free_length_resolution=free_length_resolution" in source
+    assert '"regulatory_ln_status": "ENGINE_DERIVED_PER_COLUMN_FROM_PROVEN_ENDPOINT_SUPPORTS"' in source
     assert '"sway_status": "NOT_PROMOTED"' in source
 
 
-def test_strict_topology_is_factual_source_not_runtime_regulatory_authority():
+def test_strict_topology_and_point_restraints_are_factual_sources_for_runtime_ln_promotion():
     source = inspect.getsource(runner)
     assert "capture_etabs_strict_column_topology" in source
-    assert "build_factual_slenderness_evidence_from_topology" in source
+    assert "capture_etabs_column_endpoint_restraints" in source
+    assert "resolve_ts500_column_free_length" in source
     assert '"strict_topology_authority"' in source
     assert '"strict_topology_summary"' in source
-    assert "TS500_REGULATORY_FREE_LENGTH" not in source
+    assert '"endpoint_restraint_source"' in source
+    # Sway remains unpromoted even when free length resolves.
     assert "TS500_SWAY_CLASSIFICATION" not in source
 
 
