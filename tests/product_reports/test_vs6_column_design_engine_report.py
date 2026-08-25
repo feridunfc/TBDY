@@ -34,7 +34,7 @@ def _state(end, station):
     )
 
 
-def test_integrated_report_is_projection_only_and_includes_demand_layout_selection_details():
+def test_integrated_report_is_projection_only_and_includes_demand_eccentricity_layout_selection_details():
     catalog = build_rebar_catalog_from_rows(
         ({"Name": "14", "Diameter": 14.0}, {"Name": "20", "Diameter": 20.0}),
         name_field="Name",
@@ -80,6 +80,7 @@ def test_integrated_report_is_projection_only_and_includes_demand_layout_selecti
     assert reports[0].slice_id == "VS6-P4-P6-COLUMN-DESIGN-ENGINE"
     assert reports[0].status == "BLOCKED"
     assert any(item.slice_id == "VS6-P6-COLUMN-DESIGN-DEMAND-STATES" for item in reports)
+    assert any(item.slice_id == "VS6-P6-TS500-MINIMUM-ECCENTRICITY" for item in reports)
     assert any(item.slice_id == "VS6-P4-COLUMN-REBAR-CANDIDATES" for item in reports)
     assert any(item.slice_id == "VS6-P6-COLUMN-REBAR-SELECTION" for item in reports)
     for report in reports:
