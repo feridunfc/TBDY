@@ -14,6 +14,17 @@ from tbdy_engine.design.columns.slenderness import (
     ColumnSlendernessBasis,
     SWAY_PREVENTED,
 )
+from tbdy_engine.design.columns.slenderness_basis import (
+    ColumnSlendernessAxisEvidence,
+    ColumnSlendernessEvidence,
+    FACTUAL_CLEAR_LENGTH_CANDIDATE_AUTHORITY,
+    REGULATORY_FREE_LENGTH_AUTHORITY,
+)
+from tbdy_engine.design.columns.stability_stiffness_basis import (
+    AssignedFrameBendingModifierEvidence,
+    STATUS_REANALYSIS_REQUIRED,
+    assess_ts500_eq713_stiffness_basis,
+)
 
 
 COMP = "+0.00:C2:236"
@@ -87,6 +98,41 @@ def _slenderness_basis():
         m2=axis("M2"),
         m3=axis("M3"),
         source_refs=("fixture:slenderness",),
+    )
+
+
+def _slenderness_evidence_without_sway():
+    def axis(name):
+        return ColumnSlendernessAxisEvidence(
+            axis=name,
+            section_dimension_mm=800.0,
+            factual_clear_length_candidate_mm=3000.0,
+            factual_clear_length_source_ref=f"fixture:{name}:clear-candidate",
+            factual_clear_length_authority=FACTUAL_CLEAR_LENGTH_CANDIDATE_AUTHORITY,
+            regulatory_free_length_ln_mm=3000.0,
+            regulatory_free_length_source_ref=f"fixture:{name}:ln",
+            regulatory_free_length_authority=REGULATORY_FREE_LENGTH_AUTHORITY,
+        )
+
+    return ColumnSlendernessEvidence(
+        component_id=COMP,
+        m2=axis("M2"),
+        m3=axis("M3"),
+        source_refs=("fixture:slenderness-evidence",),
+    )
+
+
+def _reanalysis_stiffness_resolution():
+    return assess_ts500_eq713_stiffness_basis(
+        (
+            AssignedFrameBendingModifierEvidence(
+                section_name="Column_80x80",
+                member_kind="COLUMN",
+                i2_modifier=0.7,
+                i3_modifier=0.7,
+                source_refs=("fixture:Column_80x80:I2Mod/I3Mod",),
+            ),
+        )
     )
 
 
@@ -171,3 +217,64 @@ def test_source_bound_slenderness_basis_closes_slenderness_without_caller_author
     assert result.rebar_design.selection is not None
     assert result.rebar_design.selection.basis.slenderness_status == "RESOLVED"
     assert "slenderness_status" not in result.rebar_design.selection.basis.blocked_items
+
+
+def test_eq713_nonunit_stiffness_promotes_reanalysis_required_while_sway_is_unpromoted():
+    stiffness = _reanalysis_stiffness_resolution()
+    result = evaluate_column_design(
+        component_id=COMP,
+        combo_definitions=(
+            ColumnComboDefinition(
+                name="ANY",
+                combo_type="LINEAR_ADD",
+                constituents=(ComboPatternConstituent("D", 1.0),),
+            ),
+        ),
+        constituent_case_demands=(
+            _state("D", "LinStatic", "I_END", 0.0),
+            _state("D", "LinStatic", "J_END", 4.0),
+        ),
+        rebar_catalog=_catalog(),
+        rebar_inputs=_rebar_inputs(),
+        slenderness_evidence=_slenderness_evidence_without_sway(),
+        stability_stiffness_basis=stiffness,
+    )
+
+    assert stiffness.status == STATUS_REANALYSIS_REQUIRED
+    assert result.status == "REANALYSIS_REQUIRED"
+    assert result.stability_stiffness_basis is stiffness
+    assert result.slenderness_basis.status == "BLOCKED_TS500_SLENDERNESS_BASIS"
+    assert any(
+        item.endswith(":SWAY_CLASSIFICATION_NOT_PROMOTED")
+        for item in result.slenderness_basis.blocked_items
+    )
+    assert result.rebar_design.selection is not None
+    assert result.rebar_design.selection.status == "BLOCKED_DEMAND_BASIS"
+    assert result.rebar_design.selection.basis.slenderness_status == "BLOCKED"
+    assert result.rebar_design.authority == "NOT_SELECTED"
+    assert "TS500_7.6.2.1_STIFFNESS_BASIS:REANALYSIS_REQUIRED" in result.rebar_design.selection.basis.review_refs
+
+
+def test_eq713_specific_reanalysis_does_not_override_a_complete_alternative_slenderness_basis():
+    result = evaluate_column_design(
+        component_id=COMP,
+        combo_definitions=(
+            ColumnComboDefinition(
+                name="ANY",
+                combo_type="LINEAR_ADD",
+                constituents=(ComboPatternConstituent("D", 1.0),),
+            ),
+        ),
+        constituent_case_demands=(
+            _state("D", "LinStatic", "I_END", 0.0),
+            _state("D", "LinStatic", "J_END", 4.0),
+        ),
+        rebar_catalog=_catalog(),
+        rebar_inputs=_rebar_inputs(),
+        slenderness_basis=_slenderness_basis(),
+        stability_stiffness_basis=_reanalysis_stiffness_resolution(),
+    )
+
+    assert result.slenderness.resolved
+    assert result.status == "SELECTED_ENGINE_REBAR"
+    assert result.rebar_design.authority == "ENGINE_SELECTED_REBAR"
