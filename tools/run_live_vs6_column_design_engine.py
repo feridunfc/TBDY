@@ -2,10 +2,15 @@
 """Read-only live acceptance adapter for the integrated VS6 column design engine.
 
 The adapter acquires factual ETABS combo definitions, constituent/observed
-P-M2-M3 rows, column geometry/material facts and the factual reinforcing-bar
-catalog. Engineering pattern classification, response-spectrum design-state
-promotion and longitudinal-rebar selection are delegated to production engine
-modules.
+P-M2-M3 rows, column geometry/material facts, the factual reinforcing-bar
+catalog, and factual column-section rebar design intent. Engineering pattern
+classification, response-spectrum design-state promotion and longitudinal-rebar
+selection are delegated to production engine modules.
+
+The ETABS section rebar intent supplies layout seed geometry (clear cover and
+named tie size resolved through the factual bar catalog) but is never promoted
+to provided/final reinforcement. Maximum aggregate size remains an explicit
+project input because it is not inferred from ETABS.
 
 No ETABS analysis/design is started, no model property is changed, no present
 unit is set and the model is never saved.
@@ -27,6 +32,7 @@ from tbdy_engine.design.columns.column_design_demand_engine import ColumnComboDe
 from tbdy_engine.design.columns.column_design_engine import evaluate_column_design
 from tbdy_engine.design.columns.column_rebar_design_engine import ColumnRebarDesignInputs
 from tbdy_engine.design.columns.combo_pattern_engine import ComboPatternConstituent
+from tbdy_engine.design.columns.rebar_layout_seed import resolve_column_rebar_layout_seed
 from tbdy_engine.design.columns.rebar_selection import (
     ColumnDemandBasis,
     ColumnRebarSelectionPolicy,
@@ -42,6 +48,9 @@ from tbdy_engine.integration.live_beam_geometry_f0 import model_fingerprint_from
 from tbdy_engine.json_safe import to_jsonable
 from tbdy_engine.product_reports.vs6_column_design_engine_report import (
     build_vs6_column_design_engine_reports,
+)
+from tbdy_engine.providers.etabs_column_rebar_intent_provider import (
+    capture_etabs_column_rebar_intent,
 )
 from tbdy_engine.providers.etabs_combo_definition_provider import (
     EtabsComboDefinitionEvidence,
@@ -129,15 +138,13 @@ def main(argv: list[str] | None = None) -> int:
 
     parser.add_argument("--reviewed-force-unit", choices=("kN",), required=True)
     parser.add_argument("--reviewed-moment-unit", choices=("kN-m",), required=True)
-    parser.add_argument("--reviewed-length-unit", choices=("m",), required=True)
+    parser.add_argument("--reviewed-length-unit", choices=("m", "mm"), required=True)
     parser.add_argument("--reviewed-concrete-fc-unit", choices=("kPa",), required=True)
 
     parser.add_argument("--rebar-name-field", required=True)
     parser.add_argument("--rebar-diameter-field", required=True)
     parser.add_argument("--rebar-diameter-unit", choices=("mm", "m"), required=True)
 
-    parser.add_argument("--reviewed-clear-cover-mm", type=float, required=True)
-    parser.add_argument("--reviewed-layout-tie-diameter-mm", type=float, required=True)
     parser.add_argument("--reviewed-aggregate-max-mm", type=float, required=True)
     parser.add_argument("--reviewed-fcd-mpa", type=float, required=True)
     parser.add_argument("--reviewed-fyd-mpa", type=float, required=True)
@@ -210,6 +217,27 @@ def main(argv: list[str] | None = None) -> int:
             diameter_unit=args.rebar_diameter_unit,
             source_name=f"ETABS:{fingerprint}:Reinforcing Bar Sizes",
         )
+        section_names = tuple(sorted({column.section for column in acquired.columns}))
+        rebar_intent_by_section = {
+            section_name: capture_etabs_column_rebar_intent(
+                sap.PropFrame,
+                section_name,
+                reviewed_length_unit=args.reviewed_length_unit,
+            )
+            for section_name in section_names
+        }
+        layout_seed_by_section = {
+            section_name: resolve_column_rebar_layout_seed(
+                section_name=section_name,
+                clear_cover_mm=intent.cover_mm,
+                tie_size_name=intent.tie_size_name,
+                longitudinal_size_name=intent.rebar_size_name,
+                intent_authority=intent.authority,
+                rebar_catalog=rebar_catalog,
+                source_ref=f"ETABS:GetRebarColumn:{section_name}",
+            )
+            for section_name, intent in rebar_intent_by_section.items()
+        }
     except Exception as exc:
         payload = _blocked_payload("BLOCKED_FACTUAL_INPUT_ASSEMBLY", exc, identity=identity, fingerprint=fingerprint)
         _write(args.out, payload)
@@ -240,6 +268,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError(
                     f"fck mismatch for {column.component_id}: observed={column.fck_mpa:g} expected={args.expected_fck_mpa:g}"
                 )
+            layout_seed = layout_seed_by_section[column.section]
             normalized = normalize_etabs_column_end_demands(
                 exact_rows,
                 unique_name=column.unique_name,
@@ -264,8 +293,8 @@ def main(argv: list[str] | None = None) -> int:
                     component_id=column.component_id,
                     width_mm=column.width_m * 1000.0,
                     depth_mm=column.depth_m * 1000.0,
-                    clear_cover_mm=args.reviewed_clear_cover_mm,
-                    tie_diameter_mm=args.reviewed_layout_tie_diameter_mm,
+                    clear_cover_mm=layout_seed.clear_cover_mm,
+                    tie_diameter_mm=layout_seed.tie_diameter_mm,
                     aggregate_max_mm=args.reviewed_aggregate_max_mm,
                     material=ColumnSectionMaterial(
                         fck_mpa=column.fck_mpa,
@@ -290,6 +319,7 @@ def main(argv: list[str] | None = None) -> int:
                     "width_m": column.width_m,
                     "depth_m": column.depth_m,
                     "fck_mpa": column.fck_mpa,
+                    "layout_seed": asdict(layout_seed),
                     "engine_result": asdict(result),
                     "report_contributions": [
                         report.as_dict()
@@ -360,6 +390,14 @@ def main(argv: list[str] | None = None) -> int:
                 "column_longitudinal_diameters_mm": list(rebar_catalog.column_longitudinal_diameters_mm),
                 "excluded_below_column_minimum": [asdict(item) for item in rebar_catalog.excluded_below_column_minimum],
             },
+            "section_rebar_intents": {
+                name: intent.as_dict()
+                for name, intent in sorted(rebar_intent_by_section.items())
+            },
+            "section_layout_seeds": {
+                name: asdict(seed)
+                for name, seed in sorted(layout_seed_by_section.items())
+            },
         },
         "reviewed_inputs": {
             "force_unit": args.reviewed_force_unit,
@@ -369,8 +407,7 @@ def main(argv: list[str] | None = None) -> int:
             "rebar_name_field": args.rebar_name_field,
             "rebar_diameter_field": args.rebar_diameter_field,
             "rebar_diameter_unit": args.rebar_diameter_unit,
-            "clear_cover_mm": args.reviewed_clear_cover_mm,
-            "layout_tie_diameter_mm": args.reviewed_layout_tie_diameter_mm,
+            "layout_seed_source": "ETABS_SECTION_REBAR_INTENT",
             "aggregate_max_mm": args.reviewed_aggregate_max_mm,
             "fcd_mpa": args.reviewed_fcd_mpa,
             "fyd_mpa": args.reviewed_fyd_mpa,
@@ -384,6 +421,7 @@ def main(argv: list[str] | None = None) -> int:
         },
         "summary": {
             "column_count": len(results),
+            "section_rebar_intent_count": len(rebar_intent_by_section),
             "engine_selected_rebar_count": selected_count,
             "blocked_combination_scope_count": combo_scope_blocked_count,
             "final_or_provided_rebar_count": 0,
