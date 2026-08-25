@@ -1,8 +1,9 @@
 """Projection-only reporting for the integrated VS6 column design engine.
 
 This module performs no engineering calculation. It projects the already
-resolved demand-engine, minimum-eccentricity, slenderness and longitudinal-
-rebar-engine results into the common ``SliceReportContribution`` contract.
+resolved demand-engine, minimum-eccentricity, slenderness-basis/slenderness and
+longitudinal-rebar-engine results into the common ``SliceReportContribution``
+contract.
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from tbdy_engine.product_reports.vs6_minimum_eccentricity_report import (
 )
 from tbdy_engine.product_reports.vs6_rebar_layout_report import build_vs6_rebar_layout_report
 from tbdy_engine.product_reports.vs6_rebar_selection_report import build_vs6_rebar_selection_report
+from tbdy_engine.product_reports.vs6_slenderness_basis_report import build_vs6_slenderness_basis_report
 from tbdy_engine.product_reports.vs6_slenderness_report import build_vs6_slenderness_report
 
 
@@ -28,6 +30,7 @@ def build_vs6_column_design_engine_reports(
     """Project one canonical engine result to composite + detailed contributions."""
     demand = result.design_demands
     minimum_eccentricity = result.minimum_eccentricity
+    slenderness_basis = result.slenderness_basis
     slenderness = result.slenderness
     rebar = result.rebar_design
     selected = rebar.selection.selected_candidate if rebar.selection is not None else None
@@ -52,7 +55,11 @@ def build_vs6_column_design_engine_reports(
         )
     if not minimum_eccentricity.resolved:
         warnings.append("TS500 minimum-eccentricity closure is not resolved.")
-    if not slenderness.resolved:
+    if not slenderness_basis.resolved:
+        warnings.append(
+            "TS500 regulatory ln/sway/effective-length basis is not fully promoted; factual clear-length candidates remain evidence only."
+        )
+    elif not slenderness.resolved:
         warnings.append(
             "TS500 slenderness closure is not complete for current design moments; reinforcement authority remains blocked."
         )
@@ -74,6 +81,12 @@ def build_vs6_column_design_engine_reports(
             "Post-eccentricity P-M2-M3 states",
             minimum_eccentricity.output_state_count,
             role="RESULT",
+        ),
+        ReportField(
+            "slenderness_basis_status",
+            "TS500 slenderness basis promotion",
+            slenderness_basis.status,
+            role="STATUS",
         ),
         ReportField(
             "slenderness_status",
@@ -125,6 +138,7 @@ def build_vs6_column_design_engine_reports(
             )
 
     contributions.append(build_vs6_minimum_eccentricity_report(minimum_eccentricity))
+    contributions.append(build_vs6_slenderness_basis_report(slenderness_basis))
     contributions.append(build_vs6_slenderness_report(slenderness))
 
     if rebar.candidate_population is not None:
