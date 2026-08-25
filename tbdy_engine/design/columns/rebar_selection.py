@@ -51,6 +51,19 @@ def _text(value: Any, label: str) -> str:
     return value
 
 
+def _optional_text(value: Any, label: str) -> str | None:
+    """Normalize ETABS optional textual qualifiers without inventing a value.
+
+    ETABS legitimately emits blank StepType values for result rows that have no
+    step/envelope qualifier (for example some static/combination results).  In
+    the canonical demand state that factual absence is represented as ``None``;
+    the untouched raw value remains part of ``source_identity``.
+    """
+    if value in (None, ""):
+        return None
+    return _text(value, label)
+
+
 @dataclass(frozen=True, slots=True)
 class ColumnDemandBasis:
     analysis_order_status: str
@@ -106,7 +119,7 @@ class ColumnDemandState:
     component_id: str
     output_case: str
     case_type: str
-    step_type: str
+    step_type: str | None
     step_number: str | None
     station_m: float
     end_tag: str
@@ -205,7 +218,7 @@ def normalize_etabs_column_end_demands(
             continue
         output_case = _text(row.get("OutputCase"), "OutputCase")
         case_type = _text(row.get("CaseType"), "CaseType")
-        step_type = _text(row.get("StepType"), "StepType")
+        step_type = _optional_text(row.get("StepType"), "StepType")
         step_number_raw = row.get("StepNumber")
         step_number = None if step_number_raw in (None, "") else str(step_number_raw)
         source_identity = "|".join(
