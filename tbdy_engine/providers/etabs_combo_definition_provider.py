@@ -11,6 +11,7 @@ attached ``RespCombo`` object.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Any, Sequence
 
 
@@ -115,7 +116,12 @@ def _get_combo_type(resp_combo: Any, name: str) -> tuple[int, Any]:
     )
     if not isinstance(ret, int) or ret != 0:
         raise EtabsComboDefinitionProviderError(f"GetTypeCombo({name!r}) failed/raw={raw!r}")
-    combo_type = int(combo_type_raw)
+    try:
+        combo_type = int(combo_type_raw)
+    except (TypeError, ValueError) as exc:
+        raise EtabsComboDefinitionProviderError(
+            f"GetTypeCombo({name!r}) returned non-integer combo type/raw={raw!r}"
+        ) from exc
     if combo_type not in COMBO_TYPE_BY_CODE:
         raise EtabsComboDefinitionProviderError(
             f"GetTypeCombo({name!r}) returned unknown combo type code {combo_type}; raw={raw!r}"
@@ -134,7 +140,17 @@ def _get_case_list(resp_combo: Any, name: str) -> tuple[tuple[EtabsComboConstitu
     if not isinstance(ret, int) or ret != 0:
         raise EtabsComboDefinitionProviderError(f"GetCaseList({name!r}) failed/raw={raw!r}")
 
-    number_items = int(number_items_raw)
+    try:
+        number_items = int(number_items_raw)
+    except (TypeError, ValueError) as exc:
+        raise EtabsComboDefinitionProviderError(
+            f"GetCaseList({name!r}) returned non-integer item count/raw={raw!r}"
+        ) from exc
+    if number_items < 0:
+        raise EtabsComboDefinitionProviderError(
+            f"GetCaseList({name!r}) returned negative item count/raw={raw!r}"
+        )
+
     types = _seq(cname_type_raw)
     names = _seq(cname_raw)
     factors = _seq(sf_raw)
@@ -146,19 +162,34 @@ def _get_case_list(resp_combo: Any, name: str) -> tuple[tuple[EtabsComboConstitu
 
     rows: list[EtabsComboConstituentEvidence] = []
     for index, (kind_raw, child_name_raw, factor_raw) in enumerate(zip(types, names, factors)):
-        kind = int(kind_raw)
+        try:
+            kind = int(kind_raw)
+        except (TypeError, ValueError) as exc:
+            raise EtabsComboDefinitionProviderError(
+                f"GetCaseList({name!r}) returned non-integer CNameType at index {index}"
+            ) from exc
         if kind not in CNAME_TYPE_BY_CODE:
             raise EtabsComboDefinitionProviderError(
                 f"GetCaseList({name!r}) returned unknown CNameType={kind}"
             )
-        child_name = _text(str(child_name_raw), f"GetCaseList({name!r}).name[{index}]")
+        child_name = _text(child_name_raw, f"GetCaseList({name!r}).name[{index}]")
+        try:
+            factor = float(factor_raw)
+        except (TypeError, ValueError) as exc:
+            raise EtabsComboDefinitionProviderError(
+                f"GetCaseList({name!r}) returned nonnumeric scale factor at index {index}"
+            ) from exc
+        if not math.isfinite(factor):
+            raise EtabsComboDefinitionProviderError(
+                f"GetCaseList({name!r}) returned nonfinite scale factor at index {index}"
+            )
         rows.append(
             EtabsComboConstituentEvidence(
                 index=index,
                 cname_type_code=kind,
                 cname_type=CNAME_TYPE_BY_CODE[kind],
                 name=child_name,
-                scale_factor=float(factor_raw),
+                scale_factor=factor,
             )
         )
     return tuple(rows), raw
