@@ -5,13 +5,17 @@ The adapter acquires factual ETABS combo definitions, constituent/observed
 P-M2-M3 rows, column geometry/material facts, the factual reinforcing-bar
 catalog, and factual column-section rebar design intent. Engineering pattern
 classification, response-spectrum design-state promotion, TS500 minimum-
-eccentricity closure, and longitudinal-rebar selection are delegated to
-production engine modules.
+eccentricity closure, TS500 slenderness routing, and longitudinal-rebar
+selection are delegated to production engine modules.
 
 The ETABS section rebar intent supplies layout seed geometry (clear cover and
 named tie size resolved through the factual bar catalog) but is never promoted
 to provided/final reinforcement. Maximum aggregate size remains an explicit
 project input because it is not inferred from ETABS.
+
+No regulatory TS500 free length / sway / effective-length basis is invented by
+this adapter. Until that factual-to-regulatory promotion exists, the production
+slenderness engine remains fail-closed and blocks ENGINE_SELECTED_REBAR.
 
 No ETABS analysis/design is started, no model property is changed, no present
 unit is set and the model is never saved.
@@ -148,7 +152,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--expected-fck-mpa", type=float, required=True)
 
     parser.add_argument("--analysis-order-status", choices=("RESOLVED", "BLOCKED"), required=True)
-    parser.add_argument("--slenderness-status", choices=("RESOLVED", "BLOCKED"), required=True)
     parser.add_argument("--angle-count", type=int, required=True)
     parser.add_argument("--axial-tolerance-kn", type=float, required=True)
     parser.add_argument("--force-verification-tolerance-kn", type=float, default=0.001)
@@ -244,12 +247,13 @@ def main(argv: list[str] | None = None) -> int:
     basis = ColumnDemandBasis(
         analysis_order_status=args.analysis_order_status,
         minimum_eccentricity_status="BLOCKED",
-        slenderness_status=args.slenderness_status,
+        slenderness_status="BLOCKED",
         combination_scope_status="BLOCKED",
         review_refs=(
-            "VS6 live engine: analysis-order/slenderness statuses explicitly reviewed",
+            "VS6 live engine: analysis-order status explicitly reviewed",
             "VS6 live engine: combination scope is engine-derived, not caller-authorized",
             "VS6 live engine: TS500 6.3.10 minimum eccentricity is engine-derived, not caller-authorized",
+            "VS6 live engine: TS500 7.6 slenderness is engine-derived; no regulatory basis is invented",
         ),
     )
 
@@ -284,6 +288,9 @@ def main(argv: list[str] | None = None) -> int:
                 force_tolerance_n=args.force_verification_tolerance_kn * 1000.0,
                 moment_tolerance_nmm=args.moment_verification_tolerance_knm * 1_000_000.0,
                 rebar_catalog=rebar_catalog,
+                # No slenderness_basis is supplied here until strict TS500 free-length /
+                # sway / effective-length evidence promotion exists. Production engine
+                # therefore owns and emits BLOCKED_SLENDERNESS_BASIS.
                 rebar_inputs=ColumnRebarDesignInputs(
                     component_id=column.component_id,
                     width_mm=column.width_m * 1000.0,
@@ -347,21 +354,21 @@ def main(argv: list[str] | None = None) -> int:
         for item in results
         if item["engine_result"]["minimum_eccentricity"]["status"] != "PROVEN_TS500_MINIMUM_ECCENTRICITY"
     )
-
-    basis_has_blocker = any(
-        value == "BLOCKED"
-        for value in (
-            args.analysis_order_status,
-            args.slenderness_status,
-        )
+    slenderness_blocked_count = sum(
+        1
+        for item in results
+        if item["engine_result"]["slenderness"]["status"] != "PROVEN_SLENDERNESS_EFFECTS_NEGLIGIBLE"
     )
+
     if combo_scope_blocked_count:
         status, rc = "COMPLETE_BLOCKED_COMBINATION_SCOPE", 8
     elif minimum_eccentricity_blocked_count:
         status, rc = "COMPLETE_BLOCKED_MINIMUM_ECCENTRICITY", 10
+    elif slenderness_blocked_count:
+        status, rc = "COMPLETE_BLOCKED_SLENDERNESS_BASIS", 11
     elif selected_count == len(results):
         status, rc = "COMPLETE_ENGINE_SELECTED_REBAR", 0
-    elif basis_has_blocker:
+    elif args.analysis_order_status == "BLOCKED":
         status, rc = "COMPLETE_BLOCKED_REBAR_AUTHORITY", 7
     else:
         status, rc = "COMPLETE_WITH_UNSELECTED_COLUMNS", 9
@@ -416,7 +423,7 @@ def main(argv: list[str] | None = None) -> int:
             "axial_tolerance_kn": args.axial_tolerance_kn,
             "analysis_order_status": args.analysis_order_status,
             "minimum_eccentricity_status": "ENGINE_DERIVED_TS500_6.3.10",
-            "slenderness_status": args.slenderness_status,
+            "slenderness_status": "ENGINE_DERIVED_TS500_7.6_BLOCKED_PENDING_REGULATORY_BASIS",
             "combination_scope_status": "ENGINE_DERIVED",
         },
         "summary": {
@@ -425,6 +432,7 @@ def main(argv: list[str] | None = None) -> int:
             "engine_selected_rebar_count": selected_count,
             "blocked_combination_scope_count": combo_scope_blocked_count,
             "blocked_minimum_eccentricity_count": minimum_eccentricity_blocked_count,
+            "blocked_slenderness_count": slenderness_blocked_count,
             "final_or_provided_rebar_count": 0,
             "transverse_links_selected": False,
             "final_column_shear_compliance_emitted": False,
