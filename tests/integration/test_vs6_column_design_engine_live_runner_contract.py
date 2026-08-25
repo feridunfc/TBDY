@@ -27,6 +27,8 @@ def test_integrated_live_runner_is_read_only_and_uses_production_engines():
     assert "capture_etabs_rebar_catalog_evidence" in source
     assert "promote_etabs_rebar_catalog" in source
     assert "evaluate_column_design" in source
+    assert "build_vs6_column_design_engine_reports" in source
+    assert '"report_contributions"' in source
 
 
 def test_combination_scope_is_engine_derived_not_cli_authorized():
