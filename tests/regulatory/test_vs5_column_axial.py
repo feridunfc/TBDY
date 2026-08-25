@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from tbdy_engine.checks.column_axial_selection import (
     ColumnDemandAvailability,
     ReviewedColumnNdmLoadBinding,
@@ -275,8 +277,8 @@ def test_vs5_nominal_dual_code_path_passes_both_formal_checks():
     assert run.ts500_result is not None
     assert run.tbdy_result.status is CheckStatus.OK
     assert run.ts500_result.status is CheckStatus.OK
-    assert run.tbdy_result.limit == 8960.0
-    assert run.ts500_result.limit == 13440.0
+    assert run.tbdy_result.limit == pytest.approx(8960.0)
+    assert run.ts500_result.limit == pytest.approx(13440.0)
     assert run.combined_status is CombinedColumnAxialStatus.PASS
 
 
