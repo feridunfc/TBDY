@@ -20,8 +20,8 @@ def test_vs6_design_demand_capture_runner_is_read_only_and_stops_before_design()
     ):
         assert forbidden not in source
     assert "COMPLETE_FACTUAL_COLUMN_DESIGN_DEMAND" in source
-    assert "reinforcement_selected\": False" in source
-    assert "section_capacity_computed\": False" in source
+    assert '"reinforcement_selected": False' in source
+    assert '"section_capacity_computed": False' in source
 
 
 def test_vs6_design_demand_capture_runner_requires_explicit_units_and_outputs():
