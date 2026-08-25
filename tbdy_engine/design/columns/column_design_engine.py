@@ -12,6 +12,14 @@ valid TS500 basis is promoted but the 7.6.2.3 neglect limit is exceeded, rebar
 authority remains blocked until the required moment-magnification/second-order
 path is available.
 
+When the active sway-proof route still lacks a promoted sway classification and
+source-bound stiffness evidence proves that the current ETABS model is
+incompatible with the TS500 7.6.2.1 Eq.7.13 uncracked-section requirement, the
+canonical engine emits ``REANALYSIS_REQUIRED`` instead of hiding that action
+behind a generic slenderness-basis blocker. A separately promoted complete
+slenderness basis remains authoritative and is not overridden by an Eq.7.13-
+specific stiffness assessment.
+
 ETABS acquisition remains outside this pure orchestration layer.
 """
 from __future__ import annotations
@@ -45,6 +53,9 @@ from tbdy_engine.design.columns.slenderness_basis import (
     ColumnSlendernessEvidence,
     resolve_ts500_column_slenderness_basis,
 )
+from tbdy_engine.design.columns.stability_stiffness_basis import (
+    StabilityStiffnessBasisResolution,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +67,7 @@ class ColumnDesignEngineResult:
     slenderness_basis: ColumnSlendernessBasisResolution
     slenderness: ColumnSlendernessResult
     rebar_design: ColumnRebarDesignResult
+    stability_stiffness_basis: StabilityStiffnessBasisResolution | None = None
 
 
 class ColumnDesignEngineError(ValueError):
@@ -68,6 +80,7 @@ def _basis_with_engine_closures(
     combination_scope_resolved: bool,
     minimum_eccentricity_resolved: bool,
     slenderness_resolved: bool,
+    reanalysis_required: bool,
 ) -> ColumnDemandBasis:
     refs = list(basis.review_refs)
     closure_refs = (
@@ -88,6 +101,10 @@ def _basis_with_engine_closures(
         ),
     )
     for ref in closure_refs:
+        if ref not in refs:
+            refs.append(ref)
+    if reanalysis_required:
+        ref = "TS500_7.6.2.1_STIFFNESS_BASIS:REANALYSIS_REQUIRED"
         if ref not in refs:
             refs.append(ref)
     return ColumnDemandBasis(
@@ -125,6 +142,7 @@ def evaluate_column_design(
     rebar_inputs: ColumnRebarDesignInputs,
     slenderness_evidence: ColumnSlendernessEvidence | None = None,
     slenderness_basis: ColumnSlendernessBasis | None = None,
+    stability_stiffness_basis: StabilityStiffnessBasisResolution | None = None,
     observed_combo_demands: Sequence[ColumnDemandState] = (),
     verify_observed_rows: bool = False,
     force_tolerance_n: float = 250.0,
@@ -136,6 +154,11 @@ def evaluate_column_design(
     promotion boundary is visible in the canonical result. ``slenderness_basis``
     remains accepted for already-promoted internal/replay fixtures; supplying
     both is rejected.
+
+    ``stability_stiffness_basis`` is a source-bound assessment of the current
+    model for the TS500 Eq.7.13 sway-proof route. It can require reanalysis only
+    while sway classification is still unpromoted; it cannot invalidate a
+    separately completed canonical slenderness basis.
     """
     if rebar_inputs.component_id != component_id:
         raise ColumnDesignEngineError("rebar_inputs.component_id differs from component_id")
@@ -172,11 +195,21 @@ def evaluate_column_design(
         basis=slenderness_basis_resolution.basis,
     )
 
+    sway_not_promoted = any(
+        item.endswith(":SWAY_CLASSIFICATION_NOT_PROMOTED")
+        for item in slenderness_basis_resolution.blocked_items
+    )
+    reanalysis_required = bool(
+        stability_stiffness_basis is not None
+        and stability_stiffness_basis.reanalysis_required
+        and sway_not_promoted
+    )
     authoritative_basis = _basis_with_engine_closures(
         rebar_inputs.demand_basis,
         combination_scope_resolved=demand_result.combination_scope_resolved,
         minimum_eccentricity_resolved=minimum_eccentricity.resolved,
-        slenderness_resolved=slenderness.resolved,
+        slenderness_resolved=slenderness.resolved and not reanalysis_required,
+        reanalysis_required=reanalysis_required,
     )
     bound_rebar_inputs = replace(rebar_inputs, demand_basis=authoritative_basis)
     rebar_result = design_column_longitudinal_rebar(
@@ -189,6 +222,8 @@ def evaluate_column_design(
         status = "BLOCKED_COMBINATION_SCOPE"
     elif not minimum_eccentricity.resolved:
         status = "BLOCKED_MINIMUM_ECCENTRICITY"
+    elif reanalysis_required:
+        status = "REANALYSIS_REQUIRED"
     elif not slenderness_basis_resolution.resolved:
         status = "BLOCKED_SLENDERNESS_BASIS"
     elif slenderness.requires_moment_magnification:
@@ -212,6 +247,7 @@ def evaluate_column_design(
         slenderness_basis=slenderness_basis_resolution,
         slenderness=slenderness,
         rebar_design=rebar_result,
+        stability_stiffness_basis=stability_stiffness_basis,
     )
 
 
