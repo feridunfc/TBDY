@@ -30,3 +30,37 @@ def test_vs6_combo_definition_probe_requires_fingerprint_and_explicit_combo_scop
     assert "--expected-model-fingerprint" in source
     assert "--combos" in source
     assert "BLOCKED_MODEL_IDENTITY_MISMATCH" in source
+
+
+def test_generated_com_list_shapes_are_decoded_without_changing_semantics():
+    class FakeRespCombo:
+        def GetTypeCombo(self, name):
+            assert name == "Combo"
+            return [0, 0]
+
+        def GetCaseList(self, name):
+            assert name == "Combo"
+            return [2, [0, 1], ["LC_G", "ENV_CHILD"], [1.0, 0.5], 0]
+
+    combo_type, raw_type = runner._get_combo_type(FakeRespCombo(), "Combo")
+    constituents, raw_case_list = runner._get_case_list(FakeRespCombo(), "Combo")
+
+    assert combo_type == 0
+    assert raw_type == [0, 0]
+    assert raw_case_list == [2, [0, 1], ["LC_G", "ENV_CHILD"], [1.0, 0.5], 0]
+    assert constituents == (
+        {
+            "index": 0,
+            "cname_type_code": 0,
+            "cname_type": "LOAD_CASE",
+            "name": "LC_G",
+            "scale_factor": 1.0,
+        },
+        {
+            "index": 1,
+            "cname_type_code": 1,
+            "cname_type": "LOAD_COMBO",
+            "name": "ENV_CHILD",
+            "scale_factor": 0.5,
+        },
+    )
