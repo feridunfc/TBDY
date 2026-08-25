@@ -39,8 +39,9 @@ def test_report_projects_resolved_kernel_without_recalculation():
     assert report.status == "PROVEN"
     assert report.component_id == "+0.00:X"
     assert report.tables[0].rows[1]["phi"] == result.load_results[1].phi
-    assert report.engineering_recalculation_allowed is False
-    assert report.renderer_may_change_status is False
+    presentation = report.as_dict()["presentation_contract"]
+    assert presentation["engineering_recalculation_allowed"] is False
+    assert presentation["renderer_may_change_status"] is False
 
 
 def test_report_keeps_incomplete_stability_proof_blocked_not_failed():
