@@ -1,12 +1,9 @@
 #!/usr/bin/env python
-"""Read-only VS6 load-combination definition probe.
+"""Read-only acceptance adapter for factual VS6 combo-definition acquisition.
 
-This probe inspects ETABS response-combination topology only.  It does not run
-analysis/design, does not select result output, does not mutate/save the model,
-and does not promote combination rows to concurrent P-M2-M3 design states.
-
-The immediate purpose is to prove what Crack_SeisX / Crack_SeisY / Grav_Ult
-actually contain before ENGINE_SELECTED_REBAR is allowed to consume them.
+All ETABS response-combination COM decoding lives in the production provider.
+This tool only attaches to the reviewed model, invokes that provider, serializes
+the factual evidence, and reports the read-only safety boundary.
 """
 from __future__ import annotations
 
@@ -24,6 +21,7 @@ from tbdy_engine.etabs.safety import read_session_identity
 from tbdy_engine.features.etabs_com_attach import ATTACH_STATUS_ATTACHED, attach_to_running_etabs
 from tbdy_engine.integration.live_beam_geometry_f0 import model_fingerprint_from_path
 from tbdy_engine.json_safe import to_jsonable
+from tbdy_engine.providers.etabs_combo_definition_provider import capture_etabs_combo_definitions
 
 
 SAFETY = {
@@ -34,21 +32,6 @@ SAFETY = {
     "present_units_set": False,
     "result_output_selection_changed": False,
 }
-
-COMBO_TYPE = {
-    0: "LINEAR_ADD",
-    1: "ENVELOPE",
-    2: "ABSOLUTE_ADD",
-    3: "SRSS",
-    4: "RANGE_ADD",
-}
-
-CNAME_TYPE = {
-    0: "LOAD_CASE",
-    1: "LOAD_COMBO",
-}
-
-NONCONCURRENT_COMBO_TYPES = frozenset({1, 2, 3, 4})
 
 
 def _csv_strings(value: str) -> tuple[str, ...]:
@@ -64,128 +47,6 @@ def _write(path: Path, payload: dict[str, Any]) -> None:
         json.dumps(to_jsonable(payload), ensure_ascii=False, allow_nan=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-
-
-def _seq(value: Any) -> tuple[Any, ...]:
-    if value is None:
-        return ()
-    if isinstance(value, (tuple, list)):
-        return tuple(value)
-    return (value,)
-
-
-def _api_sequence(raw: Any, *, method: str, name: str, expected_len: int) -> tuple[Any, ...]:
-    """Accept the tuple/list containers emitted by generated CSI COM bindings."""
-    if not isinstance(raw, (tuple, list)):
-        raise RuntimeError(f"{method}({name!r}) returned unexpected scalar: {raw!r}")
-    values = tuple(raw)
-    if len(values) != expected_len:
-        raise RuntimeError(
-            f"{method}({name!r}) returned unexpected sequence length "
-            f"{len(values)} (expected {expected_len}): {raw!r}"
-        )
-    return values
-
-
-def _get_combo_type(resp_combo: Any, name: str) -> tuple[int, Any]:
-    """Decode generated-COM GetTypeCombo output as (ComboType, ret)."""
-    raw = resp_combo.GetTypeCombo(name)
-    combo_type_raw, ret = _api_sequence(
-        raw,
-        method="GetTypeCombo",
-        name=name,
-        expected_len=2,
-    )
-
-    # Generated CSI bindings can materialize output collections as Python lists
-    # or tuples depending on the COM wrapper/runtime.  The binding order remains
-    # output parameters first and the function return code last.
-    if not isinstance(ret, int) or ret != 0:
-        raise RuntimeError(f"GetTypeCombo({name!r}) failed/raw={raw!r}")
-    combo_type = int(combo_type_raw)
-    if combo_type not in COMBO_TYPE:
-        raise RuntimeError(f"GetTypeCombo({name!r}) returned unsupported type/raw={raw!r}")
-    return combo_type, raw
-
-
-def _get_case_list(resp_combo: Any, name: str) -> tuple[tuple[dict[str, Any], ...], Any]:
-    """Decode generated-COM GetCaseList output without inventing constituents."""
-    raw = resp_combo.GetCaseList(name)
-    number_items_raw, cname_type_raw, cname_raw, sf_raw, ret = _api_sequence(
-        raw,
-        method="GetCaseList",
-        name=name,
-        expected_len=5,
-    )
-    if not isinstance(ret, int) or ret != 0:
-        raise RuntimeError(f"GetCaseList({name!r}) failed/raw={raw!r}")
-
-    number_items = int(number_items_raw)
-    types = _seq(cname_type_raw)
-    names = _seq(cname_raw)
-    factors = _seq(sf_raw)
-    if not (number_items == len(types) == len(names) == len(factors)):
-        raise RuntimeError(
-            f"GetCaseList({name!r}) count mismatch: n={number_items} "
-            f"types={len(types)} names={len(names)} sf={len(factors)} raw={raw!r}"
-        )
-
-    rows: list[dict[str, Any]] = []
-    for index, (kind_raw, child_name, factor) in enumerate(zip(types, names, factors)):
-        kind = int(kind_raw)
-        if kind not in CNAME_TYPE:
-            raise RuntimeError(f"GetCaseList({name!r}) returned unsupported CNameType={kind}")
-        rows.append(
-            {
-                "index": index,
-                "cname_type_code": kind,
-                "cname_type": CNAME_TYPE[kind],
-                "name": str(child_name),
-                "scale_factor": float(factor),
-            }
-        )
-    return tuple(rows), raw
-
-
-def _probe_combo(resp_combo: Any, name: str, *, stack: tuple[str, ...] = ()) -> dict[str, Any]:
-    if name in stack:
-        return {
-            "name": name,
-            "status": "BLOCKED_RECURSIVE_COMBO_CYCLE",
-            "cycle": list((*stack, name)),
-        }
-
-    combo_type, raw_type = _get_combo_type(resp_combo, name)
-    constituents, raw_case_list = _get_case_list(resp_combo, name)
-    nested: list[dict[str, Any]] = []
-    for item in constituents:
-        if item["cname_type"] == "LOAD_COMBO":
-            nested.append(_probe_combo(resp_combo, item["name"], stack=(*stack, name)))
-
-    contains_nonconcurrent = combo_type in NONCONCURRENT_COMBO_TYPES or any(
-        child.get("contains_nonconcurrent_combo_type", False) for child in nested
-    )
-    if combo_type in NONCONCURRENT_COMBO_TYPES:
-        concurrency_status = "NONCONCURRENT_EXTREME_COMBINATION"
-    elif contains_nonconcurrent:
-        concurrency_status = "CONTAINS_NONCONCURRENT_NESTED_COMBINATION"
-    else:
-        concurrency_status = "REQUIRES_LOAD_CASE_CONCURRENCY_REVIEW"
-
-    return {
-        "name": name,
-        "status": "PROVEN_COMBO_DEFINITION",
-        "combo_type_code": combo_type,
-        "combo_type": COMBO_TYPE[combo_type],
-        "constituents": list(constituents),
-        "nested_combos": nested,
-        "contains_nonconcurrent_combo_type": contains_nonconcurrent,
-        "p_m2_m3_concurrency_status": concurrency_status,
-        "raw_api": {
-            "GetTypeCombo": repr(raw_type),
-            "GetCaseList": repr(raw_case_list),
-        },
-    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -222,10 +83,10 @@ def main(argv: list[str] | None = None) -> int:
         return 4
 
     try:
-        combos = [_probe_combo(sap.RespCombo, name) for name in args.combos]
+        definitions = capture_etabs_combo_definitions(sap.RespCombo, args.combos)
     except Exception as exc:
         payload = {
-            "status": "BLOCKED_COMBO_DEFINITION_PROBE",
+            "status": "BLOCKED_COMBO_DEFINITION_CAPTURE",
             "exception_type": type(exc).__name__,
             "message": str(exc),
             "model": {"path": identity.model_full_path, "fingerprint": fingerprint},
@@ -247,9 +108,10 @@ def main(argv: list[str] | None = None) -> int:
         },
         "safety": SAFETY,
         "requested_combos": list(args.combos),
-        "combos": combos,
+        "combos": [item.as_dict() for item in definitions],
         "scope": {
             "combination_definition_proven": True,
+            "engineering_pattern_classified": False,
             "design_combination_scope_resolved": False,
             "p_m2_m3_concurrency_promoted": False,
             "reinforcement_selected": False,
