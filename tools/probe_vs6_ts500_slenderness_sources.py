@@ -10,7 +10,12 @@ API response, and a bounded set of ETABS display-table candidates that may
 support later source-bound promotion of:
 
 * TS500 7.6.2.2 free length between lateral supports; and
-* TS500 7.6.2.1 sway-prevented / sway-permitted classification.
+* TS500 7.6.2.1 sway-prevented classification.
+
+For sway-source discovery, FULL table capture is preserved only as a bounded
+projection: rows matching the selected column story are emitted for story
+result tables, and the small Load Case Definitions - Summary table is emitted
+in full. No ETABS quantity is interpreted as Delta_i, V_fi or sum(N_di) here.
 
 Safety boundary: no analysis/design run, no model save, no property mutation,
 no present-unit mutation. Result-table selection is not changed by this probe.
@@ -70,7 +75,11 @@ def _sample_rows(rows: Sequence[Mapping[str, Any]], *, limit: int = 12) -> list[
     return [dict(row) for row in rows[:limit]]
 
 
-def _snapshot(database_tables: Any, table_name: str) -> dict[str, Any]:
+def _selected_story_rows(rows: Sequence[Mapping[str, Any]], story: str) -> list[dict[str, Any]]:
+    return [dict(row) for row in rows if str(row.get("Story", "")) == story]
+
+
+def _snapshot(database_tables: Any, table_name: str, *, selected_story: str) -> dict[str, Any]:
     try:
         fetched = fetch_display_table(database_tables, table_name, max_rows=None)
     except Exception as exc:  # pragma: no cover - live COM only
@@ -82,7 +91,7 @@ def _snapshot(database_tables: Any, table_name: str) -> dict[str, Any]:
         }
 
     rows = tuple(dict(row) for row in fetched.parsed.rows)
-    return {
+    payload: dict[str, Any] = {
         "table": table_name,
         "status": "FETCHED",
         "capture_status": fetched.capture_status.value,
@@ -93,6 +102,12 @@ def _snapshot(database_tables: Any, table_name: str) -> dict[str, Any]:
         "sample_rows": _sample_rows(rows),
         "selected_signature": dict(fetched.selected_signature),
     }
+    if "Story" in fetched.parsed.field_keys:
+        payload["selected_story"] = selected_story
+        payload["selected_story_rows"] = _selected_story_rows(rows, selected_story)
+    if table_name == "Load Case Definitions - Summary":
+        payload["all_rows"] = [dict(row) for row in rows]
+    return payload
 
 
 def _jsonable_raw(value: Any) -> Any:
@@ -179,7 +194,7 @@ def main(argv: list[str] | None = None) -> int:
         column = topology_capture.topology.column(args.column_name)
         column_projection = column.as_dict()
         table_snapshots = {
-            name: _snapshot(sap.DatabaseTables, name)
+            name: _snapshot(sap.DatabaseTables, name, selected_story=column.story)
             for name in SOURCE_TABLE_CANDIDATES
         }
         endpoint_restraints = {
@@ -236,9 +251,11 @@ def main(argv: list[str] | None = None) -> int:
             "compliance_verdict_emitted": False,
         },
         "next_evidence_questions": (
-            "Do endpoint facts prove lateral support at both column ends for each principal direction?",
-            "Which ETABS source can support TS500 7.6.2.1 sway classification without user authorization?",
-            "Can the required first/second-order comparison or TS500 stability-index inputs be captured exactly?",
+            "Which ETABS field is source-authoritative for TS500 Delta_i displacement rather than a drift ratio?",
+            "Which ETABS field is source-authoritative for TS500 V_fi storey shear?",
+            "Can sum(N_di) be proven from a storey-level force result or must exact column axial forces be summed?",
+            "Do existing result cases match both TS500 Eq.6.7 G+Q+E and Eq.6.5 G+1.3Q+1.3W bases?",
+            "Do those results come from the TS500-required uncracked-section stability basis?",
         ),
     }
     _write(args.out, payload)
