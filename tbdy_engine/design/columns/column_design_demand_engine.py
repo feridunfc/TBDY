@@ -1,16 +1,17 @@
 """Canonical production orchestration for VS6 column design-demand states.
 
 This module owns the engineering interpretation boundary between factual ETABS
-combination/case evidence and promoted column P-M2-M3 design states.  CLI tools
+combination/case evidence and promoted column P-M2-M3 design states. CLI tools
 and report writers are adapters only and must not duplicate this logic.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Sequence
 
 from tbdy_engine.design.columns.combo_pattern_engine import (
     ComboPatternClassification,
+    ComboPatternConstituent,
     classify_combo_pattern,
 )
 from tbdy_engine.design.columns.design_demand_states import (
@@ -27,7 +28,7 @@ from tbdy_engine.design.columns.rebar_selection import ColumnDemandState
 class ColumnComboDefinition:
     name: str
     combo_type: str
-    constituents: tuple[LinearComboConstituent, ...]
+    constituents: tuple[ComboPatternConstituent, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +70,20 @@ def _case_type_map(case_demands: Sequence[ColumnDemandState]) -> dict[str, str]:
     return result
 
 
+def _promote_supported_constituents(
+    constituents: Sequence[ComboPatternConstituent],
+) -> tuple[LinearComboConstituent, ...]:
+    """Cross the factual-definition boundary only after pattern support is proven."""
+    return tuple(
+        LinearComboConstituent(
+            name=item.name,
+            scale_factor=item.scale_factor,
+            cname_type=item.cname_type,
+        )
+        for item in constituents
+    )
+
+
 def evaluate_column_design_demands(
     *,
     component_id: str,
@@ -82,9 +97,9 @@ def evaluate_column_design_demands(
     """Classify combinations and promote only explicitly supported design states.
 
     The function is deterministic and name-blind with respect to engineering
-    semantics.  Combination names are used solely as identifiers.  Unsupported
-    definitions remain visible as blocked combo results and prevent promotion of
-    a fully resolved combination scope.
+    semantics. Combination names are identifiers only. Unsupported definitions
+    remain visible as blocked combo results and prevent a fully resolved
+    combination scope.
     """
     combo_defs = tuple(definitions)
     if not combo_defs:
@@ -131,7 +146,7 @@ def evaluate_column_design_demands(
             component_id=component_id,
             combo_name=definition.name,
             combo_type=definition.combo_type,
-            constituents=definition.constituents,
+            constituents=_promote_supported_constituents(definition.constituents),
             case_demands=factual_case_demands,
         )
         verification: ComboObservedSubsetVerification | None = None
