@@ -1,37 +1,31 @@
 import inspect
 
-import tools.run_live_vs6_column_rebar_selection as runner
+import tools.run_live_vs6_column_rebar_selection as legacy_runner
+import tools.run_live_vs6_column_design_engine as integrated_runner
 
 
-def test_live_rebar_selection_runner_is_read_only_and_has_explicit_basis_gates():
-    source = inspect.getsource(runner)
-    forbidden = (
-        "RunAnalysis(",
-        "StartDesign(",
-        "SetPresentUnits(",
-        ".Save(",
-        "SetRebarColumn(",
-        "SetSection(",
-    )
-    assert all(token not in source for token in forbidden)
-    assert "analysis-order-status" in source
-    assert "minimum-eccentricity-status" in source
-    assert "slenderness-status" in source
-    assert "combination-scope-status" in source
-    assert "ENGINE_SELECTED_REBAR" in source
-    assert "final_or_provided_rebar_count\": 0" in source
+def test_legacy_rebar_selection_entrypoint_delegates_to_integrated_engine():
+    source = inspect.getsource(legacy_runner)
+    assert "run_live_vs6_column_design_engine" in source
+    assert legacy_runner.main is integrated_runner.main
 
-
-def test_live_rebar_selection_runner_requires_explicit_project_specific_layout_inputs():
-    source = inspect.getsource(runner)
-    for token in (
-        "--reviewed-clear-cover-mm",
-        "--reviewed-layout-tie-diameter-mm",
-        "--reviewed-aggregate-max-mm",
+    for forbidden in (
+        "normalize_etabs_column_end_demands(",
+        "generate_rectangular_column_rebar_candidates(",
+        "select_engine_rebar_for_demands(",
         "--reviewed-bar-diameters-mm",
-        "--reviewed-fcd-mpa",
-        "--reviewed-fyd-mpa",
-        "--angle-count",
-        "--axial-tolerance-kn",
+        "--combination-scope-status",
     ):
-        assert token in source
+        assert forbidden not in source
+
+
+def test_integrated_entrypoint_owns_current_live_rebar_contract():
+    source = inspect.getsource(integrated_runner)
+    assert "--combos" in source
+    assert "--rebar-name-field" in source
+    assert "--rebar-diameter-field" in source
+    assert "--rebar-diameter-unit" in source
+    assert "--analysis-order-status" in source
+    assert "--minimum-eccentricity-status" in source
+    assert "--slenderness-status" in source
+    assert '"combination_scope_status": "ENGINE_DERIVED"' in source
