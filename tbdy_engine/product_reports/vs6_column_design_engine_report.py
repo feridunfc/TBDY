@@ -1,9 +1,8 @@
 """Projection-only reporting for the integrated VS6 column design engine.
 
 This module performs no engineering calculation. It projects the already
-resolved demand-engine and longitudinal-rebar-engine results into the common
-``SliceReportContribution`` contract and reuses the existing detailed report
-adapters for each sub-result.
+resolved demand-engine, minimum-eccentricity, and longitudinal-rebar-engine
+results into the common ``SliceReportContribution`` contract.
 """
 from __future__ import annotations
 
@@ -13,6 +12,9 @@ from tbdy_engine.product_reports.slice_report_contribution import (
     SliceReportContribution,
 )
 from tbdy_engine.product_reports.vs6_design_demand_report import build_vs6_design_demand_report
+from tbdy_engine.product_reports.vs6_minimum_eccentricity_report import (
+    build_vs6_minimum_eccentricity_report,
+)
 from tbdy_engine.product_reports.vs6_rebar_layout_report import build_vs6_rebar_layout_report
 from tbdy_engine.product_reports.vs6_rebar_selection_report import build_vs6_rebar_selection_report
 
@@ -24,6 +26,7 @@ def build_vs6_column_design_engine_reports(
 ) -> tuple[SliceReportContribution, ...]:
     """Project one canonical engine result to composite + detailed contributions."""
     demand = result.design_demands
+    minimum_eccentricity = result.minimum_eccentricity
     rebar = result.rebar_design
     selected = rebar.selection.selected_candidate if rebar.selection is not None else None
 
@@ -42,6 +45,8 @@ def build_vs6_column_design_engine_reports(
         warnings.append(
             "One or more requested ETABS combination patterns are unsupported; full combination scope is blocked."
         )
+    if not minimum_eccentricity.resolved:
+        warnings.append("TS500 minimum-eccentricity closure is not resolved.")
 
     summary = [
         ReportField("engine_status", "Integrated column design status", result.status, role="STATUS"),
@@ -49,6 +54,18 @@ def build_vs6_column_design_engine_reports(
         ReportField("design_demand_status", "Design demand scope status", demand.status, role="STATUS"),
         ReportField("promoted_state_count", "Promoted P-M2-M3 states", len(demand.promoted_states), role="RESULT"),
         ReportField("blocked_combo_count", "Blocked combinations", len(demand.blocked_combo_names), role="STATUS"),
+        ReportField(
+            "minimum_eccentricity_status",
+            "TS500 minimum eccentricity status",
+            minimum_eccentricity.status,
+            role="STATUS",
+        ),
+        ReportField(
+            "post_eccentricity_state_count",
+            "Post-eccentricity P-M2-M3 states",
+            minimum_eccentricity.output_state_count,
+            role="RESULT",
+        ),
         ReportField("rebar_design_status", "Longitudinal rebar design status", rebar.status, role="STATUS"),
         ReportField("rebar_authority", "Longitudinal rebar authority", rebar.authority, role="AUTHORITY"),
     ]
@@ -72,7 +89,7 @@ def build_vs6_column_design_engine_reports(
             component_type="COLUMN",
             component_id=result.component_id,
             summary_fields=tuple(summary),
-            authority_refs=("TBDY 2018 7.3.2.1", "TS500 7.1", "TS500 7.5"),
+            authority_refs=("TBDY 2018 7.3.2.1", "TS500 6.3.10", "TS500 7.1", "TS500 7.5"),
             warnings=tuple(warnings),
         )
     ]
@@ -85,6 +102,8 @@ def build_vs6_column_design_engine_reports(
                     verification=combo.verification,
                 )
             )
+
+    contributions.append(build_vs6_minimum_eccentricity_report(minimum_eccentricity))
 
     if rebar.candidate_population is not None:
         contributions.append(
