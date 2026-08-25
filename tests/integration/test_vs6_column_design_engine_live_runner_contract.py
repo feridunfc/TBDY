@@ -20,12 +20,13 @@ def test_integrated_live_runner_is_read_only_and_uses_production_engines():
         "verify_observed_combo_rows_are_generated_subset(",
         "generate_rectangular_column_rebar_candidates(",
         "select_engine_rebar_for_demands(",
+        "apply_ts500_minimum_eccentricity(",
     ):
         assert forbidden not in source
 
     assert "capture_etabs_combo_definitions" in source
     assert "capture_etabs_rebar_catalog_evidence" in source
-    assert "promote_etabs_rebar_catalog" in source
+    assert "promote_live_proven_etabs_rebar_catalog" in source
     assert "evaluate_column_design" in source
     assert "build_vs6_column_design_engine_reports" in source
     assert '"report_contributions"' in source
@@ -38,12 +39,21 @@ def test_combination_scope_is_engine_derived_not_cli_authorized():
     assert '"combination_scope_status": "ENGINE_DERIVED"' in source
 
 
-def test_bar_library_is_factual_etabs_catalog_not_cli_diameter_list():
+def test_minimum_eccentricity_is_engine_derived_not_cli_authorized():
+    source = inspect.getsource(runner)
+    assert "--minimum-eccentricity-status" not in source
+    assert 'minimum_eccentricity_status="BLOCKED"' in source
+    assert '"minimum_eccentricity_status": "ENGINE_DERIVED_TS500_6.3.10"' in source
+
+
+def test_bar_library_uses_live_proven_factual_etabs_schema_not_cli_field_or_diameter_lists():
     source = inspect.getsource(runner)
     assert "--reviewed-bar-diameters-mm" not in source
-    assert "--rebar-name-field" in source
-    assert "--rebar-diameter-field" in source
-    assert "--rebar-diameter-unit" in source
+    assert "--rebar-name-field" not in source
+    assert "--rebar-diameter-field" not in source
+    assert "--rebar-diameter-unit" not in source
+    assert "promote_live_proven_etabs_rebar_catalog" in source
+    assert 'reviewed_length_unit=args.reviewed_length_unit' in source
 
 
 def test_factual_combo_traversal_collects_recursive_load_cases_without_classifying_them():
