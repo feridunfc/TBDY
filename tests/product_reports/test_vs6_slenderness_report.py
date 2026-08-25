@@ -40,7 +40,7 @@ def test_slenderness_report_projects_canonical_result_without_recalculation():
     assert payload["presentation_contract"]["engineering_recalculation_allowed"] is False
     assert payload["presentation_contract"]["renderer_may_change_status"] is False
     assert payload["presentation_contract"]["renderer_may_change_governing_selection"] is False
-    assert len(payload["detail_tables"][0]["rows"]) == 2
+    assert len(payload["tables"][0]["rows"]) == 2
 
 
 def test_blocked_basis_reports_truthfully_as_blocked():
