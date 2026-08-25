@@ -325,3 +325,23 @@ def test_vs5_tbdy_high_ductility_nonapplicability_is_not_promoted_to_pass():
     assert run.tbdy_result is None
     assert run.ts500_result is not None and run.ts500_result.status is CheckStatus.OK
     assert run.combined_status is CombinedColumnAxialStatus.INCOMPLETE
+
+def test_column_force_bundle_canonicalizes_absent_optional_step_number():
+    row = _force_row(
+        "Grav_Ult",
+        -5000.0,
+        case_type="Combination",
+        step_type=None,
+    )
+    row.pop("StepNumber")
+
+    bundle = ColumnForceEvidenceBundle(
+        rows=(row,),
+        output_names=("Grav_Ult",),
+        force_unit="kN",
+        runtime_capture_status=RuntimeCaptureStatus.FULL,
+    )
+
+    assert "StepNumber" in bundle.rows[0]
+    assert bundle.rows[0]["StepNumber"] is None
+

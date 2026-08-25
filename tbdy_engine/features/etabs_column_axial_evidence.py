@@ -186,16 +186,30 @@ class ColumnForceEvidenceBundle:
         expected = set(COLUMN_FORCE_IDENTITY_FIELDS + COLUMN_FORCE_PAYLOAD_FIELDS)
         identities: set[tuple[Any, ...]] = set()
         for index, row in enumerate(self.rows):
-            missing = expected - set(row)
+            normalized = dict(row)
+
+            # ETABS may omit StepNumber entirely when the result row has no
+            # meaningful step number. Absence and explicit null are the same
+            # factual state for this optional identity attribute.
+            normalized.setdefault("StepNumber", None)
+
+            missing = expected - set(normalized)
             if missing:
                 raise ColumnAxialEvidenceError(
                     f"Column force row {index} missing required field(s): {', '.join(sorted(missing))}"
                 )
-            identity = tuple(row.get(field) for field in COLUMN_FORCE_IDENTITY_FIELDS)
+
+            identity = tuple(
+                normalized.get(field)
+                for field in COLUMN_FORCE_IDENTITY_FIELDS
+            )
             if identity in identities:
-                raise ColumnAxialEvidenceError("Duplicate exact column force row identity is ambiguous")
+                raise ColumnAxialEvidenceError(
+                    "Duplicate exact column force row identity is ambiguous"
+                )
+
             identities.add(identity)
-            frozen_rows.append(_freeze_row(row))
+            frozen_rows.append(_freeze_row(normalized))
         if self.runtime_capture_status is not RuntimeCaptureStatus.FULL:
             raise ColumnAxialEvidenceError("VS5 result-derived demands require FULL column force evidence")
         object.__setattr__(self, "rows", tuple(frozen_rows))
