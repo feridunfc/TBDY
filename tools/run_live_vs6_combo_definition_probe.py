@@ -74,21 +74,35 @@ def _seq(value: Any) -> tuple[Any, ...]:
     return (value,)
 
 
+def _api_sequence(raw: Any, *, method: str, name: str, expected_len: int) -> tuple[Any, ...]:
+    """Accept the tuple/list containers emitted by generated CSI COM bindings."""
+    if not isinstance(raw, (tuple, list)):
+        raise RuntimeError(f"{method}({name!r}) returned unexpected scalar: {raw!r}")
+    values = tuple(raw)
+    if len(values) != expected_len:
+        raise RuntimeError(
+            f"{method}({name!r}) returned unexpected sequence length "
+            f"{len(values)} (expected {expected_len}): {raw!r}"
+        )
+    return values
+
+
 def _get_combo_type(resp_combo: Any, name: str) -> tuple[int, Any]:
     """Decode generated-COM GetTypeCombo output as (ComboType, ret)."""
     raw = resp_combo.GetTypeCombo(name)
-    if not isinstance(raw, tuple):
-        raise RuntimeError(f"GetTypeCombo({name!r}) returned unexpected scalar: {raw!r}")
-    if len(raw) != 2:
-        raise RuntimeError(f"GetTypeCombo({name!r}) returned unexpected tuple: {raw!r}")
+    combo_type_raw, ret = _api_sequence(
+        raw,
+        method="GetTypeCombo",
+        name=name,
+        expected_len=2,
+    )
 
-    # comtypes generated CSI bindings return output parameters first and the
-    # function return code last.  Keep the raw tuple in the artifact so a
-    # version-specific mismatch fails visibly rather than being guessed.
-    combo_type, ret = raw
+    # Generated CSI bindings can materialize output collections as Python lists
+    # or tuples depending on the COM wrapper/runtime.  The binding order remains
+    # output parameters first and the function return code last.
     if not isinstance(ret, int) or ret != 0:
         raise RuntimeError(f"GetTypeCombo({name!r}) failed/raw={raw!r}")
-    combo_type = int(combo_type)
+    combo_type = int(combo_type_raw)
     if combo_type not in COMBO_TYPE:
         raise RuntimeError(f"GetTypeCombo({name!r}) returned unsupported type/raw={raw!r}")
     return combo_type, raw
@@ -97,14 +111,16 @@ def _get_combo_type(resp_combo: Any, name: str) -> tuple[int, Any]:
 def _get_case_list(resp_combo: Any, name: str) -> tuple[tuple[dict[str, Any], ...], Any]:
     """Decode generated-COM GetCaseList output without inventing constituents."""
     raw = resp_combo.GetCaseList(name)
-    if not isinstance(raw, tuple) or len(raw) != 5:
-        raise RuntimeError(f"GetCaseList({name!r}) returned unexpected value: {raw!r}")
-
-    number_items, cname_type_raw, cname_raw, sf_raw, ret = raw
+    number_items_raw, cname_type_raw, cname_raw, sf_raw, ret = _api_sequence(
+        raw,
+        method="GetCaseList",
+        name=name,
+        expected_len=5,
+    )
     if not isinstance(ret, int) or ret != 0:
         raise RuntimeError(f"GetCaseList({name!r}) failed/raw={raw!r}")
 
-    number_items = int(number_items)
+    number_items = int(number_items_raw)
     types = _seq(cname_type_raw)
     names = _seq(cname_raw)
     factors = _seq(sf_raw)
