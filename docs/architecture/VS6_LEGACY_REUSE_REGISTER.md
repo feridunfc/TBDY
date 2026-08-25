@@ -24,6 +24,24 @@ without a fresh source-bound contract.
     identity; label-prefix member-type guessing and label-only fallback aliases are
     not accepted for final authority.
 
+- Historical `forces.py` force-envelope work supplied during VS6 review
+  - Keep the useful domain idea that force processing should be case-wise and
+    end-aware rather than a single member-wide scalar envelope.
+  - Keep the notion of a reusable frame-end force map for later beam/column shear
+    and capacity workflows, but rebuild it on canonical `ColumnDemandState` /
+    factual evidence contracts rather than pandas-only dictionaries.
+  - Keep i/j end identity as first-class provenance in reports and governing
+    selections.
+  - Do **not** reuse absolute-value component envelopes as a concurrent PMM design
+    state. `abs().max()` independently destroys sign/correlation information that
+    VS6 now preserves through exact static vectors and response-spectrum sign
+    permutations.
+  - Do **not** reuse the historical 1% station-tolerance end detector as regulatory
+    member-end authority. The current production path requires exact ETABS end
+    normalization/provenance.
+  - Do **not** reuse silent missing-force-column -> `0.0` fallbacks for design
+    authority; missing required evidence must block.
+
 - Existing reinforcement-role semantics from earlier project work
   - `TBDY_MIN_REQUIRED_REBAR`
   - `GOVERNING_REQUIRED_REBAR`
@@ -44,15 +62,21 @@ The following behavior is explicitly not reused by VS6 production logic:
 - simplified/empirical PMM interaction as replacement for the source-bound
   strain-compatibility capacity kernel;
 - member type inference from labels such as `B...` / `C...` for final authority;
-- label-only aliases as final provided-rebar identity.
+- label-only aliases as final provided-rebar identity;
+- independent absolute-value `P/M2/M3` envelopes as biaxial concurrent design
+  vectors;
+- heuristic station-end classification where exact ETABS end identity is
+  available;
+- zero-filling absent required force components in an authority-producing path.
 
 ## Current VS6 promotion path
 
 ```text
 ETABS factual rebar-size table
-    -> reviewed field/unit binding
+    -> live-proven Name/Diameter schema + reviewed database length unit
     -> FACTUAL_PROJECT_REBAR_CATALOG
     -> TBDY-eligible column longitudinal diameters
+    -> ETABS section rebar intent used only as layout seed (cover/tie identity)
     -> symmetric feasible layout candidates
     -> source-bound N-M2-M3 section capacity
     -> ENGINE_SELECTED_REBAR
