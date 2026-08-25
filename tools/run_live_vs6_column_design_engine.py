@@ -2,16 +2,16 @@
 """Read-only live acceptance adapter for the integrated VS6 column design engine.
 
 The adapter acquires factual ETABS combo definitions, constituent/observed
-P-M2-M3 rows, strict column topology, column geometry/material facts, the
-factual reinforcing-bar catalog, and factual column-section rebar design intent.
-Engineering classification/promotion and longitudinal-rebar selection are
-delegated to production engine modules.
+P-M2-M3 rows, strict column topology, endpoint point-restraint facts, column
+geometry/material facts, the factual reinforcing-bar catalog, and factual
+column-section rebar design intent. Engineering classification/promotion and
+longitudinal-rebar selection are delegated to production engine modules.
 
-Strict topology now feeds the slenderness-basis promotion boundary with the
-ETABS clear-length candidate as factual evidence only. The adapter does NOT
-promote that candidate to TS500 regulatory ``ln`` and does not invent sway or
-an effective-length factor. Until those regulatory inputs are source-bound, the
-production engine remains fail-closed for ENGINE_SELECTED_REBAR.
+Strict topology supplies the ETABS clear-length candidate as factual evidence.
+The production TS500 free-length promotion engine may promote that candidate to
+regulatory ``ln`` only when both physical endpoints have source-bound
+horizontal lateral support. Sway classification and effective-length behavior
+remain separate fail-closed inputs.
 
 No ETABS analysis/design is started, no model property is changed, no present
 unit is set and the model is never saved.
@@ -33,6 +33,7 @@ from tbdy_engine.design.columns.column_design_demand_engine import ColumnComboDe
 from tbdy_engine.design.columns.column_design_engine import evaluate_column_design
 from tbdy_engine.design.columns.column_rebar_design_engine import ColumnRebarDesignInputs
 from tbdy_engine.design.columns.combo_pattern_engine import ComboPatternConstituent
+from tbdy_engine.design.columns.free_length_basis import resolve_ts500_column_free_length
 from tbdy_engine.design.columns.rebar_layout_seed import resolve_column_rebar_layout_seed
 from tbdy_engine.design.columns.rebar_selection import (
     ColumnDemandBasis,
@@ -52,6 +53,9 @@ from tbdy_engine.product_reports.vs6_column_design_engine_report import (
 )
 from tbdy_engine.providers.column_slenderness_evidence_provider import (
     build_factual_slenderness_evidence_from_topology,
+)
+from tbdy_engine.providers.etabs_column_endpoint_restraint_provider import (
+    capture_etabs_column_endpoint_restraints,
 )
 from tbdy_engine.providers.etabs_column_rebar_intent_provider import (
     capture_etabs_column_rebar_intent,
@@ -296,7 +300,19 @@ def main(argv: list[str] | None = None) -> int:
                     f"demand=({column.width_m:g},{column.depth_m:g}) "
                     f"topology=({topology_column.width_t2_m:g},{topology_column.depth_t3_m:g})"
                 )
-            slenderness_evidence = build_factual_slenderness_evidence_from_topology(topology_column)
+
+            endpoint_restraints = capture_etabs_column_endpoint_restraints(sap.PointObj, topology_column)
+            free_length_resolution = resolve_ts500_column_free_length(
+                topology_column,
+                bottom_restraint_dofs=endpoint_restraints.bottom.dofs,
+                top_restraint_dofs=endpoint_restraints.top.dofs,
+                bottom_restraint_source_ref=endpoint_restraints.bottom.source_ref,
+                top_restraint_source_ref=endpoint_restraints.top.source_ref,
+            )
+            slenderness_evidence = build_factual_slenderness_evidence_from_topology(
+                topology_column,
+                free_length_resolution=free_length_resolution,
+            )
 
             normalized = normalize_etabs_column_end_demands(
                 exact_rows,
@@ -350,6 +366,8 @@ def main(argv: list[str] | None = None) -> int:
                     "depth_m": column.depth_m,
                     "fck_mpa": column.fck_mpa,
                     "layout_seed": asdict(layout_seed),
+                    "endpoint_restraints": asdict(endpoint_restraints),
+                    "free_length_resolution": asdict(free_length_resolution),
                     "factual_slenderness_evidence": asdict(slenderness_evidence),
                     "engine_result": asdict(result),
                     "report_contributions": [
@@ -382,6 +400,11 @@ def main(argv: list[str] | None = None) -> int:
         1
         for item in results
         if item["engine_result"]["minimum_eccentricity"]["status"] != "PROVEN_TS500_MINIMUM_ECCENTRICITY"
+    )
+    free_length_proven_count = sum(
+        1
+        for item in results
+        if item["free_length_resolution"]["status"] == "PROVEN_TS500_REGULATORY_FREE_LENGTH"
     )
     slenderness_basis_blocked_count = sum(
         1
@@ -429,6 +452,7 @@ def main(argv: list[str] | None = None) -> int:
             "strict_topology_authority": strict_topology_evidence.authority,
             "strict_topology_table_row_counts": strict_topology_evidence.row_count_map(),
             "strict_topology_summary": strict_topology_evidence.topology.summary(),
+            "endpoint_restraint_source": "ETABS PointObj.GetRestraint",
             "rebar_catalog_table": rebar_table.as_dict(),
             "rebar_catalog": {
                 "status": rebar_catalog.status,
@@ -463,7 +487,7 @@ def main(argv: list[str] | None = None) -> int:
             "analysis_order_status": args.analysis_order_status,
             "minimum_eccentricity_status": "ENGINE_DERIVED_TS500_6.3.10",
             "slenderness_status": "ENGINE_DERIVED_TS500_7.6_FROM_STRICT_FACTUAL_EVIDENCE",
-            "regulatory_ln_status": "NOT_PROMOTED_FROM_FACTUAL_CLEAR_LENGTH_CANDIDATE",
+            "regulatory_ln_status": "ENGINE_DERIVED_PER_COLUMN_FROM_PROVEN_ENDPOINT_SUPPORTS",
             "sway_status": "NOT_PROMOTED",
             "combination_scope_status": "ENGINE_DERIVED",
         },
@@ -473,6 +497,8 @@ def main(argv: list[str] | None = None) -> int:
             "engine_selected_rebar_count": selected_count,
             "blocked_combination_scope_count": combo_scope_blocked_count,
             "blocked_minimum_eccentricity_count": minimum_eccentricity_blocked_count,
+            "proven_regulatory_free_length_count": free_length_proven_count,
+            "blocked_regulatory_free_length_count": len(results) - free_length_proven_count,
             "blocked_slenderness_basis_count": slenderness_basis_blocked_count,
             "blocked_or_routed_slenderness_count": slenderness_blocked_count,
             "final_or_provided_rebar_count": 0,
