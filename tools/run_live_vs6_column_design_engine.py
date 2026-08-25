@@ -4,8 +4,9 @@
 The adapter acquires factual ETABS combo definitions, constituent/observed
 P-M2-M3 rows, column geometry/material facts, the factual reinforcing-bar
 catalog, and factual column-section rebar design intent. Engineering pattern
-classification, response-spectrum design-state promotion and longitudinal-rebar
-selection are delegated to production engine modules.
+classification, response-spectrum design-state promotion, TS500 minimum-
+eccentricity closure, and longitudinal-rebar selection are delegated to
+production engine modules.
 
 The ETABS section rebar intent supplies layout seed geometry (clear cover and
 named tie size resolved through the factual bar catalog) but is never promoted
@@ -58,7 +59,7 @@ from tbdy_engine.providers.etabs_combo_definition_provider import (
 )
 from tbdy_engine.providers.etabs_rebar_catalog_provider import (
     capture_etabs_rebar_catalog_evidence,
-    promote_etabs_rebar_catalog,
+    promote_live_proven_etabs_rebar_catalog,
 )
 
 
@@ -141,17 +142,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--reviewed-length-unit", choices=("m", "mm"), required=True)
     parser.add_argument("--reviewed-concrete-fc-unit", choices=("kPa",), required=True)
 
-    parser.add_argument("--rebar-name-field", required=True)
-    parser.add_argument("--rebar-diameter-field", required=True)
-    parser.add_argument("--rebar-diameter-unit", choices=("mm", "m"), required=True)
-
     parser.add_argument("--reviewed-aggregate-max-mm", type=float, required=True)
     parser.add_argument("--reviewed-fcd-mpa", type=float, required=True)
     parser.add_argument("--reviewed-fyd-mpa", type=float, required=True)
     parser.add_argument("--expected-fck-mpa", type=float, required=True)
 
     parser.add_argument("--analysis-order-status", choices=("RESOLVED", "BLOCKED"), required=True)
-    parser.add_argument("--minimum-eccentricity-status", choices=("RESOLVED", "BLOCKED"), required=True)
     parser.add_argument("--slenderness-status", choices=("RESOLVED", "BLOCKED"), required=True)
     parser.add_argument("--angle-count", type=int, required=True)
     parser.add_argument("--axial-tolerance-kn", type=float, required=True)
@@ -210,11 +206,9 @@ def main(argv: list[str] | None = None) -> int:
             reviewed_moment_unit=args.reviewed_moment_unit,
         )
         rebar_table = capture_etabs_rebar_catalog_evidence(sap.DatabaseTables)
-        rebar_catalog = promote_etabs_rebar_catalog(
+        rebar_catalog = promote_live_proven_etabs_rebar_catalog(
             rebar_table,
-            name_field=args.rebar_name_field,
-            diameter_field=args.rebar_diameter_field,
-            diameter_unit=args.rebar_diameter_unit,
+            reviewed_length_unit=args.reviewed_length_unit,
             source_name=f"ETABS:{fingerprint}:Reinforcing Bar Sizes",
         )
         section_names = tuple(sorted({column.section for column in acquired.columns}))
@@ -249,12 +243,13 @@ def main(argv: list[str] | None = None) -> int:
     constituent_names = frozenset(load_case_names)
     basis = ColumnDemandBasis(
         analysis_order_status=args.analysis_order_status,
-        minimum_eccentricity_status=args.minimum_eccentricity_status,
+        minimum_eccentricity_status="BLOCKED",
         slenderness_status=args.slenderness_status,
         combination_scope_status="BLOCKED",
         review_refs=(
-            "VS6 live engine: analysis/min-eccentricity/slenderness statuses explicitly reviewed",
+            "VS6 live engine: analysis-order/slenderness statuses explicitly reviewed",
             "VS6 live engine: combination scope is engine-derived, not caller-authorized",
+            "VS6 live engine: TS500 6.3.10 minimum eccentricity is engine-derived, not caller-authorized",
         ),
     )
 
@@ -347,17 +342,23 @@ def main(argv: list[str] | None = None) -> int:
         for item in results
         if item["engine_result"]["design_demands"]["status"] != "PROVEN_COLUMN_DESIGN_DEMAND_SCOPE"
     )
+    minimum_eccentricity_blocked_count = sum(
+        1
+        for item in results
+        if item["engine_result"]["minimum_eccentricity"]["status"] != "PROVEN_TS500_MINIMUM_ECCENTRICITY"
+    )
 
     basis_has_blocker = any(
         value == "BLOCKED"
         for value in (
             args.analysis_order_status,
-            args.minimum_eccentricity_status,
             args.slenderness_status,
         )
     )
     if combo_scope_blocked_count:
         status, rc = "COMPLETE_BLOCKED_COMBINATION_SCOPE", 8
+    elif minimum_eccentricity_blocked_count:
+        status, rc = "COMPLETE_BLOCKED_MINIMUM_ECCENTRICITY", 10
     elif selected_count == len(results):
         status, rc = "COMPLETE_ENGINE_SELECTED_REBAR", 0
     elif basis_has_blocker:
@@ -404,9 +405,8 @@ def main(argv: list[str] | None = None) -> int:
             "moment_unit": args.reviewed_moment_unit,
             "length_unit": args.reviewed_length_unit,
             "concrete_fc_unit": args.reviewed_concrete_fc_unit,
-            "rebar_name_field": args.rebar_name_field,
-            "rebar_diameter_field": args.rebar_diameter_field,
-            "rebar_diameter_unit": args.rebar_diameter_unit,
+            "rebar_schema_binding": "LIVE_PROVEN_ETABS_NAME_DIAMETER",
+            "rebar_diameter_unit_source": "REVIEWED_LENGTH_UNIT",
             "layout_seed_source": "ETABS_SECTION_REBAR_INTENT",
             "aggregate_max_mm": args.reviewed_aggregate_max_mm,
             "fcd_mpa": args.reviewed_fcd_mpa,
@@ -415,7 +415,7 @@ def main(argv: list[str] | None = None) -> int:
             "angle_count": args.angle_count,
             "axial_tolerance_kn": args.axial_tolerance_kn,
             "analysis_order_status": args.analysis_order_status,
-            "minimum_eccentricity_status": args.minimum_eccentricity_status,
+            "minimum_eccentricity_status": "ENGINE_DERIVED_TS500_6.3.10",
             "slenderness_status": args.slenderness_status,
             "combination_scope_status": "ENGINE_DERIVED",
         },
@@ -424,6 +424,7 @@ def main(argv: list[str] | None = None) -> int:
             "section_rebar_intent_count": len(rebar_intent_by_section),
             "engine_selected_rebar_count": selected_count,
             "blocked_combination_scope_count": combo_scope_blocked_count,
+            "blocked_minimum_eccentricity_count": minimum_eccentricity_blocked_count,
             "final_or_provided_rebar_count": 0,
             "transverse_links_selected": False,
             "final_column_shear_compliance_emitted": False,
