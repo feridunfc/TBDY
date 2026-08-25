@@ -33,6 +33,8 @@ def test_integrated_live_runner_is_read_only_and_uses_production_engines():
     assert "capture_etabs_column_endpoint_restraints" in source
     assert "resolve_ts500_column_free_length" in source
     assert "build_factual_slenderness_evidence_from_topology" in source
+    assert "build_assigned_rc_frame_bending_modifier_evidence" in source
+    assert "assess_ts500_eq713_stiffness_basis" in source
     assert "evaluate_column_design" in source
     assert "build_vs6_column_design_engine_reports" in source
     assert '"report_contributions"' in source
@@ -66,6 +68,18 @@ def test_slenderness_and_free_length_are_engine_derived_not_cli_authorized():
     assert '"sway_status": "NOT_PROMOTED"' in source
 
 
+def test_ts500_eq713_stiffness_basis_is_engine_derived_and_cannot_be_cli_authorized():
+    source = inspect.getsource(runner)
+    assert "--uncracked" not in source
+    assert "--stiffness-basis" not in source
+    assert "build_assigned_rc_frame_bending_modifier_evidence" in source
+    assert "assess_ts500_eq713_stiffness_basis" in source
+    assert "stability_stiffness_basis=stability_stiffness_basis" in source
+    assert '"stiffness_basis_status": "ENGINE_DERIVED_TS500_7.6.2.1_FROM_ASSIGNED_RC_FRAME_MODIFIERS"' in source
+    assert 'status, rc = "COMPLETE_REANALYSIS_REQUIRED", 13' in source
+    assert '"reanalysis_required_count"' in source
+
+
 def test_strict_topology_and_point_restraints_are_factual_sources_for_runtime_ln_promotion():
     source = inspect.getsource(runner)
     assert "capture_etabs_strict_column_topology" in source
@@ -74,7 +88,7 @@ def test_strict_topology_and_point_restraints_are_factual_sources_for_runtime_ln
     assert '"strict_topology_authority"' in source
     assert '"strict_topology_summary"' in source
     assert '"endpoint_restraint_source"' in source
-    # Sway remains unpromoted even when free length resolves.
+    # Sway remains unpromoted even when free length resolves or reanalysis is required.
     assert "TS500_SWAY_CLASSIFICATION" not in source
 
 
