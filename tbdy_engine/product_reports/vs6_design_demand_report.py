@@ -115,7 +115,7 @@ def build_vs6_design_demand_report(
                 purpose="DESIGN_DEMAND_TRACE",
             ),
         ),
-        authority_refs=tuple(build.behavior_refs),
+        evidence_refs=tuple(build.behavior_refs),
         warnings=tuple(warnings),
     )
 
