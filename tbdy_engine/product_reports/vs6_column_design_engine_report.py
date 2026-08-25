@@ -1,8 +1,8 @@
 """Projection-only reporting for the integrated VS6 column design engine.
 
 This module performs no engineering calculation. It projects the already
-resolved demand-engine, minimum-eccentricity, and longitudinal-rebar-engine
-results into the common ``SliceReportContribution`` contract.
+resolved demand-engine, minimum-eccentricity, slenderness and longitudinal-
+rebar-engine results into the common ``SliceReportContribution`` contract.
 """
 from __future__ import annotations
 
@@ -17,6 +17,7 @@ from tbdy_engine.product_reports.vs6_minimum_eccentricity_report import (
 )
 from tbdy_engine.product_reports.vs6_rebar_layout_report import build_vs6_rebar_layout_report
 from tbdy_engine.product_reports.vs6_rebar_selection_report import build_vs6_rebar_selection_report
+from tbdy_engine.product_reports.vs6_slenderness_report import build_vs6_slenderness_report
 
 
 def build_vs6_column_design_engine_reports(
@@ -27,12 +28,16 @@ def build_vs6_column_design_engine_reports(
     """Project one canonical engine result to composite + detailed contributions."""
     demand = result.design_demands
     minimum_eccentricity = result.minimum_eccentricity
+    slenderness = result.slenderness
     rebar = result.rebar_design
     selected = rebar.selection.selected_candidate if rebar.selection is not None else None
 
     if result.status == "SELECTED_ENGINE_REBAR":
         composite_status = "PROVEN"
-    elif result.status.startswith("BLOCKED"):
+    elif result.status.startswith("BLOCKED") or result.status in {
+        "REQUIRES_MOMENT_MAGNIFICATION",
+        "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED",
+    }:
         composite_status = "BLOCKED"
     else:
         composite_status = "NO_DATA"
@@ -47,6 +52,10 @@ def build_vs6_column_design_engine_reports(
         )
     if not minimum_eccentricity.resolved:
         warnings.append("TS500 minimum-eccentricity closure is not resolved.")
+    if not slenderness.resolved:
+        warnings.append(
+            "TS500 slenderness closure is not complete for current design moments; reinforcement authority remains blocked."
+        )
 
     summary = [
         ReportField("engine_status", "Integrated column design status", result.status, role="STATUS"),
@@ -65,6 +74,12 @@ def build_vs6_column_design_engine_reports(
             "Post-eccentricity P-M2-M3 states",
             minimum_eccentricity.output_state_count,
             role="RESULT",
+        ),
+        ReportField(
+            "slenderness_status",
+            "TS500 slenderness status",
+            slenderness.status,
+            role="STATUS",
         ),
         ReportField("rebar_design_status", "Longitudinal rebar design status", rebar.status, role="STATUS"),
         ReportField("rebar_authority", "Longitudinal rebar authority", rebar.authority, role="AUTHORITY"),
@@ -89,7 +104,13 @@ def build_vs6_column_design_engine_reports(
             component_type="COLUMN",
             component_id=result.component_id,
             summary_fields=tuple(summary),
-            authority_refs=("TBDY 2018 7.3.2.1", "TS500 6.3.10", "TS500 7.1", "TS500 7.5"),
+            authority_refs=(
+                "TBDY 2018 7.3.2.1",
+                "TS500 6.3.10",
+                "TS500 7.1",
+                "TS500 7.5",
+                "TS500 7.6",
+            ),
             warnings=tuple(warnings),
         )
     ]
@@ -104,6 +125,7 @@ def build_vs6_column_design_engine_reports(
             )
 
     contributions.append(build_vs6_minimum_eccentricity_report(minimum_eccentricity))
+    contributions.append(build_vs6_slenderness_report(slenderness))
 
     if rebar.candidate_population is not None:
         contributions.append(
