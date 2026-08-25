@@ -9,14 +9,28 @@ from tbdy_engine.product_reports.slice_report_contribution import (
 )
 
 
+_COLUMNS = (
+    "axis",
+    "status",
+    "sway_classification",
+    "section_dimension_mm",
+    "free_length_ln_mm",
+    "effective_length_factor_k",
+    "effective_length_lk_mm",
+    "radius_of_gyration_i_mm",
+    "slenderness_ratio_lk_over_i",
+    "moment_ratio_m1_over_m2",
+    "neglect_limit",
+    "source_refs",
+)
+
+
 def build_vs6_slenderness_report(result: ColumnSlendernessResult) -> SliceReportContribution:
     if result.resolved:
         status = "PROVEN"
-    elif result.status.startswith("BLOCKED"):
-        status = "BLOCKED"
     else:
-        # REQUIRES_MOMENT_MAGNIFICATION / GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED
-        # are truthful engineering routing states, not compliance FAIL verdicts.
+        # BLOCKED basis, required magnification, and general second-order routing
+        # are truthful incomplete-design states here, not compliance FAIL verdicts.
         status = "BLOCKED"
 
     rows = []
@@ -34,7 +48,7 @@ def build_vs6_slenderness_report(result: ColumnSlendernessResult) -> SliceReport
                 "slenderness_ratio_lk_over_i": axis.slenderness_ratio_lk_over_i,
                 "moment_ratio_m1_over_m2": axis.moment_ratio_m1_over_m2,
                 "neglect_limit": axis.neglect_limit,
-                "source_refs": list(axis.source_refs),
+                "source_refs": " | ".join(axis.source_refs) if axis.source_refs else None,
             }
         )
 
@@ -55,7 +69,7 @@ def build_vs6_slenderness_report(result: ColumnSlendernessResult) -> SliceReport
     return SliceReportContribution(
         slice_id="VS6-P6-TS500-COLUMN-SLENDERNESS",
         title="TS500 Column Slenderness / Second-Order Basis",
-        contribution_kind="CHECK_DETAIL",
+        contribution_kind="CHECK",
         status=status,
         component_type="COLUMN",
         component_id=result.component_id,
@@ -64,10 +78,11 @@ def build_vs6_slenderness_report(result: ColumnSlendernessResult) -> SliceReport
             ReportField("slenderness_authority", "Authority", result.authority, role="AUTHORITY"),
             ReportField("slenderness_resolved", "Current design moments complete for slenderness", result.resolved, role="STATUS"),
         ),
-        detail_tables=(
+        tables=(
             ReportTable(
                 table_id="slenderness_axes",
                 title="TS500 7.6 directional slenderness assessment",
+                columns=_COLUMNS,
                 rows=tuple(rows),
             ),
         ),
