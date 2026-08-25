@@ -22,12 +22,15 @@ def test_integrated_live_runner_is_read_only_and_uses_production_engines():
         "select_engine_rebar_for_demands(",
         "apply_ts500_minimum_eccentricity(",
         "evaluate_ts500_column_slenderness(",
+        "resolve_ts500_column_slenderness_basis(",
     ):
         assert forbidden not in source
 
     assert "capture_etabs_combo_definitions" in source
     assert "capture_etabs_rebar_catalog_evidence" in source
     assert "promote_live_proven_etabs_rebar_catalog" in source
+    assert "capture_etabs_strict_column_topology" in source
+    assert "build_factual_slenderness_evidence_from_topology" in source
     assert "evaluate_column_design" in source
     assert "build_vs6_column_design_engine_reports" in source
     assert '"report_contributions"' in source
@@ -47,13 +50,25 @@ def test_minimum_eccentricity_is_engine_derived_not_cli_authorized():
     assert '"minimum_eccentricity_status": "ENGINE_DERIVED_TS500_6.3.10"' in source
 
 
-def test_slenderness_is_engine_derived_not_cli_authorized_or_factual_length_promoted_here():
+def test_slenderness_is_engine_derived_and_factual_clear_length_is_not_promoted_to_ln():
     source = inspect.getsource(runner)
     assert "--slenderness-status" not in source
     assert 'slenderness_status="BLOCKED"' in source
-    assert '"slenderness_status": "ENGINE_DERIVED_TS500_7.6_BLOCKED_PENDING_REGULATORY_BASIS"' in source
-    assert "analysis_clear_length_candidate_m" not in source
+    assert 'slenderness_evidence=slenderness_evidence' in source
     assert "slenderness_basis=" not in source
+    assert "regulatory_free_length_ln_mm=" not in source
+    assert '"regulatory_ln_status": "NOT_PROMOTED_FROM_FACTUAL_CLEAR_LENGTH_CANDIDATE"' in source
+    assert '"sway_status": "NOT_PROMOTED"' in source
+
+
+def test_strict_topology_is_factual_source_not_runtime_regulatory_authority():
+    source = inspect.getsource(runner)
+    assert "capture_etabs_strict_column_topology" in source
+    assert "build_factual_slenderness_evidence_from_topology" in source
+    assert '"strict_topology_authority"' in source
+    assert '"strict_topology_summary"' in source
+    assert "TS500_REGULATORY_FREE_LENGTH" not in source
+    assert "TS500_SWAY_CLASSIFICATION" not in source
 
 
 def test_bar_library_uses_live_proven_factual_etabs_schema_not_cli_field_or_diameter_lists():
