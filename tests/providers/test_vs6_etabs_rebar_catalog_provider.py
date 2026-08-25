@@ -8,6 +8,7 @@ from tbdy_engine.providers.etabs_rebar_catalog_provider import (
     EtabsRebarCatalogProviderError,
     capture_etabs_rebar_catalog_evidence,
     promote_etabs_rebar_catalog,
+    promote_live_proven_etabs_rebar_catalog,
 )
 
 
@@ -40,7 +41,7 @@ def test_capture_preserves_factual_headers_and_rows(monkeypatch):
     assert evidence.rows[1]["Name"] == "14"
 
 
-def test_promotion_requires_explicit_existing_field_binding(monkeypatch):
+def test_generic_promotion_requires_explicit_existing_field_binding(monkeypatch):
     monkeypatch.setattr(provider, "fetch_display_table", lambda *args, **kwargs: _fetch())
     evidence = capture_etabs_rebar_catalog_evidence(object())
 
@@ -54,20 +55,48 @@ def test_promotion_requires_explicit_existing_field_binding(monkeypatch):
         )
 
 
-def test_promotion_uses_factual_catalog_and_keeps_below_column_minimum_visible(monkeypatch):
-    monkeypatch.setattr(provider, "fetch_display_table", lambda *args, **kwargs: _fetch())
+def test_live_proven_schema_promotion_uses_name_diameter_and_reviewed_length_unit(monkeypatch):
+    monkeypatch.setattr(
+        provider,
+        "fetch_display_table",
+        lambda *args, **kwargs: _fetch(fields=("Name", "Diameter", "Area", "GUID")),
+    )
     evidence = capture_etabs_rebar_catalog_evidence(object())
-    catalog = promote_etabs_rebar_catalog(
+    catalog = promote_live_proven_etabs_rebar_catalog(
         evidence,
-        name_field="Name",
-        diameter_field="Diameter",
-        diameter_unit="m",
+        reviewed_length_unit="m",
         source_name="ETABS Reinforcing Bar Sizes",
     )
 
     assert catalog.diameters_mm == pytest.approx((10.0, 14.0, 16.0))
     assert catalog.column_longitudinal_diameters_mm == pytest.approx((14.0, 16.0))
     assert [item.name for item in catalog.excluded_below_column_minimum] == ["10"]
+
+
+def test_live_proven_schema_drift_fails_closed(monkeypatch):
+    monkeypatch.setattr(
+        provider,
+        "fetch_display_table",
+        lambda *args, **kwargs: _fetch(fields=("BarName", "Diameter")),
+    )
+    evidence = capture_etabs_rebar_catalog_evidence(object())
+    with pytest.raises(EtabsRebarCatalogProviderError, match="missing required field"):
+        promote_live_proven_etabs_rebar_catalog(
+            evidence,
+            reviewed_length_unit="m",
+            source_name="ETABS Reinforcing Bar Sizes",
+        )
+
+
+def test_live_proven_schema_requires_explicit_reviewed_length_unit(monkeypatch):
+    monkeypatch.setattr(provider, "fetch_display_table", lambda *args, **kwargs: _fetch())
+    evidence = capture_etabs_rebar_catalog_evidence(object())
+    with pytest.raises(EtabsRebarCatalogProviderError, match="reviewed_length_unit"):
+        promote_live_proven_etabs_rebar_catalog(
+            evidence,
+            reviewed_length_unit="cm",
+            source_name="ETABS Reinforcing Bar Sizes",
+        )
 
 
 def test_partial_capture_fails_closed(monkeypatch):
