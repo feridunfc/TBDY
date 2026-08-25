@@ -1,9 +1,9 @@
 """Projection-only reporting for the integrated VS6 column design engine.
 
 This module performs no engineering calculation. It projects the already
-resolved demand-engine, minimum-eccentricity, slenderness-basis/slenderness and
-longitudinal-rebar-engine results into the common ``SliceReportContribution``
-contract.
+resolved demand-engine, minimum-eccentricity, stiffness-basis,
+slenderness-basis/slenderness and longitudinal-rebar-engine results into the
+common ``SliceReportContribution`` contract.
 """
 from __future__ import annotations
 
@@ -20,6 +20,9 @@ from tbdy_engine.product_reports.vs6_rebar_layout_report import build_vs6_rebar_
 from tbdy_engine.product_reports.vs6_rebar_selection_report import build_vs6_rebar_selection_report
 from tbdy_engine.product_reports.vs6_slenderness_basis_report import build_vs6_slenderness_basis_report
 from tbdy_engine.product_reports.vs6_slenderness_report import build_vs6_slenderness_report
+from tbdy_engine.product_reports.vs6_stability_stiffness_basis_report import (
+    build_vs6_stability_stiffness_basis_report,
+)
 
 
 def build_vs6_column_design_engine_reports(
@@ -30,6 +33,7 @@ def build_vs6_column_design_engine_reports(
     """Project one canonical engine result to composite + detailed contributions."""
     demand = result.design_demands
     minimum_eccentricity = result.minimum_eccentricity
+    stability_stiffness_basis = result.stability_stiffness_basis
     slenderness_basis = result.slenderness_basis
     slenderness = result.slenderness
     rebar = result.rebar_design
@@ -37,6 +41,8 @@ def build_vs6_column_design_engine_reports(
 
     if result.status == "SELECTED_ENGINE_REBAR":
         composite_status = "PROVEN"
+    elif result.status == "REANALYSIS_REQUIRED":
+        composite_status = "REANALYSIS_REQUIRED"
     elif result.status.startswith("BLOCKED") or result.status in {
         "REQUIRES_MOMENT_MAGNIFICATION",
         "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED",
@@ -55,6 +61,10 @@ def build_vs6_column_design_engine_reports(
         )
     if not minimum_eccentricity.resolved:
         warnings.append("TS500 minimum-eccentricity closure is not resolved.")
+    if stability_stiffness_basis is not None and stability_stiffness_basis.reanalysis_required:
+        warnings.append(
+            "Current source-bound ETABS stiffness evidence requires a TS500 Eq.7.13-compatible uncracked reanalysis before that sway-proof route can authorize slenderness closure."
+        )
     if not slenderness_basis.resolved:
         warnings.append(
             "TS500 regulatory ln/sway/effective-length basis is not fully promoted; factual clear-length candidates remain evidence only."
@@ -81,6 +91,12 @@ def build_vs6_column_design_engine_reports(
             "Post-eccentricity P-M2-M3 states",
             minimum_eccentricity.output_state_count,
             role="RESULT",
+        ),
+        ReportField(
+            "stability_stiffness_basis_status",
+            "TS500 Eq.7.13 stiffness-basis status",
+            "NOT_EVALUATED" if stability_stiffness_basis is None else stability_stiffness_basis.status,
+            role="STATUS",
         ),
         ReportField(
             "slenderness_basis_status",
@@ -138,6 +154,13 @@ def build_vs6_column_design_engine_reports(
             )
 
     contributions.append(build_vs6_minimum_eccentricity_report(minimum_eccentricity))
+    if stability_stiffness_basis is not None:
+        contributions.append(
+            build_vs6_stability_stiffness_basis_report(
+                stability_stiffness_basis,
+                component_id=result.component_id,
+            )
+        )
     contributions.append(build_vs6_slenderness_basis_report(slenderness_basis))
     contributions.append(build_vs6_slenderness_report(slenderness))
 
