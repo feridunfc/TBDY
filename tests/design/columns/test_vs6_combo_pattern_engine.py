@@ -1,17 +1,17 @@
 from tbdy_engine.design.columns.combo_pattern_engine import (
+    ComboPatternConstituent,
     PATTERN_STATIC_LINEAR,
     PATTERN_STATIC_PLUS_RESPONSE_SPECTRUM,
     PATTERN_UNSUPPORTED,
     classify_combo_pattern,
 )
-from tbdy_engine.design.columns.design_demand_states import LinearComboConstituent
 
 
 def test_combo_name_has_no_engineering_semantics():
     terms = (
-        LinearComboConstituent("D", 1.0),
-        LinearComboConstituent("RSX", 1.0),
-        LinearComboConstituent("RSY", 0.3),
+        ComboPatternConstituent("D", 1.0),
+        ComboPatternConstituent("RSX", 1.0),
+        ComboPatternConstituent("RSY", 0.3),
     )
     case_types = {"D": "LinStatic", "RSX": "LinRespSpec", "RSY": "LinRespSpec"}
     a = classify_combo_pattern(
@@ -34,7 +34,7 @@ def test_static_linear_pattern_is_supported():
     result = classify_combo_pattern(
         combo_name="ANY_NAME",
         combo_type="LINEAR_ADD",
-        constituents=(LinearComboConstituent("D", 1.4), LinearComboConstituent("L", 1.6)),
+        constituents=(ComboPatternConstituent("D", 1.4), ComboPatternConstituent("L", 1.6)),
         case_types={"D": "LinStatic", "L": "LinStatic"},
     )
     assert result.pattern == PATTERN_STATIC_LINEAR
@@ -45,7 +45,7 @@ def test_unsupported_case_type_fails_closed():
     result = classify_combo_pattern(
         combo_name="Crack_SeisX",
         combo_type="LINEAR_ADD",
-        constituents=(LinearComboConstituent("TH", 1.0),),
+        constituents=(ComboPatternConstituent("TH", 1.0),),
         case_types={"TH": "NonlinearStatic"},
     )
     assert result.pattern == PATTERN_UNSUPPORTED
@@ -58,7 +58,7 @@ def test_nested_combo_fails_closed_even_with_familiar_name():
     result = classify_combo_pattern(
         combo_name="Crack_SeisX",
         combo_type="LINEAR_ADD",
-        constituents=(LinearComboConstituent("SUB", 1.0, cname_type="LOAD_COMBO"),),
+        constituents=(ComboPatternConstituent("SUB", 1.0, cname_type="LOAD_COMBO"),),
         case_types={"SUB": "LinStatic"},
     )
     assert result.pattern == PATTERN_UNSUPPORTED
