@@ -2,20 +2,16 @@
 """Read-only live acceptance adapter for the integrated VS6 column design engine.
 
 The adapter acquires factual ETABS combo definitions, constituent/observed
-P-M2-M3 rows, column geometry/material facts, the factual reinforcing-bar
-catalog, and factual column-section rebar design intent. Engineering pattern
-classification, response-spectrum design-state promotion, TS500 minimum-
-eccentricity closure, TS500 slenderness routing, and longitudinal-rebar
-selection are delegated to production engine modules.
+P-M2-M3 rows, strict column topology, column geometry/material facts, the
+factual reinforcing-bar catalog, and factual column-section rebar design intent.
+Engineering classification/promotion and longitudinal-rebar selection are
+delegated to production engine modules.
 
-The ETABS section rebar intent supplies layout seed geometry (clear cover and
-named tie size resolved through the factual bar catalog) but is never promoted
-to provided/final reinforcement. Maximum aggregate size remains an explicit
-project input because it is not inferred from ETABS.
-
-No regulatory TS500 free length / sway / effective-length basis is invented by
-this adapter. Until that factual-to-regulatory promotion exists, the production
-slenderness engine remains fail-closed and blocks ENGINE_SELECTED_REBAR.
+Strict topology now feeds the slenderness-basis promotion boundary with the
+ETABS clear-length candidate as factual evidence only. The adapter does NOT
+promote that candidate to TS500 regulatory ``ln`` and does not invent sway or
+an effective-length factor. Until those regulatory inputs are source-bound, the
+production engine remains fail-closed for ENGINE_SELECTED_REBAR.
 
 No ETABS analysis/design is started, no model property is changed, no present
 unit is set and the model is never saved.
@@ -54,6 +50,9 @@ from tbdy_engine.json_safe import to_jsonable
 from tbdy_engine.product_reports.vs6_column_design_engine_report import (
     build_vs6_column_design_engine_reports,
 )
+from tbdy_engine.providers.column_slenderness_evidence_provider import (
+    build_factual_slenderness_evidence_from_topology,
+)
 from tbdy_engine.providers.etabs_column_rebar_intent_provider import (
     capture_etabs_column_rebar_intent,
 )
@@ -64,6 +63,9 @@ from tbdy_engine.providers.etabs_combo_definition_provider import (
 from tbdy_engine.providers.etabs_rebar_catalog_provider import (
     capture_etabs_rebar_catalog_evidence,
     promote_live_proven_etabs_rebar_catalog,
+)
+from tbdy_engine.providers.etabs_strict_column_topology_provider import (
+    capture_etabs_strict_column_topology,
 )
 
 
@@ -143,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
 
     parser.add_argument("--reviewed-force-unit", choices=("kN",), required=True)
     parser.add_argument("--reviewed-moment-unit", choices=("kN-m",), required=True)
-    parser.add_argument("--reviewed-length-unit", choices=("m", "mm"), required=True)
+    parser.add_argument("--reviewed-length-unit", choices=("m",), required=True)
     parser.add_argument("--reviewed-concrete-fc-unit", choices=("kPa",), required=True)
 
     parser.add_argument("--reviewed-aggregate-max-mm", type=float, required=True)
@@ -208,6 +210,19 @@ def main(argv: list[str] | None = None) -> int:
             reviewed_force_unit=args.reviewed_force_unit,
             reviewed_moment_unit=args.reviewed_moment_unit,
         )
+        strict_topology_evidence = capture_etabs_strict_column_topology(
+            sap.DatabaseTables,
+            reviewed_length_unit=args.reviewed_length_unit,
+        )
+        factual_uids = {column.unique_name for column in acquired.columns}
+        topology_uids = {column.unique_name for column in strict_topology_evidence.topology.columns}
+        if factual_uids != topology_uids:
+            raise ValueError(
+                "column population mismatch between design-demand geometry and strict topology: "
+                f"missing_in_topology={sorted(factual_uids - topology_uids)} "
+                f"extra_in_topology={sorted(topology_uids - factual_uids)}"
+            )
+
         rebar_table = capture_etabs_rebar_catalog_evidence(sap.DatabaseTables)
         rebar_catalog = promote_live_proven_etabs_rebar_catalog(
             rebar_table,
@@ -253,7 +268,7 @@ def main(argv: list[str] | None = None) -> int:
             "VS6 live engine: analysis-order status explicitly reviewed",
             "VS6 live engine: combination scope is engine-derived, not caller-authorized",
             "VS6 live engine: TS500 6.3.10 minimum eccentricity is engine-derived, not caller-authorized",
-            "VS6 live engine: TS500 7.6 slenderness is engine-derived; no regulatory basis is invented",
+            "VS6 live engine: TS500 7.6 slenderness basis promotion is engine-derived and fail-closed",
         ),
     )
 
@@ -268,6 +283,21 @@ def main(argv: list[str] | None = None) -> int:
                     f"fck mismatch for {column.component_id}: observed={column.fck_mpa:g} expected={args.expected_fck_mpa:g}"
                 )
             layout_seed = layout_seed_by_section[column.section]
+            topology_column = strict_topology_evidence.topology.column(column.unique_name)
+            if topology_column.section != column.section:
+                raise ValueError(
+                    f"section mismatch for {column.component_id}: demand={column.section} topology={topology_column.section}"
+                )
+            if abs(topology_column.width_t2_m - column.width_m) > 1e-12 or abs(
+                topology_column.depth_t3_m - column.depth_m
+            ) > 1e-12:
+                raise ValueError(
+                    f"rectangular dimension mismatch for {column.component_id}: "
+                    f"demand=({column.width_m:g},{column.depth_m:g}) "
+                    f"topology=({topology_column.width_t2_m:g},{topology_column.depth_t3_m:g})"
+                )
+            slenderness_evidence = build_factual_slenderness_evidence_from_topology(topology_column)
+
             normalized = normalize_etabs_column_end_demands(
                 exact_rows,
                 unique_name=column.unique_name,
@@ -288,9 +318,7 @@ def main(argv: list[str] | None = None) -> int:
                 force_tolerance_n=args.force_verification_tolerance_kn * 1000.0,
                 moment_tolerance_nmm=args.moment_verification_tolerance_knm * 1_000_000.0,
                 rebar_catalog=rebar_catalog,
-                # No slenderness_basis is supplied here until strict TS500 free-length /
-                # sway / effective-length evidence promotion exists. Production engine
-                # therefore owns and emits BLOCKED_SLENDERNESS_BASIS.
+                slenderness_evidence=slenderness_evidence,
                 rebar_inputs=ColumnRebarDesignInputs(
                     component_id=column.component_id,
                     width_mm=column.width_m * 1000.0,
@@ -322,6 +350,7 @@ def main(argv: list[str] | None = None) -> int:
                     "depth_m": column.depth_m,
                     "fck_mpa": column.fck_mpa,
                     "layout_seed": asdict(layout_seed),
+                    "factual_slenderness_evidence": asdict(slenderness_evidence),
                     "engine_result": asdict(result),
                     "report_contributions": [
                         report.as_dict()
@@ -354,6 +383,11 @@ def main(argv: list[str] | None = None) -> int:
         for item in results
         if item["engine_result"]["minimum_eccentricity"]["status"] != "PROVEN_TS500_MINIMUM_ECCENTRICITY"
     )
+    slenderness_basis_blocked_count = sum(
+        1
+        for item in results
+        if item["engine_result"]["slenderness_basis"]["status"] != "PROVEN_TS500_SLENDERNESS_BASIS"
+    )
     slenderness_blocked_count = sum(
         1
         for item in results
@@ -364,8 +398,10 @@ def main(argv: list[str] | None = None) -> int:
         status, rc = "COMPLETE_BLOCKED_COMBINATION_SCOPE", 8
     elif minimum_eccentricity_blocked_count:
         status, rc = "COMPLETE_BLOCKED_MINIMUM_ECCENTRICITY", 10
-    elif slenderness_blocked_count:
+    elif slenderness_basis_blocked_count:
         status, rc = "COMPLETE_BLOCKED_SLENDERNESS_BASIS", 11
+    elif slenderness_blocked_count:
+        status, rc = "COMPLETE_SLENDERNESS_REQUIRES_FURTHER_ANALYSIS", 12
     elif selected_count == len(results):
         status, rc = "COMPLETE_ENGINE_SELECTED_REBAR", 0
     elif args.analysis_order_status == "BLOCKED":
@@ -390,6 +426,9 @@ def main(argv: list[str] | None = None) -> int:
             "constituent_load_cases": list(load_case_names),
             "captured_outputs": list(output_names),
             "combo_definitions": [item.as_dict() for item in factual_combo_defs],
+            "strict_topology_authority": strict_topology_evidence.authority,
+            "strict_topology_table_row_counts": strict_topology_evidence.row_count_map(),
+            "strict_topology_summary": strict_topology_evidence.topology.summary(),
             "rebar_catalog_table": rebar_table.as_dict(),
             "rebar_catalog": {
                 "status": rebar_catalog.status,
@@ -423,7 +462,9 @@ def main(argv: list[str] | None = None) -> int:
             "axial_tolerance_kn": args.axial_tolerance_kn,
             "analysis_order_status": args.analysis_order_status,
             "minimum_eccentricity_status": "ENGINE_DERIVED_TS500_6.3.10",
-            "slenderness_status": "ENGINE_DERIVED_TS500_7.6_BLOCKED_PENDING_REGULATORY_BASIS",
+            "slenderness_status": "ENGINE_DERIVED_TS500_7.6_FROM_STRICT_FACTUAL_EVIDENCE",
+            "regulatory_ln_status": "NOT_PROMOTED_FROM_FACTUAL_CLEAR_LENGTH_CANDIDATE",
+            "sway_status": "NOT_PROMOTED",
             "combination_scope_status": "ENGINE_DERIVED",
         },
         "summary": {
@@ -432,7 +473,8 @@ def main(argv: list[str] | None = None) -> int:
             "engine_selected_rebar_count": selected_count,
             "blocked_combination_scope_count": combo_scope_blocked_count,
             "blocked_minimum_eccentricity_count": minimum_eccentricity_blocked_count,
-            "blocked_slenderness_count": slenderness_blocked_count,
+            "blocked_slenderness_basis_count": slenderness_basis_blocked_count,
+            "blocked_or_routed_slenderness_count": slenderness_blocked_count,
             "final_or_provided_rebar_count": 0,
             "transverse_links_selected": False,
             "final_column_shear_compliance_emitted": False,
