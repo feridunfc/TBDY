@@ -2,7 +2,7 @@ from tbdy_engine.design.columns.column_design_demand_engine import (
     ColumnComboDefinition,
     evaluate_column_design_demands,
 )
-from tbdy_engine.design.columns.design_demand_states import LinearComboConstituent
+from tbdy_engine.design.columns.combo_pattern_engine import ComboPatternConstituent
 from tbdy_engine.design.columns.rebar_selection import ColumnDemandState
 
 
@@ -39,7 +39,7 @@ def test_engine_promotes_supported_combo_independent_of_name():
             ColumnComboDefinition(
                 name="ULS_17",
                 combo_type="LINEAR_ADD",
-                constituents=(LinearComboConstituent("G", 1.0), LinearComboConstituent("RSX", 1.0)),
+                constituents=(ComboPatternConstituent("G", 1.0), ComboPatternConstituent("RSX", 1.0)),
             ),
         ),
         case_demands=case_rows,
@@ -64,12 +64,12 @@ def test_one_unsupported_combo_blocks_full_scope_and_is_not_promoted():
             ColumnComboDefinition(
                 name="GRAV",
                 combo_type="LINEAR_ADD",
-                constituents=(LinearComboConstituent("D", 1.4),),
+                constituents=(ComboPatternConstituent("D", 1.4),),
             ),
             ColumnComboDefinition(
                 name="SEIS_LOOKING_NAME",
                 combo_type="LINEAR_ADD",
-                constituents=(LinearComboConstituent("NL", 1.0),),
+                constituents=(ComboPatternConstituent("NL", 1.0),),
             ),
         ),
         case_demands=case_rows,
@@ -78,3 +78,25 @@ def test_one_unsupported_combo_blocks_full_scope_and_is_not_promoted():
     assert result.blocked_combo_names == ("SEIS_LOOKING_NAME",)
     assert len(result.promoted_states) == 2
     assert result.combo_results[1].build is None
+
+
+def test_nested_combo_is_reported_blocked_not_raised_by_factual_definition_layer():
+    case_rows = (
+        _state("D", "LinStatic", "I_END", 0.0, 1000.0, 10.0, 20.0),
+        _state("D", "LinStatic", "J_END", 4.0, 900.0, -10.0, -20.0),
+    )
+    result = evaluate_column_design_demands(
+        component_id=COMP,
+        definitions=(
+            ColumnComboDefinition(
+                name="NESTED",
+                combo_type="LINEAR_ADD",
+                constituents=(ComboPatternConstituent("SUBCOMBO", 1.0, cname_type="LOAD_COMBO"),),
+            ),
+        ),
+        case_demands=case_rows,
+    )
+    assert result.status == "BLOCKED_COLUMN_DESIGN_DEMAND_SCOPE"
+    assert result.blocked_combo_names == ("NESTED",)
+    assert result.combo_results[0].classification.pattern == "UNSUPPORTED_COMBO_PATTERN"
+    assert result.combo_results[0].build is None
