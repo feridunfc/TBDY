@@ -51,7 +51,7 @@ def build_vs6_design_demand_report(
     summary = [
         ReportField("build_status", "Design demand build status", build.status, role="STATUS"),
         ReportField("authority", "Design demand authority", build.authority, role="AUTHORITY"),
-        ReportField("combo_name", "Combination", build.combo_name, role="SOURCE"),
+        ReportField("combo_name", "Combination", build.combo_name, role="INPUT"),
         ReportField("state_count", "Generated design states", len(build.states), role="RESULT"),
     ]
     warnings = [
@@ -62,8 +62,8 @@ def build_vs6_design_demand_report(
         summary.extend(
             (
                 ReportField("observed_subset_status", "Observed ETABS combo-row subset proof", verification.status, role="STATUS"),
-                ReportField("observed_state_count", "Observed combo rows", verification.observed_state_count, role="EVIDENCE"),
-                ReportField("matched_state_count", "Matched generated states", verification.matched_state_count, role="EVIDENCE"),
+                ReportField("observed_state_count", "Observed combo rows", verification.observed_state_count, role="NOTE"),
+                ReportField("matched_state_count", "Matched generated states", verification.matched_state_count, role="NOTE"),
             )
         )
         if verification.unmatched_observed_state_ids:
