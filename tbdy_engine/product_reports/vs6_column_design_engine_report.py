@@ -61,7 +61,7 @@ def build_vs6_column_design_engine_reports(
         )
     if not minimum_eccentricity.resolved:
         warnings.append("TS500 minimum-eccentricity closure is not resolved.")
-    if stability_stiffness_basis is not None and stability_stiffness_basis.reanalysis_required:
+    if result.status == "REANALYSIS_REQUIRED":
         warnings.append(
             "Current source-bound ETABS stiffness evidence requires a TS500 Eq.7.13-compatible uncracked reanalysis before that sway-proof route can authorize slenderness closure."
         )
