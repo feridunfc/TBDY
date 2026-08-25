@@ -45,7 +45,7 @@ def _catalog():
     )
 
 
-def _rebar_inputs(*, combo_scope="RESOLVED"):
+def _rebar_inputs(*, combo_scope="RESOLVED", min_ecc="BLOCKED"):
     return ColumnRebarDesignInputs(
         component_id=COMP,
         width_mm=800.0,
@@ -56,7 +56,7 @@ def _rebar_inputs(*, combo_scope="RESOLVED"):
         material=ColumnSectionMaterial(fck_mpa=35.0, fcd_mpa=35.0 / 1.5, fyd_mpa=500.0 / 1.15),
         demand_basis=ColumnDemandBasis(
             analysis_order_status="RESOLVED",
-            minimum_eccentricity_status="BLOCKED",
+            minimum_eccentricity_status=min_ecc,
             slenderness_status="BLOCKED",
             combination_scope_status=combo_scope,
             review_refs=("fixture-review",),
@@ -84,12 +84,14 @@ def test_unsupported_combo_overrides_caller_claim_of_resolved_combo_scope():
     )
     assert result.status == "BLOCKED_COMBINATION_SCOPE"
     assert not result.design_demands.combination_scope_resolved
+    assert not result.minimum_eccentricity.resolved
     assert result.rebar_design.authority == "NOT_SELECTED"
     assert result.rebar_design.selection is not None
     assert result.rebar_design.selection.basis.combination_scope_status == "BLOCKED"
+    assert result.rebar_design.selection.basis.minimum_eccentricity_status == "BLOCKED"
 
 
-def test_supported_combo_marks_combo_scope_resolved_but_other_basis_blockers_still_stop_selection():
+def test_supported_combo_derives_combo_and_minimum_eccentricity_closures_but_slenderness_still_blocks():
     result = evaluate_column_design(
         component_id=COMP,
         combo_definitions=(
@@ -104,13 +106,14 @@ def test_supported_combo_marks_combo_scope_resolved_but_other_basis_blockers_sti
             _state("D", "LinStatic", "J_END", 4.0),
         ),
         rebar_catalog=_catalog(),
-        rebar_inputs=_rebar_inputs(combo_scope="BLOCKED"),
+        # Caller says both closures are BLOCKED; the engine must derive them.
+        rebar_inputs=_rebar_inputs(combo_scope="BLOCKED", min_ecc="BLOCKED"),
     )
     assert result.design_demands.combination_scope_resolved
+    assert result.minimum_eccentricity.resolved
+    assert result.minimum_eccentricity.input_state_count == 2
     assert result.rebar_design.selection is not None
     assert result.rebar_design.selection.basis.combination_scope_status == "RESOLVED"
+    assert result.rebar_design.selection.basis.minimum_eccentricity_status == "RESOLVED"
     assert result.rebar_design.selection.status == "BLOCKED_DEMAND_BASIS"
-    assert set(result.rebar_design.selection.basis.blocked_items) == {
-        "minimum_eccentricity_status",
-        "slenderness_status",
-    }
+    assert set(result.rebar_design.selection.basis.blocked_items) == {"slenderness_status"}
