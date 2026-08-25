@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import pytest
 
 from tbdy_engine.design.columns.sway_stability import (
@@ -45,10 +47,7 @@ def test_above_limit_does_not_claim_sway_permitted():
 
 
 def test_uncracked_basis_is_mandatory():
-    e = _evidence(TS500_LOAD_GQE, drift_mm=9.0)
-    e = StoryStabilityIndexEvidence(
-        **{**e.__dict__, "stiffness_basis": "CRACKED"}  # type: ignore[attr-defined]
-    )
+    e = replace(_evidence(TS500_LOAD_GQE, drift_mm=9.0), stiffness_basis="CRACKED")
     with pytest.raises(StoryStabilityIndexError, match="UNCRACKED"):
         evaluate_ts500_story_stability_index(e)
 
