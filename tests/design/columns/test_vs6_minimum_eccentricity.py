@@ -73,7 +73,9 @@ def test_zero_moment_direction_branches_both_imperfection_signs():
         demands=(_state(m2=0.0, m3=100_000_000.0),),
     )
     assert result.output_state_count == 2
-    assert {state.m2_nmm for state in result.states} == pytest.approx({-39_000_000.0, 39_000_000.0})
+    assert sorted(state.m2_nmm for state in result.states) == pytest.approx(
+        [-39_000_000.0, 39_000_000.0]
+    )
     assert {state.m3_nmm for state in result.states} == {100_000_000.0}
     assert result.sign_branch_source_state_count == 1
     assert result.adjustments[0].application_status == "APPLIED_WITH_SIGN_BRANCHING"
