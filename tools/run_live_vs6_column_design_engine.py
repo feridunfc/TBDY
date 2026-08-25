@@ -76,7 +76,7 @@ def _write(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _all_load_case_names(definitions: Iterable[EtabsComboDefinitionEvidence]) -> tuple[str, ...]:
-    """Flatten factual combo topology to the exact LOAD_CASE names needing result rows."""
+    """Return factual LOAD_CASE names from the recursively captured combo topology."""
     names: list[str] = []
 
     def visit(item: EtabsComboDefinitionEvidence) -> None:
@@ -92,7 +92,6 @@ def _all_load_case_names(definitions: Iterable[EtabsComboDefinitionEvidence]) ->
 
 
 def _engine_definition(item: EtabsComboDefinitionEvidence) -> ColumnComboDefinition:
-    """Map factual provider DTOs to the production engine's factual input DTOs."""
     return ColumnComboDefinition(
         name=item.name,
         combo_type=item.combo_type,
@@ -105,6 +104,16 @@ def _engine_definition(item: EtabsComboDefinitionEvidence) -> ColumnComboDefinit
             for term in item.constituents
         ),
     )
+
+
+def _blocked_payload(status: str, exc: Exception, *, identity: Any, fingerprint: str) -> dict[str, Any]:
+    return {
+        "status": status,
+        "exception_type": type(exc).__name__,
+        "message": str(exc),
+        "model": {"path": identity.model_full_path, "fingerprint": fingerprint},
+        "safety": SAFETY,
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -199,13 +208,7 @@ def main(argv: list[str] | None = None) -> int:
             source_name=f"ETABS:{fingerprint}:Reinforcing Bar Sizes",
         )
     except Exception as exc:
-        payload = {
-            "status": "BLOCKED_FACTUAL_INPUT_ASSEMBLY",
-            "exception_type": type(exc).__name__,
-            "message": str(exc),
-            "model": {"path": identity.model_full_path, "fingerprint": fingerprint},
-            "safety": SAFETY,
-        }
+        payload = _blocked_payload("BLOCKED_FACTUAL_INPUT_ASSEMBLY", exc, identity=identity, fingerprint=fingerprint)
         _write(args.out, payload)
         print(json.dumps(to_jsonable(payload), ensure_ascii=False, sort_keys=True))
         return 5
@@ -288,13 +291,7 @@ def main(argv: list[str] | None = None) -> int:
                 }
             )
     except Exception as exc:
-        payload = {
-            "status": "BLOCKED_ENGINE_EXECUTION",
-            "exception_type": type(exc).__name__,
-            "message": str(exc),
-            "model": {"path": identity.model_full_path, "fingerprint": fingerprint},
-            "safety": SAFETY,
-        }
+        payload = _blocked_payload("BLOCKED_ENGINE_EXECUTION", exc, identity=identity, fingerprint=fingerprint)
         _write(args.out, payload)
         print(json.dumps(to_jsonable(payload), ensure_ascii=False, sort_keys=True))
         return 6
@@ -308,33 +305,25 @@ def main(argv: list[str] | None = None) -> int:
     combo_scope_blocked_count = sum(
         1
         for item in results
-        if item["engine_result"]["design_demands"]["combination_scope_resolved"] is False
-        if "combination_scope_resolved" in item["engine_result"]["design_demands"]
-    )
-    # ``combination_scope_resolved`` is a property and is not present in asdict;
-    # derive the count from the canonical demand-engine status instead.
-    combo_scope_blocked_count = sum(
-        1
-        for item in results
         if item["engine_result"]["design_demands"]["status"] != "PROVEN_COLUMN_DESIGN_DEMAND_SCOPE"
     )
 
+    basis_has_blocker = any(
+        value == "BLOCKED"
+        for value in (
+            args.analysis_order_status,
+            args.minimum_eccentricity_status,
+            args.slenderness_status,
+        )
+    )
     if combo_scope_blocked_count:
-        status = "COMPLETE_BLOCKED_COMBINATION_SCOPE"
-        rc = 8
+        status, rc = "COMPLETE_BLOCKED_COMBINATION_SCOPE", 8
     elif selected_count == len(results):
-        status = "COMPLETE_ENGINE_SELECTED_REBAR"
-        rc = 0
-    elif any(value == "BLOCKED" for value in (
-        args.analysis_order_status,
-        args.minimum_eccentricity_status,
-        args.slenderness_status,
-    )):
-        status = "COMPLETE_BLOCKED_REBAR_AUTHORITY"
-        rc = 7
+        status, rc = "COMPLETE_ENGINE_SELECTED_REBAR", 0
+    elif basis_has_blocker:
+        status, rc = "COMPLETE_BLOCKED_REBAR_AUTHORITY", 7
     else:
-        status = "COMPLETE_WITH_UNSELECTED_COLUMNS"
-        rc = 9
+        status, rc = "COMPLETE_WITH_UNSELECTED_COLUMNS", 9
 
     payload = {
         "status": status,
