@@ -1,13 +1,19 @@
 """Strict factual topology kernel for the VS6 RC-column shear slice.
 
 This module consumes exact ETABS object/connectivity/assignment rows and builds
-column-to-joint-to-beam topology.  It performs no regulatory calculation and
+column-to-joint-to-beam topology. It performs no regulatory calculation and
 contains no section-name parsing, angle-based frame classification, coordinate
 fallbacks, default dimensions, or reinforcement/design authority.
 
 ``analysis_clear_length_candidate_m`` is a factual ETABS geometry candidate
-computed from object length minus the reported I/J end-length offsets.  It is
+computed from object length minus the reported I/J end-length offsets. It is
 *not* promoted here to the regulatory ``l_n`` used by TBDY 7.3.7.
+
+The model may contain non-RC beams (for example steel canopy framing). Those
+objects are preserved as exact joint attachments instead of blocking the whole
+RC-column topology population. They are explicitly marked unsupported for the
+RC beam-capacity path so later regulatory logic cannot silently treat them as
+reinforced-concrete beams.
 """
 from __future__ import annotations
 
@@ -87,13 +93,15 @@ class BeamJointConnection:
     connected_end: str
     other_joint_unique_name: str
     section: str
-    width_t2_m: float
-    depth_t3_m: float
+    shape: str
+    is_supported_rc_beam: bool
+    width_t2_m: float | None
+    depth_t3_m: float | None
     vector_from_joint_m: tuple[float, float, float]
     horizontal_azimuth_deg: float | None
     connectivity_row: Mapping[str, Any]
     assignment_row: Mapping[str, Any]
-    section_row: Mapping[str, Any]
+    section_row: Mapping[str, Any] | None
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -104,6 +112,8 @@ class BeamJointConnection:
             "connected_end": self.connected_end,
             "other_joint_unique_name": self.other_joint_unique_name,
             "section": self.section,
+            "shape": self.shape,
+            "is_supported_rc_beam": self.is_supported_rc_beam,
             "width_t2_m": self.width_t2_m,
             "depth_t3_m": self.depth_t3_m,
             "vector_from_joint_m": list(self.vector_from_joint_m),
@@ -111,7 +121,7 @@ class BeamJointConnection:
             "source_rows": {
                 "connectivity": dict(self.connectivity_row),
                 "section_assignment": dict(self.assignment_row),
-                "section_definition": dict(self.section_row),
+                "section_definition": None if self.section_row is None else dict(self.section_row),
             },
         }
 
@@ -147,6 +157,14 @@ class ColumnTopologyEvidence:
     def component_id(self) -> str:
         return f"{self.story}:{self.column_label}:{self.unique_name}"
 
+    @property
+    def unsupported_beams_at_bottom(self) -> tuple[BeamJointConnection, ...]:
+        return tuple(item for item in self.beams_at_bottom if not item.is_supported_rc_beam)
+
+    @property
+    def unsupported_beams_at_top(self) -> tuple[BeamJointConnection, ...]:
+        return tuple(item for item in self.beams_at_top if not item.is_supported_rc_beam)
+
     def as_dict(self) -> dict[str, object]:
         return {
             "component_id": self.component_id,
@@ -171,6 +189,14 @@ class ColumnTopologyEvidence:
             "local_axis_explicit": self.local_axis_explicit,
             "beams_at_bottom": [item.as_dict() for item in self.beams_at_bottom],
             "beams_at_top": [item.as_dict() for item in self.beams_at_top],
+            "unsupported_beam_attachment_count": (
+                len(self.unsupported_beams_at_bottom) + len(self.unsupported_beams_at_top)
+            ),
+            "rc_beam_capacity_attachment_status": (
+                "REQUIRES_SCOPE_CLASSIFICATION"
+                if self.unsupported_beams_at_bottom or self.unsupported_beams_at_top
+                else "SUPPORTED_RC_ATTACHMENTS_ONLY"
+            ),
             "source_rows": {
                 "connectivity": dict(self.connectivity_row),
                 "section_assignment": dict(self.assignment_row),
@@ -186,6 +212,8 @@ class StrictColumnTopologyBundle:
     columns: tuple[ColumnTopologyEvidence, ...]
     point_count: int
     beam_count: int
+    supported_rc_beam_count: int
+    unsupported_beam_count: int
     reviewed_length_unit: str
 
     def __post_init__(self) -> None:
@@ -195,6 +223,8 @@ class StrictColumnTopologyBundle:
             raise ColumnShearTopologyError("strict topology requires at least one column")
         if len({item.unique_name for item in self.columns}) != len(self.columns):
             raise ColumnShearTopologyError("duplicate column UniqueName in strict topology bundle")
+        if self.supported_rc_beam_count + self.unsupported_beam_count != self.beam_count:
+            raise ColumnShearTopologyError("beam population accounting mismatch")
 
     def column(self, unique_name: str) -> ColumnTopologyEvidence:
         uid = _text(unique_name, "column_unique_name")
@@ -208,13 +238,25 @@ class StrictColumnTopologyBundle:
         connected_bottom = sum(bool(item.beams_at_bottom) for item in self.columns)
         explicit_axis = sum(item.local_axis_explicit for item in self.columns)
         clear_lengths = [item.analysis_clear_length_candidate_m for item in self.columns]
+        columns_with_unsupported = sum(
+            bool(item.unsupported_beams_at_top or item.unsupported_beams_at_bottom)
+            for item in self.columns
+        )
         return {
             "status": "PROVEN_STRICT_TOPOLOGY",
             "column_count": len(self.columns),
             "beam_count": self.beam_count,
+            "supported_rc_beam_count": self.supported_rc_beam_count,
+            "unsupported_beam_count": self.unsupported_beam_count,
             "point_count": self.point_count,
             "columns_with_top_beams": connected_top,
             "columns_with_bottom_beams": connected_bottom,
+            "columns_with_unsupported_beam_attachments": columns_with_unsupported,
+            "rc_beam_capacity_attachment_status": (
+                "REQUIRES_SCOPE_CLASSIFICATION"
+                if columns_with_unsupported
+                else "SUPPORTED_RC_ATTACHMENTS_ONLY"
+            ),
             "explicit_column_local_axis_count": explicit_axis,
             "analysis_clear_length_candidate_min_m": min(clear_lengths),
             "analysis_clear_length_candidate_max_m": max(clear_lengths),
@@ -234,7 +276,10 @@ def _beam_connection(
     joint: PointTopologyEvidence,
     other: PointTopologyEvidence,
     assignment: Mapping[str, Any],
-    section_row: Mapping[str, Any],
+    section: str,
+    shape: str,
+    is_supported_rc_beam: bool,
+    section_row: Mapping[str, Any] | None,
 ) -> BeamJointConnection:
     dx = other.x_m - joint.x_m
     dy = other.y_m - joint.y_m
@@ -248,14 +293,16 @@ def _beam_connection(
         joint_unique_name=joint.unique_name,
         connected_end=connected_end,
         other_joint_unique_name=other.unique_name,
-        section=_text(assignment.get("SectProp"), "beam.SectProp"),
-        width_t2_m=_float(section_row.get("t2"), "beam.section.t2"),
-        depth_t3_m=_float(section_row.get("t3"), "beam.section.t3"),
+        section=section,
+        shape=shape,
+        is_supported_rc_beam=is_supported_rc_beam,
+        width_t2_m=(None if section_row is None else _float(section_row.get("t2"), "beam.section.t2")),
+        depth_t3_m=(None if section_row is None else _float(section_row.get("t3"), "beam.section.t3")),
         vector_from_joint_m=(dx, dy, dz),
         horizontal_azimuth_deg=azimuth,
         connectivity_row=_freeze(row),
         assignment_row=_freeze(assignment),
-        section_row=_freeze(section_row),
+        section_row=None if section_row is None else _freeze(section_row),
     )
 
 
@@ -273,9 +320,9 @@ def build_strict_column_topology(
 ) -> StrictColumnTopologyBundle:
     """Build exact column/joint/beam topology from ETABS factual rows.
 
-    The function intentionally does not use ``Objects and Elements - Joints``;
-    object-level endpoint identity and coordinates come from ``Point Object
-    Connectivity``.  Analysis-mesh joint tables may be reconciled separately.
+    Object-level endpoint identity and coordinates come from ``Point Object
+    Connectivity``. Non-rectangular/non-RC beams remain factual attachments but
+    are explicitly excluded from the supported RC beam-capacity population.
     """
     if reviewed_length_unit != "m":
         raise ColumnShearTopologyError("VS6 strict topology initial length contract requires m")
@@ -317,56 +364,67 @@ def build_strict_column_topology(
         for uid, row in point_by_uid_raw.items()
     }
 
-    def frame_sources(
-        row: Mapping[str, Any],
-        *,
-        kind: str,
-    ) -> tuple[str, Mapping[str, Any], Mapping[str, Any], Mapping[str, Any]]:
+    def exact_assignment(row: Mapping[str, Any], *, kind: str) -> tuple[str, Mapping[str, Any]]:
         uid = _text(row.get("UniqueName"), f"{kind}.UniqueName")
         assignment = assignment_by_uid.get(uid)
         if assignment is None:
             raise ColumnShearTopologyError(f"missing section assignment for {kind} UniqueName={uid}")
-        if assignment.get("Shape") != "Concrete Rectangular":
-            raise ColumnShearTopologyError(
-                f"unsupported {kind} Shape for UniqueName={uid}: {assignment.get('Shape')}"
-            )
-        section = _text(assignment.get("SectProp"), f"{kind} {uid}.SectProp")
-        section_row = section_by_name.get(section)
-        if section_row is None:
-            raise ColumnShearTopologyError(f"missing rectangular section definition {section} for {kind} {uid}")
-        expected_design_type = "Column" if kind == "column" else "Beam"
-        if section_row.get("DesignType") != expected_design_type:
-            raise ColumnShearTopologyError(
-                f"{kind} {uid} section {section} DesignType={section_row.get('DesignType')} "
-                f"expected {expected_design_type}"
-            )
-        offset = offset_by_uid.get(uid)
-        if offset is None:
-            raise ColumnShearTopologyError(f"missing end-length offsets for {kind} UniqueName={uid}")
-        return uid, assignment, section_row, offset
+        return uid, assignment
 
-    beam_connections_by_joint: dict[str, list[BeamJointConnection]] = {}
-    beam_uids: set[str] = set()
-    for row in beam_rows:
-        uid, assignment, section_row, _offset = frame_sources(row, kind="beam")
-        if uid in beam_uids:
-            raise ColumnShearTopologyError(f"duplicate beam UniqueName={uid}")
-        beam_uids.add(uid)
-        point_i_uid = _text(row.get("UniquePtI"), f"beam {uid}.UniquePtI")
-        point_j_uid = _text(row.get("UniquePtJ"), f"beam {uid}.UniquePtJ")
+    def exact_endpoints(
+        row: Mapping[str, Any], *, kind: str, uid: str
+    ) -> tuple[str, str, PointTopologyEvidence, PointTopologyEvidence, float]:
+        point_i_uid = _text(row.get("UniquePtI"), f"{kind} {uid}.UniquePtI")
+        point_j_uid = _text(row.get("UniquePtJ"), f"{kind} {uid}.UniquePtJ")
         point_i = points.get(point_i_uid)
         point_j = points.get(point_j_uid)
         if point_i is None or point_j is None:
             raise ColumnShearTopologyError(
-                f"beam {uid} endpoint point missing: I={point_i_uid in points} J={point_j_uid in points}"
+                f"{kind} {uid} endpoint point missing: I={point_i_uid in points} J={point_j_uid in points}"
             )
-        object_length = _float(row.get("Length"), f"beam {uid}.Length")
+        object_length = _float(row.get("Length"), f"{kind} {uid}.Length")
         coordinate_length = _distance(point_i, point_j)
         if abs(object_length - coordinate_length) > tolerance:
             raise ColumnShearTopologyError(
-                f"beam {uid} object/coordinate length mismatch: object={object_length} "
+                f"{kind} {uid} object/coordinate length mismatch: object={object_length} "
                 f"coordinate={coordinate_length} tolerance={tolerance}"
             )
+        return point_i_uid, point_j_uid, point_i, point_j, object_length
+
+    beam_connections_by_joint: dict[str, list[BeamJointConnection]] = {}
+    beam_uids: set[str] = set()
+    supported_rc_beam_count = 0
+    unsupported_beam_count = 0
+
+    for row in beam_rows:
+        uid, assignment = exact_assignment(row, kind="beam")
+        if uid in beam_uids:
+            raise ColumnShearTopologyError(f"duplicate beam UniqueName={uid}")
+        beam_uids.add(uid)
+
+        point_i_uid, point_j_uid, point_i, point_j, _object_length = exact_endpoints(
+            row, kind="beam", uid=uid
+        )
+        shape = _text(assignment.get("Shape"), f"beam {uid}.Shape")
+        section = _text(assignment.get("SectProp"), f"beam {uid}.SectProp")
+
+        section_row: Mapping[str, Any] | None = None
+        is_supported_rc_beam = False
+        if shape == "Concrete Rectangular":
+            section_row = section_by_name.get(section)
+            if section_row is None:
+                raise ColumnShearTopologyError(
+                    f"missing rectangular section definition {section} for beam {uid}"
+                )
+            if section_row.get("DesignType") != "Beam":
+                raise ColumnShearTopologyError(
+                    f"beam {uid} section {section} DesignType={section_row.get('DesignType')} expected Beam"
+                )
+            is_supported_rc_beam = True
+            supported_rc_beam_count += 1
+        else:
+            unsupported_beam_count += 1
+
         beam_connections_by_joint.setdefault(point_i_uid, []).append(
             _beam_connection(
                 row=row,
@@ -374,6 +432,9 @@ def build_strict_column_topology(
                 joint=point_i,
                 other=point_j,
                 assignment=assignment,
+                section=section,
+                shape=shape,
+                is_supported_rc_beam=is_supported_rc_beam,
                 section_row=section_row,
             )
         )
@@ -384,6 +445,9 @@ def build_strict_column_topology(
                 joint=point_j,
                 other=point_i,
                 assignment=assignment,
+                section=section,
+                shape=shape,
+                is_supported_rc_beam=is_supported_rc_beam,
                 section_row=section_row,
             )
         )
@@ -391,28 +455,35 @@ def build_strict_column_topology(
     columns: list[ColumnTopologyEvidence] = []
     seen_columns: set[str] = set()
     for row in column_rows:
-        uid, assignment, section_row, offset_row = frame_sources(row, kind="column")
+        uid, assignment = exact_assignment(row, kind="column")
         if uid in seen_columns:
             raise ColumnShearTopologyError(f"duplicate column UniqueName={uid}")
         seen_columns.add(uid)
 
-        point_i_uid = _text(row.get("UniquePtI"), f"column {uid}.UniquePtI")
-        point_j_uid = _text(row.get("UniquePtJ"), f"column {uid}.UniquePtJ")
-        point_i = points.get(point_i_uid)
-        point_j = points.get(point_j_uid)
-        if point_i is None or point_j is None:
+        if assignment.get("Shape") != "Concrete Rectangular":
             raise ColumnShearTopologyError(
-                f"column {uid} endpoint point missing: I={point_i_uid in points} J={point_j_uid in points}"
+                f"unsupported column Shape for UniqueName={uid}: {assignment.get('Shape')}"
             )
-        if point_i.z_m == point_j.z_m:
-            raise ColumnShearTopologyError(f"column {uid} endpoints have equal Z; top/bottom identity is unresolved")
-
-        object_length = _float(row.get("Length"), f"column {uid}.Length")
-        coordinate_length = _distance(point_i, point_j)
-        if abs(object_length - coordinate_length) > tolerance:
+        section = _text(assignment.get("SectProp"), f"column {uid}.SectProp")
+        section_row = section_by_name.get(section)
+        if section_row is None:
             raise ColumnShearTopologyError(
-                f"column {uid} object/coordinate length mismatch: object={object_length} "
-                f"coordinate={coordinate_length} tolerance={tolerance}"
+                f"missing rectangular section definition {section} for column {uid}"
+            )
+        if section_row.get("DesignType") != "Column":
+            raise ColumnShearTopologyError(
+                f"column {uid} section {section} DesignType={section_row.get('DesignType')} expected Column"
+            )
+        offset_row = offset_by_uid.get(uid)
+        if offset_row is None:
+            raise ColumnShearTopologyError(f"missing end-length offsets for column UniqueName={uid}")
+
+        _point_i_uid, _point_j_uid, point_i, point_j, object_length = exact_endpoints(
+            row, kind="column", uid=uid
+        )
+        if point_i.z_m == point_j.z_m:
+            raise ColumnShearTopologyError(
+                f"column {uid} endpoints have equal Z; top/bottom identity is unresolved"
             )
 
         offset_i = _float(offset_row.get("OffsetI"), f"column {uid}.OffsetI")
@@ -445,11 +516,11 @@ def build_strict_column_topology(
                 unique_name=uid,
                 column_label=_text(row.get("ColumnBay"), f"column {uid}.ColumnBay"),
                 story=_text(row.get("Story"), f"column {uid}.Story"),
-                section=_text(assignment.get("SectProp"), f"column {uid}.SectProp"),
+                section=section,
                 width_t2_m=_float(section_row.get("t2"), f"column {uid}.section.t2"),
                 depth_t3_m=_float(section_row.get("t3"), f"column {uid}.section.t3"),
                 object_length_m=object_length,
-                coordinate_length_m=coordinate_length,
+                coordinate_length_m=_distance(point_i, point_j),
                 joint_bottom=bottom.unique_name,
                 joint_top=top.unique_name,
                 bottom_coord_m=bottom.coord_m,
@@ -484,6 +555,8 @@ def build_strict_column_topology(
         columns=tuple(columns),
         point_count=len(points),
         beam_count=len(beam_uids),
+        supported_rc_beam_count=supported_rc_beam_count,
+        unsupported_beam_count=unsupported_beam_count,
         reviewed_length_unit=reviewed_length_unit,
     )
 
