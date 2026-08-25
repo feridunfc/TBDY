@@ -1,14 +1,10 @@
 #!/usr/bin/env python
-"""Offline proof for VS6 P-M2-M3 design-demand reconstruction.
+"""Offline acceptance adapter for the VS6 column design-demand engine.
 
-Consumes previously captured read-only artifacts:
-- constituent load-case column demands,
-- observed ETABS combination column demands,
-- factual response-combination definitions.
-
-No ETABS connection is opened and no engineering capacity/rebar selection is
-performed.  The tool proves the design-state expansion and whether the ETABS
-combo rows are contained in that wider design-permutation set.
+Consumes previously captured read-only artifacts and delegates all combination
+classification and design-state promotion to the production engine.  This tool
+contains file/CLI serialization only: no engineering pattern logic, no ETABS
+connection, no capacity calculation and no reinforcement selection.
 """
 from __future__ import annotations
 
@@ -23,11 +19,11 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tbdy_engine.design.columns.design_demand_states import (
-    LinearComboConstituent,
-    build_linear_combo_design_demands,
-    verify_observed_combo_rows_are_generated_subset,
+from tbdy_engine.design.columns.column_design_demand_engine import (
+    ColumnComboDefinition,
+    evaluate_column_design_demands,
 )
+from tbdy_engine.design.columns.design_demand_states import LinearComboConstituent
 from tbdy_engine.design.columns.rebar_selection import ColumnDemandState
 from tbdy_engine.json_safe import to_jsonable
 from tbdy_engine.product_reports.vs6_design_demand_report import build_vs6_design_demand_report
@@ -95,6 +91,22 @@ def _combo_definition(payload: dict[str, Any], name: str) -> dict[str, Any]:
     return matches[0]
 
 
+def _definition_from_payload(payload: dict[str, Any], combo_name: str) -> ColumnComboDefinition:
+    definition = _combo_definition(payload, combo_name)
+    return ColumnComboDefinition(
+        name=combo_name,
+        combo_type=str(definition["combo_type"]),
+        constituents=tuple(
+            LinearComboConstituent(
+                name=str(item["name"]),
+                scale_factor=float(item["scale_factor"]),
+                cname_type=str(item["cname_type"]),
+            )
+            for item in definition.get("constituents", [])
+        ),
+    )
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--constituent-demand", type=Path, required=True)
@@ -119,53 +131,46 @@ def main(argv: list[str] | None = None) -> int:
         component_id = str(constituent_column["component_id"])
         constituent_states = tuple(_to_state(item) for item in constituent_column.get("demands", []))
         observed_states = tuple(_to_state(item) for item in observed_column.get("demands", []))
+        definitions = tuple(_definition_from_payload(combo_payload, name) for name in args.combos)
+
+        engine = evaluate_column_design_demands(
+            component_id=component_id,
+            definitions=definitions,
+            case_demands=constituent_states,
+            observed_combo_demands=observed_states,
+            verify_observed_rows=True,
+            force_tolerance_n=args.force_tolerance_kn * 1000.0,
+            moment_tolerance_nmm=args.moment_tolerance_knm * 1_000_000.0,
+        )
 
         results: list[dict[str, Any]] = []
         reports: list[dict[str, Any]] = []
-        all_proven = True
-        for combo_name in args.combos:
-            definition = _combo_definition(combo_payload, combo_name)
-            constituents = tuple(
-                LinearComboConstituent(
-                    name=str(item["name"]),
-                    scale_factor=float(item["scale_factor"]),
-                    cname_type=str(item["cname_type"]),
-                )
-                for item in definition.get("constituents", [])
-            )
-            build = build_linear_combo_design_demands(
-                component_id=component_id,
-                combo_name=combo_name,
-                combo_type=str(definition["combo_type"]),
-                constituents=constituents,
-                case_demands=constituent_states,
-            )
-            verification = verify_observed_combo_rows_are_generated_subset(
-                generated=build,
-                observed_combo_demands=observed_states,
-                force_tolerance_n=args.force_tolerance_kn * 1000.0,
-                moment_tolerance_nmm=args.moment_tolerance_knm * 1_000_000.0,
-            )
-            all_proven = all_proven and verification.status == "PROVEN_OBSERVED_ROWS_SUBSET_OF_DESIGN_PERMUTATIONS"
-            results.append(
-                {
-                    "combo_name": combo_name,
-                    "build_status": build.status,
-                    "authority": build.authority,
-                    "generated_state_count": len(build.states),
-                    "end_summaries": [asdict(item) for item in build.end_summaries],
-                    "verification": asdict(verification),
-                    "states": [asdict(item) for item in build.states],
-                }
-            )
-            reports.append(build_vs6_design_demand_report(build, verification=verification).as_dict())
+        for combo_result in engine.combo_results:
+            build = combo_result.build
+            verification = combo_result.verification
+            result: dict[str, Any] = {
+                "combo_name": combo_result.definition.name,
+                "classification": asdict(combo_result.classification),
+                "status": combo_result.status,
+                "generated_state_count": len(build.states) if build is not None else 0,
+                "authority": build.authority if build is not None else "NOT_PROMOTED",
+                "verification": asdict(verification) if verification is not None else None,
+                "end_summaries": [asdict(item) for item in build.end_summaries] if build is not None else [],
+                "states": [asdict(item) for item in build.states] if build is not None else [],
+            }
+            results.append(result)
+            if build is not None:
+                reports.append(build_vs6_design_demand_report(build, verification=verification).as_dict())
 
+        all_proven = engine.combination_scope_resolved
         status = "PROVEN_VS6_DESIGN_DEMAND_RECONSTRUCTION" if all_proven else "REVIEW_REQUIRED_DESIGN_DEMAND_RECONSTRUCTION"
         payload = {
             "status": status,
+            "engine_status": engine.status,
             "component_id": component_id,
             "column_unique_name": args.column_name,
             "requested_combos": list(args.combos),
+            "blocked_combo_names": list(engine.blocked_combo_names),
             "source_artifacts": {
                 "constituent_demand": str(args.constituent_demand),
                 "observed_combo_demand": str(args.observed_combo_demand),
@@ -184,10 +189,29 @@ def main(argv: list[str] | None = None) -> int:
             "report_contributions": reports,
         }
         _write(args.out, payload)
-        print(json.dumps(to_jsonable({"status": status, "component_id": component_id, "results": [
-            {"combo_name": item["combo_name"], "generated_state_count": item["generated_state_count"], "verification": item["verification"]["status"]}
-            for item in results
-        ], "safety": SAFETY}), ensure_ascii=False, sort_keys=True))
+        print(
+            json.dumps(
+                to_jsonable(
+                    {
+                        "status": status,
+                        "engine_status": engine.status,
+                        "component_id": component_id,
+                        "results": [
+                            {
+                                "combo_name": item["combo_name"],
+                                "pattern": item["classification"]["pattern"],
+                                "generated_state_count": item["generated_state_count"],
+                                "verification": item["verification"]["status"] if item["verification"] else None,
+                            }
+                            for item in results
+                        ],
+                        "safety": SAFETY,
+                    }
+                ),
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        )
         return 0 if all_proven else 8
     except Exception as exc:
         payload = {
