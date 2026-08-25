@@ -32,7 +32,9 @@ from tbdy_engine.features.etabs_com_attach import ATTACH_STATUS_ATTACHED, attach
 from tbdy_engine.integration.live_beam_geometry_f0 import model_fingerprint_from_path
 from tbdy_engine.json_safe import to_jsonable
 from tbdy_engine.providers.etabs_display_table_fetcher import fetch_display_table
-from tbdy_engine.providers.etabs_strict_column_topology_provider import capture_strict_column_topology
+from tbdy_engine.providers.etabs_strict_column_topology_provider import (
+    capture_etabs_strict_column_topology,
+)
 
 
 SUPPORT_SOURCE_TABLE_CANDIDATES: tuple[str, ...] = (
@@ -170,7 +172,7 @@ def main(argv: list[str] | None = None) -> int:
         return 4
 
     try:
-        topology_capture = capture_strict_column_topology(
+        topology_capture = capture_etabs_strict_column_topology(
             sap.DatabaseTables,
             reviewed_length_unit=args.reviewed_length_unit,
         )
