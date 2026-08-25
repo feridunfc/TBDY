@@ -21,6 +21,7 @@ def test_integrated_live_runner_is_read_only_and_uses_production_engines():
         "generate_rectangular_column_rebar_candidates(",
         "select_engine_rebar_for_demands(",
         "apply_ts500_minimum_eccentricity(",
+        "evaluate_ts500_column_slenderness(",
     ):
         assert forbidden not in source
 
@@ -44,6 +45,15 @@ def test_minimum_eccentricity_is_engine_derived_not_cli_authorized():
     assert "--minimum-eccentricity-status" not in source
     assert 'minimum_eccentricity_status="BLOCKED"' in source
     assert '"minimum_eccentricity_status": "ENGINE_DERIVED_TS500_6.3.10"' in source
+
+
+def test_slenderness_is_engine_derived_not_cli_authorized_or_factual_length_promoted_here():
+    source = inspect.getsource(runner)
+    assert "--slenderness-status" not in source
+    assert 'slenderness_status="BLOCKED"' in source
+    assert '"slenderness_status": "ENGINE_DERIVED_TS500_7.6_BLOCKED_PENDING_REGULATORY_BASIS"' in source
+    assert "analysis_clear_length_candidate_m" not in source
+    assert "slenderness_basis=" not in source
 
 
 def test_bar_library_uses_live_proven_factual_etabs_schema_not_cli_field_or_diameter_lists():
