@@ -14,14 +14,18 @@ def test_vs6_design_demand_capture_runner_is_read_only_and_stops_before_design()
         ".Save(",
         "SetRebarColumn(",
         "SetSection(",
-        "ENGINE_SELECTED_REBAR",
         "generate_rectangular_column_rebar_candidates(",
         "select_engine_rebar_for_demands(",
     ):
         assert forbidden not in source
+
+    # The explanatory module docstring may name ENGINE_SELECTED_REBAR while
+    # explicitly stating that this factual runner does not produce it.  Guard
+    # behavior/outputs instead of banning that documentation token globally.
     assert "COMPLETE_FACTUAL_COLUMN_DESIGN_DEMAND" in source
     assert '"reinforcement_selected": False' in source
     assert '"section_capacity_computed": False' in source
+    assert '"compliance_verdict_emitted": False' in source
 
 
 def test_vs6_design_demand_capture_runner_requires_explicit_units_and_outputs():
