@@ -43,3 +43,10 @@ def test_slenderness_source_probe_captures_endpoint_restraint_api_without_promot
     assert result["point"] == "956"
     assert result["regulatory_lateral_support_promoted"] is False
     assert result["raw_get_restraint"] == [[True, True, True, True, True, True], 0]
+
+
+def test_probe_reads_ln_status_from_canonical_topology_projection():
+    source = inspect.getsource(probe)
+    assert "column_projection = column.as_dict()" in source
+    assert 'column_projection["regulatory_ln_status"]' in source
+    assert "column.regulatory_ln_status" not in source
