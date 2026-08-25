@@ -2,7 +2,7 @@
 """Offline acceptance adapter for the VS6 column design-demand engine.
 
 Consumes previously captured read-only artifacts and delegates all combination
-classification and design-state promotion to the production engine.  This tool
+classification and design-state promotion to the production engine. This tool
 contains file/CLI serialization only: no engineering pattern logic, no ETABS
 connection, no capacity calculation and no reinforcement selection.
 """
@@ -23,7 +23,7 @@ from tbdy_engine.design.columns.column_design_demand_engine import (
     ColumnComboDefinition,
     evaluate_column_design_demands,
 )
-from tbdy_engine.design.columns.design_demand_states import LinearComboConstituent
+from tbdy_engine.design.columns.combo_pattern_engine import ComboPatternConstituent
 from tbdy_engine.design.columns.rebar_selection import ColumnDemandState
 from tbdy_engine.json_safe import to_jsonable
 from tbdy_engine.product_reports.vs6_design_demand_report import build_vs6_design_demand_report
@@ -97,7 +97,7 @@ def _definition_from_payload(payload: dict[str, Any], combo_name: str) -> Column
         name=combo_name,
         combo_type=str(definition["combo_type"]),
         constituents=tuple(
-            LinearComboConstituent(
+            ComboPatternConstituent(
                 name=str(item["name"]),
                 scale_factor=float(item["scale_factor"]),
                 cname_type=str(item["cname_type"]),
