@@ -1,14 +1,16 @@
 """Integrated production engine for the current VS6 column design slice.
 
 The engine composes source-bound combination classification/design-demand
-promotion, TS500 minimum-eccentricity closure, TS500 slenderness closure, and
-the longitudinal-reinforcement design engine.  Combination scope, minimum
-eccentricity and slenderness are derived by the engine; callers cannot authorize
-them by merely setting demand-basis flags.
+promotion, TS500 minimum-eccentricity closure, strict TS500 slenderness-basis
+promotion, TS500 slenderness closure, and the longitudinal-reinforcement design
+engine. Combination scope, minimum eccentricity and slenderness are derived by
+the engine; callers cannot authorize them by merely setting demand-basis flags.
 
-The current slenderness path is intentionally conservative: if TS500 7.6.2.3
-neglect cannot be proven in both principal directions, rebar authority remains
-blocked until the required second-order/moment-magnification path is available.
+The current slenderness path is intentionally conservative: factual ETABS clear-
+length candidates are never promoted to regulatory ``ln`` automatically. If a
+valid TS500 basis is promoted but the 7.6.2.3 neglect limit is exceeded, rebar
+authority remains blocked until the required moment-magnification/second-order
+path is available.
 
 ETABS acquisition remains outside this pure orchestration layer.
 """
@@ -38,6 +40,11 @@ from tbdy_engine.design.columns.slenderness import (
     ColumnSlendernessResult,
     evaluate_ts500_column_slenderness,
 )
+from tbdy_engine.design.columns.slenderness_basis import (
+    ColumnSlendernessBasisResolution,
+    ColumnSlendernessEvidence,
+    resolve_ts500_column_slenderness_basis,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +53,7 @@ class ColumnDesignEngineResult:
     status: str
     design_demands: ColumnDesignDemandEngineResult
     minimum_eccentricity: ColumnMinimumEccentricityResult
+    slenderness_basis: ColumnSlendernessBasisResolution
     slenderness: ColumnSlendernessResult
     rebar_design: ColumnRebarDesignResult
 
@@ -91,6 +99,23 @@ def _basis_with_engine_closures(
     )
 
 
+def _prepromoted_resolution(
+    component_id: str,
+    basis: ColumnSlendernessBasis,
+) -> ColumnSlendernessBasisResolution:
+    if basis.component_id != component_id:
+        raise ColumnDesignEngineError("slenderness_basis.component_id differs from component_id")
+    refs = tuple(dict.fromkeys((*basis.source_refs, *basis.m2.source_refs, *basis.m3.source_refs)))
+    return ColumnSlendernessBasisResolution(
+        component_id=component_id,
+        status="PROVEN_TS500_SLENDERNESS_BASIS",
+        basis=basis,
+        blocked_items=(),
+        derivation_notes=("Canonical pre-promoted TS500 slenderness basis supplied to pure engine",),
+        source_refs=refs,
+    )
+
+
 def evaluate_column_design(
     *,
     component_id: str,
@@ -98,15 +123,24 @@ def evaluate_column_design(
     constituent_case_demands: Sequence[ColumnDemandState],
     rebar_catalog: RebarCatalog,
     rebar_inputs: ColumnRebarDesignInputs,
+    slenderness_evidence: ColumnSlendernessEvidence | None = None,
     slenderness_basis: ColumnSlendernessBasis | None = None,
     observed_combo_demands: Sequence[ColumnDemandState] = (),
     verify_observed_rows: bool = False,
     force_tolerance_n: float = 250.0,
     moment_tolerance_nmm: float = 250_000.0,
 ) -> ColumnDesignEngineResult:
-    """Evaluate current VS6 demand + TS500 closures + rebar authority."""
+    """Evaluate current VS6 demand + TS500 closures + rebar authority.
+
+    Production adapters should prefer ``slenderness_evidence`` so the strict
+    promotion boundary is visible in the canonical result. ``slenderness_basis``
+    remains accepted for already-promoted internal/replay fixtures; supplying
+    both is rejected.
+    """
     if rebar_inputs.component_id != component_id:
         raise ColumnDesignEngineError("rebar_inputs.component_id differs from component_id")
+    if slenderness_evidence is not None and slenderness_basis is not None:
+        raise ColumnDesignEngineError("supply slenderness_evidence or slenderness_basis, not both")
 
     demand_result = evaluate_column_design_demands(
         component_id=component_id,
@@ -125,9 +159,17 @@ def evaluate_column_design(
         demands=demand_result.promoted_states,
         source_refs=("TS500 6.3.10 Eq. 6.16",),
     )
+
+    if slenderness_basis is not None:
+        slenderness_basis_resolution = _prepromoted_resolution(component_id, slenderness_basis)
+    else:
+        slenderness_basis_resolution = resolve_ts500_column_slenderness_basis(
+            slenderness_evidence,
+            component_id=component_id,
+        )
     slenderness = evaluate_ts500_column_slenderness(
         component_id=component_id,
-        basis=slenderness_basis,
+        basis=slenderness_basis_resolution.basis,
     )
 
     authoritative_basis = _basis_with_engine_closures(
@@ -147,6 +189,8 @@ def evaluate_column_design(
         status = "BLOCKED_COMBINATION_SCOPE"
     elif not minimum_eccentricity.resolved:
         status = "BLOCKED_MINIMUM_ECCENTRICITY"
+    elif not slenderness_basis_resolution.resolved:
+        status = "BLOCKED_SLENDERNESS_BASIS"
     elif slenderness.requires_moment_magnification:
         status = "REQUIRES_MOMENT_MAGNIFICATION"
     elif slenderness.status == "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED":
@@ -165,6 +209,7 @@ def evaluate_column_design(
         status=status,
         design_demands=demand_result,
         minimum_eccentricity=minimum_eccentricity,
+        slenderness_basis=slenderness_basis_resolution,
         slenderness=slenderness,
         rebar_design=rebar_result,
     )
