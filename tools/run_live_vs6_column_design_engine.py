@@ -40,6 +40,9 @@ from tbdy_engine.features.etabs_com_attach import ATTACH_STATUS_ATTACHED, attach
 from tbdy_engine.features.etabs_column_axial_evidence import capture_live_column_axial_evidence
 from tbdy_engine.integration.live_beam_geometry_f0 import model_fingerprint_from_path
 from tbdy_engine.json_safe import to_jsonable
+from tbdy_engine.product_reports.vs6_column_design_engine_report import (
+    build_vs6_column_design_engine_reports,
+)
 from tbdy_engine.providers.etabs_combo_definition_provider import (
     EtabsComboDefinitionEvidence,
     capture_etabs_combo_definitions,
@@ -288,6 +291,13 @@ def main(argv: list[str] | None = None) -> int:
                     "depth_m": column.depth_m,
                     "fck_mpa": column.fck_mpa,
                     "engine_result": asdict(result),
+                    "report_contributions": [
+                        report.as_dict()
+                        for report in build_vs6_column_design_engine_reports(
+                            result,
+                            section_name=column.section,
+                        )
+                    ],
                 }
             )
     except Exception as exc:
