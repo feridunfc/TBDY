@@ -1,9 +1,14 @@
 """Integrated production engine for the current VS6 column design slice.
 
 The engine composes source-bound combination classification/design-demand
-promotion, TS500 minimum-eccentricity closure, and the longitudinal-reinforcement
-design engine.  Combination scope and minimum eccentricity are derived by the
-engine; callers cannot authorize them by merely setting demand-basis flags.
+promotion, TS500 minimum-eccentricity closure, TS500 slenderness closure, and
+the longitudinal-reinforcement design engine.  Combination scope, minimum
+eccentricity and slenderness are derived by the engine; callers cannot authorize
+them by merely setting demand-basis flags.
+
+The current slenderness path is intentionally conservative: if TS500 7.6.2.3
+neglect cannot be proven in both principal directions, rebar authority remains
+blocked until the required second-order/moment-magnification path is available.
 
 ETABS acquisition remains outside this pure orchestration layer.
 """
@@ -28,6 +33,11 @@ from tbdy_engine.design.columns.minimum_eccentricity import (
 )
 from tbdy_engine.design.columns.rebar_catalog import RebarCatalog
 from tbdy_engine.design.columns.rebar_selection import ColumnDemandBasis, ColumnDemandState
+from tbdy_engine.design.columns.slenderness import (
+    ColumnSlendernessBasis,
+    ColumnSlendernessResult,
+    evaluate_ts500_column_slenderness,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -36,6 +46,7 @@ class ColumnDesignEngineResult:
     status: str
     design_demands: ColumnDesignDemandEngineResult
     minimum_eccentricity: ColumnMinimumEccentricityResult
+    slenderness: ColumnSlendernessResult
     rebar_design: ColumnRebarDesignResult
 
 
@@ -48,6 +59,7 @@ def _basis_with_engine_closures(
     *,
     combination_scope_resolved: bool,
     minimum_eccentricity_resolved: bool,
+    slenderness_resolved: bool,
 ) -> ColumnDemandBasis:
     refs = list(basis.review_refs)
     closure_refs = (
@@ -61,6 +73,11 @@ def _basis_with_engine_closures(
             if minimum_eccentricity_resolved
             else "TS500_6.3.10_MINIMUM_ECCENTRICITY:BLOCKED"
         ),
+        (
+            "TS500_7.6_SLENDERNESS:RESOLVED"
+            if slenderness_resolved
+            else "TS500_7.6_SLENDERNESS:BLOCKED"
+        ),
     )
     for ref in closure_refs:
         if ref not in refs:
@@ -68,7 +85,7 @@ def _basis_with_engine_closures(
     return ColumnDemandBasis(
         analysis_order_status=basis.analysis_order_status,
         minimum_eccentricity_status="RESOLVED" if minimum_eccentricity_resolved else "BLOCKED",
-        slenderness_status=basis.slenderness_status,
+        slenderness_status="RESOLVED" if slenderness_resolved else "BLOCKED",
         combination_scope_status="RESOLVED" if combination_scope_resolved else "BLOCKED",
         review_refs=tuple(refs),
     )
@@ -81,12 +98,13 @@ def evaluate_column_design(
     constituent_case_demands: Sequence[ColumnDemandState],
     rebar_catalog: RebarCatalog,
     rebar_inputs: ColumnRebarDesignInputs,
+    slenderness_basis: ColumnSlendernessBasis | None = None,
     observed_combo_demands: Sequence[ColumnDemandState] = (),
     verify_observed_rows: bool = False,
     force_tolerance_n: float = 250.0,
     moment_tolerance_nmm: float = 250_000.0,
 ) -> ColumnDesignEngineResult:
-    """Evaluate current VS6 demand + minimum eccentricity + rebar authority."""
+    """Evaluate current VS6 demand + TS500 closures + rebar authority."""
     if rebar_inputs.component_id != component_id:
         raise ColumnDesignEngineError("rebar_inputs.component_id differs from component_id")
 
@@ -107,11 +125,16 @@ def evaluate_column_design(
         demands=demand_result.promoted_states,
         source_refs=("TS500 6.3.10 Eq. 6.16",),
     )
+    slenderness = evaluate_ts500_column_slenderness(
+        component_id=component_id,
+        basis=slenderness_basis,
+    )
 
     authoritative_basis = _basis_with_engine_closures(
         rebar_inputs.demand_basis,
         combination_scope_resolved=demand_result.combination_scope_resolved,
         minimum_eccentricity_resolved=minimum_eccentricity.resolved,
+        slenderness_resolved=slenderness.resolved,
     )
     bound_rebar_inputs = replace(rebar_inputs, demand_basis=authoritative_basis)
     rebar_result = design_column_longitudinal_rebar(
@@ -124,6 +147,12 @@ def evaluate_column_design(
         status = "BLOCKED_COMBINATION_SCOPE"
     elif not minimum_eccentricity.resolved:
         status = "BLOCKED_MINIMUM_ECCENTRICITY"
+    elif slenderness.requires_moment_magnification:
+        status = "REQUIRES_MOMENT_MAGNIFICATION"
+    elif slenderness.status == "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED":
+        status = "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED"
+    elif not slenderness.resolved:
+        status = "BLOCKED_SLENDERNESS_BASIS"
     elif rebar_result.authority == "ENGINE_SELECTED_REBAR":
         status = "SELECTED_ENGINE_REBAR"
     elif rebar_result.status.startswith("BLOCKED"):
@@ -136,6 +165,7 @@ def evaluate_column_design(
         status=status,
         design_demands=demand_result,
         minimum_eccentricity=minimum_eccentricity,
+        slenderness=slenderness,
         rebar_design=rebar_result,
     )
 
