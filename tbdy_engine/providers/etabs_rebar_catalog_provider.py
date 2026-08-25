@@ -1,9 +1,10 @@
 """Read-only ETABS reinforcing-bar catalog acquisition for VS6.
 
 The provider captures the factual ``Reinforcing Bar Sizes`` display table and
-keeps the raw field names/rows intact. It does not guess which field is the bar
-name or diameter. Semantic field binding is explicit at the promotion boundary
-before a factual table becomes a ``RebarCatalog`` used by design.
+keeps the raw field names/rows intact. A generic explicit promotion boundary is
+kept for fixtures/version experiments, while the production path can use the
+live-proven ETABS schema ``Name`` + ``Diameter`` and a separately reviewed
+length-unit contract. Any schema drift fails closed.
 """
 from __future__ import annotations
 
@@ -17,6 +18,8 @@ from tbdy_engine.providers.etabs_display_table_fetcher import fetch_display_tabl
 
 
 TABLE_REINFORCING_BAR_SIZES = "Reinforcing Bar Sizes"
+ETABS_REBAR_NAME_FIELD = "Name"
+ETABS_REBAR_DIAMETER_FIELD = "Diameter"
 
 
 class EtabsRebarCatalogProviderError(RuntimeError):
@@ -78,7 +81,7 @@ class EtabsRebarCatalogEvidence:
 def capture_etabs_rebar_catalog_evidence(
     database_tables: Any,
 ) -> EtabsRebarCatalogEvidence:
-    """Capture the full factual ETABS reinforcing-bar-size table without field guessing."""
+    """Capture the full factual ETABS reinforcing-bar-size table without semantic guessing."""
     fetch = fetch_display_table(
         database_tables,
         TABLE_REINFORCING_BAR_SIZES,
@@ -103,7 +106,7 @@ def promote_etabs_rebar_catalog(
     diameter_unit: str,
     source_name: str,
 ) -> RebarCatalog:
-    """Promote factual rows only after an explicit reviewed semantic field binding."""
+    """Promote factual rows after an explicit semantic field/unit binding."""
     if name_field not in evidence.field_keys:
         raise EtabsRebarCatalogProviderError(
             f"reviewed name_field={name_field!r} not present in factual field_keys"
@@ -121,10 +124,46 @@ def promote_etabs_rebar_catalog(
     )
 
 
+def promote_live_proven_etabs_rebar_catalog(
+    evidence: EtabsRebarCatalogEvidence,
+    *,
+    reviewed_length_unit: str,
+    source_name: str,
+) -> RebarCatalog:
+    """Promote the live-proven ETABS ``Name``/``Diameter`` schema fail-closed.
+
+    The field semantics are no longer caller-selectable in the production path:
+    they were verified on the accepted ETABS 23.2.0 live table.  The numerical
+    unit is still a reviewed session/database contract and must be supplied
+    explicitly. Future ETABS schema drift therefore blocks instead of guessing.
+    """
+    required = {ETABS_REBAR_NAME_FIELD, ETABS_REBAR_DIAMETER_FIELD}
+    missing = required - set(evidence.field_keys)
+    if missing:
+        raise EtabsRebarCatalogProviderError(
+            "live-proven ETABS rebar schema missing required field(s): "
+            + ", ".join(sorted(missing))
+        )
+    if reviewed_length_unit not in {"m", "mm"}:
+        raise EtabsRebarCatalogProviderError(
+            "reviewed_length_unit for Reinforcing Bar Sizes.Diameter must be explicitly 'm' or 'mm'"
+        )
+    return promote_etabs_rebar_catalog(
+        evidence,
+        name_field=ETABS_REBAR_NAME_FIELD,
+        diameter_field=ETABS_REBAR_DIAMETER_FIELD,
+        diameter_unit=reviewed_length_unit,
+        source_name=source_name,
+    )
+
+
 __all__ = [
     "TABLE_REINFORCING_BAR_SIZES",
+    "ETABS_REBAR_NAME_FIELD",
+    "ETABS_REBAR_DIAMETER_FIELD",
     "EtabsRebarCatalogEvidence",
     "EtabsRebarCatalogProviderError",
     "capture_etabs_rebar_catalog_evidence",
     "promote_etabs_rebar_catalog",
+    "promote_live_proven_etabs_rebar_catalog",
 ]
