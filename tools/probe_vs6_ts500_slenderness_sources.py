@@ -177,6 +177,7 @@ def main(argv: list[str] | None = None) -> int:
             reviewed_length_unit=args.reviewed_length_unit,
         )
         column = topology_capture.topology.column(args.column_name)
+        column_projection = column.as_dict()
         table_snapshots = {
             name: _snapshot(sap.DatabaseTables, name)
             for name in SOURCE_TABLE_CANDIDATES
@@ -220,7 +221,7 @@ def main(argv: list[str] | None = None) -> int:
             "offset_bottom_m": column.offset_bottom_m,
             "offset_top_m": column.offset_top_m,
             "analysis_clear_length_candidate_m": column.analysis_clear_length_candidate_m,
-            "regulatory_ln_status": column.regulatory_ln_status,
+            "regulatory_ln_status": column_projection["regulatory_ln_status"],
             "beams_at_bottom": [item.as_dict() for item in column.beams_at_bottom],
             "beams_at_top": [item.as_dict() for item in column.beams_at_top],
         },
