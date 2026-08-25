@@ -3,15 +3,18 @@
 
 The adapter acquires factual ETABS combo definitions, constituent/observed
 P-M2-M3 rows, strict column topology, endpoint point-restraint facts, column
-geometry/material facts, the factual reinforcing-bar catalog, and factual
-column-section rebar design intent. Engineering classification/promotion and
-longitudinal-rebar selection are delegated to production engine modules.
+geometry/material facts, factual assigned RC-frame bending modifiers, the
+factual reinforcing-bar catalog, and factual column-section rebar design intent.
+Engineering classification/promotion and longitudinal-rebar selection are
+delegated to production engine modules.
 
 Strict topology supplies the ETABS clear-length candidate as factual evidence.
 The production TS500 free-length promotion engine may promote that candidate to
 regulatory ``ln`` only when both physical endpoints have source-bound
-horizontal lateral support. Sway classification and effective-length behavior
-remain separate fail-closed inputs.
+horizontal lateral support. The TS500 Eq.7.13 stiffness-basis assessor may emit
+``REANALYSIS_REQUIRED`` when factual assigned RC-frame modifiers prove the
+current model incompatible with that route's uncracked-section requirement.
+Sway classification remains separate and fail-closed.
 
 No ETABS analysis/design is started, no model property is changed, no present
 unit is set and the model is never saved.
@@ -42,6 +45,9 @@ from tbdy_engine.design.columns.rebar_selection import (
     normalize_etabs_column_end_demands,
 )
 from tbdy_engine.design.columns.section_capacity import ColumnSectionMaterial
+from tbdy_engine.design.columns.stability_stiffness_basis import (
+    assess_ts500_eq713_stiffness_basis,
+)
 from tbdy_engine.etabs.safety import read_session_identity
 from tbdy_engine.features.column_design_demand_evidence import build_column_design_demand_evidence
 from tbdy_engine.features.etabs_com_attach import ATTACH_STATUS_ATTACHED, attach_to_running_etabs
@@ -70,6 +76,9 @@ from tbdy_engine.providers.etabs_rebar_catalog_provider import (
 )
 from tbdy_engine.providers.etabs_strict_column_topology_provider import (
     capture_etabs_strict_column_topology,
+)
+from tbdy_engine.providers.strict_topology_stiffness_evidence_provider import (
+    build_assigned_rc_frame_bending_modifier_evidence,
 )
 
 
@@ -226,6 +235,9 @@ def main(argv: list[str] | None = None) -> int:
                 f"missing_in_topology={sorted(factual_uids - topology_uids)} "
                 f"extra_in_topology={sorted(topology_uids - factual_uids)}"
             )
+        stiffness_evidence = build_assigned_rc_frame_bending_modifier_evidence(
+            strict_topology_evidence.topology
+        )
 
         rebar_table = capture_etabs_rebar_catalog_evidence(sap.DatabaseTables)
         rebar_catalog = promote_live_proven_etabs_rebar_catalog(
@@ -260,6 +272,19 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(to_jsonable(payload), ensure_ascii=False, sort_keys=True))
         return 5
 
+    try:
+        stability_stiffness_basis = assess_ts500_eq713_stiffness_basis(stiffness_evidence)
+    except Exception as exc:
+        payload = _blocked_payload(
+            "BLOCKED_STABILITY_STIFFNESS_BASIS_ASSESSMENT",
+            exc,
+            identity=identity,
+            fingerprint=fingerprint,
+        )
+        _write(args.out, payload)
+        print(json.dumps(to_jsonable(payload), ensure_ascii=False, sort_keys=True))
+        return 14
+
     engine_definitions = tuple(_engine_definition(item) for item in factual_combo_defs)
     combo_names = frozenset(args.combos)
     constituent_names = frozenset(load_case_names)
@@ -273,6 +298,7 @@ def main(argv: list[str] | None = None) -> int:
             "VS6 live engine: combination scope is engine-derived, not caller-authorized",
             "VS6 live engine: TS500 6.3.10 minimum eccentricity is engine-derived, not caller-authorized",
             "VS6 live engine: TS500 7.6 slenderness basis promotion is engine-derived and fail-closed",
+            "VS6 live engine: TS500 7.6.2.1 stiffness-basis assessment is engine-derived from factual assigned RC-frame modifiers",
         ),
     )
 
@@ -335,6 +361,7 @@ def main(argv: list[str] | None = None) -> int:
                 moment_tolerance_nmm=args.moment_verification_tolerance_knm * 1_000_000.0,
                 rebar_catalog=rebar_catalog,
                 slenderness_evidence=slenderness_evidence,
+                stability_stiffness_basis=stability_stiffness_basis,
                 rebar_inputs=ColumnRebarDesignInputs(
                     component_id=column.component_id,
                     width_mm=column.width_m * 1000.0,
@@ -406,6 +433,11 @@ def main(argv: list[str] | None = None) -> int:
         for item in results
         if item["free_length_resolution"]["status"] == "PROVEN_TS500_REGULATORY_FREE_LENGTH"
     )
+    reanalysis_required_count = sum(
+        1
+        for item in results
+        if item["engine_result"]["status"] == "REANALYSIS_REQUIRED"
+    )
     slenderness_basis_blocked_count = sum(
         1
         for item in results
@@ -421,6 +453,8 @@ def main(argv: list[str] | None = None) -> int:
         status, rc = "COMPLETE_BLOCKED_COMBINATION_SCOPE", 8
     elif minimum_eccentricity_blocked_count:
         status, rc = "COMPLETE_BLOCKED_MINIMUM_ECCENTRICITY", 10
+    elif reanalysis_required_count:
+        status, rc = "COMPLETE_REANALYSIS_REQUIRED", 13
     elif slenderness_basis_blocked_count:
         status, rc = "COMPLETE_BLOCKED_SLENDERNESS_BASIS", 11
     elif slenderness_blocked_count:
@@ -453,6 +487,8 @@ def main(argv: list[str] | None = None) -> int:
             "strict_topology_table_row_counts": strict_topology_evidence.row_count_map(),
             "strict_topology_summary": strict_topology_evidence.topology.summary(),
             "endpoint_restraint_source": "ETABS PointObj.GetRestraint",
+            "assigned_rc_frame_stiffness_evidence": [asdict(item) for item in stiffness_evidence],
+            "stability_stiffness_basis": asdict(stability_stiffness_basis),
             "rebar_catalog_table": rebar_table.as_dict(),
             "rebar_catalog": {
                 "status": rebar_catalog.status,
@@ -486,6 +522,7 @@ def main(argv: list[str] | None = None) -> int:
             "axial_tolerance_kn": args.axial_tolerance_kn,
             "analysis_order_status": args.analysis_order_status,
             "minimum_eccentricity_status": "ENGINE_DERIVED_TS500_6.3.10",
+            "stiffness_basis_status": "ENGINE_DERIVED_TS500_7.6.2.1_FROM_ASSIGNED_RC_FRAME_MODIFIERS",
             "slenderness_status": "ENGINE_DERIVED_TS500_7.6_FROM_STRICT_FACTUAL_EVIDENCE",
             "regulatory_ln_status": "ENGINE_DERIVED_PER_COLUMN_FROM_PROVEN_ENDPOINT_SUPPORTS",
             "sway_status": "NOT_PROMOTED",
@@ -495,6 +532,7 @@ def main(argv: list[str] | None = None) -> int:
             "column_count": len(results),
             "section_rebar_intent_count": len(rebar_intent_by_section),
             "engine_selected_rebar_count": selected_count,
+            "reanalysis_required_count": reanalysis_required_count,
             "blocked_combination_scope_count": combo_scope_blocked_count,
             "blocked_minimum_eccentricity_count": minimum_eccentricity_blocked_count,
             "proven_regulatory_free_length_count": free_length_proven_count,
