@@ -813,7 +813,7 @@ def _build_workbook_bytes(
 
 
 def _normalize_ooxml(raw_bytes: bytes) -> bytes:
-    """Canonicalize OOXML ZIP metadata/member order after backend serialization."""
+    """Canonicalize OOXML payload plus ZIP metadata/member order after serialization."""
 
     source = BytesIO(raw_bytes)
     output = BytesIO()
@@ -832,6 +832,17 @@ def _normalize_ooxml(raw_bytes: bytes) -> bytes:
                 if name.startswith("/") or ".." in name.split("/"):
                     raise XlsxRenderIntegrityError("unsafe OOXML member path")
                 data = archive.read(name)
+                if name == "docProps/core.xml":
+                    data, count = re.subn(
+                        rb"(<dcterms:modified\b[^>]*>)[^<]*(</dcterms:modified>)",
+                        rb"\g<1>1980-01-01T00:00:00Z\g<2>",
+                        data,
+                        count=1,
+                    )
+                    if count != 1:
+                        raise XlsxRenderIntegrityError(
+                            "OOXML core properties must contain exactly one modified timestamp"
+                        )
                 info = ZipInfo(name, date_time=_FIXED_ZIP_DT)
                 info.compress_type = ZIP_DEFLATED
                 info.create_system = 3
