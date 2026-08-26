@@ -46,6 +46,7 @@ jobs:
         run: |
           python -m pytest -q \
             tests/product_reports/test_building_report_projection.py \
+            tests/product_reports/test_building_report_projection_ui_ready.py \
             tests/product_reports/test_unified_building_report.py \
             tests/product_reports/test_slice_report_contribution.py \
             tests/coverage/test_fcr_1a_project_reconciliation.py
