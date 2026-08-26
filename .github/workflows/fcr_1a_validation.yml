@@ -32,12 +32,20 @@ jobs:
       - name: FCR-1A focused acceptance
         run: python -m pytest -q tests/coverage/test_fcr_1a_project_reconciliation.py
 
-      - name: Relevant regulatory coverage findings reporting regression
+      - name: Candidate relevant regression
+        id: candidate_relevant
+        shell: bash
         run: |
+          set +e
           python -m pytest -q \
             tests/regulatory \
             tests/coverage \
-            tests/product_reports/test_slice_report_contribution.py
+            tests/product_reports/test_slice_report_contribution.py \
+            > candidate_relevant_pytest.log 2>&1
+          status=$?
+          cat candidate_relevant_pytest.log
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
 
       - name: Candidate full pytest
         id: candidate_full
@@ -56,6 +64,23 @@ jobs:
           ref: eab8613182c331ef6886902527b419f4e0cb6639
           path: frozen_base
 
+      - name: Frozen-base relevant regression
+        id: base_relevant
+        shell: bash
+        run: |
+          set +e
+          cd frozen_base
+          python -m pytest -q \
+            tests/regulatory \
+            tests/coverage \
+            tests/product_reports/test_slice_report_contribution.py \
+            > ../base_relevant_pytest.log 2>&1
+          status=$?
+          cd ..
+          cat base_relevant_pytest.log
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
       - name: Frozen-base full pytest
         id: base_full
         shell: bash
@@ -69,16 +94,57 @@ jobs:
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Full-regression gate
+      - name: Candidate-vs-frozen-base regression gate
         shell: bash
         env:
-          CANDIDATE_EXIT: ${{ steps.candidate_full.outputs.exit_code }}
-          BASE_EXIT: ${{ steps.base_full.outputs.exit_code }}
+          CANDIDATE_RELEVANT_EXIT: ${{ steps.candidate_relevant.outputs.exit_code }}
+          BASE_RELEVANT_EXIT: ${{ steps.base_relevant.outputs.exit_code }}
+          CANDIDATE_FULL_EXIT: ${{ steps.candidate_full.outputs.exit_code }}
+          BASE_FULL_EXIT: ${{ steps.base_full.outputs.exit_code }}
         run: |
-          echo "candidate_full_exit=$CANDIDATE_EXIT"
-          echo "frozen_base_full_exit=$BASE_EXIT"
-          if [ "$CANDIDATE_EXIT" = "0" ]; then
-            exit 0
-          fi
-          echo "Candidate full pytest is not green; inspect candidate/base logs above."
-          exit 1
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          def failure_signatures(path: str):
+              text = Path(path).read_text(encoding="utf-8", errors="replace")
+              signatures = set()
+              for line in text.splitlines():
+                  m = re.match(r"^(?:FAILED|ERROR)\s+([^\s]+)", line)
+                  if m:
+                      signatures.add(m.group(1))
+              return signatures
+
+          cases = (
+              (
+                  "relevant",
+                  int(os.environ["CANDIDATE_RELEVANT_EXIT"]),
+                  int(os.environ["BASE_RELEVANT_EXIT"]),
+                  "candidate_relevant_pytest.log",
+                  "base_relevant_pytest.log",
+              ),
+              (
+                  "full",
+                  int(os.environ["CANDIDATE_FULL_EXIT"]),
+                  int(os.environ["BASE_FULL_EXIT"]),
+                  "candidate_full_pytest.log",
+                  "base_full_pytest.log",
+              ),
+          )
+
+          failed = False
+          for label, candidate_exit, base_exit, candidate_log, base_log in cases:
+              candidate_failures = failure_signatures(candidate_log)
+              base_failures = failure_signatures(base_log)
+              print(f"{label}: candidate_exit={candidate_exit} base_exit={base_exit}")
+              print(f"{label}: candidate_failure_signatures={sorted(candidate_failures)}")
+              print(f"{label}: base_failure_signatures={sorted(base_failures)}")
+              if candidate_exit == 0:
+                  continue
+              if base_exit == 0 or candidate_failures != base_failures:
+                  failed = True
+
+          if failed:
+              raise SystemExit("candidate introduced regression failure(s) beyond frozen base")
+          PY
