@@ -1,0 +1,175 @@
+name: CD-1 Coverage Contract Debt Closure
+
+on:
+  push:
+    branches:
+      - sprint/cd-1-coverage-contract-debt-closure
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FROZEN_BASE: 9ae835073ea9b05b5f8cf066feafdc1e3e9cee25
+
+jobs:
+  cd-1-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify frozen base ancestry and repository hygiene
+        shell: bash
+        run: |
+          test "$(git merge-base "$FROZEN_BASE" HEAD)" = "$FROZEN_BASE"
+          test "$(git rev-parse "$FROZEN_BASE")" = "$FROZEN_BASE"
+          git status --short
+          git diff --check "$FROZEN_BASE"...HEAD
+          git diff --stat "$FROZEN_BASE"...HEAD
+          echo "candidate_head=$(git rev-parse HEAD)"
+          echo "frozen_base=$FROZEN_BASE"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test toolchain
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            pytest \
+            pyyaml \
+            jsonschema \
+            weasyprint==69.0 \
+            pydyf==0.12.1 \
+            pypdf==6.16.1 \
+            pypdfium2==5.12.1
+
+      - name: Compile candidate
+        run: python -m compileall -q tbdy_engine tests
+
+      - name: Focused coverage contract debt tests
+        run: |
+          python -m pytest -q \
+            tests/coverage/test_coverage_contract_alignment.py \
+            tests/coverage/test_coverage_expected_sources.py \
+            tests/coverage/test_coverage_models.py \
+            tests/coverage/test_coverage_builder.py
+
+      - name: Candidate broad regression
+        id: candidate_broad
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -q \
+            tests/regulatory \
+            tests/coverage \
+            tests/design/columns \
+            tests/features \
+            tests/product_reports \
+            > candidate_broad.log 2>&1
+          status=$?
+          cat candidate_broad.log
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Checkout exact frozen-base baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.FROZEN_BASE }}
+          path: frozen_base
+
+      - name: Frozen-base broad regression
+        id: baseline_broad
+        shell: bash
+        run: |
+          set +e
+          cd frozen_base
+          python -m pytest -q \
+            tests/regulatory \
+            tests/coverage \
+            tests/design/columns \
+            tests/features \
+            tests/product_reports \
+            > ../baseline_broad.log 2>&1
+          status=$?
+          cd ..
+          cat baseline_broad.log
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Exact resolved-failure delta and zero-candidate gate
+        shell: bash
+        env:
+          CANDIDATE_BROAD_EXIT: ${{ steps.candidate_broad.outputs.exit_code }}
+          BASELINE_BROAD_EXIT: ${{ steps.baseline_broad.outputs.exit_code }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          EXPECTED_RESOLVED = {
+              "tests/coverage/test_coverage_contract_alignment.py::test_coverage_output_validates_against_schema",
+              "tests/coverage/test_coverage_expected_sources.py::test_blocked_missing_etabs_feature_reports_table_source_details",
+              "tests/coverage/test_coverage_expected_sources.py::test_missing_feature_sources_validate_against_schema",
+          }
+
+          def signatures(path: str) -> set[str]:
+              text = Path(path).read_text(encoding="utf-8", errors="replace")
+              result: set[str] = set()
+              for line in text.splitlines():
+                  match = re.match(r"^(?:FAILED|ERROR)\s+([^\s]+)", line)
+                  if match:
+                      result.add(match.group(1))
+              return result
+
+          candidate_exit = int(os.environ["CANDIDATE_BROAD_EXIT"])
+          baseline_exit = int(os.environ["BASELINE_BROAD_EXIT"])
+          candidate = signatures("candidate_broad.log")
+          baseline = signatures("baseline_broad.log")
+          new_failures = candidate - baseline
+          resolved_failures = baseline - candidate
+
+          print(f"candidate_exit={candidate_exit}")
+          print(f"baseline_exit={baseline_exit}")
+          print(f"candidate_failures={sorted(candidate)}")
+          print(f"baseline_failures={sorted(baseline)}")
+          print(f"resolved_failures={sorted(resolved_failures)}")
+          print(f"new_failures={sorted(new_failures)}")
+
+          if baseline_exit == 0:
+              raise SystemExit("frozen base unexpectedly passed; debt baseline was not reproduced")
+          if baseline != EXPECTED_RESOLVED:
+              raise SystemExit("frozen-base failure signatures differ from the three frozen CD-1 debts")
+          if candidate_exit != 0:
+              raise SystemExit("candidate broad suite must exit 0 for CD-1")
+          if candidate:
+              raise SystemExit("candidate broad suite reported failure signatures")
+          if new_failures:
+              raise SystemExit("CD-1 introduced new failure signatures")
+          if resolved_failures != EXPECTED_RESOLVED:
+              raise SystemExit("CD-1 did not resolve exactly the intended coverage debts")
+          PY
+
+      - name: Remove CI-created evidence files and frozen checkout
+        shell: bash
+        run: |
+          rm -rf -- "$GITHUB_WORKSPACE/frozen_base"
+          rm -f -- "$GITHUB_WORKSPACE/candidate_broad.log" "$GITHUB_WORKSPACE/baseline_broad.log"
+
+      - name: Final repository hygiene
+        shell: bash
+        run: |
+          git diff --check "$FROZEN_BASE"...HEAD
+          git status --short
+          test -z "$(git status --short)"
