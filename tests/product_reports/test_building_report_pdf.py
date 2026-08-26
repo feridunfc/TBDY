@@ -3,7 +3,10 @@ from __future__ import annotations
 from hashlib import sha256
 from importlib.util import module_from_spec, spec_from_file_location
 from io import BytesIO
+import json
+import os
 from pathlib import Path
+import re
 import sys
 
 import pytest
@@ -11,11 +14,13 @@ from pypdf import PdfReader
 import pypdfium2 as pdfium
 
 import tbdy_engine.product_reports.building_report_pdf as pdf_module
+import tbdy_engine.product_reports.report_artifact as artifact_module
 from tbdy_engine.product_reports.building_report_html import (
     HtmlRenderIntegrityError,
     HtmlRenderOptions,
 )
 from tbdy_engine.product_reports.building_report_pdf import (
+    DETERMINISTIC_SOURCE_DATE_EPOCH,
     PdfRenderIntegrityError,
     PdfRenderOptions,
     SUPPORTED_PYDYF_VERSION,
@@ -54,6 +59,18 @@ def _text(artifact: ReportArtifact) -> str:
     return "\n".join(page.extract_text() or "" for page in _reader(artifact).pages)
 
 
+def _normalized_text(artifact: ReportArtifact) -> str:
+    """Normalize extractor-only whitespace without changing expected content."""
+
+    return " ".join(_text(artifact).split())
+
+
+def _compact_text(artifact: ReportArtifact) -> str:
+    """Remove extractor-only whitespace for exact technical token assertions."""
+
+    return "".join(_text(artifact).split())
+
+
 def _engineering(model=None) -> ReportArtifact:
     return render_building_report_pdf(
         _projection(model or _model(), ReportView.ENGINEERING)
@@ -69,36 +86,36 @@ def _audit(model=None) -> ReportArtifact:
 def test_engineering_projection_creates_valid_pdf_artifact() -> None:
     artifact = _engineering()
     reader = _reader(artifact)
-    text = _text(artifact)
+    compact = _compact_text(artifact)
 
     assert artifact.format == "PDF"
     assert artifact.media_type == "application/pdf"
     assert artifact.view == "ENGINEERING"
     assert artifact.content.startswith(b"%PDF-")
     assert len(reader.pages) > 0
-    assert "Unified Engineering Review" in text
-    assert "ENGINEERING" in text
-    assert "REPORT:1" in text
+    assert "UnifiedEngineeringReview" in compact
+    assert "ENGINEERING" in compact
+    assert "REPORT:1" in compact
 
 
 def test_audit_projection_creates_valid_pdf_artifact_and_trace() -> None:
     artifact = _audit()
     reader = _reader(artifact)
-    text = _text(artifact)
+    compact = _compact_text(artifact)
 
     assert artifact.view == "AUDIT"
     assert artifact.content.startswith(b"%PDF-")
     assert len(reader.pages) > 0
-    assert "AUDIT" in text
-    assert "SourceManifest" in text
-    assert "sha256:toy" in text
-    assert "TOY §1" in text
+    assert "AUDIT" in compact
+    assert "SourceManifest" in compact
+    assert "sha256:toy" in compact
+    assert "TOY§1" in compact
 
 
 @pytest.mark.parametrize("status", ["PASS", "FAIL"])
 def test_executed_status_survives_pdf_exactly(status: str) -> None:
     artifact = _engineering(_model((("A", status),)))
-    assert status in _text(artifact)
+    assert status in _compact_text(artifact)
 
 
 @pytest.mark.parametrize(
@@ -110,9 +127,9 @@ def test_executed_status_survives_pdf_exactly(status: str) -> None:
 )
 def test_resultless_status_survives_pdf_exactly(closure, status: str) -> None:
     artifact = _engineering(_resultless(closure, status))
-    text = _text(artifact)
-    assert status in text
-    assert f"{status} stays" not in text
+    compact = _compact_text(artifact)
+    assert status in compact
+    assert f"{status}stays" not in compact
 
 
 def test_reanalysis_required_remains_explicit() -> None:
@@ -122,22 +139,22 @@ def test_reanalysis_required_remains_explicit() -> None:
             analysis={"A": AnalysisBasisStatus.REANALYSIS_REQUIRED},
         )
     )
-    text = _text(artifact)
-    assert "REANALYSIS_REQUIRED" in text
-    assert "renderer does not map it to PASS or FAIL" in text
+    compact = _compact_text(artifact)
+    assert "REANALYSIS_REQUIRED" in compact
+    assert "rendererdoesnotmapittoPASSorFAIL" in compact
 
 
 def test_pna_out_of_scope_is_not_mapped_to_pass() -> None:
     artifact = _engineering(_pna_model())
     text = _text(artifact)
-    assert "OUT_OF_SCOPE" in text
-    assert "proven_not_applicable_count" in text
-    assert "PASS" not in text
+    compact = "".join(text.split())
+    assert "OUT_OF_SCOPE" in compact
+    assert "proven_not_applicable_count" in compact
+    assert re.search(r"(?<![A-Z_])PASS(?![A-Z_])", text) is None
 
 
 def test_no_compliance_percentage_or_global_verdict_is_generated() -> None:
-    text = _text(_engineering())
-    lowered = text.lower()
+    lowered = _normalized_text(_engineering()).lower()
     assert "compliance percentage" not in lowered
     assert "project compliant" not in lowered
     assert "global compliance verdict" not in lowered
@@ -179,12 +196,12 @@ def test_pdf_layer_does_not_evaluate_formula_or_transform_units_or_governing_ref
             unit="kN",
         )
     )
-    text = _text(artifact)
+    compact = _compact_text(artifact)
 
-    assert "FORMULA_TEXT_ONLY" in text
-    assert "123.4567890123" in text
-    assert "kN" in text
-    assert "GOV:ROW:1" in text
+    assert "FORMULA_TEXT_ONLY=DEMAND/CAPACITY" in compact
+    assert "123.4567890123" in compact
+    assert "kN" in compact
+    assert "GOV:ROW:1" in compact
 
 
 def test_presentation_selection_is_preserved_and_coverage_is_not_recomputed() -> None:
@@ -194,14 +211,14 @@ def test_presentation_selection_is_preserved_and_coverage_is_not_recomputed() ->
     )
     selection = ReportPresentationSelection(statuses=("FAIL",))
     artifact = render_building_report_pdf(projection, selection=selection)
-    text = _text(artifact)
+    compact = _compact_text(artifact)
 
-    assert "Presentation selection/filter applied" in text
-    assert "Assessment population" in text
-    assert "Presentation scope" in text
-    assert "expected mandatory: 2" in text
-    assert "Rule B" in text
-    assert "Rule A" not in text
+    assert "Presentationselection/filterapplied" in compact
+    assert "Assessmentpopulation" in compact
+    assert "Presentationscope" in compact
+    assert "expectedmandatory:2" in compact
+    assert "RuleB" in compact
+    assert "RuleA" not in compact
 
 
 def test_same_inputs_options_toolchain_are_byte_identical() -> None:
@@ -230,7 +247,19 @@ def test_same_inputs_options_toolchain_are_byte_identical() -> None:
     )
 
     print(f"deterministic_pdf_sha256={first.sha256}")
-    assert first.content == second.content
+    if first.content != second.content:
+        limit = min(len(first.content), len(second.content))
+        index = next(
+            (i for i in range(limit) if first.content[i] != second.content[i]),
+            limit,
+        )
+        window = slice(max(0, index - 40), index + 80)
+        pytest.fail(
+            "PDF bytes are not deterministic: "
+            f"first_sha={first.sha256} second_sha={second.sha256} "
+            f"first_diff={index} first={first.content[window]!r} "
+            f"second={second.content[window]!r}"
+        )
     assert first.sha256 == second.sha256
     assert first.artifact_id == second.artifact_id
 
@@ -259,10 +288,17 @@ def test_filename_policy_is_deterministic_and_filesystem_safe() -> None:
 
 
 def test_toolchain_identity_records_exact_supported_backend_versions() -> None:
-    identity = pdf_toolchain_identity()
-    assert f'"weasyprint":"{SUPPORTED_WEASYPRINT_VERSION}"' in identity
-    assert f'"pydyf":"{SUPPORTED_PYDYF_VERSION}"' in identity
-    assert '"python":' in identity
+    identity = json.loads(pdf_toolchain_identity())
+    assert identity["packages"]["weasyprint"] == SUPPORTED_WEASYPRINT_VERSION
+    assert identity["packages"]["pydyf"] == SUPPORTED_PYDYF_VERSION
+    assert identity["python"]
+    assert identity["source_date_epoch"] == DETERMINISTIC_SOURCE_DATE_EPOCH
+
+
+def test_reproducible_epoch_does_not_leak_caller_environment(monkeypatch) -> None:
+    monkeypatch.setenv("SOURCE_DATE_EPOCH", "123456789")
+    _engineering()
+    assert os.environ["SOURCE_DATE_EPOCH"] == "123456789"
 
 
 def test_html_integrity_error_is_not_swallowed(monkeypatch) -> None:
@@ -318,16 +354,14 @@ def test_supported_profile_rejects_non_a4_and_background_suppression() -> None:
         PdfRenderOptions(print_background=False)
 
 
-def test_production_pdf_modules_have_no_timestamp_random_or_engine_imports() -> None:
+def test_production_pdf_modules_have_no_current_timestamp_random_or_engine_imports() -> None:
     sources = "\n".join(
-        Path(path).read_text(encoding="utf-8")
-        for path in (pdf_module.__file__, pdf_module.ReportArtifact.__module__.replace(".", "/") + ".py")
-        if Path(path).exists()
+        Path(module.__file__).read_text(encoding="utf-8")
+        for module in (pdf_module, artifact_module)
     )
-    if not sources:
-        sources = Path(pdf_module.__file__).read_text(encoding="utf-8")
     lowered = sources.lower()
     assert "datetime.now" not in lowered
+    assert "time.time" not in lowered
     assert "uuid4" not in lowered
     assert "random." not in lowered
     assert "etabs" not in lowered
