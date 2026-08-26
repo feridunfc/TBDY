@@ -1,0 +1,60 @@
+name: FCR-1A Project Coverage Reconciliation Validation
+
+on:
+  push:
+    branches:
+      - sprint/fcr-1a-project-coverage-reconciliation-v2
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fcr-1a-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Repository state
+        run: |
+          git status --short
+          git diff --check origin/main...HEAD
+          git diff --stat origin/main...HEAD
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml jsonschema
+
+      - name: Compile candidate
+        run: python -m compileall -q tbdy_engine tests
+
+      - name: FCR-1A focused acceptance
+        run: python -m pytest -q tests/coverage/test_fcr_1a_project_reconciliation.py
+
+      - name: Coverage and regulatory regression
+        run: |
+          python -m pytest -q \
+            tests/regulatory \
+            tests/coverage \
+            tests/product_reports/test_slice_report_contribution.py
+
+      - name: Broad product regression
+        run: |
+          python -m pytest -q \
+            tests/regulatory \
+            tests/coverage \
+            tests/design/columns \
+            tests/features \
+            tests/product_reports
