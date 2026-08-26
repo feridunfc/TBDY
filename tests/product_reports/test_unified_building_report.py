@@ -166,7 +166,7 @@ def _manifest(source_id: str = "SRC:REG") -> SourceManifest:
     )
 
 
-def _executed_reconciliation(*rules: str, analysis_basis_refs=()):
+def _executed_reconciliation(*rules: str, analysis_basis_refs=None):
     program = _program(*rules)
     records = tuple(_formal(_id(program, rule)) for rule in rules)
     snapshot = _snapshot(
