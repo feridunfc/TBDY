@@ -1,8 +1,10 @@
 """Product-level report builders.
 
-These modules assemble read-only, table-derived product reports. They do not
-attach to ETABS directly, do not run analysis/design, and do not execute the
-CheckEngine.
+Package initialization intentionally stays dependency-light. Canonical report
+models that depend on coverage/reconciliation are imported from their concrete
+modules (for example ``tbdy_engine.product_reports.unified_building_report``)
+rather than eagerly re-exported here. This keeps the reporting package from
+creating a coverage <-> product_reports import cycle.
 """
 
 from .c13_1_report import build_c13_1_product_report, write_c13_1_product_report
