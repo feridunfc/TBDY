@@ -139,7 +139,7 @@ def _projected_table(item: Mapping[str, object]) -> str:
     return (
         '<div class="subpanel"><h4>'
         f'{_esc(item.get("title"))} <span class="muted mono">{_esc(item.get("table_id"))}</span>'
-        "</h4><div class=\"table-wrap\"><table><thead><tr>"
+        '</h4><div class="table-wrap"><table><thead><tr>'
         + head
         + "</tr></thead><tbody>"
         + "".join(body)
@@ -534,7 +534,7 @@ def _reports(
         f'<label><input disabled type="checkbox"{checked(selection.include_components)}> Components</label>'
         f'<label><input disabled type="checkbox"{checked(selection.include_evidence)}> Evidence / Audit</label>'
         f'<label><input disabled type="checkbox"{checked(selection.include_actions)}> Actions</label>'
-        "</div><p class=\"muted\">Presentation visibility only; FCR, closure, statuses and bindings are unchanged.</p>"
+        '</div><p class="muted">Presentation visibility only; FCR, closure, statuses and bindings are unchanged.</p>'
     )
 
 
@@ -683,7 +683,7 @@ def render_building_report_html(
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         f'<title>{_esc(payload.get("title"))} · Unified Engineering Review</title>'
-        f"<style>{_css()}</style></head><body><div class=\"shell\">"
+        f'<style>{_css()}</style></head><body><div class="shell">'
         '<header><div class="eyebrow">Unified Engineering Review</div>'
         f'<h1>{_esc(payload.get("title"))}</h1><div class="identity">'
         f'<span><strong>project</strong> <code>{_esc(payload.get("project_id"))}</code></span>'
