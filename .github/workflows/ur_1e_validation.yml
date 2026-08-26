@@ -1,0 +1,222 @@
+name: UR-1E Deterministic Report Package Validation
+
+on:
+  push:
+    branches:
+      - sprint/ur-1e-report-package-xlsx-json
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FROZEN_BASE: e98ed36c13e8821f1e1a16a08eaee5b556b1dbce
+
+jobs:
+  ur-1e-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Verify frozen base ancestry and repository hygiene
+        shell: bash
+        run: |
+          test "$(git merge-base "$FROZEN_BASE" HEAD)" = "$FROZEN_BASE"
+          test "$(git rev-parse "$FROZEN_BASE")" = "$FROZEN_BASE"
+          git status --short
+          git diff --check "$FROZEN_BASE"...HEAD
+          git diff --stat "$FROZEN_BASE"...HEAD
+          echo "candidate_head=$(git rev-parse HEAD)"
+          echo "frozen_base=$FROZEN_BASE"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deterministic report toolchain
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            pytest \
+            pyyaml \
+            jsonschema \
+            weasyprint==69.0 \
+            pydyf==0.12.1 \
+            pypdf==6.16.1 \
+            pypdfium2==5.12.1 \
+            openpyxl==3.1.5 \
+            et_xmlfile==2.0.0
+
+      - name: Compile candidate
+        run: python -m compileall -q tbdy_engine tests
+
+      - name: Focused UR-1E and upstream reporting acceptance
+        run: |
+          python -m pytest -q \
+            tests/product_reports/test_ur_1e_report_package.py \
+            tests/product_reports/test_report_artifact.py \
+            tests/product_reports/test_unified_building_report.py \
+            tests/product_reports/test_building_report_projection.py \
+            tests/product_reports/test_building_report_projection_ui_ready.py \
+            tests/product_reports/test_report_presentation_selection.py \
+            tests/product_reports/test_building_report_html.py \
+            tests/product_reports/test_building_report_html_attribute_quoting.py \
+            tests/product_reports/test_building_report_pdf.py
+
+      - name: Determinism SHA double-render evidence
+        shell: bash
+        run: |
+          python - <<'PY'
+          from importlib.util import module_from_spec, spec_from_file_location
+          from io import BytesIO
+          from pathlib import Path
+          import sys
+          from zipfile import ZipFile
+
+          from tbdy_engine.product_reports.building_report_json import export_building_report_model_json
+          from tbdy_engine.product_reports.building_report_package import (
+              build_building_report_package,
+              build_report_delivery_artifacts,
+          )
+
+          helper_path = Path("tests/product_reports/test_building_report_html.py")
+          spec = spec_from_file_location("_ur_1e_ci_helpers", helper_path)
+          if spec is None or spec.loader is None:
+              raise SystemExit("could not load canonical UR-1C test helpers")
+          module = module_from_spec(spec)
+          sys.modules[spec.name] = module
+          spec.loader.exec_module(module)
+          model = module._model((("A", "PASS"), ("B", "FAIL")), formula_rule="A", formula="Ndm <= 0.40 Ac fck")
+
+          delivery_1 = {item.filename: item for item in build_report_delivery_artifacts(model)}
+          delivery_2 = {item.filename: item for item in build_report_delivery_artifacts(model)}
+          canonical_1 = export_building_report_model_json(model)
+          canonical_2 = export_building_report_model_json(model)
+          package_1 = build_building_report_package(model)
+          package_2 = build_building_report_package(model)
+
+          evidence = (
+              ("building_report_model.json", canonical_1, canonical_2, True),
+              ("engineering.xlsx", delivery_1["engineering.xlsx"], delivery_2["engineering.xlsx"], True),
+              ("audit.xlsx", delivery_1["audit.xlsx"], delivery_2["audit.xlsx"], True),
+              ("manifest.json", delivery_1["manifest.json"], delivery_2["manifest.json"], True),
+              ("building_report_package.zip", package_1, package_2, True),
+          )
+          for name, first, second, require_bytes in evidence:
+              print(f"{name}: run1_sha256={first.sha256}")
+              print(f"{name}: run2_sha256={second.sha256}")
+              print(f"{name}: run1_artifact_id={first.artifact_id}")
+              print(f"{name}: run2_artifact_id={second.artifact_id}")
+              if first.sha256 != second.sha256 or first.artifact_id != second.artifact_id:
+                  raise SystemExit(f"deterministic identity mismatch: {name}")
+              if require_bytes and first.content != second.content:
+                  raise SystemExit(f"byte determinism mismatch: {name}")
+
+          with ZipFile(BytesIO(package_1.content), "r") as archive:
+              if archive.read("building_report_model.json") != canonical_1.content:
+                  raise SystemExit("canonical model JSON in package does not match direct export")
+          PY
+
+      - name: Candidate broad regression
+        id: candidate_broad
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -q \
+            tests/regulatory \
+            tests/coverage \
+            tests/design/columns \
+            tests/features \
+            tests/product_reports \
+            > candidate_broad.log 2>&1
+          status=$?
+          cat candidate_broad.log
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Checkout exact frozen-base baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.FROZEN_BASE }}
+          path: frozen_base
+
+      - name: Frozen-base broad regression
+        id: baseline_broad
+        shell: bash
+        run: |
+          set +e
+          cd frozen_base
+          python -m pytest -q \
+            tests/regulatory \
+            tests/coverage \
+            tests/design/columns \
+            tests/features \
+            tests/product_reports \
+            > ../baseline_broad.log 2>&1
+          status=$?
+          cd ..
+          cat baseline_broad.log
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Exact zero-failure broad delta gate
+        shell: bash
+        env:
+          CANDIDATE_BROAD_EXIT: ${{ steps.candidate_broad.outputs.exit_code }}
+          BASELINE_BROAD_EXIT: ${{ steps.baseline_broad.outputs.exit_code }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          def signatures(path: str) -> set[str]:
+              text = Path(path).read_text(encoding="utf-8", errors="replace")
+              result: set[str] = set()
+              for line in text.splitlines():
+                  match = re.match(r"^(?:FAILED|ERROR)\s+([^\s]+)", line)
+                  if match:
+                      result.add(match.group(1))
+              return result
+
+          candidate_exit = int(os.environ["CANDIDATE_BROAD_EXIT"])
+          baseline_exit = int(os.environ["BASELINE_BROAD_EXIT"])
+          candidate = signatures("candidate_broad.log")
+          baseline = signatures("baseline_broad.log")
+          new_failures = candidate - baseline
+
+          print(f"candidate_exit={candidate_exit}")
+          print(f"baseline_exit={baseline_exit}")
+          print(f"candidate_failures={sorted(candidate)}")
+          print(f"baseline_failures={sorted(baseline)}")
+          print(f"new_failures={sorted(new_failures)}")
+
+          if baseline_exit != 0 or baseline:
+              raise SystemExit("UR-1E frozen base must be a zero-failure broad baseline")
+          if candidate_exit != 0 or candidate:
+              raise SystemExit("UR-1E candidate broad suite must exit 0 with no failures")
+          if new_failures:
+              raise SystemExit("UR-1E introduced new failure signatures")
+          PY
+
+      - name: Remove CI-created evidence files and frozen checkout
+        shell: bash
+        run: |
+          rm -rf -- "$GITHUB_WORKSPACE/frozen_base"
+          rm -f -- "$GITHUB_WORKSPACE/candidate_broad.log" "$GITHUB_WORKSPACE/baseline_broad.log"
+
+      - name: Final repository hygiene
+        shell: bash
+        run: |
+          git diff --check "$FROZEN_BASE"...HEAD
+          git status --short
+          test -z "$(git status --short)"

@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - sprint/cd-1-coverage-contract-debt-closure
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
