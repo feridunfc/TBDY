@@ -166,6 +166,10 @@ jobs:
               raise SystemExit("UR-1D introduced regression failure signatures")
           PY
 
+      - name: Remove CI-created frozen baseline checkout
+        shell: bash
+        run: rm -rf -- "$GITHUB_WORKSPACE/frozen_base"
+
       - name: Final repository hygiene
         shell: bash
         run: |
