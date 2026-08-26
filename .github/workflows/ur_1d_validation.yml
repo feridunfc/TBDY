@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - sprint/ur-1d-deterministic-pdf-export
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
