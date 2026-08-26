@@ -1,9 +1,10 @@
-"""Pure VS6-P7 brittle upper-bound mechanics for column shear.
+"""Exact selected-bar effective-depth resolution for VS6-P7 column shear.
 
-The functions here own only source-bound geometry/equation mechanics. They use
-the P7 working convention kN, kN*m, mm and MPa and emit canonical CheckResult
-objects. No ETABS unit inference, transverse-reinforcement resistance or
-reporter calculation is permitted.
+This module owns geometry resolution only. It contains no TBDY/TS500
+upper-bound formula and emits no compliance verdict; those belong exclusively
+to ``tbdy_engine.regulatory.column_shear_p7`` through the canonical F0 engine.
+
+Working geometry unit: mm.
 """
 from __future__ import annotations
 
@@ -11,20 +12,16 @@ from dataclasses import dataclass
 import math
 from typing import Sequence
 
-from tbdy_engine.checks.result import CheckResult, CheckStatus, EvaluationLevel
 from tbdy_engine.design.columns.column_shear_demand import M2, M3, associated_moment_axis
 from tbdy_engine.design.columns.rebar_layout import ColumnBarPoint
 
 
 class ColumnShearUpperBoundError(ValueError):
-    """Raised when exact P7 upper-bound inputs are unavailable or malformed."""
+    """Raised when exact P7 effective-depth inputs are unavailable or malformed."""
 
 
 EFFECTIVE_DEPTH_PROVEN = "PROVEN_EXACT_TS500_EFFECTIVE_DEPTH"
 EFFECTIVE_DEPTH_BLOCKED = "BLOCKED_EFFECTIVE_DEPTH_BASIS"
-
-TBDY_BRITTLE_CHECK_ID = "TBDY_7_3_7_5_EQ7_7_BRITTLE_UPPER"
-TS500_WEB_CHECK_ID = "TS500_8_1_5_WEB_COMPRESSION_UPPER"
 
 
 def _text(value: object, label: str) -> str:
@@ -39,15 +36,6 @@ def _positive(value: object, label: str) -> float:
     result = float(value)
     if not math.isfinite(result) or result <= 0.0:
         raise ColumnShearUpperBoundError(f"{label} must be finite and > 0")
-    return result
-
-
-def _nonnegative(value: object, label: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, (int, float)):
-        raise ColumnShearUpperBoundError(f"{label} must be numeric")
-    result = float(value)
-    if not math.isfinite(result) or result < 0.0:
-        raise ColumnShearUpperBoundError(f"{label} must be finite and >= 0")
     return result
 
 
@@ -82,7 +70,7 @@ def resolve_exact_rectangular_column_effective_depth(
     bars: Sequence[ColumnBarPoint],
     source_refs: Sequence[str],
 ) -> ColumnEffectiveDepthResolution:
-    """Resolve TS500 d from explicit selected-bar coordinates; never use d=0.9h."""
+    """Resolve TS500 d from selected-bar coordinates; never use d=0.9h."""
     component = _text(component_id, "component_id")
     axis = associated_moment_axis(direction)
     if moment_sign not in {-1, 1}:
@@ -148,133 +136,10 @@ def resolve_exact_rectangular_column_effective_depth(
     )
 
 
-def evaluate_tbdy_7375_brittle_upper_bound(
-    *,
-    component_id: str,
-    story: str,
-    section: str,
-    direction: str,
-    ve_kn: float,
-    aw_mm2: float,
-    fck_mpa: float,
-    evidence: Sequence[object],
-) -> CheckResult:
-    """TBDY 2018 7.3.7.5 Eq.7.7 second condition, reported in kN."""
-    component = _text(component_id, "component_id")
-    _text(story, "story")
-    _text(section, "section")
-    _text(direction, "direction")
-    ve = _nonnegative(ve_kn, "ve_kn")
-    aw = _positive(aw_mm2, "aw_mm2")
-    fck = _positive(fck_mpa, "fck_mpa")
-    # MPa=N/mm2, therefore the code expression is N; divide by 1000 -> kN.
-    limit_kn = 0.85 * aw * math.sqrt(fck) / 1000.0
-    ratio = ve / limit_kn
-    satisfied = ve <= limit_kn
-    return CheckResult(
-        check_id=TBDY_BRITTLE_CHECK_ID,
-        component=component,
-        component_type="column",
-        story=story,
-        section=section,
-        status=CheckStatus.OK if satisfied else CheckStatus.FAIL,
-        value=ve,
-        limit=limit_kn,
-        demand=ve,
-        capacity=limit_kn,
-        ratio=ratio,
-        ratio_type="demand_over_capacity",
-        pass_rule="Ve <= 0.85 * Aw * sqrt(fck)",
-        unit="kN",
-        evaluation_level=EvaluationLevel.DESIGN_LEVEL,
-        evidence=tuple(evidence),
-        messages=(
-            "TBDY_7_3_7_5_EQ7_7_BRITTLE_SATISFIED"
-            if satisfied
-            else "TBDY_7_3_7_5_EQ7_7_BRITTLE_NOT_SATISFIED_REANALYSIS_REQUIRED",
-        ),
-        code_ref="TBDY 2018 7.3.7.5 Eq. (7.7)",
-        diagnostics=(),
-    )
-
-
-def evaluate_ts500_815_web_compression_upper_bound(
-    *,
-    component_id: str,
-    story: str,
-    section: str,
-    direction: str,
-    vd_kn: float,
-    fcd_mpa: float,
-    effective_depth: ColumnEffectiveDepthResolution,
-    evidence: Sequence[object],
-) -> CheckResult:
-    """TS500 8.1.5 web-compression upper bound, reported in kN."""
-    component = _text(component_id, "component_id")
-    _text(story, "story")
-    _text(section, "section")
-    _text(direction, "direction")
-    vd = _nonnegative(vd_kn, "vd_kn")
-    fcd = _positive(fcd_mpa, "fcd_mpa")
-    if not isinstance(effective_depth, ColumnEffectiveDepthResolution):
-        raise TypeError("effective_depth must be ColumnEffectiveDepthResolution")
-    if not effective_depth.resolved:
-        return CheckResult(
-            check_id=TS500_WEB_CHECK_ID,
-            component=component,
-            component_type="column",
-            story=story,
-            section=section,
-            status=CheckStatus.BLOCKED,
-            evaluation_level=EvaluationLevel.NO_DATA,
-            evidence=tuple(evidence),
-            messages=(EFFECTIVE_DEPTH_BLOCKED,),
-            code_ref="TS 500 8.1.5",
-            diagnostics=(),
-        )
-    if effective_depth.component_id != component or effective_depth.direction != direction:
-        raise ColumnShearUpperBoundError("effective-depth identity differs from check identity")
-
-    bw_mm = float(effective_depth.web_width_bw_mm)
-    d_mm = float(effective_depth.effective_depth_d_mm)
-    limit_kn = 0.22 * fcd * bw_mm * d_mm / 1000.0
-    ratio = vd / limit_kn
-    satisfied = vd <= limit_kn
-    return CheckResult(
-        check_id=TS500_WEB_CHECK_ID,
-        component=component,
-        component_type="column",
-        story=story,
-        section=section,
-        status=CheckStatus.OK if satisfied else CheckStatus.FAIL,
-        value=vd,
-        limit=limit_kn,
-        demand=vd,
-        capacity=limit_kn,
-        ratio=ratio,
-        ratio_type="demand_over_capacity",
-        pass_rule="Vd <= 0.22 * fcd * bw * d",
-        unit="kN",
-        evaluation_level=EvaluationLevel.DESIGN_LEVEL,
-        evidence=tuple(evidence),
-        messages=(
-            "TS500_8_1_5_WEB_COMPRESSION_SATISFIED"
-            if satisfied
-            else "TS500_8_1_5_WEB_COMPRESSION_NOT_SATISFIED",
-        ),
-        code_ref="TS 500 8.1.5",
-        diagnostics=(),
-    )
-
-
 __all__ = [
     "EFFECTIVE_DEPTH_PROVEN",
     "EFFECTIVE_DEPTH_BLOCKED",
-    "TBDY_BRITTLE_CHECK_ID",
-    "TS500_WEB_CHECK_ID",
     "ColumnEffectiveDepthResolution",
     "ColumnShearUpperBoundError",
-    "evaluate_tbdy_7375_brittle_upper_bound",
-    "evaluate_ts500_815_web_compression_upper_bound",
     "resolve_exact_rectangular_column_effective_depth",
 ]
