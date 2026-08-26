@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 from hashlib import sha256
+from importlib.util import module_from_spec, spec_from_file_location
 from io import BytesIO
 from pathlib import Path
+import sys
 
 import pytest
 from pypdf import PdfReader
@@ -29,12 +31,19 @@ from tbdy_engine.product_reports.report_presentation_selection import (
 from tbdy_engine.regulatory.contracts import ClosureExecutionStatus
 from tbdy_engine.regulatory.kernel import AnalysisBasisStatus
 
-from tests.product_reports.test_building_report_html import (
-    _model,
-    _pna_model,
-    _projection,
-    _resultless,
-)
+
+_HELPER_MODULE_NAME = "_ur_1c_html_test_helpers_for_pdf"
+_HELPER_PATH = Path(__file__).with_name("test_building_report_html.py")
+_HELPER_SPEC = spec_from_file_location(_HELPER_MODULE_NAME, _HELPER_PATH)
+if _HELPER_SPEC is None or _HELPER_SPEC.loader is None:  # pragma: no cover
+    raise RuntimeError("could not load UR-1C HTML test helpers")
+_HTML_HELPERS = module_from_spec(_HELPER_SPEC)
+sys.modules[_HELPER_MODULE_NAME] = _HTML_HELPERS
+_HELPER_SPEC.loader.exec_module(_HTML_HELPERS)
+_model = _HTML_HELPERS._model
+_pna_model = _HTML_HELPERS._pna_model
+_projection = _HTML_HELPERS._projection
+_resultless = _HTML_HELPERS._resultless
 
 
 def _reader(artifact: ReportArtifact) -> PdfReader:
