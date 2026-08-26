@@ -17,7 +17,6 @@ def _status(run: VS6P7DirectionRun) -> str:
         return "NO_DATA"
     if any(item is None or item.status is CheckStatus.BLOCKED for item in results):
         return "BLOCKED"
-    # Even when both bounded upper checks are OK, Ve<=Vr is deliberately P8.
     return "PARTIAL"
 
 
@@ -30,9 +29,11 @@ def build_vs6_p7_column_shear_reports(run: VS6P7ColumnShearRun) -> tuple[SliceRe
         ts500 = direction.ts500_web_result
         fields = [
             ReportField("direction", "Local shear direction", direction.direction, role="IDENTITY"),
-            ReportField("Ve_n", "TBDY design shear Ve", direction.ve_n, unit="N", role="RESULT"),
-            ReportField("tbdy_vd_n", "TBDY Vd floor demand", direction.tbdy_vd.demand_n, unit="N", role="INPUT"),
-            ReportField("ts500_vd_n", "TS500 Vd demand", direction.ts500_vd.demand_n, unit="N", role="INPUT"),
+            ReportField("Ve_kn", "TBDY design shear Ve", direction.ve_kn, unit="kN", role="RESULT"),
+            ReportField("tbdy_vd_kn", "TBDY Vd floor demand", direction.tbdy_vd.demand_kn, unit="kN", role="INPUT"),
+            ReportField("ts500_vd_kn", "TS500 Vd demand", direction.ts500_vd.demand_kn, unit="kN", role="INPUT"),
+            ReportField("bottom_capacity_knm", "Bottom end moment capacity", direction.bottom_capacity.capacity_knm, unit="kN*m", role="RESULT"),
+            ReportField("top_capacity_knm", "Top end moment capacity", direction.top_capacity.capacity_knm, unit="kN*m", role="RESULT"),
             ReportField("bottom_capacity_status", "Bottom end moment-capacity basis", direction.bottom_capacity.status, role="STATUS"),
             ReportField("top_capacity_status", "Top end moment-capacity basis", direction.top_capacity.status, role="STATUS"),
             ReportField("effective_depth_status", "TS500 effective-depth basis", direction.effective_depth.status, role="STATUS"),
@@ -43,13 +44,13 @@ def build_vs6_p7_column_shear_reports(run: VS6P7ColumnShearRun) -> tuple[SliceRe
         if tbdy is not None:
             fields.extend((
                 ReportField("tbdy_upper_status", "TBDY Eq.7.7 brittle upper-bound", tbdy.status.value, role="STATUS"),
-                ReportField("tbdy_upper_limit_n", "TBDY brittle upper-bound limit", tbdy.limit, unit=tbdy.unit, role="LIMIT"),
+                ReportField("tbdy_upper_limit_kn", "TBDY brittle upper-bound limit", tbdy.limit, unit=tbdy.unit, role="LIMIT"),
                 ReportField("tbdy_upper_ratio", "TBDY demand/capacity ratio", tbdy.ratio, role="RESULT"),
             ))
         if ts500 is not None:
             fields.extend((
                 ReportField("ts500_upper_status", "TS500 Eq.8.7 web-compression bound", ts500.status.value, role="STATUS"),
-                ReportField("ts500_upper_limit_n", "TS500 web-compression limit", ts500.limit, unit=ts500.unit, role="LIMIT"),
+                ReportField("ts500_upper_limit_kn", "TS500 web-compression limit", ts500.limit, unit=ts500.unit, role="LIMIT"),
                 ReportField("ts500_upper_ratio", "TS500 demand/capacity ratio", ts500.ratio, role="RESULT"),
             ))
         out.append(
