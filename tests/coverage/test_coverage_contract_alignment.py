@@ -7,7 +7,13 @@ import pytest
 
 from tbdy_engine.contracts.loader import ContractConstitutionLoader
 from tbdy_engine.coverage.builder import CoverageBuilder
-from tbdy_engine.coverage.models import CoverageMatrix, CoverageRow, CoverageStatus
+from tbdy_engine.coverage.models import (
+    CoverageExecutionContextReadiness,
+    CoverageExecutionContextStatus,
+    CoverageMatrix,
+    CoverageRow,
+    CoverageStatus,
+)
 from tbdy_engine.features.evidence import FeatureEvidence, FeatureEvidenceStatus
 from tbdy_engine.features.snapshot import FeatureSnapshot
 from tbdy_engine.features.value import FeatureValue
@@ -68,12 +74,50 @@ def test_coverage_row_references_known_check_and_component_type():
     assert row.component_type in bundle.catalog("element_registry.yaml")["element_types"]
 
 
-def test_coverage_output_validates_against_schema():
+def test_coverage_output_validates_against_schema_with_empty_execution_context_arrays():
     bundle = load_bundle()
     row = CoverageBuilder(bundle).build_row(make_snapshot_for_width(), "beam_geometry_min_width", design_context={"ductility_class": "HIGH"})
     matrix = CoverageMatrix(rows=[row])
+    document = matrix.as_schema_document({"beam_geometry_min_width": "ready"})
+    item = document["checks"][0]
+    assert item["required_execution_context"] == []
+    assert item["execution_context_readiness"] == []
     schema = thaw(bundle.schema("coverage_matrix.schema.json"))
-    jsonschema.validate(matrix.as_schema_document({"beam_geometry_min_width": "ready"}), schema)
+    jsonschema.validate(document, schema)
+
+
+def test_coverage_output_validates_against_schema_with_populated_execution_context_arrays():
+    bundle = load_bundle()
+    row = CoverageRow(
+        check_id="execution_context_contract_probe",
+        component_type="beam",
+        component_id="B1",
+        coverage_status=CoverageStatus.BLOCKED,
+        reason="Mandatory execution context/evidence is absent",
+        required_execution_context=("analysis_basis",),
+        execution_context_readiness=(
+            CoverageExecutionContextReadiness(
+                context_name="analysis_basis",
+                status=CoverageExecutionContextStatus.BLOCKED,
+                reason="Mandatory execution context/evidence is absent",
+            ),
+        ),
+    )
+    document = {
+        "contract_version": "1.0",
+        "checks": [row.as_schema_check_item(check_readiness_status="missing_features")],
+    }
+    item = document["checks"][0]
+    assert item["required_execution_context"] == ["analysis_basis"]
+    assert item["execution_context_readiness"] == [
+        {
+            "context_name": "analysis_basis",
+            "status": "BLOCKED",
+            "reason": "Mandatory execution context/evidence is absent",
+        }
+    ]
+    schema = thaw(bundle.schema("coverage_matrix.schema.json"))
+    jsonschema.validate(document, schema)
 
 
 def test_unknown_component_type_rejected_by_row_builder():
