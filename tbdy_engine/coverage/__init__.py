@@ -1,7 +1,8 @@
-"""Coverage matrix foundation for C5.
+"""Coverage and project reconciliation foundations.
 
-This package only assesses data availability/runnability. It does not execute
-checks, compute ratios, or emit engineering OK/FAIL decisions.
+Coverage discovery assesses availability/runnability only. Project reconciliation
+accounts canonical compiled/runtime/report/action identities without executing
+checks, computing ratios, or emitting engineering OK/FAIL decisions.
 """
 from tbdy_engine.coverage.builder import CoverageBuilder
 from tbdy_engine.coverage.diagnostics import CoverageDiagnostic, CoverageDiagnosticCode, CoverageDiagnosticSeverity
@@ -16,8 +17,22 @@ from tbdy_engine.coverage.models import (
     CoverageStatus,
     ExpectedSourceKind,
 )
+from tbdy_engine.coverage.project_reconciliation import (
+    ActionBindingRef,
+    AnalysisBasisRef,
+    ProjectCoverageReconciliation,
+    ProjectCoverageReconciler,
+    ProjectReconciliationError,
+    ReportBindingIdentityBlocked,
+    ReportBindingRef,
+    ReportContributionRef,
+    canonical_closure_report_source_ref,
+    canonical_quantity_report_source_ref,
+)
 
 __all__ = [
+    "ActionBindingRef",
+    "AnalysisBasisRef",
     "CoverageBuilder",
     "CoverageDiagnostic",
     "CoverageDiagnosticCode",
@@ -31,4 +46,12 @@ __all__ = [
     "CoverageRow",
     "CoverageStatus",
     "ExpectedSourceKind",
+    "ProjectCoverageReconciliation",
+    "ProjectCoverageReconciler",
+    "ProjectReconciliationError",
+    "ReportBindingIdentityBlocked",
+    "ReportBindingRef",
+    "ReportContributionRef",
+    "canonical_closure_report_source_ref",
+    "canonical_quantity_report_source_ref",
 ]
