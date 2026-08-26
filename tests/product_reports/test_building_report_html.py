@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import FrozenInstanceError, dataclass
-from html import escape
+from html import escape, unescape
 from pathlib import Path
 import re
 
@@ -111,7 +111,8 @@ def _program(*rules: str, applicability: dict[str, ApplicabilityState] | None = 
 
 def _id(program, rule: str) -> RuleInstanceId:
     return next(
-        item for item in program.plan.compiled_rule_instances
+        item
+        for item in program.plan.compiled_rule_instances
         if item.rule_id == RuleId(rule)
     )
 
@@ -189,12 +190,8 @@ def _contribution(
                 calculation_id=f"calc:{rule}",
                 title=f"Resolved {rule} calculation",
                 formula=formula,
-                inputs=(
-                    ReportField("demand", "Demand", value, unit, "INPUT"),
-                ),
-                outputs=(
-                    ReportField("ratio", "Ratio", 0.625, None, "RESULT"),
-                ),
+                inputs=(ReportField("demand", "Demand", value, unit, "INPUT"),),
+                outputs=(ReportField("ratio", "Ratio", 0.625, None, "RESULT"),),
                 authority_refs=("AUTH:TOY",),
                 evidence_refs=("EVIDENCE:TOY",),
                 governing_ref="GOV:ROW:1",
@@ -271,7 +268,10 @@ def _model(
     )
     refs = tuple(f"{_id(program, rule).value}:CheckResult" for rule in rules)
     bindings = tuple(
-        ReportBindingRef(source_ref, ReportContributionRef.from_contribution(contribution))
+        ReportBindingRef(
+            source_ref,
+            ReportContributionRef.from_contribution(contribution),
+        )
         for source_ref, contribution in zip(refs, contributions)
     )
     basis_refs = tuple(
@@ -306,7 +306,10 @@ def _model(
     )
 
 
-def _resultless(status: ClosureExecutionStatus, contribution_status: str):
+def _resultless(
+    status: ClosureExecutionStatus,
+    contribution_status: str,
+) -> BuildingReportModel:
     program = _program("A")
     instance_id = _id(program, "A")
     source_ref = canonical_closure_report_source_ref(instance_id)
@@ -368,12 +371,18 @@ def _pna_model() -> BuildingReportModel:
     )
 
 
-def _projection(model: BuildingReportModel, view: ReportView):
+def _projection(model: BuildingReportModel, view: ReportView) -> BuildingReportProjection:
     return project_building_report_view(model, view)
 
 
 def _result_card_refs(html: str) -> list[str]:
-    return re.findall(r'<article[^>]+data-contribution-ref="([^"]+)"', html)
+    return [
+        unescape(value)
+        for value in re.findall(
+            r'<article[^>]+data-contribution-ref="([^"]+)"',
+            html,
+        )
+    ]
 
 
 def test_engineering_projection_renders_standalone_html():
@@ -390,7 +399,10 @@ def test_audit_projection_renders_standalone_html():
 
 
 def test_same_input_is_byte_identical():
-    projection = _projection(_model((("A", "PASS"), ("B", "FAIL"))), ReportView.ENGINEERING)
+    projection = _projection(
+        _model((("A", "PASS"), ("B", "FAIL"))),
+        ReportView.ENGINEERING,
+    )
     assert render_building_report_html(projection) == render_building_report_html(projection)
 
 
@@ -406,9 +418,9 @@ def test_equivalent_model_input_order_does_not_change_html():
         contributions=tuple(reversed(model.contributions)),
         report_bindings=tuple(reversed(model.report_bindings)),
     )
-    assert render_building_report_html(_projection(model, ReportView.AUDIT)) == render_building_report_html(
-        _projection(reversed_model, ReportView.AUDIT)
-    )
+    assert render_building_report_html(
+        _projection(model, ReportView.AUDIT)
+    ) == render_building_report_html(_projection(reversed_model, ReportView.AUDIT))
 
 
 def test_no_current_timestamp_or_random_uuid_is_emitted():
@@ -418,9 +430,13 @@ def test_no_current_timestamp_or_random_uuid_is_emitted():
 
 
 def test_all_canonical_contributions_present_by_default():
-    projection = _projection(_model((("A", "PASS"), ("B", "FAIL"), ("C", "PASS"))), ReportView.ENGINEERING)
+    projection = _projection(
+        _model((("A", "PASS"), ("B", "FAIL"), ("C", "PASS"))),
+        ReportView.ENGINEERING,
+    )
     assert _result_card_refs(render_building_report_html(projection)) == [
-        item["contribution_ref"] for item in projection.as_dict()["contributions"]
+        item["contribution_ref"]
+        for item in projection.as_dict()["contributions"]
     ]
 
 
@@ -439,7 +455,10 @@ def test_report_source_refs_survive_rendering():
 
 
 def test_project_level_contribution_remains_visible():
-    projection = _projection(_model(component_ids={"A": None}), ReportView.ENGINEERING)
+    projection = _projection(
+        _model(component_ids={"A": None}),
+        ReportView.ENGINEERING,
+    )
     html = render_building_report_html(projection)
     assert 'data-project-level="true"' in html
     assert "PROJECT / GLOBAL" in html
@@ -447,8 +466,15 @@ def test_project_level_contribution_remains_visible():
 
 @pytest.mark.parametrize("status", ["PASS", "FAIL", "REANALYSIS_REQUIRED"])
 def test_executed_status_text_survives_exactly(status):
-    analysis = {"A": AnalysisBasisStatus.REANALYSIS_REQUIRED} if status == "REANALYSIS_REQUIRED" else {}
-    projection = _projection(_model((("A", status),), analysis=analysis), ReportView.ENGINEERING)
+    analysis = (
+        {"A": AnalysisBasisStatus.REANALYSIS_REQUIRED}
+        if status == "REANALYSIS_REQUIRED"
+        else {}
+    )
+    projection = _projection(
+        _model((("A", status),), analysis=analysis),
+        ReportView.ENGINEERING,
+    )
     html = render_building_report_html(projection)
     assert f'data-status="{status}"' in html
     assert f">{status}</span>" in html
@@ -469,7 +495,9 @@ def test_resultless_status_survives_exactly(closure, status):
 
 
 def test_proven_not_applicable_remains_explicit_not_pass():
-    html = render_building_report_html(_projection(_pna_model(), ReportView.ENGINEERING))
+    html = render_building_report_html(
+        _projection(_pna_model(), ReportView.ENGINEERING)
+    )
     assert 'data-status="OUT_OF_SCOPE"' in html
     assert "proven_not_applicable_count" in html
 
@@ -482,7 +510,10 @@ def test_renderer_generates_no_overall_pass_or_project_compliant_claim():
 
 
 def test_coverage_values_are_projection_values():
-    projection = _projection(_resultless(ClosureExecutionStatus.BLOCKED, "BLOCKED"), ReportView.ENGINEERING)
+    projection = _projection(
+        _resultless(ClosureExecutionStatus.BLOCKED, "BLOCKED"),
+        ReportView.ENGINEERING,
+    )
     summary = projection.as_dict()["coverage_summary"]
     html = render_building_report_html(projection)
     for key in (
@@ -496,16 +527,24 @@ def test_coverage_values_are_projection_values():
 
 
 def test_coverage_is_not_recomputed_from_selected_rows():
-    projection = _projection(_model((("A", "PASS"), ("B", "FAIL"))), ReportView.ENGINEERING)
-    selection = ReportPresentationSelection(statuses=("FAIL",))
-    html = render_building_report_html(projection, selection=selection)
+    projection = _projection(
+        _model((("A", "PASS"), ("B", "FAIL"))),
+        ReportView.ENGINEERING,
+    )
+    html = render_building_report_html(
+        projection,
+        selection=ReportPresentationSelection(statuses=("FAIL",)),
+    )
     assert len(_result_card_refs(html)) == 1
     assert 'data-coverage-key="expected_mandatory_instance_count"' in html
     assert 'data-canonical-value="2"' in html
 
 
 def test_filtered_presentation_declares_scope_and_active_selection():
-    projection = _projection(_model((("A", "PASS"), ("B", "FAIL"))), ReportView.ENGINEERING)
+    projection = _projection(
+        _model((("A", "PASS"), ("B", "FAIL"))),
+        ReportView.ENGINEERING,
+    )
     html = render_building_report_html(
         projection,
         selection=ReportPresentationSelection(statuses=("FAIL",)),
@@ -516,7 +555,10 @@ def test_filtered_presentation_declares_scope_and_active_selection():
 
 
 def test_presentation_selection_does_not_mutate_projection_or_fcr():
-    projection = _projection(_model((("A", "PASS"), ("B", "FAIL"))), ReportView.ENGINEERING)
+    projection = _projection(
+        _model((("A", "PASS"), ("B", "FAIL"))),
+        ReportView.ENGINEERING,
+    )
     before = projection.to_json()
     render_building_report_html(
         projection,
@@ -527,16 +569,24 @@ def test_presentation_selection_does_not_mutate_projection_or_fcr():
 
 def test_unknown_contribution_ref_selection_fails_closed():
     projection = _projection(_model(), ReportView.ENGINEERING)
-    with pytest.raises(ReportPresentationSelectionError, match="unknown exact contribution_ref"):
+    with pytest.raises(
+        ReportPresentationSelectionError,
+        match="unknown exact contribution_ref",
+    ):
         render_building_report_html(
             projection,
-            selection=ReportPresentationSelection(contribution_refs=("missing-ref",)),
+            selection=ReportPresentationSelection(
+                contribution_refs=("missing-ref",)
+            ),
         )
 
 
 def test_unknown_component_selection_fails_closed():
     projection = _projection(_model(), ReportView.ENGINEERING)
-    with pytest.raises(ReportPresentationSelectionError, match="unknown exact component"):
+    with pytest.raises(
+        ReportPresentationSelectionError,
+        match="unknown exact component",
+    ):
         render_building_report_html(
             projection,
             selection=ReportPresentationSelection(
@@ -546,11 +596,16 @@ def test_unknown_component_selection_fails_closed():
 
 
 def test_exact_component_selection_uses_canonical_pair():
-    projection = _projection(_model((("A", "PASS"), ("B", "FAIL"))), ReportView.ENGINEERING)
-    selection = ReportPresentationSelection(
-        component_refs=(ComponentFacetRef("toy", "SCOPE_B"),)
+    projection = _projection(
+        _model((("A", "PASS"), ("B", "FAIL"))),
+        ReportView.ENGINEERING,
     )
-    html = render_building_report_html(projection, selection=selection)
+    html = render_building_report_html(
+        projection,
+        selection=ReportPresentationSelection(
+            component_refs=(ComponentFacetRef("toy", "SCOPE_B"),)
+        ),
+    )
     assert len(_result_card_refs(html)) == 1
     assert "SCOPE_B" in html
 
@@ -563,7 +618,10 @@ def test_engineering_does_not_require_source_manifest_internals():
 
 def test_engineering_audit_selection_fails_closed():
     projection = _projection(_model(), ReportView.ENGINEERING)
-    with pytest.raises(ReportPresentationSelectionError, match="requires ReportView.AUDIT"):
+    with pytest.raises(
+        ReportPresentationSelectionError,
+        match="requires ReportView.AUDIT",
+    ):
         render_building_report_html(
             projection,
             selection=ReportPresentationSelection(include_evidence=True),
@@ -577,7 +635,10 @@ def test_audit_exposes_fingerprint_and_locator():
 
 
 def test_formula_text_is_rendered_without_evaluation():
-    projection = _projection(_model(formula_rule="A"), ReportView.ENGINEERING)
+    projection = _projection(
+        _model(formula_rule="A"),
+        ReportView.ENGINEERING,
+    )
     html = render_building_report_html(projection)
     assert "1 / 0 SHOULD_NOT_EVALUATE" in html
     assert "0.625" in html
@@ -643,7 +704,10 @@ def test_primary_ui_section_and_navigation_exist(section_id, label):
 
 
 def test_client_filter_metadata_uses_exact_canonical_facets():
-    projection = _projection(_model((("A", "PASS"), ("B", "FAIL"))), ReportView.ENGINEERING)
+    projection = _projection(
+        _model((("A", "PASS"), ("B", "FAIL"))),
+        ReportView.ENGINEERING,
+    )
     html = render_building_report_html(projection)
     for facet in projection.as_dict()["status_facets"]:
         assert f'value="{facet["status"]}"' in html
@@ -653,19 +717,38 @@ def test_client_filter_metadata_uses_exact_canonical_facets():
 
 
 def test_no_fuzzy_engineering_rule_family_inference_is_coded():
-    source = Path(__file__).resolve().parents[2] / "tbdy_engine" / "product_reports" / "building_report_html.py"
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "tbdy_engine"
+        / "product_reports"
+        / "building_report_html.py"
+    )
     text = source.read_text(encoding="utf-8").lower()
-    for forbidden in ("column shear", "beam geometry", "axial family", "drift family", "irregularity family"):
+    for forbidden in (
+        "column shear",
+        "beam geometry",
+        "axial family",
+        "drift family",
+        "irregularity family",
+    ):
         assert forbidden not in text
 
 
 def test_renderer_imports_no_etabs_provider_or_regulatory_engine():
-    source = Path(__file__).resolve().parents[2] / "tbdy_engine" / "product_reports" / "building_report_html.py"
-    text = source.read_text(encoding="utf-8")
-    assert "etabs" not in "\n".join(
-        line for line in text.lower().splitlines() if line.startswith("from ") or line.startswith("import ")
+    source = (
+        Path(__file__).resolve().parents[2]
+        / "tbdy_engine"
+        / "product_reports"
+        / "building_report_html.py"
     )
-    assert "provider" not in text.lower().split("class HtmlRenderIntegrityError", 1)[0]
+    text = source.read_text(encoding="utf-8")
+    imports = "\n".join(
+        line
+        for line in text.lower().splitlines()
+        if line.startswith("from ") or line.startswith("import ")
+    )
+    assert "etabs" not in imports
+    assert "provider" not in imports
     assert "RegulatoryEngine" not in text
 
 
@@ -678,13 +761,17 @@ def test_print_stylesheet_and_a4_page_rule_exist():
 
 def test_long_source_locator_and_ids_are_render_safe():
     locator = "LOC:" + ("X" * 500)
-    html = render_building_report_html(_projection(_model(locator=locator), ReportView.AUDIT))
+    html = render_building_report_html(
+        _projection(_model(locator=locator), ReportView.AUDIT)
+    )
     assert locator in html
     assert "overflow-wrap:anywhere" in html
 
 
 def test_engineering_and_audit_use_same_renderer_function():
-    engineering = render_building_report_html(_projection(_model(), ReportView.ENGINEERING))
+    engineering = render_building_report_html(
+        _projection(_model(), ReportView.ENGINEERING)
+    )
     audit = render_building_report_html(_projection(_model(), ReportView.AUDIT))
     assert "Unified Engineering Review" in engineering
     assert "Unified Engineering Review" in audit
@@ -765,7 +852,9 @@ def test_default_engineering_selection_has_all_engineering_sections_and_no_audit
 
 
 def test_default_audit_selection_includes_audit_trace():
-    selection = default_presentation_selection(_projection(_model(), ReportView.AUDIT))
+    selection = default_presentation_selection(
+        _projection(_model(), ReportView.AUDIT)
+    )
     assert selection.include_evidence
 
 
@@ -787,8 +876,8 @@ def test_renderer_accepts_only_building_report_projection():
 
 def test_no_eager_product_reports_import_cycle_is_introduced():
     root = Path(__file__).resolve().parents[2]
-    package_init = (root / "tbdy_engine" / "product_reports" / "__init__.py").read_text(
-        encoding="utf-8"
-    )
+    package_init = (
+        root / "tbdy_engine" / "product_reports" / "__init__.py"
+    ).read_text(encoding="utf-8")
     assert "building_report_html" not in package_init
     assert "report_presentation_selection" not in package_init
