@@ -2,6 +2,7 @@
 
 The artifact contract records delivery metadata and exact content identity only.
 It owns no engineering, regulatory, closure, coverage, or compliance semantics.
+Presentation/render provenance is nullable when it is not canonically applicable.
 """
 from __future__ import annotations
 
@@ -33,6 +34,12 @@ def _sha256_text(value: str, label: str) -> str:
     return value
 
 
+def _optional_sha256_text(value: str | None, label: str) -> str | None:
+    if value is None:
+        return None
+    return _sha256_text(value, label)
+
+
 def _safe_filename(value: str) -> str:
     value = _exact_text(value, "filename")
     if value in {".", ".."} or "/" in value or "\\" in value or "\x00" in value:
@@ -48,15 +55,16 @@ class ReportArtifact:
     format: str
     media_type: str
     filename: str
-    view: str
     content: bytes = field(repr=False)
-    source_report_id: str | None
-    source_project_id: str | None
-    source_projection_sha256: str
-    presentation_selection_sha256: str
-    source_render_sha256: str
-    options_sha256: str
-    renderer_toolchain_fingerprint: str
+    view: str | None = None
+    source_report_id: str | None = None
+    source_project_id: str | None = None
+    source_model_sha256: str | None = None
+    source_projection_sha256: str | None = None
+    presentation_selection_sha256: str | None = None
+    source_render_sha256: str | None = None
+    options_sha256: str | None = None
+    renderer_toolchain_fingerprint: str | None = None
     byte_length: int = field(init=False)
     sha256: str = field(init=False)
     artifact_id: str = field(init=False)
@@ -66,7 +74,7 @@ class ReportArtifact:
         object.__setattr__(self, "format", _exact_text(self.format, "format"))
         object.__setattr__(self, "media_type", _exact_text(self.media_type, "media_type"))
         object.__setattr__(self, "filename", _safe_filename(self.filename))
-        object.__setattr__(self, "view", _exact_text(self.view, "view"))
+        object.__setattr__(self, "view", _optional_exact_text(self.view, "view"))
         object.__setattr__(
             self,
             "source_report_id",
@@ -77,33 +85,22 @@ class ReportArtifact:
             "source_project_id",
             _optional_exact_text(self.source_project_id, "source_project_id"),
         )
-        object.__setattr__(
-            self,
+        for name in (
+            "source_model_sha256",
             "source_projection_sha256",
-            _sha256_text(self.source_projection_sha256, "source_projection_sha256"),
-        )
-        object.__setattr__(
-            self,
             "presentation_selection_sha256",
-            _sha256_text(
-                self.presentation_selection_sha256,
-                "presentation_selection_sha256",
-            ),
-        )
-        object.__setattr__(
-            self,
             "source_render_sha256",
-            _sha256_text(self.source_render_sha256, "source_render_sha256"),
-        )
-        object.__setattr__(
-            self,
             "options_sha256",
-            _sha256_text(self.options_sha256, "options_sha256"),
-        )
+        ):
+            object.__setattr__(
+                self,
+                name,
+                _optional_sha256_text(getattr(self, name), name),
+            )
         object.__setattr__(
             self,
             "renderer_toolchain_fingerprint",
-            _exact_text(
+            _optional_exact_text(
                 self.renderer_toolchain_fingerprint,
                 "renderer_toolchain_fingerprint",
             ),
@@ -125,6 +122,7 @@ class ReportArtifact:
             "sha256": content_sha256,
             "source_report_id": self.source_report_id,
             "source_project_id": self.source_project_id,
+            "source_model_sha256": self.source_model_sha256,
             "source_projection_sha256": self.source_projection_sha256,
             "presentation_selection_sha256": self.presentation_selection_sha256,
             "source_render_sha256": self.source_render_sha256,
@@ -157,6 +155,7 @@ class ReportArtifact:
             "sha256": self.sha256,
             "source_report_id": self.source_report_id,
             "source_project_id": self.source_project_id,
+            "source_model_sha256": self.source_model_sha256,
             "source_projection_sha256": self.source_projection_sha256,
             "presentation_selection_sha256": self.presentation_selection_sha256,
             "source_render_sha256": self.source_render_sha256,
