@@ -11,6 +11,8 @@
       "required_design_context": [
         "ductility_class"
       ],
+      "required_execution_context": [],
+      "execution_context_readiness": [],
       "combo_policy_status": "NOT_APPLICABLE",
       "section_state_status": "NOT_APPLICABLE",
       "check_readiness_status": "ready",
@@ -36,9 +38,7 @@
           "source_kind": "etabs_table",
           "feature_name": "beam_width_mm",
           "table_key": "frame_section_properties",
-          "table_aliases": [
-            "Frame Section Property Definitions - Concrete Rectangular"
-          ],
+          "table_aliases": [],
           "field_aliases": [
             "Width",
             "t2",
