@@ -15,6 +15,17 @@ jobs:
     steps:
       - name: Checkout candidate branch HEAD
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Candidate repository state
+        run: |
+          echo "GIT_STATUS_SHORT_BEGIN"
+          git status --short
+          echo "GIT_STATUS_SHORT_END"
+          echo "GIT_DIFF_STAT_MAIN_HEAD_BEGIN"
+          git diff --stat origin/main...HEAD
+          echo "GIT_DIFF_STAT_MAIN_HEAD_END"
 
       - name: Setup Python
         uses: actions/setup-python@v5
