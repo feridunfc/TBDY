@@ -10,6 +10,7 @@ from tbdy_engine.design.columns.column_shear_demand import (
     BLOCKED_LN,
     BLOCKED_RS_CONCURRENCY,
     CAPACITY_PROVEN,
+    SECTION_CAPACITY_UNIT_ADAPTER_REF,
     ColumnEndMomentCapacityBasis,
     ColumnShearDesignDemandInput,
     associated_moment_axis,
@@ -19,7 +20,7 @@ from tbdy_engine.design.columns.column_shear_demand import (
 from tbdy_engine.design.columns.column_shear_units import (
     ColumnShearUnitBoundaryError,
     SourceBoundScalar,
-    force_to_n,
+    force_to_kn,
     length_to_mm,
 )
 from tbdy_engine.design.columns.column_shear_upper_bounds import (
@@ -29,17 +30,12 @@ from tbdy_engine.design.columns.column_shear_upper_bounds import (
     resolve_exact_rectangular_column_effective_depth,
 )
 from tbdy_engine.design.columns.rebar_layout import ColumnBarPoint
-from tbdy_engine.design.columns.section_capacity import (
-    ColumnInteractionEnvelope,
-    RadialMomentCapacity,
-)
+from tbdy_engine.design.columns.section_capacity import ColumnInteractionEnvelope, RadialMomentCapacity
 from tbdy_engine.features.column_shear_demand_evidence import (
     ColumnShearDemandEvidenceError,
     build_column_shear_demand_evidence,
 )
-from tbdy_engine.product_reports.vs6_column_shear_p7_report import (
-    build_vs6_p7_column_shear_reports,
-)
+from tbdy_engine.product_reports.vs6_column_shear_p7_report import build_vs6_p7_column_shear_reports
 from tbdy_engine.regulatory.contracts import PhysicalDimension
 from tbdy_engine.regulatory.kernel import AnalysisBasisStatus
 from tbdy_engine.regulatory.units import Unit, UNIT_KN, UNIT_M, UNIT_MM, UNIT_N
@@ -51,15 +47,15 @@ from tbdy_engine.regulatory.vs6_column_shear_p7_program import (
 )
 
 
-def _capacity(end: str, direction: str, value: float, sign: int = 1):
+def _capacity(end: str, direction: str, value_knm: float, sign: int = 1):
     return ColumnEndMomentCapacityBasis(
         component_id="C1",
         end_tag=end,
         direction=direction,
         moment_axis=associated_moment_axis(direction),
         moment_sign=sign,
-        nd_compression_n=500_000.0,
-        capacity_nmm=value,
+        nd_compression_kn=500.0,
+        capacity_knm=value_knm,
         status=CAPACITY_PROVEN,
         source_refs=(f"CAP:{end}:{direction}:{sign}",),
     )
@@ -68,24 +64,24 @@ def _capacity(end: str, direction: str, value: float, sign: int = 1):
 def _demand_input(
     *,
     direction="V2",
-    bottom=120_000_000.0,
-    top=80_000_000.0,
-    ln=2_000.0,
-    d_candidate=90_000.0,
-    vd=60_000.0,
+    bottom_knm=120.0,
+    top_knm=80.0,
+    ln_mm=2_000.0,
+    d_candidate_kn=90.0,
+    vd_kn=60.0,
     rs_required=False,
     rs_proven=True,
 ):
     return ColumnShearDesignDemandInput(
         component_id="C1",
         direction=direction,
-        free_length_ln_mm=ln,
-        free_length_basis_ref=None if ln is None else "LN:STRICT",
-        bottom_capacity=_capacity("BOTTOM", direction, bottom),
-        top_capacity=_capacity("TOP", direction, top),
-        d_amplified_candidate_n=d_candidate,
-        d_amplified_basis_ref=None if d_candidate is None else "D:REVIEWED",
-        vd_floor_n=vd,
+        free_length_ln_mm=ln_mm,
+        free_length_basis_ref=None if ln_mm is None else "LN:STRICT",
+        bottom_capacity=_capacity("BOTTOM", direction, bottom_knm),
+        top_capacity=_capacity("TOP", direction, top_knm),
+        d_amplified_candidate_kn=d_candidate_kn,
+        d_amplified_basis_ref=None if d_candidate_kn is None else "D:REVIEWED",
+        vd_floor_kn=vd_kn,
         vd_source_ref="VD:EXACT",
         response_spectrum_concurrency_required=rs_required,
         response_spectrum_concurrency_proven=rs_proven,
@@ -101,9 +97,9 @@ def _bars():
     )
 
 
-def _source_demand(value: float, ref: str):
+def _source_demand(value_kn: float, ref: str):
     return SourceBoundShearDemand(
-        demand_n=value,
+        demand_kn=value_kn,
         source_identity=ref,
         output_case="COMB1",
         case_type="Combination",
@@ -141,9 +137,9 @@ def _row(station: float, *, case="COMB1"):
     }
 
 
-def test_unit_boundary_is_explicit_and_typed():
-    assert force_to_n(SourceBoundScalar(12.5, UNIT_KN, "ETABS:V2")) == 12_500.0
-    assert force_to_n(SourceBoundScalar(12_500.0, UNIT_N, "ETABS:V2")) == 12_500.0
+def test_unit_boundary_normalizes_force_to_kn_and_length_to_mm():
+    assert force_to_kn(SourceBoundScalar(12.5, UNIT_KN, "ETABS:V2")) == 12.5
+    assert force_to_kn(SourceBoundScalar(12_500.0, UNIT_N, "ETABS:V2")) == 12.5
     assert length_to_mm(SourceBoundScalar(2.4, UNIT_M, "ETABS:Station")) == 2_400.0
     assert length_to_mm(SourceBoundScalar(2400.0, UNIT_MM, "ETABS:Station")) == 2_400.0
 
@@ -151,7 +147,7 @@ def test_unit_boundary_is_explicit_and_typed():
 def test_unknown_force_unit_fails_closed():
     unit_tf = Unit("tf", PhysicalDimension.FORCE)
     with pytest.raises(ColumnShearUnitBoundaryError):
-        force_to_n(SourceBoundScalar(1.0, unit_tf, "ETABS:V2"))
+        force_to_kn(SourceBoundScalar(1.0, unit_tf, "ETABS:V2"))
 
 
 def test_factual_identity_preserves_station_and_duplicate_fails():
@@ -187,12 +183,12 @@ def test_wrong_output_case_cannot_enter_evidence():
         )
 
 
-def test_local_axis_pairing_is_not_anonymous_max():
+def test_local_axis_pairing_is_preserved():
     assert associated_moment_axis("V2") == "M3"
     assert associated_moment_axis("V3") == "M2"
 
 
-def test_exact_capacity_wrapper_uses_requested_axis_and_sign(monkeypatch):
+def test_exact_capacity_wrapper_exposes_knm_while_reusing_frozen_145_kernel(monkeypatch):
     import tbdy_engine.design.columns.column_shear_demand as module
 
     observed = {}
@@ -218,7 +214,7 @@ def test_exact_capacity_wrapper_uses_requested_axis_and_sign(monkeypatch):
         end_tag="BOTTOM",
         direction="V2",
         moment_sign=-1,
-        nd_compression_n=500_000.0,
+        nd_compression_kn=500.0,
         width_mm=400.0,
         depth_mm=500.0,
         bars=_bars(),
@@ -226,41 +222,42 @@ def test_exact_capacity_wrapper_uses_requested_axis_and_sign(monkeypatch):
         source_refs=("ND:STATE", "REBAR:SELECTED"),
     )
     assert result.status == CAPACITY_PROVEN
-    assert result.capacity_nmm == 123_000_000.0
+    assert result.capacity_knm == 123.0
+    assert result.nd_compression_kn == 500.0
     assert observed["target_n"] == 500_000.0
     assert observed["vector"] == (0.0, -1.0)
+    assert SECTION_CAPACITY_UNIT_ADAPTER_REF in result.source_refs
 
 
-def test_eq75_d_amplified_candidate_can_govern():
+def test_eq75_works_in_kn_knm_mm_and_d_candidate_can_govern():
     result = evaluate_tbdy_737_column_shear_demand(_demand_input())
-    assert result.ve_capacity_eq75_n == 100_000.0
-    assert result.final_ve_n == 90_000.0
+    assert result.ve_capacity_eq75_kn == 100.0
+    assert result.final_ve_kn == 90.0
     assert result.governing_rule == "TBDY_7_3_7_1_D_AMPLIFIED_CANDIDATE"
 
 
-def test_eq75_candidate_can_govern():
-    inp = _demand_input(d_candidate=150_000.0)
-    result = evaluate_tbdy_737_column_shear_demand(inp)
-    assert result.final_ve_n == 100_000.0
+def test_eq75_capacity_candidate_can_govern():
+    result = evaluate_tbdy_737_column_shear_demand(_demand_input(d_candidate_kn=150.0))
+    assert result.final_ve_kn == 100.0
     assert result.governing_rule == "TBDY_7_3_7_1_EQ7_5"
 
 
 def test_vd_floor_can_govern():
-    result = evaluate_tbdy_737_column_shear_demand(_demand_input(vd=95_000.0))
-    assert result.final_ve_n == 95_000.0
+    result = evaluate_tbdy_737_column_shear_demand(_demand_input(vd_kn=95.0))
+    assert result.final_ve_kn == 95.0
     assert result.governing_rule == "TBDY_7_3_7_5_VD_FLOOR"
 
 
 def test_missing_d_authority_blocks_without_default():
-    result = evaluate_tbdy_737_column_shear_demand(_demand_input(d_candidate=None))
+    result = evaluate_tbdy_737_column_shear_demand(_demand_input(d_candidate_kn=None))
     assert result.status == BLOCKED_D
-    assert result.final_ve_n is None
+    assert result.final_ve_kn is None
 
 
 def test_missing_ln_authority_blocks_without_length_fallback():
-    result = evaluate_tbdy_737_column_shear_demand(_demand_input(ln=None))
+    result = evaluate_tbdy_737_column_shear_demand(_demand_input(ln_mm=None))
     assert result.status == BLOCKED_LN
-    assert result.final_ve_n is None
+    assert result.final_ve_kn is None
 
 
 def test_response_spectrum_concurrency_blocks_when_unproven():
@@ -268,7 +265,7 @@ def test_response_spectrum_concurrency_blocks_when_unproven():
         _demand_input(rs_required=True, rs_proven=False)
     )
     assert result.status == BLOCKED_RS_CONCURRENCY
-    assert result.final_ve_n is None
+    assert result.final_ve_kn is None
 
 
 def test_effective_depth_uses_selected_bar_coordinates_not_09h():
@@ -284,39 +281,43 @@ def test_effective_depth_uses_selected_bar_coordinates_not_09h():
     assert v3.effective_depth_d_mm != pytest.approx(0.9 * 500.0)
 
 
-def test_tbdy_brittle_upper_bound_exact_boundary_and_fail():
-    aw = 200_000.0
-    fck = 25.0
-    limit = 0.85 * aw * math.sqrt(fck)
+def test_tbdy_brittle_upper_bound_returns_kn():
+    aw_mm2 = 200_000.0
+    fck_mpa = 25.0
+    limit_kn = 0.85 * aw_mm2 * math.sqrt(fck_mpa) / 1000.0
     on = evaluate_tbdy_7375_brittle_upper_bound(
         component_id="C1", story="S1", section="C400x500", direction="V2",
-        ve_n=limit, aw_mm2=aw, fck_mpa=fck, evidence=("x",),
+        ve_kn=limit_kn, aw_mm2=aw_mm2, fck_mpa=fck_mpa, evidence=("x",),
     )
     above = evaluate_tbdy_7375_brittle_upper_bound(
         component_id="C1", story="S1", section="C400x500", direction="V2",
-        ve_n=limit + 1.0, aw_mm2=aw, fck_mpa=fck, evidence=("x",),
+        ve_kn=limit_kn + 0.001, aw_mm2=aw_mm2, fck_mpa=fck_mpa, evidence=("x",),
     )
     assert on.status is CheckStatus.OK
+    assert on.unit == "kN"
+    assert on.limit == pytest.approx(limit_kn)
     assert above.status is CheckStatus.FAIL
 
 
-def test_ts500_web_upper_bound_exact_boundary_and_fail():
+def test_ts500_web_upper_bound_returns_kn():
     eff = _effective("V2", 1)
-    fcd = 16.6666666667
-    limit = 0.22 * fcd * eff.web_width_bw_mm * eff.effective_depth_d_mm
+    fcd_mpa = 16.6666666667
+    limit_kn = 0.22 * fcd_mpa * eff.web_width_bw_mm * eff.effective_depth_d_mm / 1000.0
     on = evaluate_ts500_815_web_compression_upper_bound(
         component_id="C1", story="S1", section="C400x500", direction="V2",
-        vd_n=limit, fcd_mpa=fcd, effective_depth=eff, evidence=("x",),
+        vd_kn=limit_kn, fcd_mpa=fcd_mpa, effective_depth=eff, evidence=("x",),
     )
     above = evaluate_ts500_815_web_compression_upper_bound(
         component_id="C1", story="S1", section="C400x500", direction="V2",
-        vd_n=limit + 1.0, fcd_mpa=fcd, effective_depth=eff, evidence=("x",),
+        vd_kn=limit_kn + 0.001, fcd_mpa=fcd_mpa, effective_depth=eff, evidence=("x",),
     )
     assert on.status is CheckStatus.OK
+    assert on.unit == "kN"
+    assert on.limit == pytest.approx(limit_kn)
     assert above.status is CheckStatus.FAIL
 
 
-def _run(*, tbdy_vd=60_000.0, aw=200_000.0, d_candidate=150_000.0):
+def _run(*, tbdy_vd_kn=60.0, aw_mm2=200_000.0, d_candidate_kn=150.0):
     direction = "V2"
     return run_vs6_p7_direction(
         component_id="C1",
@@ -327,15 +328,15 @@ def _run(*, tbdy_vd=60_000.0, aw=200_000.0, d_candidate=150_000.0):
         ts500_rc_applies=True,
         free_length_ln_mm=2_000.0,
         free_length_basis_ref="LN:STRICT",
-        bottom_capacity=_capacity("BOTTOM", direction, 120_000_000.0),
-        top_capacity=_capacity("TOP", direction, 80_000_000.0),
-        d_amplified_candidate_n=d_candidate,
+        bottom_capacity=_capacity("BOTTOM", direction, 120.0),
+        top_capacity=_capacity("TOP", direction, 80.0),
+        d_amplified_candidate_kn=d_candidate_kn,
         d_amplified_basis_ref="D:REVIEWED",
-        tbdy_vd=_source_demand(tbdy_vd, "VD:TBDY"),
-        ts500_vd=_source_demand(50_000.0, "VD:TS500"),
+        tbdy_vd=_source_demand(tbdy_vd_kn, "VD:TBDY"),
+        ts500_vd=_source_demand(50.0, "VD:TS500"),
         response_spectrum_concurrency_required=False,
         response_spectrum_concurrency_proven=True,
-        aw_mm2=aw,
+        aw_mm2=aw_mm2,
         aw_source_ref="AW:RECTANGULAR_SOURCE_BOUND",
         fck_mpa=25.0,
         fcd_mpa=16.6666666667,
@@ -344,28 +345,26 @@ def _run(*, tbdy_vd=60_000.0, aw=200_000.0, d_candidate=150_000.0):
 
 
 def test_tbdy_brittle_failure_preserves_reanalysis_required():
-    run = _run(aw=10_000.0)
+    run = _run(aw_mm2=10_000.0)
     assert run.tbdy_brittle_result.status is CheckStatus.FAIL
     assert run.analysis_basis_status is AnalysisBasisStatus.REANALYSIS_REQUIRED
-    assert (
-        run.full_vr_closure_status
-        is ColumnShearVrClosureStatus.BLOCKED_BY_TRANSVERSE_REBAR_SLICE
-    )
+    assert run.full_vr_closure_status is ColumnShearVrClosureStatus.BLOCKED_BY_TRANSVERSE_REBAR_SLICE
 
 
-def test_upper_bound_pass_does_not_claim_full_shear_pass_and_report_is_projection():
+def test_upper_bound_ok_does_not_claim_full_shear_pass_and_report_projects_kn():
     direction = _run()
     assert direction.tbdy_brittle_result.status is CheckStatus.OK
     assert direction.ts500_web_result.status is CheckStatus.OK
-    assert (
-        direction.full_vr_closure_status
-        is ColumnShearVrClosureStatus.BLOCKED_BY_TRANSVERSE_REBAR_SLICE
-    )
+    assert direction.ve_kn == 100.0
+    assert direction.full_vr_closure_status is ColumnShearVrClosureStatus.BLOCKED_BY_TRANSVERSE_REBAR_SLICE
     run = build_vs6_p7_column_shear_run(component_id="C1", directions=(direction,))
-    reports = build_vs6_p7_column_shear_reports(run)
-    assert len(reports) == 1
-    assert reports[0].status == "PARTIAL"
-    assert any("deferred to VS6-P8" in warning for warning in reports[0].warnings)
+    report = build_vs6_p7_column_shear_reports(run)[0]
+    assert report.status == "PARTIAL"
+    fields = {item.key: item for item in report.summary_fields}
+    assert fields["Ve_kn"].unit == "kN"
+    assert fields["bottom_capacity_knm"].unit == "kN*m"
+    assert fields["effective_depth_d_mm"].unit == "mm"
+    assert any("deferred to VS6-P8" in warning for warning in report.warnings)
 
 
 def test_unproven_high_ductility_never_auto_applies_tbdy():
@@ -378,49 +377,20 @@ def test_unproven_high_ductility_never_auto_applies_tbdy():
         ts500_rc_applies=True,
         free_length_ln_mm=2_000.0,
         free_length_basis_ref="LN:STRICT",
-        bottom_capacity=_capacity("BOTTOM", "V2", 120_000_000.0),
-        top_capacity=_capacity("TOP", "V2", 80_000_000.0),
-        d_amplified_candidate_n=150_000.0,
+        bottom_capacity=_capacity("BOTTOM", "V2", 120.0),
+        top_capacity=_capacity("TOP", "V2", 80.0),
+        d_amplified_candidate_kn=150.0,
         d_amplified_basis_ref="D:REVIEWED",
-        tbdy_vd=_source_demand(60_000.0, "VD:TBDY"),
-        ts500_vd=_source_demand(50_000.0, "VD:TS500"),
+        tbdy_vd=_source_demand(60.0, "VD:TBDY"),
+        ts500_vd=_source_demand(50.0, "VD:TS500"),
         response_spectrum_concurrency_required=False,
         response_spectrum_concurrency_proven=True,
         aw_mm2=200_000.0,
-        aw_source_ref="AW:SOURCE",
+        aw_source_ref="AW:RECTANGULAR_SOURCE_BOUND",
         fck_mpa=25.0,
         fcd_mpa=16.6666666667,
         effective_depth=_effective("V2", 1),
     )
-    assert direction.demand.final_ve_n is None
+    assert direction.demand.final_ve_kn is None
     assert direction.tbdy_brittle_result.status is CheckStatus.BLOCKED
     assert direction.ts500_web_result.status is CheckStatus.OK
-
-
-def test_direction_run_serial_order_is_deterministic():
-    v2 = _run()
-    v3 = run_vs6_p7_direction(
-        component_id="C1",
-        story="S1",
-        section="C400x500",
-        direction="V3",
-        tbdy_high_ductility_applies=True,
-        ts500_rc_applies=True,
-        free_length_ln_mm=2_000.0,
-        free_length_basis_ref="LN:STRICT",
-        bottom_capacity=_capacity("BOTTOM", "V3", 120_000_000.0),
-        top_capacity=_capacity("TOP", "V3", 80_000_000.0),
-        d_amplified_candidate_n=150_000.0,
-        d_amplified_basis_ref="D:REVIEWED",
-        tbdy_vd=_source_demand(60_000.0, "VD:TBDY:V3"),
-        ts500_vd=_source_demand(50_000.0, "VD:TS500:V3"),
-        response_spectrum_concurrency_required=False,
-        response_spectrum_concurrency_proven=True,
-        aw_mm2=200_000.0,
-        aw_source_ref="AW:SOURCE:V3",
-        fck_mpa=25.0,
-        fcd_mpa=16.6666666667,
-        effective_depth=_effective("V3", 1),
-    )
-    run = build_vs6_p7_column_shear_run(component_id="C1", directions=(v3, v2))
-    assert tuple(item.direction for item in run.directions) == ("V2", "V3")
