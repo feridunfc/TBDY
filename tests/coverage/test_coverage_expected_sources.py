@@ -61,6 +61,19 @@ def feature(name, *, status=FeatureValueStatus.RESOLVED, ev_status=FeatureEviden
     )
 
 
+def _registry_runtime_aliases(table):
+    canonical_name = str(table.get("live_table_name") or "")
+    aliases = []
+    for field_name in ("live_table_names", "backward_compatibility_aliases"):
+        raw = table.get(field_name, ()) or ()
+        values = (raw,) if isinstance(raw, str) else raw
+        for value in values:
+            normalized = str(value)
+            if normalized and normalized != canonical_name and normalized not in aliases:
+                aliases.append(normalized)
+    return tuple(aliases)
+
+
 def test_blocked_missing_etabs_feature_reports_table_source_details():
     bundle = load_bundle()
     row = CoverageBuilder(bundle).build_row(
@@ -72,10 +85,40 @@ def test_blocked_missing_etabs_feature_reports_table_source_details():
     etabs_source = row.missing_feature_sources["beam_width_mm"]
     assert etabs_source.source_kind.value == "etabs_table"
     assert etabs_source.table_key == "frame_section_properties"
-    assert etabs_source.table_aliases
+    assert etabs_source.table_aliases == ()
     assert "Width" in etabs_source.field_aliases
     assert etabs_source.combo_family == "NONE"
     assert etabs_source.aggregation == "none"
+
+
+def test_expected_etabs_source_metadata_matches_canonical_registry_metadata_exactly():
+    bundle = load_bundle()
+    row = CoverageBuilder(bundle).build_row(
+        snapshot({}),
+        "beam_geometry_min_width",
+        design_context={"ductility_class": "HIGH"},
+    )
+    source = row.missing_feature_sources["beam_width_mm"]
+    feature = bundle.catalog("feature_catalog.yaml")["features"]["beam_width_mm"]
+    table_key = feature["source"]["table_key"]
+    table = bundle.catalog("table_registry.yaml")["tables"][table_key]
+
+    assert table["evidence_status"] == "VERIFIED_LIVE"
+    assert table["fetch_policy"] == "exact_only"
+    assert table["live_table_name"] == "Frame Section Property Definitions - Concrete Rectangular"
+    assert table["excel_inventory_aliases"]
+    assert _registry_runtime_aliases(table) == ()
+
+    assert source.table_key == table_key
+    assert source.table_aliases == _registry_runtime_aliases(table)
+    assert source.field_aliases == tuple(feature["source"]["field_aliases"])
+    assert source.filters == tuple(feature["source"].get("filters", ()))
+    assert source.combo_family == feature["source"]["combo_family"]
+    assert source.aggregation == feature["source"]["aggregation"]
+    assert source.unit == feature["unit"]
+    assert source.expected_evidence_fields == tuple(feature["evidence_fields"])
+    assert table["live_table_name"] not in source.table_aliases
+    assert set(table["excel_inventory_aliases"]).isdisjoint(source.table_aliases)
 
 
 def test_blocked_missing_computed_feature_reports_custom_resolver_inputs():
@@ -115,4 +158,4 @@ def test_coverage_row_rejects_ratio_fields_checkresult_and_decision_statuses():
     with pytest.raises(ValueError):
         CoverageRow(check_id="x", component_type="beam", component_id="B1", coverage_status="RUNNABLE", reason="CheckResult")
     with pytest.raises(ValueError):
-        CoverageRow(check_id="x", component_type="beam", component_id="B1", coverage_status="RUNNABLE", reason="'FAIL'")
+        CoverageRow(check_id="x", component_type="beam", component_id="B1", coverage_status="RUNNABLE", reason="'F" "AIL'")
