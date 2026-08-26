@@ -11,6 +11,8 @@
       "required_design_context": [
         "ductility_class"
       ],
+      "required_execution_context": [],
+      "execution_context_readiness": [],
       "combo_policy_status": "NOT_APPLICABLE",
       "section_state_status": "NOT_APPLICABLE",
       "check_readiness_status": "ready",

@@ -323,6 +323,26 @@ class CoverageBuilder:
                 return CoveragePolicyStatus.RESOLVED
         return CoveragePolicyStatus.NOT_APPLICABLE
 
+    @staticmethod
+    def _verified_etabs_table_aliases(table: Mapping[str, Any]) -> tuple[str, ...]:
+        """Return only reviewed runtime aliases declared by the canonical table registry.
+
+        ``excel_inventory_aliases`` are intentionally excluded: the registry contract
+        classifies them as inventory/probe-planning evidence, not production ETABS
+        runtime aliases. The canonical ``live_table_name`` is resolved through the
+        table key and therefore is not duplicated into the alternate-alias tuple.
+        """
+        canonical_name = str(table.get("live_table_name") or "")
+        aliases: list[str] = []
+        for field_name in ("live_table_names", "backward_compatibility_aliases"):
+            raw = table.get(field_name, ()) or ()
+            values = (raw,) if isinstance(raw, str) else raw
+            for value in values:
+                normalized = str(value)
+                if normalized and normalized != canonical_name and normalized not in aliases:
+                    aliases.append(normalized)
+        return tuple(aliases)
+
     def _expected_source_for_feature(self, feature_name: str) -> CoverageExpectedSource:
         feature = self.feature_catalog.get(feature_name, {})
         source = feature.get("source") or {}
@@ -331,8 +351,7 @@ class CoverageBuilder:
         unit = str(feature.get("unit", ""))
         if table_key:
             table = self.table_registry.get(str(table_key), {})
-            provider_sources = table.get("provider_sources", {}) if isinstance(table, Mapping) else {}
-            table_aliases = tuple(str(x) for x in provider_sources.get("etabs", ()) or ())
+            table_aliases = self._verified_etabs_table_aliases(table) if isinstance(table, Mapping) else ()
             return CoverageExpectedSource(
                 source_kind=ExpectedSourceKind.ETABS_TABLE,
                 feature_name=feature_name,
