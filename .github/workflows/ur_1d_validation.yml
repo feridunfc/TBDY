@@ -1,19 +1,22 @@
-name: UR-1C Unified Engineering Review HTML Validation
+name: UR-1D Deterministic PDF Export Validation
 
 on:
   push:
     branches:
-      - sprint/ur-1c-unified-engineering-review-html
+      - sprint/ur-1d-deterministic-pdf-export
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
   contents: read
 
 env:
-  FROZEN_BASE: 02b72bf37ffb5cd9f32ee905f1a50eda51f9868b
+  FROZEN_BASE: 95cef47473037118566d5bd408c6b2745c03602e
 
 jobs:
-  ur-1c-validation:
+  ur-1d-validation:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout exact candidate head
@@ -37,24 +40,50 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install test dependencies
+      - name: Install deterministic PDF and test toolchain
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest pyyaml jsonschema
+          python -m pip install \
+            pytest \
+            pyyaml \
+            jsonschema \
+            weasyprint==69.0 \
+            pydyf==0.12.1 \
+            pypdf==6.16.1 \
+            pypdfium2==5.12.1
+          weasyprint --info
+          python - <<'PY'
+          from tbdy_engine.product_reports.building_report_pdf import pdf_toolchain_identity
+          print("renderer_toolchain=" + pdf_toolchain_identity())
+          PY
 
       - name: Compile candidate
         run: python -m compileall -q tbdy_engine tests
 
-      - name: UR-1C focused acceptance
+      - name: UR-1D focused acceptance
         run: |
           python -m pytest -q \
+            tests/product_reports/test_report_artifact.py \
+            tests/product_reports/test_building_report_pdf.py \
             tests/product_reports/test_building_report_html.py \
+            tests/product_reports/test_building_report_html_attribute_quoting.py \
             tests/product_reports/test_report_presentation_selection.py \
             tests/product_reports/test_building_report_projection.py \
             tests/product_reports/test_building_report_projection_ui_ready.py \
             tests/product_reports/test_unified_building_report.py \
             tests/product_reports/test_slice_report_contribution.py \
             tests/coverage/test_fcr_1a_project_reconciliation.py
+
+      - name: Deterministic double-render evidence
+        run: |
+          python -m pytest -q -s \
+            tests/product_reports/test_building_report_pdf.py::test_same_inputs_options_toolchain_are_byte_identical
+
+      - name: PDF parse and page-image evidence
+        run: |
+          python -m pytest -q -s \
+            tests/product_reports/test_building_report_pdf.py::test_engineering_projection_creates_valid_pdf_artifact \
+            tests/product_reports/test_building_report_pdf.py::test_generated_pdf_renders_to_nonblank_page_image
 
       - name: Candidate broad regression
         id: candidate_broad
@@ -134,5 +163,16 @@ jobs:
           if not candidate:
               raise SystemExit("candidate exited nonzero without parsed failure signatures")
           if baseline_exit == 0 or new_failures:
-              raise SystemExit("UR-1C introduced regression failure signatures")
+              raise SystemExit("UR-1D introduced regression failure signatures")
           PY
+
+      - name: Remove CI-created frozen baseline checkout
+        shell: bash
+        run: rm -rf -- "$GITHUB_WORKSPACE/frozen_base"
+
+      - name: Final repository hygiene
+        shell: bash
+        run: |
+          git diff --check "$FROZEN_BASE"...HEAD
+          git status --short
+          test -z "$(git status --short)"

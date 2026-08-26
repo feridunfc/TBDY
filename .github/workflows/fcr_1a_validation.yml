@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - sprint/fcr-1a-project-coverage-reconciliation-v2
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
