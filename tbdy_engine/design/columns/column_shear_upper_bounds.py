@@ -1,9 +1,9 @@
 """Pure VS6-P7 brittle upper-bound mechanics for column shear.
 
-The functions here own only source-bound geometry/equation mechanics.  They
-accept canonical N/mm/MPa inputs and emit canonical CheckResult objects.  No
-ETABS unit inference, transverse-reinforcement resistance or reporter
-calculation is permitted.
+The functions here own only source-bound geometry/equation mechanics. They use
+the P7 working convention kN, kN*m, mm and MPa and emit canonical CheckResult
+objects. No ETABS unit inference, transverse-reinforcement resistance or
+reporter calculation is permitted.
 """
 from __future__ import annotations
 
@@ -107,16 +107,12 @@ def resolve_exact_rectangular_column_effective_depth(
         )
 
     if axis == M3:
-        # section_capacity.py uses M3 = -sum(F*x2). Positive M3 therefore
-        # places tensile (negative) steel force on the +x2 face.
         coords = tuple(float(bar.x2_mm) for bar in items)
         tension = max(coords) if moment_sign > 0 else min(coords)
         compression_face = -width / 2.0 if moment_sign > 0 else width / 2.0
         d = abs(tension - compression_face)
         bw = depth
     elif axis == M2:
-        # section_capacity.py uses M2 = sum(F*x3). Positive M2 therefore
-        # places tensile (negative) steel force on the -x3 face.
         coords = tuple(float(bar.x3_mm) for bar in items)
         tension = min(coords) if moment_sign > 0 else max(coords)
         compression_face = depth / 2.0 if moment_sign > 0 else -depth / 2.0
@@ -158,22 +154,23 @@ def evaluate_tbdy_7375_brittle_upper_bound(
     story: str,
     section: str,
     direction: str,
-    ve_n: float,
+    ve_kn: float,
     aw_mm2: float,
     fck_mpa: float,
     evidence: Sequence[object],
 ) -> CheckResult:
-    """TBDY 2018 7.3.7.5 Eq.7.7 second condition: Ve <= 0.85 Aw sqrt(fck)."""
+    """TBDY 2018 7.3.7.5 Eq.7.7 second condition, reported in kN."""
     component = _text(component_id, "component_id")
     _text(story, "story")
     _text(section, "section")
     _text(direction, "direction")
-    ve = _nonnegative(ve_n, "ve_n")
+    ve = _nonnegative(ve_kn, "ve_kn")
     aw = _positive(aw_mm2, "aw_mm2")
     fck = _positive(fck_mpa, "fck_mpa")
-    limit = 0.85 * aw * math.sqrt(fck)
-    ratio = ve / limit
-    satisfied = ve <= limit
+    # MPa=N/mm2, therefore the code expression is N; divide by 1000 -> kN.
+    limit_kn = 0.85 * aw * math.sqrt(fck) / 1000.0
+    ratio = ve / limit_kn
+    satisfied = ve <= limit_kn
     return CheckResult(
         check_id=TBDY_BRITTLE_CHECK_ID,
         component=component,
@@ -182,13 +179,13 @@ def evaluate_tbdy_7375_brittle_upper_bound(
         section=section,
         status=CheckStatus.OK if satisfied else CheckStatus.FAIL,
         value=ve,
-        limit=limit,
+        limit=limit_kn,
         demand=ve,
-        capacity=limit,
+        capacity=limit_kn,
         ratio=ratio,
         ratio_type="demand_over_capacity",
         pass_rule="Ve <= 0.85 * Aw * sqrt(fck)",
-        unit="N",
+        unit="kN",
         evaluation_level=EvaluationLevel.DESIGN_LEVEL,
         evidence=tuple(evidence),
         messages=(
@@ -207,17 +204,17 @@ def evaluate_ts500_815_web_compression_upper_bound(
     story: str,
     section: str,
     direction: str,
-    vd_n: float,
+    vd_kn: float,
     fcd_mpa: float,
     effective_depth: ColumnEffectiveDepthResolution,
     evidence: Sequence[object],
 ) -> CheckResult:
-    """TS500 8.1.5 web-compression upper bound: Vd <= 0.22 fcd bw d."""
+    """TS500 8.1.5 web-compression upper bound, reported in kN."""
     component = _text(component_id, "component_id")
     _text(story, "story")
     _text(section, "section")
     _text(direction, "direction")
-    vd = _nonnegative(vd_n, "vd_n")
+    vd = _nonnegative(vd_kn, "vd_kn")
     fcd = _positive(fcd_mpa, "fcd_mpa")
     if not isinstance(effective_depth, ColumnEffectiveDepthResolution):
         raise TypeError("effective_depth must be ColumnEffectiveDepthResolution")
@@ -238,11 +235,11 @@ def evaluate_ts500_815_web_compression_upper_bound(
     if effective_depth.component_id != component or effective_depth.direction != direction:
         raise ColumnShearUpperBoundError("effective-depth identity differs from check identity")
 
-    bw = float(effective_depth.web_width_bw_mm)
-    d = float(effective_depth.effective_depth_d_mm)
-    limit = 0.22 * fcd * bw * d
-    ratio = vd / limit
-    satisfied = vd <= limit
+    bw_mm = float(effective_depth.web_width_bw_mm)
+    d_mm = float(effective_depth.effective_depth_d_mm)
+    limit_kn = 0.22 * fcd * bw_mm * d_mm / 1000.0
+    ratio = vd / limit_kn
+    satisfied = vd <= limit_kn
     return CheckResult(
         check_id=TS500_WEB_CHECK_ID,
         component=component,
@@ -251,13 +248,13 @@ def evaluate_ts500_815_web_compression_upper_bound(
         section=section,
         status=CheckStatus.OK if satisfied else CheckStatus.FAIL,
         value=vd,
-        limit=limit,
+        limit=limit_kn,
         demand=vd,
-        capacity=limit,
+        capacity=limit_kn,
         ratio=ratio,
         ratio_type="demand_over_capacity",
         pass_rule="Vd <= 0.22 * fcd * bw * d",
-        unit="N",
+        unit="kN",
         evaluation_level=EvaluationLevel.DESIGN_LEVEL,
         evidence=tuple(evidence),
         messages=(
