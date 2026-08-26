@@ -6,14 +6,17 @@ no engineering, regulatory, closure, coverage, governing, or compliance logic.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from hashlib import sha256
 from importlib.metadata import PackageNotFoundError, version as package_version
 import json
 import math
+import os
 import platform
 import re
-from typing import Any
+from threading import RLock
+from typing import Any, Iterator
 
 from tbdy_engine.product_reports.building_report_html import (
     HtmlRenderOptions,
@@ -29,6 +32,7 @@ from tbdy_engine.product_reports.report_presentation_selection import (
 
 SUPPORTED_WEASYPRINT_VERSION = "69.0"
 SUPPORTED_PYDYF_VERSION = "0.12.1"
+DETERMINISTIC_SOURCE_DATE_EPOCH = "0"
 
 _TOOLCHAIN_PACKAGES = (
     "weasyprint",
@@ -47,6 +51,7 @@ _EXTERNAL_RESOURCE_RE = re.compile(
     r"url\(\s*[\"']?\s*(?:https?:|file:|//)"
 )
 _SAFE_STEM_RE = re.compile(r"[^A-Za-z0-9._-]+")
+_REPRODUCIBLE_ENV_LOCK = RLock()
 
 
 class PdfRenderIntegrityError(ValueError):
@@ -161,6 +166,7 @@ def pdf_toolchain_identity() -> str:
         "profile": "tbdy-report-pdf-toolchain.v1",
         "python": platform.python_version(),
         "packages": versions,
+        "source_date_epoch": DETERMINISTIC_SOURCE_DATE_EPOCH,
     }
     return json.dumps(
         payload,
@@ -186,6 +192,22 @@ def _deny_url_fetcher(url: str, *args: object, **kwargs: object) -> object:
         "network/filesystem resource fetch is disabled for canonical PDF rendering: "
         + str(url)
     )
+
+
+@contextmanager
+def _reproducible_render_environment() -> Iterator[None]:
+    """Apply WeasyPrint's reproducible-build epoch without leaking caller state."""
+
+    with _REPRODUCIBLE_ENV_LOCK:
+        previous = os.environ.get("SOURCE_DATE_EPOCH")
+        os.environ["SOURCE_DATE_EPOCH"] = DETERMINISTIC_SOURCE_DATE_EPOCH
+        try:
+            yield
+        finally:
+            if previous is None:
+                os.environ.pop("SOURCE_DATE_EPOCH", None)
+            else:
+                os.environ["SOURCE_DATE_EPOCH"] = previous
 
 
 def _page_styles(options: PdfRenderOptions) -> str:
@@ -231,17 +253,18 @@ def _render_pdf_bytes(
         url_fetcher=_deny_url_fetcher,
         media_type="print",
     )
-    pdf_bytes = document.write_pdf(
-        stylesheets=[CSS(string=_page_styles(options), media_type="print")],
-        pdf_identifier=pdf_identifier,
-        presentational_hints=False,
-        custom_metadata=False,
-        uncompressed_pdf=False,
-        optimize_images=False,
-        full_fonts=False,
-        hinting=False,
-        cache={},
-    )
+    with _reproducible_render_environment():
+        pdf_bytes = document.write_pdf(
+            stylesheets=[CSS(string=_page_styles(options), media_type="print")],
+            pdf_identifier=pdf_identifier,
+            presentational_hints=False,
+            custom_metadata=False,
+            uncompressed_pdf=False,
+            optimize_images=False,
+            full_fonts=False,
+            hinting=False,
+            cache={},
+        )
     if not isinstance(pdf_bytes, bytes) or not pdf_bytes.startswith(b"%PDF-"):
         raise PdfRenderIntegrityError("supported backend did not return a valid PDF byte stream")
     return pdf_bytes
@@ -325,6 +348,7 @@ def render_building_report_pdf(
 
 
 __all__ = [
+    "DETERMINISTIC_SOURCE_DATE_EPOCH",
     "PdfBackendUnavailableError",
     "PdfRenderIntegrityError",
     "PdfRenderOptions",
