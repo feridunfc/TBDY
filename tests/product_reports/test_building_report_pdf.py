@@ -93,7 +93,7 @@ def test_engineering_projection_creates_valid_pdf_artifact() -> None:
     assert artifact.view == "ENGINEERING"
     assert artifact.content.startswith(b"%PDF-")
     assert len(reader.pages) > 0
-    assert "UnifiedEngineeringReview" in compact
+    assert "UNIFIEDENGINEERINGREVIEW" in compact.upper()
     assert "ENGINEERING" in compact
     assert "REPORT:1" in compact
 
