@@ -276,6 +276,17 @@ def test_artifact_metadata_matches_pdf_bytes_and_is_deterministic() -> None:
     assert first.source_project_id == "PROJECT:1"
 
 
+def test_pdf_artifact_populates_all_pdf_specific_provenance() -> None:
+    artifact = _engineering()
+
+    assert artifact.view == "ENGINEERING"
+    assert artifact.source_projection_sha256 is not None
+    assert artifact.presentation_selection_sha256 is not None
+    assert artifact.source_render_sha256 is not None
+    assert artifact.options_sha256 is not None
+    assert artifact.renderer_toolchain_fingerprint is not None
+
+
 def test_filename_policy_is_deterministic_and_filesystem_safe() -> None:
     projection = _projection(_model(), ReportView.AUDIT)
     artifact = render_building_report_pdf(
