@@ -1,9 +1,14 @@
 """Pure source-bound VS6-P7 column shear demand mechanics.
 
-No ETABS acquisition and no formal compliance verdicts live here.  This module
+No ETABS acquisition and no formal compliance verdicts live here. This module
 reuses the VS6-P5 strain-compatibility capacity kernel and preserves local-axis,
 end, axial-state and source identity throughout TBDY 2018 7.3.7 demand
 construction.
+
+P7 working convention is kN, kN*m, mm and MPa. The pre-existing VS6-P5 section
+capacity kernel internally uses N/N*mm; conversion to and from that legacy
+kernel is isolated to ``resolve_exact_column_end_moment_capacity`` and is not a
+P7 working-unit convention.
 """
 from __future__ import annotations
 
@@ -37,6 +42,7 @@ BLOCKED_LN = "BLOCKED_FREE_LENGTH_BASIS"
 BLOCKED_D = "BLOCKED_D_AMPLIFIED_SHEAR_BASIS"
 BLOCKED_RS_CONCURRENCY = "BLOCKED_RESPONSE_SPECTRUM_SHEAR_CONCURRENCY"
 BLOCKED_END_CAPACITY = "BLOCKED_COLUMN_END_CAPACITY"
+SECTION_CAPACITY_UNIT_ADAPTER_REF = "VS6_P5_CAPACITY_UNIT_ADAPTER:kN-kNm<->N-Nmm"
 
 
 def _text(value: object, label: str) -> str:
@@ -78,8 +84,8 @@ class ColumnEndMomentCapacityBasis:
     direction: str
     moment_axis: str
     moment_sign: int
-    nd_compression_n: float
-    capacity_nmm: float | None
+    nd_compression_kn: float
+    capacity_knm: float | None
     status: str
     source_refs: tuple[str, ...]
 
@@ -96,9 +102,9 @@ class ColumnEndMomentCapacityBasis:
             )
         if self.moment_sign not in {-1, 1}:
             raise ColumnShearDemandError("moment_sign must be -1 or +1")
-        _nonnegative(self.nd_compression_n, "nd_compression_n")
-        if self.capacity_nmm is not None:
-            _positive(self.capacity_nmm, "capacity_nmm")
+        _nonnegative(self.nd_compression_kn, "nd_compression_kn")
+        if self.capacity_knm is not None:
+            _positive(self.capacity_knm, "capacity_knm")
         _text(self.status, "status")
         refs = tuple(_text(ref, "source_ref") for ref in self.source_refs)
         if not refs or len(refs) != len(set(refs)):
@@ -107,7 +113,7 @@ class ColumnEndMomentCapacityBasis:
 
     @property
     def resolved(self) -> bool:
-        return self.status == CAPACITY_PROVEN and self.capacity_nmm is not None
+        return self.status == CAPACITY_PROVEN and self.capacity_knm is not None
 
 
 def resolve_exact_column_end_moment_capacity(
@@ -116,7 +122,7 @@ def resolve_exact_column_end_moment_capacity(
     end_tag: str,
     direction: str,
     moment_sign: int,
-    nd_compression_n: float,
+    nd_compression_kn: float,
     width_mm: float,
     depth_mm: float,
     bars: Sequence[ColumnBarPoint],
@@ -124,14 +130,14 @@ def resolve_exact_column_end_moment_capacity(
     source_refs: Sequence[str],
     angle_count: int = 72,
 ) -> ColumnEndMomentCapacityBasis:
-    """Resolve the exact #145 strain-compatibility capacity for one end/axis/sign."""
+    """Resolve exact #145 capacity and expose it to P7 as kN*m."""
     component = _text(component_id, "component_id")
     end = _text(end_tag, "end_tag")
     direction = _text(direction, "direction")
     axis = associated_moment_axis(direction)
     if moment_sign not in {-1, 1}:
         raise ColumnShearDemandError("moment_sign must be -1 or +1")
-    nd = _nonnegative(nd_compression_n, "nd_compression_n")
+    nd_kn = _nonnegative(nd_compression_kn, "nd_compression_kn")
     width = _positive(width_mm, "width_mm")
     depth = _positive(depth_mm, "depth_mm")
     refs = tuple(_text(ref, "source_ref") for ref in source_refs)
@@ -140,14 +146,16 @@ def resolve_exact_column_end_moment_capacity(
     if not bars:
         raise ColumnShearDemandError("bars must be nonempty")
 
+    # Compatibility seam only: the frozen #145 kernel is N/N*mm.
     envelope = build_interaction_envelope_at_axial_force(
         width_mm=width,
         depth_mm=depth,
         bars=tuple(bars),
         material=material,
-        target_n_compression_n=nd,
+        target_n_compression_n=nd_kn * 1000.0,
         angle_count=angle_count,
     )
+    resolved_refs = tuple(dict.fromkeys((*refs, SECTION_CAPACITY_UNIT_ADAPTER_REF)))
     if envelope.status != "PROVEN":
         return ColumnEndMomentCapacityBasis(
             component_id=component,
@@ -155,10 +163,10 @@ def resolve_exact_column_end_moment_capacity(
             direction=direction,
             moment_axis=axis,
             moment_sign=moment_sign,
-            nd_compression_n=nd,
-            capacity_nmm=None,
+            nd_compression_kn=nd_kn,
+            capacity_knm=None,
             status=CAPACITY_BLOCKED,
-            source_refs=refs,
+            source_refs=resolved_refs,
         )
 
     demand_m2 = float(moment_sign) if axis == M2 else 0.0
@@ -175,10 +183,10 @@ def resolve_exact_column_end_moment_capacity(
             direction=direction,
             moment_axis=axis,
             moment_sign=moment_sign,
-            nd_compression_n=nd,
-            capacity_nmm=None,
+            nd_compression_kn=nd_kn,
+            capacity_knm=None,
             status=CAPACITY_BLOCKED,
-            source_refs=refs,
+            source_refs=resolved_refs,
         )
 
     return ColumnEndMomentCapacityBasis(
@@ -187,10 +195,10 @@ def resolve_exact_column_end_moment_capacity(
         direction=direction,
         moment_axis=axis,
         moment_sign=moment_sign,
-        nd_compression_n=nd,
-        capacity_nmm=float(radial.capacity_nmm),
+        nd_compression_kn=nd_kn,
+        capacity_knm=float(radial.capacity_nmm) / 1_000_000.0,
         status=CAPACITY_PROVEN,
-        source_refs=refs,
+        source_refs=resolved_refs,
     )
 
 
@@ -202,9 +210,9 @@ class ColumnShearDesignDemandInput:
     free_length_basis_ref: str | None
     bottom_capacity: ColumnEndMomentCapacityBasis
     top_capacity: ColumnEndMomentCapacityBasis
-    d_amplified_candidate_n: float | None
+    d_amplified_candidate_kn: float | None
     d_amplified_basis_ref: str | None
-    vd_floor_n: float
+    vd_floor_kn: float
     vd_source_ref: str
     response_spectrum_concurrency_required: bool = False
     response_spectrum_concurrency_proven: bool = True
@@ -216,11 +224,11 @@ class ColumnShearDesignDemandInput:
             _positive(self.free_length_ln_mm, "free_length_ln_mm")
         if self.free_length_basis_ref is not None:
             _text(self.free_length_basis_ref, "free_length_basis_ref")
-        if self.d_amplified_candidate_n is not None:
-            _nonnegative(self.d_amplified_candidate_n, "d_amplified_candidate_n")
+        if self.d_amplified_candidate_kn is not None:
+            _nonnegative(self.d_amplified_candidate_kn, "d_amplified_candidate_kn")
         if self.d_amplified_basis_ref is not None:
             _text(self.d_amplified_basis_ref, "d_amplified_basis_ref")
-        _nonnegative(self.vd_floor_n, "vd_floor_n")
+        _nonnegative(self.vd_floor_kn, "vd_floor_kn")
         _text(self.vd_source_ref, "vd_source_ref")
         if type(self.response_spectrum_concurrency_required) is not bool:
             raise ColumnShearDemandError("response_spectrum_concurrency_required must be bool")
@@ -233,10 +241,10 @@ class ColumnShearDesignDemandResult:
     component_id: str
     direction: str
     status: str
-    ve_capacity_eq75_n: float | None
-    d_amplified_candidate_n: float | None
-    vd_floor_n: float
-    final_ve_n: float | None
+    ve_capacity_eq75_kn: float | None
+    d_amplified_candidate_kn: float | None
+    vd_floor_kn: float
+    final_ve_kn: float | None
     governing_rule: str | None
     bottom_capacity: ColumnEndMomentCapacityBasis
     top_capacity: ColumnEndMomentCapacityBasis
@@ -246,7 +254,7 @@ class ColumnShearDesignDemandResult:
 def evaluate_tbdy_737_column_shear_demand(
     inputs: ColumnShearDesignDemandInput,
 ) -> ColumnShearDesignDemandResult:
-    """Evaluate TBDY 7.3.7.1/7.3.7.5 demand without hiding unresolved authority."""
+    """Evaluate TBDY 7.3.7.1/7.3.7.5 demand in kN, kN*m and mm."""
     if not isinstance(inputs, ColumnShearDesignDemandInput):
         raise TypeError("inputs must be ColumnShearDesignDemandInput")
 
@@ -271,10 +279,10 @@ def evaluate_tbdy_737_column_shear_demand(
             component_id=component,
             direction=direction,
             status=status,
-            ve_capacity_eq75_n=None,
-            d_amplified_candidate_n=inputs.d_amplified_candidate_n,
-            vd_floor_n=float(inputs.vd_floor_n),
-            final_ve_n=None,
+            ve_capacity_eq75_kn=None,
+            d_amplified_candidate_kn=inputs.d_amplified_candidate_kn,
+            vd_floor_kn=float(inputs.vd_floor_kn),
+            final_ve_kn=None,
             governing_rule=None,
             bottom_capacity=inputs.bottom_capacity,
             top_capacity=inputs.top_capacity,
@@ -285,43 +293,41 @@ def evaluate_tbdy_737_column_shear_demand(
         return blocked(BLOCKED_END_CAPACITY)
     if inputs.free_length_ln_mm is None or inputs.free_length_basis_ref is None:
         return blocked(BLOCKED_LN)
-    if inputs.d_amplified_candidate_n is None or inputs.d_amplified_basis_ref is None:
+    if inputs.d_amplified_candidate_kn is None or inputs.d_amplified_basis_ref is None:
         return blocked(BLOCKED_D)
-    if (
-        inputs.response_spectrum_concurrency_required
-        and not inputs.response_spectrum_concurrency_proven
-    ):
+    if inputs.response_spectrum_concurrency_required and not inputs.response_spectrum_concurrency_proven:
         return blocked(BLOCKED_RS_CONCURRENCY)
 
     common_refs.extend((inputs.free_length_basis_ref, inputs.d_amplified_basis_ref))
     common_refs = list(dict.fromkeys(common_refs))
 
-    bottom = float(inputs.bottom_capacity.capacity_nmm)
-    top = float(inputs.top_capacity.capacity_nmm)
-    ln = float(inputs.free_length_ln_mm)
-    ve_capacity = (bottom + top) / ln
-    d_candidate = float(inputs.d_amplified_candidate_n)
-    vd = float(inputs.vd_floor_n)
+    bottom_knm = float(inputs.bottom_capacity.capacity_knm)
+    top_knm = float(inputs.top_capacity.capacity_knm)
+    ln_mm = float(inputs.free_length_ln_mm)
+    # kN*m * 1000 mm/m / mm = kN
+    ve_capacity_kn = (bottom_knm + top_knm) * 1000.0 / ln_mm
+    d_candidate_kn = float(inputs.d_amplified_candidate_kn)
+    vd_kn = float(inputs.vd_floor_kn)
 
-    pre_floor = min(ve_capacity, d_candidate)
-    if vd > pre_floor:
-        final_ve = vd
+    pre_floor_kn = min(ve_capacity_kn, d_candidate_kn)
+    if vd_kn > pre_floor_kn:
+        final_ve_kn = vd_kn
         governing = "TBDY_7_3_7_5_VD_FLOOR"
-    elif ve_capacity <= d_candidate:
-        final_ve = ve_capacity
+    elif ve_capacity_kn <= d_candidate_kn:
+        final_ve_kn = ve_capacity_kn
         governing = "TBDY_7_3_7_1_EQ7_5"
     else:
-        final_ve = d_candidate
+        final_ve_kn = d_candidate_kn
         governing = "TBDY_7_3_7_1_D_AMPLIFIED_CANDIDATE"
 
     return ColumnShearDesignDemandResult(
         component_id=component,
         direction=direction,
         status=DEMAND_PROVEN,
-        ve_capacity_eq75_n=ve_capacity,
-        d_amplified_candidate_n=d_candidate,
-        vd_floor_n=vd,
-        final_ve_n=final_ve,
+        ve_capacity_eq75_kn=ve_capacity_kn,
+        d_amplified_candidate_kn=d_candidate_kn,
+        vd_floor_kn=vd_kn,
+        final_ve_kn=final_ve_kn,
         governing_rule=governing,
         bottom_capacity=inputs.bottom_capacity,
         top_capacity=inputs.top_capacity,
@@ -341,6 +347,7 @@ __all__ = [
     "BLOCKED_D",
     "BLOCKED_RS_CONCURRENCY",
     "BLOCKED_END_CAPACITY",
+    "SECTION_CAPACITY_UNIT_ADAPTER_REF",
     "ColumnEndMomentCapacityBasis",
     "ColumnShearDesignDemandInput",
     "ColumnShearDesignDemandResult",
