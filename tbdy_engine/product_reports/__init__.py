@@ -1,31 +1,12 @@
-"""Product-level report builders and canonical render-neutral report models.
+"""Product-level report builders.
 
-These modules assemble read-only projections of already-resolved product,
-regulatory, design, and coverage artifacts. They do not attach to ETABS
-directly, run analysis/design, or create engineering verdict authority.
+Package initialization intentionally stays dependency-light. Canonical report
+models that depend on coverage/reconciliation are imported from their concrete
+modules (for example ``tbdy_engine.product_reports.unified_building_report``)
+rather than eagerly re-exported here. This keeps the reporting package from
+creating a coverage <-> product_reports import cycle.
 """
 
 from .c13_1_report import build_c13_1_product_report, write_c13_1_product_report
-from .unified_building_report import (
-    BuildingReportIntegrityError,
-    BuildingReportModel,
-    ProjectBasisEntry,
-    ProjectBasisLedger,
-    ReportSourceKind,
-    SourceManifest,
-    SourceManifestEntry,
-    mandatory_report_source_refs,
-)
 
-__all__ = [
-    "BuildingReportIntegrityError",
-    "BuildingReportModel",
-    "ProjectBasisEntry",
-    "ProjectBasisLedger",
-    "ReportSourceKind",
-    "SourceManifest",
-    "SourceManifestEntry",
-    "build_c13_1_product_report",
-    "mandatory_report_source_refs",
-    "write_c13_1_product_report",
-]
+__all__ = ["build_c13_1_product_report", "write_c13_1_product_report"]
