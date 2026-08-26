@@ -1,9 +1,11 @@
 """Bounded source-bound VS6-P7 column shear orchestration.
 
-This is the production composition seam for P7.  It composes already promoted
-facts/derived inputs with the pure demand and upper-bound kernels.  It does not
+This is the production composition seam for P7. It composes already promoted
+facts/derived inputs with the pure demand and upper-bound kernels. It does not
 acquire ETABS data, select transverse reinforcement, compute Vr, mutate the
 model, or perform reporting calculations.
+
+P7 working convention: kN, kN*m, mm, MPa.
 """
 from __future__ import annotations
 
@@ -37,7 +39,7 @@ class ColumnShearVrClosureStatus(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class SourceBoundShearDemand:
-    demand_n: float
+    demand_kn: float
     source_identity: str
     output_case: str
     case_type: str
@@ -45,10 +47,10 @@ class SourceBoundShearDemand:
     source_refs: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        value = float(self.demand_n)
+        value = float(self.demand_kn)
         if not math.isfinite(value) or value < 0.0:
-            raise VS6P7ProgramError("demand_n must be finite and >= 0")
-        object.__setattr__(self, "demand_n", value)
+            raise VS6P7ProgramError("demand_kn must be finite and >= 0")
+        object.__setattr__(self, "demand_kn", value)
         for name in ("source_identity", "output_case", "case_type", "evidence_epoch_id"):
             text = getattr(self, name)
             if not isinstance(text, str) or not text.strip() or text != text.strip():
@@ -80,8 +82,8 @@ class VS6P7DirectionRun:
     applicability_status: str
 
     @property
-    def ve_n(self) -> float | None:
-        return self.demand.final_ve_n
+    def ve_kn(self) -> float | None:
+        return self.demand.final_ve_kn
 
 
 @dataclass(frozen=True, slots=True)
@@ -138,7 +140,7 @@ def run_vs6_p7_direction(
     free_length_basis_ref: str | None,
     bottom_capacity: ColumnEndMomentCapacityBasis,
     top_capacity: ColumnEndMomentCapacityBasis,
-    d_amplified_candidate_n: float | None,
+    d_amplified_candidate_kn: float | None,
     d_amplified_basis_ref: str | None,
     tbdy_vd: SourceBoundShearDemand,
     ts500_vd: SourceBoundShearDemand,
@@ -175,9 +177,9 @@ def run_vs6_p7_direction(
         free_length_basis_ref=free_length_basis_ref,
         bottom_capacity=bottom_capacity,
         top_capacity=top_capacity,
-        d_amplified_candidate_n=d_amplified_candidate_n,
+        d_amplified_candidate_kn=d_amplified_candidate_kn,
         d_amplified_basis_ref=d_amplified_basis_ref,
-        vd_floor_n=tbdy_vd.demand_n,
+        vd_floor_kn=tbdy_vd.demand_kn,
         vd_source_ref=tbdy_vd.source_identity,
         response_spectrum_concurrency_required=response_spectrum_concurrency_required,
         response_spectrum_concurrency_proven=response_spectrum_concurrency_proven,
@@ -195,10 +197,10 @@ def run_vs6_p7_direction(
                 if tbdy_high_ductility_applies is False
                 else "BLOCKED_TBDY_HIGH_DUCTILITY_APPLICABILITY"
             ),
-            ve_capacity_eq75_n=None,
-            d_amplified_candidate_n=d_amplified_candidate_n,
-            vd_floor_n=tbdy_vd.demand_n,
-            final_ve_n=None,
+            ve_capacity_eq75_kn=None,
+            d_amplified_candidate_kn=d_amplified_candidate_kn,
+            vd_floor_kn=tbdy_vd.demand_kn,
+            final_ve_kn=None,
             governing_rule=None,
             bottom_capacity=bottom_capacity,
             top_capacity=top_capacity,
@@ -217,7 +219,7 @@ def run_vs6_p7_direction(
             evidence=evidence,
             status=CheckStatus.OUT_OF_SCOPE,
         )
-    elif tbdy_high_ductility_applies is None or demand.final_ve_n is None:
+    elif tbdy_high_ductility_applies is None or demand.final_ve_kn is None:
         tbdy_result = _blocked_check(
             check_id="TBDY_7_3_7_5_EQ7_7_BRITTLE_UPPER",
             component_id=component_id,
@@ -243,7 +245,7 @@ def run_vs6_p7_direction(
             story=story,
             section=section,
             direction=direction,
-            ve_n=demand.final_ve_n,
+            ve_kn=demand.final_ve_kn,
             aw_mm2=aw_mm2,
             fck_mpa=fck_mpa,
             evidence=(*evidence, aw_source_ref),
@@ -276,7 +278,7 @@ def run_vs6_p7_direction(
             story=story,
             section=section,
             direction=direction,
-            vd_n=ts500_vd.demand_n,
+            vd_kn=ts500_vd.demand_kn,
             fcd_mpa=fcd_mpa,
             effective_depth=effective_depth,
             evidence=evidence,
