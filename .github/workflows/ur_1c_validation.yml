@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - sprint/ur-1c-unified-engineering-review-html
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
 
 permissions:
