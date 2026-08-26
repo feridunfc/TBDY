@@ -42,7 +42,7 @@ def _exact_texts(values: Sequence[str], label: str) -> tuple[str, ...]:
     return tuple(sorted(frozen))
 
 
-@dataclass(frozen=True, slots=True, order=True)
+@dataclass(frozen=True, slots=True)
 class ComponentFacetRef:
     """Exact presentation reference to one canonical component facet."""
 
@@ -59,6 +59,17 @@ class ComponentFacetRef:
             self,
             "component_id",
             _optional_text(self.component_id, "component_ref.component_id"),
+        )
+
+    @property
+    def sort_key(self) -> tuple[int, str, int, str]:
+        """Total deterministic order that safely supports None + string values."""
+
+        return (
+            0 if self.component_type is None else 1,
+            self.component_type or "",
+            0 if self.component_id is None else 1,
+            self.component_id or "",
         )
 
     def as_dict(self) -> dict[str, str | None]:
@@ -107,37 +118,16 @@ class ReportPresentationSelection:
             raise ReportPresentationSelectionError(
                 "component_refs must not contain duplicates"
             )
-        object.__setattr__(self, "component_refs", tuple(sorted(refs)))
+        object.__setattr__(
+            self,
+            "component_refs",
+            tuple(sorted(refs, key=lambda item: item.sort_key)),
+        )
         object.__setattr__(
             self,
             "contribution_refs",
             _exact_texts(self.contribution_refs, "contribution_refs"),
         )
-
-    @property
-    def contribution_filter_active(self) -> bool:
-        return bool(
-            self.statuses
-            or self.contribution_kinds
-            or self.component_refs
-            or self.contribution_refs
-        )
-
-    @property
-    def section_filter_active(self) -> bool:
-        return not all(
-            (
-                self.include_overview,
-                self.include_coverage,
-                self.include_results,
-                self.include_components,
-                self.include_actions,
-            )
-        )
-
-    @property
-    def presentation_filter_active(self) -> bool:
-        return self.section_filter_active or self.contribution_filter_active
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -157,6 +147,8 @@ class ReportPresentationSelection:
         self,
         projection: BuildingReportProjection,
     ) -> "ReportPresentationSelection":
+        """Fail closed unless every selected exact facet/ref exists upstream."""
+
         if not isinstance(projection, BuildingReportProjection):
             raise TypeError("projection must be BuildingReportProjection")
 
@@ -185,7 +177,8 @@ class ReportPresentationSelection:
         unknown_kinds = tuple(sorted(set(self.contribution_kinds) - known_kinds))
         if unknown_kinds:
             raise ReportPresentationSelectionError(
-                "unknown exact contribution_kind selection: " + ", ".join(unknown_kinds)
+                "unknown exact contribution_kind selection: "
+                + ", ".join(unknown_kinds)
             )
 
         known_components = {
@@ -213,7 +206,8 @@ class ReportPresentationSelection:
         unknown_refs = tuple(sorted(set(self.contribution_refs) - known_refs))
         if unknown_refs:
             raise ReportPresentationSelectionError(
-                "unknown exact contribution_ref selection: " + ", ".join(unknown_refs)
+                "unknown exact contribution_ref selection: "
+                + ", ".join(unknown_refs)
             )
         return self
 
