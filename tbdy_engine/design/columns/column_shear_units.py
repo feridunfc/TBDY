@@ -1,7 +1,13 @@
 """Explicit source-unit conversion boundary for VS6-P7 column shear.
 
 ETABS factual values reach this module only together with the actual source Unit
-provenance.  No magnitude inference and no ETABS unit mutation is permitted.
+provenance. No magnitude inference and no ETABS unit mutation is permitted.
+
+P7 working convention:
+- force: kN
+- moment: kN*m
+- geometric/deformation lengths: mm
+- stress: MPa
 """
 from __future__ import annotations
 
@@ -10,8 +16,8 @@ import math
 
 from tbdy_engine.regulatory.units import (
     Unit,
+    UNIT_KN,
     UNIT_MM,
-    UNIT_N,
     conversion_factor,
 )
 
@@ -37,14 +43,15 @@ class SourceBoundScalar:
             raise ColumnShearUnitBoundaryError("source_ref must be nonblank")
 
 
-def force_to_n(source: SourceBoundScalar) -> float:
+def force_to_kn(source: SourceBoundScalar) -> float:
+    """Convert explicit factual force units to the P7 working force unit kN."""
     if not isinstance(source, SourceBoundScalar):
         raise TypeError("source must be SourceBoundScalar")
     try:
-        factor = conversion_factor(source.unit, UNIT_N)
+        factor = conversion_factor(source.unit, UNIT_KN)
     except Exception as exc:
         raise ColumnShearUnitBoundaryError(
-            f"no reviewed force conversion {source.unit.identifier} -> N"
+            f"no reviewed force conversion {source.unit.identifier} -> kN"
         ) from exc
     return source.value * float(factor)
 
@@ -64,6 +71,6 @@ def length_to_mm(source: SourceBoundScalar) -> float:
 __all__ = [
     "ColumnShearUnitBoundaryError",
     "SourceBoundScalar",
-    "force_to_n",
+    "force_to_kn",
     "length_to_mm",
 ]
