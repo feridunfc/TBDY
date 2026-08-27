@@ -1,0 +1,92 @@
+name: VS6-P8A Design-Informed Longitudinal Rebar Validation
+
+on:
+  push:
+    branches:
+      - sprint/vs6-p8a-design-informed-longitudinal-rebar
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FROZEN_BASE: 2ae920836649f1bab5c46b5ac38bf05a4353b35b
+
+jobs:
+  vs6-p8a-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify frozen-base ancestry and initial hygiene
+        shell: bash
+        run: |
+          test "$(git merge-base "$FROZEN_BASE" HEAD)" = "$FROZEN_BASE"
+          test "$(git rev-parse "$FROZEN_BASE")" = "$FROZEN_BASE"
+          git diff --check "$FROZEN_BASE"...HEAD
+          echo "candidate_head=$(git rev-parse HEAD)"
+          echo "frozen_base=$FROZEN_BASE"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install accepted repository test toolchain
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            pytest \
+            pyyaml \
+            jsonschema \
+            weasyprint==69.0 \
+            pydyf==0.12.1 \
+            pypdf==6.16.1 \
+            pypdfium2==5.12.1 \
+            openpyxl==3.1.5 \
+            et_xmlfile==2.0.0
+
+      - name: Compile candidate
+        run: python -m compileall -q tbdy_engine tests
+
+      - name: P8A focused design-result acquisition
+        run: python -m pytest -q tests/providers/test_vs6_p8a_concrete_column_design_result_provider.py
+
+      - name: P8A focused ETABS_REQUIRED_REBAR promotion
+        run: python -m pytest -q tests/features/test_vs6_p8a_column_design_rebar_evidence.py
+
+      - name: P8A focused design-informed selection
+        run: python -m pytest -q tests/design/columns/test_vs6_p8a_design_informed_longitudinal_rebar.py
+
+      - name: F0 authority dependency regression
+        run: |
+          python -m pytest -q \
+            tests/providers/test_vs6_p8a_f0_concrete_design_combo_selection_probe.py \
+            tests/features/test_vs6_p8a_f0_column_design_evidence_authority.py \
+            tests/providers/test_vs6_p8a_f0_concrete_design_section_provider.py \
+            tests/features/test_vs6_column_shear_topology.py \
+            tests/features/test_vs6_column_shear_topology_mixed_beams.py
+
+      - name: Existing longitudinal design regression
+        run: |
+          python -m pytest -q \
+            tests/design/columns/test_vs6_column_rebar_design_engine.py \
+            tests/design/columns/test_vs6_rebar_layout.py \
+            tests/design/columns/test_vs6_rebar_layout_seed.py \
+            tests/design/columns/test_vs6_rebar_catalog.py \
+            tests/design/columns/test_vs6_rebar_selection.py \
+            tests/design/columns/test_vs6_rebar_selection_authority.py
+
+      - name: Broad regression
+        run: python -m pytest -q
+
+      - name: Final repository hygiene
+        shell: bash
+        run: |
+          git diff --check "$FROZEN_BASE"...HEAD
+          git status --porcelain=v1 -uall
+          test -z "$(git status --porcelain=v1 -uall)"
