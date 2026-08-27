@@ -157,7 +157,7 @@ def test_reported_and_captured_row_counts_must_match():
     [
         (
             {"ComboType": "Strength", "ComboName": "CMB1"},
-            {"ComboType": "Service", "ComboName": "CMB1"},
+            {"ComboType": "Strength", "ComboName": "CMB1"},
         ),
         ({"ComboType": "", "ComboName": "CMB1"},),
         ({"ComboType": "Strength", "ComboName": ""},),
@@ -166,23 +166,48 @@ def test_reported_and_captured_row_counts_must_match():
         ({"ComboType": "Strength", "ComboName": "CMB1", "Extra": "x"},),
     ],
 )
-def test_duplicate_or_invalid_rows_fail_closed(rows):
+def test_exact_duplicate_or_invalid_rows_fail_closed(rows):
     with pytest.raises(EtabsSafetyError) as exc_info:
         _build(_fetched(rows=rows))
     assert exc_info.value.code is EtabsSafetyErrorCode.CAPTURE_INTEGRITY_FAILED
 
 
+def test_same_name_with_different_combo_type_is_preserved_as_two_factual_rows():
+    population = _build(
+        _fetched(
+            rows=(
+                {"ComboType": "Strength", "ComboName": "CMB1"},
+                {"ComboType": "Service", "ComboName": "CMB1"},
+            )
+        )
+    )
+    assert population.capture_complete
+    assert population.row_count_reported == 2
+    assert tuple((row.combo_type, row.combo_name) for row in population.rows) == (
+        ("Service", "CMB1"),
+        ("Strength", "CMB1"),
+    )
+    assert population.names == ("CMB1", "CMB1")
+    assert population.rows[0].row_id != population.rows[1].row_id
+
+
 def test_factual_population_and_row_identity_are_deterministic():
     rows_a = (
-        {"ComboType": "Service", "ComboName": "CMB2"},
+        {"ComboType": "Strength", "ComboName": "CMB2"},
         {"ComboType": "Strength", "ComboName": "CMB1"},
+        {"ComboType": "Service", "ComboName": "CMB1"},
     )
     rows_b = tuple(reversed(rows_a))
     a = _build(_fetched(rows=rows_a))
     b = _build(_fetched(rows=rows_b))
     assert a == b
     assert tuple(row.row_id for row in a.rows) == tuple(row.row_id for row in b.rows)
-    assert a.names == ("CMB1", "CMB2")
+    assert tuple((row.combo_type, row.combo_name) for row in a.rows) == (
+        ("Service", "CMB1"),
+        ("Strength", "CMB1"),
+        ("Strength", "CMB2"),
+    )
+    assert a.names == ("CMB1", "CMB1", "CMB2")
 
 
 def test_wrong_table_or_nonzero_return_fails_closed():
