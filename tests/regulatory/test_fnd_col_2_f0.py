@@ -164,8 +164,8 @@ def test_f0_derivation_emits_ready_canonical_concurrent_demand_state():
     assert quantity.value["analysis_basis_status"] == "MATCH"
     states = quantity.value["demand_states"]
     assert len(states) == 2
-    assert states[0]["source_identity"].startswith("raw:G:")
-    assert states[1]["source_identity"].startswith("raw:G:")
+    assert any("raw:G:I" in state["source_identity"] for state in states)
+    assert any("raw:G:J" in state["source_identity"] for state in states)
     assert {(s["nd_compression_n"], s["m2_nmm"], s["m3_nmm"]) for s in states} == {
         (1_000_000.0, -100_000_000.0, 80_000_000.0),
         (900_000.0, 70_000_000.0, -60_000_000.0),
@@ -184,7 +184,6 @@ def test_caller_created_resolved_flag_is_not_a_declared_dependency_and_cannot_au
         refs=("caller:bogus",),
     )
     authorities = _authorities(slenderness_value=None) + (bogus,)
-    # Replace canonical slenderness authority value with factual absence.
     authorities = tuple(
         _authority(
             item.authority_id,
