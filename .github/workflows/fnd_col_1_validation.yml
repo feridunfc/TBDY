@@ -63,10 +63,22 @@ jobs:
           echo "fresh_import_first_rc=$first_rc"
           echo "fresh_import_second_rc=$second_rc"
 
-      - name: Focused FND-COL-1 proofs except known shared import dependency
-        run: python -m pytest -q tests/regulatory/test_fnd_col_1_longitudinal_authority.py -k "not fresh_interpreter_import"
+      - name: Focused FND-COL-1 proofs under initialized shared checks package
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import tbdy_engine.checks
+          import pytest
+          raise SystemExit(pytest.main([
+              "-q",
+              "tests/regulatory/test_fnd_col_1_longitudinal_authority.py",
+              "-k", "not fresh_interpreter_import",
+          ]))
+          PY
 
       - name: Existing layout and rebar regressions
+        if: always()
         run: |
           python -m pytest -q \
             tests/design/columns/test_vs6_rebar_layout.py \
@@ -74,22 +86,31 @@ jobs:
             tests/design/columns/test_vs6_rebar_catalog.py \
             tests/design/columns/test_vs6_column_rebar_design_engine.py
 
-      - name: F0.9 source-authority regressions
+      - name: F0.9 source-authority regressions under initialized shared checks package
+        if: always()
+        shell: bash
         run: |
-          python -m pytest -q \
-            tests/regulatory/test_source_authority.py \
-            tests/regulatory/test_f0_1_kernel.py
+          python - <<'PY'
+          import tbdy_engine.checks
+          import pytest
+          raise SystemExit(pytest.main([
+              "-q",
+              "tests/regulatory/test_source_authority.py",
+              "tests/regulatory/test_f0_1_kernel.py",
+          ]))
+          PY
 
-      - name: Broad candidate versus frozen-base delta
+      - name: Broad candidate versus frozen-base delta under shared-package preload
+        if: always()
         shell: bash
         run: |
           set +e
-          python -m pytest -q > /tmp/candidate.log 2>&1
+          python -c 'import tbdy_engine.checks,pytest; raise SystemExit(pytest.main(["-q"]))' > /tmp/candidate.log 2>&1
           candidate_rc=$?
           git worktree add --detach /tmp/frozen-base "$FROZEN_BASE"
           (
             cd /tmp/frozen-base
-            python -m pytest -q > /tmp/base.log 2>&1
+            python -c 'import tbdy_engine.checks,pytest; raise SystemExit(pytest.main(["-q"]))' > /tmp/base.log 2>&1
           )
           base_rc=$?
           set -e
@@ -111,16 +132,28 @@ jobs:
           echo "frozen_base_tail:"
           tail -n 30 /tmp/base.log || true
 
+          git worktree remove --force /tmp/frozen-base
           test ! -s /tmp/new.sig
           if [ "$base_rc" -eq 0 ]; then
             test "$candidate_rc" -eq 0
           fi
-          git worktree remove --force /tmp/frozen-base
 
-      - name: Determinism replay
-        run: python -m pytest -q tests/regulatory/test_fnd_col_1_longitudinal_authority.py -k deterministic
+      - name: Determinism replay under initialized shared checks package
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import tbdy_engine.checks
+          import pytest
+          raise SystemExit(pytest.main([
+              "-q",
+              "tests/regulatory/test_fnd_col_1_longitudinal_authority.py",
+              "-k", "deterministic",
+          ]))
+          PY
 
       - name: Final repository hygiene
+        if: always()
         shell: bash
         run: |
           git diff --check "$FROZEN_BASE"...HEAD
@@ -128,6 +161,7 @@ jobs:
           test -z "$(git status --porcelain=v1 -uall)"
 
       - name: Final fresh-import dependency gate
+        if: always()
         shell: bash
         run: |
           test "$(cat /tmp/fresh-import-rc)" = "0"
