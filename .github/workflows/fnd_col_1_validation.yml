@@ -1,4 +1,4 @@
-name: FND-COL-1 Longitudinal Layout Authority Validation
+name: FND-COL-1 Current-Main Integration Validation
 
 on:
   push:
@@ -10,10 +10,10 @@ permissions:
   contents: read
 
 env:
-  FROZEN_BASE: 2ae920836649f1bab5c46b5ac38bf05a4353b35b
+  CURRENT_MAIN: 362374d6cd50eace3b6f37709690585ce50582cf
 
 jobs:
-  fnd-col-1-validation:
+  fnd-col-1-current-main-integration:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout exact candidate head
@@ -22,15 +22,20 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.sha }}
 
-      - name: Verify frozen base ancestry and initial hygiene
+      - name: 1 ancestry merge-base and changed paths
         shell: bash
         run: |
-          test "$(git merge-base "$FROZEN_BASE" HEAD)" = "$FROZEN_BASE"
-          test "$(git rev-parse "$FROZEN_BASE")" = "$FROZEN_BASE"
-          git diff --check "$FROZEN_BASE"...HEAD
+          test "$(git merge-base "$CURRENT_MAIN" HEAD)" = "$CURRENT_MAIN"
+          test "$(git rev-parse "$CURRENT_MAIN")" = "$CURRENT_MAIN"
           echo "candidate_head=$(git rev-parse HEAD)"
-          echo "frozen_base=$FROZEN_BASE"
-          git diff --name-only "$FROZEN_BASE"...HEAD
+          echo "current_main=$CURRENT_MAIN"
+          echo "changed_paths_relative_to_current_main:"
+          git diff --name-only "$CURRENT_MAIN"...HEAD
+          forbidden="$(git diff --name-only "$CURRENT_MAIN"...HEAD | grep -E '^(tbdy_engine/checks/__init__\.py|tbdy_engine/regulatory/fnd_col_2|tbdy_engine/design/columns/column_design_readiness\.py)' || true)"
+          test -z "$forbidden"
+
+      - name: 2 git diff check
+        run: git diff --check "$CURRENT_MAIN"...HEAD
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -42,43 +47,42 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pytest pyyaml jsonschema weasyprint==69.0 pydyf==0.12.1 pypdf==6.16.1 pypdfium2==5.12.1 openpyxl==3.1.5 et_xmlfile==2.0.0
 
-      - name: Compile candidate
+      - name: 3 compileall
         run: python -m compileall -q tbdy_engine tests
 
-      - name: Fresh-interpreter FND-COL-1 import diagnostic
+      - name: 4 fresh interpreter imports
         shell: bash
         run: |
-          set +e
-          python -c "import tbdy_engine.regulatory.column_longitudinal_rebar" > /tmp/fresh-import.log 2>&1
-          first_rc=$?
-          python -c "import tbdy_engine.regulatory.sources.fnd_col_1_longitudinal" >> /tmp/fresh-import.log 2>&1
-          second_rc=$?
-          set -e
-          if [ "$first_rc" -ne 0 ] || [ "$second_rc" -ne 0 ]; then
-            echo 1 > /tmp/fresh-import-rc
-          else
-            echo 0 > /tmp/fresh-import-rc
-          fi
-          cat /tmp/fresh-import.log
-          echo "fresh_import_first_rc=$first_rc"
-          echo "fresh_import_second_rc=$second_rc"
+          python -c "import tbdy_engine.regulatory.column_longitudinal_rebar"
+          python -c "import tbdy_engine.regulatory.sources.fnd_col_1_longitudinal"
+          python -c "import tbdy_engine.design.columns.rebar_layout"
+          python -c "from tbdy_engine.regulatory.kernel import RegulatoryCompiler; assert RegulatoryCompiler is not None"
 
-      - name: Focused FND-COL-1 proofs under initialized shared checks package
-        if: always()
+      - name: Approved implementation fingerprint probe
         shell: bash
         run: |
           python - <<'PY'
-          import tbdy_engine.checks
-          import pytest
-          raise SystemExit(pytest.main([
-              "-q",
-              "tests/regulatory/test_fnd_col_1_longitudinal_authority.py",
-              "-k", "not fresh_interpreter_import",
-          ]))
+          from tbdy_engine.regulatory.authority import implementation_fingerprint
+          from tbdy_engine.regulatory.column_longitudinal_rebar import FND_COL_1_CHECK_SPEC
+          from tbdy_engine.regulatory.sources.fnd_col_1_longitudinal import (
+              APPROVED_IMPLEMENTATION_FINGERPRINT,
+              IMPLEMENTATION_MODULES,
+          )
+          actual = implementation_fingerprint(
+              rule_id=FND_COL_1_CHECK_SPEC.rule_id,
+              rule_version=FND_COL_1_CHECK_SPEC.rule_version,
+              evaluator_binding_id=FND_COL_1_CHECK_SPEC.evaluator.binding_id,
+              implementation_modules=IMPLEMENTATION_MODULES,
+          )
+          print("FND_COL_1_IMPLEMENTATION_FINGERPRINT=" + actual)
+          print("FND_COL_1_APPROVED_IMPLEMENTATION_FINGERPRINT=" + APPROVED_IMPLEMENTATION_FINGERPRINT)
+          assert actual == APPROVED_IMPLEMENTATION_FINGERPRINT
           PY
 
-      - name: Existing layout and rebar regressions
-        if: always()
+      - name: 5 focused FND-COL-1 tests
+        run: python -m pytest -q tests/regulatory/test_fnd_col_1_longitudinal_authority.py
+
+      - name: 6 existing layout and rebar regressions
         run: |
           python -m pytest -q \
             tests/design/columns/test_vs6_rebar_layout.py \
@@ -86,82 +90,79 @@ jobs:
             tests/design/columns/test_vs6_rebar_catalog.py \
             tests/design/columns/test_vs6_column_rebar_design_engine.py
 
-      - name: F0.9 source-authority regressions under initialized shared checks package
-        if: always()
-        shell: bash
+      - name: 7 regulatory F0.9 regressions
         run: |
-          python - <<'PY'
-          import tbdy_engine.checks
-          import pytest
-          raise SystemExit(pytest.main([
-              "-q",
-              "tests/regulatory/test_source_authority.py",
-              "tests/regulatory/test_f0_1_kernel.py",
-          ]))
-          PY
+          python -m pytest -q \
+            tests/regulatory/test_source_authority.py \
+            tests/regulatory/test_f0_1_kernel.py
 
-      - name: Broad candidate versus frozen-base delta under shared-package preload
+      - name: 8-11 strict catalog and fail-closed authority gates
+        run: |
+          python -m pytest -q \
+            tests/regulatory/test_fnd_col_1_longitudinal_authority.py::test_strict_compiler_accepts_actual_fnd_col_1_catalog \
+            tests/regulatory/test_fnd_col_1_longitudinal_authority.py::test_exact_implementation_fingerprint_matches_approved_literal \
+            tests/regulatory/test_fnd_col_1_longitudinal_authority.py::test_stale_implementation_binding_fails_closed \
+            tests/regulatory/test_fnd_col_1_longitudinal_authority.py::test_stale_claim_review_fails_closed \
+            tests/regulatory/test_fnd_col_1_longitudinal_authority.py::test_empty_or_unbound_catalog_fails_closed
+
+      - name: 12 determinism replay
+        run: |
+          python -m pytest -q tests/regulatory/test_fnd_col_1_longitudinal_authority.py::test_layout_population_is_deterministic
+          python -m pytest -q tests/regulatory/test_fnd_col_1_longitudinal_authority.py::test_layout_population_is_deterministic
+
+      - name: 13 broad candidate vs exact current-main comparison
         if: always()
         shell: bash
         run: |
           set +e
-          python -c 'import tbdy_engine.checks,pytest; raise SystemExit(pytest.main(["-q"]))' > /tmp/candidate.log 2>&1
+          python -m pytest -q > /tmp/candidate.log 2>&1
           candidate_rc=$?
-          git worktree add --detach /tmp/frozen-base "$FROZEN_BASE"
+          git worktree add --detach /tmp/current-main "$CURRENT_MAIN"
           (
-            cd /tmp/frozen-base
-            python -c 'import tbdy_engine.checks,pytest; raise SystemExit(pytest.main(["-q"]))' > /tmp/base.log 2>&1
+            cd /tmp/current-main
+            python -m pytest -q > /tmp/main.log 2>&1
           )
-          base_rc=$?
+          main_rc=$?
           set -e
 
           grep -E '^(FAILED|ERROR) |^ERROR collecting ' /tmp/candidate.log | sort -u > /tmp/candidate.sig || true
-          grep -E '^(FAILED|ERROR) |^ERROR collecting ' /tmp/base.log | sort -u > /tmp/base.sig || true
-          comm -23 /tmp/candidate.sig /tmp/base.sig > /tmp/new.sig || true
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' /tmp/main.log | sort -u > /tmp/main.sig || true
+          comm -23 /tmp/candidate.sig /tmp/main.sig > /tmp/new.sig || true
 
+          echo "$candidate_rc" > /tmp/candidate.rc
+          echo "$main_rc" > /tmp/main.rc
           echo "candidate_pytest_exit=$candidate_rc"
-          echo "frozen_base_pytest_exit=$base_rc"
+          echo "current_main_pytest_exit=$main_rc"
           echo "candidate_failure_signatures:"
           cat /tmp/candidate.sig || true
-          echo "frozen_base_failure_signatures:"
-          cat /tmp/base.sig || true
+          echo "current_main_failure_signatures:"
+          cat /tmp/main.sig || true
           echo "new_failure_signatures:"
           cat /tmp/new.sig || true
           echo "candidate_tail:"
-          tail -n 30 /tmp/candidate.log || true
-          echo "frozen_base_tail:"
-          tail -n 30 /tmp/base.log || true
+          tail -n 40 /tmp/candidate.log || true
+          echo "current_main_tail:"
+          tail -n 40 /tmp/main.log || true
 
-          git worktree remove --force /tmp/frozen-base
+          git worktree remove --force /tmp/current-main
+
+      - name: 14 zero-new-failure signature delta
+        if: always()
+        shell: bash
+        run: |
+          test -f /tmp/candidate.rc
+          test -f /tmp/main.rc
           test ! -s /tmp/new.sig
-          if [ "$base_rc" -eq 0 ]; then
+          candidate_rc="$(cat /tmp/candidate.rc)"
+          main_rc="$(cat /tmp/main.rc)"
+          if [ "$main_rc" -eq 0 ]; then
             test "$candidate_rc" -eq 0
           fi
 
-      - name: Determinism replay under initialized shared checks package
+      - name: 15 final repository hygiene
         if: always()
         shell: bash
         run: |
-          python - <<'PY'
-          import tbdy_engine.checks
-          import pytest
-          raise SystemExit(pytest.main([
-              "-q",
-              "tests/regulatory/test_fnd_col_1_longitudinal_authority.py",
-              "-k", "deterministic",
-          ]))
-          PY
-
-      - name: Final repository hygiene
-        if: always()
-        shell: bash
-        run: |
-          git diff --check "$FROZEN_BASE"...HEAD
+          git diff --check "$CURRENT_MAIN"...HEAD
           git status --porcelain=v1 -uall
           test -z "$(git status --porcelain=v1 -uall)"
-
-      - name: Final fresh-import dependency gate
-        if: always()
-        shell: bash
-        run: |
-          test "$(cat /tmp/fresh-import-rc)" = "0"
