@@ -81,12 +81,74 @@ jobs:
             tests/design/columns/test_vs6_rebar_selection.py \
             tests/design/columns/test_vs6_rebar_selection_authority.py
 
-      - name: Broad regression
-        run: python -m pytest -q
+      - name: Candidate broad regression
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -q > candidate_broad.log 2>&1
+          rc=$?
+          set -e
+          echo "$rc" > candidate_broad.exit
+          grep '^FAILED ' candidate_broad.log | sed 's/ - .*//' | sort -u > candidate_broad.failures || true
+          tail -n 100 candidate_broad.log
+          echo "candidate_broad_exit=$rc"
+
+      - name: Frozen-base broad regression
+        shell: bash
+        run: |
+          git worktree add --detach /tmp/vs6-p8a-frozen "$FROZEN_BASE"
+          set +e
+          (
+            cd /tmp/vs6-p8a-frozen
+            python -m pytest -q
+          ) > frozen_broad.log 2>&1
+          rc=$?
+          set -e
+          echo "$rc" > frozen_broad.exit
+          grep '^FAILED ' frozen_broad.log | sed 's/ - .*//' | sort -u > frozen_broad.failures || true
+          tail -n 100 frozen_broad.log
+          echo "frozen_broad_exit=$rc"
+          git worktree remove --force /tmp/vs6-p8a-frozen
+
+      - name: Zero-failure delta gate
+        shell: bash
+        run: |
+          candidate_rc="$(cat candidate_broad.exit)"
+          frozen_rc="$(cat frozen_broad.exit)"
+          echo "candidate_rc=$candidate_rc frozen_rc=$frozen_rc"
+          if test "$candidate_rc" = 0; then
+            echo "candidate broad regression is green"
+            exit 0
+          fi
+          if test "$frozen_rc" = 0; then
+            echo "candidate introduced broad failures while frozen base is green"
+            diff -u frozen_broad.failures candidate_broad.failures || true
+            exit 1
+          fi
+          if ! diff -u frozen_broad.failures candidate_broad.failures; then
+            echo "candidate and frozen base failure signatures differ"
+            exit 1
+          fi
+          echo "candidate broad failures are inherited exactly from frozen base"
+
+      - name: Upload broad regression diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vs6-p8a-broad-regression
+          path: |
+            candidate_broad.log
+            candidate_broad.exit
+            candidate_broad.failures
+            frozen_broad.log
+            frozen_broad.exit
+            frozen_broad.failures
 
       - name: Final repository hygiene
         shell: bash
         run: |
+          rm -f candidate_broad.log candidate_broad.exit candidate_broad.failures
+          rm -f frozen_broad.log frozen_broad.exit frozen_broad.failures
           git diff --check "$FROZEN_BASE"...HEAD
           git status --porcelain=v1 -uall
           test -z "$(git status --porcelain=v1 -uall)"
