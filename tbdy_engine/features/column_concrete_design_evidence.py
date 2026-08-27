@@ -1,9 +1,9 @@
 """Factual contracts for concrete-column design evidence authority foundation.
 
-No reinforcement quantity is promoted here. The contracts only bind reviewed
-expected design-combination membership, proven read-only actual selection
-membership, exact result/component identity, design-section identity and one
-EvidenceEpoch/model identity.
+No reinforcement quantity is promoted here. The contracts bind reviewed
+expected design-combination identity, downstream enrichment of the accepted
+PASS-1 factual selected population, exact result/component identity,
+design-section identity and one EvidenceEpoch/model identity.
 """
 from __future__ import annotations
 
@@ -17,11 +17,6 @@ from tbdy_engine.features.evidence_epoch import EvidenceEpoch
 
 class ColumnConcreteDesignEvidenceError(ValueError):
     pass
-
-
-class ActualDesignComboSourceStatus(StrEnum):
-    PROVEN_READ_ONLY_SELECTED_POPULATION = "PROVEN_READ_ONLY_SELECTED_POPULATION"
-    SOURCE_NOT_PROVEN = "SOURCE_NOT_PROVEN"
 
 
 class ComponentBindingStatus(StrEnum):
@@ -46,15 +41,21 @@ def _refs(values: Sequence[str], label: str) -> tuple[str, ...]:
 
 @dataclass(frozen=True, slots=True)
 class ExpectedConcreteDesignCombo:
+    design_combo_type: str
     combo_name: str
     provenance_refs: tuple[str, ...]
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "design_combo_type", _text(self.design_combo_type, "design_combo_type"))
         object.__setattr__(self, "combo_name", _text(self.combo_name, "combo_name"))
         refs = _refs(self.provenance_refs, "expected_combo.provenance_ref")
         if not refs:
             raise ColumnConcreteDesignEvidenceError("expected combo requires provenance")
         object.__setattr__(self, "provenance_refs", refs)
+
+    @property
+    def identity(self) -> tuple[str, str]:
+        return self.design_combo_type, self.combo_name
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,14 +69,18 @@ class ExpectedConcreteDesignComboPolicy:
         combos = tuple(self.combos)
         if not combos or any(not isinstance(item, ExpectedConcreteDesignCombo) for item in combos):
             raise ColumnConcreteDesignEvidenceError("expected combo policy requires typed combo entries")
-        names = tuple(item.combo_name for item in combos)
-        if len(names) != len(set(names)):
-            raise ColumnConcreteDesignEvidenceError("expected combo names must be unique")
-        object.__setattr__(self, "combos", combos)
+        identities = tuple(item.identity for item in combos)
+        if len(identities) != len(set(identities)):
+            raise ColumnConcreteDesignEvidenceError("expected design-combo identities must be unique")
+        object.__setattr__(self, "combos", tuple(sorted(combos, key=lambda item: item.identity)))
         refs = _refs(self.review_provenance_refs, "policy.review_provenance_ref")
         if not refs:
             raise ColumnConcreteDesignEvidenceError("expected combo policy requires review provenance")
         object.__setattr__(self, "review_provenance_refs", refs)
+
+    @property
+    def identities(self) -> tuple[tuple[str, str], ...]:
+        return tuple(item.identity for item in self.combos)
 
     @property
     def names(self) -> tuple[str, ...]:
@@ -83,53 +88,20 @@ class ExpectedConcreteDesignComboPolicy:
 
 
 @dataclass(frozen=True, slots=True)
-class ActualConcreteDesignComboSourceProof:
-    status: ActualDesignComboSourceStatus
-    source_api_or_table: str
-    exact_table_key: str | None
-    exact_field_keys: tuple[str, ...]
-    combo_name_field: str
-    selection_semantics_ref: str
-    automatic_user_defined_distinction: str
-    present_units_before_ref: str
-    present_units_after_ref: str
-    mutation_audit_ref: str
-    provenance_refs: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.status, ActualDesignComboSourceStatus):
-            raise TypeError("status must be ActualDesignComboSourceStatus")
-        object.__setattr__(self, "source_api_or_table", _text(self.source_api_or_table, "source_api_or_table"))
-        if self.exact_table_key is not None:
-            object.__setattr__(self, "exact_table_key", _text(self.exact_table_key, "exact_table_key"))
-        fields = _refs(self.exact_field_keys, "exact_field_key")
-        if self.status is ActualDesignComboSourceStatus.PROVEN_READ_ONLY_SELECTED_POPULATION and not fields:
-            raise ColumnConcreteDesignEvidenceError("proven actual source requires exact field keys")
-        object.__setattr__(self, "exact_field_keys", fields)
-        for name in (
-            "combo_name_field", "selection_semantics_ref", "automatic_user_defined_distinction",
-            "present_units_before_ref", "present_units_after_ref", "mutation_audit_ref",
-        ):
-            object.__setattr__(self, name, _text(getattr(self, name), name))
-        refs = _refs(self.provenance_refs, "actual_source.provenance_ref")
-        if not refs:
-            raise ColumnConcreteDesignEvidenceError("actual source proof requires provenance")
-        object.__setattr__(self, "provenance_refs", refs)
-
-    @property
-    def proven(self) -> bool:
-        return self.status is ActualDesignComboSourceStatus.PROVEN_READ_ONLY_SELECTED_POPULATION
-
-
-@dataclass(frozen=True, slots=True)
 class ActualSelectedConcreteDesignCombo:
+    """Downstream enrichment of one accepted PASS-1 factual selected row."""
+
+    design_combo_type: str
     combo_name: str
+    selected_row_id: str
     normalized_definition_fingerprint: str
     source_row_ref: str
     provenance_refs: tuple[str, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "design_combo_type", _text(self.design_combo_type, "design_combo_type"))
         object.__setattr__(self, "combo_name", _text(self.combo_name, "combo_name"))
+        object.__setattr__(self, "selected_row_id", _text(self.selected_row_id, "selected_row_id"))
         fp = _text(self.normalized_definition_fingerprint, "normalized_definition_fingerprint")
         digest = fp.removeprefix("combo-definition:sha256:")
         if not fp.startswith("combo-definition:sha256:") or len(digest) != 64 or any(c not in "0123456789abcdef" for c in digest):
@@ -138,32 +110,57 @@ class ActualSelectedConcreteDesignCombo:
         object.__setattr__(self, "source_row_ref", _text(self.source_row_ref, "source_row_ref"))
         object.__setattr__(self, "provenance_refs", _refs(self.provenance_refs, "selected_combo.provenance_ref"))
 
+    @property
+    def identity(self) -> tuple[str, str]:
+        return self.design_combo_type, self.combo_name
+
 
 @dataclass(frozen=True, slots=True)
 class ActualConcreteDesignComboPopulation:
-    source_proof: ActualConcreteDesignComboSourceProof
+    """Definition-enriched projection of the sole PASS-1 actual population."""
+
     model_fingerprint: str
     evidence_epoch_id: str
+    selected_population_source_refs: tuple[str, ...]
+    definition_capture_refs: tuple[str, ...]
     combos: tuple[ActualSelectedConcreteDesignCombo, ...]
 
     def __post_init__(self) -> None:
-        if not isinstance(self.source_proof, ActualConcreteDesignComboSourceProof):
-            raise TypeError("source_proof must be ActualConcreteDesignComboSourceProof")
-        if not self.source_proof.proven:
-            raise ColumnConcreteDesignEvidenceError("actual selected population cannot exist until the read-only source is proven")
         object.__setattr__(self, "model_fingerprint", _text(self.model_fingerprint, "model_fingerprint"))
         object.__setattr__(self, "evidence_epoch_id", _text(self.evidence_epoch_id, "evidence_epoch_id"))
+        selected_refs = _refs(self.selected_population_source_refs, "selected_population.source_ref")
+        definition_refs = _refs(self.definition_capture_refs, "definition_capture.ref")
+        if not selected_refs or not definition_refs:
+            raise ColumnConcreteDesignEvidenceError("actual enrichment requires PASS-1 and definition-capture provenance")
+        object.__setattr__(self, "selected_population_source_refs", selected_refs)
+        object.__setattr__(self, "definition_capture_refs", definition_refs)
         combos = tuple(self.combos)
         if not combos or any(not isinstance(item, ActualSelectedConcreteDesignCombo) for item in combos):
-            raise ColumnConcreteDesignEvidenceError("actual selected population requires typed combos")
-        names = tuple(item.combo_name for item in combos)
-        if len(names) != len(set(names)):
-            raise ColumnConcreteDesignEvidenceError("actual selected combo names must be unique")
-        object.__setattr__(self, "combos", combos)
+            raise ColumnConcreteDesignEvidenceError("actual selected population requires typed enriched combos")
+        identities = tuple(item.identity for item in combos)
+        row_ids = tuple(item.selected_row_id for item in combos)
+        if len(identities) != len(set(identities)):
+            raise ColumnConcreteDesignEvidenceError("actual selected design-combo identities must be unique")
+        if len(row_ids) != len(set(row_ids)):
+            raise ColumnConcreteDesignEvidenceError("actual selected PASS-1 row identities must be unique")
+        object.__setattr__(self, "combos", tuple(sorted(combos, key=lambda item: item.identity)))
+
+    @property
+    def identities(self) -> tuple[tuple[str, str], ...]:
+        return tuple(item.identity for item in self.combos)
 
     @property
     def names(self) -> tuple[str, ...]:
         return tuple(item.combo_name for item in self.combos)
+
+    @property
+    def source_refs(self) -> tuple[str, ...]:
+        return tuple(dict.fromkeys((
+            *self.selected_population_source_refs,
+            *self.definition_capture_refs,
+            *(item.source_row_ref for item in self.combos),
+            *(ref for item in self.combos for ref in item.provenance_refs),
+        )))
 
 
 @dataclass(frozen=True, slots=True)
