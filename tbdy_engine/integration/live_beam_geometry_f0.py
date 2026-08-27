@@ -15,7 +15,6 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 import hashlib
 import json
-import ntpath
 from pathlib import Path
 
 from tbdy_engine.features.evidence import FeatureEvidence, FeatureEvidenceStatus
@@ -32,6 +31,14 @@ from tbdy_engine.integration.f0_evidence_adapter import (
     F0EvidenceBinding,
     build_component_f0_authorities,
     build_f0_compile_inputs,
+)
+from tbdy_engine.model_identity import (
+    MODEL_IDENTITY_CONTRACT,
+    MODEL_FINGERPRINT_PREFIX,
+    MISSING_MODEL_IDENTITY_STATUS,
+    ModelIdentityError,
+    model_fingerprint_from_path,
+    normalize_observed_etabs_model_path,
 )
 from tbdy_engine.regulatory.b1_geometry_parity import (
     BEAM_DEPTH_KEY,
@@ -65,12 +72,10 @@ from tbdy_engine.regulatory.kernel import (
 from tbdy_engine.regulatory.registry import RegulatoryRegistry
 from tbdy_engine.regulatory.units import UNIT_DIMENSIONLESS, UNIT_ENUM_STATE, UNIT_MM
 
-MODEL_IDENTITY_CONTRACT = "ETABS_MODEL_IDENTITY_V1"
 LIVE_EPOCH_CONTRACT = "LIVE_EVIDENCE_EPOCH_V1"
-MODEL_FINGERPRINT_PREFIX = "etabs:model-identity:sha256:"
 SOURCE_FINGERPRINT_PREFIX = "etabs:live-geometry-source:sha256:"
 EPOCH_ID_PREFIX = "epoch:live:sha256:"
-MISSING_LIVE_EPOCH_IDENTITY_STATUS = "BLOCKED_BY_MISSING_LIVE_EPOCH_IDENTITY"
+MISSING_LIVE_EPOCH_IDENTITY_STATUS = MISSING_MODEL_IDENTITY_STATUS
 GEOMETRY_TRACE_FEATURE = "beam_geometry_trace"
 
 VS1_BEAM_REGISTRY = RegulatoryRegistry(
@@ -86,10 +91,7 @@ class VS1LiveBeamIntegrationError(RuntimeError):
     """Bounded VS-1 integration failure."""
 
 
-class MissingLiveEpochIdentityError(VS1LiveBeamIntegrationError):
-    """Accepted ETABS model-path source did not yield truthful identity."""
-
-    status = MISSING_LIVE_EPOCH_IDENTITY_STATUS
+MissingLiveEpochIdentityError = ModelIdentityError
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,25 +141,6 @@ def _canonical_json_bytes(payload: Mapping[str, object]) -> bytes:
         sort_keys=True,
         separators=(",", ":"),
     ).encode("utf-8")
-
-
-def normalize_observed_etabs_model_path(model_path: object) -> str:
-    if not isinstance(model_path, str) or not model_path.strip():
-        raise MissingLiveEpochIdentityError(MISSING_LIVE_EPOCH_IDENTITY_STATUS)
-    return ntpath.normcase(ntpath.normpath(model_path.strip()))
-
-
-def model_fingerprint_from_path(model_path: object) -> str:
-    normalized_path = normalize_observed_etabs_model_path(model_path)
-    digest = hashlib.sha256(
-        _canonical_json_bytes(
-            {
-                "contract": MODEL_IDENTITY_CONTRACT,
-                "model_path": normalized_path,
-            }
-        )
-    ).hexdigest()
-    return f"{MODEL_FINGERPRINT_PREFIX}{digest}"
 
 
 def source_fingerprint_from_bytes(source_bytes: bytes) -> str:
