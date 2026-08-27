@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 env:
-  FROZEN_BASE: 2ae920836649f1bab5c46b5ac38bf05a4353b35b
+  FROZEN_BASE: 32f03ccf5498061aa429adc71199c4bf66f01f2f
 
 jobs:
   fnd-col-2-validation:
