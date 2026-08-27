@@ -45,14 +45,26 @@ jobs:
       - name: Compile candidate
         run: python -m compileall -q tbdy_engine tests
 
-      - name: Fresh-interpreter FND-COL-1 import
+      - name: Fresh-interpreter FND-COL-1 import diagnostic
         shell: bash
         run: |
-          python -c "import tbdy_engine.regulatory.column_longitudinal_rebar"
-          python -c "import tbdy_engine.regulatory.sources.fnd_col_1_longitudinal"
+          set +e
+          python -c "import tbdy_engine.regulatory.column_longitudinal_rebar" > /tmp/fresh-import.log 2>&1
+          first_rc=$?
+          python -c "import tbdy_engine.regulatory.sources.fnd_col_1_longitudinal" >> /tmp/fresh-import.log 2>&1
+          second_rc=$?
+          set -e
+          if [ "$first_rc" -ne 0 ] || [ "$second_rc" -ne 0 ]; then
+            echo 1 > /tmp/fresh-import-rc
+          else
+            echo 0 > /tmp/fresh-import-rc
+          fi
+          cat /tmp/fresh-import.log
+          echo "fresh_import_first_rc=$first_rc"
+          echo "fresh_import_second_rc=$second_rc"
 
-      - name: Focused FND-COL-1 proofs
-        run: python -m pytest -q tests/regulatory/test_fnd_col_1_longitudinal_authority.py
+      - name: Focused FND-COL-1 proofs except known shared import dependency
+        run: python -m pytest -q tests/regulatory/test_fnd_col_1_longitudinal_authority.py -k "not fresh_interpreter_import"
 
       - name: Existing layout and rebar regressions
         run: |
@@ -114,3 +126,8 @@ jobs:
           git diff --check "$FROZEN_BASE"...HEAD
           git status --porcelain=v1 -uall
           test -z "$(git status --porcelain=v1 -uall)"
+
+      - name: Final fresh-import dependency gate
+        shell: bash
+        run: |
+          test "$(cat /tmp/fresh-import-rc)" = "0"
