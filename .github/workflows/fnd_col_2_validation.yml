@@ -1,0 +1,116 @@
+name: FND-COL-2 Eccentricity Slenderness Stability Authority Validation
+
+on:
+  push:
+    branches:
+      - sprint/fnd-col-2-eccentricity-slenderness-stability-authority
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FROZEN_BASE: 2ae920836649f1bab5c46b5ac38bf05a4353b35b
+
+jobs:
+  fnd-col-2-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify frozen-base ancestry and initial hygiene
+        shell: bash
+        run: |
+          test "$(git merge-base "$FROZEN_BASE" HEAD)" = "$FROZEN_BASE"
+          test "$(git rev-parse "$FROZEN_BASE")" = "$FROZEN_BASE"
+          git diff --check "$FROZEN_BASE"...HEAD
+          echo "candidate_head=$(git rev-parse HEAD)"
+          echo "frozen_base=$FROZEN_BASE"
+
+      - name: PASS-0 exact caller discovery
+        shell: bash
+        run: |
+          for symbol in \
+            apply_ts500_minimum_eccentricity \
+            resolve_ts500_column_slenderness_basis \
+            evaluate_ts500_column_slenderness \
+            evaluate_ts500_story_stability_index \
+            resolve_ts500_story_sway_from_stability_indices \
+            resolve_ts500_stability_load_inventory \
+            assess_ts500_eq713_stiffness_basis \
+            resolve_ts500_column_free_length \
+            evaluate_column_design_demands \
+            evaluate_column_design; do
+            echo "===== $symbol ====="
+            grep -RIn --exclude-dir=.git --exclude='*.pyc' "$symbol" tbdy_engine tests tools || true
+          done
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install accepted repository test toolchain
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            pytest \
+            pyyaml \
+            jsonschema \
+            weasyprint==69.0 \
+            pydyf==0.12.1 \
+            pypdf==6.16.1 \
+            pypdfium2==5.12.1 \
+            openpyxl==3.1.5 \
+            et_xmlfile==2.0.0
+
+      - name: Compile/import
+        run: |
+          python -m compileall -q tbdy_engine tests
+          python -c "import tbdy_engine.design.columns.minimum_eccentricity"
+          python -c "import tbdy_engine.design.columns.slenderness_basis"
+          python -c "import tbdy_engine.design.columns.slenderness"
+          python -c "import tbdy_engine.design.columns.sway_stability"
+          python -c "import tbdy_engine.design.columns.stability_action_basis"
+          python -c "import tbdy_engine.design.columns.stability_stiffness_basis"
+          python -c "import tbdy_engine.design.columns.free_length_basis"
+          python -c "import tbdy_engine.design.columns.column_design_demand_engine"
+
+      - name: Existing minimum-eccentricity regression
+        run: python -m pytest -q tests/design/columns/test_vs6_minimum_eccentricity.py
+
+      - name: Existing slenderness regression
+        run: |
+          python -m pytest -q \
+            tests/design/columns/test_vs6_slenderness.py \
+            tests/design/columns/test_vs6_slenderness_basis.py \
+            tests/design/columns/test_vs6_free_length_basis.py
+
+      - name: Existing stability regression
+        run: |
+          python -m pytest -q \
+            tests/design/columns/test_vs6_sway_stability.py \
+            tests/design/columns/test_vs6_stability_stiffness_basis.py
+
+      - name: Existing column demand/design regression
+        run: |
+          python -m pytest -q \
+            tests/design/columns/test_vs6_column_design_demand_engine.py \
+            tests/design/columns/test_vs6_column_design_engine.py
+
+      - name: Regulatory authority regression
+        run: python -m pytest -q tests/regulatory/test_source_authority.py
+
+      - name: AnalysisBasis regression
+        run: python -m pytest -q tests/regulatory/test_f0_1_kernel.py -k analysis_basis
+
+      - name: Final repository hygiene
+        shell: bash
+        run: |
+          git diff --check "$FROZEN_BASE"...HEAD
+          git status --porcelain=v1 -uall
+          test -z "$(git status --porcelain=v1 -uall)"
