@@ -73,7 +73,7 @@ def test_engineering_and_audit_html_are_professional_standalone_demo_documents()
         assert '<div class="shell">' in html
         for marker in ("UNIFIED ENGINEERING REVIEW V2", "Engineering executive summary", "Critical findings / blockers / reanalysis", "Project and seismic design basis", "Coverage by engineering domain", "Engineering domain navigation", "Required actions / remediation register", "REPORT_INPUT_GAP register", "DEMO DATA - ILLUSTRATIVE PRODUCT PACKAGE - NOT LIVE ENGINEERING TRUTH"):
             assert marker in html
-        assert "no compliance percentage is calculated" in html
+        assert "no project-level score is calculated" in html
         assert "no renderer remediation is generated" in html
 
 
