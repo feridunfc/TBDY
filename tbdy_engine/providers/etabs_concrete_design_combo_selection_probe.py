@@ -222,7 +222,6 @@ def build_actual_concrete_design_combo_selection_population(
         "selected_signature_name",
     )
 
-    seen_names: set[str] = set()
     seen_rows: set[tuple[str, str]] = set()
     rows: list[ActualSelectedConcreteDesignComboRow] = []
     for raw_row in raw_rows:
@@ -241,14 +240,13 @@ def build_actual_concrete_design_combo_selection_population(
         combo_type = _canonical_text(raw_row.get("ComboType"), "ComboType")
         combo_name = _canonical_text(raw_row.get("ComboName"), "ComboName")
         pair = (combo_type, combo_name)
-        if pair in seen_rows or combo_name in seen_names:
+        if pair in seen_rows:
             _fail_closed(
-                "selected design-combo table contains duplicate factual rows or names",
+                "selected design-combo table contains an exact duplicate factual row",
                 ComboType=combo_type,
                 ComboName=combo_name,
             )
         seen_rows.add(pair)
-        seen_names.add(combo_name)
         row_id = _row_identity(combo_type, combo_name)
         rows.append(
             ActualSelectedConcreteDesignComboRow(
