@@ -1,0 +1,168 @@
+name: FND-COL-1 Current-Main Integration Validation
+
+on:
+  push:
+    branches:
+      - sprint/fnd-col-1-longitudinal-layout-authority
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CURRENT_MAIN: 362374d6cd50eace3b6f37709690585ce50582cf
+
+jobs:
+  fnd-col-1-current-main-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: 1 ancestry merge-base and changed paths
+        shell: bash
+        run: |
+          test "$(git merge-base "$CURRENT_MAIN" HEAD)" = "$CURRENT_MAIN"
+          test "$(git rev-parse "$CURRENT_MAIN")" = "$CURRENT_MAIN"
+          echo "candidate_head=$(git rev-parse HEAD)"
+          echo "current_main=$CURRENT_MAIN"
+          echo "changed_paths_relative_to_current_main:"
+          git diff --name-only "$CURRENT_MAIN"...HEAD
+          forbidden="$(git diff --name-only "$CURRENT_MAIN"...HEAD | grep -E '^(tbdy_engine/checks/__init__\.py|tbdy_engine/regulatory/fnd_col_2|tbdy_engine/design/columns/column_design_readiness\.py)' || true)"
+          test -z "$forbidden"
+
+      - name: 2 git diff check
+        run: git diff --check "$CURRENT_MAIN"...HEAD
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install accepted repository test toolchain
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml jsonschema weasyprint==69.0 pydyf==0.12.1 pypdf==6.16.1 pypdfium2==5.12.1 openpyxl==3.1.5 et_xmlfile==2.0.0
+
+      - name: 3 compileall
+        run: python -m compileall -q tbdy_engine tests
+
+      - name: 4 fresh interpreter imports
+        shell: bash
+        run: |
+          python -c "import tbdy_engine.regulatory.column_longitudinal_rebar"
+          python -c "import tbdy_engine.regulatory.sources.fnd_col_1_longitudinal"
+          python -c "import tbdy_engine.design.columns.rebar_layout"
+          python -c "from tbdy_engine.regulatory.kernel import RegulatoryCompiler; assert RegulatoryCompiler is not None"
+
+      - name: Approved implementation fingerprint probe
+        shell: bash
+        run: |
+          python - <<'PY'
+          from tbdy_engine.regulatory.authority import implementation_fingerprint
+          from tbdy_engine.regulatory.column_longitudinal_rebar import FND_COL_1_CHECK_SPEC
+          from tbdy_engine.regulatory.sources.fnd_col_1_longitudinal import (
+              APPROVED_IMPLEMENTATION_FINGERPRINT,
+              IMPLEMENTATION_MODULES,
+          )
+          actual = implementation_fingerprint(
+              rule_id=FND_COL_1_CHECK_SPEC.rule_id,
+              rule_version=FND_COL_1_CHECK_SPEC.rule_version,
+              evaluator_binding_id=FND_COL_1_CHECK_SPEC.evaluator.binding_id,
+              implementation_modules=IMPLEMENTATION_MODULES,
+          )
+          print("FND_COL_1_IMPLEMENTATION_FINGERPRINT=" + actual)
+          print("FND_COL_1_APPROVED_IMPLEMENTATION_FINGERPRINT=" + APPROVED_IMPLEMENTATION_FINGERPRINT)
+          assert actual == APPROVED_IMPLEMENTATION_FINGERPRINT
+          PY
+
+      - name: 5 focused FND-COL-1 tests
+        run: python -m pytest -q tests/regulatory/test_fnd_col_1_longitudinal_authority.py
+
+      - name: 6 existing layout and rebar regressions
+        run: |
+          python -m pytest -q \
+            tests/design/columns/test_vs6_rebar_layout.py \
+            tests/design/columns/test_vs6_rebar_layout_seed.py \
+            tests/design/columns/test_vs6_rebar_catalog.py \
+            tests/design/columns/test_vs6_column_rebar_design_engine.py
+
+      - name: 7 regulatory F0.9 regressions
+        run: |
+          python -m pytest -q \
+            tests/regulatory/test_source_authority.py \
+            tests/regulatory/test_f0_1_kernel.py
+
+      - name: 8-11 strict catalog and fail-closed authority gates
+        run: |
+          python -m pytest -q \
+            tests/regulatory/test_fnd_col_1_longitudinal_authority.py::test_strict_compiler_accepts_actual_fnd_col_1_catalog \
+            tests/regulatory/test_fnd_col_1_longitudinal_authority.py::test_exact_implementation_fingerprint_matches_approved_literal \
+            tests/regulatory/test_fnd_col_1_longitudinal_authority.py::test_stale_implementation_binding_fails_closed \
+            tests/regulatory/test_fnd_col_1_longitudinal_authority.py::test_stale_claim_review_fails_closed \
+            tests/regulatory/test_fnd_col_1_longitudinal_authority.py::test_empty_or_unbound_catalog_fails_closed
+
+      - name: 12 determinism replay
+        run: |
+          python -m pytest -q tests/regulatory/test_fnd_col_1_longitudinal_authority.py::test_layout_population_is_deterministic
+          python -m pytest -q tests/regulatory/test_fnd_col_1_longitudinal_authority.py::test_layout_population_is_deterministic
+
+      - name: 13 broad candidate vs exact current-main comparison
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -q > /tmp/candidate.log 2>&1
+          candidate_rc=$?
+          git worktree add --detach /tmp/current-main "$CURRENT_MAIN"
+          (
+            cd /tmp/current-main
+            python -m pytest -q > /tmp/main.log 2>&1
+          )
+          main_rc=$?
+          set -e
+
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' /tmp/candidate.log | sort -u > /tmp/candidate.sig || true
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' /tmp/main.log | sort -u > /tmp/main.sig || true
+          comm -23 /tmp/candidate.sig /tmp/main.sig > /tmp/new.sig || true
+
+          echo "$candidate_rc" > /tmp/candidate.rc
+          echo "$main_rc" > /tmp/main.rc
+          echo "candidate_pytest_exit=$candidate_rc"
+          echo "current_main_pytest_exit=$main_rc"
+          echo "candidate_failure_signatures:"
+          cat /tmp/candidate.sig || true
+          echo "current_main_failure_signatures:"
+          cat /tmp/main.sig || true
+          echo "new_failure_signatures:"
+          cat /tmp/new.sig || true
+          echo "candidate_tail:"
+          tail -n 40 /tmp/candidate.log || true
+          echo "current_main_tail:"
+          tail -n 40 /tmp/main.log || true
+
+          git worktree remove --force /tmp/current-main
+
+      - name: 14 zero-new-failure signature delta
+        if: always()
+        shell: bash
+        run: |
+          test -f /tmp/candidate.rc
+          test -f /tmp/main.rc
+          test ! -s /tmp/new.sig
+          candidate_rc="$(cat /tmp/candidate.rc)"
+          main_rc="$(cat /tmp/main.rc)"
+          if [ "$main_rc" -eq 0 ]; then
+            test "$candidate_rc" -eq 0
+          fi
+
+      - name: 15 final repository hygiene
+        if: always()
+        shell: bash
+        run: |
+          git diff --check "$CURRENT_MAIN"...HEAD
+          git status --porcelain=v1 -uall
+          test -z "$(git status --porcelain=v1 -uall)"
