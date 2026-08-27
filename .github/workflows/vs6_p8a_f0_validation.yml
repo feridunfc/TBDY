@@ -1,0 +1,170 @@
+name: VS6-P8A-F0 Column Design Evidence Authority Validation
+
+on:
+  push:
+    branches:
+      - sprint/vs6-p8a-f0-column-design-evidence-authority
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FROZEN_BASE: fce5509bca335ee92e93db28ca7791a6d530e7d9
+
+jobs:
+  vs6-p8a-f0-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify frozen base ancestry and initial hygiene
+        shell: bash
+        run: |
+          test "$(git merge-base "$FROZEN_BASE" HEAD)" = "$FROZEN_BASE"
+          test "$(git rev-parse "$FROZEN_BASE")" = "$FROZEN_BASE"
+          git diff --check "$FROZEN_BASE"...HEAD
+          echo "candidate_head=$(git rev-parse HEAD)"
+          echo "frozen_base=$FROZEN_BASE"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install acceptance dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml jsonschema openpyxl
+
+      - name: Compile candidate
+        run: python -m compileall -q tbdy_engine tests
+
+      - name: Fresh-interpreter import safety
+        shell: bash
+        run: |
+          python -c "import tbdy_engine.etabs.source_units"
+          python -c "import sys; import tbdy_engine.etabs.source_units; assert 'tbdy_engine.regulatory' not in sys.modules"
+          python -c "import tbdy_engine.features.column_concrete_design_evidence"
+          python -c "import tbdy_engine.design.columns.column_concrete_design_evidence_authority"
+
+      - name: Focused VS6-P8A-F0 authority foundation
+        run: |
+          python -m pytest -q \
+            tests/features/test_vs6_p8a_f0_column_design_evidence_authority.py \
+            tests/providers/test_vs6_p8a_f0_concrete_design_combo_selection_probe.py
+
+      - name: Reused combo-definition regression
+        run: |
+          python -m pytest -q \
+            tests/providers/test_vs6_etabs_combo_definition_provider.py \
+            tests/design/columns/test_vs6_combo_pattern_engine.py
+
+      - name: Column demand regression
+        run: python -m pytest -q tests/design/columns/test_vs6_column_design_demand_engine.py
+
+      - name: Strict topology regression
+        run: |
+          python -m pytest -q \
+            tests/features/test_vs6_column_shear_topology.py \
+            tests/features/test_vs6_column_shear_topology_mixed_beams.py
+
+      - name: Candidate broad regression
+        id: candidate_broad
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -q \
+            tests/regulatory \
+            tests/coverage \
+            tests/design/columns \
+            tests/features \
+            tests/product_reports \
+            > candidate_broad.log 2>&1
+          status=$?
+          cat candidate_broad.log
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Checkout exact frozen-base baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.FROZEN_BASE }}
+          path: frozen_base
+
+      - name: Frozen-base broad regression
+        id: baseline_broad
+        shell: bash
+        run: |
+          set +e
+          cd frozen_base
+          python -m pytest -q \
+            tests/regulatory \
+            tests/coverage \
+            tests/design/columns \
+            tests/features \
+            tests/product_reports \
+            > ../baseline_broad.log 2>&1
+          status=$?
+          cd ..
+          cat baseline_broad.log
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Exact zero-failure broad delta gate
+        shell: bash
+        env:
+          CANDIDATE_BROAD_EXIT: ${{ steps.candidate_broad.outputs.exit_code }}
+          BASELINE_BROAD_EXIT: ${{ steps.baseline_broad.outputs.exit_code }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          def signatures(path: str) -> set[str]:
+              text = Path(path).read_text(encoding="utf-8", errors="replace")
+              result: set[str] = set()
+              for line in text.splitlines():
+                  match = re.match(r"^(?:FAILED|ERROR)\s+([^\s]+)", line)
+                  if match:
+                      result.add(match.group(1))
+              return result
+
+          candidate_exit = int(os.environ["CANDIDATE_BROAD_EXIT"])
+          baseline_exit = int(os.environ["BASELINE_BROAD_EXIT"])
+          candidate = signatures("candidate_broad.log")
+          baseline = signatures("baseline_broad.log")
+          new_failures = candidate - baseline
+
+          print(f"candidate_exit={candidate_exit}")
+          print(f"baseline_exit={baseline_exit}")
+          print(f"candidate_failures={sorted(candidate)}")
+          print(f"baseline_failures={sorted(baseline)}")
+          print(f"new_failures={sorted(new_failures)}")
+
+          if baseline_exit != 0 or baseline:
+              raise SystemExit("VS6-P8A-F0 frozen base must be zero-failure")
+          if candidate_exit != 0 or candidate:
+              raise SystemExit("VS6-P8A-F0 candidate broad must be zero-failure")
+          if new_failures:
+              raise SystemExit("VS6-P8A-F0 introduced new failures")
+          PY
+
+      - name: Remove CI-created evidence files and frozen checkout
+        shell: bash
+        run: |
+          rm -rf -- "$GITHUB_WORKSPACE/frozen_base"
+          rm -f -- "$GITHUB_WORKSPACE/candidate_broad.log" "$GITHUB_WORKSPACE/baseline_broad.log"
+
+      - name: Final repository hygiene
+        shell: bash
+        run: |
+          git diff --check "$FROZEN_BASE"...HEAD
+          git status --porcelain=v1 -uall
+          test -z "$(git status --porcelain=v1 -uall)"
