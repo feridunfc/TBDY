@@ -82,6 +82,31 @@ jobs:
           python -c "import tbdy_engine.design.columns.column_design_readiness"
           python -c "import tbdy_engine.regulatory.fnd_col_2"
 
+      - name: F0.9 reviewed implementation fingerprint probe
+        shell: bash
+        run: |
+          python - <<'PY'
+          from tbdy_engine.regulatory.authority import implementation_fingerprint
+          from tbdy_engine.regulatory.fnd_col_2 import SPEC
+          modules = (
+              "tbdy_engine.regulatory.fnd_col_2",
+              "tbdy_engine.design.columns.column_design_readiness",
+              "tbdy_engine.design.columns.column_design_demand_engine",
+              "tbdy_engine.design.columns.combo_pattern_engine",
+              "tbdy_engine.design.columns.design_demand_states",
+              "tbdy_engine.design.columns.minimum_eccentricity",
+              "tbdy_engine.design.columns.slenderness_basis",
+              "tbdy_engine.design.columns.slenderness",
+              "tbdy_engine.design.columns.stability_stiffness_basis",
+          )
+          print("FND_COL_2_IMPLEMENTATION_FINGERPRINT=" + implementation_fingerprint(
+              rule_id=SPEC.rule_id,
+              rule_version=SPEC.rule_version,
+              evaluator_binding_id=SPEC.evaluator.binding_id,
+              implementation_modules=modules,
+          ))
+          PY
+
       - name: Existing minimum-eccentricity regression
         run: python -m pytest -q tests/design/columns/test_vs6_minimum_eccentricity.py
 
@@ -106,6 +131,9 @@ jobs:
 
       - name: FND-COL-2 canonical readiness regression
         run: python -m pytest -q tests/design/columns/test_fnd_col_2_design_readiness.py
+
+      - name: FND-COL-2 F0 derivation regression
+        run: python -m pytest -q tests/regulatory/test_fnd_col_2_f0.py
 
       - name: Regulatory authority regression
         run: python -m pytest -q tests/regulatory/test_source_authority.py
