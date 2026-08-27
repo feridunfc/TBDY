@@ -4,6 +4,14 @@ Reconciles reviewed expected design-combo membership with a proven read-only
 selected Concrete Frame Design population. Existing ETABS combo-definition
 evidence and the existing name-blind classifier remain the semantic authority.
 No PMMArea promotion, reinforcement selection or capacity logic lives here.
+
+Analysis-basis eligibility is consumed through a tiny immutable join artifact
+containing the already-resolved canonical status value plus its source ref.  We
+do not import ``regulatory`` here: importing that package merely to compare a
+resolved status would recreate the package-initialization cycle that this
+foundation is required to avoid.  This module defines no second analysis-basis
+enum and treats every value other than the exact canonical ``MATCH`` value as
+blocked.
 """
 from __future__ import annotations
 
@@ -20,7 +28,6 @@ from tbdy_engine.features.column_concrete_design_evidence import (
     ComponentBindingStatus, ExpectedConcreteDesignComboPolicy,
 )
 from tbdy_engine.providers.etabs_combo_definition_provider import EtabsComboDefinitionEvidence
-from tbdy_engine.regulatory.kernel import AnalysisBasisStatus
 
 
 class ColumnConcreteDesignEvidenceAuthorityError(ValueError):
@@ -42,6 +49,34 @@ def _text(value: str, label: str) -> str:
     if not isinstance(value, str) or not value.strip() or value != value.strip():
         raise ColumnConcreteDesignEvidenceAuthorityError(f"{label} must be a nonblank canonical string")
     return value
+
+
+@dataclass(frozen=True, slots=True)
+class AnalysisBasisEligibilityEvidence:
+    """Join-only projection of an existing canonical analysis-basis decision.
+
+    ``status_value`` is expected to be ``AnalysisBasisStatus.value`` from the
+    accepted analysis-basis authority.  This artifact does not reinterpret or
+    resolve that status; it only preserves the value/ref needed by this
+    downstream reconciliation.  Fail-closed consumption means only ``MATCH``
+    can pass.
+    """
+
+    status_value: str
+    compatibility_ref: str
+    provenance_refs: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "status_value", _text(self.status_value, "analysis_basis.status_value"))
+        object.__setattr__(self, "compatibility_ref", _text(self.compatibility_ref, "analysis_basis.compatibility_ref"))
+        refs = tuple(_text(item, "analysis_basis.provenance_ref") for item in self.provenance_refs)
+        if len(refs) != len(set(refs)):
+            raise ColumnConcreteDesignEvidenceAuthorityError("analysis-basis provenance refs must be unique")
+        object.__setattr__(self, "provenance_refs", refs)
+
+    @property
+    def acceptable(self) -> bool:
+        return self.status_value == "MATCH"
 
 
 def _definition_payload(definition: EtabsComboDefinitionEvidence) -> dict[str, object]:
@@ -121,12 +156,14 @@ def reconcile_concrete_design_combos(
     actual_population: ActualConcreteDesignComboPopulation,
     current_definitions: Sequence[EtabsComboDefinitionEvidence],
     case_types: Mapping[str, str],
-    analysis_basis_status_by_combo: Mapping[str, AnalysisBasisStatus],
+    analysis_basis_by_combo: Mapping[str, AnalysisBasisEligibilityEvidence],
 ) -> ConcreteDesignComboReconciliation:
     if not isinstance(expected_policy, ExpectedConcreteDesignComboPolicy):
         raise TypeError("expected_policy must be ExpectedConcreteDesignComboPolicy")
     if not isinstance(actual_population, ActualConcreteDesignComboPopulation):
         raise TypeError("actual_population must be ActualConcreteDesignComboPopulation")
+    if any(not isinstance(value, AnalysisBasisEligibilityEvidence) for value in analysis_basis_by_combo.values()):
+        raise TypeError("analysis_basis_by_combo values must be AnalysisBasisEligibilityEvidence")
     expected = tuple(sorted(expected_policy.names))
     actual = tuple(sorted(actual_population.names))
     expected_set, actual_set = set(expected), set(actual)
@@ -156,12 +193,20 @@ def reconcile_concrete_design_combos(
         if not classification.supported:
             unsupported.append(name)
             continue
-        if analysis_basis_status_by_combo.get(name) is not AnalysisBasisStatus.MATCH:
+        basis = analysis_basis_by_combo.get(name)
+        if basis is None or not basis.acceptable:
             analysis_blocked.append(name)
             continue
         matched.append(name)
     blocked = tuple(sorted(set(missing + unexpected + tuple(mismatch) + tuple(unsupported) + tuple(analysis_blocked))))
-    refs = tuple(dict.fromkeys((f"expected-policy:{expected_policy.policy_id}", *expected_policy.review_provenance_refs, *actual_population.source_proof.provenance_refs, *(item.source_row_ref for item in actual_population.combos))))
+    basis_refs = tuple(
+        ref
+        for name in sorted(expected_set & actual_set)
+        for evidence in (analysis_basis_by_combo.get(name),)
+        if evidence is not None
+        for ref in (evidence.compatibility_ref, *evidence.provenance_refs)
+    )
+    refs = tuple(dict.fromkeys((f"expected-policy:{expected_policy.policy_id}", *expected_policy.review_provenance_refs, *actual_population.source_proof.provenance_refs, *(item.source_row_ref for item in actual_population.combos), *basis_refs)))
     return ConcreteDesignComboReconciliation(
         expected, actual, tuple(sorted(matched)), missing, unexpected,
         tuple(sorted(mismatch)), tuple(sorted(unsupported)), tuple(sorted(analysis_blocked)),
@@ -211,6 +256,7 @@ def build_column_concrete_design_evidence_authority(*, combo_reconciliation: Con
 
 
 __all__ = [
+    "AnalysisBasisEligibilityEvidence",
     "ColumnConcreteDesignEvidenceAuthority", "ColumnConcreteDesignEvidenceAuthorityError",
     "ColumnConcreteDesignEligibilityStatus", "ConcreteDesignComboReconciliation",
     "build_actual_selected_combo_population", "build_column_concrete_design_evidence_authority",
