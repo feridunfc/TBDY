@@ -1,4 +1,4 @@
-name: VS6-P8A Design-Informed Longitudinal Rebar Validation
+name: VS6-P8A-A Factual Longitudinal Rebar Evidence Validation
 
 on:
   push:
@@ -13,7 +13,7 @@ env:
   FROZEN_BASE: 2ae920836649f1bab5c46b5ac38bf05a4353b35b
 
 jobs:
-  vs6-p8a-validation:
+  vs6-p8a-a-validation:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout exact candidate head
@@ -53,14 +53,14 @@ jobs:
       - name: Compile candidate
         run: python -m compileall -q tbdy_engine tests
 
-      - name: P8A focused design-result acquisition
+      - name: P8A-A focused design-result acquisition
         run: python -m pytest -q tests/providers/test_vs6_p8a_concrete_column_design_result_provider.py
 
-      - name: P8A focused ETABS_REQUIRED_REBAR promotion
+      - name: P8A-A focused ETABS_REQUIRED_REBAR promotion
         run: python -m pytest -q tests/features/test_vs6_p8a_column_design_rebar_evidence.py
 
-      - name: P8A focused design-informed selection
-        run: python -m pytest -q tests/design/columns/test_vs6_p8a_design_informed_longitudinal_rebar.py
+      - name: P8A-A authority boundary
+        run: python -m pytest -q tests/features/test_vs6_p8a_a_authority_boundary.py
 
       - name: F0 authority dependency regression
         run: |
@@ -81,7 +81,16 @@ jobs:
             tests/design/columns/test_vs6_rebar_selection.py \
             tests/design/columns/test_vs6_rebar_selection_authority.py
 
-      - name: Candidate broad regression
+      - name: Canonical broad population
+        run: |
+          python -m pytest -q \
+            tests/regulatory \
+            tests/coverage \
+            tests/design/columns \
+            tests/features \
+            tests/product_reports
+
+      - name: Candidate whole-repository supplementary regression
         shell: bash
         run: |
           set +e
@@ -89,11 +98,33 @@ jobs:
           rc=$?
           set -e
           echo "$rc" > candidate_broad.exit
-          grep '^FAILED ' candidate_broad.log | sed 's/ - .*//' | sort -u > candidate_broad.failures || true
+          python - candidate_broad.log candidate_broad.signatures <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          source = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace").splitlines()
+          signatures = set()
+          for raw in source:
+              line = raw.strip()
+              match = re.match(r"^FAILED\s+(.+?)(?:\s+-\s+.*)?$", line)
+              if match:
+                  signatures.add("FAILED:" + match.group(1))
+                  continue
+              match = re.match(r"^ERROR\s+(.+?)(?:\s+-\s+.*)?$", line)
+              if match:
+                  signatures.add("ERROR:" + match.group(1))
+                  continue
+              match = re.match(r"^_+\s*ERROR collecting\s+(.+?)\s*_+$", line)
+              if match:
+                  signatures.add("COLLECTION_ERROR:" + match.group(1))
+          Path(sys.argv[2]).write_text("\n".join(sorted(signatures)) + ("\n" if signatures else ""), encoding="utf-8")
+          PY
           tail -n 100 candidate_broad.log
           echo "candidate_broad_exit=$rc"
+          cat candidate_broad.signatures || true
 
-      - name: Frozen-base broad regression
+      - name: Frozen-base whole-repository supplementary regression
         shell: bash
         run: |
           git worktree add --detach /tmp/vs6-p8a-frozen "$FROZEN_BASE"
@@ -105,50 +136,72 @@ jobs:
           rc=$?
           set -e
           echo "$rc" > frozen_broad.exit
-          grep '^FAILED ' frozen_broad.log | sed 's/ - .*//' | sort -u > frozen_broad.failures || true
+          python - frozen_broad.log frozen_broad.signatures <<'PY'
+          from pathlib import Path
+          import re
+          import sys
+
+          source = Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace").splitlines()
+          signatures = set()
+          for raw in source:
+              line = raw.strip()
+              match = re.match(r"^FAILED\s+(.+?)(?:\s+-\s+.*)?$", line)
+              if match:
+                  signatures.add("FAILED:" + match.group(1))
+                  continue
+              match = re.match(r"^ERROR\s+(.+?)(?:\s+-\s+.*)?$", line)
+              if match:
+                  signatures.add("ERROR:" + match.group(1))
+                  continue
+              match = re.match(r"^_+\s*ERROR collecting\s+(.+?)\s*_+$", line)
+              if match:
+                  signatures.add("COLLECTION_ERROR:" + match.group(1))
+          Path(sys.argv[2]).write_text("\n".join(sorted(signatures)) + ("\n" if signatures else ""), encoding="utf-8")
+          PY
           tail -n 100 frozen_broad.log
           echo "frozen_broad_exit=$rc"
+          cat frozen_broad.signatures || true
           git worktree remove --force /tmp/vs6-p8a-frozen
 
-      - name: Zero-failure delta gate
+      - name: Whole-repository zero-delta gate
         shell: bash
         run: |
           candidate_rc="$(cat candidate_broad.exit)"
           frozen_rc="$(cat frozen_broad.exit)"
           echo "candidate_rc=$candidate_rc frozen_rc=$frozen_rc"
           if test "$candidate_rc" = 0; then
-            echo "candidate broad regression is green"
+            echo "candidate whole-repository regression is green"
             exit 0
           fi
           if test "$frozen_rc" = 0; then
-            echo "candidate introduced broad failures while frozen base is green"
-            diff -u frozen_broad.failures candidate_broad.failures || true
+            echo "candidate introduced whole-repository failures while frozen base is green"
+            diff -u frozen_broad.signatures candidate_broad.signatures || true
             exit 1
           fi
-          if ! diff -u frozen_broad.failures candidate_broad.failures; then
-            echo "candidate and frozen base failure signatures differ"
+          if ! diff -u frozen_broad.signatures candidate_broad.signatures; then
+            echo "candidate and frozen base failure/error signatures differ"
             exit 1
           fi
-          echo "candidate broad failures are inherited exactly from frozen base"
+          echo "candidate whole-repository failures/errors are inherited exactly from frozen base"
 
       - name: Upload broad regression diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: vs6-p8a-broad-regression
+          name: vs6-p8a-a-broad-regression
           path: |
             candidate_broad.log
             candidate_broad.exit
-            candidate_broad.failures
+            candidate_broad.signatures
             frozen_broad.log
             frozen_broad.exit
-            frozen_broad.failures
+            frozen_broad.signatures
 
       - name: Final repository hygiene
         shell: bash
         run: |
-          rm -f candidate_broad.log candidate_broad.exit candidate_broad.failures
-          rm -f frozen_broad.log frozen_broad.exit frozen_broad.failures
+          rm -f candidate_broad.log candidate_broad.exit candidate_broad.signatures
+          rm -f frozen_broad.log frozen_broad.exit frozen_broad.signatures
           git diff --check "$FROZEN_BASE"...HEAD
           git status --porcelain=v1 -uall
           test -z "$(git status --porcelain=v1 -uall)"
