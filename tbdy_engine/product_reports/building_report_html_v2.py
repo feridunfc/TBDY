@@ -120,7 +120,7 @@ def _analysis_basis(payload: Mapping[str, object]) -> str:
     id_html = ''
     if isinstance(ids, list) and ids:
         id_html = '<details class="ur2-details"><summary>Exact instance identities</summary><ul>' + ''.join(f'<li class="ur2-internal">{_esc(v)}</li>' for v in ids) + '</ul></details>'
-    return '<div class="ur2-analysis-card"><div><span class="ur2-label">Reanalysis required</span>' + f'<strong>{_esc(_show(count))}</strong></div><p>Copied from canonical AnalysisBasisStatus accounting. The renderer does not map this state to PASS or FAIL.</p>' + id_html + '</div>'
+    return '<div class="ur2-analysis-card"><div><span class="ur2-label">Reanalysis required</span>' + f'<strong>{_esc(_show(count))}</strong></div><p>Copied from canonical AnalysisBasisStatus accounting. The renderer preserves this upstream state without reinterpretation.</p>' + id_html + '</div>'
 
 
 def _domain_cards(payload: Mapping[str, object], selected_refs: set[str]) -> str:
@@ -143,7 +143,7 @@ def _action_register(payload: Mapping[str, object]) -> str:
     required = register.get("required_action_finding_ids") if isinstance(register, dict) else None
     required_values = required if isinstance(required, list) else []
     if not required_values:
-        return '<div class="ur2-gap-callout"><strong>REPORT_INPUT_GAP - structured remediation records are not available here.</strong><p>The renderer will not generate actions from FAIL/BLOCKED/NO_DATA status. Only canonical action/remediation records may populate this section.</p></div>'
+        return '<div class="ur2-gap-callout"><strong>REPORT_INPUT_GAP - structured remediation records are not available here.</strong><p>The renderer will not generate actions from result status alone. Only canonical action/remediation records may populate this section.</p></div>'
     return '<div class="ur2-action-list"><div class="ur2-label">Canonical action finding identities</div><ul>' + ''.join(f'<li class="ur2-internal">{_esc(value)}</li>' for value in required_values) + '</ul><p class="ur2-muted">Action text is not synthesized by the renderer.</p></div>'
 
 
@@ -187,13 +187,13 @@ def _professional_overview(payload: Mapping[str, object], selected_refs: set[str
         + f'<div><span>Data classification</span><strong>{_esc(_show(classification))}</strong></div>'
         + f'<div><span>Phase</span><strong>{_esc(_show(phase))}</strong></div></div></header>'
         + '<nav class="ur2-toc"><strong>Review path</strong><a href="#ur2-summary">Executive summary</a><a href="#ur2-findings">Critical findings / blockers</a><a href="#ur2-basis">Project / design basis</a><a href="#ur2-analysis">Model / analysis basis</a><a href="#ur2-coverage">Coverage</a><a href="#ur2-domains">Engineering domains</a><a href="#ur2-actions">Required actions</a><a href="#ur2-gaps">Report input gaps</a><a href="#overview">Detailed canonical review</a></nav>'
-        + '<section id="ur2-summary" class="ur2-section"><div class="ur2-section-head"><div><span>01</span><h2>Engineering executive summary</h2></div><p>Status populations below are copied exactly from the projection; no compliance percentage is calculated.</p></div>' + _status_cards(payload) + '</section>'
+        + '<section id="ur2-summary" class="ur2-section"><div class="ur2-section-head"><div><span>01</span><h2>Engineering executive summary</h2></div><p>Status populations below are copied exactly from the projection; no project-level score is calculated.</p></div>' + _status_cards(payload) + '</section>'
         + '<section id="ur2-findings" class="ur2-section"><div class="ur2-section-head"><div><span>02</span><h2>Critical findings / blockers / reanalysis</h2></div><p>Attention-state rows are presentation filters over exact canonical statuses. No severity or remediation is invented.</p></div>' + _attention_table(payload, selected_refs) + _analysis_basis(payload) + '</section>'
         + '<section id="ur2-basis" class="ur2-section"><div class="ur2-section-head"><div><span>03</span><h2>Project and seismic design basis</h2></div><p>Canonical ProjectBasisLedger values and sources.</p></div>' + _basis_rows(payload) + '</section>'
         + '<section id="ur2-analysis" class="ur2-section"><div class="ur2-section-head"><div><span>04</span><h2>Model / analysis basis</h2></div><p>Canonical analysis-basis accounting. Model epoch is shown only when upstream supplies it.</p></div>' + _analysis_basis(payload) + '</section>'
         + '<section id="ur2-coverage" class="ur2-section"><div class="ur2-section-head"><div><span>05</span><h2>Coverage by engineering domain</h2></div><p>Human-readable labels are paired with the exact canonical FCR value and key.</p></div>' + _coverage_cards(payload) + '</section>'
         + '<section id="ur2-domains" class="ur2-section"><div class="ur2-section-head"><div><span>06</span><h2>Engineering domain navigation</h2></div><p>Only exact component_type presentation tokens are grouped. Unknown tokens remain in appendices.</p></div>' + _domain_cards(payload, selected_refs) + '</section>'
-        + '<section id="ur2-actions" class="ur2-section"><div class="ur2-section-head"><div><span>07</span><h2>Required actions / remediation register</h2></div><p>Canonical action records only. FAIL status alone never becomes a renderer-authored action.</p></div>' + _action_register(payload) + '</section>'
+        + '<section id="ur2-actions" class="ur2-section"><div class="ur2-section-head"><div><span>07</span><h2>Required actions / remediation register</h2></div><p>Canonical action records only. A result status alone never becomes a renderer-authored action.</p></div>' + _action_register(payload) + '</section>'
         + '<section id="ur2-gaps" class="ur2-section"><div class="ur2-section-head"><div><span>08</span><h2>REPORT_INPUT_GAP register</h2></div><p>Professional-report information not yet carried by the canonical upstream read-model.</p></div>' + _gap_register(payload) + '</section>'
         + '<div class="ur2-detail-intro"><strong>Detailed canonical review and complete drill-down continue below.</strong><span>Internal contribution/source identifiers are intentionally deferred to detailed trace.</span></div></div>'
     )
