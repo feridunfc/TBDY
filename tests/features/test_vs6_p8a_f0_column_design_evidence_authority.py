@@ -6,6 +6,7 @@ import sys
 import pytest
 
 from tbdy_engine.design.columns.column_concrete_design_evidence_authority import (
+    AnalysisBasisEligibilityEvidence,
     ColumnConcreteDesignEligibilityStatus,
     build_actual_selected_combo_population,
     build_column_concrete_design_evidence_authority,
@@ -27,11 +28,16 @@ from tbdy_engine.features.column_concrete_design_evidence import (
 from tbdy_engine.features.column_shear_topology import ColumnTopologyEvidence, StrictColumnTopologyBundle
 from tbdy_engine.features.evidence_epoch import EvidenceEpoch, EvidenceEpochOrigin
 from tbdy_engine.providers.etabs_combo_definition_provider import EtabsComboConstituentEvidence, EtabsComboDefinitionEvidence
-from tbdy_engine.regulatory.kernel import AnalysisBasisStatus
 
 
 def test_unit_boundary_imports_without_regulatory_package():
     code = "import sys; import tbdy_engine.etabs.source_units; assert 'tbdy_engine.regulatory' not in sys.modules"
+    completed = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_design_evidence_authority_imports_without_regulatory_package():
+    code = "import sys; import tbdy_engine.design.columns.column_concrete_design_evidence_authority; assert 'tbdy_engine.regulatory' not in sys.modules"
     completed = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
     assert completed.returncode == 0, completed.stderr
 
@@ -98,16 +104,19 @@ def _binding(status=ComponentBindingStatus.BOUND):
     )
 
 
+def _basis(status="MATCH", name="CMB1"):
+    return AnalysisBasisEligibilityEvidence(status, f"analysis-basis:{name}", (f"analysis-basis-provenance:{name}",))
+
+
 def _reconcile(policy, actual, definitions, case_types=None, basis=None):
     return reconcile_concrete_design_combos(
         expected_policy=policy, actual_population=actual, current_definitions=definitions,
         case_types={"LC1": "LinStatic", "LC2": "LinStatic"} if case_types is None else case_types,
-        analysis_basis_status_by_combo={name: AnalysisBasisStatus.MATCH for name in actual.names} if basis is None else basis,
+        analysis_basis_by_combo={name: _basis("MATCH", name) for name in actual.names} if basis is None else basis,
     )
 
 
 def test_unproven_source_cannot_construct_actual_selected_population():
-    definition = _definition()
     with pytest.raises(ColumnConcreteDesignEvidenceError):
         ActualConcreteDesignComboPopulation(
             source_proof=_proof(ActualDesignComboSourceStatus.SOURCE_NOT_PROVEN),
@@ -119,6 +128,7 @@ def test_correct_population_definition_and_basis_is_eligible():
     definitions = (_definition(),)
     rec = _reconcile(_policy("CMB1"), _actual(definitions, "CMB1"), definitions)
     assert rec.closed and rec.matched == ("CMB1",)
+    assert "analysis-basis:CMB1" in rec.source_refs
     authority = build_column_concrete_design_evidence_authority(combo_reconciliation=rec, component_binding=_binding())
     assert authority.status is ColumnConcreteDesignEligibilityStatus.ELIGIBLE
     assert authority.governing_combo_eligibility("CMB1") is ColumnConcreteDesignEligibilityStatus.ELIGIBLE
@@ -152,10 +162,12 @@ def test_missing_or_unsupported_referenced_case_blocks_definition():
 def test_analysis_basis_and_governing_combo_are_fail_closed():
     definition = _definition()
     actual = _actual((definition,), "CMB1")
-    rec = _reconcile(_policy("CMB1"), actual, (definition,), basis={"CMB1": AnalysisBasisStatus.REANALYSIS_REQUIRED})
+    rec = _reconcile(_policy("CMB1"), actual, (definition,), basis={"CMB1": _basis("REANALYSIS_REQUIRED")})
     assert rec.analysis_basis_blocked == ("CMB1",)
     authority = build_column_concrete_design_evidence_authority(combo_reconciliation=rec, component_binding=_binding())
     assert authority.status is ColumnConcreteDesignEligibilityStatus.BLOCKED_ANALYSIS_BASIS
+    missing_basis = _reconcile(_policy("CMB1"), actual, (definition,), basis={})
+    assert missing_basis.analysis_basis_blocked == ("CMB1",)
     good = _reconcile(_policy("CMB1"), actual, (definition,))
     good_authority = build_column_concrete_design_evidence_authority(combo_reconciliation=good, component_binding=_binding())
     assert good_authority.governing_combo_eligibility("OTHER") is ColumnConcreteDesignEligibilityStatus.BLOCKED_COMBO_POPULATION
