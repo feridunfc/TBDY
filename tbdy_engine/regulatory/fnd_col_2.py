@@ -1,9 +1,9 @@
 """F0.9 source-bound seam for FND-COL-2 column demand readiness.
 
-The accepted VS6 engineering kernels remain the calculation authority.  This
-module adapts immutable F0 external authorities into those kernels and emits one
-canonical ``RegulatoryQuantity`` containing the downstream readiness state.
-It does not implement a second stability engine and it never selects rebar.
+Accepted VS6 engineering kernels remain the calculation authority. This module
+only adapts immutable F0 external authorities into those kernels and emits one
+canonical ``RegulatoryQuantity``. It does not acquire ETABS data, implement a
+second stability engine, perform PMM mechanics, or select reinforcement.
 """
 from __future__ import annotations
 
@@ -14,13 +14,10 @@ from tbdy_engine.design.columns.column_design_demand_engine import ColumnComboDe
 from tbdy_engine.design.columns.column_design_readiness import resolve_column_design_demand_readiness
 from tbdy_engine.design.columns.combo_pattern_engine import ComboPatternConstituent
 from tbdy_engine.design.columns.rebar_selection import ColumnDemandState
-from tbdy_engine.design.columns.slenderness_basis import (
-    ColumnSlendernessAxisEvidence,
-    ColumnSlendernessEvidence,
-)
+from tbdy_engine.design.columns.slenderness_basis import ColumnSlendernessAxisEvidence, ColumnSlendernessEvidence
 from tbdy_engine.design.columns.stability_stiffness_basis import (
     AssignedFrameBendingModifierEvidence,
-    StabilityStiffnessBasisResolution,
+    assess_ts500_eq713_stiffness_basis,
 )
 from tbdy_engine.regulatory.contracts import (
     ApplicabilityBinding,
@@ -45,7 +42,6 @@ from tbdy_engine.regulatory.kernel import MaterializedDependency, RuleExecutionE
 from tbdy_engine.regulatory.registry import RegulatoryRegistry
 from tbdy_engine.regulatory.units import UNIT_DIMENSIONLESS, UNIT_MM
 
-
 RULE_ID = RuleId("FND_COL_2_COLUMN_DESIGN_DEMAND_READINESS")
 RULE_VERSION = "fnd-col-2-v1"
 CODE_REFS = (
@@ -62,7 +58,7 @@ DEPTH_MM_KEY = DependencyKey("fnd_col_2_column_depth_mm")
 COMBO_DEFINITIONS_KEY = DependencyKey("fnd_col_2_combo_definitions")
 CASE_DEMANDS_KEY = DependencyKey("fnd_col_2_case_demand_population")
 SLENDERNESS_EVIDENCE_KEY = DependencyKey("fnd_col_2_slenderness_evidence")
-STIFFNESS_BASIS_KEY = DependencyKey("fnd_col_2_stability_stiffness_basis")
+STIFFNESS_EVIDENCE_KEY = DependencyKey("fnd_col_2_stability_stiffness_evidence")
 READINESS_KEY = DependencyKey("fnd_col_2_column_design_demand_readiness")
 
 
@@ -87,7 +83,7 @@ def _mapping(value: object, label: str) -> Mapping[str, object]:
 
 def _sequence(value: object, label: str) -> tuple[object, ...]:
     if not isinstance(value, (tuple, list)):
-        raise TypeError(f"{label} must be an immutable-compatible sequence")
+        raise TypeError(f"{label} must be a sequence")
     return tuple(value)
 
 
@@ -98,9 +94,7 @@ def _text(value: object, label: str) -> str:
 
 
 def _optional_text(value: object, label: str) -> str | None:
-    if value is None:
-        return None
-    return _text(value, label)
+    return None if value is None else _text(value, label)
 
 
 def _number(value: object, label: str) -> float:
@@ -110,37 +104,36 @@ def _number(value: object, label: str) -> float:
 
 
 def _optional_number(value: object, label: str) -> float | None:
-    if value is None:
-        return None
-    return _number(value, label)
+    return None if value is None else _number(value, label)
 
 
 def _decode_combo_definitions(value: object) -> tuple[ColumnComboDefinition, ...]:
-    out: list[ColumnComboDefinition] = []
+    definitions: list[ColumnComboDefinition] = []
     for index, raw in enumerate(_sequence(value, "combo definitions")):
         row = _mapping(raw, f"combo[{index}]")
-        terms: list[ComboPatternConstituent] = []
-        for term_index, raw_term in enumerate(_sequence(row.get("constituents"), f"combo[{index}].constituents")):
-            term = _mapping(raw_term, f"combo[{index}].constituent[{term_index}]")
-            terms.append(
-                ComboPatternConstituent(
-                    name=_text(term.get("name"), "constituent.name"),
-                    scale_factor=_number(term.get("scale_factor"), "constituent.scale_factor"),
-                    cname_type=_text(term.get("cname_type", "LOAD_CASE"), "constituent.cname_type"),
-                )
+        terms = tuple(
+            ComboPatternConstituent(
+                name=_text(term.get("name"), "constituent.name"),
+                scale_factor=_number(term.get("scale_factor"), "constituent.scale_factor"),
+                cname_type=_text(term.get("cname_type", "LOAD_CASE"), "constituent.cname_type"),
             )
-        out.append(
+            for term in (
+                _mapping(item, f"combo[{index}].constituent")
+                for item in _sequence(row.get("constituents"), f"combo[{index}].constituents")
+            )
+        )
+        definitions.append(
             ColumnComboDefinition(
                 name=_text(row.get("name"), "combo.name"),
                 combo_type=_text(row.get("combo_type"), "combo.combo_type"),
-                constituents=tuple(terms),
+                constituents=terms,
             )
         )
-    return tuple(out)
+    return tuple(definitions)
 
 
 def _decode_demand_states(value: object, *, component_id: str) -> tuple[ColumnDemandState, ...]:
-    out: list[ColumnDemandState] = []
+    states: list[ColumnDemandState] = []
     for index, raw in enumerate(_sequence(value, "case demand population")):
         row = _mapping(raw, f"case_demand[{index}]")
         state = ColumnDemandState(
@@ -159,8 +152,8 @@ def _decode_demand_states(value: object, *, component_id: str) -> tuple[ColumnDe
         )
         if state.component_id != component_id:
             raise ValueError("case demand component_id differs from F0 scope_ref")
-        out.append(state)
-    return tuple(out)
+        states.append(state)
+    return tuple(states)
 
 
 def _decode_axis(value: object, expected_axis: str) -> ColumnSlendernessAxisEvidence:
@@ -205,30 +198,22 @@ def _decode_slenderness(value: object, *, component_id: str) -> ColumnSlendernes
     )
 
 
-def _decode_stiffness(value: object) -> StabilityStiffnessBasisResolution | None:
+def _decode_stiffness_evidence(value: object) -> tuple[AssignedFrameBendingModifierEvidence, ...]:
     if value is None:
-        return None
-    row = _mapping(value, "stability stiffness basis")
-    nonunit: list[AssignedFrameBendingModifierEvidence] = []
-    for index, raw in enumerate(_sequence(row.get("nonunit_sections", ()), "nonunit_sections")):
-        item = _mapping(raw, f"nonunit_sections[{index}]")
-        nonunit.append(
+        return ()
+    evidence: list[AssignedFrameBendingModifierEvidence] = []
+    for index, raw in enumerate(_sequence(value, "stability stiffness evidence")):
+        row = _mapping(raw, f"stiffness[{index}]")
+        evidence.append(
             AssignedFrameBendingModifierEvidence(
-                section_name=_text(item.get("section_name"), "section_name"),
-                member_kind=_text(item.get("member_kind"), "member_kind"),
-                i2_modifier=_number(item.get("i2_modifier"), "i2_modifier"),
-                i3_modifier=_number(item.get("i3_modifier"), "i3_modifier"),
-                source_refs=tuple(_text(ref, "source_ref") for ref in _sequence(item.get("source_refs"), "source_refs")),
+                section_name=_text(row.get("section_name"), "section_name"),
+                member_kind=_text(row.get("member_kind"), "member_kind"),
+                i2_modifier=_number(row.get("i2_modifier"), "i2_modifier"),
+                i3_modifier=_number(row.get("i3_modifier"), "i3_modifier"),
+                source_refs=tuple(_text(ref, "stiffness.source_ref") for ref in _sequence(row.get("source_refs"), "stiffness.source_refs")),
             )
         )
-    return StabilityStiffnessBasisResolution(
-        status=_text(row.get("status"), "stiffness.status"),
-        reanalysis_required=bool(row.get("reanalysis_required")),
-        inspected_section_count=int(_number(row.get("inspected_section_count"), "inspected_section_count")),
-        inspected_member_kinds=tuple(_text(item, "member_kind") for item in _sequence(row.get("inspected_member_kinds", ()), "inspected_member_kinds")),
-        nonunit_sections=tuple(nonunit),
-        source_refs=tuple(_text(item, "source_ref") for item in _sequence(row.get("source_refs"), "stiffness.source_refs")),
-    )
+    return tuple(evidence)
 
 
 def _state_payload(state: ColumnDemandState) -> dict[str, object]:
@@ -256,7 +241,7 @@ class ColumnDesignReadinessExecutionInput:
     combo_definitions: tuple[ColumnComboDefinition, ...]
     case_demands: tuple[ColumnDemandState, ...]
     slenderness_evidence: ColumnSlendernessEvidence | None
-    stability_stiffness_basis: StabilityStiffnessBasisResolution | None
+    stiffness_evidence: tuple[AssignedFrameBendingModifierEvidence, ...]
     evidence_refs: tuple[str, ...]
 
     @classmethod
@@ -273,12 +258,11 @@ class ColumnDesignReadinessExecutionInput:
             COMBO_DEFINITIONS_KEY,
             CASE_DEMANDS_KEY,
             SLENDERNESS_EVIDENCE_KEY,
-            STIFFNESS_BASIS_KEY,
+            STIFFNESS_EVIDENCE_KEY,
         }
         if len(by_key) != len(deps) or set(by_key) != expected:
             raise ValueError("FND-COL-2 received unexpected dependency keys")
         component = envelope.instance_id.scope_ref
-        refs = tuple(dict.fromkeys(ref for item in deps for ref in item.evidence_refs))
         return cls(
             envelope=envelope,
             width_mm=_number(by_key[WIDTH_MM_KEY].value, "width_mm"),
@@ -286,8 +270,8 @@ class ColumnDesignReadinessExecutionInput:
             combo_definitions=_decode_combo_definitions(by_key[COMBO_DEFINITIONS_KEY].value),
             case_demands=_decode_demand_states(by_key[CASE_DEMANDS_KEY].value, component_id=component),
             slenderness_evidence=_decode_slenderness(by_key[SLENDERNESS_EVIDENCE_KEY].value, component_id=component),
-            stability_stiffness_basis=_decode_stiffness(by_key[STIFFNESS_BASIS_KEY].value),
-            evidence_refs=refs,
+            stiffness_evidence=_decode_stiffness_evidence(by_key[STIFFNESS_EVIDENCE_KEY].value),
+            evidence_refs=tuple(dict.fromkeys(ref for item in deps for ref in item.evidence_refs)),
         )
 
 
@@ -295,6 +279,7 @@ def evaluate_column_design_readiness(inp: ColumnDesignReadinessExecutionInput) -
     if not isinstance(inp, ColumnDesignReadinessExecutionInput):
         raise TypeError("FND-COL-2 evaluator requires ColumnDesignReadinessExecutionInput")
     component = inp.envelope.instance_id.scope_ref
+    stiffness = assess_ts500_eq713_stiffness_basis(inp.stiffness_evidence) if inp.stiffness_evidence else None
     result = resolve_column_design_demand_readiness(
         component_id=component,
         combo_definitions=inp.combo_definitions,
@@ -302,7 +287,7 @@ def evaluate_column_design_readiness(inp: ColumnDesignReadinessExecutionInput) -
         width_mm=inp.width_mm,
         depth_mm=inp.depth_mm,
         slenderness_evidence=inp.slenderness_evidence,
-        stability_stiffness_basis=inp.stability_stiffness_basis,
+        stability_stiffness_basis=stiffness,
     )
     payload = {
         "authority": result.authority,
@@ -329,16 +314,9 @@ def evaluate_column_design_readiness(inp: ColumnDesignReadinessExecutionInput) -
         availability=AvailabilityState.RESOLVED,
         rule_version=RULE_VERSION,
         code_refs=CODE_REFS,
-        dependency_refs=(
-            WIDTH_MM_KEY,
-            DEPTH_MM_KEY,
-            COMBO_DEFINITIONS_KEY,
-            CASE_DEMANDS_KEY,
-            SLENDERNESS_EVIDENCE_KEY,
-            STIFFNESS_BASIS_KEY,
-        ),
-        evidence_refs=tuple(dict.fromkeys((*inp.evidence_refs, *result.source_refs))),
-        provenance=("FND-COL-2 canonical readiness authority", result.authority),
+        dependency_refs=(WIDTH_MM_KEY, DEPTH_MM_KEY, COMBO_DEFINITIONS_KEY, CASE_DEMANDS_KEY, SLENDERNESS_EVIDENCE_KEY, STIFFNESS_EVIDENCE_KEY),
+        evidence_refs=inp.evidence_refs,
+        provenance=("FND-COL-2 canonical readiness authority", result.authority, *result.source_refs),
         derivation_trace=(
             "column design demand reconstruction",
             "TS500 minimum eccentricity demand transformation",
@@ -371,7 +349,7 @@ DEPENDENCIES = (
     _dep(key=COMBO_DEFINITIONS_KEY, source_kind=DependencySourceKind.CONTEXT, semantic_type=SemanticType.CHECK_EVIDENCE_TRACE, dimension=PhysicalDimension.DIMENSIONLESS, unit=UNIT_DIMENSIONLESS, population=PopulationRequirement.FULL),
     _dep(key=CASE_DEMANDS_KEY, source_kind=DependencySourceKind.SOURCE_POPULATION, semantic_type=SemanticType.CHECK_EVIDENCE_TRACE, dimension=PhysicalDimension.DIMENSIONLESS, unit=UNIT_DIMENSIONLESS, population=PopulationRequirement.FULL),
     _dep(key=SLENDERNESS_EVIDENCE_KEY, source_kind=DependencySourceKind.CONTEXT, semantic_type=SemanticType.CHECK_EVIDENCE_TRACE, dimension=PhysicalDimension.DIMENSIONLESS, unit=UNIT_DIMENSIONLESS, population=PopulationRequirement.FULL),
-    _dep(key=STIFFNESS_BASIS_KEY, source_kind=DependencySourceKind.CONTEXT, semantic_type=SemanticType.CHECK_EVIDENCE_TRACE, dimension=PhysicalDimension.DIMENSIONLESS, unit=UNIT_DIMENSIONLESS, population=PopulationRequirement.FULL),
+    _dep(key=STIFFNESS_EVIDENCE_KEY, source_kind=DependencySourceKind.CONTEXT, semantic_type=SemanticType.CHECK_EVIDENCE_TRACE, dimension=PhysicalDimension.DIMENSIONLESS, unit=UNIT_DIMENSIONLESS, population=PopulationRequirement.FULL),
 )
 
 APPLICABILITY = ApplicabilityBinding(
@@ -379,13 +357,11 @@ APPLICABILITY = ApplicabilityBinding(
     ColumnDesignReadinessApplicabilityInput,
     _applicability,
 )
-
 EVALUATOR = DerivationEvaluatorBinding(
     "fnd-col-2:column-design-readiness:evaluator",
     ColumnDesignReadinessExecutionInput,
     evaluate_column_design_readiness,
 )
-
 SPEC = RegulatoryDerivationSpec(
     rule_id=RULE_ID,
     code_refs=CODE_REFS,
@@ -401,9 +377,7 @@ SPEC = RegulatoryDerivationSpec(
     applicability=APPLICABILITY,
     evaluator=EVALUATOR,
 )
-
 REGISTRY = RegulatoryRegistry(derivations=(SPEC,))
-
 
 __all__ = [
     "APPLICABILITY",
@@ -421,7 +395,7 @@ __all__ = [
     "RULE_VERSION",
     "SLENDERNESS_EVIDENCE_KEY",
     "SPEC",
-    "STIFFNESS_BASIS_KEY",
+    "STIFFNESS_EVIDENCE_KEY",
     "WIDTH_MM_KEY",
     "evaluate_column_design_readiness",
 ]
