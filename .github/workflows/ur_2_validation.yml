@@ -70,7 +70,7 @@ jobs:
         run: python -m pytest -q tests/product_reports
 
       - name: Generate representative DEMO DATA package
-        run: python tools/build_ur2_demo_report.py --output-dir ur2_demo
+        run: python -m tools.build_ur2_demo_report --output-dir ur2_demo
 
       - name: Verify exact nine visible artifacts
         shell: bash
