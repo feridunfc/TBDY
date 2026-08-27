@@ -5,6 +5,10 @@ import pytest
 from tbdy_engine.design.columns.column_concrete_design_evidence_authority import ConcreteDesignComboReconciliation
 from tbdy_engine.features.column_concrete_design_evidence import ColumnTopologyEvidenceEnvelope
 from tbdy_engine.features.column_design_rebar_evidence import (
+    BLOCKED_ETABS_ERROR_SUMMARY,
+    BLOCKED_ETABS_WARNING_SUMMARY,
+    BLOCKED_MISSING_PMM_COMBO,
+    BLOCKED_UNBINDABLE_PMM_COMBO,
     ColumnDesignRebarEvidenceError,
     promote_etabs_required_rebar,
 )
@@ -76,7 +80,14 @@ class _Sap:
         return 4, 6, 2, 0
 
 
-def _raw(*, options=(2, 2), combos=("ULS1", "ULS2"), areas=(0.004, 0.005), errors=("", "")):
+def _raw(
+    *,
+    options=(2, 2),
+    combos=("ULS1", "ULS2"),
+    areas=(0.004, 0.005),
+    errors=("", ""),
+    warnings=("", ""),
+):
     return (
         2,
         ["U1", "U1"],
@@ -90,7 +101,7 @@ def _raw(*, options=(2, 2), combos=("ULS1", "ULS2"), areas=(0.004, 0.005), error
         ["", ""],
         [0.0, 0.0],
         list(errors),
-        ["", ""],
+        list(warnings),
         0,
     )
 
@@ -136,13 +147,17 @@ def test_all_exact_design_rows_promote_without_max_or_envelope_collapse():
     assert population.source_result_row_count == 2
     assert population.source_design_row_count == 2
     assert population.promoted_requirement_count == 2
+    assert population.blocked_requirement_count == 0
+    assert population.promotion_complete
     assert len(component.requirements) == 2
+    assert component.blocked_rows == ()
     assert sorted(item.required_as_mm2 for item in component.requirements) == [4000, 5000]
     assert {item.design_combo_identity for item in component.requirements} == {
         ("Strength", "ULS1"),
         ("Strength", "ULS2"),
     }
     assert all(item.authority == "ETABS_REQUIRED_REBAR" for item in component.requirements)
+    assert not hasattr(population, "governing_required_as_mm2")
 
 
 def test_check_mode_row_and_pmm_ratio_do_not_become_required_rebar():
@@ -155,20 +170,40 @@ def test_check_mode_row_and_pmm_ratio_do_not_become_required_rebar():
     assert population.source_result_row_count == 2
     assert population.source_design_row_count == 1
     assert component.promoted_requirement_count == 1
+    assert component.blocked_requirement_count == 0
     assert component.requirements[0].required_as_mm2 == 5000
     assert component.requirements[0].design_combo_identity == ("Strength", "ULS2")
 
 
 def test_exact_combo_identity_is_required_and_special_suffix_is_not_stripped():
     raw = _raw(combos=("ULS1 (Sp)", "ULS2"))
-    with pytest.raises(ColumnDesignRebarEvidenceError, match="exactly one F0 matched combo"):
-        promote_etabs_required_rebar(
-            _results(raw),
-            combo_reconciliation=_reconciliation(),
-        )
+    population = promote_etabs_required_rebar(
+        _results(raw),
+        combo_reconciliation=_reconciliation(),
+    )
+    assert population.promoted_requirement_count == 1
+    assert population.blocked_requirement_count == 1
+    assert not population.promotion_complete
+    blocked = population.blocked_rows[0]
+    assert blocked.pmm_combo == "ULS1 (Sp)"
+    assert blocked.reason_code == BLOCKED_UNBINDABLE_PMM_COMBO
+    assert "ULS1 (Sp)" in blocked.reason_detail
+    assert population.requirements[0].design_combo_identity == ("Strength", "ULS2")
 
 
-def test_nonclosed_f0_combo_reconciliation_blocks_promotion():
+def test_missing_pmm_combo_is_retained_as_explicit_blocker():
+    raw = _raw(combos=(None, "ULS2"))
+    population = promote_etabs_required_rebar(
+        _results(raw),
+        combo_reconciliation=_reconciliation(),
+    )
+    assert population.promoted_requirement_count == 1
+    assert population.blocked_requirement_count == 1
+    assert population.blocked_rows[0].reason_code == BLOCKED_MISSING_PMM_COMBO
+    assert population.blocked_rows[0].pmm_combo is None
+
+
+def test_nonclosed_f0_combo_reconciliation_blocks_population_promotion():
     base = _reconciliation()
     blocked = ConcreteDesignComboReconciliation(
         model_fingerprint=base.model_fingerprint,
@@ -191,7 +226,7 @@ def test_nonclosed_f0_combo_reconciliation_blocks_promotion():
         promote_etabs_required_rebar(_results(), combo_reconciliation=blocked)
 
 
-def test_model_or_epoch_mismatch_blocks_before_promotion():
+def test_model_or_epoch_mismatch_blocks_before_population_promotion():
     with pytest.raises(ColumnDesignRebarEvidenceError, match="model/evidence epoch"):
         promote_etabs_required_rebar(
             _results(),
@@ -199,10 +234,32 @@ def test_model_or_epoch_mismatch_blocks_before_promotion():
         )
 
 
-def test_etabs_error_summary_blocks_factual_required_rebar_promotion():
+def test_etabs_error_summary_is_preserved_and_blocks_only_that_required_rebar_row():
     raw = _raw(errors=("DESIGN ERROR", ""))
-    with pytest.raises(ColumnDesignRebarEvidenceError, match="ErrorSummary"):
-        promote_etabs_required_rebar(
-            _results(raw),
-            combo_reconciliation=_reconciliation(),
-        )
+    population = promote_etabs_required_rebar(
+        _results(raw),
+        combo_reconciliation=_reconciliation(),
+    )
+    assert population.promoted_requirement_count == 1
+    assert population.blocked_requirement_count == 1
+    blocked = population.blocked_rows[0]
+    assert blocked.reason_code == BLOCKED_ETABS_ERROR_SUMMARY
+    assert blocked.error_summary == "DESIGN ERROR"
+    assert blocked.warning_summary == ""
+    assert blocked.required_as_mm2 == 4000
+
+
+def test_nonempty_warning_summary_is_preserved_and_fails_closed_for_that_row():
+    raw = _raw(warnings=("DESIGN WARNING: REVIEW REQUIRED", ""))
+    population = promote_etabs_required_rebar(
+        _results(raw),
+        combo_reconciliation=_reconciliation(),
+    )
+    assert population.promoted_requirement_count == 1
+    assert population.blocked_requirement_count == 1
+    assert not population.promotion_complete
+    blocked = population.blocked_rows[0]
+    assert blocked.reason_code == BLOCKED_ETABS_WARNING_SUMMARY
+    assert blocked.warning_summary == "DESIGN WARNING: REVIEW REQUIRED"
+    assert blocked.error_summary == ""
+    assert population.requirements[0].design_combo_identity == ("Strength", "ULS2")
