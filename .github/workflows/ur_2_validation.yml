@@ -1,0 +1,119 @@
+name: UR-2 Professional Unified Engineering Review
+
+on:
+  push:
+    branches:
+      - sprint/ur-2-professional-unified-report
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  FROZEN_BASE: 2ae920836649f1bab5c46b5ac38bf05a4353b35b
+
+jobs:
+  ur-2-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify frozen base ancestry and diff hygiene
+        shell: bash
+        run: |
+          test "$(git merge-base "$FROZEN_BASE" HEAD)" = "$FROZEN_BASE"
+          test "$(git rev-parse "$FROZEN_BASE")" = "$FROZEN_BASE"
+          git diff --check "$FROZEN_BASE"...HEAD
+          git diff --stat "$FROZEN_BASE"...HEAD
+          echo "candidate_head=$(git rev-parse HEAD)"
+          echo "frozen_base=$FROZEN_BASE"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deterministic report toolchain
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install \
+            pytest \
+            pyyaml \
+            jsonschema \
+            weasyprint==69.0 \
+            pydyf==0.12.1 \
+            pypdf==6.16.1 \
+            pypdfium2==5.12.1 \
+            openpyxl==3.1.5 \
+            et_xmlfile==2.0.0
+
+      - name: Compile candidate
+        run: python -m compileall -q tbdy_engine tests tools/build_ur2_demo_report.py
+
+      - name: Public HTML import smoke
+        run: |
+          python - <<'PY'
+          from tbdy_engine.product_reports.building_report_html import HtmlRenderIntegrityError, HtmlRenderOptions, render_building_report_html
+          print(HtmlRenderIntegrityError.__name__)
+          print(HtmlRenderOptions())
+          print(render_building_report_html.__name__)
+          PY
+
+      - name: Focused UR-2 professional report acceptance
+        run: python -m pytest -q tests/product_reports/test_ur_2_professional_report.py
+
+      - name: Canonical broad product-report regression
+        run: python -m pytest -q tests/product_reports
+
+      - name: Generate representative DEMO DATA package
+        run: python -m tools.build_ur2_demo_report --output-dir ur2_demo
+
+      - name: Verify exact nine visible artifacts
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          expected = {
+              "engineering.html", "engineering.pdf", "engineering.xlsx",
+              "audit.html", "audit.pdf", "audit.xlsx",
+              "building_report_model.json", "manifest.json", "building_report_package.zip",
+          }
+          root = Path("ur2_demo")
+          actual = {path.name for path in root.iterdir() if path.is_file()}
+          print("visible_artifacts=", sorted(actual))
+          if actual != expected:
+              raise SystemExit(f"artifact mismatch: {sorted(actual)}")
+          for name in ("engineering.html", "audit.html"):
+              text = (root / name).read_text(encoding="utf-8")
+              for marker in (
+                  "DEMO DATA - ILLUSTRATIVE PRODUCT PACKAGE - NOT LIVE ENGINEERING TRUTH",
+                  "Engineering executive summary",
+                  "Critical findings / blockers / reanalysis",
+                  "REPORT_INPUT_GAP register",
+              ):
+                  if marker not in text:
+                      raise SystemExit(f"{name} missing {marker!r}")
+          PY
+
+      - name: Upload exact UR-2 demo deliverables
+        uses: actions/upload-artifact@v4
+        with:
+          name: ur2-demo-package
+          path: ur2_demo/*
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+      - name: Remove generated demo outputs
+        run: rm -rf ur2_demo
+
+      - name: Final repository hygiene
+        shell: bash
+        run: |
+          git diff --check "$FROZEN_BASE"...HEAD
+          git status --porcelain=v1 -uall
+          test -z "$(git status --porcelain=v1 -uall)"
