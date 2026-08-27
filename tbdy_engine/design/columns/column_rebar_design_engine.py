@@ -69,7 +69,7 @@ def design_column_longitudinal_rebar(
 ) -> ColumnRebarDesignResult:
     """Select the smallest feasible candidate satisfying every promoted demand.
 
-    No hard-coded bar library is used. Bars below the TBDY column longitudinal
+    No hard-coded bar library is used.  Bars below the TBDY column longitudinal
     minimum remain visible as factual catalog exclusions and are never passed to
     the candidate kernel.
     """
