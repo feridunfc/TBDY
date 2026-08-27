@@ -30,6 +30,7 @@ jobs:
           git diff --check "$FROZEN_BASE"...HEAD
           echo "candidate_head=$(git rev-parse HEAD)"
           echo "frozen_base=$FROZEN_BASE"
+          git diff --name-only "$FROZEN_BASE"...HEAD
 
       - name: PASS-0 exact caller discovery
         shell: bash
@@ -44,9 +45,11 @@ jobs:
             assess_ts500_eq713_stiffness_basis \
             resolve_ts500_column_free_length \
             evaluate_column_design_demands \
-            evaluate_column_design; do
+            evaluate_column_design \
+            AnalysisBasisEligibilityEvidence \
+            LIVE_BLOCKED_ANALYSIS_BASIS_EVIDENCE_REQUIRED; do
             echo "===== $symbol ====="
-            grep -RIn --exclude-dir=.git --exclude='*.pyc' "$symbol" tbdy_engine tests tools || true
+            grep -RIn --exclude-dir=.git --exclude='*.pyc' "$symbol" tbdy_engine tests tools docs || true
           done
 
       - name: Setup Python
@@ -81,65 +84,89 @@ jobs:
           python -c "import tbdy_engine.design.columns.column_design_demand_engine"
           python -c "import tbdy_engine.design.columns.column_design_readiness"
           python -c "import tbdy_engine.regulatory.fnd_col_2"
+          python -c "import tbdy_engine.regulatory.fnd_col_2_authority"
+          python -c "import tbdy_engine.regulatory.fnd_col_2_program"
 
       - name: F0.9 reviewed implementation fingerprint probe
         shell: bash
         run: |
           python - <<'PY'
           from tbdy_engine.regulatory.authority import implementation_fingerprint
-          from tbdy_engine.regulatory.fnd_col_2 import SPEC
-          modules = (
-              "tbdy_engine.regulatory.fnd_col_2",
-              "tbdy_engine.design.columns.column_design_readiness",
-              "tbdy_engine.design.columns.column_design_demand_engine",
-              "tbdy_engine.design.columns.combo_pattern_engine",
-              "tbdy_engine.design.columns.design_demand_states",
-              "tbdy_engine.design.columns.minimum_eccentricity",
-              "tbdy_engine.design.columns.slenderness_basis",
-              "tbdy_engine.design.columns.slenderness",
-              "tbdy_engine.design.columns.stability_stiffness_basis",
+          from tbdy_engine.regulatory.fnd_col_2 import RULE_ID, RULE_VERSION, SPEC
+          from tbdy_engine.regulatory.fnd_col_2_authority import (
+              APPROVED_IMPLEMENTATION_FINGERPRINT,
+              APPROVED_IMPLEMENTATION_MODULES,
           )
-          print("FND_COL_2_IMPLEMENTATION_FINGERPRINT=" + implementation_fingerprint(
-              rule_id=SPEC.rule_id,
-              rule_version=SPEC.rule_version,
+          actual = implementation_fingerprint(
+              rule_id=RULE_ID,
+              rule_version=RULE_VERSION,
               evaluator_binding_id=SPEC.evaluator.binding_id,
-              implementation_modules=modules,
-          ))
+              implementation_modules=APPROVED_IMPLEMENTATION_MODULES,
+          )
+          print("FND_COL_2_IMPLEMENTATION_FINGERPRINT=" + actual)
+          assert actual == APPROVED_IMPLEMENTATION_FINGERPRINT
           PY
 
-      - name: Existing minimum-eccentricity regression
-        run: python -m pytest -q tests/design/columns/test_vs6_minimum_eccentricity.py
-
-      - name: Existing slenderness regression
+      - name: Focused FND-COL-2 proofs
         run: |
           python -m pytest -q \
-            tests/design/columns/test_vs6_slenderness.py \
-            tests/design/columns/test_vs6_slenderness_basis.py \
-            tests/design/columns/test_vs6_free_length_basis.py
+            tests/design/columns/test_fnd_col_2_design_readiness.py \
+            tests/regulatory/test_fnd_col_2_f0.py \
+            tests/regulatory/test_fnd_col_2_authority_package.py \
+            tests/regulatory/test_fnd_col_2_p8a_boundary.py \
+            tests/integration/test_fnd_col_2_shared_import_delta.py
 
-      - name: Existing stability regression
+      - name: Existing column suite
+        run: python -m pytest -q tests/design/columns
+
+      - name: Regulatory suite
+        run: python -m pytest -q tests/regulatory
+
+      - name: Broad candidate versus frozen-base delta
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -q > /tmp/candidate.log 2>&1
+          candidate_rc=$?
+          git worktree add --detach /tmp/frozen-base "$FROZEN_BASE"
+          (
+            cd /tmp/frozen-base
+            python -m pytest -q > /tmp/base.log 2>&1
+          )
+          base_rc=$?
+          set -e
+
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' /tmp/candidate.log | sort -u > /tmp/candidate.sig || true
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' /tmp/base.log | sort -u > /tmp/base.sig || true
+          comm -23 /tmp/candidate.sig /tmp/base.sig > /tmp/new.sig || true
+
+          echo "candidate_pytest_exit=$candidate_rc"
+          echo "frozen_base_pytest_exit=$base_rc"
+          echo "candidate_failure_signatures:"
+          cat /tmp/candidate.sig || true
+          echo "frozen_base_failure_signatures:"
+          cat /tmp/base.sig || true
+          echo "new_failure_signatures:"
+          cat /tmp/new.sig || true
+          echo "candidate_tail:"
+          tail -n 40 /tmp/candidate.log || true
+          echo "frozen_base_tail:"
+          tail -n 40 /tmp/base.log || true
+
+          test ! -s /tmp/new.sig
+          if [ "$base_rc" -eq 0 ]; then
+            test "$candidate_rc" -eq 0
+          fi
+          git worktree remove --force /tmp/frozen-base
+
+      - name: Determinism replay
         run: |
           python -m pytest -q \
-            tests/design/columns/test_vs6_sway_stability.py \
-            tests/design/columns/test_vs6_stability_stiffness_basis.py
-
-      - name: Existing column demand/design regression
-        run: |
+            tests/regulatory/test_fnd_col_2_authority_package.py::test_source_bound_compile_and_execution_are_deterministic \
+            tests/regulatory/test_fnd_col_2_f0.py::test_f0_output_is_deterministic_and_never_emits_engine_selected_rebar
           python -m pytest -q \
-            tests/design/columns/test_vs6_column_design_demand_engine.py \
-            tests/design/columns/test_vs6_column_design_engine.py
-
-      - name: FND-COL-2 canonical readiness regression
-        run: python -m pytest -q tests/design/columns/test_fnd_col_2_design_readiness.py
-
-      - name: FND-COL-2 F0 derivation regression
-        run: python -m pytest -q tests/regulatory/test_fnd_col_2_f0.py
-
-      - name: Regulatory authority regression
-        run: python -m pytest -q tests/regulatory/test_source_authority.py
-
-      - name: AnalysisBasis regression
-        run: python -m pytest -q tests/regulatory/test_f0_1_kernel.py -k analysis_basis
+            tests/regulatory/test_fnd_col_2_authority_package.py::test_source_bound_compile_and_execution_are_deterministic \
+            tests/regulatory/test_fnd_col_2_f0.py::test_f0_output_is_deterministic_and_never_emits_engine_selected_rebar
 
       - name: Final repository hygiene
         shell: bash
