@@ -8,6 +8,7 @@ design-section identity and one EvidenceEpoch/model identity.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 from typing import Sequence
 
@@ -26,6 +27,16 @@ class ComponentBindingStatus(StrEnum):
     BLOCKED_EVIDENCE_EPOCH = "BLOCKED_EVIDENCE_EPOCH"
 
 
+class ReviewedComboConstituentKind(StrEnum):
+    LOAD_CASE = "LOAD_CASE"
+    LOAD_COMBO = "LOAD_COMBO"
+
+
+REVIEWED_RESPONSE_COMBO_TYPES = frozenset(
+    {"LINEAR_ADD", "ENVELOPE", "ABSOLUTE_ADD", "SRSS", "RANGE_ADD"}
+)
+
+
 def _text(value: str, label: str) -> str:
     if not isinstance(value, str) or not value.strip() or value != value.strip():
         raise ColumnConcreteDesignEvidenceError(f"{label} must be a nonblank canonical string")
@@ -39,11 +50,106 @@ def _refs(values: Sequence[str], label: str) -> tuple[str, ...]:
     return refs
 
 
+def _exact_decimal(value: object, label: str) -> Decimal:
+    if isinstance(value, bool):
+        raise ColumnConcreteDesignEvidenceError(f"{label} must be a finite numeric scale factor")
+    try:
+        decimal_value = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise ColumnConcreteDesignEvidenceError(f"{label} must be a finite numeric scale factor") from exc
+    if not decimal_value.is_finite():
+        raise ColumnConcreteDesignEvidenceError(f"{label} must be a finite numeric scale factor")
+    if decimal_value == 0:
+        return Decimal(0)
+    return decimal_value.normalize()
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewedConcreteDesignComboConstituent:
+    """One project-reviewed mathematical constituent.
+
+    CSI numeric encodings intentionally do not live here. ``kind`` uses only
+    canonical semantic vocabulary and ``nested_definition`` supplies exact
+    reviewed mathematics whenever the constituent is another response combo.
+    """
+
+    kind: ReviewedComboConstituentKind | str
+    name: str
+    scale_factor: Decimal | int | float | str
+    nested_definition: "ReviewedConcreteDesignComboDefinition | None" = None
+    review_provenance_refs: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        try:
+            kind = ReviewedComboConstituentKind(self.kind)
+        except (ValueError, TypeError) as exc:
+            raise ColumnConcreteDesignEvidenceError(
+                "reviewed constituent kind must be LOAD_CASE or LOAD_COMBO"
+            ) from exc
+        object.__setattr__(self, "kind", kind)
+        object.__setattr__(self, "name", _text(self.name, "reviewed_constituent.name"))
+        object.__setattr__(
+            self,
+            "scale_factor",
+            _exact_decimal(self.scale_factor, "reviewed_constituent.scale_factor"),
+        )
+        refs = _refs(self.review_provenance_refs, "reviewed_constituent.review_provenance_ref")
+        object.__setattr__(self, "review_provenance_refs", refs)
+        if kind is ReviewedComboConstituentKind.LOAD_CASE:
+            if self.nested_definition is not None:
+                raise ColumnConcreteDesignEvidenceError(
+                    "LOAD_CASE reviewed constituent cannot carry a nested combo definition"
+                )
+        else:
+            if not isinstance(self.nested_definition, ReviewedConcreteDesignComboDefinition):
+                raise ColumnConcreteDesignEvidenceError(
+                    "LOAD_COMBO reviewed constituent requires a typed nested combo definition"
+                )
+            if self.nested_definition.combo_name != self.name:
+                raise ColumnConcreteDesignEvidenceError(
+                    "nested reviewed combo definition name must match LOAD_COMBO constituent name"
+                )
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewedConcreteDesignComboDefinition:
+    """Independent project-reviewed response-combination mathematics."""
+
+    combo_name: str
+    response_combo_type: str
+    constituents: tuple[ReviewedConcreteDesignComboConstituent, ...]
+    review_provenance_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "combo_name", _text(self.combo_name, "reviewed_definition.combo_name"))
+        response_type = _text(self.response_combo_type, "reviewed_definition.response_combo_type")
+        if response_type not in REVIEWED_RESPONSE_COMBO_TYPES:
+            raise ColumnConcreteDesignEvidenceError(
+                f"unsupported reviewed response-combo semantic type: {response_type}"
+            )
+        object.__setattr__(self, "response_combo_type", response_type)
+        constituents = tuple(self.constituents)
+        if not constituents or any(
+            not isinstance(item, ReviewedConcreteDesignComboConstituent) for item in constituents
+        ):
+            raise ColumnConcreteDesignEvidenceError(
+                "reviewed combo definition requires typed ordered constituents"
+            )
+        object.__setattr__(self, "constituents", constituents)
+        refs = _refs(self.review_provenance_refs, "reviewed_definition.review_provenance_ref")
+        if not refs:
+            raise ColumnConcreteDesignEvidenceError(
+                "reviewed combo definition requires review provenance"
+            )
+        object.__setattr__(self, "review_provenance_refs", refs)
+
+
 @dataclass(frozen=True, slots=True)
 class ExpectedConcreteDesignCombo:
     design_combo_type: str
     combo_name: str
     provenance_refs: tuple[str, ...]
+    reviewed_definition: ReviewedConcreteDesignComboDefinition
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "design_combo_type", _text(self.design_combo_type, "design_combo_type"))
@@ -52,6 +158,14 @@ class ExpectedConcreteDesignCombo:
         if not refs:
             raise ColumnConcreteDesignEvidenceError("expected combo requires provenance")
         object.__setattr__(self, "provenance_refs", refs)
+        if not isinstance(self.reviewed_definition, ReviewedConcreteDesignComboDefinition):
+            raise ColumnConcreteDesignEvidenceError(
+                "expected combo requires one typed project-reviewed mathematical definition"
+            )
+        if self.reviewed_definition.combo_name != self.combo_name:
+            raise ColumnConcreteDesignEvidenceError(
+                "reviewed mathematical definition combo name must match expected combo identity"
+            )
 
     @property
     def identity(self) -> tuple[str, str]:
@@ -272,4 +386,17 @@ def decode_get_design_section(frame_name: str, raw: object, *, model_fingerprint
     return ColumnDesignSectionEvidence(name, section, model_fingerprint, evidence_epoch_id, "DesignConcrete.GetDesignSection", f"CSI:DesignConcrete.GetDesignSection:{name}:{section}")
 
 
-__all__ = [name for name in globals() if name.startswith("Column") or name.startswith("Expected") or name.startswith("Actual") or name in {"bind_column_design_result_identity", "decode_get_design_section", "ComponentBindingStatus"}]
+__all__ = [
+    name
+    for name in globals()
+    if name.startswith("Column")
+    or name.startswith("Expected")
+    or name.startswith("Actual")
+    or name.startswith("Reviewed")
+    or name in {
+        "bind_column_design_result_identity",
+        "decode_get_design_section",
+        "ComponentBindingStatus",
+        "REVIEWED_RESPONSE_COMBO_TYPES",
+    }
+]

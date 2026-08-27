@@ -1,21 +1,22 @@
 """Column concrete-design evidence eligibility authority foundation.
 
-PASS-2 reconciles reviewed expected design-combo identity with the accepted
-PASS-1 factual selected population. Existing ETABS combo-definition evidence
-and the existing name-blind classifier remain the semantic authorities. No
-PMMArea promotion, reinforcement selection or capacity logic lives here.
+PASS-2 reconciles independently reviewed expected design-combo mathematics
+with the accepted PASS-1 factual selected population and current ETABS factual
+mathematics. Existing ETABS definition acquisition and the existing name-blind
+classifier remain the factual/semantic authorities. No PMMArea promotion,
+reinforcement selection or capacity logic lives here.
 
 Analysis-basis eligibility is consumed through a tiny immutable join artifact
 containing the already-resolved canonical status value plus its source ref. We
 do not import ``regulatory`` here: importing that package merely to compare a
 resolved status would recreate the package-initialization cycle that this
 foundation is required to avoid. This module defines no second analysis-basis
-enum and treats every value other than the exact canonical ``MATCH`` value as
-blocked.
+enum and treats every value other than exact canonical ``MATCH`` as blocked.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 from enum import StrEnum
 import hashlib
 import json
@@ -28,6 +29,8 @@ from tbdy_engine.features.column_concrete_design_evidence import (
     ColumnDesignComponentBinding,
     ComponentBindingStatus,
     ExpectedConcreteDesignComboPolicy,
+    ReviewedComboConstituentKind,
+    ReviewedConcreteDesignComboDefinition,
 )
 from tbdy_engine.providers.etabs_combo_definition_provider import EtabsComboDefinitionEvidence
 from tbdy_engine.providers.etabs_concrete_design_combo_selection_probe import (
@@ -65,16 +68,29 @@ def _refs(values: Sequence[str], label: str) -> tuple[str, ...]:
     return refs
 
 
+def _canonical_factor(value: object) -> str:
+    """Canonicalize exact numeric semantics without tolerances or float guessing.
+
+    ETABS floats are converted through their shortest decimal transport string,
+    so ordinary ``0.3`` canonicalizes to reviewed Decimal("0.3") while a real
+    transported difference such as ``0.30000000000000004`` remains different.
+    """
+    if isinstance(value, bool):
+        raise ColumnConcreteDesignEvidenceAuthorityError("scale factor must be finite numeric")
+    try:
+        decimal_value = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError) as exc:
+        raise ColumnConcreteDesignEvidenceAuthorityError("scale factor must be finite numeric") from exc
+    if not decimal_value.is_finite():
+        raise ColumnConcreteDesignEvidenceAuthorityError("scale factor must be finite numeric")
+    if decimal_value == 0:
+        return "0"
+    return format(decimal_value.normalize(), "f")
+
+
 @dataclass(frozen=True, slots=True)
 class AnalysisBasisEligibilityEvidence:
-    """Join-only projection of an existing canonical analysis-basis decision.
-
-    ``status_value`` is expected to be ``AnalysisBasisStatus.value`` from the
-    accepted analysis-basis authority. This artifact does not reinterpret or
-    resolve that status; it only preserves the value/ref needed by this
-    downstream reconciliation. Fail-closed consumption means only ``MATCH``
-    can pass.
-    """
+    """Join-only projection of an existing canonical analysis-basis decision."""
 
     status_value: str
     compatibility_ref: str
@@ -90,37 +106,135 @@ class AnalysisBasisEligibilityEvidence:
         return self.status_value == "MATCH"
 
 
-def _definition_payload(definition: EtabsComboDefinitionEvidence) -> dict[str, object]:
+@dataclass(frozen=True, slots=True)
+class NeutralComboMathConstituent:
+    kind: str
+    name: str
+    scale_factor: str
+    nested_definition: "NeutralComboMathDefinition | None" = None
+
+    def payload(self) -> dict[str, object]:
+        return {
+            "kind": self.kind,
+            "name": self.name,
+            "scale_factor": self.scale_factor,
+            "nested": None if self.nested_definition is None else self.nested_definition.payload(),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class NeutralComboMathDefinition:
+    """Dependency-light comparison representation shared by reviewed and ETABS sources."""
+
+    name: str
+    response_combo_type: str
+    constituents: tuple[NeutralComboMathConstituent, ...]
+
+    def payload(self) -> dict[str, object]:
+        return {
+            "name": self.name,
+            "response_combo_type": self.response_combo_type,
+            "constituents": [item.payload() for item in self.constituents],
+        }
+
+
+def _neutral_from_reviewed(definition: ReviewedConcreteDesignComboDefinition) -> NeutralComboMathDefinition:
+    if not isinstance(definition, ReviewedConcreteDesignComboDefinition):
+        raise TypeError("definition must be ReviewedConcreteDesignComboDefinition")
+    return NeutralComboMathDefinition(
+        name=definition.combo_name,
+        response_combo_type=definition.response_combo_type,
+        constituents=tuple(
+            NeutralComboMathConstituent(
+                kind=item.kind.value if isinstance(item.kind, ReviewedComboConstituentKind) else str(item.kind),
+                name=item.name,
+                scale_factor=_canonical_factor(item.scale_factor),
+                nested_definition=(
+                    _neutral_from_reviewed(item.nested_definition)
+                    if item.nested_definition is not None
+                    else None
+                ),
+            )
+            for item in definition.constituents
+        ),
+    )
+
+
+def _neutral_from_etabs(definition: EtabsComboDefinitionEvidence) -> NeutralComboMathDefinition:
     if not isinstance(definition, EtabsComboDefinitionEvidence):
         raise TypeError("definition must be EtabsComboDefinitionEvidence")
-    nested_by_name = {item.name: item for item in definition.nested_combos}
-    return {
-        "name": definition.name,
-        "combo_type_code": definition.combo_type_code,
-        "combo_type": definition.combo_type,
-        "constituents": [
-            {
-                "index": item.index,
-                "cname_type_code": item.cname_type_code,
-                "cname_type": item.cname_type,
-                "name": item.name,
-                "scale_factor": format(float(item.scale_factor), ".17g"),
-                "nested": _definition_payload(nested_by_name[item.name])
-                if item.cname_type == "LOAD_COMBO" and item.name in nested_by_name else None,
-            }
-            for item in definition.constituents
-        ],
-    }
+    nested_by_name: dict[str, list[EtabsComboDefinitionEvidence]] = {}
+    for nested in definition.nested_combos:
+        nested_by_name.setdefault(nested.name, []).append(nested)
+
+    terms: list[NeutralComboMathConstituent] = []
+    referenced_nested: list[str] = []
+    for item in definition.constituents:
+        kind = _text(item.cname_type, "etabs_definition.constituent_kind")
+        if kind not in {"LOAD_CASE", "LOAD_COMBO"}:
+            raise ColumnConcreteDesignEvidenceAuthorityError(
+                f"unsupported factual ETABS constituent kind: {kind}"
+            )
+        nested_definition = None
+        if kind == "LOAD_COMBO":
+            matches = nested_by_name.get(item.name, [])
+            if len(matches) != 1:
+                raise ColumnConcreteDesignEvidenceAuthorityError(
+                    f"factual nested combo {item.name!r} must have exactly one captured definition"
+                )
+            referenced_nested.append(item.name)
+            nested_definition = _neutral_from_etabs(matches[0])
+        terms.append(
+            NeutralComboMathConstituent(
+                kind=kind,
+                name=_text(item.name, "etabs_definition.constituent_name"),
+                scale_factor=_canonical_factor(item.scale_factor),
+                nested_definition=nested_definition,
+            )
+        )
+    if sorted(referenced_nested) != sorted(item.name for item in definition.nested_combos):
+        raise ColumnConcreteDesignEvidenceAuthorityError(
+            "factual ETABS nested-definition capture does not exactly match LOAD_COMBO constituents"
+        )
+    return NeutralComboMathDefinition(
+        name=_text(definition.name, "etabs_definition.name"),
+        response_combo_type=_text(definition.combo_type, "etabs_definition.combo_type"),
+        constituents=tuple(terms),
+    )
 
 
-def normalized_combo_definition_fingerprint(definition: EtabsComboDefinitionEvidence) -> str:
+def neutral_combo_definition(
+    definition: ReviewedConcreteDesignComboDefinition | EtabsComboDefinitionEvidence,
+) -> NeutralComboMathDefinition:
+    """Adapt reviewed or factual evidence into one neutral mathematical form."""
+    if isinstance(definition, ReviewedConcreteDesignComboDefinition):
+        return _neutral_from_reviewed(definition)
+    if isinstance(definition, EtabsComboDefinitionEvidence):
+        return _neutral_from_etabs(definition)
+    raise TypeError(
+        "definition must be ReviewedConcreteDesignComboDefinition or EtabsComboDefinitionEvidence"
+    )
+
+
+def normalized_combo_definition_fingerprint(
+    definition: ReviewedConcreteDesignComboDefinition | EtabsComboDefinitionEvidence,
+) -> str:
     encoded = json.dumps(
-        _definition_payload(definition),
+        neutral_combo_definition(definition).payload(),
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=True,
     ).encode("utf-8")
     return "combo-definition:sha256:" + hashlib.sha256(encoded).hexdigest()
+
+
+def _reviewed_definition_refs(definition: ReviewedConcreteDesignComboDefinition) -> tuple[str, ...]:
+    refs: list[str] = list(definition.review_provenance_refs)
+    for item in definition.constituents:
+        refs.extend(item.review_provenance_refs)
+        if item.nested_definition is not None:
+            refs.extend(_reviewed_definition_refs(item.nested_definition))
+    return tuple(dict.fromkeys(refs))
 
 
 def build_actual_selected_combo_population(
@@ -131,14 +245,7 @@ def build_actual_selected_combo_population(
     definition_evidence_epoch_id: str,
     definition_capture_refs: Sequence[str],
 ) -> ActualConcreteDesignComboPopulation:
-    """Enrich every accepted PASS-1 selected row with one factual definition.
-
-    There is intentionally no free-form selected-name/source-row input. The
-    PASS-1 typed population is the sole actual-selection authority. Because the
-    existing combo-definition DTO has no epoch fields, this narrow join requires
-    explicit model/epoch identity and provenance for the definition capture and
-    rejects any mismatch before enrichment.
-    """
+    """Enrich every accepted PASS-1 selected row with one factual definition."""
     if not isinstance(selected_population, ActualConcreteDesignComboSelectionPopulation):
         raise TypeError("selected_population must be ActualConcreteDesignComboSelectionPopulation")
     if not selected_population.capture_complete:
@@ -199,8 +306,11 @@ class ConcreteDesignComboReconciliation:
     missing_expected: tuple[DesignComboIdentity, ...]
     unexpected_selected: tuple[DesignComboIdentity, ...]
     definition_mismatch: tuple[DesignComboIdentity, ...]
+    actual_definition_drift: tuple[DesignComboIdentity, ...]
     unsupported_definition: tuple[DesignComboIdentity, ...]
     analysis_basis_blocked: tuple[DesignComboIdentity, ...]
+    reviewed_definition_fingerprints: tuple[tuple[str, str, str], ...]
+    actual_capture_definition_fingerprints: tuple[tuple[str, str, str], ...]
     definition_fingerprints: tuple[tuple[str, str, str], ...]
     source_refs: tuple[str, ...]
 
@@ -210,6 +320,7 @@ class ConcreteDesignComboReconciliation:
             self.missing_expected
             or self.unexpected_selected
             or self.definition_mismatch
+            or self.actual_definition_drift
             or self.unsupported_definition
             or self.analysis_basis_blocked
         ) and self.matched == self.expected == self.actual_selected
@@ -255,13 +366,20 @@ def reconcile_concrete_design_combos(
     definition_by_name = {item.name: item for item in defs}
     if len(definition_by_name) != len(defs):
         raise ColumnConcreteDesignEvidenceAuthorityError("current definition names must be unique")
+
+    expected_by_identity = {item.identity: item for item in expected_policy.combos}
     selected_by_identity = {item.identity: item for item in actual_population.combos}
+    reviewed_fp_by_identity = {
+        identity: normalized_combo_definition_fingerprint(item.reviewed_definition)
+        for identity, item in expected_by_identity.items()
+    }
 
     mismatch: list[DesignComboIdentity] = []
+    drift: list[DesignComboIdentity] = []
     unsupported: list[DesignComboIdentity] = []
     analysis_blocked: list[DesignComboIdentity] = []
     matched: list[DesignComboIdentity] = []
-    fingerprints: list[tuple[str, str, str]] = []
+    current_fingerprints: list[tuple[str, str, str]] = []
 
     for identity in sorted(expected_set & actual_set):
         design_combo_type, combo_name = identity
@@ -269,11 +387,24 @@ def reconcile_concrete_design_combos(
         if current is None:
             mismatch.append(identity)
             continue
-        fingerprint = normalized_combo_definition_fingerprint(current)
-        fingerprints.append((design_combo_type, combo_name, fingerprint))
-        if selected_by_identity[identity].normalized_definition_fingerprint != fingerprint:
-            mismatch.append(identity)
+        try:
+            current_fingerprint = normalized_combo_definition_fingerprint(current)
+        except ColumnConcreteDesignEvidenceAuthorityError:
+            unsupported.append(identity)
             continue
+        current_fingerprints.append((design_combo_type, combo_name, current_fingerprint))
+
+        reviewed_mismatch = reviewed_fp_by_identity[identity] != current_fingerprint
+        capture_drift = (
+            selected_by_identity[identity].normalized_definition_fingerprint != current_fingerprint
+        )
+        if reviewed_mismatch:
+            mismatch.append(identity)
+        if capture_drift:
+            drift.append(identity)
+        if reviewed_mismatch or capture_drift:
+            continue
+
         classification = classify_combo_pattern(
             combo_name=current.name,
             combo_type=current.combo_type,
@@ -299,13 +430,28 @@ def reconcile_concrete_design_combos(
         if evidence is not None
         for ref in (evidence.compatibility_ref, *evidence.provenance_refs)
     )
+    expected_refs = tuple(
+        ref
+        for item in expected_policy.combos
+        for ref in (*item.provenance_refs, *_reviewed_definition_refs(item.reviewed_definition))
+    )
     refs = tuple(dict.fromkeys((
         f"expected-policy:{expected_policy.policy_id}",
         *expected_policy.review_provenance_refs,
+        *expected_refs,
         *actual_population.source_refs,
         *current_refs,
         *basis_refs,
     )))
+    reviewed_fingerprints = tuple(
+        sorted((identity[0], identity[1], fingerprint) for identity, fingerprint in reviewed_fp_by_identity.items())
+    )
+    capture_fingerprints = tuple(
+        sorted(
+            (item.design_combo_type, item.combo_name, item.normalized_definition_fingerprint)
+            for item in actual_population.combos
+        )
+    )
     return ConcreteDesignComboReconciliation(
         model_fingerprint=actual_population.model_fingerprint,
         evidence_epoch_id=actual_population.evidence_epoch_id,
@@ -315,9 +461,12 @@ def reconcile_concrete_design_combos(
         missing_expected=missing,
         unexpected_selected=unexpected,
         definition_mismatch=tuple(sorted(mismatch)),
+        actual_definition_drift=tuple(sorted(drift)),
         unsupported_definition=tuple(sorted(unsupported)),
         analysis_basis_blocked=tuple(sorted(analysis_blocked)),
-        definition_fingerprints=tuple(sorted(fingerprints)),
+        reviewed_definition_fingerprints=reviewed_fingerprints,
+        actual_capture_definition_fingerprints=capture_fingerprints,
+        definition_fingerprints=tuple(sorted(current_fingerprints)),
         source_refs=refs,
     )
 
@@ -331,6 +480,25 @@ class ColumnConcreteDesignEvidenceAuthority:
     evidence_epoch_id: str | None
     source_refs: tuple[str, ...]
     reasons: tuple[str, ...]
+
+
+def _combo_reconciliation_reasons(
+    reconciliation: ConcreteDesignComboReconciliation,
+) -> tuple[str, ...]:
+    reasons: list[str] = []
+    if reconciliation.missing_expected:
+        reasons.append("expected design-combo identity is missing from PASS-1 actual selection")
+    if reconciliation.unexpected_selected:
+        reasons.append("PASS-1 actual selection contains an unexpected design-combo identity")
+    if reconciliation.definition_mismatch:
+        reasons.append("reviewed expected mathematical definition does not match current factual ETABS definition")
+    if reconciliation.actual_definition_drift:
+        reasons.append("current factual ETABS definition drifted from the accepted actual capture")
+    if reconciliation.unsupported_definition:
+        reasons.append("actual combo definition is not accepted by the existing combo-pattern engine")
+    if reconciliation.analysis_basis_blocked:
+        reasons.append("canonical analysis-basis status is not MATCH")
+    return tuple(reasons)
 
 
 def build_column_concrete_design_evidence_authority(
@@ -361,7 +529,11 @@ def build_column_concrete_design_evidence_authority(
         status = ColumnConcreteDesignEligibilityStatus.BLOCKED_SECTION_IDENTITY
     elif combo_reconciliation.missing_expected or combo_reconciliation.unexpected_selected:
         status = ColumnConcreteDesignEligibilityStatus.BLOCKED_COMBO_POPULATION
-    elif combo_reconciliation.definition_mismatch or combo_reconciliation.unsupported_definition:
+    elif (
+        combo_reconciliation.definition_mismatch
+        or combo_reconciliation.actual_definition_drift
+        or combo_reconciliation.unsupported_definition
+    ):
         status = ColumnConcreteDesignEligibilityStatus.BLOCKED_COMBO_DEFINITION
     elif combo_reconciliation.analysis_basis_blocked:
         status = ColumnConcreteDesignEligibilityStatus.BLOCKED_ANALYSIS_BASIS
@@ -370,6 +542,7 @@ def build_column_concrete_design_evidence_authority(
     else:
         status = ColumnConcreteDesignEligibilityStatus.BLOCKED_COMBO_POPULATION
     refs = tuple(dict.fromkeys((*combo_reconciliation.source_refs, *component_binding.source_refs)))
+    reasons = tuple(dict.fromkeys((*component_binding.reasons, *_combo_reconciliation_reasons(combo_reconciliation))))
     return ColumnConcreteDesignEvidenceAuthority(
         status,
         combo_reconciliation,
@@ -377,7 +550,7 @@ def build_column_concrete_design_evidence_authority(
         component_binding.model_fingerprint,
         component_binding.evidence_epoch_id,
         refs,
-        tuple(component_binding.reasons),
+        reasons,
     )
 
 
@@ -388,8 +561,11 @@ __all__ = [
     "ColumnConcreteDesignEligibilityStatus",
     "ConcreteDesignComboReconciliation",
     "DesignComboIdentity",
+    "NeutralComboMathConstituent",
+    "NeutralComboMathDefinition",
     "build_actual_selected_combo_population",
     "build_column_concrete_design_evidence_authority",
+    "neutral_combo_definition",
     "normalized_combo_definition_fingerprint",
     "reconcile_concrete_design_combos",
 ]

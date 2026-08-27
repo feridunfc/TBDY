@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 import inspect
 import subprocess
 import sys
@@ -9,7 +10,10 @@ import pytest
 from tbdy_engine.design.columns.column_concrete_design_evidence_authority import (
     AnalysisBasisEligibilityEvidence,
     ColumnConcreteDesignEvidenceAuthorityError,
+    ColumnConcreteDesignEligibilityStatus,
     build_actual_selected_combo_population,
+    build_column_concrete_design_evidence_authority,
+    neutral_combo_definition,
     normalized_combo_definition_fingerprint,
     reconcile_concrete_design_combos,
 )
@@ -24,12 +28,16 @@ from tbdy_engine.etabs.source_units import (
     decode_csi_length_unit,
 )
 from tbdy_engine.features.column_concrete_design_evidence import (
+    ColumnDesignComponentBinding,
     ColumnDesignResultIdentity,
     ColumnDesignSectionEvidence,
     ColumnTopologyEvidenceEnvelope,
     ComponentBindingStatus,
     ExpectedConcreteDesignCombo,
     ExpectedConcreteDesignComboPolicy,
+    ReviewedComboConstituentKind,
+    ReviewedConcreteDesignComboConstituent,
+    ReviewedConcreteDesignComboDefinition,
     bind_column_design_result_identity,
 )
 from tbdy_engine.features.column_shear_topology import ColumnTopologyEvidence, StrictColumnTopologyBundle
@@ -63,6 +71,16 @@ def test_design_evidence_authority_imports_without_regulatory_package():
     assert completed.returncode == 0, completed.stderr
 
 
+def test_reviewed_policy_seam_imports_without_etabs_definition_provider():
+    code = (
+        "import sys; "
+        "import tbdy_engine.features.column_concrete_design_evidence; "
+        "assert 'tbdy_engine.providers.etabs_combo_definition_provider' not in sys.modules"
+    )
+    completed = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert completed.returncode == 0, completed.stderr
+
+
 def test_unit_decoder_is_explicit_exact_and_fail_closed():
     assert decode_csi_force_unit(3) is EtabsForceUnit.N
     assert decode_csi_force_unit(4) is EtabsForceUnit.KN
@@ -77,7 +95,7 @@ def test_unit_decoder_is_explicit_exact_and_fail_closed():
 def _definition(name="CMB1", case="LC1", factor=1.0, combo_type="LINEAR_ADD"):
     return EtabsComboDefinitionEvidence(
         name=name,
-        combo_type_code=0 if combo_type == "LINEAR_ADD" else 1,
+        combo_type_code={"LINEAR_ADD": 0, "ENVELOPE": 1, "ABSOLUTE_ADD": 2, "SRSS": 3, "RANGE_ADD": 4}[combo_type],
         combo_type=combo_type,
         constituents=(EtabsComboConstituentEvidence(0, 0, "LOAD_CASE", case, factor),),
         nested_combos=(),
@@ -86,14 +104,82 @@ def _definition(name="CMB1", case="LC1", factor=1.0, combo_type="LINEAR_ADD"):
     )
 
 
-def _policy(*identities):
+def _multi_definition(name, terms, combo_type="LINEAR_ADD", nested=()):
+    constituents = tuple(
+        EtabsComboConstituentEvidence(
+            index,
+            0 if kind == "LOAD_CASE" else 1,
+            kind,
+            term_name,
+            factor,
+        )
+        for index, (kind, term_name, factor) in enumerate(terms)
+    )
+    return EtabsComboDefinitionEvidence(
+        name=name,
+        combo_type_code={"LINEAR_ADD": 0, "ENVELOPE": 1, "ABSOLUTE_ADD": 2, "SRSS": 3, "RANGE_ADD": 4}[combo_type],
+        combo_type=combo_type,
+        constituents=constituents,
+        nested_combos=tuple(nested),
+        raw_get_type_combo="fixture",
+        raw_get_case_list="fixture",
+    )
+
+
+def _reviewed_definition(name="CMB1", case="LC1", factor=1.0, response_combo_type="LINEAR_ADD"):
+    return ReviewedConcreteDesignComboDefinition(
+        combo_name=name,
+        response_combo_type=response_combo_type,
+        constituents=(
+            ReviewedConcreteDesignComboConstituent(
+                ReviewedComboConstituentKind.LOAD_CASE,
+                case,
+                factor,
+                review_provenance_refs=(f"review:term:{name}:{case}",),
+            ),
+        ),
+        review_provenance_refs=(f"review:math:{name}",),
+    )
+
+
+def _reviewed_multi(name, terms, response_combo_type="LINEAR_ADD"):
+    constituents = []
+    for kind, term_name, factor, nested in terms:
+        constituents.append(
+            ReviewedConcreteDesignComboConstituent(
+                kind,
+                term_name,
+                factor,
+                nested_definition=nested,
+                review_provenance_refs=(f"review:term:{name}:{term_name}",),
+            )
+        )
+    return ReviewedConcreteDesignComboDefinition(
+        combo_name=name,
+        response_combo_type=response_combo_type,
+        constituents=tuple(constituents),
+        review_provenance_refs=(f"review:math:{name}",),
+    )
+
+
+def _default_reviewed(combo_name: str):
+    if combo_name == "CMB2":
+        return _reviewed_definition("CMB2", "LC2", Decimal("0.3"))
+    return _reviewed_definition(combo_name, "LC1", Decimal("1"))
+
+
+def _policy(*identities, reviewed_by_identity=None):
+    reviewed_by_identity = {} if reviewed_by_identity is None else dict(reviewed_by_identity)
     return ExpectedConcreteDesignComboPolicy(
         policy_id="policy:fixture",
         combos=tuple(
             ExpectedConcreteDesignCombo(
-                design_combo_type,
-                combo_name,
-                (f"review:{design_combo_type}:{combo_name}",),
+                design_combo_type=design_combo_type,
+                combo_name=combo_name,
+                provenance_refs=(f"review:{design_combo_type}:{combo_name}",),
+                reviewed_definition=reviewed_by_identity.get(
+                    (design_combo_type, combo_name), _default_reviewed(combo_name)
+                ),
             )
             for design_combo_type, combo_name in identities
         ),
@@ -156,11 +242,30 @@ def _reconcile(policy, actual, definitions, case_types=None, basis=None):
         current_definition_model_fingerprint="model:1",
         current_definition_evidence_epoch_id="e1",
         current_definition_capture_refs=("current-combo-definitions:fixture",),
-        case_types={"LC1": "LinStatic", "LC2": "LinStatic"} if case_types is None else case_types,
+        case_types={"LC1": "LinStatic", "LC2": "LinStatic", "G": "LinStatic", "Q": "LinStatic"}
+        if case_types is None else case_types,
         analysis_basis_by_combo={identity: _basis("MATCH", identity) for identity in actual.identities}
         if basis is None else basis,
     )
 
+
+def _bound_component():
+    return ColumnDesignComponentBinding(
+        ComponentBindingStatus.BOUND,
+        "column:1",
+        "C-U1",
+        "Story1",
+        "C1",
+        "ANALYSIS_SEC",
+        "DESIGN_SEC",
+        "model:1",
+        "e1",
+        ("component-binding:fixture",),
+        (),
+    )
+
+
+# Existing PASS-2 regression surface -------------------------------------------------
 
 def test_A_expected_actual_exact_identity_definition_classifier_and_basis_match():
     definitions = (_definition(),)
@@ -236,6 +341,7 @@ def test_F_G_same_selected_identity_changed_definition_is_mismatch(changed):
     actual = _actual((captured,), ("Strength", "CMB1"))
     rec = _reconcile(_policy(("Strength", "CMB1")), actual, (changed,))
     assert rec.definition_mismatch == (("Strength", "CMB1"),)
+    assert rec.actual_definition_drift == (("Strength", "CMB1"),)
     assert rec.matched == ()
 
 
@@ -299,6 +405,237 @@ def test_definition_capture_epoch_join_is_fail_closed():
     with pytest.raises(ColumnConcreteDesignEvidenceAuthorityError, match="model/evidence epoch"):
         _actual((definition,), ("Strength", "CMB1"), definition_epoch="e2")
 
+
+# Correction-B mandatory proofs ------------------------------------------------------
+
+def test_correction_b_A_stable_wrong_factor_is_reviewed_definition_mismatch_not_drift():
+    identity = ("Strength", "CMB1")
+    reviewed = _reviewed_multi(
+        "CMB1",
+        (
+            (ReviewedComboConstituentKind.LOAD_CASE, "G", Decimal("1.0"), None),
+            (ReviewedComboConstituentKind.LOAD_CASE, "Q", Decimal("1.0"), None),
+        ),
+    )
+    wrong = _multi_definition(
+        "CMB1",
+        (("LOAD_CASE", "G", 0.9), ("LOAD_CASE", "Q", 1.0)),
+    )
+    actual = _actual((wrong,), identity)
+    rec = _reconcile(_policy(identity, reviewed_by_identity={identity: reviewed}), actual, (wrong,))
+    authority = build_column_concrete_design_evidence_authority(
+        combo_reconciliation=rec,
+        component_binding=_bound_component(),
+    )
+    assert rec.definition_mismatch == (identity,)
+    assert rec.actual_definition_drift == ()
+    assert rec.matched == ()
+    assert not rec.closed
+    assert authority.status is ColumnConcreteDesignEligibilityStatus.BLOCKED_COMBO_DEFINITION
+    assert any("reviewed expected mathematical definition" in reason for reason in authority.reasons)
+    assert not any("drifted" in reason for reason in authority.reasons)
+
+
+def test_correction_b_B_stable_wrong_constituent_fails_reviewed_conformance():
+    identity = ("Strength", "CMB1")
+    reviewed = _reviewed_definition("CMB1", "LC1", Decimal("1"))
+    wrong = _definition("CMB1", "LC2", 1.0)
+    rec = _reconcile(
+        _policy(identity, reviewed_by_identity={identity: reviewed}),
+        _actual((wrong,), identity),
+        (wrong,),
+    )
+    assert rec.definition_mismatch == (identity,)
+    assert rec.actual_definition_drift == ()
+    assert not rec.closed
+
+
+def test_correction_b_C_stable_wrong_response_combo_type_fails_reviewed_conformance():
+    identity = ("Strength", "CMB1")
+    reviewed = _reviewed_definition("CMB1", "LC1", Decimal("1"), "LINEAR_ADD")
+    wrong = _definition("CMB1", "LC1", 1.0, "ENVELOPE")
+    rec = _reconcile(
+        _policy(identity, reviewed_by_identity={identity: reviewed}),
+        _actual((wrong,), identity),
+        (wrong,),
+    )
+    assert rec.definition_mismatch == (identity,)
+    assert rec.actual_definition_drift == ()
+    assert rec.unsupported_definition == ()
+
+
+def test_correction_b_D_exact_reviewed_definition_closes():
+    identity = ("Strength", "CMB1")
+    reviewed = _reviewed_definition("CMB1", "LC1", Decimal("1"))
+    actual_definition = _definition("CMB1", "LC1", 1.0)
+    rec = _reconcile(
+        _policy(identity, reviewed_by_identity={identity: reviewed}),
+        _actual((actual_definition,), identity),
+        (actual_definition,),
+    )
+    assert rec.definition_mismatch == ()
+    assert rec.actual_definition_drift == ()
+    assert rec.matched == (identity,)
+    assert rec.closed
+
+
+def test_correction_b_E_actual_capture_drift_blocks_separately_from_reviewed_conformance():
+    identity = ("Strength", "CMB1")
+    accepted_capture = _definition("CMB1", "LC1", 1.0)
+    current = _definition("CMB1", "LC1", 1.1)
+    reviewed_current = _reviewed_definition("CMB1", "LC1", Decimal("1.1"))
+    rec = _reconcile(
+        _policy(identity, reviewed_by_identity={identity: reviewed_current}),
+        _actual((accepted_capture,), identity),
+        (current,),
+    )
+    authority = build_column_concrete_design_evidence_authority(
+        combo_reconciliation=rec,
+        component_binding=_bound_component(),
+    )
+    assert rec.definition_mismatch == ()
+    assert rec.actual_definition_drift == (identity,)
+    assert rec.matched == ()
+    assert not rec.closed
+    assert authority.status is ColumnConcreteDesignEligibilityStatus.BLOCKED_COMBO_DEFINITION
+    assert any("drifted from the accepted actual capture" in reason for reason in authority.reasons)
+
+
+def test_correction_b_F_reviewed_source_is_independent_and_contains_no_csi_codes():
+    reviewed = _reviewed_definition("CMB1", "LC1", Decimal("1"))
+    expected = ExpectedConcreteDesignCombo(
+        "Strength",
+        "CMB1",
+        ("project-review:1",),
+        reviewed,
+    )
+    assert expected.reviewed_definition is reviewed
+    assert not hasattr(reviewed, "combo_type_code")
+    assert not hasattr(reviewed.constituents[0], "cname_type_code")
+    assert "project-review:1" in expected.provenance_refs
+
+
+def test_correction_b_G_strength_service_same_name_remain_distinct_exact_identities():
+    definition = _definition()
+    identities = (("Strength", "CMB1"), ("Service", "CMB1"))
+    rec = _reconcile(_policy(*identities), _actual((definition,), *identities), (definition,))
+    assert rec.expected == (("Service", "CMB1"), ("Strength", "CMB1"))
+    assert rec.matched == rec.expected
+    assert rec.closed
+
+
+def test_correction_b_H_reviewed_policy_input_order_is_deterministic():
+    identities_a = (("Strength", "CMB2"), ("Service", "CMB1"), ("Strength", "CMB1"))
+    identities_b = tuple(reversed(identities_a))
+    defs_a = (_definition("CMB1"), _definition("CMB2", "LC2", 0.3))
+    defs_b = tuple(reversed(defs_a))
+    rec_a = _reconcile(_policy(*identities_a), _actual(defs_a, *identities_a), defs_a)
+    rec_b = _reconcile(_policy(*identities_b), _actual(defs_b, *identities_b), defs_b)
+    assert rec_a == rec_b
+
+
+def test_correction_b_I_fresh_interpreter_expected_seam_is_provider_independent():
+    code = (
+        "import sys; "
+        "from tbdy_engine.features.column_concrete_design_evidence import ExpectedConcreteDesignComboPolicy; "
+        "assert 'tbdy_engine.providers.etabs_combo_definition_provider' not in sys.modules"
+    )
+    completed = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_correction_b_J_no_name_only_governing_authorization_surface():
+    definition = _definition()
+    identities = (("Strength", "CMB1"), ("Service", "CMB1"))
+    rec = _reconcile(_policy(*identities), _actual((definition,), *identities), (definition,))
+    assert all(isinstance(identity, tuple) and len(identity) == 2 for identity in rec.matched)
+    parameters = inspect.signature(build_column_concrete_design_evidence_authority).parameters
+    assert "combo_name" not in parameters
+    assert "eligible_combo_names" not in dir(rec)
+
+
+def _nested_pair(inner_factor):
+    inner = _definition("NEST", "LC1", inner_factor)
+    top = _multi_definition(
+        "CMB1",
+        (("LOAD_COMBO", "NEST", 1.0),),
+        nested=(inner,),
+    )
+    return inner, top
+
+
+def _nested_reviewed(inner_factor):
+    nested = _reviewed_definition("NEST", "LC1", Decimal(str(inner_factor)))
+    return _reviewed_multi(
+        "CMB1",
+        ((ReviewedComboConstituentKind.LOAD_COMBO, "NEST", Decimal("1"), nested),),
+    )
+
+
+def test_correction_b_K_nested_reviewed_vs_actual_definition_equality():
+    identity = ("Strength", "CMB1")
+    _, actual_top = _nested_pair(0.3)
+    reviewed = _nested_reviewed("0.3")
+    assert neutral_combo_definition(reviewed).payload() == neutral_combo_definition(actual_top).payload()
+    assert normalized_combo_definition_fingerprint(reviewed) == normalized_combo_definition_fingerprint(actual_top)
+    rec = _reconcile(
+        _policy(identity, reviewed_by_identity={identity: reviewed}),
+        _actual((actual_top,), identity),
+        (actual_top,),
+        case_types={"LC1": "LinStatic"},
+    )
+    assert rec.definition_mismatch == ()
+    assert rec.actual_definition_drift == ()
+    assert rec.unsupported_definition == (identity,)
+    assert not rec.closed
+
+
+def test_correction_b_L_nested_reviewed_vs_actual_mismatch():
+    identity = ("Strength", "CMB1")
+    _, actual_top = _nested_pair(0.4)
+    reviewed = _nested_reviewed("0.3")
+    rec = _reconcile(
+        _policy(identity, reviewed_by_identity={identity: reviewed}),
+        _actual((actual_top,), identity),
+        (actual_top,),
+        case_types={"LC1": "LinStatic"},
+    )
+    assert rec.definition_mismatch == (identity,)
+    assert rec.actual_definition_drift == ()
+    assert rec.unsupported_definition == ()
+
+
+def test_correction_b_M_reviewed_decimal_point_three_equals_etabs_float_point_three():
+    identity = ("Strength", "CMB1")
+    reviewed = _reviewed_definition("CMB1", "LC1", Decimal("0.3"))
+    actual_definition = _definition("CMB1", "LC1", 0.3)
+    assert normalized_combo_definition_fingerprint(reviewed) == normalized_combo_definition_fingerprint(actual_definition)
+    rec = _reconcile(
+        _policy(identity, reviewed_by_identity={identity: reviewed}),
+        _actual((actual_definition,), identity),
+        (actual_definition,),
+    )
+    assert rec.definition_mismatch == ()
+    assert rec.actual_definition_drift == ()
+    assert rec.closed
+
+
+def test_correction_b_N_real_factor_difference_remains_mismatch():
+    identity = ("Strength", "CMB1")
+    reviewed = _reviewed_definition("CMB1", "LC1", Decimal("0.3"))
+    actual_definition = _definition("CMB1", "LC1", 0.30000000000000004)
+    assert normalized_combo_definition_fingerprint(reviewed) != normalized_combo_definition_fingerprint(actual_definition)
+    rec = _reconcile(
+        _policy(identity, reviewed_by_identity={identity: reviewed}),
+        _actual((actual_definition,), identity),
+        (actual_definition,),
+    )
+    assert rec.definition_mismatch == (identity,)
+    assert rec.actual_definition_drift == ()
+    assert not rec.closed
+
+
+# Existing component-binding PASS-3 boundary freeze ---------------------------------
 
 def _topology():
     column = ColumnTopologyEvidence(
