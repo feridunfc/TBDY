@@ -50,7 +50,7 @@ jobs:
             openpyxl==3.1.5 \
             et_xmlfile==2.0.0
 
-      - name: Compile PASS-1 candidate
+      - name: Compile PASS-1 and PASS-2 candidate
         run: python -m compileall -q tbdy_engine tests
 
       - name: Fresh-interpreter import safety
@@ -60,11 +60,18 @@ jobs:
           python -c "import sys; import tbdy_engine.etabs.source_units; assert 'tbdy_engine.regulatory' not in sys.modules"
           python -c "import tbdy_engine.providers.etabs_concrete_design_combo_selection_probe"
           python -c "import sys; import tbdy_engine.providers.etabs_concrete_design_combo_selection_probe; assert 'tbdy_engine.regulatory' not in sys.modules; assert 'tbdy_engine.features.column_concrete_design_evidence' not in sys.modules"
+          python -c "import tbdy_engine.features.column_concrete_design_evidence"
+          python -c "import sys; import tbdy_engine.design.columns.column_concrete_design_evidence_authority; assert 'tbdy_engine.regulatory' not in sys.modules"
 
-      - name: Focused PASS-1 factual selected-combo acquisition
+      - name: PASS-1 factual selected-combo acquisition regression
         run: |
           python -m pytest -q \
             tests/providers/test_vs6_p8a_f0_concrete_design_combo_selection_probe.py
+
+      - name: PASS-2 design-combo authority reconciliation
+        run: |
+          python -m pytest -q \
+            tests/features/test_vs6_p8a_f0_column_design_evidence_authority.py
 
       - name: Reused ETABS safety and display-table fetcher regression
         run: |
@@ -82,7 +89,17 @@ jobs:
           python -m pytest -q \
             tests/providers/test_vs6_etabs_combo_definition_provider.py
 
-      - name: Final PASS-1 repository hygiene
+      - name: Reused name-blind combo-pattern regression
+        run: |
+          python -m pytest -q \
+            tests/design/columns/test_vs6_combo_pattern_engine.py
+
+      - name: Canonical analysis-basis regression
+        run: |
+          python -m pytest -q \
+            tests/regulatory/test_f0_1_kernel.py -k analysis_basis
+
+      - name: Final PASS-2 repository hygiene
         shell: bash
         run: |
           git diff --check "$FROZEN_BASE"...HEAD
