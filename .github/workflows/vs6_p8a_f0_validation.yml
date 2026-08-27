@@ -50,7 +50,7 @@ jobs:
             openpyxl==3.1.5 \
             et_xmlfile==2.0.0
 
-      - name: Compile PASS-1 and PASS-2 candidate
+      - name: Compile PASS-1 PASS-2 and PASS-3 candidate
         run: python -m compileall -q tbdy_engine tests
 
       - name: Fresh-interpreter import safety
@@ -62,16 +62,34 @@ jobs:
           python -c "import sys; import tbdy_engine.providers.etabs_concrete_design_combo_selection_probe; assert 'tbdy_engine.regulatory' not in sys.modules; assert 'tbdy_engine.features.column_concrete_design_evidence' not in sys.modules"
           python -c "import tbdy_engine.features.column_concrete_design_evidence"
           python -c "import sys; import tbdy_engine.design.columns.column_concrete_design_evidence_authority; assert 'tbdy_engine.regulatory' not in sys.modules"
+          python -c "import sys; import tbdy_engine.providers.etabs_concrete_design_section_provider; assert 'tbdy_engine.regulatory' not in sys.modules; assert 'comtypes' not in sys.modules"
 
       - name: PASS-1 factual selected-combo acquisition regression
         run: |
           python -m pytest -q \
             tests/providers/test_vs6_p8a_f0_concrete_design_combo_selection_probe.py
 
-      - name: PASS-2 design-combo authority reconciliation
+      - name: PASS-2 Correction-B design-combo authority regression
         run: |
           python -m pytest -q \
             tests/features/test_vs6_p8a_f0_column_design_evidence_authority.py
+
+      - name: PASS-3 component and design-section factual authority
+        run: |
+          python -m pytest -q \
+            tests/providers/test_vs6_p8a_f0_concrete_design_section_provider.py
+
+      - name: Strict topology regression
+        run: |
+          python -m pytest -q \
+            tests/features/test_vs6_column_shear_topology.py \
+            tests/features/test_vs6_column_shear_topology_mixed_beams.py
+
+      - name: EvidenceEpoch binding regression
+        run: |
+          python -m pytest -q \
+            tests/providers/test_vs6_p8a_f0_concrete_design_section_provider.py \
+            -k evidence_epoch
 
       - name: Reused ETABS safety and display-table fetcher regression
         run: |
@@ -99,7 +117,7 @@ jobs:
           python -m pytest -q \
             tests/regulatory/test_f0_1_kernel.py -k analysis_basis
 
-      - name: Final PASS-2 repository hygiene
+      - name: Final PASS-3 repository hygiene
         shell: bash
         run: |
           git diff --check "$FROZEN_BASE"...HEAD
