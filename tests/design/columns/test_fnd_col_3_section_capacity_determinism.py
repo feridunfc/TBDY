@@ -6,7 +6,12 @@ from pathlib import Path
 import subprocess
 import sys
 
-_VALIDATION_DIR = Path(__file__).resolve().parents[2] / "validation"
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_VALIDATION_DIR = _REPO_ROOT / "tests" / "validation"
+
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 if str(_VALIDATION_DIR) not in sys.path:
     sys.path.insert(0, str(_VALIDATION_DIR))
 
