@@ -1,7 +1,7 @@
 """Provider-neutral P8A factual column design-row promotion authority.
 
 This module intentionally contains no ETABS access. P8A-2 may later populate the
-factual row contracts only after the live GetSummaryResultsColumn ABI is proven.
+factual row contracts only after the live concrete-column design-result ABI is proven.
 
 ``ETABS_REQUIRED_REBAR`` is factual ETABS design evidence, not an engineering
 selection. Promotion is row-wise and exact: no first/last/max/envelope heuristic
