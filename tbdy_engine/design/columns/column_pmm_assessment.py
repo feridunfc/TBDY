@@ -129,6 +129,95 @@ def _stable_id(prefix: str, payload: object) -> str:
     return prefix + hashlib.sha256(encoded).hexdigest()
 
 
+def candidate_geometry_binding_fingerprint(
+    *,
+    component_id: str,
+    section_id: str,
+    width_mm: float,
+    depth_mm: float,
+    candidate: ColumnRebarGeometryCandidate,
+    layout_authority_binding_ref: str,
+    layout_implementation_fingerprint: str,
+    model_fingerprint: str,
+    evidence_epoch_id: str,
+) -> str:
+    """Bind the exact FND-COL-1 geometry consumed by PMM assessment."""
+
+    if not isinstance(
+        candidate,
+        ColumnRebarGeometryCandidate,
+    ):
+        raise TypeError(
+            "candidate must be ColumnRebarGeometryCandidate"
+        )
+
+    payload = {
+        "component_id": _text(
+            component_id,
+            "component_id",
+        ),
+        "section_id": _text(
+            section_id,
+            "section_id",
+        ),
+        "width_mm": _canonical_float(width_mm),
+        "depth_mm": _canonical_float(depth_mm),
+        "layout_authority_binding_ref": _text(
+            layout_authority_binding_ref,
+            "layout_authority_binding_ref",
+        ),
+        "layout_implementation_fingerprint": _text(
+            layout_implementation_fingerprint,
+            "layout_implementation_fingerprint",
+        ),
+        "model_fingerprint": _text(
+            model_fingerprint,
+            "model_fingerprint",
+        ),
+        "evidence_epoch_id": _text(
+            evidence_epoch_id,
+            "evidence_epoch_id",
+        ),
+        "candidate": {
+            "candidate_id": _text(
+                candidate.candidate_id,
+                "candidate_id",
+            ),
+            "bar_diameter_mm": _canonical_float(
+                candidate.bar_diameter_mm
+            ),
+            "n_bars_dir2": candidate.n_bars_dir2,
+            "n_bars_dir3": candidate.n_bars_dir3,
+            "as_total_mm2": _canonical_float(
+                candidate.as_total_mm2
+            ),
+            "rho": _canonical_float(candidate.rho),
+            "min_clear_spacing_mm": _canonical_float(
+                candidate.min_clear_spacing_mm
+            ),
+            "bars": [
+                {
+                    "index": bar.index,
+                    "x2_mm": _canonical_float(bar.x2_mm),
+                    "x3_mm": _canonical_float(bar.x3_mm),
+                    "diameter_mm": _canonical_float(
+                        bar.diameter_mm
+                    ),
+                    "area_mm2": _canonical_float(
+                        bar.area_mm2
+                    ),
+                }
+                for bar in candidate.bars
+            ],
+        },
+    }
+
+    return _stable_id(
+        "candidate-geometry-binding:sha256:",
+        payload,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ColumnPmmMaterialContextBinding:
     """Reviewed material context, not a regulatory-strength derivation.
@@ -265,6 +354,7 @@ class CandidatePmmDemandAssessment:
     assessment_id: str
     component_id: str
     candidate_id: str
+    candidate_geometry_fingerprint: str
     state_id: str
     nd_compression_n: float
     m2_nmm: float
@@ -279,6 +369,24 @@ class CandidatePmmDemandAssessment:
     material_context_ref: str
     authority: str = AUTHORITY
 
+    def __post_init__(self) -> None:
+        fingerprint = _text(
+            self.candidate_geometry_fingerprint,
+            "candidate_geometry_fingerprint",
+        )
+        if not fingerprint.startswith(
+            "candidate-geometry-binding:sha256:"
+        ):
+            raise ColumnPmmAssessmentError(
+                "candidate geometry fingerprint has "
+                "unexpected authority namespace"
+            )
+        object.__setattr__(
+            self,
+            "candidate_geometry_fingerprint",
+            fingerprint,
+        )
+
     @property
     def numerically_resolved(self) -> bool:
         return self.numerical_status in {
@@ -290,6 +398,7 @@ class CandidatePmmDemandAssessment:
 @dataclass(frozen=True, slots=True)
 class CandidatePmmAssessment:
     candidate_id: str
+    candidate_geometry_fingerprint: str
     demand_state_ids: tuple[str, ...]
     assessment_ids: tuple[str, ...]
     expected_demand_count: int
@@ -298,6 +407,23 @@ class CandidatePmmAssessment:
     unresolved_count: int
 
     def __post_init__(self) -> None:
+        fingerprint = _text(
+            self.candidate_geometry_fingerprint,
+            "candidate_geometry_fingerprint",
+        )
+        if not fingerprint.startswith(
+            "candidate-geometry-binding:sha256:"
+        ):
+            raise ColumnPmmAssessmentError(
+                "candidate summary geometry fingerprint has "
+                "unexpected authority namespace"
+            )
+        object.__setattr__(
+            self,
+            "candidate_geometry_fingerprint",
+            fingerprint,
+        )
+
         demand_ids = tuple(self.demand_state_ids)
         assessment_ids = tuple(self.assessment_ids)
 
@@ -427,6 +553,24 @@ class ColumnPmmAssessmentPopulation:
                 raise ColumnPmmAssessmentError(
                     "candidate summaries do not exactly cover "
                     "candidate population"
+                )
+
+            summary_fingerprints = {
+                summary.candidate_id:
+                summary.candidate_geometry_fingerprint
+                for summary in summaries
+            }
+
+            if any(
+                row.candidate_geometry_fingerprint
+                != summary_fingerprints.get(
+                    row.candidate_id
+                )
+                for row in rows
+            ):
+                raise ColumnPmmAssessmentError(
+                    "PMM row candidate geometry binding "
+                    "does not match candidate summary"
                 )
 
         elif rows or summaries:
@@ -700,6 +844,32 @@ def assess_all_column_pmm_candidate_demands(
     width_mm = requirement.width_mm
     depth_mm = requirement.depth_mm
 
+    candidate_geometry_fingerprints = {
+        candidate.candidate_id:
+        candidate_geometry_binding_fingerprint(
+            component_id=inputs.component_id,
+            section_id=requirement.section_id,
+            width_mm=width_mm,
+            depth_mm=depth_mm,
+            candidate=candidate,
+            layout_authority_binding_ref=(
+                inputs.layout_authority
+                .authority_binding_ref
+            ),
+            layout_implementation_fingerprint=(
+                inputs.layout_authority
+                .implementation_fingerprint
+            ),
+            model_fingerprint=(
+                readiness_binding.model_fingerprint
+            ),
+            evidence_epoch_id=(
+                readiness_binding.evidence_epoch_id
+            ),
+        )
+        for candidate in candidates
+    }
+
     rows: list[CandidatePmmDemandAssessment] = []
 
     for candidate in candidates:
@@ -771,6 +941,11 @@ def assess_all_column_pmm_candidate_demands(
                     "candidate_id": (
                         candidate.candidate_id
                     ),
+                    "candidate_geometry_fingerprint": (
+                        candidate_geometry_fingerprints[
+                            candidate.candidate_id
+                        ]
+                    ),
                     "state_id": state.state_id,
                     "nd_compression_n": _canonical_float(
                         state.nd_compression_n
@@ -795,6 +970,11 @@ def assess_all_column_pmm_candidate_demands(
                     assessment_id=assessment_id,
                     component_id=inputs.component_id,
                     candidate_id=candidate.candidate_id,
+                    candidate_geometry_fingerprint=(
+                        candidate_geometry_fingerprints[
+                            candidate.candidate_id
+                        ]
+                    ),
                     state_id=state.state_id,
                     nd_compression_n=(
                         state.nd_compression_n
@@ -843,6 +1023,11 @@ def assess_all_column_pmm_candidate_demands(
         summaries.append(
             CandidatePmmAssessment(
                 candidate_id=candidate.candidate_id,
+                candidate_geometry_fingerprint=(
+                    candidate_geometry_fingerprints[
+                        candidate.candidate_id
+                    ]
+                ),
                 demand_state_ids=tuple(
                     row.state_id
                     for row in candidate_rows
@@ -938,4 +1123,5 @@ __all__ = [
     "ROW_PROVEN_ZERO_MOMENT",
     "ROW_RADIAL_UNRESOLVED",
     "assess_all_column_pmm_candidate_demands",
+    "candidate_geometry_binding_fingerprint",
 ]

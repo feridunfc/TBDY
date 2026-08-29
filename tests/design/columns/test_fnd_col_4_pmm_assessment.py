@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import replace
 from decimal import Decimal
@@ -786,3 +786,142 @@ def test_b2_module_contains_no_selection_authority():
         "column_rebar_design_engine"
         not in imports
     )
+
+
+def test_every_pmm_row_is_bound_to_exact_candidate_geometry(
+    monkeypatch,
+):
+    inputs, contract = _selection_context()
+    _patch_capacity(monkeypatch)
+
+    result = assess_all_column_pmm_candidate_demands(
+        inputs=inputs,
+        selection_contract=contract,
+        numerical_policy=_policy(),
+        material_context=_material(),
+    )
+
+    summary_by_candidate = {
+        summary.candidate_id: summary
+        for summary in result.candidate_assessments
+    }
+
+    assert set(summary_by_candidate) == set(
+        result.candidate_ids
+    )
+
+    for row in result.assessment_rows:
+        summary = summary_by_candidate[
+            row.candidate_id
+        ]
+
+        assert (
+            row.candidate_geometry_fingerprint
+            == summary.candidate_geometry_fingerprint
+        )
+
+        assert (
+            row.candidate_geometry_fingerprint
+            .startswith(
+                "candidate-geometry-binding:sha256:"
+            )
+        )
+
+
+def test_same_candidate_id_with_changed_geometry_changes_binding(
+    monkeypatch,
+):
+    inputs, contract = _selection_context()
+    _patch_capacity(monkeypatch)
+
+    first = assess_all_column_pmm_candidate_demands(
+        inputs=inputs,
+        selection_contract=contract,
+        numerical_policy=_policy(),
+        material_context=_material(),
+    )
+
+    original = (
+        inputs.layout_authority.eligible_candidates[0]
+    )
+
+    changed_first_bar = replace(
+        original.bars[0],
+        x2_mm=original.bars[0].x2_mm + 1.0,
+    )
+
+    changed_candidate = replace(
+        original,
+        bars=(
+            changed_first_bar,
+            *original.bars[1:],
+        ),
+    )
+
+    assert (
+        changed_candidate.candidate_id
+        == original.candidate_id
+    )
+
+    changed_layout = replace(
+        inputs.layout_authority,
+        eligible_candidates=(
+            changed_candidate,
+            *inputs.layout_authority
+            .eligible_candidates[1:],
+        ),
+    )
+
+    changed_inputs = replace(
+        inputs,
+        layout_authority=changed_layout,
+    )
+
+    # COL-4A contract intentionally joins by upstream candidate
+    # identities; B2.1 must additionally bind the exact geometry
+    # actually consumed by the numerical kernel.
+    changed_contract = (
+        reconcile_column_longitudinal_selection_contract(
+            changed_inputs
+        )
+    )
+
+    assert changed_contract.reconciled
+
+    second = assess_all_column_pmm_candidate_demands(
+        inputs=changed_inputs,
+        selection_contract=changed_contract,
+        numerical_policy=_policy(),
+        material_context=_material(),
+    )
+
+    first_summary = next(
+        item
+        for item in first.candidate_assessments
+        if item.candidate_id == original.candidate_id
+    )
+
+    second_summary = next(
+        item
+        for item in second.candidate_assessments
+        if item.candidate_id == original.candidate_id
+    )
+
+    assert (
+        first_summary.candidate_geometry_fingerprint
+        != second_summary.candidate_geometry_fingerprint
+    )
+
+    first_ids = tuple(
+        row.assessment_id
+        for row in first.assessment_rows
+        if row.candidate_id == original.candidate_id
+    )
+
+    second_ids = tuple(
+        row.assessment_id
+        for row in second.assessment_rows
+        if row.candidate_id == original.candidate_id
+    )
+
+    assert first_ids != second_ids
