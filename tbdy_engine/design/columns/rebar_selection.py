@@ -1,8 +1,11 @@
-"""VS6-P6 column demand normalization and ENGINE_SELECTED_REBAR selection.
+"""VS6-P6 column demand normalization and legacy design-candidate selection.
 
-This module is intentionally pure.  ETABS acquisition is external; factual
+This module is intentionally pure. ETABS acquisition is external; factual
 rows are normalized here only after explicit unit/sign contracts are supplied.
-Final selection is blocked unless the reviewed design-demand basis is complete.
+
+This legacy kernel may identify a feasible design candidate, but it does not
+publish canonical ENGINE_SELECTED_REBAR authority. Canonical longitudinal
+selection belongs to ``column_longitudinal_selection.py``.
 """
 from __future__ import annotations
 
@@ -423,7 +426,7 @@ def select_engine_rebar_for_demands(
             return ColumnRebarSelectionResult(
                 component_id=component,
                 status="SELECTED",
-                authority="ENGINE_SELECTED_REBAR",
+                authority=candidate.authority,
                 selected_candidate=candidate,
                 required_as_in_candidate_family_mm2=candidate.as_total_mm2,
                 governing_state_id=trial.governing_state_id,

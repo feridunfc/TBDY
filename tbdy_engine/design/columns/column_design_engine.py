@@ -232,8 +232,6 @@ def evaluate_column_design(
         status = "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED"
     elif not slenderness.resolved:
         status = "BLOCKED_SLENDERNESS_BASIS"
-    elif rebar_result.authority == "ENGINE_SELECTED_REBAR":
-        status = "SELECTED_ENGINE_REBAR"
     elif rebar_result.status.startswith("BLOCKED"):
         status = rebar_result.status
     else:

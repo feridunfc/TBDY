@@ -276,5 +276,6 @@ def test_eq713_specific_reanalysis_does_not_override_a_complete_alternative_slen
     )
 
     assert result.slenderness.resolved
-    assert result.status == "SELECTED_ENGINE_REBAR"
-    assert result.rebar_design.authority == "ENGINE_SELECTED_REBAR"
+    assert result.status == "SELECTED_DESIGN_CANDIDATE_ONLY"
+    assert result.rebar_design.authority == "DESIGN_CANDIDATE_ONLY"
+    assert result.rebar_design.authority != "ENGINE_SELECTED_REBAR"

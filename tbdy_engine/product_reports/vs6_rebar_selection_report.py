@@ -1,4 +1,7 @@
-"""Projection-only report adapter for VS6-P6 ENGINE_SELECTED_REBAR."""
+"""Projection-only report adapter for legacy VS6-P6 design-candidate trials.
+
+This adapter does not project canonical ENGINE_SELECTED_REBAR authority.
+"""
 from __future__ import annotations
 
 from tbdy_engine.design.columns.rebar_selection import ColumnRebarSelectionResult
@@ -11,7 +14,7 @@ from tbdy_engine.product_reports.slice_report_contribution import (
 
 def build_vs6_rebar_selection_report(result: ColumnRebarSelectionResult) -> SliceReportContribution:
     selected = result.selected_candidate
-    report_status = "PROVEN" if result.status == "SELECTED" else ("BLOCKED" if result.status.startswith("BLOCKED") else "NO_DATA")
+    report_status = "PARTIAL" if result.status == "SELECTED" else ("BLOCKED" if result.status.startswith("BLOCKED") else "NO_DATA")
     trial_rows = tuple(
         {
             "candidate_id": item.candidate_id,
@@ -64,7 +67,7 @@ def build_vs6_rebar_selection_report(result: ColumnRebarSelectionResult) -> Slic
         )
     return SliceReportContribution(
         slice_id="VS6-P6-COLUMN-REBAR-SELECTION",
-        title="VS6 Column Longitudinal Reinforcement Selection",
+        title="VS6 Column Longitudinal Design Candidate Trial",
         contribution_kind="DESIGN",
         status=report_status,
         component_type="COLUMN",
@@ -107,7 +110,7 @@ def build_vs6_rebar_selection_report(result: ColumnRebarSelectionResult) -> Slic
         ),
         authority_refs=("TBDY 2018 7.3.2.1", "TS500 7.1", "TS500 7.5"),
         warnings=(
-            "ENGINE_SELECTED_REBAR is a design-selection authority; it is not USER_PROVIDED_REBAR or as-built reinforcement.",
+            "DESIGN_CANDIDATE_ONLY is a legacy candidate-trial result; it is not ENGINE_SELECTED_REBAR, USER_PROVIDED_REBAR, or as-built reinforcement.",
             "Transverse reinforcement and final VS6 shear compliance are outside this slice.",
         ),
     )

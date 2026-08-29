@@ -39,8 +39,8 @@ def build_vs6_column_design_engine_reports(
     rebar = result.rebar_design
     selected = rebar.selection.selected_candidate if rebar.selection is not None else None
 
-    if result.status == "SELECTED_ENGINE_REBAR":
-        composite_status = "PROVEN"
+    if result.status == "SELECTED_DESIGN_CANDIDATE_ONLY":
+        composite_status = "PARTIAL"
     elif result.status == "REANALYSIS_REQUIRED":
         composite_status = "REANALYSIS_REQUIRED"
     elif result.status.startswith("BLOCKED") or result.status in {
@@ -52,7 +52,7 @@ def build_vs6_column_design_engine_reports(
         composite_status = "NO_DATA"
 
     warnings: list[str] = [
-        "ENGINE_SELECTED_REBAR is not USER_PROVIDED_REBAR or final/as-built reinforcement.",
+        "Legacy DESIGN_CANDIDATE_ONLY reinforcement is not ENGINE_SELECTED_REBAR, USER_PROVIDED_REBAR, or final/as-built reinforcement.",
         "Transverse reinforcement and final VS6 column shear compliance are outside this report slice.",
     ]
     if demand.blocked_combo_names:
@@ -127,7 +127,7 @@ def build_vs6_column_design_engine_reports(
     contributions: list[SliceReportContribution] = [
         SliceReportContribution(
             slice_id="VS6-P4-P6-COLUMN-DESIGN-ENGINE",
-            title="VS6 Integrated Column Demand and Longitudinal Rebar Design",
+            title="VS6 Integrated Column Demand and Legacy Rebar Candidate Trial",
             contribution_kind="COMPOSITE",
             status=composite_status,
             component_type="COLUMN",
