@@ -170,7 +170,7 @@ APPROVED_IMPLEMENTATION_MODULES = (
     "tbdy_engine.design.columns.stability_stiffness_basis",
 )
 APPROVED_IMPLEMENTATION_FINGERPRINT = (
-    "sha256:66a343d4bd0b726f6bc4048ab83a0cc3a48eb7fc033e269b19cecfd1470574ff"
+    "sha256:92c64dee5640b2fc622df4c3c9e2fee14e09647ffa2c70c8e51e8d8ebab24ded"
 )
 BINDING_ID = "FND_COL_2_TS500_BINDING"
 
