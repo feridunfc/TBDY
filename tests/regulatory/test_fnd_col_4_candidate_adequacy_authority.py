@@ -1,4 +1,4 @@
-﻿"""Focused FND-COL-4C1A candidate adequacy authority proofs."""
+"""Focused FND-COL-4C1A candidate adequacy authority proofs."""
 from __future__ import annotations
 
 from dataclasses import replace
@@ -426,3 +426,87 @@ def test_c1a_contains_no_legacy_selection_or_etabs_access():
 
     assert "RunAnalysis" not in source
     assert "StartDesign" not in source
+
+
+def test_candidate_aggregate_requires_every_row_and_is_exact():
+    policy = _policy()
+
+    adequate = subject.aggregate_candidate_adequacy(
+        policy=policy,
+        pmm_statuses=(
+            CheckStatus.OK,
+            CheckStatus.OK,
+        ),
+        area_guard_statuses=(
+            subject.AREA_GUARD_SATISFIED,
+            subject.AREA_GUARD_SATISFIED,
+        ),
+    )
+
+    assert (
+        adequate.status
+        == subject.CANDIDATE_ADEQUATE
+    )
+
+    unresolved = subject.aggregate_candidate_adequacy(
+        policy=policy,
+        pmm_statuses=(
+            CheckStatus.OK,
+            CheckStatus.NO_DATA,
+        ),
+        area_guard_statuses=(
+            subject.AREA_GUARD_SATISFIED,
+        ),
+    )
+
+    assert (
+        unresolved.status
+        == subject.CANDIDATE_UNRESOLVED
+    )
+
+    with pytest.raises(
+        subject.ColumnCandidateAdequacyAuthorityError,
+        match="PMM decision population is empty",
+    ):
+        subject.aggregate_candidate_adequacy(
+            policy=policy,
+            pmm_statuses=(),
+            area_guard_statuses=(
+                subject.AREA_GUARD_SATISFIED,
+            ),
+        )
+
+
+def test_proven_inadequacy_governs_even_if_other_row_unresolved():
+    policy = _policy()
+
+    pmm_fail = subject.aggregate_candidate_adequacy(
+        policy=policy,
+        pmm_statuses=(
+            CheckStatus.FAIL,
+            CheckStatus.NO_DATA,
+        ),
+        area_guard_statuses=(
+            subject.AREA_GUARD_SATISFIED,
+        ),
+    )
+
+    assert (
+        pmm_fail.status
+        == subject.CANDIDATE_INADEQUATE
+    )
+
+    area_fail = subject.aggregate_candidate_adequacy(
+        policy=policy,
+        pmm_statuses=(
+            CheckStatus.NO_DATA,
+        ),
+        area_guard_statuses=(
+            subject.AREA_GUARD_INSUFFICIENT,
+        ),
+    )
+
+    assert (
+        area_fail.status
+        == subject.CANDIDATE_INADEQUATE
+    )

@@ -1,4 +1,4 @@
-﻿"""FND-COL-4C1A source-bound column candidate adequacy decision authority.
+"""FND-COL-4C1A source-bound column candidate adequacy decision authority.
 
 Regulatory PMM adequacy is the TS500 ultimate-limit-state relation Rd >= Fd,
 expressed as demand/capacity utilization <= 1.0.
@@ -82,6 +82,10 @@ FND_COL_4_ETABS_REQUIRED_AREA_GUARD_REVIEW_REF = (
 
 AREA_GUARD_SATISFIED = "SATISFIED"
 AREA_GUARD_INSUFFICIENT = "INSUFFICIENT"
+
+CANDIDATE_ADEQUATE = "ADEQUATE"
+CANDIDATE_INADEQUATE = "INADEQUATE"
+CANDIDATE_UNRESOLVED = "UNRESOLVED"
 
 _FACTORY_TOKEN = object()
 
@@ -342,6 +346,20 @@ class CandidateRequiredAreaGuardDecision:
     )
 
 
+@dataclass(frozen=True, slots=True)
+class CandidateAdequacyAggregateDecision:
+    status: str
+    pmm_ok_count: int
+    pmm_fail_count: int
+    pmm_unresolved_count: int
+    area_satisfied_count: int
+    area_insufficient_count: int
+    policy_fingerprint: str
+    authority: str = (
+        "VALIDATED_COLUMN_CANDIDATE_ADEQUACY_AGGREGATE"
+    )
+
+
 def _validated(
     catalog: RegulatoryAuthorityCatalog,
 ) -> ValidatedRuleAuthority:
@@ -509,9 +527,114 @@ def evaluate_required_area_guard(
     )
 
 
+def aggregate_candidate_adequacy(
+    *,
+    policy: ValidatedCandidateAdequacyPolicy,
+    pmm_statuses: tuple[CheckStatus | str, ...],
+    area_guard_statuses: tuple[str, ...],
+) -> CandidateAdequacyAggregateDecision:
+    """Aggregate exhaustive row decisions under the reviewed policy."""
+
+    _require_policy(policy)
+
+    if not pmm_statuses:
+        raise ColumnCandidateAdequacyAuthorityError(
+            "candidate adequacy requires every PMM row; "
+            "PMM decision population is empty"
+        )
+
+    if not area_guard_statuses:
+        raise ColumnCandidateAdequacyAuthorityError(
+            "candidate adequacy requires every P8A row; "
+            "required-area decision population is empty"
+        )
+
+    try:
+        normalized_pmm = tuple(
+            CheckStatus(str(status))
+            for status in pmm_statuses
+        )
+    except ValueError as exc:
+        raise ColumnCandidateAdequacyAuthorityError(
+            "candidate PMM aggregate contains "
+            "unsupported decision status"
+        ) from exc
+
+    allowed_pmm = {
+        CheckStatus.OK,
+        CheckStatus.FAIL,
+        CheckStatus.NO_DATA,
+    }
+
+    if any(
+        status not in allowed_pmm
+        for status in normalized_pmm
+    ):
+        raise ColumnCandidateAdequacyAuthorityError(
+            "candidate PMM aggregate accepts only "
+            "OK, FAIL, or NO_DATA"
+        )
+
+    normalized_area = tuple(
+        str(status)
+        for status in area_guard_statuses
+    )
+
+    allowed_area = {
+        AREA_GUARD_SATISFIED,
+        AREA_GUARD_INSUFFICIENT,
+    }
+
+    if any(
+        status not in allowed_area
+        for status in normalized_area
+    ):
+        raise ColumnCandidateAdequacyAuthorityError(
+            "candidate required-area aggregate contains "
+            "unsupported guard status"
+        )
+
+    pmm_ok = normalized_pmm.count(CheckStatus.OK)
+    pmm_fail = normalized_pmm.count(CheckStatus.FAIL)
+    pmm_unresolved = normalized_pmm.count(
+        CheckStatus.NO_DATA
+    )
+
+    area_satisfied = normalized_area.count(
+        AREA_GUARD_SATISFIED
+    )
+    area_insufficient = normalized_area.count(
+        AREA_GUARD_INSUFFICIENT
+    )
+
+    # Any proven inadequacy is sufficient to make the candidate
+    # unsuitable. Unknown rows remain UNKNOWN only when no
+    # decisive inadequacy has already been established.
+    if pmm_fail > 0 or area_insufficient > 0:
+        status = CANDIDATE_INADEQUATE
+    elif pmm_unresolved > 0:
+        status = CANDIDATE_UNRESOLVED
+    else:
+        status = CANDIDATE_ADEQUATE
+
+    return CandidateAdequacyAggregateDecision(
+        status=status,
+        pmm_ok_count=pmm_ok,
+        pmm_fail_count=pmm_fail,
+        pmm_unresolved_count=pmm_unresolved,
+        area_satisfied_count=area_satisfied,
+        area_insufficient_count=area_insufficient,
+        policy_fingerprint=policy.policy_fingerprint,
+    )
+
+
 __all__ = [
     "AREA_GUARD_INSUFFICIENT",
     "AREA_GUARD_SATISFIED",
+    "CANDIDATE_ADEQUATE",
+    "CANDIDATE_INADEQUATE",
+    "CANDIDATE_UNRESOLVED",
+    "CandidateAdequacyAggregateDecision",
     "CANDIDATE_ADEQUACY_IMPLEMENTATION_MODULES",
     "CandidatePmmAdequacyProbe",
     "CandidateRequiredAreaGuardDecision",
@@ -527,6 +650,7 @@ __all__ = [
     "FND_COL_4_PMM_UTILIZATION_LIMIT",
     "REQUIRED_CANDIDATE_ADEQUACY_CLAIM_IDS",
     "ValidatedCandidateAdequacyPolicy",
+    "aggregate_candidate_adequacy",
     "authorize_candidate_adequacy_policy",
     "evaluate_candidate_pmm_adequacy",
     "evaluate_required_area_guard",
