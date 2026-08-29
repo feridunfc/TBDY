@@ -412,11 +412,11 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(to_jsonable(payload), ensure_ascii=False, sort_keys=True))
         return 6
 
-    selected_count = sum(
+    design_candidate_only_count = sum(
         1
         for item in results
-        if item["engine_result"]["rebar_design"]["selection"] is not None
-        and item["engine_result"]["rebar_design"]["selection"]["authority"] == "ENGINE_SELECTED_REBAR"
+        if item["engine_result"]["rebar_design"]["status"]
+        == "SELECTED_DESIGN_CANDIDATE_ONLY"
     )
     combo_scope_blocked_count = sum(
         1
@@ -459,8 +459,8 @@ def main(argv: list[str] | None = None) -> int:
         status, rc = "COMPLETE_BLOCKED_SLENDERNESS_BASIS", 11
     elif slenderness_blocked_count:
         status, rc = "COMPLETE_SLENDERNESS_REQUIRES_FURTHER_ANALYSIS", 12
-    elif selected_count == len(results):
-        status, rc = "COMPLETE_ENGINE_SELECTED_REBAR", 0
+    elif design_candidate_only_count == len(results):
+        status, rc = "COMPLETE_DESIGN_CANDIDATE_ONLY", 9
     elif args.analysis_order_status == "BLOCKED":
         status, rc = "COMPLETE_BLOCKED_REBAR_AUTHORITY", 7
     else:
@@ -531,7 +531,8 @@ def main(argv: list[str] | None = None) -> int:
         "summary": {
             "column_count": len(results),
             "section_rebar_intent_count": len(rebar_intent_by_section),
-            "engine_selected_rebar_count": selected_count,
+            "engine_selected_rebar_count": 0,
+            "design_candidate_only_count": design_candidate_only_count,
             "reanalysis_required_count": reanalysis_required_count,
             "blocked_combination_scope_count": combo_scope_blocked_count,
             "blocked_minimum_eccentricity_count": minimum_eccentricity_blocked_count,

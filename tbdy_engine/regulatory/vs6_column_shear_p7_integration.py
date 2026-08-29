@@ -18,6 +18,10 @@ import math
 from typing import Mapping, Sequence
 
 from tbdy_engine.design.columns.column_design_engine import ColumnDesignEngineResult
+from tbdy_engine.design.columns.column_longitudinal_selection import (
+    CanonicalEngineSelectedRebar,
+    ENGINE_SELECTED_REBAR_AUTHORITY,
+)
 from tbdy_engine.design.columns.column_rebar_design_engine import ColumnRebarDesignInputs
 from tbdy_engine.design.columns.column_shear_demand import (
     CAPACITY_BLOCKED,
@@ -34,7 +38,7 @@ from tbdy_engine.design.columns.column_shear_upper_bounds import (
     resolve_exact_rectangular_column_effective_depth,
 )
 from tbdy_engine.design.columns.free_length_basis import ColumnFreeLengthResolution
-from tbdy_engine.design.columns.rebar_layout import ColumnRebarCandidate
+from tbdy_engine.design.columns.rebar_layout import ColumnRebarGeometryCandidate
 from tbdy_engine.design.columns.rebar_selection import ColumnDemandState
 from tbdy_engine.features.column_shear_demand_evidence import (
     ColumnShearDemandEvidenceBundle,
@@ -50,7 +54,7 @@ from tbdy_engine.regulatory.vs6_column_shear_p7_program import (
 
 BOTH_SIGNS_CONSERVATIVE_MAX_CAPACITY_REF = "BOTH_SIGNS_CONSERVATIVE_MAX_CAPACITY"
 BOTH_SIGNS_CONSERVATIVE_MIN_EFFECTIVE_DEPTH_REF = "BOTH_SIGNS_CONSERVATIVE_MIN_EFFECTIVE_DEPTH"
-ENGINE_SELECTED_REBAR_REF = "ENGINE_SELECTED_REBAR"
+ENGINE_SELECTED_REBAR_REF = ENGINE_SELECTED_REBAR_AUTHORITY
 
 
 class VS6P7IntegrationError(ValueError):
@@ -283,7 +287,7 @@ def _resolve_end_capacity(
     direction: str,
     width_mm: float,
     depth_mm: float,
-    selected_candidate: ColumnRebarCandidate | None,
+    selected_candidate: ColumnRebarGeometryCandidate | None,
     rebar_inputs: ColumnRebarDesignInputs,
     review_refs: Sequence[str],
 ) -> ColumnEndMomentCapacityBasis:
@@ -375,15 +379,44 @@ def _resolve_end_capacity(
     )
 
 
-def _selected_candidate(design: ColumnDesignEngineResult) -> ColumnRebarCandidate | None:
-    selection = design.rebar_design.selection
-    if selection is None or selection.authority != ENGINE_SELECTED_REBAR_REF:
+def _selected_candidate(
+    selected_rebar: CanonicalEngineSelectedRebar | None,
+    *,
+    component_id: str,
+) -> ColumnRebarGeometryCandidate | None:
+    """Resolve only the canonical COL-4 selected-rebar artifact."""
+
+    if selected_rebar is None:
         return None
-    if selection.selected_candidate is None:
-        raise VS6P7IntegrationError("ENGINE_SELECTED_REBAR authority has no selected candidate")
-    if selection.component_id != design.component_id:
-        raise VS6P7IntegrationError("selected rebar component identity mismatch")
-    return selection.selected_candidate
+
+    if not isinstance(
+        selected_rebar,
+        CanonicalEngineSelectedRebar,
+    ):
+        raise TypeError(
+            "selected_rebar must be CanonicalEngineSelectedRebar"
+        )
+
+    if selected_rebar.authority != ENGINE_SELECTED_REBAR_REF:
+        raise VS6P7IntegrationError(
+            "P7 selected rebar does not carry canonical "
+            "ENGINE_SELECTED_REBAR authority"
+        )
+
+    if selected_rebar.component_id != component_id:
+        raise VS6P7IntegrationError(
+            "selected rebar component identity mismatch"
+        )
+
+    if (
+        selected_rebar.selected_candidate.candidate_id
+        != selected_rebar.candidate_id
+    ):
+        raise VS6P7IntegrationError(
+            "canonical selected-rebar candidate identity mismatch"
+        )
+
+    return selected_rebar.selected_candidate
 
 
 def _resolve_conservative_effective_depth(
@@ -392,7 +425,7 @@ def _resolve_conservative_effective_depth(
     direction: str,
     width_mm: float,
     depth_mm: float,
-    selected_candidate: ColumnRebarCandidate | None,
+    selected_candidate: ColumnRebarGeometryCandidate | None,
     refs: Sequence[str],
 ) -> ColumnEffectiveDepthResolution:
     if selected_candidate is None:
@@ -462,6 +495,7 @@ def run_vs6_p7_from_production_evidence(
     *,
     column_design: ColumnDesignEngineResult,
     rebar_inputs: ColumnRebarDesignInputs,
+    selected_rebar: CanonicalEngineSelectedRebar | None,
     topology: ColumnTopologyEvidence,
     free_length: ColumnFreeLengthResolution,
     shear_evidence: ColumnShearDemandEvidenceBundle,
@@ -547,12 +581,25 @@ def run_vs6_p7_from_production_evidence(
         state.case_type == "DesignResponseSpectrumPermutation"
         for state in (bottom_state, top_state)
     )
-    selected_candidate = _selected_candidate(column_design)
+    selected_candidate = _selected_candidate(
+        selected_rebar,
+        component_id=component_id,
+    )
+
+    canonical_selection_refs = (
+        (
+            selected_rebar.selected_rebar_ref,
+            *selected_rebar.provenance_refs,
+        )
+        if selected_rebar is not None
+        else ()
+    )
+
     selection_refs = tuple(
         dict.fromkeys(
             (
                 *capacity_state_selection.review_refs,
-                *(column_design.rebar_design.selection.basis.review_refs if column_design.rebar_design.selection is not None else ()),
+                *canonical_selection_refs,
             )
         )
     )

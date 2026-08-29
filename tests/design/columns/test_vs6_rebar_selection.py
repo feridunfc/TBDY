@@ -77,7 +77,7 @@ def test_selection_is_blocked_when_any_demand_basis_item_is_unresolved():
     assert result.selected_candidate is None
 
 
-def test_low_demand_selects_smallest_eligible_candidate_and_promotes_only_engine_authority():
+def test_low_demand_selects_smallest_eligible_design_candidate_without_canonical_authority():
     demand = ColumnDemandState(
         state_id="D1",
         component_id="+0.00:C2:236",
@@ -103,7 +103,8 @@ def test_low_demand_selects_smallest_eligible_candidate_and_promotes_only_engine
         policy=ColumnRebarSelectionPolicy(angle_count=8, axial_tolerance_n=20.0),
     )
     assert result.status == "SELECTED"
-    assert result.authority == "ENGINE_SELECTED_REBAR"
+    assert result.authority == "DESIGN_CANDIDATE_ONLY"
+    assert result.authority != "ENGINE_SELECTED_REBAR"
     assert result.selected_candidate == _population().candidates[0]
     assert result.required_as_in_candidate_family_mm2 == pytest.approx(result.selected_candidate.as_total_mm2)
     assert result.governing_utilization is not None

@@ -1,9 +1,13 @@
-"""Canonical VS6 longitudinal-reinforcement design orchestration.
+"""Legacy VS6 longitudinal design-candidate trial orchestration.
 
 The engine consumes already-promoted column design demand states plus factual
 project bar-catalog evidence and explicit reviewed detailing/material inputs.
-It delegates candidate generation and section capacity to the pure kernels and
-is the only production path in this slice allowed to emit ENGINE_SELECTED_REBAR.
+It delegates candidate generation and section capacity to the legacy pure
+kernels.
+
+This path may identify a feasible DESIGN_CANDIDATE_ONLY candidate but may not
+publish canonical ENGINE_SELECTED_REBAR authority. Canonical longitudinal
+selection belongs to ``column_longitudinal_selection.py``.
 """
 from __future__ import annotations
 
@@ -116,7 +120,13 @@ def design_column_longitudinal_rebar(
         policy=inputs.selection_policy,
     )
     if selection.authority == "ENGINE_SELECTED_REBAR":
-        status = "SELECTED_ENGINE_REBAR"
+        raise ColumnRebarDesignEngineError(
+            "legacy column rebar design path may not emit "
+            "canonical ENGINE_SELECTED_REBAR authority"
+        )
+
+    if selection.status == "SELECTED":
+        status = "SELECTED_DESIGN_CANDIDATE_ONLY"
     elif selection.status.startswith("BLOCKED"):
         status = selection.status
     else:

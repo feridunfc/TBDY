@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import math
+from decimal import Decimal
 
 import pytest
 
 import tbdy_engine.regulatory.vs6_column_shear_p7_integration as integration
+from tbdy_engine.design.columns.column_longitudinal_selection import (
+    CanonicalEngineSelectedRebar,
+)
+from tbdy_engine.design.columns.column_longitudinal_ranking_authority import (
+    ColumnLongitudinalRankingKey,
+)
 from tbdy_engine.design.columns.column_design_demand_engine import ColumnDesignDemandEngineResult
 from tbdy_engine.design.columns.column_design_engine import ColumnDesignEngineResult
 from tbdy_engine.design.columns.column_rebar_design_engine import ColumnRebarDesignInputs, ColumnRebarDesignResult
@@ -16,7 +23,11 @@ from tbdy_engine.design.columns.free_length_basis import (
     ColumnEndpointSupportResolution,
     ColumnFreeLengthResolution,
 )
-from tbdy_engine.design.columns.rebar_layout import ColumnBarPoint, ColumnRebarCandidate
+from tbdy_engine.design.columns.rebar_layout import (
+    ColumnBarPoint,
+    ColumnRebarCandidate,
+    ColumnRebarGeometryCandidate,
+)
 from tbdy_engine.design.columns.rebar_selection import (
     ColumnDemandBasis,
     ColumnDemandState,
@@ -64,6 +75,84 @@ def _candidate():
         rho=4.0 * math.pi * 100.0 / 200_000.0,
         min_clear_spacing_mm=250.0,
         required_min_clear_spacing_mm=40.0,
+    )
+
+
+def _geometry_candidate():
+    legacy = _candidate()
+    return ColumnRebarGeometryCandidate(
+        candidate_id=legacy.candidate_id,
+        bar_diameter_mm=legacy.bar_diameter_mm,
+        n_bars_dir2=legacy.n_bars_dir2,
+        n_bars_dir3=legacy.n_bars_dir3,
+        bars=legacy.bars,
+        as_total_mm2=legacy.as_total_mm2,
+        rho=legacy.rho,
+        min_clear_spacing_mm=legacy.min_clear_spacing_mm,
+    )
+
+
+def _canonical_selected_rebar():
+    candidate = _geometry_candidate()
+    as_total_mm2 = Decimal(str(candidate.as_total_mm2))
+
+    return CanonicalEngineSelectedRebar(
+        selected_rebar_ref=(
+            "engine-selected-rebar:sha256:p7-test-canonical"
+        ),
+        component_id=COMPONENT,
+        candidate_id=candidate.candidate_id,
+        candidate_geometry_fingerprint=(
+            "candidate-geometry:sha256:p7-test"
+        ),
+        candidate_adequacy_ref=(
+            "candidate-adequacy:sha256:p7-test"
+        ),
+        selected_candidate=candidate,
+        as_total_mm2=as_total_mm2,
+        rank=1,
+        ranking_key=ColumnLongitudinalRankingKey(
+            total_as_mm2=as_total_mm2,
+            bar_count=candidate.bar_count,
+            bar_diameter_mm=Decimal(
+                str(candidate.bar_diameter_mm)
+            ),
+            stable_candidate_id=candidate.candidate_id,
+        ),
+        required_area_decision_ids=(
+            "required-area-decision:p7-test",
+        ),
+        pmm_decision_ids=(
+            "pmm-decision:p7-test",
+        ),
+        requirement_ids=(
+            "requirement:p7-test",
+        ),
+        demand_state_ids=(
+            "demand-state:p7-test",
+        ),
+        ranking_policy_id="PROJECT_COLUMN_REBAR_POLICY",
+        ranking_policy_version="v1",
+        ranking_policy_fingerprint=(
+            "ranking-policy:sha256:p7-test"
+        ),
+        ranking_policy_review_ref=(
+            "review:column-selection-policy:p7-test"
+        ),
+        adequacy_policy_fingerprint=(
+            "adequacy-policy:sha256:p7-test"
+        ),
+        numerical_policy_fingerprint=(
+            "numerical-policy:sha256:p7-test"
+        ),
+        material_context_ref=(
+            "material-context:p7-test"
+        ),
+        model_fingerprint="model:p7-test",
+        evidence_epoch_id="epoch:p7-test",
+        provenance_refs=(
+            "CANONICAL_SELECTED_REBAR:P7_TEST_PROVENANCE",
+        ),
     )
 
 
@@ -322,11 +411,15 @@ def _patch_depth(monkeypatch, *, plus_d=None, minus_d=None):
     monkeypatch.setattr(integration, "resolve_exact_rectangular_column_effective_depth", depth)
 
 
+_DEFAULT_SELECTED_REBAR = object()
+
+
 def _run_raw(
     monkeypatch,
     *,
     direction="V2",
     design=None,
+    selected_rebar=_DEFAULT_SELECTED_REBAR,
     free=None,
     d=None,
     states=None,
@@ -338,9 +431,17 @@ def _run_raw(
         _patch_depth(monkeypatch)
     bundle = _bundle()
     states = tuple(states or _states())
+
+    canonical_selected_rebar = (
+        _canonical_selected_rebar()
+        if selected_rebar is _DEFAULT_SELECTED_REBAR
+        else selected_rebar
+    )
+
     return run_vs6_p7_from_production_evidence(
         column_design=design or _design(states=states),
         rebar_inputs=_rebar_inputs(),
+        selected_rebar=canonical_selected_rebar,
         topology=_topology(),
         free_length=free or _free_length(),
         shear_evidence=bundle,
@@ -409,6 +510,7 @@ def test_exact_i_j_mapping_rejects_wrong_physical_end_state(monkeypatch):
         run_vs6_p7_from_production_evidence(
             column_design=_design(states=states),
             rebar_inputs=_rebar_inputs(),
+            selected_rebar=_canonical_selected_rebar(),
             topology=_topology(),
             free_length=_free_length(),
             shear_evidence=bundle,
@@ -422,9 +524,19 @@ def test_exact_i_j_mapping_rejects_wrong_physical_end_state(monkeypatch):
         )
 
 
-def test_selected_rebar_missing_blocks_capacity_ve_and_ts500_d(monkeypatch):
+def test_missing_canonical_selected_rebar_blocks_capacity_ve_and_ts500_d(
+    monkeypatch,
+):
     states = _states()
-    run = _run_raw(monkeypatch, design=_design(selected=False, states=states), states=states)
+
+    # Deliberately retain a legacy ENGINE_SELECTED_REBAR inside
+    # ColumnDesignEngineResult. P7 must not consume that legacy authority.
+    run = _run_raw(
+        monkeypatch,
+        design=_design(selected=True, states=states),
+        selected_rebar=None,
+        states=states,
+    )
     assert run.bottom_capacity.status != CAPACITY_PROVEN
     assert run.top_capacity.status != CAPACITY_PROVEN
     assert run.ve_kn is None
@@ -501,6 +613,7 @@ def test_capacity_state_output_case_must_match_exact_tbdy_shear(monkeypatch):
         run_vs6_p7_from_production_evidence(
             column_design=_design(states=states),
             rebar_inputs=_rebar_inputs(),
+            selected_rebar=_canonical_selected_rebar(),
             topology=_topology(),
             free_length=_free_length(),
             shear_evidence=bundle,

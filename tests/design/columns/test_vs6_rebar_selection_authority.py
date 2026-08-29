@@ -54,7 +54,7 @@ def test_raw_etabs_combination_row_cannot_reach_engine_selected_rebar():
     assert result.selected_candidate is None
 
 
-def test_promoted_static_design_state_may_reach_selection_kernel():
+def test_promoted_static_design_state_may_reach_legacy_candidate_kernel_only():
     result = select_engine_rebar_from_authorized_demands(
         component_id=COMP,
         width_mm=800,
@@ -66,4 +66,5 @@ def test_promoted_static_design_state_may_reach_selection_kernel():
         policy=ColumnRebarSelectionPolicy(8, 20.0),
     )
     assert result.status == "SELECTED"
-    assert result.authority == "ENGINE_SELECTED_REBAR"
+    assert result.authority == "DESIGN_CANDIDATE_ONLY"
+    assert result.authority != "ENGINE_SELECTED_REBAR"

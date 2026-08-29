@@ -9,7 +9,7 @@ from tbdy_engine.design.columns.section_capacity import ColumnSectionMaterial
 from tbdy_engine.product_reports.vs6_rebar_selection_report import build_vs6_rebar_selection_report
 
 
-def test_selected_rebar_report_keeps_engine_selected_authority_distinct_from_provided_rebar():
+def test_legacy_candidate_report_does_not_publish_canonical_rebar_authority():
     population = generate_rectangular_column_rebar_candidates(
         ColumnRebarLayoutInputs(800, 800, 40, 10, 22, (16, 20, 24))
     )
@@ -29,7 +29,9 @@ def test_selected_rebar_report_keeps_engine_selected_authority_distinct_from_pro
     )
     report = build_vs6_rebar_selection_report(result).as_dict()
     authority = next(field["value"] for field in report["summary_fields"] if field["key"] == "authority")
-    assert report["status"] == "PROVEN"
-    assert authority == "ENGINE_SELECTED_REBAR"
+    assert report["status"] == "PARTIAL"
+    assert authority == "DESIGN_CANDIDATE_ONLY"
+    assert authority != "ENGINE_SELECTED_REBAR"
+    assert "not ENGINE_SELECTED_REBAR" in report["warnings"][0]
     assert "USER_PROVIDED_REBAR" in report["warnings"][0]
     assert report["presentation_contract"]["engineering_recalculation_allowed"] is False

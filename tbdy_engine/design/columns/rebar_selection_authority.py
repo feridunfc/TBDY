@@ -1,9 +1,11 @@
-"""Authority gate for VS6 ENGINE_SELECTED_REBAR.
+"""Legacy VS6 demand gate for design-candidate selection.
 
-The lower-level selection kernel is intentionally generic.  This wrapper is the
-production authority boundary: raw ETABS Combination/LinRespSpec rows are not
-accepted as design states.  Only demand states explicitly promoted by the VS6
-design-demand reconstruction layer may reach ENGINE_SELECTED_REBAR.
+The lower-level selection kernel is intentionally generic. Raw ETABS
+Combination/LinRespSpec rows are not accepted as design states. Only demand
+states explicitly promoted by the VS6 design-demand reconstruction layer may
+reach legacy candidate evaluation.
+
+This module does not publish canonical ENGINE_SELECTED_REBAR authority.
 """
 from __future__ import annotations
 
