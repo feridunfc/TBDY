@@ -26,7 +26,7 @@ from tbdy_engine.features.column_concrete_design_evidence import (
     ColumnDesignSectionEvidence,
     ColumnTopologyEvidenceEnvelope,
 )
-from tbdy_engine.features.column_design_rebar_evidence import (
+from tbdy_engine.design.columns.column_design_rebar_promotion import (
     ETABS_REQUIRED_REBAR,
     promote_etabs_required_rebar,
 )

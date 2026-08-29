@@ -11,19 +11,21 @@ from tbdy_engine.design.columns.column_combo_eligibility_projection import (
     ColumnComboEligibilityState,
     ComboConstituentEligibilityFact,
 )
-from tbdy_engine.features.column_design_rebar_evidence import (
+from tbdy_engine.design.columns.column_design_rebar_promotion import (
     BLOCKED_AMBIGUOUS_PMM_COMBO,
     BLOCKED_COMBO_NOT_ELIGIBLE,
     BLOCKED_ETABS_ERROR_SUMMARY,
     BLOCKED_ETABS_WARNING_SUMMARY,
     BLOCKED_MISSING_PMM_COMBO,
     BLOCKED_UNBINDABLE_PMM_COMBO,
+    promote_etabs_required_rebar,
+)
+from tbdy_engine.features.column_design_rebar_evidence import (
     ColumnDesignRebarEvidenceError,
     FactualColumnDesignResultPopulation,
     FactualColumnDesignResultRow,
-    promote_etabs_required_rebar,
 )
-import tbdy_engine.features.column_design_rebar_evidence as subject
+import tbdy_engine.design.columns.column_design_rebar_promotion as subject
 
 MODEL = "model:fixture"
 EPOCH = "epoch:fixture"
