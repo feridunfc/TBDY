@@ -7,11 +7,16 @@ second stability engine, perform PMM mechanics, or select reinforcement.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
+from contextvars import ContextVar
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Iterator, Mapping, Sequence
 
 from tbdy_engine.design.columns.column_design_demand_engine import ColumnComboDefinition
-from tbdy_engine.design.columns.column_design_readiness import resolve_column_design_demand_readiness
+from tbdy_engine.design.columns.column_design_readiness import (
+    ColumnDesignDemandReadiness,
+    resolve_column_design_demand_readiness,
+)
 from tbdy_engine.design.columns.combo_pattern_engine import ComboPatternConstituent
 from tbdy_engine.design.columns.rebar_selection import ColumnDemandState
 from tbdy_engine.design.columns.slenderness_basis import ColumnSlendernessAxisEvidence, ColumnSlendernessEvidence
@@ -73,6 +78,26 @@ def _applicability(value: ColumnDesignReadinessApplicabilityInput) -> Applicabil
     if value.reinforced_concrete_column is None:
         return ApplicabilityState.UNRESOLVED
     return ApplicabilityState.APPLIES if value.reinforced_concrete_column else ApplicabilityState.PROVEN_NOT_APPLICABLE
+
+
+_TypedReadinessCapture = list[
+    tuple[RuleExecutionEnvelope, ColumnDesignDemandReadiness, tuple[str, ...]]
+]
+_TYPED_READINESS_CAPTURE: ContextVar[_TypedReadinessCapture | None] = ContextVar(
+    "fnd_col_2_typed_readiness_capture",
+    default=None,
+)
+
+
+@contextmanager
+def _capture_typed_readiness_execution() -> Iterator[_TypedReadinessCapture]:
+    """Capture exact typed readiness objects only inside one source-bound execution."""
+    captured: _TypedReadinessCapture = []
+    token = _TYPED_READINESS_CAPTURE.set(captured)
+    try:
+        yield captured
+    finally:
+        _TYPED_READINESS_CAPTURE.reset(token)
 
 
 def _mapping(value: object, label: str) -> Mapping[str, object]:
@@ -275,20 +300,11 @@ class ColumnDesignReadinessExecutionInput:
         )
 
 
-def evaluate_column_design_readiness(inp: ColumnDesignReadinessExecutionInput) -> RegulatoryQuantity:
-    if not isinstance(inp, ColumnDesignReadinessExecutionInput):
-        raise TypeError("FND-COL-2 evaluator requires ColumnDesignReadinessExecutionInput")
+def _regulatory_quantity_from_readiness(
+    inp: ColumnDesignReadinessExecutionInput,
+    result: ColumnDesignDemandReadiness,
+) -> RegulatoryQuantity:
     component = inp.envelope.instance_id.scope_ref
-    stiffness = assess_ts500_eq713_stiffness_basis(inp.stiffness_evidence) if inp.stiffness_evidence else None
-    result = resolve_column_design_demand_readiness(
-        component_id=component,
-        combo_definitions=inp.combo_definitions,
-        constituent_case_demands=inp.case_demands,
-        width_mm=inp.width_mm,
-        depth_mm=inp.depth_mm,
-        slenderness_evidence=inp.slenderness_evidence,
-        stability_stiffness_basis=stiffness,
-    )
     payload = {
         "authority": result.authority,
         "status": result.status,
@@ -326,6 +342,27 @@ def evaluate_column_design_readiness(inp: ColumnDesignReadinessExecutionInput) -
         ),
         governing_trace=result.blocked_items,
     )
+
+
+def evaluate_column_design_readiness(inp: ColumnDesignReadinessExecutionInput) -> RegulatoryQuantity:
+    if not isinstance(inp, ColumnDesignReadinessExecutionInput):
+        raise TypeError("FND-COL-2 evaluator requires ColumnDesignReadinessExecutionInput")
+    component = inp.envelope.instance_id.scope_ref
+    stiffness = assess_ts500_eq713_stiffness_basis(inp.stiffness_evidence) if inp.stiffness_evidence else None
+    result = resolve_column_design_demand_readiness(
+        component_id=component,
+        combo_definitions=inp.combo_definitions,
+        constituent_case_demands=inp.case_demands,
+        width_mm=inp.width_mm,
+        depth_mm=inp.depth_mm,
+        slenderness_evidence=inp.slenderness_evidence,
+        stability_stiffness_basis=stiffness,
+    )
+    quantity = _regulatory_quantity_from_readiness(inp, result)
+    captured = _TYPED_READINESS_CAPTURE.get()
+    if captured is not None:
+        captured.append((inp.envelope, result, inp.evidence_refs))
+    return quantity
 
 
 def _dep(*, key, source_kind, semantic_type, dimension, unit, population=PopulationRequirement.ANY_RESOLVED):
