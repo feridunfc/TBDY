@@ -93,6 +93,7 @@ class ReadOnlyETABSConnection:
         self._runtime_loader = runtime_loader or _load_win32com_client
         self._runtime_loader_is_custom = runtime_loader is not None
         self._comtypes_loader = comtypes_loader or _load_comtypes_client
+        self._comtypes_loader_is_custom = comtypes_loader is not None
         self._prog_ids = cleaned_prog_ids
         self._state_lock = threading.RLock()
 
@@ -537,13 +538,26 @@ class ReadOnlyETABSConnection:
             hresult=None if hresult is None else str(hresult),
         )
 
-    @staticmethod
-    def _validate_request(request: ConnectionRequest) -> None:
+    def _validate_request(self, request: ConnectionRequest) -> None:
         if request.attach_mode is not AttachMode.RUNNING_INSTANCE:
             raise ETABSAttachError(
                 "Only running-instance attachment is supported.",
                 operation="etabs_attach",
                 details={"stage": "request_validation", "attach_mode": request.attach_mode.value},
+            )
+        if (
+            request.target_process_id is not None
+            and self._runtime_loader_is_custom
+            and not self._comtypes_loader_is_custom
+        ):
+            raise ETABSAttachError(
+                "PID-specific attach with an injected active-object runtime also requires an injected comtypes runtime.",
+                operation="etabs_attach",
+                details={
+                    "stage": "request_validation",
+                    "target_process_id": request.target_process_id,
+                    "missing_runtime": "comtypes_loader",
+                },
             )
 
 
