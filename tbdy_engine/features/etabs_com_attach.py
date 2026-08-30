@@ -1,15 +1,19 @@
-"""C13.5-P3 ETABS COM attach compatibility boundary.
+"""Legacy ETABS attach compatibility surface.
 
-The module is import-safe on machines without ETABS, comtypes, or pywin32.
-COM client modules are imported only inside explicit live attach strategy
-functions.
+Production COM/STA/session/attach ownership has moved to ``etabs_gateway``.
+This module intentionally contains no COM discovery implementation. The legacy
+``attach_to_running_etabs`` name remains only as a diagnostic compatibility
+delegation: it invokes the gateway owner, captures plain attach diagnostics,
+closes the gateway session, and returns no usable application/SapModel
+capability.
 """
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
-import importlib
+from typing import Any, Mapping
+
+from etabs_gateway import ConnectionRequest, ETABSGatewaySession
+from etabs_gateway.errors import ETABSGatewayError
 
 ATTACH_STATUS_ATTACHED = "ATTACHED"
 ATTACH_STATUS_FAILED = "FAILED"
@@ -29,11 +33,8 @@ CANDIDATE_PROG_IDS: tuple[str, ...] = (
     "CSI.ETABS.API.ETABSObject.1",
     "ETABSv1.Helper",
 )
-_DIRECT_ETABS_PROG_IDS: tuple[str, ...] = (
-    "CSI.ETABS.API.ETABSObject",
-    "CSI.ETABS.API.ETABSObject.1",
-)
-_HELPER_PROG_ID = "ETABSv1.Helper"
+LEGACY_COMPATIBILITY_ONLY = True
+
 _ALLOWED_ATTACH_STATUSES = frozenset({ATTACH_STATUS_ATTACHED, ATTACH_STATUS_FAILED})
 _ALLOWED_ATTEMPT_STATUSES = frozenset(
     {ATTEMPT_STATUS_SUCCESS, ATTEMPT_STATUS_FAILED, ATTEMPT_STATUS_SKIPPED}
@@ -72,6 +73,8 @@ class EtabsAttachAttempt:
 
 @dataclass(frozen=True, slots=True)
 class EtabsAttachResult:
+    """Legacy diagnostic DTO; raw capability fields are permanently empty."""
+
     status: str
     strategy: str | None
     etabs_object: Any | None
@@ -81,15 +84,14 @@ class EtabsAttachResult:
     def __post_init__(self) -> None:
         if self.status not in _ALLOWED_ATTACH_STATUSES:
             raise ValueError("Unsupported ETABS attach result status")
-        if self.status == ATTACH_STATUS_ATTACHED:
-            if self.strategy not in ATTACH_STRATEGIES:
-                raise ValueError("Attached ETABS result requires a successful strategy")
-            if self.etabs_object is None:
-                raise ValueError("Attached ETABS result requires etabs_object")
-            if self.sap_model is None:
-                raise ValueError("Attached ETABS result requires sap_model")
+        if self.status == ATTACH_STATUS_ATTACHED and self.strategy not in ATTACH_STRATEGIES:
+            raise ValueError("Attached ETABS result requires a successful strategy")
         if self.status == ATTACH_STATUS_FAILED and self.strategy is not None:
             raise ValueError("Failed ETABS attach result must not name a successful strategy")
+        if self.etabs_object is not None or self.sap_model is not None:
+            raise ValueError(
+                "legacy compatibility result must not expose ETABS application/SapModel capability"
+            )
         object.__setattr__(self, "attempts", tuple(self.attempts))
 
     def as_diagnostic_dict(self) -> dict[str, object]:
@@ -97,15 +99,64 @@ class EtabsAttachResult:
             "attempts": [attempt.as_dict() for attempt in self.attempts],
             "status": self.status,
             "strategy": self.strategy,
+            "legacy_compatibility_only": True,
+            "raw_capability_exposed": False,
         }
 
 
 class EtabsAttachFailure(RuntimeError):
-    """Raised when no bounded ETABS COM attach strategy succeeds."""
+    """Compatibility error carrying only non-COM diagnostics."""
 
     def __init__(self, attach_result: EtabsAttachResult) -> None:
-        super().__init__("No ETABS COM attach strategy succeeded.")
+        super().__init__("No ETABS gateway attach strategy succeeded.")
         self.attach_result = attach_result
+
+
+class _InjectedCOMApartmentModule:
+    COINIT_APARTMENTTHREADED = 2
+
+    def CoInitializeEx(self, flags: int) -> None:
+        del flags
+
+    def CoUninitialize(self) -> None:
+        return None
+
+
+def _injected_apartment_loader() -> object:
+    return _InjectedCOMApartmentModule()
+
+
+def _attempts_from_diagnostics(value: object) -> tuple[EtabsAttachAttempt, ...]:
+    if not isinstance(value, (tuple, list)):
+        return ()
+    attempts: list[EtabsAttachAttempt] = []
+    for raw in value:
+        if not isinstance(raw, Mapping):
+            continue
+        strategy = str(raw.get("strategy") or "")
+        if strategy not in ATTACH_STRATEGIES:
+            continue
+        status = str(raw.get("status") or ATTEMPT_STATUS_FAILED)
+        if status not in _ALLOWED_ATTEMPT_STATUSES:
+            status = ATTEMPT_STATUS_FAILED
+        attempts.append(
+            EtabsAttachAttempt(
+                strategy=strategy,
+                status=status,
+                message=str(raw.get("message") or "gateway attach attempt"),
+                exception_type=(
+                    None if raw.get("exception_type") is None else str(raw.get("exception_type"))
+                ),
+                hresult=None if raw.get("hresult") is None else str(raw.get("hresult")),
+                prog_id=None if raw.get("prog_id") is None else str(raw.get("prog_id")),
+                pid=(
+                    int(raw["pid"])
+                    if isinstance(raw.get("pid"), int) and not isinstance(raw.get("pid"), bool)
+                    else None
+                ),
+            )
+        )
+    return tuple(attempts)
 
 
 def attach_to_running_etabs(
@@ -115,395 +166,64 @@ def attach_to_running_etabs(
     comtypes_client: Any | None = None,
     win32com_client: Any | None = None,
 ) -> EtabsAttachResult:
-    """Try bounded ETABS COM attach strategies and record every attempt.
+    """Delegate attach diagnostics to the sole gateway owner and return no COM.
 
-    ``allow_pid_fallback`` preserves the legacy compatibility behavior by
-    default. Canonical safety callers pass ``False``: a callable
-    Helper.GetObjectProcess failure then stops before generic active-object
-    attachment. Genuine GetObjectProcess absence still permits bounded fallback
-    because only a verified model full path can make that fallback trustworthy.
+    This compatibility API is not a supported acquisition path. New production
+    code must use ``tbdy_engine.etabs.safety.attach_verified_to_running_etabs``.
     """
-    attempts: list[EtabsAttachAttempt] = []
-
-    if pid is not None:
-        result = _try_helper_get_object_process(
-            client=comtypes_client,
-            import_module_name="comtypes.client",
-            helper_prog_id=_HELPER_PROG_ID,
-            etabs_prog_ids=_DIRECT_ETABS_PROG_IDS,
-            pid=int(pid),
-        )
-        attempts.extend(result.attempts)
-        if result.status == ATTACH_STATUS_ATTACHED:
-            return _with_attempts(result, attempts)
-        if not allow_pid_fallback and not _pid_strategy_unsupported(result):
-            return EtabsAttachResult(
-                status=ATTACH_STATUS_FAILED,
-                strategy=None,
-                etabs_object=None,
-                sap_model=None,
-                attempts=tuple(attempts),
-            )
-
-    result = _try_direct_active_object(
-        strategy="comtypes_get_active_object_etabs_api_object",
-        client=comtypes_client,
-        import_module_name="comtypes.client",
-        prog_ids=_DIRECT_ETABS_PROG_IDS,
+    injected = comtypes_client is not None or win32com_client is not None
+    runtime_loader = (
+        (lambda: win32com_client)
+        if win32com_client is not None and comtypes_client is None
+        else None
     )
-    attempts.extend(result.attempts)
-    if result.status == ATTACH_STATUS_ATTACHED:
-        return _with_attempts(result, attempts)
-
-    result = _try_helper_get_object(
-        client=comtypes_client,
-        import_module_name="comtypes.client",
-        helper_prog_id=_HELPER_PROG_ID,
-        etabs_prog_ids=_DIRECT_ETABS_PROG_IDS,
+    comtypes_loader = (lambda: comtypes_client) if comtypes_client is not None else None
+    session = ETABSGatewaySession(
+        com_module_loader=_injected_apartment_loader if injected else None,
+        runtime_loader=runtime_loader,
+        comtypes_loader=comtypes_loader,
     )
-    attempts.extend(result.attempts)
-    if result.status == ATTACH_STATUS_ATTACHED:
-        return _with_attempts(result, attempts)
-
-    result = _try_direct_active_object(
-        strategy="win32com_get_active_object_etabs_api_object",
-        client=win32com_client,
-        import_module_name="win32com.client",
-        prog_ids=_DIRECT_ETABS_PROG_IDS,
+    request = ConnectionRequest(
+        target_process_id=pid,
+        require_exact_process_match=(not allow_pid_fallback if pid is not None else True),
     )
-    attempts.extend(result.attempts)
-    if result.status == ATTACH_STATUS_ATTACHED:
-        return _with_attempts(result, attempts)
-
+    status = ATTACH_STATUS_FAILED
+    strategy: str | None = None
+    diagnostics: dict[str, object] = {}
+    try:
+        session.start(request)
+        diagnostics = dict(session.attach_diagnostics)
+        candidate = diagnostics.get("strategy")
+        strategy = str(candidate) if candidate in ATTACH_STRATEGIES else None
+        status = ATTACH_STATUS_ATTACHED if strategy is not None else ATTACH_STATUS_FAILED
+    except ETABSGatewayError:
+        diagnostics = dict(session.attach_diagnostics)
+    finally:
+        try:
+            session.close()
+        except Exception:
+            pass
     return EtabsAttachResult(
-        status=ATTACH_STATUS_FAILED,
-        strategy=None,
+        status=status,
+        strategy=strategy if status == ATTACH_STATUS_ATTACHED else None,
         etabs_object=None,
         sap_model=None,
-        attempts=tuple(attempts),
+        attempts=_attempts_from_diagnostics(diagnostics.get("attempts")),
     )
-
-
-def _pid_strategy_unsupported(result: EtabsAttachResult) -> bool:
-    attempts = [
-        attempt
-        for attempt in result.attempts
-        if attempt.strategy == STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS
-    ]
-    return bool(attempts) and any(
-        (
-            attempt.exception_type == "AttributeError"
-            and "GetObjectProcess" in attempt.message
-        )
-        or "GetObjectProcess was not accessible" in attempt.message
-        for attempt in attempts
-    )
-
-
-def _with_attempts(
-    result: EtabsAttachResult,
-    attempts: Sequence[EtabsAttachAttempt],
-) -> EtabsAttachResult:
-    return EtabsAttachResult(
-        status=result.status,
-        strategy=result.strategy,
-        etabs_object=result.etabs_object,
-        sap_model=result.sap_model,
-        attempts=tuple(attempts),
-    )
-
-
-def _try_direct_active_object(
-    *,
-    strategy: str,
-    client: Any | None,
-    import_module_name: str,
-    prog_ids: Sequence[str],
-) -> EtabsAttachResult:
-    attempts: list[EtabsAttachAttempt] = []
-    try:
-        resolved_client = client if client is not None else importlib.import_module(import_module_name)
-    except Exception as exc:
-        return _failed_strategy_result(
-            EtabsAttachAttempt(
-                strategy=strategy,
-                prog_id=None,
-                status=ATTEMPT_STATUS_FAILED,
-                message=_exception_message(exc),
-                exception_type=type(exc).__name__,
-                hresult=_exception_hresult(exc),
-            )
-        )
-
-    for prog_id in prog_ids:
-        try:
-            etabs_object = resolved_client.GetActiveObject(prog_id)
-            sap_model = _sap_model_from(etabs_object)
-            if sap_model is None:
-                attempts.append(
-                    EtabsAttachAttempt(
-                        strategy=strategy,
-                        prog_id=prog_id,
-                        status=ATTEMPT_STATUS_FAILED,
-                        message="ETABS object was returned but SapModel was not accessible.",
-                    )
-                )
-                continue
-            attempts.append(
-                EtabsAttachAttempt(
-                    strategy=strategy,
-                    prog_id=prog_id,
-                    status=ATTEMPT_STATUS_SUCCESS,
-                    message="ETABS object and SapModel attached.",
-                )
-            )
-            return EtabsAttachResult(
-                status=ATTACH_STATUS_ATTACHED,
-                strategy=strategy,
-                etabs_object=etabs_object,
-                sap_model=sap_model,
-                attempts=tuple(attempts),
-            )
-        except Exception as exc:
-            attempts.append(
-                _attempt_from_exception(strategy=strategy, prog_id=prog_id, exc=exc)
-            )
-
-    return _failed_strategy_result(*attempts)
-
-
-def _try_helper_get_object_process(
-    *,
-    client: Any | None,
-    import_module_name: str,
-    helper_prog_id: str,
-    etabs_prog_ids: Sequence[str],
-    pid: int,
-) -> EtabsAttachResult:
-    strategy = STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS
-    attempts: list[EtabsAttachAttempt] = []
-    try:
-        resolved_client = client if client is not None else importlib.import_module(import_module_name)
-    except Exception as exc:
-        return _failed_strategy_result(
-            EtabsAttachAttempt(
-                strategy=strategy,
-                prog_id=helper_prog_id,
-                pid=pid,
-                status=ATTEMPT_STATUS_FAILED,
-                message=_exception_message(exc),
-                exception_type=type(exc).__name__,
-                hresult=_exception_hresult(exc),
-            )
-        )
-
-    try:
-        helper = resolved_client.CreateObject(helper_prog_id)
-    except Exception as exc:
-        return _failed_strategy_result(
-            _attempt_from_exception(
-                strategy=strategy,
-                prog_id=helper_prog_id,
-                pid=pid,
-                exc=exc,
-            )
-        )
-
-    get_object_process = getattr(helper, "GetObjectProcess", None)
-    if not callable(get_object_process):
-        return _failed_strategy_result(
-            EtabsAttachAttempt(
-                strategy=strategy,
-                prog_id=helper_prog_id,
-                pid=pid,
-                status=ATTEMPT_STATUS_FAILED,
-                message="ETABS helper object was returned but GetObjectProcess was not accessible.",
-                exception_type="AttributeError",
-            )
-        )
-
-    for prog_id in etabs_prog_ids:
-        try:
-            etabs_object = get_object_process(prog_id, pid)
-            sap_model = _sap_model_from(etabs_object)
-            if sap_model is None:
-                attempts.append(
-                    EtabsAttachAttempt(
-                        strategy=strategy,
-                        prog_id=prog_id,
-                        pid=pid,
-                        status=ATTEMPT_STATUS_FAILED,
-                        message="ETABS helper returned a process object but SapModel was not accessible.",
-                    )
-                )
-                continue
-            attempts.append(
-                EtabsAttachAttempt(
-                    strategy=strategy,
-                    prog_id=prog_id,
-                    pid=pid,
-                    status=ATTEMPT_STATUS_SUCCESS,
-                    message="ETABS helper returned the requested process object and SapModel.",
-                )
-            )
-            return EtabsAttachResult(
-                status=ATTACH_STATUS_ATTACHED,
-                strategy=strategy,
-                etabs_object=etabs_object,
-                sap_model=sap_model,
-                attempts=tuple(attempts),
-            )
-        except Exception as exc:
-            attempts.append(
-                _attempt_from_exception(
-                    strategy=strategy,
-                    prog_id=prog_id,
-                    pid=pid,
-                    exc=exc,
-                )
-            )
-
-    return _failed_strategy_result(*attempts)
-
-
-def _try_helper_get_object(
-    *,
-    client: Any | None,
-    import_module_name: str,
-    helper_prog_id: str,
-    etabs_prog_ids: Sequence[str],
-) -> EtabsAttachResult:
-    strategy = "comtypes_create_helper_get_object"
-    attempts: list[EtabsAttachAttempt] = []
-    try:
-        resolved_client = client if client is not None else importlib.import_module(import_module_name)
-    except Exception as exc:
-        return _failed_strategy_result(
-            EtabsAttachAttempt(
-                strategy=strategy,
-                prog_id=helper_prog_id,
-                status=ATTEMPT_STATUS_FAILED,
-                message=_exception_message(exc),
-                exception_type=type(exc).__name__,
-                hresult=_exception_hresult(exc),
-            )
-        )
-
-    try:
-        helper = resolved_client.CreateObject(helper_prog_id)
-    except Exception as exc:
-        return _failed_strategy_result(
-            _attempt_from_exception(strategy=strategy, prog_id=helper_prog_id, exc=exc)
-        )
-
-    get_object = getattr(helper, "GetObject", None)
-    if not callable(get_object):
-        return _failed_strategy_result(
-            EtabsAttachAttempt(
-                strategy=strategy,
-                prog_id=helper_prog_id,
-                status=ATTEMPT_STATUS_FAILED,
-                message="ETABS helper object was returned but GetObject was not accessible.",
-            )
-        )
-
-    for prog_id in etabs_prog_ids:
-        try:
-            etabs_object = get_object(prog_id)
-            sap_model = _sap_model_from(etabs_object)
-            if sap_model is None:
-                attempts.append(
-                    EtabsAttachAttempt(
-                        strategy=strategy,
-                        prog_id=prog_id,
-                        status=ATTEMPT_STATUS_FAILED,
-                        message="ETABS helper returned an object but SapModel was not accessible.",
-                    )
-                )
-                continue
-            attempts.append(
-                EtabsAttachAttempt(
-                    strategy=strategy,
-                    prog_id=prog_id,
-                    status=ATTEMPT_STATUS_SUCCESS,
-                    message="ETABS helper returned object and SapModel.",
-                )
-            )
-            return EtabsAttachResult(
-                status=ATTACH_STATUS_ATTACHED,
-                strategy=strategy,
-                etabs_object=etabs_object,
-                sap_model=sap_model,
-                attempts=tuple(attempts),
-            )
-        except Exception as exc:
-            attempts.append(
-                _attempt_from_exception(strategy=strategy, prog_id=prog_id, exc=exc)
-            )
-
-    return _failed_strategy_result(*attempts)
-
-
-def _failed_strategy_result(*attempts: EtabsAttachAttempt) -> EtabsAttachResult:
-    return EtabsAttachResult(
-        status=ATTACH_STATUS_FAILED,
-        strategy=None,
-        etabs_object=None,
-        sap_model=None,
-        attempts=tuple(attempts),
-    )
-
-
-def _attempt_from_exception(
-    *,
-    strategy: str,
-    prog_id: str | None,
-    exc: Exception,
-    pid: int | None = None,
-) -> EtabsAttachAttempt:
-    return EtabsAttachAttempt(
-        strategy=strategy,
-        prog_id=prog_id,
-        pid=pid,
-        status=ATTEMPT_STATUS_FAILED,
-        message=_exception_message(exc),
-        exception_type=type(exc).__name__,
-        hresult=_exception_hresult(exc),
-    )
-
-
-def _sap_model_from(etabs_object: Any) -> Any | None:
-    try:
-        return getattr(etabs_object, "SapModel")
-    except Exception:
-        return None
-
-
-def _exception_hresult(exc: Exception) -> str | None:
-    hresult = getattr(exc, "hresult", None)
-    if hresult is None:
-        args = getattr(exc, "args", ())
-        if args and isinstance(args[0], int):
-            hresult = args[0]
-    return None if hresult is None else str(hresult)
-
-
-def _exception_message(exc: Exception) -> str:
-    args = getattr(exc, "args", ())
-    if isinstance(args, tuple):
-        for candidate in args[1:]:
-            if isinstance(candidate, str) and candidate:
-                return candidate
-    message = str(exc)
-    return message if message else repr(exc)
 
 
 __all__ = [
+    "ATTACH_STATUS_ATTACHED",
+    "ATTACH_STATUS_FAILED",
     "ATTACH_STRATEGIES",
+    "ATTEMPT_STATUS_FAILED",
+    "ATTEMPT_STATUS_SKIPPED",
+    "ATTEMPT_STATUS_SUCCESS",
     "CANDIDATE_PROG_IDS",
-    "STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS",
     "EtabsAttachAttempt",
     "EtabsAttachFailure",
     "EtabsAttachResult",
+    "LEGACY_COMPATIBILITY_ONLY",
+    "STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS",
     "attach_to_running_etabs",
 ]
