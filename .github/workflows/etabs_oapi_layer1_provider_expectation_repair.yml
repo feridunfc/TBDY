@@ -1,0 +1,101 @@
+name: ETABS OAPI Layer 1 Provider Expectation Repair
+
+on:
+  push:
+    branches:
+      - validation/etabs-oapi-layer1-stage-a
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_HEAD: aa43c95587c7e18ff1925ac87e173ab499bee23d
+      CANDIDATE_BRANCH: sprint/etabs-oapi-layer-1-common-factual-boundary
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_BRANCH }}
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Verify exact parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 -uall)"
+      - name: Update legacy provider expectations to OAPI boundary messages
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+              Path('tests/providers/test_p8a_etabs_concrete_column_design_result_provider.py'): [
+                  ('match="requested canonical UniqueName"', 'match="does not equal requested canonical frame"'),
+              ],
+              Path('tests/providers/test_vs6_etabs_column_endpoint_restraint_provider.py'): [
+                  ('match="must contain booleans"', 'match="requires one six-boolean DOF array"'),
+              ],
+              Path('tests/providers/test_vs6_etabs_load_pattern_catalog_provider.py'): [
+                  ('match="unique"', 'match="duplicate names"'),
+              ],
+              Path('tests/providers/test_vs6_p8a_f0_concrete_design_section_provider.py'): [
+                  ('with pytest.raises(EtabsConcreteDesignSectionProviderError, match="factual capture failed"):\n        capture_concrete_column_design_sections(fake, topology=topology)',
+                   'with pytest.raises(EtabsConcreteDesignSectionProviderError, match="unexpected shape"):\n        capture_concrete_column_design_sections(fake, topology=topology)', 1),
+                  ('with pytest.raises(EtabsConcreteDesignSectionProviderError, match="factual capture failed"):\n        capture_concrete_column_design_sections(fake, topology=topology)',
+                   'with pytest.raises(EtabsConcreteDesignSectionProviderError, match="nonzero/invalid code"):\n        capture_concrete_column_design_sections(fake, topology=topology)', 1),
+              ],
+          }
+          for path, edits in replacements.items():
+              text = path.read_text(encoding='utf-8')
+              for edit in edits:
+                  old, new = edit[0], edit[1]
+                  count = text.count(old)
+                  if count < 1:
+                      raise SystemExit(f'{path}: missing expected anchor {old!r}')
+                  text = text.replace(old, new, 1)
+              path.write_text(text, encoding='utf-8')
+          PY
+          git diff --check
+          git diff -- tests/providers/test_p8a_etabs_concrete_column_design_result_provider.py tests/providers/test_vs6_etabs_column_endpoint_restraint_provider.py tests/providers/test_vs6_etabs_load_pattern_catalog_provider.py tests/providers/test_vs6_p8a_f0_concrete_design_section_provider.py
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate bounded expectation repair
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml jsonschema
+          python -m pytest -q \
+            tests/providers/test_p8a_etabs_concrete_column_design_result_provider.py \
+            tests/providers/test_vs6_etabs_column_endpoint_restraint_provider.py \
+            tests/providers/test_vs6_etabs_load_pattern_catalog_provider.py \
+            tests/providers/test_vs6_p8a_f0_concrete_design_section_provider.py
+          timeout --signal=TERM --kill-after=10s 180s python -m pytest -q tests/etabs
+          timeout --signal=TERM --kill-after=10s 180s python -m pytest -q \
+            tests/integration/test_acq_ctx_1_trusted_live_etabs_acquisition_context.py \
+            tests/integration/test_etabs_oapi_live_acceptance_infrastructure.py
+          git diff --check
+      - name: Commit and fast-forward candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "ETABS OAPI validation repair"
+          git config user.email "actions@users.noreply.github.com"
+          git add tests/providers/test_p8a_etabs_concrete_column_design_result_provider.py \
+                  tests/providers/test_vs6_etabs_column_endpoint_restraint_provider.py \
+                  tests/providers/test_vs6_etabs_load_pattern_catalog_provider.py \
+                  tests/providers/test_vs6_p8a_f0_concrete_design_section_provider.py
+          git commit -m "ETABS-OAPI-LAYER-1: align provider regressions with OAPI errors"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_HEAD"
+          git push origin "HEAD:${CANDIDATE_BRANCH}"
+          echo "new_candidate_sha=$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
