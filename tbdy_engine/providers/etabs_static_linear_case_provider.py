@@ -1,8 +1,8 @@
 """Semantic factual ETABS static-linear load-case provider.
 
 Exact LoadPatterns/StaticLinear CSI calls and positional decoding are owned by
-``tbdy_engine.etabs.oapi.model_catalog``. This module retains factual naming and
-semantic evidence construction only.
+``tbdy_engine.etabs.oapi.load_definitions``. This module retains factual naming
+and semantic evidence construction only.
 """
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import Any, Sequence
 
 from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError
-from tbdy_engine.etabs.oapi.model_catalog import read_load_pattern_type, read_static_linear_case
+from tbdy_engine.etabs.oapi.load_definitions import read_load_pattern_type, read_static_linear_case
 
 LOAD_PATTERN_TYPE_BY_CODE: dict[int, str] = {
     1: "DEAD", 2: "SUPER_DEAD", 3: "LIVE", 4: "REDUCE_LIVE", 5: "QUAKE",
@@ -87,15 +87,18 @@ class EtabsStaticLinearCaseEvidence:
         }
 
 
-def _provider_error(exc: EtabsOAPIError) -> EtabsStaticLinearCaseProviderError:
-    return EtabsStaticLinearCaseProviderError(str(exc))
+def _text(value: Any, label: str) -> str:
+    if not isinstance(value, str) or not value.strip() or value != value.strip():
+        raise EtabsStaticLinearCaseProviderError(f"{label} must be a nonblank canonical string")
+    return value
 
 
 def capture_etabs_load_pattern_type(load_patterns: Any, name: str) -> EtabsLoadPatternTypeEvidence:
+    pattern_name = _text(name, "load_pattern_name")
     try:
-        fact = read_load_pattern_type(load_patterns, name)
+        fact = read_load_pattern_type(load_patterns, pattern_name)
     except EtabsOAPIError as exc:
-        raise _provider_error(exc) from exc
+        raise EtabsStaticLinearCaseProviderError(str(exc)) from exc
     return EtabsLoadPatternTypeEvidence(
         name=fact.name,
         type_code=fact.type_code,
@@ -109,10 +112,11 @@ def capture_etabs_static_linear_case(
     load_patterns: Any,
     name: str,
 ) -> EtabsStaticLinearCaseEvidence:
+    case_name = _text(name, "load_case_name")
     try:
-        fact = read_static_linear_case(static_linear, name)
+        fact = read_static_linear_case(static_linear, case_name)
     except EtabsOAPIError as exc:
-        raise _provider_error(exc) from exc
+        raise EtabsStaticLinearCaseProviderError(str(exc)) from exc
     rows = tuple(
         EtabsStaticLinearLoadTermEvidence(
             index=item.index,
@@ -139,9 +143,11 @@ def capture_etabs_static_linear_cases(
     load_patterns: Any,
     names: Sequence[str],
 ) -> tuple[EtabsStaticLinearCaseEvidence, ...]:
-    requested = tuple(str(item).strip() for item in names)
-    if not requested or any(not item for item in requested) or len(requested) != len(set(requested)):
-        raise EtabsStaticLinearCaseProviderError("load case names must be a nonempty unique sequence")
+    requested = tuple(_text(item, "load_case_name") for item in names)
+    if not requested or len(requested) != len(set(requested)):
+        raise EtabsStaticLinearCaseProviderError(
+            "load case names must be a nonempty unique sequence"
+        )
     return tuple(
         capture_etabs_static_linear_case(static_linear, load_patterns, name)
         for name in requested
