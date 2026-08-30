@@ -139,20 +139,23 @@ def test_live_public_root_creates_one_context_then_fails_before_fnd2(monkeypatch
         return context
 
     monkeypatch.setattr(project_subject, "create_trusted_live_acquisition_context", spy)
-    artifact = execute_project(_request(), verified_session=session)
+    try:
+        artifact = execute_project(_request(), verified_session=session)
 
-    assert len(calls) == 1
-    context = calls[0]
-    assert artifact.acquisition_context_ref == context.acquisition_context_ref
-    assert artifact.status == STATUS_FACTUAL_ACQUISITION_BLOCKED
-    assert artifact.column.blockers == (BLOCKER_LIVE_FND2_INPUT_LINEAGE,)
-    assert artifact.column.fnd_col_2_program is None
-    assert artifact.column.fnd_col_2_execution is None
-    assert artifact.column.readiness_binding is None
-    assert artifact.column.selected_rebar is None
-    assert artifact.structural_assessment is None
-    assert artifact.reconciliation is None
-    assert artifact.building_report_model is None
+        assert len(calls) == 1
+        context = calls[0]
+        assert artifact.acquisition_context_ref == context.acquisition_context_ref
+        assert artifact.status == STATUS_FACTUAL_ACQUISITION_BLOCKED
+        assert artifact.column.blockers == (BLOCKER_LIVE_FND2_INPUT_LINEAGE,)
+        assert artifact.column.fnd_col_2_program is None
+        assert artifact.column.fnd_col_2_execution is None
+        assert artifact.column.readiness_binding is None
+        assert artifact.column.selected_rebar is None
+        assert artifact.structural_assessment is None
+        assert artifact.reconciliation is None
+        assert artifact.building_report_model is None
+    finally:
+        session.close()
 
 
 def test_public_live_block_does_not_execute_fnd2(monkeypatch):
@@ -163,8 +166,11 @@ def test_public_live_block_does_not_execute_fnd2(monkeypatch):
 
     monkeypatch.setattr(column_subject, "execute_source_bound_fnd_col_2_with_artifact", forbidden)
     monkeypatch.setattr(column_subject, "compile_source_bound_fnd_col_2_program", forbidden)
-    artifact = execute_project(_request(), verified_session=session)
-    assert artifact.status == STATUS_FACTUAL_ACQUISITION_BLOCKED
+    try:
+        artifact = execute_project(_request(), verified_session=session)
+        assert artifact.status == STATUS_FACTUAL_ACQUISITION_BLOCKED
+    finally:
+        session.close()
 
 
 def test_qualified_fnd2_preserves_same_readiness_object_then_live_ready_stops_before_p8a(monkeypatch):
