@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import importlib.util
 import inspect
 from pathlib import Path
+from types import MappingProxyType
 
 import pytest
 
@@ -175,3 +177,25 @@ def test_stage2_augmentation_covers_provider_restoration_determinism_and_invalid
     invalid = next(row for row in rows if row["test_id"] == "LIVE-DESIGN-INVALID-01")
     assert invalid["real_identity"] not in set(inventory["frame_identities"])
     assert "TEST_ONLY" in invalid["selection_reason"]
+
+
+def test_stage2_plain_handles_mappingproxy_dataclass_without_deepcopy():
+    @dataclass(frozen=True)
+    class FrozenEvidence:
+        source_row: object
+
+    evidence = FrozenEvidence(
+        source_row=MappingProxyType(
+            {
+                "UniqueName": "F1",
+                "nested": MappingProxyType({"value": 7}),
+            }
+        )
+    )
+
+    assert stage2._plain(evidence) == {
+        "source_row": {
+            "UniqueName": "F1",
+            "nested": {"value": 7},
+        }
+    }

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import argparse
 import csv
-from dataclasses import asdict, is_dataclass
+from dataclasses import fields, is_dataclass
 from enum import Enum
 import json
 import ntpath
@@ -101,7 +101,10 @@ def _plain(value: Any) -> Any:
     if isinstance(value, Enum):
         return _plain(value.value)
     if is_dataclass(value):
-        return _plain(asdict(value))
+        return {
+            field.name: _plain(getattr(value, field.name))
+            for field in fields(value)
+        }
     if isinstance(value, Mapping):
         return {str(key): _plain(item) for key, item in value.items()}
     if isinstance(value, (tuple, list, set, frozenset)):
