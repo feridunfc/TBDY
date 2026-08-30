@@ -13,7 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      CANDIDATE: df41bf34b12b26a0478407a60a241f7bd2d6cec0
+      CANDIDATE: 1fbbe441dd025bc93da39c3915d3d7be34dc2172
+      INTEGRATED_MERGE: df41bf34b12b26a0478407a60a241f7bd2d6cec0
       MAIN: a10f8f12f21c586e685dd792d2d1b016aee7b0ea
       OAPI_PARENT: a4b2c807926f2a1ca79a560e07f97eab6196da70
       BRANCH: sprint/etabs-oapi-layer-1-common-factual-boundary
@@ -34,7 +35,7 @@ jobs:
           test "$(git rev-parse origin/main)" = "$MAIN"
       - uses: actions/checkout@v4
         with:
-          ref: df41bf34b12b26a0478407a60a241f7bd2d6cec0
+          ref: 1fbbe441dd025bc93da39c3915d3d7be34dc2172
           fetch-depth: 0
           clean: true
       - name: Exact integration gate
@@ -42,12 +43,13 @@ jobs:
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$CANDIDATE"
-          test "$(git rev-parse HEAD^1)" = "$OAPI_PARENT"
-          test "$(git rev-parse HEAD^2)" = "$MAIN"
+          test "$(git rev-parse HEAD^1)" = "$INTEGRATED_MERGE"
+          test "$(git rev-parse "$INTEGRATED_MERGE^1")" = "$OAPI_PARENT"
+          test "$(git rev-parse "$INTEGRATED_MERGE^2")" = "$MAIN"
           git merge-base --is-ancestor "$MAIN" HEAD
           git diff --check "$MAIN"...HEAD
           test -z "$(git status --porcelain=v1 -uall)"
-          printf 'candidate=%s\nparent1=%s\nparent2=%s\nmain=%s\n' "$CANDIDATE" "$(git rev-parse HEAD^1)" "$(git rev-parse HEAD^2)" "$MAIN" > "$EVIDENCE/exactness.txt"
+          printf 'candidate=%s\ncandidate_parent=%s\nintegrated_merge=%s\nmerge_parent1=%s\nmerge_parent2=%s\nmain=%s\n' "$CANDIDATE" "$(git rev-parse HEAD^1)" "$INTEGRATED_MERGE" "$(git rev-parse "$INTEGRATED_MERGE^1")" "$(git rev-parse "$INTEGRATED_MERGE^2")" "$MAIN" > "$EVIDENCE/exactness.txt"
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
