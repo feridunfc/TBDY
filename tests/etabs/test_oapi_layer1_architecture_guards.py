@@ -20,6 +20,9 @@ BASELINE_ATTACH_IMPLEMENTATIONS = frozenset(
         "packages/etabs_gateway/src/etabs_gateway/connection.py",
     }
 )
+TARGET_ATTACH_IMPLEMENTATIONS = frozenset(
+    {"packages/etabs_gateway/src/etabs_gateway/connection.py"}
+)
 
 
 def _production_python_files() -> list[Path]:
@@ -96,14 +99,35 @@ def test_exact_base_attach_census_names_the_three_corrected_locations() -> None:
     }
 
 
+def test_candidate_has_exactly_one_production_attach_implementation() -> None:
+    observed = {
+        _relative(path)
+        for path in _production_python_files()
+        if _looks_like_etabs_attach_implementation(path)
+    }
+    assert observed == TARGET_ATTACH_IMPLEMENTATIONS
+
+
 def test_no_production_analysis_or_design_execution_calls_exist() -> None:
     assert _production_call_sites({"RunAnalysis", "StartDesign"}) == []
 
 
 def test_set_present_units_is_confined_to_legacy_unit_context_helper() -> None:
-    observed = _production_call_sites({"SetPresentUnits"})
+    observed = _production_call_sites({"SetPresentUnits", "SetPresentUnits_2"})
     assert observed
     assert {path for path, _ in observed} == {"tbdy_engine/engine/unit_context.py"}
+
+
+def test_new_oapi_layer_never_sets_present_units() -> None:
+    oapi_root = REPO_ROOT / "tbdy_engine" / "etabs" / "oapi"
+    for path in oapi_root.rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        calls = {
+            _dotted_name(node.func).rsplit(".", 1)[-1]
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+        }
+        assert not {"SetPresentUnits", "SetPresentUnits_2"}.intersection(calls), path
 
 
 def test_gateway_public_session_contract_does_not_name_raw_sap_model() -> None:
@@ -117,6 +141,30 @@ def test_gateway_public_session_contract_does_not_name_raw_sap_model() -> None:
     assert "sap_model" not in public_attributes
     assert "model_api" not in public_attributes
     assert "application" not in public_attributes
+
+
+def test_trusted_live_context_has_no_raw_sapmodel_or_attach_result_escape() -> None:
+    context_path = REPO_ROOT / "tbdy_engine" / "integration" / "live_etabs_acquisition_context.py"
+    tree = ast.parse(context_path.read_text(encoding="utf-8"), filename=str(context_path))
+    public_functions = {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and not node.name.startswith("_")
+    }
+    attributes = {node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)}
+    assert "sap_model" not in public_functions
+    assert "sap_model" not in attributes
+    assert "attach_result" not in attributes
+    assert "etabs_object" not in attributes
+
+
+def test_legacy_attach_modules_are_delegation_only() -> None:
+    feature_path = REPO_ROOT / "tbdy_engine" / "features" / "etabs_com_attach.py"
+    connection_path = REPO_ROOT / "tbdy_engine" / "etabs" / "connection.py"
+    for path in (feature_path, connection_path):
+        assert not _looks_like_etabs_attach_implementation(path)
+        text = path.read_text(encoding="utf-8")
+        assert "LEGACY_COMPATIBILITY_ONLY = True" in text
 
 
 def test_ts500_promotion_mapping_stays_outside_oapi() -> None:
