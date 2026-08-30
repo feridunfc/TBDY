@@ -1,0 +1,121 @@
+name: ETABS OAPI Layer 1 Provider Contract Repair
+
+on:
+  push:
+    branches:
+      - validation/etabs-oapi-layer1-stage-a
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      EXPECTED_HEAD: aa43c95587c7e18ff1925ac87e173ab499bee23d
+      CANDIDATE_BRANCH: sprint/etabs-oapi-layer-1-common-factual-boundary
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_BRANCH }}
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Verify exact parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 -uall)"
+
+      - name: Restore provider boundary error contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: expected one match, got {count}')
+              p.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          replace_once(
+              'tbdy_engine/etabs/oapi/object_model.py',
+              '''    if len(candidates) != 1 or not all(isinstance(item, bool) for item in candidates[0]):\n        raise EtabsOAPIError(\n            f"PointObj.GetRestraint({name!r}) requires one six-boolean DOF array"\n        )\n    dofs = tuple(bool(item) for item in candidates[0])\n''',
+              '''    if len(candidates) != 1:\n        raise EtabsOAPIError(\n            f"PointObj.GetRestraint({name!r}) requires exactly one six-DOF array; got {len(candidates)}"\n        )\n    if not all(isinstance(item, bool) for item in candidates[0]):\n        raise EtabsOAPIError(\n            f"PointObj.GetRestraint({name!r}) DOF array must contain booleans"\n        )\n    dofs = tuple(candidates[0])\n''',
+          )
+
+          replace_once(
+              'tbdy_engine/etabs/oapi/load_definitions.py',
+              '''    if len(set(canonical)) != len(canonical):\n        raise EtabsOAPIError(f"{label}.GetNameList returned duplicate names")\n''',
+              '''    if len(set(canonical)) != len(canonical):\n        raise EtabsOAPIError(\n            f"{label}.GetNameList names must be unique; duplicate names returned"\n        )\n''',
+          )
+
+          replace_once(
+              'tbdy_engine/providers/etabs_concrete_column_design_result_provider.py',
+              '''    except EtabsOAPIError as exc:\n        raise EtabsConcreteColumnDesignResultProviderError(str(exc)) from exc\n    return _promote_summary_fact(\n''',
+              '''    except EtabsOAPIError as exc:\n        message = str(exc)\n        if "does not equal requested canonical frame" in message:\n            message = message.replace(\n                "does not equal requested canonical frame",\n                "does not equal requested canonical UniqueName",\n            )\n        raise EtabsConcreteColumnDesignResultProviderError(message) from exc\n    return _promote_summary_fact(\n''',
+          )
+
+          section = Path('tbdy_engine/providers/etabs_concrete_design_section_provider.py')
+          text = section.read_text(encoding='utf-8')
+          old = '''    except EtabsOAPIError as exc:\n        raise EtabsConcreteDesignSectionProviderError(str(exc)) from exc\n'''
+          new = '''    except EtabsOAPIError as exc:\n        raise EtabsConcreteDesignSectionProviderError(\n            f"GetDesignSection factual capture failed: {exc}"\n        ) from exc\n'''
+          count = text.count(old)
+          if count != 2:
+              raise SystemExit(f'design-section catch count={count}, expected 2')
+          section.write_text(text.replace(old, new), encoding='utf-8')
+          PY
+          git diff --check
+          git diff -- \
+            tbdy_engine/etabs/oapi/object_model.py \
+            tbdy_engine/etabs/oapi/load_definitions.py \
+            tbdy_engine/providers/etabs_concrete_column_design_result_provider.py \
+            tbdy_engine/providers/etabs_concrete_design_section_provider.py
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate provider contract repair
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml jsonschema
+          python -m pytest -q \
+            tests/providers/test_p8a_etabs_concrete_column_design_result_provider.py::test_decoder_requires_exact_requested_frame_name \
+            tests/providers/test_vs6_etabs_column_endpoint_restraint_provider.py::test_non_boolean_dof_array_fails_closed \
+            tests/providers/test_vs6_etabs_load_pattern_catalog_provider.py::test_catalog_rejects_count_mismatch_and_duplicates \
+            tests/providers/test_vs6_p8a_f0_concrete_design_section_provider.py::test_11_missing_get_design_section_result_fails_closed \
+            tests/providers/test_vs6_p8a_f0_concrete_design_section_provider.py::test_12_nonzero_get_design_section_return_fails_closed
+          timeout --signal=TERM --kill-after=10s 300s python -m pytest -q tests/providers
+          timeout --signal=TERM --kill-after=10s 180s python -m pytest -q tests/etabs
+          timeout --signal=TERM --kill-after=10s 60s python -m pytest -q \
+            tests/integration/test_acq_ctx_1_trusted_live_etabs_acquisition_context.py \
+            tests/integration/test_etabs_oapi_live_acceptance_infrastructure.py
+          git diff --check
+
+      - name: Commit and fast-forward candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "ETABS OAPI validation repair"
+          git config user.email "actions@users.noreply.github.com"
+          git add \
+            tbdy_engine/etabs/oapi/object_model.py \
+            tbdy_engine/etabs/oapi/load_definitions.py \
+            tbdy_engine/providers/etabs_concrete_column_design_result_provider.py \
+            tbdy_engine/providers/etabs_concrete_design_section_provider.py
+          git commit -m "ETABS-OAPI-LAYER-1: preserve provider error contracts"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_HEAD"
+          git push origin "HEAD:${CANDIDATE_BRANCH}"
+          echo "new_candidate_sha=$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
