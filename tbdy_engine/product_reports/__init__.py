@@ -1,12 +1,13 @@
-"""Product-level report builders.
+"""Dependency-light product reporting package boundary.
 
-Package initialization intentionally stays dependency-light. Canonical report
-models that depend on coverage/reconciliation are imported from their concrete
-modules (for example ``tbdy_engine.product_reports.unified_building_report``)
-rather than eagerly re-exported here. This keeps the reporting package from
-creating a coverage <-> product_reports import cycle.
+Canonical report models, projections, renderers, and legacy compatibility
+modules are imported from their concrete modules.  Package initialization must
+not eagerly import legacy C13/P2 report code because supported product modules
+share this parent package.
+
+The historical C13 report remains directly importable from
+``tbdy_engine.product_reports.c13_1_report``.  It is intentionally not
+re-exported from the package root.
 """
 
-from .c13_1_report import build_c13_1_product_report, write_c13_1_product_report
-
-__all__ = ["build_c13_1_product_report", "write_c13_1_product_report"]
+__all__: list[str] = []
