@@ -360,3 +360,41 @@ def test_current_b1_has_no_public_positive_issuer():
     assert "build_unqualified_analysis_lineage" in public_callables
     assert not any(name.startswith("qualify") for name in public_callables)
     assert not any("execution_proof" in name.lower() for name in public_callables)
+
+
+
+def test_qualification_rejects_noncanonical_contract_even_through_factory_boundary():
+    state = _state()
+    result = _result(state)
+    with pytest.raises(subject.AnalysisLineageError, match="qualification contract mismatch"):
+        subject.AnalysisLineageQualification(
+            _token=subject._QUALIFICATION_FACTORY_TOKEN,
+            status=subject.AnalysisLineageQualificationStatus.QUALIFIED,
+            source_model_ref=SOURCE,
+            analysis_state=state,
+            analysis_result=result,
+            qualification_ref=subject.ANALYSIS_LINEAGE_REF_PREFIX + "0" * 64,
+            qualification_provenance_refs=("qualification:test",),
+            capture_provenance_refs=(),
+            blockers=(),
+            contract="TBDY_ANALYSIS_LINEAGE_QUALIFICATION_V999",
+        )
+
+
+def test_private_qualification_issuance_symbols_are_negative_reachable_from_production_tree():
+    owner = (ROOT / "tbdy_engine/integration/etabs_analysis_lineage.py").resolve()
+    forbidden = (
+        "_QUALIFICATION_FACTORY_TOKEN",
+        "_EXECUTION_PROOF_FACTORY_TOKEN",
+        "_VerifiedAnalysisExecutionProof",
+        "_build_qualified_analysis_lineage",
+    )
+    violations = []
+    for path in sorted((ROOT / "tbdy_engine").rglob("*.py")):
+        if path.resolve() == owner:
+            continue
+        text = path.read_text(encoding="utf-8")
+        for symbol in forbidden:
+            if symbol in text:
+                violations.append((path.relative_to(ROOT).as_posix(), symbol))
+    assert violations == []

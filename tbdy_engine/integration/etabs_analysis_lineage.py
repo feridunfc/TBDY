@@ -329,6 +329,8 @@ class AnalysisLineageQualification:
             )
         if not isinstance(status, AnalysisLineageQualificationStatus):
             raise TypeError("status must be AnalysisLineageQualificationStatus")
+        if contract != ANALYSIS_LINEAGE_QUALIFICATION_CONTRACT:
+            raise AnalysisLineageError("analysis-lineage qualification contract mismatch")
         source_model_ref = _text(source_model_ref, "source_model_ref")
         qrefs = _refs(qualification_provenance_refs, "qualification_provenance_ref", required=True)
         crefs = _refs(capture_provenance_refs, "capture_provenance_ref")
