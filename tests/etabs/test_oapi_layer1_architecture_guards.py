@@ -12,6 +12,7 @@ TARGET_ATTACH_IMPLEMENTATION_COUNT = 1
 BASELINE_DATABASETABLES_RAW_ACCESS_FILE_COUNT = 9
 BASELINE_RESULTS_SETUP_RAW_ACCESS_FILE_COUNT = 1
 BASELINE_PROVIDER_LOCAL_ABI_OWNER_COUNT = 7
+PRIVATE_SAFETY_DEBT_CLASSIFICATION = "PRIVATE_COMPATIBILITY_IMPLEMENTATION_DEBT"
 
 BASELINE_ATTACH_IMPLEMENTATIONS = frozenset(
     {
@@ -79,6 +80,34 @@ def _production_call_sites(final_names: set[str]) -> list[tuple[str, str]]:
             if final_name in final_names:
                 found.append((_relative(path), target))
     return found
+
+
+def _imported_modules(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            modules.add("." * node.level + (node.module or ""))
+    return modules
+
+
+def _module_all_names(path: Path) -> tuple[str, ...]:
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        if not any(isinstance(target, ast.Name) and target.id == "__all__" for target in node.targets):
+            continue
+        if not isinstance(node.value, (ast.List, ast.Tuple)):
+            return ()
+        return tuple(
+            item.value
+            for item in node.value.elts
+            if isinstance(item, ast.Constant) and isinstance(item.value, str)
+        )
+    return ()
 
 
 def test_corrected_phase0_accounting_is_frozen() -> None:
@@ -165,6 +194,49 @@ def test_legacy_attach_modules_are_delegation_only() -> None:
         assert not _looks_like_etabs_attach_implementation(path)
         text = path.read_text(encoding="utf-8")
         assert "LEGACY_COMPATIBILITY_ONLY = True" in text
+
+
+def test_private_safety_legacy_is_reachable_only_through_the_safety_facade() -> None:
+    observed = {
+        _relative(path)
+        for path in _production_python_files()
+        if {"._safety_legacy", "tbdy_engine.etabs._safety_legacy"}.intersection(
+            _imported_modules(path)
+        )
+    }
+    assert observed == {"tbdy_engine/etabs/safety.py"}
+    assert PRIVATE_SAFETY_DEBT_CLASSIFICATION == "PRIVATE_COMPATIBILITY_IMPLEMENTATION_DEBT"
+
+
+def test_public_safety_facade_does_not_reexport_legacy_attach_or_raw_capability_apis() -> None:
+    safety_path = REPO_ROOT / "tbdy_engine" / "etabs" / "safety.py"
+    exported = set(_module_all_names(safety_path))
+    forbidden = {
+        "EtabsAttachAttempt",
+        "EtabsAttachResult",
+        "attach_to_running_etabs",
+        "ATTACH_STATUS_ATTACHED",
+        "ATTACH_STATUS_FAILED",
+        "_execute_verified_read",
+    }
+    assert not forbidden.intersection(exported)
+    safety_text = safety_path.read_text(encoding="utf-8")
+    assert "from ._safety_legacy import" in safety_text
+    assert "retained privately" in safety_text
+
+
+def test_semantic_providers_do_not_reach_independent_attach_modules() -> None:
+    providers_root = REPO_ROOT / "tbdy_engine" / "providers"
+    forbidden = {
+        "tbdy_engine.features.etabs_com_attach",
+        "tbdy_engine.etabs.connection",
+    }
+    offenders = {
+        _relative(path): sorted(forbidden.intersection(_imported_modules(path)))
+        for path in providers_root.glob("etabs_*.py")
+        if forbidden.intersection(_imported_modules(path))
+    }
+    assert offenders == {}
 
 
 def test_ts500_promotion_mapping_stays_outside_oapi() -> None:
