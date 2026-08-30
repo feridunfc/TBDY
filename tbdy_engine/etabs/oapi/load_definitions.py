@@ -92,6 +92,12 @@ def _integer(value: Any, label: str) -> int:
     return result
 
 
+def _exact_integer(value: Any, label: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise EtabsOAPIError(f"{label} must be an exact integer")
+    return value
+
+
 def _read_name_list(container: Any, label: str) -> tuple[tuple[str, ...], object]:
     raw = container.GetNameList()
     if not isinstance(raw, (tuple, list)) or len(raw) != 3:
@@ -148,15 +154,13 @@ def read_load_case_type(load_cases: Any, name: str) -> LoadCaseTypeFact:
         subtype_code=_integer(subtype, f"{case_name}.SubType"),
         design_type_code=_integer(design_type, f"{case_name}.DesignType"),
         design_type_option=_integer(design_option, f"{case_name}.DesignTypeOption"),
-        auto_flag=_integer(auto, f"{case_name}.Auto"),
+        auto_flag=_exact_integer(auto, f"{case_name}.Auto"),
         raw_response=raw,
     )
     if fact.case_type_code <= 0:
         raise EtabsOAPIError(f"{case_name}.CaseType must be positive")
     if fact.design_type_option not in (0, 1):
         raise EtabsOAPIError(f"{case_name}.DesignTypeOption must be 0 or 1")
-    if fact.auto_flag not in (0, 1):
-        raise EtabsOAPIError(f"{case_name}.Auto must be 0 or 1")
     return fact
 
 
