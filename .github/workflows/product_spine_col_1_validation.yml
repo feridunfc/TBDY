@@ -1,293 +1,165 @@
-"""First supported project application root for PRODUCT-SPINE-COL-1.
+name: PRODUCT-SPINE-COL-1 Validation
 
-``execute_project`` owns lifecycle/composition only.  Runtime capability is a
-keyword dependency, not user/project intent.  A1 does not run ETABS analysis or
-design and, because current-main lacks a qualified LIVE FND-COL-2 input builder,
-truthfully stops before FND-COL-2X.
-"""
-from __future__ import annotations
+on:
+  push:
+    branches:
+      - sprint/col-runtime-1-production-runtime
+  workflow_dispatch:
 
-from dataclasses import dataclass
+permissions:
+  contents: read
 
-from tbdy_engine.application.column_execution import ColumnDomainArtifact, execute_column_domain
-from tbdy_engine.application.contracts import ProjectExecutionRequest
-from tbdy_engine.coverage.project_reconciliation import (
-    AnalysisBasisRef,
-    ProjectCoverageReconciliation,
-    ProjectCoverageReconciler,
-    ReportBindingRef,
-    ReportContributionRef,
-    canonical_closure_report_source_ref,
-    canonical_quantity_report_source_ref,
-)
-from tbdy_engine.etabs.safety import EtabsVerifiedSession
-from tbdy_engine.integration.live_etabs_acquisition_context import (
-    TrustedLiveAcquisitionContext,
-    create_trusted_live_acquisition_context,
-)
-from tbdy_engine.product_reports.slice_report_contribution import ReportField, SliceReportContribution
-from tbdy_engine.product_reports.unified_building_report import (
-    BuildingReportModel,
-    ProjectBasisEntry,
-    ProjectBasisLedger,
-    ReportSourceKind,
-    SourceManifest,
-    SourceManifestEntry,
-)
-from tbdy_engine.regulatory.fnd_col_2 import READINESS_KEY
-from tbdy_engine.regulatory.kernel import AnalysisBasisStatus, StructuralAssessment
+env:
+  FROZEN_BASE: 74d5b6083afed75e44b832336c31755aee482daa
 
+jobs:
+  product-spine-col-1:
+    name: PRODUCT-SPINE-COL-1 Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact candidate head
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
 
-class ProjectExecutionContractError(ValueError):
-    """Raised when project composition cannot preserve canonical identity."""
+      - name: Verify frozen-base ancestry and initial hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git merge-base "$FROZEN_BASE" HEAD)" = "$FROZEN_BASE"
+          test "$(git rev-parse "$FROZEN_BASE")" = "$FROZEN_BASE"
+          git diff --check "$FROZEN_BASE"...HEAD
+          echo "candidate_head=$(git rev-parse HEAD)"
+          echo "frozen_base=$FROZEN_BASE"
+          git diff --name-only "$FROZEN_BASE"...HEAD
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-@dataclass(frozen=True, slots=True)
-class ProjectExecutionArtifact:
-    """Bounded application result; absence of FCR/report means no rule execution occurred."""
+      - name: Install accepted repository test toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install \
+            pytest \
+            pyyaml \
+            jsonschema \
+            weasyprint==69.0 \
+            pydyf==0.12.1 \
+            pypdf==6.16.1 \
+            pypdfium2==5.12.1 \
+            openpyxl==3.1.5 \
+            et_xmlfile==2.0.0
 
-    project_id: str
-    report_id: str
-    status: str
-    acquisition_context_ref: str
-    column: ColumnDomainArtifact
-    structural_assessment: StructuralAssessment | None = None
-    reconciliation: ProjectCoverageReconciliation | None = None
-    building_report_model: BuildingReportModel | None = None
+      - name: Compile and import
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m compileall -q tbdy_engine tests
+          python - <<'PY'
+          import inspect
+          from tbdy_engine.application import (
+              ColumnExecutionRequest,
+              ProjectExecutionRequest,
+              execute_project,
+          )
 
+          signature = inspect.signature(execute_project)
+          assert tuple(signature.parameters) == ("request", "verified_session")
+          assert signature.parameters["verified_session"].kind is inspect.Parameter.KEYWORD_ONLY
+          print(ColumnExecutionRequest)
+          print(ProjectExecutionRequest)
+          print(signature)
+          PY
 
-def _report_status(column: ColumnDomainArtifact) -> str:
-    if column.fnd_col_2_execution is None or column.fnd_col_2_execution.readiness is None:
-        return "BLOCKED"
-    readiness = column.fnd_col_2_execution.readiness
-    return {
-        "READY": "PROVEN",
-        "REANALYSIS_REQUIRED": "REANALYSIS_REQUIRED",
-        "BLOCKED": "BLOCKED",
-        "UNRESOLVED": "NOT_EVALUATED",
-    }.get(readiness.status, "NOT_EVALUATED")
+      - name: Focused A1-P1 tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q tests/application/test_product_spine_col_1.py
 
+      - name: Required focused and authority regression tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pytest -q \
+            tests/regulatory/test_fnd_col_2x_typed_execution_artifact.py \
+            tests/design/columns/test_column_longitudinal_selection_policy_factory.py \
+            tests/design/columns/test_p8a_b_column_longitudinal_production_composition.py \
+            tests/design/columns/test_fnd_col_4_pmm_assessment.py \
+            tests/regulatory/test_fnd_col_1_longitudinal_authority.py \
+            tests/coverage/test_fcr_1a_project_reconciliation.py \
+            tests/product_reports/test_unified_building_report.py
 
-def _report_contribution(column: ColumnDomainArtifact) -> SliceReportContribution:
-    if column.fnd_col_2_execution is None:
-        raise ProjectExecutionContractError("report contribution requires canonical FND-COL-2 execution")
-    readiness = column.fnd_col_2_execution.readiness
-    fields = [
-        ReportField(
-            key="application_status",
-            label="Column application status",
-            value=column.status,
-            role="STATUS",
-        )
-    ]
-    evidence_refs: tuple[str, ...] = ()
-    if readiness is not None:
-        fields.extend(
-            (
-                ReportField(
-                    key="design_readiness_status",
-                    label="FND-COL-2 design readiness",
-                    value=readiness.status,
-                    role="STATUS",
-                ),
-                ReportField(
-                    key="second_order_treatment",
-                    label="Second-order treatment",
-                    value=readiness.second_order_treatment,
-                    role="STATUS",
-                ),
-            )
-        )
-        evidence_refs = tuple(readiness.source_refs)
-    return SliceReportContribution(
-        slice_id=f"product-spine-col-1:readiness:{column.component_id}",
-        title="Column design readiness",
-        contribution_kind="REGULATORY",
-        status=_report_status(column),
-        component_type="COLUMN",
-        component_id=column.component_id,
-        summary_fields=tuple(fields),
-        evidence_refs=evidence_refs,
-        warnings=tuple(column.blockers),
-    )
+      - name: Candidate broad suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          python -m pytest -q > /tmp/candidate.log 2>&1
+          candidate_rc=$?
+          set -e
+          printf '%s\n' "$candidate_rc" > /tmp/candidate.rc
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' /tmp/candidate.log | sort -u > /tmp/candidate.sig || true
+          echo "candidate_pytest_exit=$candidate_rc"
+          echo "candidate_failure_signatures:"
+          cat /tmp/candidate.sig || true
+          echo "candidate_tail:"
+          tail -n 80 /tmp/candidate.log || true
 
+      - name: Frozen-base broad suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/frozen-base
+          git worktree add --detach /tmp/frozen-base "$FROZEN_BASE"
+          set +e
+          (
+            cd /tmp/frozen-base
+            python -m pytest -q > /tmp/base.log 2>&1
+          )
+          base_rc=$?
+          set -e
+          printf '%s\n' "$base_rc" > /tmp/base.rc
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' /tmp/base.log | sort -u > /tmp/base.sig || true
+          echo "frozen_base_pytest_exit=$base_rc"
+          echo "frozen_base_failure_signatures:"
+          cat /tmp/base.sig || true
+          echo "frozen_base_tail:"
+          tail -n 80 /tmp/base.log || true
 
-def _report_binding(
-    column: ColumnDomainArtifact,
-    contribution: SliceReportContribution,
-) -> ReportBindingRef:
-    if column.fnd_col_2_program is None or column.fnd_col_2_execution is None:
-        raise ProjectExecutionContractError("report binding requires canonical FND-COL-2 artifacts")
-    inventory = tuple(column.fnd_col_2_program.plan.compiled_closure_inventory)
-    if len(inventory) != 1:
-        raise ProjectExecutionContractError(
-            "PRODUCT-SPINE-COL-1 expects exactly one FND-COL-2 closure instance"
-        )
-    instance_id = inventory[0].instance_id
-    if column.fnd_col_2_execution.readiness is None:
-        source_ref = canonical_closure_report_source_ref(instance_id)
-    else:
-        source_ref = canonical_quantity_report_source_ref(instance_id, READINESS_KEY)
-    return ReportBindingRef(source_ref, ReportContributionRef.from_contribution(contribution))
+      - name: Zero-new-failure delta
+        shell: bash
+        run: |
+          set -euo pipefail
+          candidate_rc="$(cat /tmp/candidate.rc)"
+          base_rc="$(cat /tmp/base.rc)"
+          comm -23 /tmp/candidate.sig /tmp/base.sig > /tmp/new.sig || true
+          comm -23 /tmp/base.sig /tmp/candidate.sig > /tmp/missing.sig || true
 
+          echo "candidate_pytest_exit=$candidate_rc"
+          echo "frozen_base_pytest_exit=$base_rc"
+          echo "new_failure_signatures:"
+          cat /tmp/new.sig || true
+          echo "missing_or_changed_inherited_signatures:"
+          cat /tmp/missing.sig || true
 
-def _analysis_basis_refs(column: ColumnDomainArtifact) -> tuple[AnalysisBasisRef, ...]:
-    if column.fnd_col_2_execution is None or column.fnd_col_2_execution.readiness is None:
-        return ()
-    readiness = column.fnd_col_2_execution.readiness
-    try:
-        status = AnalysisBasisStatus(readiness.analysis_basis_status)
-    except ValueError as exc:
-        raise ProjectExecutionContractError(
-            "FND-COL-2 emitted an unknown canonical analysis-basis status"
-        ) from exc
-    record = column.fnd_col_2_execution.readiness_records[0]
-    if column.readiness_binding is None:
-        raise ProjectExecutionContractError("typed readiness is missing its application binding")
-    return (
-        AnalysisBasisRef(
-            instance_id=record.readiness_instance_ref,
-            status=status,
-            source_ref=column.readiness_binding.readiness_ref,
-        ),
-    )
+          test ! -s /tmp/new.sig
+          test ! -s /tmp/missing.sig
+          if [ "$base_rc" -eq 0 ]; then
+            test "$candidate_rc" -eq 0
+          fi
 
+          git worktree remove --force /tmp/frozen-base
 
-def _build_closure_and_report(
-    request: ProjectExecutionRequest,
-    column: ColumnDomainArtifact,
-    *,
-    source_id: str,
-    source_kind: ReportSourceKind,
-    source_title: str,
-    source_locator: str | None,
-    execution_mode_label: str,
-) -> tuple[StructuralAssessment, ProjectCoverageReconciliation, BuildingReportModel]:
-    """Reuse existing Assessment/FCR/BuildingReportModel without engineering reinterpretation."""
-    if column.fnd_col_2_program is None or column.fnd_col_2_execution is None:
-        raise ProjectExecutionContractError("canonical closure requires FND-COL-2 program/execution")
-    contribution = _report_contribution(column)
-    binding = _report_binding(column, contribution)
-    reconciliation = ProjectCoverageReconciler.reconcile(
-        compiled_program=column.fnd_col_2_program,
-        store_snapshot=column.fnd_col_2_execution.snapshot,
-        report_contributions=(contribution,),
-        required_report_source_refs=(binding.source_ref,),
-        report_bindings=(binding,),
-        analysis_basis_refs=_analysis_basis_refs(column),
-    )
-    basis = ProjectBasisLedger(
-        (
-            ProjectBasisEntry(
-                key="execution_mode",
-                label="Execution mode",
-                value=execution_mode_label,
-                source_ids=(source_id,),
-            ),
-            ProjectBasisEntry(
-                key="model_fingerprint",
-                label="Source model fingerprint",
-                value=column.model_fingerprint,
-                source_ids=(source_id,),
-            ),
-            ProjectBasisEntry(
-                key="evidence_epoch_id",
-                label="Factual acquisition epoch",
-                value=column.evidence_epoch_id,
-                source_ids=(source_id,),
-            ),
-        )
-    )
-    manifest = SourceManifest(
-        (
-            SourceManifestEntry(
-                source_id=source_id,
-                source_kind=source_kind,
-                title=source_title,
-                fingerprint=column.model_fingerprint,
-                locator=source_locator,
-            ),
-        )
-    )
-    model = BuildingReportModel(
-        report_id=request.report_id,
-        project_id=request.project_id,
-        title=request.title,
-        reconciliation=reconciliation,
-        project_basis=basis,
-        source_manifest=manifest,
-        contributions=(contribution,),
-        report_bindings=(binding,),
-    )
-    return reconciliation.structural_assessment, reconciliation, model
-
-
-def _complete_project_from_canonical_column(
-    request: ProjectExecutionRequest,
-    column: ColumnDomainArtifact,
-    *,
-    acquisition_context_ref: str,
-    source_id: str,
-    source_kind: ReportSourceKind,
-    source_title: str,
-    source_locator: str | None,
-    execution_mode_label: str,
-) -> ProjectExecutionArtifact:
-    assessment, reconciliation, report = _build_closure_and_report(
-        request,
-        column,
-        source_id=source_id,
-        source_kind=source_kind,
-        source_title=source_title,
-        source_locator=source_locator,
-        execution_mode_label=execution_mode_label,
-    )
-    return ProjectExecutionArtifact(
-        project_id=request.project_id,
-        report_id=request.report_id,
-        status=column.status,
-        acquisition_context_ref=acquisition_context_ref,
-        column=column,
-        structural_assessment=assessment,
-        reconciliation=reconciliation,
-        building_report_model=report,
-    )
-
-
-def execute_project(
-    request: ProjectExecutionRequest,
-    *,
-    verified_session: EtabsVerifiedSession,
-) -> ProjectExecutionArtifact:
-    """Execute the legal LIVE A1 product boundary with one trusted acquisition generation."""
-    if not isinstance(request, ProjectExecutionRequest):
-        raise TypeError("request must be ProjectExecutionRequest")
-    if not isinstance(verified_session, EtabsVerifiedSession):
-        raise TypeError("verified_session must be EtabsVerifiedSession")
-    context: TrustedLiveAcquisitionContext = create_trusted_live_acquisition_context(verified_session)
-    column = execute_column_domain(request.column, acquisition_context=context)
-
-    # A1 current-main has no legally-qualified FND-COL-2 compile-input builder.
-    # Therefore no Assessment/FCR/report claim is created from this application blocker.
-    if column.fnd_col_2_execution is None:
-        return ProjectExecutionArtifact(
-            project_id=request.project_id,
-            report_id=request.report_id,
-            status=column.status,
-            acquisition_context_ref=context.acquisition_context_ref,
-            column=column,
-        )
-
-    return _complete_project_from_canonical_column(
-        request,
-        column,
-        acquisition_context_ref=context.acquisition_context_ref,
-        source_id=context.source_model_identity.source_model_ref,
-        source_kind=ReportSourceKind.ETABS_MODEL,
-        source_title="Verified ETABS source model",
-        source_locator=context.source_model_identity.normalized_model_reference,
-        execution_mode_label="LIVE",
-    )
-
-
-__all__ = ["ProjectExecutionArtifact", "ProjectExecutionContractError", "execute_project"]
+      - name: Final repository hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check "$FROZEN_BASE"...HEAD
+          git status --porcelain=v1 -uall
+          test -z "$(git status --porcelain=v1 -uall)"
