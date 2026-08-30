@@ -10,14 +10,14 @@ permissions:
   contents: read
 
 jobs:
-  phase-1-diagnostic:
+  stage-a:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
-      CANDIDATE_SHA: 698dd90e817ceca54fb5c6140959c5ccfe62d347
+      CANDIDATE_SHA: 008e9c569d3022a5e9c676cf5ec7a166c0a34f26
       FROZEN_BASE_SHA: 74d5b6083afed75e44b832336c31755aee482daa
       CANDIDATE_BRANCH: sprint/etabs-oapi-layer-1-common-factual-boundary
-      EVIDENCE_DIR: /tmp/etabs-oapi-layer1-stage-a-diagnostic
+      EVIDENCE_DIR: /tmp/etabs-oapi-layer1-stage-a-evidence
       BASE_WORKTREE: /tmp/tbdy-oapi-frozen
 
     steps:
@@ -26,7 +26,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Record workflow source and verify candidate ref before diagnostic
+      - name: Record workflow source and verify candidate ref before validation
         shell: bash
         run: |
           set -euo pipefail
@@ -35,25 +35,34 @@ jobs:
           printf '%s\n' "$CANDIDATE_SHA" > "$EVIDENCE_DIR/candidate_sha.txt"
           printf '%s\n' "$FROZEN_BASE_SHA" > "$EVIDENCE_DIR/frozen_base_sha.txt"
           git fetch --no-tags origin "refs/heads/${CANDIDATE_BRANCH}:refs/remotes/origin/${CANDIDATE_BRANCH}"
-          actual="$(git rev-parse "refs/remotes/origin/${CANDIDATE_BRANCH}")"
-          printf '%s\n' "$actual" > "$EVIDENCE_DIR/candidate_ref_before.txt"
-          test "$actual" = "$CANDIDATE_SHA"
+          actual_ref="$(git rev-parse "refs/remotes/origin/${CANDIDATE_BRANCH}")"
+          printf '%s\n' "$actual_ref" > "$EVIDENCE_DIR/candidate_ref_before.txt"
+          test "$actual_ref" = "$CANDIDATE_SHA"
 
       - name: Checkout exact candidate SHA
         uses: actions/checkout@v4
         with:
-          ref: 698dd90e817ceca54fb5c6140959c5ccfe62d347
+          ref: 008e9c569d3022a5e9c676cf5ec7a166c0a34f26
           fetch-depth: 0
           clean: true
 
-      - name: Verify exact candidate checkout
+      - name: Exact candidate gate
         shell: bash
         run: |
           set -euo pipefail
+          {
+            echo "workflow_source_sha=$(cat "$EVIDENCE_DIR/workflow_source_sha.txt")"
+            echo "tested_candidate_sha=$(git rev-parse HEAD)"
+            echo "expected_candidate_sha=$CANDIDATE_SHA"
+            echo "merge_base=$(git merge-base "$FROZEN_BASE_SHA" HEAD)"
+            echo "expected_merge_base=$FROZEN_BASE_SHA"
+          } | tee "$EVIDENCE_DIR/initial_exactness.txt"
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
           test "$(git merge-base "$FROZEN_BASE_SHA" HEAD)" = "$FROZEN_BASE_SHA"
           git diff --check "$FROZEN_BASE_SHA"...HEAD
-          test -z "$(git status --porcelain=v1 -uall)"
+          status="$(git status --porcelain=v1 -uall)"
+          printf 'initial_status_porcelain=%q\n' "$status" | tee -a "$EVIDENCE_DIR/initial_exactness.txt"
+          test -z "$status"
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -75,90 +84,397 @@ jobs:
             pypdfium2==5.12.1 \
             openpyxl==3.1.5 \
             et_xmlfile==2.0.0
-          python --version > "$EVIDENCE_DIR/python_version.txt"
+          python --version | tee "$EVIDENCE_DIR/python_version.txt"
           python -m pip freeze | sort > "$EVIDENCE_DIR/toolchain.txt"
 
-      - name: Candidate direct vendor verifier
+      - name: Compile and import smoke
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          python -m compileall -q tbdy_engine tests packages/etabs_gateway
+          python - <<'PY' | tee "$EVIDENCE_DIR/import_smoke.txt"
+          import etabs_gateway
+          import tbdy_engine.etabs.safety
+          import tbdy_engine.etabs.oapi
+          import tbdy_engine.integration.live_etabs_acquisition_context
+          print("etabs_gateway=OK")
+          print("tbdy_engine.etabs.safety=OK")
+          print("tbdy_engine.etabs.oapi=OK")
+          print("tbdy_engine.integration.live_etabs_acquisition_context=OK")
+          PY
+
+      - name: Gateway suite with exact inherited-failure delta
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          candidate_log="$EVIDENCE_DIR/focused_gateway_candidate.log"
+          candidate_xml="$EVIDENCE_DIR/focused_gateway_candidate.xml"
+          frozen_log="$EVIDENCE_DIR/focused_gateway_frozen.log"
+          frozen_xml="$EVIDENCE_DIR/focused_gateway_frozen.xml"
+
+          set +e
+          python -m pytest -q packages/etabs_gateway/tests --junitxml="$candidate_xml" > "$candidate_log" 2>&1
+          candidate_rc=$?
+          set -e
+          printf '%s\n' "$candidate_rc" > "$EVIDENCE_DIR/focused_gateway_candidate.rc"
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' "$candidate_log" | sort -u > "$EVIDENCE_DIR/focused_gateway_candidate.sig" || true
+
+          rm -rf "$BASE_WORKTREE"
+          git worktree add --detach "$BASE_WORKTREE" "$FROZEN_BASE_SHA"
+          set +e
+          (
+            cd "$BASE_WORKTREE"
+            PYTHONPATH="$BASE_WORKTREE/packages/etabs_gateway/src:$BASE_WORKTREE" \
+              python -m pytest -q packages/etabs_gateway/tests --junitxml="$frozen_xml" > "$frozen_log" 2>&1
+          )
+          frozen_rc=$?
+          set -e
+          printf '%s\n' "$frozen_rc" > "$EVIDENCE_DIR/focused_gateway_frozen.rc"
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' "$frozen_log" | sort -u > "$EVIDENCE_DIR/focused_gateway_frozen.sig" || true
+
+          comm -13 "$EVIDENCE_DIR/focused_gateway_frozen.sig" "$EVIDENCE_DIR/focused_gateway_candidate.sig" > "$EVIDENCE_DIR/new_gateway_failure_signatures.txt"
+          comm -23 "$EVIDENCE_DIR/focused_gateway_frozen.sig" "$EVIDENCE_DIR/focused_gateway_candidate.sig" > "$EVIDENCE_DIR/missing_gateway_inherited_signatures.txt"
+          cp "$EVIDENCE_DIR/focused_gateway_frozen.sig" "$EVIDENCE_DIR/inherited_gateway_failures.txt"
+
+          python - <<'PY' | tee -a "$EVIDENCE_DIR/focused_test_results.txt"
+          import os, xml.etree.ElementTree as ET
+          d = os.environ['EVIDENCE_DIR']
+          for label in ('candidate', 'frozen'):
+              root = ET.parse(f'{d}/focused_gateway_{label}.xml').getroot()
+              suite = root if root.tag == 'testsuite' else root.find('testsuite')
+              a = suite.attrib
+              tests = int(a.get('tests', 0)); failures = int(a.get('failures', 0)); errors = int(a.get('errors', 0)); skipped = int(a.get('skipped', 0))
+              passed = tests - failures - errors - skipped
+              rc = open(f'{d}/focused_gateway_{label}.rc', encoding='utf-8').read().strip()
+              print(f'gateway_{label}|rc={rc}|tests={tests}|passed={passed}|failures={failures}|errors={errors}|skipped={skipped}')
+          PY
+
+          {
+            echo "GATEWAY_SUITE_EXIT=$candidate_rc"
+            echo "FROZEN_GATEWAY_SUITE_EXIT=$frozen_rc"
+            echo "INHERITED_GATEWAY_FAILURES="
+            cat "$EVIDENCE_DIR/inherited_gateway_failures.txt"
+            echo "NEW_GATEWAY_FAILURES="
+            cat "$EVIDENCE_DIR/new_gateway_failure_signatures.txt"
+            echo "MISSING_OR_CHANGED_INHERITED_GATEWAY_FAILURES="
+            cat "$EVIDENCE_DIR/missing_gateway_inherited_signatures.txt"
+          } | tee "$EVIDENCE_DIR/gateway_delta.txt"
+
+          git worktree remove --force "$BASE_WORKTREE"
+          if [ "$frozen_rc" -eq 0 ]; then test "$candidate_rc" -eq 0; fi
+          test ! -s "$EVIDENCE_DIR/new_gateway_failure_signatures.txt"
+          test ! -s "$EVIDENCE_DIR/missing_gateway_inherited_signatures.txt"
+
+      - name: Focused ETABS safety OAPI architecture suite
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          log="$EVIDENCE_DIR/focused_etabs.log"
+          xml="$EVIDENCE_DIR/focused_etabs.xml"
+          set +e
+          python -m pytest -q tests/etabs --junitxml="$xml" > "$log" 2>&1
+          rc=$?
+          set -e
+          python - "$xml" "$rc" >> "$EVIDENCE_DIR/focused_test_results.txt" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          path, rc = sys.argv[1], int(sys.argv[2])
+          root = ET.parse(path).getroot(); suite = root if root.tag == 'testsuite' else root.find('testsuite'); a = suite.attrib
+          tests=int(a.get('tests',0)); failures=int(a.get('failures',0)); errors=int(a.get('errors',0)); skipped=int(a.get('skipped',0))
+          print(f'etabs|rc={rc}|tests={tests}|passed={tests-failures-errors-skipped}|failures={failures}|errors={errors}|skipped={skipped}|command=python -m pytest -q tests/etabs')
+          PY
+          if [ "$rc" -ne 0 ]; then cat "$log"; fi
+          exit "$rc"
+
+      - name: Focused TrustedLiveAcquisitionContext regression
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          target="tests/integration/test_acq_ctx_1_trusted_live_etabs_acquisition_context.py"
+          log="$EVIDENCE_DIR/focused_acq_context.log"
+          xml="$EVIDENCE_DIR/focused_acq_context.xml"
+          set +e
+          python -m pytest -q "$target" --junitxml="$xml" > "$log" 2>&1
+          rc=$?
+          set -e
+          python - "$xml" "$rc" "$target" >> "$EVIDENCE_DIR/focused_test_results.txt" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          path, rc, target = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+          root=ET.parse(path).getroot(); suite=root if root.tag=='testsuite' else root.find('testsuite'); a=suite.attrib
+          tests=int(a.get('tests',0)); failures=int(a.get('failures',0)); errors=int(a.get('errors',0)); skipped=int(a.get('skipped',0))
+          print(f'acquisition_context|rc={rc}|tests={tests}|passed={tests-failures-errors-skipped}|failures={failures}|errors={errors}|skipped={skipped}|command=python -m pytest -q {target}')
+          PY
+          if [ "$rc" -ne 0 ]; then cat "$log"; fi
+          exit "$rc"
+
+      - name: Focused Stage-1 and Stage-2 offline infrastructure regressions
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          target="tests/integration/test_etabs_oapi_live_acceptance_infrastructure.py"
+          log="$EVIDENCE_DIR/focused_live_infrastructure.log"
+          xml="$EVIDENCE_DIR/focused_live_infrastructure.xml"
+          set +e
+          python -m pytest -q "$target" --junitxml="$xml" > "$log" 2>&1
+          rc=$?
+          set -e
+          python - "$xml" "$rc" "$target" >> "$EVIDENCE_DIR/focused_test_results.txt" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          path, rc, target = sys.argv[1], int(sys.argv[2]), sys.argv[3]
+          root=ET.parse(path).getroot(); suite=root if root.tag=='testsuite' else root.find('testsuite'); a=suite.attrib
+          tests=int(a.get('tests',0)); failures=int(a.get('failures',0)); errors=int(a.get('errors',0)); skipped=int(a.get('skipped',0))
+          print(f'live_infrastructure_offline|rc={rc}|tests={tests}|passed={tests-failures-errors-skipped}|failures={failures}|errors={errors}|skipped={skipped}|command=python -m pytest -q {target}')
+          PY
+          if [ "$rc" -ne 0 ]; then cat "$log"; fi
+          exit "$rc"
+
+      - name: Discover and run migrated provider and OAPI consumer regressions
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          python - <<'PY' > "$EVIDENCE_DIR/migrated_focused_paths.txt"
+          from pathlib import Path
+          tokens = (
+              'tbdy_engine.etabs.oapi',
+              'etabs_column_endpoint_restraint_provider',
+              'etabs_column_rebar_intent_provider',
+              'etabs_combo_definition_provider',
+              'etabs_static_linear_case_provider',
+              'etabs_load_pattern_catalog_provider',
+              'etabs_concrete_column_design_result_provider',
+              'etabs_concrete_design_section_provider',
+              'etabs_strict_column_topology_provider',
+              'etabs_concrete_design_combo_selection_probe',
+              'live_etabs_acquisition_context',
+          )
+          found=[]
+          for path in Path('tests').rglob('test_*.py'):
+              text=path.read_text(encoding='utf-8', errors='replace')
+              if any(token in text for token in tokens): found.append(path.as_posix())
+          for path in sorted(set(found)): print(path)
+          PY
+          mapfile -t paths < "$EVIDENCE_DIR/migrated_focused_paths.txt"
+          if ((${#paths[@]} == 0)); then echo "No migrated consumer tests discovered" >&2; exit 1; fi
+          log="$EVIDENCE_DIR/focused_migrated_consumers.log"
+          xml="$EVIDENCE_DIR/focused_migrated_consumers.xml"
+          set +e
+          python -m pytest -q "${paths[@]}" --junitxml="$xml" > "$log" 2>&1
+          rc=$?
+          set -e
+          python - "$xml" "$rc" >> "$EVIDENCE_DIR/focused_test_results.txt" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          path, rc = sys.argv[1], int(sys.argv[2])
+          root=ET.parse(path).getroot(); suite=root if root.tag=='testsuite' else root.find('testsuite'); a=suite.attrib
+          tests=int(a.get('tests',0)); failures=int(a.get('failures',0)); errors=int(a.get('errors',0)); skipped=int(a.get('skipped',0))
+          print(f'migrated_consumers|rc={rc}|tests={tests}|passed={tests-failures-errors-skipped}|failures={failures}|errors={errors}|skipped={skipped}|command=python -m pytest -q <migrated_focused_paths.txt>')
+          PY
+          if [ "$rc" -ne 0 ]; then cat "$log"; fi
+          exit "$rc"
+
+      - name: Architecture guard and exact sidecar census
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          log="$EVIDENCE_DIR/focused_architecture.log"
+          xml="$EVIDENCE_DIR/focused_architecture.xml"
+          python -m pytest -q tests/etabs/test_oapi_layer1_architecture_guards.py --junitxml="$xml" > "$log" 2>&1
+          python - "$xml" >> "$EVIDENCE_DIR/focused_test_results.txt" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+          root=ET.parse(sys.argv[1]).getroot(); suite=root if root.tag=='testsuite' else root.find('testsuite'); a=suite.attrib
+          tests=int(a.get('tests',0)); failures=int(a.get('failures',0)); errors=int(a.get('errors',0)); skipped=int(a.get('skipped',0))
+          print(f'architecture|rc=0|tests={tests}|passed={tests-failures-errors-skipped}|failures={failures}|errors={errors}|skipped={skipped}|command=python -m pytest -q tests/etabs/test_oapi_layer1_architecture_guards.py')
+          PY
+
+          python - <<'PY' | tee "$EVIDENCE_DIR/census.txt"
+          from __future__ import annotations
+          import ast, runpy
+          from pathlib import Path
+
+          ns = runpy.run_path('tests/etabs/test_oapi_layer1_architecture_guards.py')
+          production_files = ns['_production_python_files']
+          relative = ns['_relative']
+          attach_pred = ns['_looks_like_etabs_attach_implementation']
+          production_call_sites = ns['_production_call_sites']
+          imported_modules = ns['_imported_modules']
+          repo = ns['REPO_ROOT']
+
+          files = production_files()
+          attach_files = sorted(relative(p) for p in files if attach_pred(p))
+
+          provider_abi_methods = {
+              'GetTableForDisplayArray', 'GetRestraint', 'GetRebarColumn',
+              'GetTypeCombo', 'GetCaseList', 'GetSummaryResultsColumn',
+              'GetNameList', 'GetLoadType', 'GetLoads',
+          }
+          provider_abi_sites = [item for item in production_call_sites(provider_abi_methods) if item[0].startswith('tbdy_engine/providers/')]
+          provider_abi_files = sorted({path for path, _ in provider_abi_sites})
+
+          raw_oapi_methods = {
+              'GetTableForDisplayArray',
+              'GetLoadCasesSelectedForDisplay', 'SetLoadCasesSelectedForDisplay',
+              'GetLoadCombinationsSelectedForDisplay', 'SetLoadCombinationsSelectedForDisplay',
+              'GetLoadPatternsSelectedForDisplay', 'SetLoadPatternsSelectedForDisplay',
+              'GetOutputOptionsForDisplay', 'SetOutputOptionsForDisplay',
+              'GetCaseSelectedForOutput', 'SetCaseSelectedForOutput',
+              'GetComboSelectedForOutput', 'SetComboSelectedForOutput',
+              'DeselectAllCasesAndCombosForOutput',
+              'GetRestraint', 'GetRebarColumn', 'GetTypeCombo', 'GetCaseList',
+              'GetLoadType', 'GetLoads', 'GetSummaryResultsColumn', 'GetDesignSection',
+              'GetComboSelectedForDesign', 'GetProperty', 'GetWall', 'GetTypeOAPI',
+              'GetOConcrete_1', 'GetPresentUnits_2', 'GetDatabaseUnits_2',
+              'GetPresentUnits', 'GetDatabaseUnits', 'GetVersion', 'GetProgramInfo',
+              'GetModelFilename', 'GetModelFilepath', 'GetModelIsLocked',
+              'GetOAPIVersionNumber', 'GetCaseStatus', 'GetTypeOAPI_1',
+          }
+          raw_sites = sorted(production_call_sites(raw_oapi_methods))
+
+          db_methods = {
+              'GetTableForDisplayArray',
+              'GetLoadCasesSelectedForDisplay', 'SetLoadCasesSelectedForDisplay',
+              'GetLoadCombinationsSelectedForDisplay', 'SetLoadCombinationsSelectedForDisplay',
+              'GetLoadPatternsSelectedForDisplay', 'SetLoadPatternsSelectedForDisplay',
+              'GetOutputOptionsForDisplay', 'SetOutputOptionsForDisplay',
+          }
+          db_sites = sorted(production_call_sites(db_methods)); db_files = sorted({p for p,_ in db_sites})
+
+          results_methods = {
+              'GetCaseSelectedForOutput', 'SetCaseSelectedForOutput',
+              'GetComboSelectedForOutput', 'SetComboSelectedForOutput',
+              'DeselectAllCasesAndCombosForOutput',
+          }
+          results_sites = sorted(production_call_sites(results_methods)); results_files = sorted({p for p,_ in results_sites})
+
+          supported_roots = (
+              repo / 'tbdy_engine' / 'application',
+              repo / 'tbdy_engine' / 'product',
+              repo / 'tbdy_engine' / 'integration',
+          )
+          raw_escape_names = {'sap_model', 'attach_result', 'etabs_object', 'application', 'model_api'}
+          raw_escape_sites=[]
+          for root in supported_roots:
+              if not root.exists(): continue
+              for path in root.rglob('*.py'):
+                  tree=ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
+                  for node in ast.walk(tree):
+                      if isinstance(node, ast.Attribute) and node.attr in raw_escape_names:
+                          raw_escape_sites.append((relative(path), node.attr, getattr(node,'lineno',None)))
+
+          unit_context = repo / 'tbdy_engine' / 'engine' / 'unit_context.py'
+          setter_sites = sorted(production_call_sites({'SetPresentUnits','SetPresentUnits_2'}))
+          setter_outside_helper = [item for item in setter_sites if item[0] != 'tbdy_engine/engine/unit_context.py']
+          unit_context_importers=[]
+          for path in files:
+              if path == unit_context: continue
+              modules=imported_modules(path)
+              if 'tbdy_engine.engine.unit_context' in modules or '.unit_context' in modules:
+                  unit_context_importers.append(relative(path))
+          set_units_reachability = len(set(setter_outside_helper) | {(p,'import') for p in unit_context_importers})
+
+          legacy = repo / 'tbdy_engine' / 'etabs' / '_safety_legacy.py'
+          legacy_text=legacy.read_text(encoding='utf-8'); legacy_tree=ast.parse(legacy_text, filename=str(legacy))
+          legacy_session_count=sum(1 for node in legacy_tree.body if isinstance(node,ast.ClassDef) and node.name=='EtabsVerifiedSession')
+          legacy_attach_count=sum(1 for node in legacy_tree.body if isinstance(node,(ast.FunctionDef,ast.AsyncFunctionDef)) and node.name=='attach_verified_to_running_etabs')
+          legacy_attach_import='tbdy_engine.features.etabs_com_attach' in imported_modules(legacy)
+
+          print(f'ATTACH_IMPLEMENTATION_COUNT before=3 after={len(attach_files)}')
+          print('ATTACH_FILES_AFTER='+repr(attach_files))
+          print(f'PROVIDER_LOCAL_ABI_OWNER_COUNT corrected frozen before=7 after={len(provider_abi_files)}')
+          print('PROVIDER_LOCAL_ABI_OWNER_FILES_AFTER='+repr(provider_abi_files))
+          print(f'DIRECT_RAW_OAPI_PRODUCTION_CALLSITE_COUNT before=29 after={len(raw_sites)}')
+          print('DIRECT_RAW_OAPI_PRODUCTION_SITES_AFTER='+repr(raw_sites))
+          print(f'DATABASETABLES_RAW_ACCESS_COUNT before=9_files after={len(db_files)}_files')
+          print('DATABASETABLES_RAW_ACCESS_FILES_AFTER='+repr(db_files))
+          print('DATABASETABLES_RAW_ACCESS_SITES_AFTER='+repr(db_sites))
+          print(f'RESULTS_SETUP_RAW_ACCESS_COUNT before=1 after={len(results_files)}')
+          print('RESULTS_SETUP_RAW_ACCESS_FILES_AFTER='+repr(results_files))
+          print('RESULTS_SETUP_RAW_ACCESS_SITES_AFTER='+repr(results_sites))
+          print(f'SUPPORTED_PRODUCT_RAW_SAPMODEL_REACHABILITY after={len(raw_escape_sites)}')
+          print('SUPPORTED_PRODUCT_RAW_SAPMODEL_SITES_AFTER='+repr(raw_escape_sites))
+          print(f'PRODUCTION_SET_PRESENT_UNITS_REACHABILITY after={set_units_reachability}')
+          print('SET_PRESENT_UNITS_RAW_SITES='+repr(setter_sites))
+          print('SET_PRESENT_UNITS_OUTSIDE_HELPER='+repr(setter_outside_helper))
+          print('UNIT_CONTEXT_PRODUCTION_IMPORTERS='+repr(sorted(unit_context_importers)))
+          print(f'LEGACY_VERIFIED_SESSION_OWNER_COUNT after={legacy_session_count}')
+          print(f'LEGACY_ATTACH_FUNCTION_COUNT_IN_SAFETY_IMPLEMENTATION after={legacy_attach_count}')
+          print(f'SAFETY_LEGACY_TO_FEATURES_ATTACH_IMPORT after={int(legacy_attach_import)}')
+
+          assert len(attach_files) == 1, attach_files
+          assert len(raw_escape_sites) == 0, raw_escape_sites
+          assert set_units_reachability == 0, (setter_outside_helper, unit_context_importers)
+          assert legacy_session_count == 0
+          assert legacy_attach_count == 0
+          assert not legacy_attach_import
+          PY
+
+      - name: Commit history and changed-file ledger
         shell: bash
         run: |
           set -euo pipefail
-          find vendor/etabs-mcp -type f -not -path '*/.git/*' -print0 | sort -z | xargs -0 sha256sum > "$EVIDENCE_DIR/vendor_candidate_inventory_pre.txt"
-          set +e
-          python tools/verify_etabs_mcp_vendor.py \
-            --repo-root . \
-            --write-report /tmp/vendor-candidate.json \
-            > /tmp/vendor-candidate.stdout \
-            2> /tmp/vendor-candidate.stderr
-          rc=$?
-          set -e
-          printf '%s\n' "$rc" > "$EVIDENCE_DIR/vendor_candidate.rc"
-          cp /tmp/vendor-candidate.json "$EVIDENCE_DIR/vendor-candidate.json"
-          cp /tmp/vendor-candidate.stdout "$EVIDENCE_DIR/vendor-candidate.stdout"
-          cp /tmp/vendor-candidate.stderr "$EVIDENCE_DIR/vendor-candidate.stderr"
-          python - <<'PY' | tee "$EVIDENCE_DIR/vendor-candidate-exact.txt"
-          import json
-          from pathlib import Path
-          p = json.loads(Path('/tmp/vendor-candidate.json').read_text(encoding='utf-8'))
-          c = p.get('checks', {})
-          for key, value in (
-              ('result', p.get('result')),
-              ('errors', p.get('errors')),
-              ('missing_files', c.get('missing_files')),
-              ('extra_files', c.get('extra_files')),
-              ('changed_files', c.get('changed_files')),
-              ('forbidden_runtime_references', c.get('forbidden_runtime_references')),
-              ('expected_file_count', c.get('expected_file_count')),
-              ('actual_file_count', c.get('actual_file_count')),
-          ):
-              print(f'{key}={json.dumps(value, ensure_ascii=False, sort_keys=True)}')
+          git diff --name-status "$FROZEN_BASE_SHA"..."$CANDIDATE_SHA" > "$EVIDENCE_DIR/changed_files.txt"
+          python - <<'PY' > "$EVIDENCE_DIR/commit_ledger.txt"
+          from __future__ import annotations
+          import os, subprocess
+          base=os.environ['FROZEN_BASE_SHA']; head=os.environ['CANDIDATE_SHA']
+          shas=subprocess.check_output(['git','rev-list','--reverse',f'{base}..{head}'], text=True).splitlines()
+          phases=['architecture/census','gateway/session','OAPI','provider migration','raw-capability closure','live-test infrastructure','regression hardening']
+          buckets={p:[] for p in phases}
+          def classify(subject, files):
+              s=subject.lower()
+              if 'repair' in s or 'hardening' in s or 'regression' in s: return 'regression hardening'
+              if any('test_oapi_layer1_architecture_guards.py' in f or f.startswith('docs/architecture/') for f in files) or 'census' in s or 'architecture' in s: return 'architecture/census'
+              if any(f.startswith('tbdy_engine/etabs/oapi/') for f in files): return 'OAPI'
+              if any(f.startswith('tbdy_engine/providers/') for f in files): return 'provider migration'
+              if any(f.startswith('packages/etabs_gateway/') for f in files): return 'gateway/session'
+              if any(f in {'tbdy_engine/etabs/safety.py','tbdy_engine/etabs/_safety_legacy.py','tbdy_engine/etabs/connection.py','tbdy_engine/features/etabs_com_attach.py','tbdy_engine/integration/live_etabs_acquisition_context.py'} for f in files): return 'raw-capability closure'
+              if any(f.startswith('tests/integration/') for f in files): return 'live-test infrastructure'
+              return 'regression hardening'
+          for sha in shas:
+              parent=subprocess.check_output(['git','show','-s','--format=%P',sha], text=True).strip()
+              subject=subprocess.check_output(['git','show','-s','--format=%s',sha], text=True).strip()
+              files=subprocess.check_output(['git','diff-tree','--no-commit-id','--name-only','-r',sha], text=True).splitlines()
+              buckets[classify(subject,files)].append((sha,parent,subject,files))
+          print(f'RANGE {base} -> {head}')
+          print(f'COMMIT_COUNT {len(shas)}')
+          for phase in phases:
+              print(f'\n## {phase}')
+              for sha,parent,subject,files in buckets[phase]:
+                  print(f'SHA {sha}')
+                  print(f'PARENT {parent}')
+                  print(f'SUBJECT {subject}')
+                  print('PHASE '+phase)
+                  print('CHANGED FILES')
+                  for f in files: print('  '+f)
+                  print()
           PY
 
-      - name: Candidate gateway suite for exact signatures
+      - name: Candidate broad
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
         run: |
           set -euo pipefail
           set +e
-          python -m pytest -q packages/etabs_gateway/tests \
-            --junitxml="$EVIDENCE_DIR/candidate_gateway.xml" \
-            > "$EVIDENCE_DIR/candidate_gateway.log" 2>&1
+          python -m pytest -q > "$EVIDENCE_DIR/candidate_broad.log" 2>&1
           rc=$?
           set -e
-          printf '%s\n' "$rc" > "$EVIDENCE_DIR/candidate_gateway.rc"
-          grep -E '^(FAILED|ERROR) |^ERROR collecting ' "$EVIDENCE_DIR/candidate_gateway.log" | sort -u > "$EVIDENCE_DIR/candidate_gateway.sig" || true
-          python - <<'PY' | tee "$EVIDENCE_DIR/candidate_gateway_counts.txt"
-          import xml.etree.ElementTree as ET
-          root = ET.parse('/tmp/etabs-oapi-layer1-stage-a-diagnostic/candidate_gateway.xml').getroot()
-          suite = root if root.tag == 'testsuite' else root.find('testsuite')
-          a = suite.attrib
-          tests = int(a.get('tests', 0)); failed = int(a.get('failures', 0)); errors = int(a.get('errors', 0)); skipped = int(a.get('skipped', 0))
-          print(f'tests={tests}')
-          print(f'passed={tests-failed-errors-skipped}')
-          print(f'failed={failed}')
-          print(f'errors={errors}')
-          print(f'skipped={skipped}')
-          PY
+          printf '%s\n' "$rc" > "$EVIDENCE_DIR/candidate.rc"
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' "$EVIDENCE_DIR/candidate_broad.log" | sort -u > "$EVIDENCE_DIR/candidate.sig" || true
+          echo "candidate_broad_exit=$rc"
 
-      - name: Candidate verifier immediately after gateway suite
-        shell: bash
-        run: |
-          set -euo pipefail
-          find vendor/etabs-mcp -type f -not -path '*/.git/*' -print0 | sort -z | xargs -0 sha256sum > "$EVIDENCE_DIR/vendor_candidate_inventory_post_gateway.txt"
-          set +e
-          python tools/verify_etabs_mcp_vendor.py \
-            --repo-root . \
-            --write-report /tmp/vendor-candidate-post-gateway.json \
-            > /tmp/vendor-candidate-post-gateway.stdout \
-            2> /tmp/vendor-candidate-post-gateway.stderr
-          rc=$?
-          set -e
-          printf '%s\n' "$rc" > "$EVIDENCE_DIR/vendor_candidate_post_gateway.rc"
-          cp /tmp/vendor-candidate-post-gateway.json "$EVIDENCE_DIR/vendor-candidate-post-gateway.json"
-          cp /tmp/vendor-candidate-post-gateway.stdout "$EVIDENCE_DIR/vendor-candidate-post-gateway.stdout"
-          cp /tmp/vendor-candidate-post-gateway.stderr "$EVIDENCE_DIR/vendor-candidate-post-gateway.stderr"
-
-      - name: Frozen-base direct verifier and gateway suite
+      - name: Frozen-base detached worktree broad
         shell: bash
         run: |
           set -euo pipefail
@@ -166,126 +482,111 @@ jobs:
           git worktree add --detach "$BASE_WORKTREE" "$FROZEN_BASE_SHA"
           cd "$BASE_WORKTREE"
           test "$(git rev-parse HEAD)" = "$FROZEN_BASE_SHA"
-          find vendor/etabs-mcp -type f -not -path '*/.git/*' -print0 | sort -z | xargs -0 sha256sum > "$EVIDENCE_DIR/vendor_frozen_inventory_pre.txt"
-
           set +e
-          python tools/verify_etabs_mcp_vendor.py \
-            --repo-root . \
-            --write-report /tmp/vendor-frozen.json \
-            > /tmp/vendor-frozen.stdout \
-            2> /tmp/vendor-frozen.stderr
-          verifier_rc=$?
+          PYTHONPATH="$BASE_WORKTREE/packages/etabs_gateway/src:$BASE_WORKTREE" \
+            python -m pytest -q > "$EVIDENCE_DIR/frozen_broad.log" 2>&1
+          rc=$?
           set -e
-          printf '%s\n' "$verifier_rc" > "$EVIDENCE_DIR/vendor_frozen.rc"
-          cp /tmp/vendor-frozen.json "$EVIDENCE_DIR/vendor-frozen.json"
-          cp /tmp/vendor-frozen.stdout "$EVIDENCE_DIR/vendor-frozen.stdout"
-          cp /tmp/vendor-frozen.stderr "$EVIDENCE_DIR/vendor-frozen.stderr"
-          python - <<'PY' | tee "$EVIDENCE_DIR/vendor-frozen-exact.txt"
-          import json
-          from pathlib import Path
-          p = json.loads(Path('/tmp/vendor-frozen.json').read_text(encoding='utf-8'))
-          c = p.get('checks', {})
-          for key, value in (
-              ('result', p.get('result')),
-              ('errors', p.get('errors')),
-              ('missing_files', c.get('missing_files')),
-              ('extra_files', c.get('extra_files')),
-              ('changed_files', c.get('changed_files')),
-              ('forbidden_runtime_references', c.get('forbidden_runtime_references')),
-              ('expected_file_count', c.get('expected_file_count')),
-              ('actual_file_count', c.get('actual_file_count')),
-          ):
-              print(f'{key}={json.dumps(value, ensure_ascii=False, sort_keys=True)}')
-          PY
+          printf '%s\n' "$rc" > "$EVIDENCE_DIR/frozen.rc"
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' "$EVIDENCE_DIR/frozen_broad.log" | sort -u > "$EVIDENCE_DIR/frozen.sig" || true
+          echo "frozen_broad_exit=$rc"
 
-          set +e
-          PYTHONPATH="$PWD/packages/etabs_gateway/src:$PWD" \
-            python -m pytest -q packages/etabs_gateway/tests \
-            --junitxml="$EVIDENCE_DIR/frozen_gateway.xml" \
-            > "$EVIDENCE_DIR/frozen_gateway.log" 2>&1
-          gateway_rc=$?
-          set -e
-          printf '%s\n' "$gateway_rc" > "$EVIDENCE_DIR/frozen_gateway.rc"
-          grep -E '^(FAILED|ERROR) |^ERROR collecting ' "$EVIDENCE_DIR/frozen_gateway.log" | sort -u > "$EVIDENCE_DIR/frozen_gateway.sig" || true
-          python - <<'PY' | tee "$EVIDENCE_DIR/frozen_gateway_counts.txt"
-          import xml.etree.ElementTree as ET
-          root = ET.parse('/tmp/etabs-oapi-layer1-stage-a-diagnostic/frozen_gateway.xml').getroot()
-          suite = root if root.tag == 'testsuite' else root.find('testsuite')
-          a = suite.attrib
-          tests = int(a.get('tests', 0)); failed = int(a.get('failures', 0)); errors = int(a.get('errors', 0)); skipped = int(a.get('skipped', 0))
-          print(f'tests={tests}')
-          print(f'passed={tests-failed-errors-skipped}')
-          print(f'failed={failed}')
-          print(f'errors={errors}')
-          print(f'skipped={skipped}')
-          PY
-
-      - name: Classify vendor failures
+      - name: Exact broad failure delta gate
         shell: bash
         run: |
           set -euo pipefail
-          python - <<'PY' | tee "$EVIDENCE_DIR/vendor_classification.txt"
-          import json
-          from pathlib import Path
-          d = Path('/tmp/etabs-oapi-layer1-stage-a-diagnostic')
-          cand = json.loads((d/'vendor-candidate.json').read_text(encoding='utf-8'))
-          frozen = json.loads((d/'vendor-frozen.json').read_text(encoding='utf-8'))
-          post = json.loads((d/'vendor-candidate-post-gateway.json').read_text(encoding='utf-8'))
-          def projection(p):
-              c = p.get('checks', {})
-              return {
-                  'result': p.get('result'),
-                  'errors': p.get('errors'),
-                  'missing_files': c.get('missing_files'),
-                  'extra_files': c.get('extra_files'),
-                  'changed_files': c.get('changed_files'),
-                  'forbidden_runtime_references': c.get('forbidden_runtime_references'),
-                  'expected_file_count': c.get('expected_file_count'),
-                  'actual_file_count': c.get('actual_file_count'),
-              }
-          cp, fp, pp = projection(cand), projection(frozen), projection(post)
-          frozen_sig = (d/'frozen_gateway.sig').read_text(encoding='utf-8')
-          cand_sig = (d/'candidate_gateway.sig').read_text(encoding='utf-8')
-          acceptance_names = (
-              'test_repository_offline_acceptance_passes',
-              'test_cli_returns_zero_and_writes_canonical_json',
-          )
-          if cp['result'] == 'FAIL' and fp['result'] == 'FAIL' and cp == fp and all(x in frozen_sig for x in acceptance_names):
-              classification = 'INHERITED'
-          elif cp['result'] == 'FAIL' and fp['result'] == 'PASS':
-              classification = 'CANDIDATE_REGRESSION'
-          elif cp['result'] == 'PASS' and fp['result'] == 'PASS' and all(x in cand_sig for x in acceptance_names):
-              classification = 'ENVIRONMENT_ORDER_EFFECT'
-          else:
-              classification = 'UNRESOLVED'
-          print('candidate_projection=' + json.dumps(cp, ensure_ascii=False, sort_keys=True))
-          print('frozen_projection=' + json.dumps(fp, ensure_ascii=False, sort_keys=True))
-          print('candidate_post_gateway_projection=' + json.dumps(pp, ensure_ascii=False, sort_keys=True))
-          print('candidate_equals_frozen=' + str(cp == fp))
-          print('candidate_pre_equals_post_gateway=' + str(cp == pp))
-          print('vendor_classification=' + classification)
-          PY
-          echo '--- candidate gateway signatures ---' | tee -a "$EVIDENCE_DIR/vendor_classification.txt"
-          cat "$EVIDENCE_DIR/candidate_gateway.sig" | tee -a "$EVIDENCE_DIR/vendor_classification.txt"
-          echo '--- frozen gateway signatures ---' | tee -a "$EVIDENCE_DIR/vendor_classification.txt"
-          cat "$EVIDENCE_DIR/frozen_gateway.sig" | tee -a "$EVIDENCE_DIR/vendor_classification.txt"
+          comm -13 "$EVIDENCE_DIR/frozen.sig" "$EVIDENCE_DIR/candidate.sig" > "$EVIDENCE_DIR/new_failure_signatures.txt"
+          comm -23 "$EVIDENCE_DIR/frozen.sig" "$EVIDENCE_DIR/candidate.sig" > "$EVIDENCE_DIR/missing_inherited_signatures.txt"
+          candidate_rc="$(cat "$EVIDENCE_DIR/candidate.rc")"
+          frozen_rc="$(cat "$EVIDENCE_DIR/frozen.rc")"
+          {
+            echo "candidate_exit=$candidate_rc"
+            echo "frozen_exit=$frozen_rc"
+            echo "NEW_FAILURE_SIGNATURES"
+            cat "$EVIDENCE_DIR/new_failure_signatures.txt"
+            echo "MISSING_OR_CHANGED_INHERITED_SIGNATURES"
+            cat "$EVIDENCE_DIR/missing_inherited_signatures.txt"
+          } | tee "$EVIDENCE_DIR/broad_delta.txt"
+          test ! -s "$EVIDENCE_DIR/new_failure_signatures.txt"
+          test ! -s "$EVIDENCE_DIR/missing_inherited_signatures.txt"
+          if [ "$frozen_rc" -eq 0 ]; then test "$candidate_rc" -eq 0; fi
 
-      - name: Cleanup and verify candidate ref unchanged
+      - name: Remove frozen worktree and final candidate hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree remove --force "$BASE_WORKTREE"
+          git diff --check "$FROZEN_BASE_SHA"..."$CANDIDATE_SHA"
+          status="$(git status --porcelain=v1 -uall)"
+          git fetch --no-tags origin "refs/heads/${CANDIDATE_BRANCH}:refs/remotes/origin/${CANDIDATE_BRANCH}"
+          candidate_ref_after="$(git rev-parse "refs/remotes/origin/${CANDIDATE_BRANCH}")"
+          printf '%s\n' "$candidate_ref_after" > "$EVIDENCE_DIR/candidate_ref_after.txt"
+          {
+            echo "final_diff_check=PASS"
+            printf 'final_status_porcelain=%q\n' "$status"
+            echo "candidate_ref_after=$candidate_ref_after"
+          } | tee "$EVIDENCE_DIR/hygiene.txt"
+          test -z "$status"
+          test "$candidate_ref_after" = "$CANDIDATE_SHA"
+
+      - name: Build Stage-A summary
         if: always()
         shell: bash
         run: |
-          set -euo pipefail
-          git worktree remove --force "$BASE_WORKTREE" 2>/dev/null || true
-          git fetch --no-tags origin "refs/heads/${CANDIDATE_BRANCH}:refs/remotes/origin/${CANDIDATE_BRANCH}"
-          actual="$(git rev-parse "refs/remotes/origin/${CANDIDATE_BRANCH}")"
-          printf '%s\n' "$actual" > "$EVIDENCE_DIR/candidate_ref_after.txt"
-          test "$actual" = "$CANDIDATE_SHA"
+          mkdir -p "$EVIDENCE_DIR"
+          python - <<'PY'
+          from __future__ import annotations
+          import json, os
+          from pathlib import Path
+          d=Path(os.environ['EVIDENCE_DIR'])
+          def text(name, default='NOT_AVAILABLE'):
+              p=d/name
+              return p.read_text(encoding='utf-8').strip() if p.exists() else default
+          def integer(name):
+              try: return int(text(name))
+              except Exception: return None
+          success=(
+              integer('candidate.rc') is not None and integer('frozen.rc') is not None
+              and text('new_failure_signatures.txt','') == ''
+              and text('missing_inherited_signatures.txt','') == ''
+              and text('new_gateway_failure_signatures.txt','') == ''
+              and text('missing_gateway_inherited_signatures.txt','') == ''
+              and 'final_diff_check=PASS' in text('hygiene.txt','')
+              and text('candidate_ref_after.txt') == os.environ['CANDIDATE_SHA']
+              and text('census.txt','') != ''
+          )
+          payload={
+              'status':'STAGE_A_OFFLINE_GREEN_READY_FOR_MAIN_INTEGRATION' if success else 'STAGE_A_FAIL_OR_INCOMPLETE',
+              'workflow_source_sha':text('workflow_source_sha.txt'),
+              'tested_candidate_sha':os.environ['CANDIDATE_SHA'],
+              'tested_frozen_base_sha':os.environ['FROZEN_BASE_SHA'],
+              'candidate_ref_before':text('candidate_ref_before.txt'),
+              'candidate_ref_after':text('candidate_ref_after.txt'),
+              'python_version':text('python_version.txt'),
+              'focused_test_results':text('focused_test_results.txt','').splitlines(),
+              'gateway_candidate_exit':integer('focused_gateway_candidate.rc'),
+              'gateway_frozen_exit':integer('focused_gateway_frozen.rc'),
+              'inherited_gateway_failures':text('inherited_gateway_failures.txt','').splitlines(),
+              'new_gateway_failures':text('new_gateway_failure_signatures.txt','').splitlines(),
+              'missing_gateway_inherited_failures':text('missing_gateway_inherited_signatures.txt','').splitlines(),
+              'candidate_broad_exit':integer('candidate.rc'),
+              'frozen_broad_exit':integer('frozen.rc'),
+              'candidate_signatures':text('candidate.sig','').splitlines(),
+              'frozen_signatures':text('frozen.sig','').splitlines(),
+              'new_failure_signatures':text('new_failure_signatures.txt','').splitlines(),
+              'missing_or_changed_inherited_signatures':text('missing_inherited_signatures.txt','').splitlines(),
+              'census':text('census.txt','').splitlines(),
+              'hygiene':text('hygiene.txt','').splitlines(),
+          }
+          (d/'stage_a_summary.json').write_text(json.dumps(payload,indent=2,sort_keys=True)+'\n',encoding='utf-8')
+          print(json.dumps(payload,indent=2,sort_keys=True))
+          PY
 
-      - name: Upload Phase-1 diagnostic evidence
+      - name: Upload Stage-A evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: etabs-oapi-layer1-stage-a-phase1-diagnostic
-          path: /tmp/etabs-oapi-layer1-stage-a-diagnostic
+          name: etabs-oapi-layer1-stage-a-evidence
+          path: /tmp/etabs-oapi-layer1-stage-a-evidence
           if-no-files-found: warn
           retention-days: 30
