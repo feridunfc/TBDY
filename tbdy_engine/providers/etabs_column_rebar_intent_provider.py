@@ -2,15 +2,21 @@
 
 Exact ``PropFrame.GetRebarColumn`` invocation and positional decoding live in
 ``tbdy_engine.etabs.oapi.object_model``. This provider keeps design-intent
-meaning, reviewed unit interpretation, and authority boundaries.
+meaning, reviewed unit interpretation, and authority boundaries. Supported live
+acquisition consumes a verified session and typed OAPI facts; raw PropFrame does
+not escape.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
 
-from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError
-from tbdy_engine.etabs.oapi.object_model import read_rebar_column
+from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError, RebarColumnFact
+from tbdy_engine.etabs.oapi.object_model import (
+    read_rebar_column,
+    read_rebar_column_from_session,
+)
+from tbdy_engine.etabs.safety import EtabsVerifiedSession
 
 REBAR_INTENT_DESIGN_ONLY = "DESIGN_INTENT_ONLY"
 REBAR_INTENT_SECTION_CHECK_INPUT = "SECTION_REBAR_CHECK_INPUT"
@@ -80,18 +86,20 @@ class EtabsColumnRebarIntentEvidence:
         }
 
 
-def capture_etabs_column_rebar_intent(
-    prop_frame: Any,
-    section_name: str,
+def _validate_reviewed_length_unit(reviewed_length_unit: str) -> str:
+    if reviewed_length_unit not in {"m", "mm"}:
+        raise EtabsColumnRebarIntentProviderError(
+            "reviewed_length_unit must be explicitly 'm' or 'mm'"
+        )
+    return reviewed_length_unit
+
+
+def _promote_rebar_fact(
+    fact: RebarColumnFact,
     *,
     reviewed_length_unit: str,
 ) -> EtabsColumnRebarIntentEvidence:
-    if reviewed_length_unit not in {"m", "mm"}:
-        raise EtabsColumnRebarIntentProviderError("reviewed_length_unit must be explicitly 'm' or 'mm'")
-    try:
-        fact = read_rebar_column(prop_frame, section_name)
-    except EtabsOAPIError as exc:
-        raise EtabsColumnRebarIntentProviderError(str(exc)) from exc
+    unit = _validate_reviewed_length_unit(reviewed_length_unit)
     return EtabsColumnRebarIntentEvidence(
         section_name=fact.section_name,
         mat_prop_long=fact.mat_prop_long,
@@ -108,9 +116,41 @@ def capture_etabs_column_rebar_intent(
         number_2_dir_tie_bars=fact.number_2_dir_tie_bars,
         number_3_dir_tie_bars=fact.number_3_dir_tie_bars,
         to_be_designed=fact.to_be_designed,
-        reviewed_length_unit=reviewed_length_unit,
+        reviewed_length_unit=unit,
         raw_api=repr(fact.raw_response),
     )
+
+
+def capture_etabs_column_rebar_intent(
+    prop_frame: Any,
+    section_name: str,
+    *,
+    reviewed_length_unit: str,
+) -> EtabsColumnRebarIntentEvidence:
+    """Compatibility path for an already-bounded raw PropFrame interface."""
+    _validate_reviewed_length_unit(reviewed_length_unit)
+    try:
+        fact = read_rebar_column(prop_frame, section_name)
+    except EtabsOAPIError as exc:
+        raise EtabsColumnRebarIntentProviderError(str(exc)) from exc
+    return _promote_rebar_fact(fact, reviewed_length_unit=reviewed_length_unit)
+
+
+def capture_etabs_column_rebar_intent_from_session(
+    session: EtabsVerifiedSession,
+    section_name: str,
+    *,
+    reviewed_length_unit: str,
+) -> EtabsColumnRebarIntentEvidence:
+    """Supported live path through OAPI -> safety -> gateway."""
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+    _validate_reviewed_length_unit(reviewed_length_unit)
+    try:
+        fact = read_rebar_column_from_session(session, section_name)
+    except EtabsOAPIError as exc:
+        raise EtabsColumnRebarIntentProviderError(str(exc)) from exc
+    return _promote_rebar_fact(fact, reviewed_length_unit=reviewed_length_unit)
 
 
 __all__ = [
@@ -119,4 +159,5 @@ __all__ = [
     "EtabsColumnRebarIntentEvidence",
     "EtabsColumnRebarIntentProviderError",
     "capture_etabs_column_rebar_intent",
+    "capture_etabs_column_rebar_intent_from_session",
 ]
