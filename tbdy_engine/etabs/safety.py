@@ -12,6 +12,7 @@ until normal regression validation permits physical retirement.
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+import threading
 from typing import Any, Callable, Mapping, TypeVar
 
 from etabs_gateway import ConnectionRequest, ETABSGatewaySession
@@ -49,6 +50,7 @@ from ._safety_legacy import (
 T = TypeVar("T")
 
 _GATEWAY_PID_STRATEGY = "comtypes_create_helper_get_object_process"
+_PRIVATE_COMPATIBILITY_IMPLEMENTATION_DEBT = "PRIVATE_COMPATIBILITY_IMPLEMENTATION_DEBT"
 
 
 class _InjectedCOMApartmentModule:
@@ -145,6 +147,36 @@ class EtabsVerifiedSession:
         return self._gateway_session.close(timeout_seconds=timeout_seconds)
 
 
+@dataclass(frozen=True, slots=True)
+class VerifiedSTAExecutionFact:
+    """Factual proof that a bounded read executed on the gateway worker thread."""
+
+    worker_thread_id: int
+    executing_thread_id: int
+    gateway_state: str
+    worker_state: str
+
+    @property
+    def exact_worker_thread_match(self) -> bool:
+        return self.worker_thread_id == self.executing_thread_id
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedResultsSetupTransactionFact:
+    """Typed proof of one temporary Results.Setup selection and exact restoration."""
+
+    selection_kind: str
+    selection_name: str
+    before: ResultsSetupSelectionSnapshot
+    after: ResultsSetupSelectionSnapshot
+    diagnostics: tuple[Mapping[str, Any], ...] = field(default_factory=tuple)
+
+    @property
+    def restoration_verified_exact(self) -> bool:
+        return self.before == self.after
+
+
+
 def _execute_verified_read(
     session: EtabsVerifiedSession,
     function: Callable[[object, object], T],
@@ -214,6 +246,7 @@ def read_verified_database_tables_selection(
     timeout_seconds: float = 30.0,
 ) -> DatabaseTablesSelectionSnapshot:
     """Snapshot DatabaseTables selection through its safety-owned transaction."""
+
     def acquire(_etabs_object: object, sap_model: Any) -> DatabaseTablesSelectionSnapshot:
         with DatabaseTablesReadTransaction(sap_model.DatabaseTables) as transaction:
             snapshot = transaction.snapshot
@@ -238,6 +271,7 @@ def read_verified_results_setup_selection(
     timeout_seconds: float = 30.0,
 ) -> ResultsSetupSelectionSnapshot:
     """Snapshot Results.Setup selection through its independent safety transaction."""
+
     def acquire(_etabs_object: object, sap_model: Any) -> ResultsSetupSelectionSnapshot:
         with ResultsSetupReadTransaction(sap_model) as transaction:
             snapshot = transaction.snapshot
@@ -252,6 +286,111 @@ def read_verified_results_setup_selection(
         session,
         acquire,
         operation="verified_results_setup_selection_snapshot",
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def read_verified_sta_execution_fact(
+    session: EtabsVerifiedSession,
+    *,
+    timeout_seconds: float = 30.0,
+) -> VerifiedSTAExecutionFact:
+    """Prove that a bounded factual callback executes on the gateway-owned STA."""
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+    context = session._gateway_session.context
+    if context is None:
+        raise EtabsSafetyError(
+            "verified gateway session has no factual context",
+            code=EtabsSafetyErrorCode.ATTACH_FAILED,
+        )
+    executing_thread_id = _execute_verified_read(
+        session,
+        lambda _etabs_object, _sap_model: threading.get_ident(),
+        operation="verified_sta_execution_probe",
+        timeout_seconds=timeout_seconds,
+    )
+    fact = VerifiedSTAExecutionFact(
+        worker_thread_id=int(context.attachment.worker_thread_id),
+        executing_thread_id=int(executing_thread_id),
+        gateway_state=session._gateway_session.state.value,
+        worker_state=session._gateway_session.worker_state.value,
+    )
+    if not fact.exact_worker_thread_match:
+        raise EtabsStateVerificationError(
+            "bounded ETABS callback did not execute on the gateway worker thread",
+            code=EtabsSafetyErrorCode.TEMPORARY_STATE_VERIFY_FAILED,
+            details={
+                "worker_thread_id": fact.worker_thread_id,
+                "executing_thread_id": fact.executing_thread_id,
+            },
+        )
+    return fact
+
+
+def exercise_verified_results_setup_selection(
+    session: EtabsVerifiedSession,
+    *,
+    case_name: str | None = None,
+    combo_name: str | None = None,
+    timeout_seconds: float = 30.0,
+) -> VerifiedResultsSetupTransactionFact:
+    """Exercise one reversible Results.Setup selection entirely inside safety/STA.
+
+    Exactly one case or combo is required. If restoration fails, the transaction
+    exception is propagated immediately and no verification read is attempted.
+    """
+    case = str(case_name or "").strip()
+    combo = str(combo_name or "").strip()
+    if bool(case) == bool(combo):
+        raise ValueError("exactly one of case_name or combo_name is required")
+
+    def acquire(_etabs_object: object, sap_model: Any) -> VerifiedResultsSetupTransactionFact:
+        transaction = ResultsSetupReadTransaction(sap_model)
+        with transaction:
+            before = transaction.snapshot
+            if before is None:
+                raise EtabsCapabilityError(
+                    "Results.Setup selection snapshot was not captured.",
+                    code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+                )
+            if case:
+                transaction.select_case(case)
+                selection_kind = "case"
+                selection_name = case
+            else:
+                transaction.select_combo(combo)
+                selection_kind = "combo"
+                selection_name = combo
+
+        # This block is intentionally reached only after the first transaction
+        # restored successfully. A known restoration failure aborts immediately.
+        verification = ResultsSetupReadTransaction(sap_model)
+        with verification:
+            after = verification.snapshot
+            if after is None:
+                raise EtabsCapabilityError(
+                    "Results.Setup restoration verification snapshot was not captured.",
+                    code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+                )
+
+        if before != after:
+            raise EtabsStateRestoreError(
+                "Results.Setup selection did not restore exactly after verified transaction.",
+                code=EtabsSafetyErrorCode.STATE_RESTORE_VERIFY_FAILED,
+            )
+        return VerifiedResultsSetupTransactionFact(
+            selection_kind=selection_kind,
+            selection_name=selection_name,
+            before=before,
+            after=after,
+            diagnostics=tuple(dict(item) for item in transaction.diagnostics),
+        )
+
+    return _execute_verified_read(
+        session,
+        acquire,
+        operation="verified_results_setup_temporary_selection",
         timeout_seconds=timeout_seconds,
     )
 
@@ -376,8 +515,11 @@ __all__ = [
     "ResultsSetupReadTransaction",
     "ResultsSetupSelectionSnapshot",
     "RuntimeCaptureStatus",
+    "VerifiedResultsSetupTransactionFact",
+    "VerifiedSTAExecutionFact",
     "attach_verified_to_running_etabs",
     "classify_capture_status",
+    "exercise_verified_results_setup_selection",
     "process_local_acquisition_lock",
     "read_analysis_readiness",
     "read_capability_snapshot",
@@ -386,6 +528,7 @@ __all__ = [
     "read_verified_analysis_readiness",
     "read_verified_database_tables_selection",
     "read_verified_results_setup_selection",
+    "read_verified_sta_execution_fact",
     "read_verified_unit_snapshot",
     "reread_verified_session_identity",
     "verify_target_model",
