@@ -10,15 +10,13 @@ permissions:
   contents: read
 
 jobs:
-  safety-hang-diagnostic:
+  repair-preflight:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       CANDIDATE_SHA: 008e9c569d3022a5e9c676cf5ec7a166c0a34f26
-      FROZEN_BASE_SHA: 74d5b6083afed75e44b832336c31755aee482daa
       CANDIDATE_BRANCH: sprint/etabs-oapi-layer-1-common-factual-boundary
-      EVIDENCE_DIR: /tmp/etabs-oapi-layer1-safety-hang
-      BASE_WORKTREE: /tmp/tbdy-oapi-frozen
+      EVIDENCE_DIR: /tmp/etabs-oapi-layer1-repair-preflight
 
     steps:
       - uses: actions/checkout@v4
@@ -53,89 +51,113 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install pytest pyyaml jsonschema weasyprint==69.0 pydyf==0.12.1 pypdf==6.16.1 pypdfium2==5.12.1 openpyxl==3.1.5 et_xmlfile==2.0.0
 
-      - name: Candidate safety foundation under hard timeout
+      - name: Apply bounded repair to worktree only
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          safety = Path('tests/etabs/test_safety_foundation.py')
+          text = safety.read_text(encoding='utf-8')
+          targets = {
+              'test_exact_target_identity_accepted',
+              'test_pid_verified_session_records_pid_only_for_exact_process_strategy',
+              'test_callable_pid_failure_fallback_requires_explicit_opt_in_and_verifies_target',
+              'test_unsupported_pid_api_may_use_bounded_verified_fallback',
+              'test_fallback_attach_is_identity_verified',
+          }
+
+          def patch_function(source: str, name: str) -> str:
+              marker = f'def {name}('
+              start = source.index(marker)
+              next_start = source.find('\ndef ', start + 1)
+              end = len(source) if next_start < 0 else next_start + 1
+              block = source[start:end]
+              lines = block.splitlines(keepends=True)
+              assign = next(i for i, line in enumerate(lines) if line.startswith('    session = attach_verified_to_running_etabs('))
+              depth = 0
+              call_end = None
+              for i in range(assign, len(lines)):
+                  depth += lines[i].count('(') - lines[i].count(')')
+                  if depth == 0:
+                      call_end = i
+                      break
+              assert call_end is not None, name
+              tail = lines[call_end + 1:]
+              while tail and not tail[-1].strip():
+                  tail.pop()
+              assert tail, name
+              patched = lines[:call_end + 1]
+              patched.append('    try:\n')
+              for line in tail:
+                  patched.append(('    ' + line) if line.strip() else line)
+              patched.append('    finally:\n')
+              patched.append('        session.close()\n')
+              if end < len(source):
+                  patched.append('\n')
+              return source[:start] + ''.join(patched) + source[end:]
+
+          for name in sorted(targets):
+              text = patch_function(text, name)
+          safety.write_text(text, encoding='utf-8')
+
+          arch = Path('tests/etabs/test_oapi_layer1_architecture_guards.py')
+          arch_text = arch.read_text(encoding='utf-8')
+          needle = 'read_text(encoding="utf-8")'
+          replacements = arch_text.count(needle)
+          assert replacements >= 8, replacements
+          arch_text = arch_text.replace(needle, 'read_text(encoding="utf-8-sig")')
+          arch.write_text(arch_text, encoding='utf-8')
+
+          print(f'safety_session_cleanup_functions={len(targets)}')
+          print(f'architecture_bom_safe_read_replacements={replacements}')
+          PY
+          cp tests/etabs/test_safety_foundation.py "$EVIDENCE_DIR/test_safety_foundation.py"
+          cp tests/etabs/test_oapi_layer1_architecture_guards.py "$EVIDENCE_DIR/test_oapi_layer1_architecture_guards.py"
+          git diff -- tests/etabs/test_safety_foundation.py tests/etabs/test_oapi_layer1_architecture_guards.py > "$EVIDENCE_DIR/preflight.patch"
+          git diff --check
+
+      - name: Preflight repaired ETABS focused suite
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
         run: |
           set -euo pipefail
+          python -m compileall -q tests/etabs
           set +e
-          timeout --signal=TERM --kill-after=5s 30s python -m pytest -vv -s tests/etabs/test_safety_foundation.py > "$EVIDENCE_DIR/candidate_safety_foundation.log" 2>&1
+          timeout --signal=TERM --kill-after=5s 30s python -m pytest -q tests/etabs > "$EVIDENCE_DIR/preflight_tests.log" 2>&1
           rc=$?
           set -e
-          printf '%s\n' "$rc" > "$EVIDENCE_DIR/candidate_safety_foundation.rc"
-          tail -n 100 "$EVIDENCE_DIR/candidate_safety_foundation.log"
+          printf '%s\n' "$rc" > "$EVIDENCE_DIR/preflight_tests.rc"
+          cat "$EVIDENCE_DIR/preflight_tests.log"
+          test "$rc" -eq 0
 
-      - name: Candidate verified runtime under hard timeout
-        shell: bash
-        env:
-          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
-        run: |
-          set -euo pipefail
-          set +e
-          timeout --signal=TERM --kill-after=5s 30s python -m pytest -vv -s tests/etabs/test_oapi_layer1_verified_safety_runtime.py > "$EVIDENCE_DIR/candidate_verified_runtime.log" 2>&1
-          rc=$?
-          set -e
-          printf '%s\n' "$rc" > "$EVIDENCE_DIR/candidate_verified_runtime.rc"
-          tail -n 100 "$EVIDENCE_DIR/candidate_verified_runtime.log"
-
-      - name: Candidate architecture guards under hard timeout
-        shell: bash
-        env:
-          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
-        run: |
-          set -euo pipefail
-          set +e
-          timeout --signal=TERM --kill-after=5s 30s python -m pytest -vv -s tests/etabs/test_oapi_layer1_architecture_guards.py > "$EVIDENCE_DIR/candidate_architecture.log" 2>&1
-          rc=$?
-          set -e
-          printf '%s\n' "$rc" > "$EVIDENCE_DIR/candidate_architecture.rc"
-          tail -n 100 "$EVIDENCE_DIR/candidate_architecture.log"
-
-      - name: Frozen safety foundation under hard timeout
+      - name: Verify only two preflight files changed
         shell: bash
         run: |
           set -euo pipefail
-          git worktree add --detach "$BASE_WORKTREE" "$FROZEN_BASE_SHA"
-          cd "$BASE_WORKTREE"
-          set +e
-          PYTHONPATH="$BASE_WORKTREE/packages/etabs_gateway/src:$BASE_WORKTREE" timeout --signal=TERM --kill-after=5s 30s python -m pytest -vv -s tests/etabs/test_safety_foundation.py > "$EVIDENCE_DIR/frozen_safety_foundation.log" 2>&1
-          rc=$?
-          set -e
-          printf '%s\n' "$rc" > "$EVIDENCE_DIR/frozen_safety_foundation.rc"
-          tail -n 100 "$EVIDENCE_DIR/frozen_safety_foundation.log"
+          git status --short > "$EVIDENCE_DIR/preflight_status.txt"
+          cat "$EVIDENCE_DIR/preflight_status.txt"
+          test "$(git status --short | wc -l)" -eq 2
+          git status --short | grep -Fx ' M tests/etabs/test_oapi_layer1_architecture_guards.py'
+          git status --short | grep -Fx ' M tests/etabs/test_safety_foundation.py'
 
-      - name: Summarize diagnostic
-        shell: bash
-        run: |
-          set -euo pipefail
-          {
-            echo "candidate_safety_foundation_rc=$(cat "$EVIDENCE_DIR/candidate_safety_foundation.rc")"
-            echo "candidate_verified_runtime_rc=$(cat "$EVIDENCE_DIR/candidate_verified_runtime.rc")"
-            echo "candidate_architecture_rc=$(cat "$EVIDENCE_DIR/candidate_architecture.rc")"
-            echo "frozen_safety_foundation_rc=$(cat "$EVIDENCE_DIR/frozen_safety_foundation.rc")"
-            echo '--- candidate safety tail ---'
-            tail -n 40 "$EVIDENCE_DIR/candidate_safety_foundation.log"
-            echo '--- frozen safety tail ---'
-            tail -n 40 "$EVIDENCE_DIR/frozen_safety_foundation.log"
-          } | tee "$EVIDENCE_DIR/summary.txt"
-
-      - name: Cleanup and candidate ref verification
+      - name: Verify candidate ref unchanged
         if: always()
         shell: bash
         run: |
           set -euo pipefail
-          git worktree remove --force "$BASE_WORKTREE" 2>/dev/null || true
           git fetch --no-tags origin "refs/heads/${CANDIDATE_BRANCH}:refs/remotes/origin/${CANDIDATE_BRANCH}"
           actual="$(git rev-parse "refs/remotes/origin/${CANDIDATE_BRANCH}")"
           printf '%s\n' "$actual" > "$EVIDENCE_DIR/candidate_ref_after.txt"
           test "$actual" = "$CANDIDATE_SHA"
 
-      - name: Upload safety-hang diagnostic
+      - name: Upload bounded repair preflight
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: etabs-oapi-layer1-safety-hang-diagnostic
-          path: /tmp/etabs-oapi-layer1-safety-hang
+          name: etabs-oapi-layer1-bounded-repair-preflight
+          path: /tmp/etabs-oapi-layer1-repair-preflight
           if-no-files-found: warn
           retention-days: 30
