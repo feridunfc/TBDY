@@ -1,18 +1,21 @@
-"""Read-only ETABS provider for column endpoint point-restraint facts.
+"""Semantic ETABS provider for column endpoint point-restraint facts.
 
-This layer decodes ``PointObj.GetRestraint`` only. It does not decide TS500 free
-length, sway classification, effective length, or design authority.
+Exact ``PointObj.GetRestraint`` invocation and ABI decoding are owned by
+``tbdy_engine.etabs.oapi.object_model``. This provider retains column/topology
+meaning and semantic evidence construction only.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Sequence
+from typing import Any
 
+from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError
+from tbdy_engine.etabs.oapi.object_model import read_point_restraint
 from tbdy_engine.features.column_shear_topology import ColumnTopologyEvidence
 
 
 class EtabsColumnEndpointRestraintError(RuntimeError):
-    """Raised when ETABS endpoint restraint data cannot be decoded exactly."""
+    """Raised when ETABS endpoint restraint evidence cannot be promoted."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,53 +44,23 @@ class EtabsColumnEndpointRestraintEvidence:
     authority: str = "ETABS_FACTUAL_COLUMN_ENDPOINT_RESTRAINTS"
 
 
-def _decode_get_restraint(point_name: str, raw: Any) -> EtabsPointRestraintEvidence:
-    if not isinstance(raw, (list, tuple)) or len(raw) < 2:
-        raise EtabsColumnEndpointRestraintError(
-            f"PointObj.GetRestraint({point_name!r}) returned unsupported shape {type(raw).__name__}"
-        )
-
-    return_code = raw[-1]
-    if not isinstance(return_code, int) or return_code != 0:
-        raise EtabsColumnEndpointRestraintError(
-            f"PointObj.GetRestraint({point_name!r}) returned code {return_code!r}"
-        )
-
-    candidates: list[Sequence[Any]] = [
-        item for item in raw[:-1]
-        if isinstance(item, (list, tuple)) and len(item) == 6
-    ]
-    if len(candidates) != 1:
-        raise EtabsColumnEndpointRestraintError(
-            f"PointObj.GetRestraint({point_name!r}) requires exactly one six-DOF array; got {len(candidates)}"
-        )
-    dofs = candidates[0]
-    if not all(isinstance(item, bool) for item in dofs):
-        raise EtabsColumnEndpointRestraintError(
-            f"PointObj.GetRestraint({point_name!r}) DOF array must contain booleans"
-        )
-
-    return EtabsPointRestraintEvidence(
-        point_unique_name=str(point_name),
-        ux=bool(dofs[0]),
-        uy=bool(dofs[1]),
-        uz=bool(dofs[2]),
-        rx=bool(dofs[3]),
-        ry=bool(dofs[4]),
-        rz=bool(dofs[5]),
-        raw_response=raw,
-        source_ref=f"ETABS:PointObj.GetRestraint:{point_name}",
-    )
-
-
 def capture_etabs_point_restraint(point_obj: Any, point_name: str) -> EtabsPointRestraintEvidence:
     try:
-        raw = point_obj.GetRestraint(str(point_name))
-    except Exception as exc:  # pragma: no cover - live COM only
-        raise EtabsColumnEndpointRestraintError(
-            f"PointObj.GetRestraint({point_name!r}) failed: {type(exc).__name__}: {exc}"
-        ) from exc
-    return _decode_get_restraint(str(point_name), raw)
+        fact = read_point_restraint(point_obj, str(point_name))
+    except EtabsOAPIError as exc:
+        raise EtabsColumnEndpointRestraintError(str(exc)) from exc
+    ux, uy, uz, rx, ry, rz = fact.dofs
+    return EtabsPointRestraintEvidence(
+        point_unique_name=fact.point_name,
+        ux=ux,
+        uy=uy,
+        uz=uz,
+        rx=rx,
+        ry=ry,
+        rz=rz,
+        raw_response=fact.raw_response,
+        source_ref=f"ETABS:PointObj.GetRestraint:{fact.point_name}",
+    )
 
 
 def capture_etabs_column_endpoint_restraints(
