@@ -96,9 +96,6 @@ def _gateway_pid_capability(diagnostics: Mapping[str, object]) -> CapabilityStat
         if "does not expose callable GetObjectProcess" in message:
             return CapabilityState.UNSUPPORTED
 
-    # A concrete GetObjectProcess invocation that failed with another runtime
-    # error proves that the method exists even though the requested attach did
-    # not succeed.
     if any(item.get("pid") is not None for item in attempts):
         return CapabilityState.SUPPORTED
     return CapabilityState.UNKNOWN
@@ -122,12 +119,7 @@ def _gateway_error_code(
 
 @dataclass(frozen=True, slots=True)
 class EtabsVerifiedSession:
-    """Verified ETABS session with no public raw COM capability.
-
-    The gateway object is deliberately private and excluded from repr/equality.
-    Safety and OAPI may submit bounded reads through the module-private helper;
-    application/integration consumers receive only immutable factual metadata.
-    """
+    """Verified ETABS session with no public raw COM capability."""
 
     identity: EtabsSessionIdentity
     capabilities: EtabsCapabilitySnapshot
@@ -146,15 +138,10 @@ class EtabsVerifiedSession:
             raise TypeError("capabilities must be EtabsCapabilitySnapshot")
         if not isinstance(self._gateway_session, ETABSGatewaySession):
             raise TypeError("verified session requires an ETABSGatewaySession")
-        object.__setattr__(
-            self,
-            "diagnostics",
-            tuple(dict(item) for item in self.diagnostics),
-        )
+        object.__setattr__(self, "diagnostics", tuple(dict(item) for item in self.diagnostics))
         object.__setattr__(self, "_attach_diagnostics", dict(self._attach_diagnostics))
 
     def close(self, *, timeout_seconds: float = 5.0) -> bool:
-        """Close the owning gateway session without exposing its COM objects."""
         return self._gateway_session.close(timeout_seconds=timeout_seconds)
 
 
@@ -180,9 +167,6 @@ def reread_verified_session_identity(
     *,
     timeout_seconds: float = 30.0,
 ) -> EtabsSessionIdentity:
-    """Re-read identity through the private gateway capability and return facts."""
-    if not isinstance(session, EtabsVerifiedSession):
-        raise TypeError("session must be EtabsVerifiedSession")
     return _execute_verified_read(
         session,
         lambda etabs_object, sap_model: read_session_identity(
@@ -201,11 +185,73 @@ def read_verified_unit_snapshot(
     *,
     timeout_seconds: float = 30.0,
 ) -> EtabsUnitSnapshot:
-    """Read current unit provenance without exporting SapModel."""
     return _execute_verified_read(
         session,
         lambda _etabs_object, sap_model: read_etabs_unit_snapshot(sap_model),
         operation="verified_session_unit_snapshot",
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def read_verified_analysis_readiness(
+    session: EtabsVerifiedSession,
+    case_name: str,
+    *,
+    timeout_seconds: float = 30.0,
+) -> AnalysisCaseReadiness:
+    """Read factual analysis readiness without running analysis."""
+    return _execute_verified_read(
+        session,
+        lambda _etabs_object, sap_model: read_analysis_readiness(sap_model, case_name),
+        operation="verified_session_analysis_readiness",
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def read_verified_database_tables_selection(
+    session: EtabsVerifiedSession,
+    *,
+    timeout_seconds: float = 30.0,
+) -> DatabaseTablesSelectionSnapshot:
+    """Snapshot DatabaseTables selection through its safety-owned transaction."""
+    def acquire(_etabs_object: object, sap_model: Any) -> DatabaseTablesSelectionSnapshot:
+        with DatabaseTablesReadTransaction(sap_model.DatabaseTables) as transaction:
+            snapshot = transaction.snapshot
+            if snapshot is None:
+                raise EtabsCapabilityError(
+                    "DatabaseTables selection snapshot was not captured.",
+                    code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+                )
+            return snapshot
+
+    return _execute_verified_read(
+        session,
+        acquire,
+        operation="verified_database_tables_selection_snapshot",
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def read_verified_results_setup_selection(
+    session: EtabsVerifiedSession,
+    *,
+    timeout_seconds: float = 30.0,
+) -> ResultsSetupSelectionSnapshot:
+    """Snapshot Results.Setup selection through its independent safety transaction."""
+    def acquire(_etabs_object: object, sap_model: Any) -> ResultsSetupSelectionSnapshot:
+        with ResultsSetupReadTransaction(sap_model) as transaction:
+            snapshot = transaction.snapshot
+            if snapshot is None:
+                raise EtabsCapabilityError(
+                    "Results.Setup selection snapshot was not captured.",
+                    code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+                )
+            return snapshot
+
+    return _execute_verified_read(
+        session,
+        acquire,
+        operation="verified_results_setup_selection_snapshot",
         timeout_seconds=timeout_seconds,
     )
 
@@ -218,28 +264,14 @@ def attach_verified_to_running_etabs(
     comtypes_client: Any | None = None,
     win32com_client: Any | None = None,
 ) -> EtabsVerifiedSession:
-    """Attach through the sole gateway owner, then hard-verify exact identity.
-
-    ``comtypes_client``/``win32com_client`` remain bounded injection seams for
-    existing offline tests. Production calls omit them and use the gateway's
-    normal lazy Windows COM loaders.
-    """
+    """Attach through the sole gateway owner, then hard-verify exact identity."""
     injected = comtypes_client is not None or win32com_client is not None
-
-    # When both historical test clients are supplied, leave the win32 loader at
-    # its normal non-strict setting so a deliberately failing win32 fake cannot
-    # suppress the injected comtypes fallback. A sole win32 injection remains
-    # supported as a strict runtime seam.
     runtime_loader = (
         (lambda: win32com_client)
         if win32com_client is not None and comtypes_client is None
         else None
     )
-    comtypes_loader = (
-        (lambda: comtypes_client)
-        if comtypes_client is not None
-        else None
-    )
+    comtypes_loader = (lambda: comtypes_client) if comtypes_client is not None else None
     gateway = ETABSGatewaySession(
         com_module_loader=_injected_apartment_loader if injected else None,
         runtime_loader=runtime_loader,
@@ -351,6 +383,9 @@ __all__ = [
     "read_capability_snapshot",
     "read_etabs_unit_snapshot",
     "read_session_identity",
+    "read_verified_analysis_readiness",
+    "read_verified_database_tables_selection",
+    "read_verified_results_setup_selection",
     "read_verified_unit_snapshot",
     "reread_verified_session_identity",
     "verify_target_model",
