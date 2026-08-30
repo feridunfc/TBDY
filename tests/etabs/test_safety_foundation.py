@@ -158,6 +158,7 @@ def test_exact_target_identity_accepted():
     assert session.identity.model_full_path == r"C:\tmp\B-BLOK_Revised.EDB"
     assert session.identity.model_locked is True
     assert session.identity.program_version == "22.7.0"
+    session.close()
 
 
 def test_wrong_model_is_hard_failure_with_stable_code():
@@ -200,6 +201,7 @@ def test_pid_verified_session_records_pid_only_for_exact_process_strategy():
     )
     assert session.identity.process_id == 77
     assert session.capabilities.pid_attach is CapabilityState.SUPPORTED
+    session.close()
 
 
 def test_callable_pid_failure_is_hard_failure_without_generic_fallback():
@@ -238,6 +240,7 @@ def test_callable_pid_failure_fallback_requires_explicit_opt_in_and_verifies_tar
     assert client.active_calls
     assert session.diagnostics[0]["code"] == EtabsSafetyErrorCode.PID_ATTACH_FAILED.value
     assert session.diagnostics[0]["compatibility_opt_in"] is True
+    session.close()
 
 
 def test_unsupported_pid_api_may_use_bounded_verified_fallback():
@@ -256,6 +259,7 @@ def test_unsupported_pid_api_may_use_bounded_verified_fallback():
     assert session.identity.process_id is None
     assert session.capabilities.pid_attach is CapabilityState.UNSUPPORTED
     assert session.diagnostics[0]["code"] == EtabsSafetyErrorCode.PID_ATTACH_UNSUPPORTED.value
+    session.close()
 
 
 def test_pid_fallback_still_rejects_wrong_model():
@@ -283,6 +287,7 @@ def test_fallback_attach_is_identity_verified():
     )
     assert session.identity.process_id is None
     assert session.identity.model_full_path.lower().endswith("b-blok_revised.edb")
+    session.close()
 
 
 def test_present_units_are_never_changed_by_canonical_unit_read():

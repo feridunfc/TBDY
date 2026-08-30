@@ -1,15 +1,11 @@
-"""Read-only ETABS concrete-column design-result acquisition for P8A.
+"""Semantic factual ETABS concrete-column design-result acquisition for P8A.
 
-The provider consumes only canonical strict-topology/design-section evidence and
-reads already-existing concrete-column design results. It never starts analysis
-or design, changes model state, selects a governing row, or emits an engineering
-reinforcement selection.
-
-The Python COM result contract enforced here was live-observed on ETABS 23.2.0:
-14 return members consisting of NumberItems, twelve equal-length result arrays,
-and a trailing return code. A zero-row response with twelve empty arrays and
-ret=0 is a valid API shape; it is not sufficient evidence for a canonical
-column population and therefore fails closed at the population boundary.
+The provider owns canonical component binding, source-unit conversion,
+EvidenceEpoch/provenance, row identity, and full-population accounting. Exact
+``DesignConcrete.GetSummaryResultsColumn`` invocation and 14-slot CSI ABI
+validation are owned by ``tbdy_engine.etabs.oapi.concrete_design``. Supported
+live acquisition consumes a verified session and typed OAPI batch facts; raw
+SapModel is retained only on the bounded compatibility seam.
 """
 from __future__ import annotations
 
@@ -19,7 +15,15 @@ import hashlib
 import json
 from typing import Any, Sequence
 
-from tbdy_engine.etabs.safety import read_etabs_unit_snapshot
+from tbdy_engine.etabs.oapi.concrete_design import (
+    ConcreteColumnSummaryBatchFact,
+    ConcreteColumnSummaryFact,
+    decode_summary_results_column_response,
+    read_summary_results_column,
+    read_summary_results_columns_with_units_from_session,
+)
+from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError
+from tbdy_engine.etabs.safety import EtabsVerifiedSession, read_etabs_unit_snapshot
 from tbdy_engine.etabs.source_units import (
     EtabsLengthUnit,
     EtabsSourceUnitError,
@@ -45,18 +49,8 @@ SOURCE_ITEM_TYPE = "Objects(default)"
 SOURCE_UNIT_API = "GetPresentUnits_2"
 
 _RESULT_ARRAY_NAMES = (
-    "FrameName",
-    "MyOption",
-    "Location",
-    "PMMCombo",
-    "PMMArea",
-    "PMMRatio",
-    "VMajorCombo",
-    "AVMajor",
-    "VMinorCombo",
-    "AVMinor",
-    "ErrorSummary",
-    "WarningSummary",
+    "FrameName", "MyOption", "Location", "PMMCombo", "PMMArea", "PMMRatio",
+    "VMajorCombo", "AVMajor", "VMinorCombo", "AVMinor", "ErrorSummary", "WarningSummary",
 )
 
 
@@ -66,9 +60,7 @@ class EtabsConcreteColumnDesignResultProviderError(RuntimeError):
 
 def _text(value: Any, label: str) -> str:
     if not isinstance(value, str) or not value.strip() or value != value.strip():
-        raise EtabsConcreteColumnDesignResultProviderError(
-            f"{label} must be an exact nonblank string"
-        )
+        raise EtabsConcreteColumnDesignResultProviderError(f"{label} must be an exact nonblank string")
     return value
 
 
@@ -148,8 +140,6 @@ def _source_row_id(*, frame_name: str, source_index: int, payload: dict[str, Any
 
 @dataclass(frozen=True, slots=True)
 class DecodedSummaryResultsColumn:
-    """Validated ABI response for exactly one requested canonical frame."""
-
     reported_row_count: int
     rows: tuple[FactualColumnDesignResultRow, ...]
 
@@ -172,6 +162,95 @@ class DecodedSummaryResultsColumn:
         object.__setattr__(self, "rows", rows)
 
 
+def _promote_summary_fact(
+    fact: ConcreteColumnSummaryFact,
+    *,
+    component_id: str,
+    unique_name: str,
+    story: str,
+    label: str,
+    assigned_section: str,
+    design_section: str,
+    source_length_unit: EtabsLengthUnit,
+    model_fingerprint: str,
+    evidence_epoch_id: str,
+    source_refs: Sequence[str],
+) -> DecodedSummaryResultsColumn:
+    component = _text(component_id, "component_id")
+    frame_name = _text(unique_name, "unique_name")
+    story_name = _text(story, "story")
+    label_name = _text(label, "label")
+    assigned = _text(assigned_section, "assigned_section")
+    designed = _text(design_section, "design_section")
+    model_ref = _text(model_fingerprint, "model_fingerprint")
+    epoch_ref = _text(evidence_epoch_id, "evidence_epoch_id")
+    refs = _refs(source_refs, "source_ref")
+    source_length_unit = EtabsLengthUnit(source_length_unit)
+    if fact.requested_frame_name != frame_name:
+        raise EtabsConcreteColumnDesignResultProviderError(
+            "OAPI summary fact does not match requested canonical UniqueName"
+        )
+
+    length_to_mm = convert_length(Decimal(1), source=source_length_unit, target=EtabsLengthUnit.MM)
+    area_to_mm2 = length_to_mm * length_to_mm
+    rows: list[FactualColumnDesignResultRow] = []
+    for item in fact.rows:
+        returned_frame = _text(item.frame_name, "FrameName")
+        option = _int(item.my_option, "MyOption")
+        if option not in (1, 2):
+            raise EtabsConcreteColumnDesignResultProviderError("MyOption must be exact CSI Check=1 or Design=2")
+        location_source = _decimal(item.location, "Location", nonnegative=True)
+        pmm_area_source = _decimal(item.pmm_area, "PMMArea", nonnegative=True)
+        pmm_ratio = _decimal(item.pmm_ratio, "PMMRatio")
+        avmajor = _decimal(item.avmajor, "AVMajor")
+        avminor = _decimal(item.avminor, "AVMinor")
+        pmm_combo = _optional_text(item.pmm_combo, "PMMCombo")
+        vmajor_combo = _optional_text(item.vmajor_combo, "VMajorCombo")
+        vminor_combo = _optional_text(item.vminor_combo, "VMinorCombo")
+        if not isinstance(item.error_summary, str) or not isinstance(item.warning_summary, str):
+            raise EtabsConcreteColumnDesignResultProviderError(
+                "ErrorSummary/WarningSummary must preserve exact CSI strings"
+            )
+        payload = {
+            "FrameName": returned_frame,
+            "MyOption": option,
+            "Location": _decimal_payload(location_source),
+            "PMMCombo": pmm_combo,
+            "PMMArea": _decimal_payload(pmm_area_source),
+            "PMMRatio": _decimal_payload(pmm_ratio),
+            "VMajorCombo": vmajor_combo,
+            "AVMajor": _decimal_payload(avmajor),
+            "VMinorCombo": vminor_combo,
+            "AVMinor": _decimal_payload(avminor),
+            "ErrorSummary": item.error_summary,
+            "WarningSummary": item.warning_summary,
+            "source_length_unit": source_length_unit.value,
+        }
+        row_id = _source_row_id(frame_name=frame_name, source_index=item.source_index, payload=payload)
+        row_ref = f"CSI:{SOURCE_API}:{frame_name}:row:{item.source_index}:{row_id}"
+        rows.append(
+            FactualColumnDesignResultRow(
+                source_row_id=row_id,
+                component_id=component,
+                unique_name=frame_name,
+                story=story_name,
+                label=label_name,
+                assigned_section=assigned,
+                design_section=designed,
+                my_option=option,
+                pmm_combo=pmm_combo,
+                location_mm=location_source * length_to_mm,
+                pmm_area_mm2=pmm_area_source * area_to_mm2,
+                error_summary=item.error_summary,
+                warning_summary=item.warning_summary,
+                model_fingerprint=model_ref,
+                evidence_epoch_id=epoch_ref,
+                source_refs=tuple(dict.fromkeys((*refs, row_ref))),
+            )
+        )
+    return DecodedSummaryResultsColumn(fact.reported_row_count, tuple(rows))
+
+
 def decode_summary_results_column(
     raw: Any,
     *,
@@ -186,155 +265,38 @@ def decode_summary_results_column(
     evidence_epoch_id: str,
     source_refs: Sequence[str],
 ) -> DecodedSummaryResultsColumn:
-    """Decode one live-validated 14-slot Python COM response without heuristics."""
-    component = _text(component_id, "component_id")
+    """Compatibility seam: delegate raw CSI ABI decoding to the OAPI owner."""
     frame_name = _text(unique_name, "unique_name")
-    story_name = _text(story, "story")
-    label_name = _text(label, "label")
-    assigned = _text(assigned_section, "assigned_section")
-    designed = _text(design_section, "design_section")
-    model_ref = _text(model_fingerprint, "model_fingerprint")
-    epoch_ref = _text(evidence_epoch_id, "evidence_epoch_id")
-    refs = _refs(source_refs, "source_ref")
-    source_length_unit = EtabsLengthUnit(source_length_unit)
-
-    if not isinstance(raw, (tuple, list)) or len(raw) != 14:
-        raise EtabsConcreteColumnDesignResultProviderError(
-            f"{SOURCE_API} returned unsupported Python COM shape; expected 14 values"
-        )
-
-    number_items = _int(raw[0], "NumberItems")
-    if number_items < 0:
-        raise EtabsConcreteColumnDesignResultProviderError("NumberItems must be >= 0")
-
-    ret = raw[13]
-    if isinstance(ret, bool) or not isinstance(ret, int) or ret != 0:
-        raise EtabsConcreteColumnDesignResultProviderError(
-            f"{SOURCE_API} returned nonzero/invalid code {ret!r}"
-        )
-
-    arrays = tuple(raw[1:13])
-    if len(arrays) != len(_RESULT_ARRAY_NAMES) or any(
-        not isinstance(values, (tuple, list)) for values in arrays
-    ):
-        raise EtabsConcreteColumnDesignResultProviderError(
-            f"{SOURCE_API} returned non-array result members"
-        )
-
-    lengths = tuple(len(values) for values in arrays)
-    if any(length != number_items for length in lengths):
-        raise EtabsConcreteColumnDesignResultProviderError(
-            f"{SOURCE_API} NumberItems/array lengths differ: n={number_items} lengths={lengths}"
-        )
-
-    length_to_mm = convert_length(
-        Decimal(1),
-        source=source_length_unit,
-        target=EtabsLengthUnit.MM,
-    )
-    area_to_mm2 = length_to_mm * length_to_mm
-
-    rows: list[FactualColumnDesignResultRow] = []
-    for index in range(number_items):
-        values = {
-            name: arrays[position][index]
-            for position, name in enumerate(_RESULT_ARRAY_NAMES)
-        }
-
-        returned_frame = _text(values["FrameName"], "FrameName")
-        if returned_frame != frame_name:
-            raise EtabsConcreteColumnDesignResultProviderError(
-                f"FrameName {returned_frame!r} does not equal requested canonical UniqueName {frame_name!r}"
-            )
-
-        option = _int(values["MyOption"], "MyOption")
-        if option not in (1, 2):
-            raise EtabsConcreteColumnDesignResultProviderError(
-                "MyOption must be exact CSI Check=1 or Design=2"
-            )
-
-        location_source = _decimal(values["Location"], "Location", nonnegative=True)
-        pmm_area_source = _decimal(values["PMMArea"], "PMMArea", nonnegative=True)
-
-        # Validate the entire reviewed 12-array ABI even though only the PMM
-        # subset is promoted by the provider-neutral P8A factual contract.
-        pmm_ratio = _decimal(values["PMMRatio"], "PMMRatio")
-        avmajor = _decimal(values["AVMajor"], "AVMajor")
-        avminor = _decimal(values["AVMinor"], "AVMinor")
-        pmm_combo = _optional_text(values["PMMCombo"], "PMMCombo")
-        vmajor_combo = _optional_text(values["VMajorCombo"], "VMajorCombo")
-        vminor_combo = _optional_text(values["VMinorCombo"], "VMinorCombo")
-
-        error_summary = values["ErrorSummary"]
-        warning_summary = values["WarningSummary"]
-        if not isinstance(error_summary, str) or not isinstance(warning_summary, str):
-            raise EtabsConcreteColumnDesignResultProviderError(
-                "ErrorSummary/WarningSummary must preserve exact CSI strings"
-            )
-
-        payload = {
-            "FrameName": returned_frame,
-            "MyOption": option,
-            "Location": _decimal_payload(location_source),
-            "PMMCombo": pmm_combo,
-            "PMMArea": _decimal_payload(pmm_area_source),
-            "PMMRatio": _decimal_payload(pmm_ratio),
-            "VMajorCombo": vmajor_combo,
-            "AVMajor": _decimal_payload(avmajor),
-            "VMinorCombo": vminor_combo,
-            "AVMinor": _decimal_payload(avminor),
-            "ErrorSummary": error_summary,
-            "WarningSummary": warning_summary,
-            "source_length_unit": source_length_unit.value,
-        }
-        row_id = _source_row_id(
-            frame_name=frame_name,
-            source_index=index,
-            payload=payload,
-        )
-        row_ref = f"CSI:{SOURCE_API}:{frame_name}:row:{index}:{row_id}"
-
-        rows.append(
-            FactualColumnDesignResultRow(
-                source_row_id=row_id,
-                component_id=component,
-                unique_name=frame_name,
-                story=story_name,
-                label=label_name,
-                assigned_section=assigned,
-                design_section=designed,
-                my_option=option,
-                pmm_combo=pmm_combo,
-                location_mm=location_source * length_to_mm,
-                pmm_area_mm2=pmm_area_source * area_to_mm2,
-                error_summary=error_summary,
-                warning_summary=warning_summary,
-                model_fingerprint=model_ref,
-                evidence_epoch_id=epoch_ref,
-                source_refs=tuple(dict.fromkeys((*refs, row_ref))),
-            )
-        )
-
-    return DecodedSummaryResultsColumn(
-        reported_row_count=number_items,
-        rows=tuple(rows),
+    try:
+        fact = decode_summary_results_column_response(raw, requested_frame_name=frame_name)
+    except EtabsOAPIError as exc:
+        raise EtabsConcreteColumnDesignResultProviderError(str(exc)) from exc
+    return _promote_summary_fact(
+        fact,
+        component_id=component_id,
+        unique_name=frame_name,
+        story=story,
+        label=label,
+        assigned_section=assigned_section,
+        design_section=design_section,
+        source_length_unit=source_length_unit,
+        model_fingerprint=model_fingerprint,
+        evidence_epoch_id=evidence_epoch_id,
+        source_refs=source_refs,
     )
 
 
-def capture_concrete_column_design_results(
-    sap_model: Any,
+def _validated_population_inputs(
     *,
     topology: ColumnTopologyEvidenceEnvelope,
     design_sections: ConcreteColumnDesignSectionPopulation,
     session_provenance_ref: str,
-) -> FactualColumnDesignResultPopulation:
-    """Capture all existing result rows for the exact canonical column population."""
+):
     if not isinstance(topology, ColumnTopologyEvidenceEnvelope):
         raise TypeError("topology must be ColumnTopologyEvidenceEnvelope")
     if not isinstance(design_sections, ConcreteColumnDesignSectionPopulation):
         raise TypeError("design_sections must be ConcreteColumnDesignSectionPopulation")
     session_ref = _text(session_provenance_ref, "session_provenance_ref")
-
     if (
         design_sections.model_fingerprint != topology.model_fingerprint
         or design_sections.evidence_epoch_id != topology.evidence_epoch_id
@@ -342,13 +304,7 @@ def capture_concrete_column_design_results(
         raise EtabsConcreteColumnDesignResultProviderError(
             "topology and design-section population must share model fingerprint/EvidenceEpoch"
         )
-
-    columns = tuple(
-        sorted(
-            topology.topology.columns,
-            key=lambda item: (item.component_id, item.unique_name),
-        )
-    )
+    columns = tuple(sorted(topology.topology.columns, key=lambda item: (item.component_id, item.unique_name)))
     expected_ids = tuple(item.component_id for item in columns)
     expected_names = tuple(item.unique_name for item in columns)
     if not expected_ids or len(expected_ids) != len(set(expected_ids)):
@@ -356,9 +312,7 @@ def capture_concrete_column_design_results(
             "canonical topology component population must be nonempty and unique"
         )
     if len(expected_names) != len(set(expected_names)):
-        raise EtabsConcreteColumnDesignResultProviderError(
-            "canonical topology FrameName population must be unique"
-        )
+        raise EtabsConcreteColumnDesignResultProviderError("canonical topology FrameName population must be unique")
     if (
         set(design_sections.expected_component_ids) != set(expected_ids)
         or set(design_sections.expected_frame_names) != set(expected_names)
@@ -366,15 +320,23 @@ def capture_concrete_column_design_results(
         raise EtabsConcreteColumnDesignResultProviderError(
             "design-section population does not cover the exact canonical topology"
         )
+    return session_ref, columns, expected_ids, expected_names
 
-    design_concrete = getattr(sap_model, "DesignConcrete", None)
-    getter = getattr(design_concrete, "GetSummaryResultsColumn", None)
-    if not callable(getter):
-        raise EtabsConcreteColumnDesignResultProviderError(
-            f"{SOURCE_API} is unavailable"
-        )
 
-    before = read_etabs_unit_snapshot(sap_model)
+def _capture_from_batch(
+    batch: ConcreteColumnSummaryBatchFact,
+    *,
+    topology: ColumnTopologyEvidenceEnvelope,
+    design_sections: ConcreteColumnDesignSectionPopulation,
+    session_provenance_ref: str,
+) -> FactualColumnDesignResultPopulation:
+    session_ref, columns, expected_ids, expected_names = _validated_population_inputs(
+        topology=topology,
+        design_sections=design_sections,
+        session_provenance_ref=session_provenance_ref,
+    )
+    before = batch.units_before
+    after = batch.units_after
     if getattr(before, "present_units_api", None) != SOURCE_UNIT_API:
         raise EtabsConcreteColumnDesignResultProviderError(
             f"{SOURCE_API} requires explicit {SOURCE_UNIT_API} source-unit provenance"
@@ -385,6 +347,27 @@ def capture_concrete_column_design_results(
         raise EtabsConcreteColumnDesignResultProviderError(
             "design-result source length unit is unavailable/outside reviewed scope"
         ) from exc
+    if _snapshot_key(after) != _snapshot_key(before):
+        raise EtabsConcreteColumnDesignResultProviderError(
+            "ETABS unit provenance changed during design-result acquisition"
+        )
+    try:
+        after_length_unit = decode_csi_length_unit(after.present_length_unit)
+    except EtabsSourceUnitError as exc:
+        raise EtabsConcreteColumnDesignResultProviderError(
+            "post-capture source length unit is unavailable/outside reviewed scope"
+        ) from exc
+    if after_length_unit is not source_length_unit:
+        raise EtabsConcreteColumnDesignResultProviderError(
+            "source length unit changed during design-result acquisition"
+        )
+
+    facts = tuple(batch.summaries)
+    fact_by_name = {fact.requested_frame_name: fact for fact in facts}
+    if len(fact_by_name) != len(facts) or set(fact_by_name) != set(expected_names):
+        raise EtabsConcreteColumnDesignResultProviderError(
+            "typed design-result facts do not exactly cover canonical topology"
+        )
 
     attempted_ids: list[str] = []
     captured_ids: list[str] = []
@@ -409,7 +392,6 @@ def capture_concrete_column_design_results(
             raise EtabsConcreteColumnDesignResultProviderError(
                 "design-section row does not bind to the same canonical topology identity"
             )
-
         request_ref = f"CSI:{SOURCE_API}:{SOURCE_ITEM_TYPE}:{column.unique_name}"
         result_identity = ColumnDesignResultIdentity(
             frame_name=column.unique_name,
@@ -429,16 +411,8 @@ def capture_concrete_column_design_results(
             raise EtabsConcreteColumnDesignResultProviderError(
                 f"component identity binding blocked for {column.unique_name!r}: {binding.status.value}"
             )
-
-        try:
-            raw = getter(column.unique_name)
-        except Exception as exc:
-            raise EtabsConcreteColumnDesignResultProviderError(
-                f"{SOURCE_API}({column.unique_name!r}) raised {type(exc).__name__}: {exc}"
-            ) from exc
-
-        decoded = decode_summary_results_column(
-            raw,
+        decoded = _promote_summary_fact(
+            fact_by_name[column.unique_name],
             component_id=column.component_id,
             unique_name=column.unique_name,
             story=column.story,
@@ -448,47 +422,22 @@ def capture_concrete_column_design_results(
             source_length_unit=source_length_unit,
             model_fingerprint=topology.model_fingerprint,
             evidence_epoch_id=topology.evidence_epoch_id,
-            source_refs=tuple(
-                dict.fromkeys(
-                    (
-                        session_ref,
-                        *topology.source_refs,
-                        *section_row.source_refs,
-                        *binding.source_refs,
-                        request_ref,
-                    )
-                )
-            ),
+            source_refs=tuple(dict.fromkeys((
+                session_ref,
+                *topology.source_refs,
+                *section_row.source_refs,
+                *binding.source_refs,
+                request_ref,
+            ))),
         )
         if decoded.reported_row_count == 0:
             raise EtabsConcreteColumnDesignResultProviderError(
                 f"canonical column {column.unique_name!r} has no existing concrete-design result rows"
             )
-
         reported_total += decoded.reported_row_count
         all_rows.extend(decoded.rows)
         captured_ids.append(column.component_id)
-        population_refs.extend(
-            ref
-            for row in decoded.rows
-            for ref in row.source_refs
-        )
-
-    after = read_etabs_unit_snapshot(sap_model)
-    if _snapshot_key(after) != _snapshot_key(before):
-        raise EtabsConcreteColumnDesignResultProviderError(
-            "ETABS unit provenance changed during design-result acquisition"
-        )
-    try:
-        after_length_unit = decode_csi_length_unit(after.present_length_unit)
-    except EtabsSourceUnitError as exc:
-        raise EtabsConcreteColumnDesignResultProviderError(
-            "post-capture source length unit is unavailable/outside reviewed scope"
-        ) from exc
-    if after_length_unit is not source_length_unit:
-        raise EtabsConcreteColumnDesignResultProviderError(
-            "source length unit changed during design-result acquisition"
-        )
+        population_refs.extend(ref for row in decoded.rows for ref in row.source_refs)
 
     population = FactualColumnDesignResultPopulation(
         model_fingerprint=topology.model_fingerprint,
@@ -507,6 +456,61 @@ def capture_concrete_column_design_results(
     return population
 
 
+def capture_concrete_column_design_results(
+    sap_model: Any,
+    *,
+    topology: ColumnTopologyEvidenceEnvelope,
+    design_sections: ConcreteColumnDesignSectionPopulation,
+    session_provenance_ref: str,
+) -> FactualColumnDesignResultPopulation:
+    """Compatibility path for an already-bounded raw SapModel caller."""
+    _, _, _, expected_names = _validated_population_inputs(
+        topology=topology,
+        design_sections=design_sections,
+        session_provenance_ref=session_provenance_ref,
+    )
+    design_concrete = getattr(sap_model, "DesignConcrete", None)
+    if design_concrete is None:
+        raise EtabsConcreteColumnDesignResultProviderError(f"{SOURCE_API} is unavailable")
+    before = read_etabs_unit_snapshot(sap_model)
+    try:
+        facts = tuple(read_summary_results_column(design_concrete, name) for name in expected_names)
+    except EtabsOAPIError as exc:
+        raise EtabsConcreteColumnDesignResultProviderError(str(exc)) from exc
+    after = read_etabs_unit_snapshot(sap_model)
+    return _capture_from_batch(
+        ConcreteColumnSummaryBatchFact(before, facts, after),
+        topology=topology,
+        design_sections=design_sections,
+        session_provenance_ref=session_provenance_ref,
+    )
+
+
+def capture_concrete_column_design_results_from_session(
+    session: EtabsVerifiedSession,
+    *,
+    topology: ColumnTopologyEvidenceEnvelope,
+    design_sections: ConcreteColumnDesignSectionPopulation,
+    session_provenance_ref: str,
+) -> FactualColumnDesignResultPopulation:
+    """Supported live path: session -> typed OAPI batch -> semantic population."""
+    _, _, _, expected_names = _validated_population_inputs(
+        topology=topology,
+        design_sections=design_sections,
+        session_provenance_ref=session_provenance_ref,
+    )
+    try:
+        batch = read_summary_results_columns_with_units_from_session(session, expected_names)
+    except EtabsOAPIError as exc:
+        raise EtabsConcreteColumnDesignResultProviderError(str(exc)) from exc
+    return _capture_from_batch(
+        batch,
+        topology=topology,
+        design_sections=design_sections,
+        session_provenance_ref=session_provenance_ref,
+    )
+
+
 __all__ = [
     "SOURCE_API",
     "SOURCE_ITEM_TYPE",
@@ -514,5 +518,6 @@ __all__ = [
     "DecodedSummaryResultsColumn",
     "EtabsConcreteColumnDesignResultProviderError",
     "capture_concrete_column_design_results",
+    "capture_concrete_column_design_results_from_session",
     "decode_summary_results_column",
 ]

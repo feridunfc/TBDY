@@ -2,14 +2,10 @@
 
 The exact ETABS 23.2 factual source is the display table
 ``Concrete Frame Design Load Combination Data`` with raw fields ``ComboType``
-and ``ComboName``.  This module owns only factual acquisition.  It does not
-judge whether any selected combination is expected, correct, supported, or
-governing.
-
-The older schema-probe helper remains diagnostic-only.  Production promotion
-uses :func:`acquire_actual_concrete_design_combo_selection`, which requires a
-FULL shared display-table capture and fails closed on any schema, row, or
-capture-integrity mismatch.
+and ``ComboName``. This module owns only factual semantic acquisition. It does
+not judge whether any selected combination is expected, correct, supported, or
+governing. The supported live path consumes the canonical session-bound OAPI
+DatabaseTables adapter and never receives raw DatabaseTables/SapModel.
 """
 from __future__ import annotations
 
@@ -18,9 +14,11 @@ import hashlib
 import json
 from typing import Any, Mapping, Sequence
 
+from tbdy_engine.etabs.oapi import fetch_display_table_from_session
 from tbdy_engine.etabs.safety import (
     EtabsSafetyError,
     EtabsSafetyErrorCode,
+    EtabsVerifiedSession,
     RuntimeCaptureStatus,
 )
 from tbdy_engine.providers.etabs_display_table_fetcher import (
@@ -161,7 +159,7 @@ def build_actual_concrete_design_combo_selection_population(
     """Promote one shared display-table fetch into typed factual evidence.
 
     Promotion is deliberately stricter than generic display-table parsing:
-    exactly the reviewed table/schema and a FULL capture are required.  No
+    exactly the reviewed table/schema and a FULL capture are required. No
     expected-combination policy or engineering interpretation is performed.
     """
     if not isinstance(fetched, DisplayTableFetchResult):
@@ -298,9 +296,30 @@ def acquire_actual_concrete_design_combo_selection(
     evidence_epoch_id: str,
     session_provenance_ref: str,
 ) -> ActualConcreteDesignComboSelectionPopulation:
-    """Read the full proven selected-combo table without ETABS mutation."""
+    """Compatibility path for an already-bounded DatabaseTables interface."""
     fetched = fetch_display_table(
         database_tables,
+        TABLE_CONCRETE_FRAME_DESIGN_LOAD_COMBINATION_DATA,
+        max_rows=None,
+    )
+    return build_actual_concrete_design_combo_selection_population(
+        fetched,
+        model_fingerprint=model_fingerprint,
+        evidence_epoch_id=evidence_epoch_id,
+        session_provenance_ref=session_provenance_ref,
+    )
+
+
+def acquire_actual_concrete_design_combo_selection_from_session(
+    session: EtabsVerifiedSession,
+    *,
+    model_fingerprint: str,
+    evidence_epoch_id: str,
+    session_provenance_ref: str,
+) -> ActualConcreteDesignComboSelectionPopulation:
+    """Supported live path through canonical OAPI/safety/gateway boundaries."""
+    fetched = fetch_display_table_from_session(
+        session,
         TABLE_CONCRETE_FRAME_DESIGN_LOAD_COMBINATION_DATA,
         max_rows=None,
     )
@@ -357,6 +376,7 @@ __all__ = [
     "SOURCE_NOT_PROVEN",
     "TABLE_CONCRETE_FRAME_DESIGN_LOAD_COMBINATION_DATA",
     "acquire_actual_concrete_design_combo_selection",
+    "acquire_actual_concrete_design_combo_selection_from_session",
     "build_actual_concrete_design_combo_selection_population",
     "probe_concrete_frame_design_combo_selection_table",
 ]

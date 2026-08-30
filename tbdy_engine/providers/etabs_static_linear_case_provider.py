@@ -1,80 +1,47 @@
-"""Read-only factual ETABS static-linear load-case acquisition.
+"""Semantic factual ETABS static-linear load-case provider.
 
-This provider decodes ``LoadCases.StaticLinear.GetLoads`` and
-``LoadPatterns.GetLoadType`` only.  It does not decide which cases satisfy a
-TS500 G/Q/E/W load basis and does not perform any structural or regulatory
-calculation.
-
-The module is import-safe without ETABS/comtypes; callers pass already-attached
-COM objects.
+Exact LoadPatterns/LoadCases CSI calls and positional decoding are owned by
+``tbdy_engine.etabs.oapi.load_definitions``. This module retains factual naming
+and semantic evidence construction only. Supported live entry points consume a
+verified session and typed OAPI facts; raw CSI interfaces do not escape.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-import math
 from typing import Any, Sequence
 
+from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError
+from tbdy_engine.etabs.oapi.load_definitions import (
+    LoadPatternTypeFact,
+    StaticLinearCaseFact,
+    read_load_pattern_type,
+    read_load_pattern_type_from_session,
+    read_static_linear_case,
+    read_static_linear_case_from_session,
+)
+from tbdy_engine.etabs.safety import EtabsVerifiedSession
 
-# CSI eLoadPatternType values documented by the public ETABS API.  Unknown newer
-# codes are preserved factually rather than guessed.
 LOAD_PATTERN_TYPE_BY_CODE: dict[int, str] = {
-    1: "DEAD",
-    2: "SUPER_DEAD",
-    3: "LIVE",
-    4: "REDUCE_LIVE",
-    5: "QUAKE",
-    6: "WIND",
-    7: "SNOW",
-    8: "OTHER",
-    9: "MOVE",
-    10: "TEMPERATURE",
-    11: "ROOF_LIVE",
-    12: "NOTIONAL",
-    13: "PATTERN_LIVE",
-    14: "WAVE",
-    15: "BRAKING",
-    16: "CENTRIFUGAL",
-    17: "FRICTION",
-    18: "ICE",
-    19: "WIND_ON_LIVE_LOAD",
-    20: "HORIZONTAL_EARTH_PRESSURE",
-    21: "VERTICAL_EARTH_PRESSURE",
-    22: "EARTH_SURCHARGE",
-    23: "DOWN_DRAG",
-    24: "VEHICLE_COLLISION",
-    25: "VESSEL_COLLISION",
-    26: "TEMPERATURE_GRADIENT",
-    27: "SETTLEMENT",
-    28: "SHRINKAGE",
-    29: "CREEP",
-    30: "WATERLOAD_PRESSURE",
-    31: "LIVE_LOAD_SURCHARGE",
-    32: "LOCKED_IN_FORCES",
-    33: "PEDESTRIAN_LL",
-    34: "PRESTRESS",
-    35: "HYPERSTATIC",
-    36: "BOUYANCY",
-    37: "STREAM_FLOW",
-    38: "IMPACT",
-    39: "CONSTRUCTION",
-    40: "DEAD_WEARING",
-    41: "DEAD_WATER",
-    42: "DEAD_MANUFACTURE",
-    43: "EARTH_HYDROSTATIC",
-    44: "PASSIVE_EARTH_PRESSURE",
-    45: "ACTIVE_EARTH_PRESSURE",
-    46: "PEDESTRIAN_LL_REDUCED",
-    47: "SNOW_HIGH_ALTITUDE",
-    48: "EURO_LM1_CHAR",
-    49: "EURO_LM1_FREQ",
-    50: "EURO_LM2",
-    51: "EURO_LM3",
+    1: "DEAD", 2: "SUPER_DEAD", 3: "LIVE", 4: "REDUCE_LIVE", 5: "QUAKE",
+    6: "WIND", 7: "SNOW", 8: "OTHER", 9: "MOVE", 10: "TEMPERATURE",
+    11: "ROOF_LIVE", 12: "NOTIONAL", 13: "PATTERN_LIVE", 14: "WAVE",
+    15: "BRAKING", 16: "CENTRIFUGAL", 17: "FRICTION", 18: "ICE",
+    19: "WIND_ON_LIVE_LOAD", 20: "HORIZONTAL_EARTH_PRESSURE",
+    21: "VERTICAL_EARTH_PRESSURE", 22: "EARTH_SURCHARGE", 23: "DOWN_DRAG",
+    24: "VEHICLE_COLLISION", 25: "VESSEL_COLLISION", 26: "TEMPERATURE_GRADIENT",
+    27: "SETTLEMENT", 28: "SHRINKAGE", 29: "CREEP", 30: "WATERLOAD_PRESSURE",
+    31: "LIVE_LOAD_SURCHARGE", 32: "LOCKED_IN_FORCES", 33: "PEDESTRIAN_LL",
+    34: "PRESTRESS", 35: "HYPERSTATIC", 36: "BOUYANCY", 37: "STREAM_FLOW",
+    38: "IMPACT", 39: "CONSTRUCTION", 40: "DEAD_WEARING", 41: "DEAD_WATER",
+    42: "DEAD_MANUFACTURE", 43: "EARTH_HYDROSTATIC", 44: "PASSIVE_EARTH_PRESSURE",
+    45: "ACTIVE_EARTH_PRESSURE", 46: "PEDESTRIAN_LL_REDUCED", 47: "SNOW_HIGH_ALTITUDE",
+    48: "EURO_LM1_CHAR", 49: "EURO_LM1_FREQ", 50: "EURO_LM2", 51: "EURO_LM3",
     52: "EURO_LM4",
 }
 
 
 class EtabsStaticLinearCaseProviderError(RuntimeError):
-    """Raised when factual ETABS static-linear source data is malformed."""
+    """Raised when factual OAPI facts cannot be promoted to semantic evidence."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -135,50 +102,43 @@ def _text(value: Any, label: str) -> str:
     return value
 
 
-def _seq(value: Any) -> tuple[Any, ...]:
-    if value is None:
-        return ()
-    if isinstance(value, (tuple, list)):
-        return tuple(value)
-    return (value,)
+def _promote_pattern(fact: LoadPatternTypeFact) -> EtabsLoadPatternTypeEvidence:
+    return EtabsLoadPatternTypeEvidence(
+        name=fact.name,
+        type_code=fact.type_code,
+        type_name=LOAD_PATTERN_TYPE_BY_CODE.get(fact.type_code, f"UNKNOWN_{fact.type_code}"),
+        raw_get_load_type=repr(fact.raw_response),
+    )
 
 
-def _api_sequence(raw: Any, *, method: str, name: str, expected_len: int) -> tuple[Any, ...]:
-    if not isinstance(raw, (tuple, list)):
-        raise EtabsStaticLinearCaseProviderError(
-            f"{method}({name!r}) returned unexpected scalar: {raw!r}"
+def _promote_case(
+    fact: StaticLinearCaseFact,
+    pattern_reader,
+) -> EtabsStaticLinearCaseEvidence:
+    rows = tuple(
+        EtabsStaticLinearLoadTermEvidence(
+            index=item.index,
+            load_type=item.load_type,
+            load_name=item.load_name,
+            scale_factor=item.scale_factor,
+            load_pattern=(pattern_reader(item.load_name) if item.load_type == "Load" else None),
         )
-    values = tuple(raw)
-    if len(values) != expected_len:
-        raise EtabsStaticLinearCaseProviderError(
-            f"{method}({name!r}) returned unexpected sequence length "
-            f"{len(values)} (expected {expected_len}): {raw!r}"
-        )
-    return values
+        for item in fact.loads
+    )
+    return EtabsStaticLinearCaseEvidence(
+        name=fact.name,
+        loads=rows,
+        raw_get_loads=repr(fact.raw_response),
+    )
 
 
 def capture_etabs_load_pattern_type(load_patterns: Any, name: str) -> EtabsLoadPatternTypeEvidence:
     pattern_name = _text(name, "load_pattern_name")
-    raw = load_patterns.GetLoadType(pattern_name)
-    type_raw, ret = _api_sequence(raw, method="GetLoadType", name=pattern_name, expected_len=2)
-    if not isinstance(ret, int) or ret != 0:
-        raise EtabsStaticLinearCaseProviderError(f"GetLoadType({pattern_name!r}) failed/raw={raw!r}")
     try:
-        type_code = int(type_raw)
-    except (TypeError, ValueError) as exc:
-        raise EtabsStaticLinearCaseProviderError(
-            f"GetLoadType({pattern_name!r}) returned non-integer type/raw={raw!r}"
-        ) from exc
-    if type_code <= 0:
-        raise EtabsStaticLinearCaseProviderError(
-            f"GetLoadType({pattern_name!r}) returned invalid type code {type_code}"
-        )
-    return EtabsLoadPatternTypeEvidence(
-        name=pattern_name,
-        type_code=type_code,
-        type_name=LOAD_PATTERN_TYPE_BY_CODE.get(type_code, f"UNKNOWN_{type_code}"),
-        raw_get_load_type=repr(raw),
-    )
+        fact = read_load_pattern_type(load_patterns, pattern_name)
+    except EtabsOAPIError as exc:
+        raise EtabsStaticLinearCaseProviderError(str(exc)) from exc
+    return _promote_pattern(fact)
 
 
 def capture_etabs_static_linear_case(
@@ -187,77 +147,11 @@ def capture_etabs_static_linear_case(
     name: str,
 ) -> EtabsStaticLinearCaseEvidence:
     case_name = _text(name, "load_case_name")
-    raw = static_linear.GetLoads(case_name)
-    number_raw, load_type_raw, load_name_raw, sf_raw, ret = _api_sequence(
-        raw,
-        method="StaticLinear.GetLoads",
-        name=case_name,
-        expected_len=5,
-    )
-    if not isinstance(ret, int) or ret != 0:
-        raise EtabsStaticLinearCaseProviderError(
-            f"StaticLinear.GetLoads({case_name!r}) failed/raw={raw!r}"
-        )
     try:
-        number = int(number_raw)
-    except (TypeError, ValueError) as exc:
-        raise EtabsStaticLinearCaseProviderError(
-            f"StaticLinear.GetLoads({case_name!r}) returned non-integer load count/raw={raw!r}"
-        ) from exc
-    if number < 0:
-        raise EtabsStaticLinearCaseProviderError(
-            f"StaticLinear.GetLoads({case_name!r}) returned negative load count"
-        )
-
-    load_types = _seq(load_type_raw)
-    load_names = _seq(load_name_raw)
-    scale_factors = _seq(sf_raw)
-    if not (number == len(load_types) == len(load_names) == len(scale_factors)):
-        raise EtabsStaticLinearCaseProviderError(
-            f"StaticLinear.GetLoads({case_name!r}) count mismatch: n={number} "
-            f"types={len(load_types)} names={len(load_names)} sf={len(scale_factors)}"
-        )
-
-    rows: list[EtabsStaticLinearLoadTermEvidence] = []
-    for index, (type_value, name_value, factor_value) in enumerate(
-        zip(load_types, load_names, scale_factors)
-    ):
-        load_type = _text(type_value, f"{case_name}.load_type[{index}]")
-        if load_type not in {"Load", "Accel"}:
-            raise EtabsStaticLinearCaseProviderError(
-                f"{case_name}.load_type[{index}] must be Load or Accel, got {load_type!r}"
-            )
-        load_name = _text(name_value, f"{case_name}.load_name[{index}]")
-        try:
-            factor = float(factor_value)
-        except (TypeError, ValueError) as exc:
-            raise EtabsStaticLinearCaseProviderError(
-                f"{case_name}.scale_factor[{index}] must be numeric"
-            ) from exc
-        if not math.isfinite(factor):
-            raise EtabsStaticLinearCaseProviderError(
-                f"{case_name}.scale_factor[{index}] must be finite"
-            )
-        pattern = (
-            capture_etabs_load_pattern_type(load_patterns, load_name)
-            if load_type == "Load"
-            else None
-        )
-        rows.append(
-            EtabsStaticLinearLoadTermEvidence(
-                index=index,
-                load_type=load_type,
-                load_name=load_name,
-                scale_factor=factor,
-                load_pattern=pattern,
-            )
-        )
-
-    return EtabsStaticLinearCaseEvidence(
-        name=case_name,
-        loads=tuple(rows),
-        raw_get_loads=repr(raw),
-    )
+        fact = read_static_linear_case(static_linear, case_name)
+    except EtabsOAPIError as exc:
+        raise EtabsStaticLinearCaseProviderError(str(exc)) from exc
+    return _promote_case(fact, lambda pattern: capture_etabs_load_pattern_type(load_patterns, pattern))
 
 
 def capture_etabs_static_linear_cases(
@@ -276,6 +170,44 @@ def capture_etabs_static_linear_cases(
     )
 
 
+def capture_etabs_load_pattern_type_from_session(
+    session: EtabsVerifiedSession,
+    name: str,
+) -> EtabsLoadPatternTypeEvidence:
+    pattern_name = _text(name, "load_pattern_name")
+    try:
+        return _promote_pattern(read_load_pattern_type_from_session(session, pattern_name))
+    except EtabsOAPIError as exc:
+        raise EtabsStaticLinearCaseProviderError(str(exc)) from exc
+
+
+def capture_etabs_static_linear_case_from_session(
+    session: EtabsVerifiedSession,
+    name: str,
+) -> EtabsStaticLinearCaseEvidence:
+    case_name = _text(name, "load_case_name")
+    try:
+        fact = read_static_linear_case_from_session(session, case_name)
+    except EtabsOAPIError as exc:
+        raise EtabsStaticLinearCaseProviderError(str(exc)) from exc
+    return _promote_case(
+        fact,
+        lambda pattern: capture_etabs_load_pattern_type_from_session(session, pattern),
+    )
+
+
+def capture_etabs_static_linear_cases_from_session(
+    session: EtabsVerifiedSession,
+    names: Sequence[str],
+) -> tuple[EtabsStaticLinearCaseEvidence, ...]:
+    requested = tuple(_text(item, "load_case_name") for item in names)
+    if not requested or len(requested) != len(set(requested)):
+        raise EtabsStaticLinearCaseProviderError(
+            "load case names must be a nonempty unique sequence"
+        )
+    return tuple(capture_etabs_static_linear_case_from_session(session, name) for name in requested)
+
+
 __all__ = [
     "EtabsLoadPatternTypeEvidence",
     "EtabsStaticLinearCaseEvidence",
@@ -283,6 +215,9 @@ __all__ = [
     "EtabsStaticLinearLoadTermEvidence",
     "LOAD_PATTERN_TYPE_BY_CODE",
     "capture_etabs_load_pattern_type",
+    "capture_etabs_load_pattern_type_from_session",
     "capture_etabs_static_linear_case",
+    "capture_etabs_static_linear_case_from_session",
     "capture_etabs_static_linear_cases",
+    "capture_etabs_static_linear_cases_from_session",
 ]

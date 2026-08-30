@@ -28,6 +28,19 @@ from tbdy_engine.regulatory.units import UNIT_ENUM_STATE
 MODEL_PATH = r"C:\tmp\ACQ_CTX_1.EDB"
 
 
+
+_CREATED_VERIFIED_SESSIONS = []
+
+
+@pytest.fixture(autouse=True)
+def _close_test_owned_verified_sessions():
+    try:
+        yield
+    finally:
+        while _CREATED_VERIFIED_SESSIONS:
+            _CREATED_VERIFIED_SESSIONS.pop().close()
+
+
 class _FakeAnalyze:
     def GetCaseStatus(self):
         return 0, (), (), 0
@@ -117,6 +130,7 @@ def _verified_session(*, model_path=MODEL_PATH):
         comtypes_client=_FakeComtypesClient(etabs),
         win32com_client=_FailingWin32(),
     )
+    _CREATED_VERIFIED_SESSIONS.append(session)
     return sap, session
 
 
@@ -209,23 +223,27 @@ def test_same_context_supplies_p8a_identity_and_session_provenance_without_free_
     captured = {}
     sentinel = object()
 
-    def fake_acquire(database_tables, *, model_fingerprint, evidence_epoch_id, session_provenance_ref):
+    def fake_acquire(session, *, model_fingerprint, evidence_epoch_id, session_provenance_ref):
         captured.update(
-            database_tables=database_tables,
+            session=session,
             model_fingerprint=model_fingerprint,
             evidence_epoch_id=evidence_epoch_id,
             session_provenance_ref=session_provenance_ref,
         )
         return sentinel
 
-    monkeypatch.setattr(subject, "acquire_actual_concrete_design_combo_selection", fake_acquire)
+    monkeypatch.setattr(
+        subject,
+        "acquire_actual_concrete_design_combo_selection_from_session",
+        fake_acquire,
+    )
 
     result = subject.acquire_actual_concrete_design_combo_selection_from_context(
         context=context,
     )
 
     assert result is sentinel
-    assert captured["database_tables"] is context.sap_model.DatabaseTables
+    assert captured["session"] is context.verified_session
     assert captured["model_fingerprint"] == context.model_fingerprint
     assert captured["evidence_epoch_id"] == context.evidence_epoch_id
     assert captured["session_provenance_ref"] == context.session_provenance_ref

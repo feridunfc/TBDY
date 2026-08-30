@@ -41,7 +41,7 @@ def test_catalog_rejects_count_mismatch_and_duplicates():
     with pytest.raises(EtabsStaticLinearCaseProviderError, match="count mismatch"):
         capture_etabs_load_pattern_catalog(BadCount(["G"], {"G": 1}))
 
-    with pytest.raises(EtabsStaticLinearCaseProviderError, match="unique"):
+    with pytest.raises(EtabsStaticLinearCaseProviderError, match="duplicate names"):
         capture_etabs_load_pattern_catalog(
             LoadPatterns(["G", "G"], {"G": 1})
         )

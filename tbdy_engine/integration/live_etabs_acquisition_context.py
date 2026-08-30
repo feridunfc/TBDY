@@ -1,24 +1,24 @@
 """Trusted live ETABS factual acquisition-context lifecycle.
 
-This module is a neutral runtime/integration seam.  It binds one already
+This module is a neutral runtime/integration seam. It binds one already
 verified live ETABS session to one factory-owned evidence acquisition epoch and
 exposes narrow consumers for existing factual F0/P8A acquisition paths.
 
 Identity semantics are intentionally bounded:
 
-* ``SourceModelIdentity`` identifies the verified ETABS *source-model
-  reference* (the normalized full model path observed through the verified
-  session).  It is not proof of physical file bytes, current in-memory model
-  state, analysis state, or analysis results.
+* ``SourceModelIdentity`` identifies the verified ETABS source-model reference
+  (the normalized full model path observed through the verified session). It is
+  not proof of physical file bytes, current in-memory model state, analysis
+  state, or analysis results.
 * ``model_fingerprint`` is a backward-compatible fingerprint of that bounded
-  source-model reference only.  Its prefix and semantic constant make the
-  limitation explicit.
+  source-model reference only.
 * ``EvidenceEpoch`` identifies one factory-created factual acquisition
-  generation.  A new context creation intentionally creates a new generation;
+  generation. A new context creation intentionally creates a new generation;
   callers cannot supply the epoch id, model fingerprint, or session provenance.
 
-No engineering/regulatory rule is defined here.  The module never runs
-analysis/design, saves a model, changes present units, or mutates the model.
+Raw ETABS COM capability is never exposed by this context. All live factual
+acquisitions use verified-session semantic providers backed by OAPI -> safety ->
+gateway. No engineering/regulatory rule is defined here.
 """
 from __future__ import annotations
 
@@ -28,11 +28,11 @@ import hashlib
 import json
 import ntpath
 import uuid
-from typing import Any, Mapping, Sequence
+from typing import Mapping, Sequence
 
 from tbdy_engine.etabs.safety import (
     EtabsVerifiedSession,
-    read_session_identity,
+    reread_verified_session_identity,
     verify_target_model,
 )
 from tbdy_engine.features.column_concrete_design_evidence import (
@@ -40,7 +40,6 @@ from tbdy_engine.features.column_concrete_design_evidence import (
 )
 from tbdy_engine.features.column_shear_topology import StrictColumnTopologyBundle
 from tbdy_engine.features.evidence_epoch import EvidenceEpoch, EvidenceEpochOrigin
-from tbdy_engine.features.etabs_com_attach import ATTACH_STATUS_ATTACHED
 from tbdy_engine.features.snapshot import FeatureSnapshot
 from tbdy_engine.integration.f0_evidence_adapter import (
     F0EvidenceBinding,
@@ -48,18 +47,18 @@ from tbdy_engine.integration.f0_evidence_adapter import (
 )
 from tbdy_engine.providers.etabs_combo_definition_provider import (
     EtabsComboDefinitionEvidence,
-    capture_etabs_combo_definitions,
+    capture_etabs_combo_definitions_from_session,
 )
 from tbdy_engine.providers.etabs_concrete_column_design_result_provider import (
-    capture_concrete_column_design_results,
+    capture_concrete_column_design_results_from_session,
 )
 from tbdy_engine.providers.etabs_concrete_design_combo_selection_probe import (
     ActualConcreteDesignComboSelectionPopulation,
-    acquire_actual_concrete_design_combo_selection,
+    acquire_actual_concrete_design_combo_selection_from_session,
 )
 from tbdy_engine.providers.etabs_concrete_design_section_provider import (
     ConcreteColumnDesignSectionPopulation,
-    capture_concrete_column_design_sections,
+    capture_concrete_column_design_sections_from_session,
 )
 
 
@@ -233,10 +232,6 @@ class TrustedLiveAcquisitionContext:
     def evidence_epoch_id(self) -> str:
         return self.evidence_epoch.epoch_id
 
-    @property
-    def sap_model(self) -> Any:
-        return self.verified_session.attach_result.sap_model
-
     def require_model_epoch(
         self,
         *,
@@ -265,21 +260,14 @@ def create_trusted_live_acquisition_context(
     """Create one factory-owned factual acquisition generation from a verified session.
 
     The caller supplies no model fingerprint, epoch id, acquisition generation,
-    session provenance, or context identity.  The live session is re-read and
-    must still match the identity captured by ``attach_verified_to_running_etabs``.
+    session provenance, or context identity. The live session is re-read through
+    the bounded gateway path and must still match the identity captured by
+    ``attach_verified_to_running_etabs``.
     """
     if not isinstance(verified_session, EtabsVerifiedSession):
         raise TypeError("verified_session must be EtabsVerifiedSession")
-    attach = verified_session.attach_result
-    if attach.status != ATTACH_STATUS_ATTACHED or attach.etabs_object is None or attach.sap_model is None:
-        raise LiveAcquisitionContextError("trusted acquisition context requires an attached verified session")
 
-    current_identity = read_session_identity(
-        attach.etabs_object,
-        attach.sap_model,
-        process_id=verified_session.identity.process_id,
-        attach_strategy=verified_session.identity.attach_strategy,
-    )
+    current_identity = reread_verified_session_identity(verified_session)
     verify_target_model(current_identity, verified_session.identity.model_full_path)
     if current_identity != verified_session.identity:
         raise LiveAcquisitionContextMismatchError(
@@ -392,14 +380,11 @@ def acquire_actual_concrete_design_combo_selection_from_context(
     *,
     context: TrustedLiveAcquisitionContext,
 ) -> ActualConcreteDesignComboSelectionPopulation:
-    """Run the existing read-only PASS-1 acquisition with context-owned identity."""
+    """Run existing PASS-1 factual acquisition with context-owned identity."""
     if not isinstance(context, TrustedLiveAcquisitionContext):
         raise TypeError("context must be TrustedLiveAcquisitionContext")
-    database_tables = getattr(context.sap_model, "DatabaseTables", None)
-    if database_tables is None:
-        raise LiveAcquisitionContextError("verified session has no DatabaseTables interface")
-    return acquire_actual_concrete_design_combo_selection(
-        database_tables,
+    return acquire_actual_concrete_design_combo_selection_from_session(
+        context.verified_session,
         model_fingerprint=context.model_fingerprint,
         evidence_epoch_id=context.evidence_epoch_id,
         session_provenance_ref=context.session_provenance_ref,
@@ -411,13 +396,13 @@ def capture_etabs_combo_definitions_from_context(
     context: TrustedLiveAcquisitionContext,
     names: Sequence[str],
 ) -> tuple[EtabsComboDefinitionEvidence, ...]:
-    """Capture factual response-combo definitions from the same verified SapModel."""
+    """Capture factual response-combo definitions through the verified session."""
     if not isinstance(context, TrustedLiveAcquisitionContext):
         raise TypeError("context must be TrustedLiveAcquisitionContext")
-    resp_combo = getattr(context.sap_model, "RespCombo", None)
-    if resp_combo is None:
-        raise LiveAcquisitionContextError("verified session has no RespCombo interface")
-    return capture_etabs_combo_definitions(resp_combo, names)
+    return capture_etabs_combo_definitions_from_session(
+        context.verified_session,
+        names,
+    )
 
 
 def capture_concrete_column_design_sections_from_context(
@@ -432,11 +417,8 @@ def capture_concrete_column_design_sections_from_context(
         model_fingerprint=topology.model_fingerprint,
         evidence_epoch_id=topology.evidence_epoch_id,
     )
-    design_concrete = getattr(context.sap_model, "DesignConcrete", None)
-    if design_concrete is None:
-        raise LiveAcquisitionContextError("verified session has no DesignConcrete interface")
-    return capture_concrete_column_design_sections(
-        design_concrete,
+    return capture_concrete_column_design_sections_from_session(
+        context.verified_session,
         topology=topology,
     )
 
@@ -447,7 +429,7 @@ def capture_concrete_column_design_results_from_context(
     topology: ColumnTopologyEvidenceEnvelope,
     design_sections: ConcreteColumnDesignSectionPopulation,
 ):
-    """Capture factual column design results with no caller-supplied provenance strings."""
+    """Capture factual column design results with context-owned provenance."""
     if not isinstance(context, TrustedLiveAcquisitionContext):
         raise TypeError("context must be TrustedLiveAcquisitionContext")
     context.require_model_epoch(
@@ -458,8 +440,8 @@ def capture_concrete_column_design_results_from_context(
         model_fingerprint=design_sections.model_fingerprint,
         evidence_epoch_id=design_sections.evidence_epoch_id,
     )
-    return capture_concrete_column_design_results(
-        context.sap_model,
+    return capture_concrete_column_design_results_from_session(
+        context.verified_session,
         topology=topology,
         design_sections=design_sections,
         session_provenance_ref=context.session_provenance_ref,

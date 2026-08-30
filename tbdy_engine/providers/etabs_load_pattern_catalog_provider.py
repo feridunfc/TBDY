@@ -1,18 +1,25 @@
-"""Read-only factual ETABS load-pattern catalog acquisition.
+"""Semantic factual ETABS load-pattern catalog provider.
 
-This provider enumerates the full LoadPatterns.GetNameList population and binds
-each name to the exact GetLoadType result already decoded by the static-linear
-case provider.  It performs no TS500 action-role or direction promotion.
+Exact ``LoadPatterns.GetNameList`` and ``GetLoadType`` ABI ownership lives in
+``tbdy_engine.etabs.oapi.load_definitions``. Supported live acquisition consumes
+only a verified session; raw LoadPatterns does not escape.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
 
+from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError
+from tbdy_engine.etabs.oapi.load_definitions import (
+    read_load_pattern_names,
+    read_load_pattern_names_from_session,
+)
+from tbdy_engine.etabs.safety import EtabsVerifiedSession
 from tbdy_engine.providers.etabs_static_linear_case_provider import (
     EtabsLoadPatternTypeEvidence,
     EtabsStaticLinearCaseProviderError,
     capture_etabs_load_pattern_type,
+    capture_etabs_load_pattern_type_from_session,
 )
 
 
@@ -31,47 +38,38 @@ class EtabsLoadPatternCatalogEvidence:
 
 
 def capture_etabs_load_pattern_catalog(load_patterns: Any) -> EtabsLoadPatternCatalogEvidence:
-    raw = load_patterns.GetNameList()
-    if not isinstance(raw, (tuple, list)) or len(raw) != 3:
-        raise EtabsStaticLinearCaseProviderError(
-            f"LoadPatterns.GetNameList returned unexpected result: {raw!r}"
-        )
-    count_raw, names_raw, ret = tuple(raw)
-    if not isinstance(ret, int) or ret != 0:
-        raise EtabsStaticLinearCaseProviderError(
-            f"LoadPatterns.GetNameList failed/raw={raw!r}"
-        )
+    """Compatibility path for an already-bounded raw LoadPatterns interface."""
     try:
-        count = int(count_raw)
-    except (TypeError, ValueError) as exc:
-        raise EtabsStaticLinearCaseProviderError(
-            f"LoadPatterns.GetNameList returned non-integer count/raw={raw!r}"
-        ) from exc
-    if count < 0:
-        raise EtabsStaticLinearCaseProviderError("LoadPatterns.GetNameList returned negative count")
-    if names_raw is None:
-        names = ()
-    elif isinstance(names_raw, (tuple, list)):
-        names = tuple(names_raw)
-    else:
-        names = (names_raw,)
-    if count != len(names):
-        raise EtabsStaticLinearCaseProviderError(
-            f"LoadPatterns.GetNameList count mismatch: n={count} names={len(names)}"
-        )
-    canonical = tuple(str(name) for name in names)
-    if not canonical or any(not name.strip() or name != name.strip() for name in canonical):
-        raise EtabsStaticLinearCaseProviderError("load-pattern catalog names must be nonblank canonical strings")
-    if len(set(canonical)) != len(canonical):
-        raise EtabsStaticLinearCaseProviderError("load-pattern catalog names must be unique")
-    patterns = tuple(capture_etabs_load_pattern_type(load_patterns, name) for name in canonical)
-    return EtabsLoadPatternCatalogEvidence(
-        patterns=patterns,
-        raw_get_name_list=repr(raw),
+        names, raw = read_load_pattern_names(load_patterns)
+    except EtabsOAPIError as exc:
+        raise EtabsStaticLinearCaseProviderError(str(exc)) from exc
+    if not names:
+        raise EtabsStaticLinearCaseProviderError("load-pattern catalog must not be empty")
+    patterns = tuple(capture_etabs_load_pattern_type(load_patterns, name) for name in names)
+    return EtabsLoadPatternCatalogEvidence(patterns=patterns, raw_get_name_list=repr(raw))
+
+
+def capture_etabs_load_pattern_catalog_from_session(
+    session: EtabsVerifiedSession,
+) -> EtabsLoadPatternCatalogEvidence:
+    """Supported live path through OAPI -> safety -> gateway."""
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+    try:
+        names, raw = read_load_pattern_names_from_session(session)
+    except EtabsOAPIError as exc:
+        raise EtabsStaticLinearCaseProviderError(str(exc)) from exc
+    if not names:
+        raise EtabsStaticLinearCaseProviderError("load-pattern catalog must not be empty")
+    patterns = tuple(
+        capture_etabs_load_pattern_type_from_session(session, name)
+        for name in names
     )
+    return EtabsLoadPatternCatalogEvidence(patterns=patterns, raw_get_name_list=repr(raw))
 
 
 __all__ = [
     "EtabsLoadPatternCatalogEvidence",
     "capture_etabs_load_pattern_catalog",
+    "capture_etabs_load_pattern_catalog_from_session",
 ]

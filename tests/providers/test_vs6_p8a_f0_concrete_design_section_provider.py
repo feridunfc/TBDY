@@ -280,14 +280,14 @@ def test_10_evidence_epoch_mismatch_blocks_evidence_epoch():
 def test_11_missing_get_design_section_result_fails_closed():
     topology = _envelope()
     fake = _DesignConcrete({"C-U1": None})
-    with pytest.raises(EtabsConcreteDesignSectionProviderError, match="factual capture failed"):
+    with pytest.raises(EtabsConcreteDesignSectionProviderError, match="unexpected shape"):
         capture_concrete_column_design_sections(fake, topology=topology)
 
 
 def test_12_nonzero_get_design_section_return_fails_closed():
     topology = _envelope()
     fake = _DesignConcrete({"C-U1": ("DESIGN_SEC", 1)})
-    with pytest.raises(EtabsConcreteDesignSectionProviderError, match="factual capture failed"):
+    with pytest.raises(EtabsConcreteDesignSectionProviderError, match="nonzero/invalid code"):
         capture_concrete_column_design_sections(fake, topology=topology)
 
 

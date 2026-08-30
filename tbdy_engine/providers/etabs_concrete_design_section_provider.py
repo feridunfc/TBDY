@@ -1,20 +1,26 @@
 """Read-only ETABS concrete-design section acquisition for canonical columns.
 
-PASS-3 binds factual ``DesignConcrete.GetDesignSection`` evidence only to
-columns already owned by ``StrictColumnTopologyBundle``. The provider does
-not discover components, run analysis/design, select combinations, mutate the
-model, or authorize reinforcement/design results.
+CSI invocation and positional ABI decoding are owned by
+``tbdy_engine.etabs.oapi.concrete_design``. This provider binds typed factual
+sections only to the accepted strict-topology population and provenance.
+Supported live acquisition consumes a verified session, never raw
+DesignConcrete/SapModel capability.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Sequence
 
+from tbdy_engine.etabs.oapi.concrete_design import (
+    ConcreteDesignSectionFact,
+    read_design_section,
+    read_design_sections_from_session,
+)
+from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError
+from tbdy_engine.etabs.safety import EtabsVerifiedSession
 from tbdy_engine.features.column_concrete_design_evidence import (
-    ColumnConcreteDesignEvidenceError,
     ColumnDesignSectionEvidence,
     ColumnTopologyEvidenceEnvelope,
-    decode_get_design_section,
 )
 
 
@@ -41,8 +47,6 @@ def _refs(values: Sequence[str], label: str) -> tuple[str, ...]:
 
 @dataclass(frozen=True, slots=True)
 class CapturedConcreteColumnDesignSection:
-    """One canonical strict-topology column joined to factual ETABS design section."""
-
     component_id: str
     unique_name: str
     story: str
@@ -55,19 +59,12 @@ class CapturedConcreteColumnDesignSection:
 
     def __post_init__(self) -> None:
         for name in (
-            "component_id",
-            "unique_name",
-            "story",
-            "label",
-            "assigned_section",
-            "model_fingerprint",
-            "evidence_epoch_id",
+            "component_id", "unique_name", "story", "label", "assigned_section",
+            "model_fingerprint", "evidence_epoch_id",
         ):
             object.__setattr__(self, name, _text(getattr(self, name), name))
         if not isinstance(self.design_section_evidence, ColumnDesignSectionEvidence):
-            raise TypeError(
-                "design_section_evidence must be ColumnDesignSectionEvidence"
-            )
+            raise TypeError("design_section_evidence must be ColumnDesignSectionEvidence")
         evidence = self.design_section_evidence
         if evidence.frame_name != self.unique_name:
             raise EtabsConcreteDesignSectionProviderError(
@@ -80,9 +77,7 @@ class CapturedConcreteColumnDesignSection:
             raise EtabsConcreteDesignSectionProviderError(
                 "design-section evidence model/evidence epoch mismatch"
             )
-        object.__setattr__(
-            self, "source_refs", _refs(self.source_refs, "design_section.source_ref")
-        )
+        object.__setattr__(self, "source_refs", _refs(self.source_refs, "design_section.source_ref"))
 
     @property
     def design_section(self) -> str:
@@ -99,8 +94,6 @@ class CapturedConcreteColumnDesignSection:
 
 @dataclass(frozen=True, slots=True)
 class ConcreteColumnDesignSectionPopulation:
-    """Complete immutable factual design-section capture for one topology epoch."""
-
     model_fingerprint: str
     evidence_epoch_id: str
     expected_component_ids: tuple[str, ...]
@@ -109,50 +102,31 @@ class ConcreteColumnDesignSectionPopulation:
     topology_source_refs: tuple[str, ...]
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "model_fingerprint", _text(self.model_fingerprint, "model_fingerprint")
-        )
-        object.__setattr__(
-            self, "evidence_epoch_id", _text(self.evidence_epoch_id, "evidence_epoch_id")
-        )
-        expected_ids = tuple(
-            sorted(_text(item, "expected_component_id") for item in self.expected_component_ids)
-        )
-        expected_names = tuple(
-            sorted(_text(item, "expected_frame_name") for item in self.expected_frame_names)
-        )
+        object.__setattr__(self, "model_fingerprint", _text(self.model_fingerprint, "model_fingerprint"))
+        object.__setattr__(self, "evidence_epoch_id", _text(self.evidence_epoch_id, "evidence_epoch_id"))
+        expected_ids = tuple(sorted(_text(item, "expected_component_id") for item in self.expected_component_ids))
+        expected_names = tuple(sorted(_text(item, "expected_frame_name") for item in self.expected_frame_names))
         if not expected_ids or not expected_names:
             raise EtabsConcreteDesignSectionProviderError(
                 "design-section population requires canonical expected components"
             )
         if len(expected_ids) != len(set(expected_ids)):
-            raise EtabsConcreteDesignSectionProviderError(
-                "duplicate expected canonical component identity"
-            )
+            raise EtabsConcreteDesignSectionProviderError("duplicate expected canonical component identity")
         if len(expected_names) != len(set(expected_names)):
-            raise EtabsConcreteDesignSectionProviderError(
-                "duplicate expected canonical FrameName"
-            )
+            raise EtabsConcreteDesignSectionProviderError("duplicate expected canonical FrameName")
         object.__setattr__(self, "expected_component_ids", expected_ids)
         object.__setattr__(self, "expected_frame_names", expected_names)
-
         rows = tuple(self.rows)
-        if not rows or any(
-            not isinstance(item, CapturedConcreteColumnDesignSection) for item in rows
-        ):
+        if not rows or any(not isinstance(item, CapturedConcreteColumnDesignSection) for item in rows):
             raise EtabsConcreteDesignSectionProviderError(
                 "design-section population requires typed captured rows"
             )
         component_ids = tuple(item.component_id for item in rows)
         frame_names = tuple(item.unique_name for item in rows)
         if len(component_ids) != len(set(component_ids)):
-            raise EtabsConcreteDesignSectionProviderError(
-                "duplicate captured canonical component evidence"
-            )
+            raise EtabsConcreteDesignSectionProviderError("duplicate captured canonical component evidence")
         if len(frame_names) != len(set(frame_names)):
-            raise EtabsConcreteDesignSectionProviderError(
-                "duplicate captured canonical FrameName evidence"
-            )
+            raise EtabsConcreteDesignSectionProviderError("duplicate captured canonical FrameName evidence")
         if any(
             item.model_fingerprint != self.model_fingerprint
             or item.evidence_epoch_id != self.evidence_epoch_id
@@ -165,16 +139,8 @@ class ConcreteColumnDesignSectionPopulation:
             raise EtabsConcreteDesignSectionProviderError(
                 "captured design-section population does not exactly cover canonical topology"
             )
-        object.__setattr__(
-            self,
-            "rows",
-            tuple(sorted(rows, key=lambda item: (item.component_id, item.unique_name))),
-        )
-        object.__setattr__(
-            self,
-            "topology_source_refs",
-            _refs(self.topology_source_refs, "topology.source_ref"),
-        )
+        object.__setattr__(self, "rows", tuple(sorted(rows, key=lambda item: (item.component_id, item.unique_name))))
+        object.__setattr__(self, "topology_source_refs", _refs(self.topology_source_refs, "topology.source_ref"))
 
     @property
     def captured_component_ids(self) -> tuple[str, ...]:
@@ -186,78 +152,51 @@ class ConcreteColumnDesignSectionPopulation:
 
     @property
     def source_refs(self) -> tuple[str, ...]:
-        return tuple(
-            dict.fromkeys(
-                (
-                    *self.topology_source_refs,
-                    *(ref for row in self.rows for ref in row.source_refs),
-                )
-            )
-        )
+        return tuple(dict.fromkeys((*self.topology_source_refs, *(ref for row in self.rows for ref in row.source_refs))))
 
     def by_component_id(self, component_id: str) -> CapturedConcreteColumnDesignSection:
         key = _text(component_id, "component_id")
         matches = tuple(item for item in self.rows if item.component_id == key)
         if len(matches) != 1:
-            raise KeyError(
-                f"expected exactly one captured component_id={key}, got {len(matches)}"
-            )
+            raise KeyError(f"expected exactly one captured component_id={key}, got {len(matches)}")
         return matches[0]
 
 
-def capture_concrete_column_design_sections(
-    design_concrete: Any,
-    *,
-    topology: ColumnTopologyEvidenceEnvelope,
-) -> ConcreteColumnDesignSectionPopulation:
-    """Capture ``GetDesignSection`` for every canonical strict-topology column.
-
-    There is deliberately no free-form frame-name/component input. Every API
-    request FrameName is taken from the accepted strict topology.
-    """
+def _columns(topology: ColumnTopologyEvidenceEnvelope):
     if not isinstance(topology, ColumnTopologyEvidenceEnvelope):
         raise TypeError("topology must be ColumnTopologyEvidenceEnvelope")
-    getter = getattr(design_concrete, "GetDesignSection", None)
-    if not callable(getter):
-        raise EtabsConcreteDesignSectionProviderError(
-            "DesignConcrete.GetDesignSection is unavailable"
-        )
-
-    columns = tuple(
-        sorted(
-            topology.topology.columns,
-            key=lambda item: (item.component_id, item.unique_name),
-        )
-    )
+    columns = tuple(sorted(topology.topology.columns, key=lambda item: (item.component_id, item.unique_name)))
     expected_ids = tuple(item.component_id for item in columns)
     expected_names = tuple(item.unique_name for item in columns)
     if len(expected_ids) != len(set(expected_ids)):
-        raise EtabsConcreteDesignSectionProviderError(
-            "duplicate canonical component identity in strict topology"
-        )
+        raise EtabsConcreteDesignSectionProviderError("duplicate canonical component identity in strict topology")
     if len(expected_names) != len(set(expected_names)):
-        raise EtabsConcreteDesignSectionProviderError(
-            "duplicate canonical FrameName in strict topology"
-        )
+        raise EtabsConcreteDesignSectionProviderError("duplicate canonical FrameName in strict topology")
+    return columns, expected_ids, expected_names
 
+
+def _build_population(
+    *,
+    topology: ColumnTopologyEvidenceEnvelope,
+    facts: Sequence[ConcreteDesignSectionFact],
+) -> ConcreteColumnDesignSectionPopulation:
+    columns, expected_ids, expected_names = _columns(topology)
+    fact_by_name = {fact.frame_name: fact for fact in facts}
+    if len(fact_by_name) != len(tuple(facts)) or set(fact_by_name) != set(expected_names):
+        raise EtabsConcreteDesignSectionProviderError(
+            "typed design-section facts do not exactly cover canonical topology"
+        )
     rows: list[CapturedConcreteColumnDesignSection] = []
     for column in columns:
-        try:
-            raw = getter(column.unique_name)
-            evidence = decode_get_design_section(
-                column.unique_name,
-                raw,
-                model_fingerprint=topology.model_fingerprint,
-                evidence_epoch_id=topology.evidence_epoch_id,
-            )
-        except ColumnConcreteDesignEvidenceError as exc:
-            raise EtabsConcreteDesignSectionProviderError(
-                f"GetDesignSection factual capture failed for {column.unique_name!r}: {exc}"
-            ) from exc
-        except Exception as exc:
-            raise EtabsConcreteDesignSectionProviderError(
-                f"GetDesignSection({column.unique_name!r}) raised {type(exc).__name__}: {exc}"
-            ) from exc
+        fact = fact_by_name[column.unique_name]
+        evidence = ColumnDesignSectionEvidence(
+            frame_name=fact.frame_name,
+            design_section=fact.design_section,
+            model_fingerprint=topology.model_fingerprint,
+            evidence_epoch_id=topology.evidence_epoch_id,
+            source_api="DesignConcrete.GetDesignSection",
+            source_ref=f"CSI:DesignConcrete.GetDesignSection:{fact.frame_name}:{fact.design_section}",
+        )
         rows.append(
             CapturedConcreteColumnDesignSection(
                 component_id=column.component_id,
@@ -268,12 +207,9 @@ def capture_concrete_column_design_sections(
                 design_section_evidence=evidence,
                 model_fingerprint=topology.model_fingerprint,
                 evidence_epoch_id=topology.evidence_epoch_id,
-                source_refs=tuple(
-                    dict.fromkeys((*topology.source_refs, evidence.source_ref))
-                ),
+                source_refs=tuple(dict.fromkeys((*topology.source_refs, evidence.source_ref))),
             )
         )
-
     return ConcreteColumnDesignSectionPopulation(
         model_fingerprint=topology.model_fingerprint,
         evidence_epoch_id=topology.evidence_epoch_id,
@@ -284,9 +220,41 @@ def capture_concrete_column_design_sections(
     )
 
 
+def capture_concrete_column_design_sections(
+    design_concrete: Any,
+    *,
+    topology: ColumnTopologyEvidenceEnvelope,
+) -> ConcreteColumnDesignSectionPopulation:
+    """Compatibility path for an already-bounded raw DesignConcrete interface."""
+    _columns(topology)
+    try:
+        facts = tuple(
+            read_design_section(design_concrete, column.unique_name)
+            for column in sorted(topology.topology.columns, key=lambda item: (item.component_id, item.unique_name))
+        )
+    except EtabsOAPIError as exc:
+        raise EtabsConcreteDesignSectionProviderError(str(exc)) from exc
+    return _build_population(topology=topology, facts=facts)
+
+
+def capture_concrete_column_design_sections_from_session(
+    session: EtabsVerifiedSession,
+    *,
+    topology: ColumnTopologyEvidenceEnvelope,
+) -> ConcreteColumnDesignSectionPopulation:
+    """Supported live path: session -> typed OAPI facts -> topology-bound evidence."""
+    _, _, frame_names = _columns(topology)
+    try:
+        facts = read_design_sections_from_session(session, frame_names)
+    except EtabsOAPIError as exc:
+        raise EtabsConcreteDesignSectionProviderError(str(exc)) from exc
+    return _build_population(topology=topology, facts=facts)
+
+
 __all__ = [
     "CapturedConcreteColumnDesignSection",
     "ConcreteColumnDesignSectionPopulation",
     "EtabsConcreteDesignSectionProviderError",
     "capture_concrete_column_design_sections",
+    "capture_concrete_column_design_sections_from_session",
 ]
