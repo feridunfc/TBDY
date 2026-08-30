@@ -8,7 +8,7 @@ references as a returned capability.
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, TypeVar
 
 from .com_apartment import ModuleLoader, WindowsCOMApartment
@@ -76,6 +76,11 @@ class ETABSGatewaySession:
     def context(self) -> ETABSGatewayContext | None:
         with self._lock:
             return self._context
+
+    @property
+    def attach_diagnostics(self) -> Mapping[str, object]:
+        """Return immutable factual attach metadata without any COM reference."""
+        return dict(self._connection.attach_diagnostics)
 
     def start(
         self,
