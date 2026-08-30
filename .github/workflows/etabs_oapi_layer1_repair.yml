@@ -39,35 +39,18 @@ jobs:
 
           safety = Path("tests/etabs/test_safety_foundation.py")
           text = safety.read_text(encoding="utf-8")
-
-          replacements = [
-              (
-                  '''    assert session.identity.model_full_path == r"C:\\\\tmp\\\\B-BLOK_Revised.EDB"\n    assert session.identity.model_locked is True\n    assert session.identity.program_version == "22.7.0"\n''',
-                  '''    try:\n        assert session.identity.model_full_path == r"C:\\\\tmp\\\\B-BLOK_Revised.EDB"\n        assert session.identity.model_locked is True\n        assert session.identity.program_version == "22.7.0"\n    finally:\n        session.close()\n''',
-              ),
-              (
-                  '''    assert session.identity.process_id == 77\n    assert session.capabilities.pid_attach is CapabilityState.SUPPORTED\n''',
-                  '''    try:\n        assert session.identity.process_id == 77\n        assert session.capabilities.pid_attach is CapabilityState.SUPPORTED\n    finally:\n        session.close()\n''',
-              ),
-              (
-                  '''    assert session.identity.process_id is None\n    assert client.active_calls\n    assert session.diagnostics[0]["code"] == EtabsSafetyErrorCode.PID_ATTACH_FAILED.value\n    assert session.diagnostics[0]["compatibility_opt_in"] is True\n''',
-                  '''    try:\n        assert session.identity.process_id is None\n        assert client.active_calls\n        assert session.diagnostics[0]["code"] == EtabsSafetyErrorCode.PID_ATTACH_FAILED.value\n        assert session.diagnostics[0]["compatibility_opt_in"] is True\n    finally:\n        session.close()\n''',
-              ),
-              (
-                  '''    assert session.identity.process_id is None\n    assert session.capabilities.pid_attach is CapabilityState.UNSUPPORTED\n    assert session.diagnostics[0]["code"] == EtabsSafetyErrorCode.PID_ATTACH_UNSUPPORTED.value\n''',
-                  '''    try:\n        assert session.identity.process_id is None\n        assert session.capabilities.pid_attach is CapabilityState.UNSUPPORTED\n        assert session.diagnostics[0]["code"] == EtabsSafetyErrorCode.PID_ATTACH_UNSUPPORTED.value\n    finally:\n        session.close()\n''',
-              ),
-              (
-                  '''    assert session.identity.process_id is None\n    assert session.identity.model_full_path.lower().endswith("b-blok_revised.edb")\n''',
-                  '''    try:\n        assert session.identity.process_id is None\n        assert session.identity.model_full_path.lower().endswith("b-blok_revised.edb")\n    finally:\n        session.close()\n''',
-              ),
+          anchors = [
+              '    assert session.identity.program_version == "22.7.0"\n',
+              '    assert session.identity.process_id == 77\n    assert session.capabilities.pid_attach is CapabilityState.SUPPORTED\n',
+              '    assert session.diagnostics[0]["compatibility_opt_in"] is True\n',
+              '    assert session.diagnostics[0]["code"] == EtabsSafetyErrorCode.PID_ATTACH_UNSUPPORTED.value\n',
+              '    assert session.identity.model_full_path.lower().endswith("b-blok_revised.edb")\n',
           ]
-
-          for old, new in replacements:
-              count = text.count(old)
+          for anchor in anchors:
+              count = text.count(anchor)
               if count != 1:
-                  raise SystemExit(f"expected exactly one safety replacement, found {count}: {old!r}")
-              text = text.replace(old, new, 1)
+                  raise SystemExit(f"expected exactly one safety anchor, found {count}: {anchor!r}")
+              text = text.replace(anchor, anchor + '    session.close()\n', 1)
           safety.write_text(text, encoding="utf-8")
 
           guards = Path("tests/etabs/test_oapi_layer1_architecture_guards.py")
