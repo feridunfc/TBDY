@@ -28,6 +28,19 @@ from tbdy_engine.regulatory.units import UNIT_ENUM_STATE
 MODEL_PATH = r"C:\tmp\ACQ_CTX_1.EDB"
 
 
+
+_CREATED_VERIFIED_SESSIONS = []
+
+
+@pytest.fixture(autouse=True)
+def _close_test_owned_verified_sessions():
+    try:
+        yield
+    finally:
+        while _CREATED_VERIFIED_SESSIONS:
+            _CREATED_VERIFIED_SESSIONS.pop().close()
+
+
 class _FakeAnalyze:
     def GetCaseStatus(self):
         return 0, (), (), 0
@@ -117,6 +130,7 @@ def _verified_session(*, model_path=MODEL_PATH):
         comtypes_client=_FakeComtypesClient(etabs),
         win32com_client=_FailingWin32(),
     )
+    _CREATED_VERIFIED_SESSIONS.append(session)
     return sap, session
 
 
