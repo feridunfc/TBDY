@@ -1,8 +1,16 @@
-"""Exact factual CSI object/property reads used by current semantic providers."""
+"""Exact factual CSI object/property reads used by current/live consumers.
+
+Raw CSI invocation and tuple validation remain here.  Session-bound entry
+points execute through the verified safety/gateway boundary so callers can
+discover real test identities without receiving PointObj/FrameObj/AreaObj or
+other raw CSI capability objects.
+"""
 from __future__ import annotations
 
 import math
 from typing import Any, Sequence
+
+from tbdy_engine.etabs.safety import EtabsVerifiedSession, _execute_verified_read
 
 from .contracts import (
     AreaPropertyAssignmentFact,
@@ -54,6 +62,48 @@ def _nonnegative_int(value: Any, label: str) -> int:
     return result
 
 
+def _read_name_list(container: Any, label: str) -> tuple[tuple[str, ...], object]:
+    """Decode the standard CSI GetNameList [count, names, ret] contract."""
+    raw = container.GetNameList()
+    count_raw, names_raw, ret = _sequence(raw, method=f"{label}.GetNameList", expected=3)
+    if not isinstance(ret, int) or isinstance(ret, bool) or ret != 0:
+        raise EtabsOAPIError(f"{label}.GetNameList failed/raw={raw!r}")
+    if isinstance(count_raw, bool):
+        raise EtabsOAPIError(f"{label}.GetNameList count must be integer")
+    try:
+        count = int(count_raw)
+    except (TypeError, ValueError) as exc:
+        raise EtabsOAPIError(f"{label}.GetNameList count must be integer") from exc
+    if count < 0:
+        raise EtabsOAPIError(f"{label}.GetNameList count must be >= 0")
+    if names_raw is None:
+        names: tuple[Any, ...] = ()
+    elif isinstance(names_raw, (tuple, list)):
+        names = tuple(names_raw)
+    else:
+        names = (names_raw,)
+    if count != len(names):
+        raise EtabsOAPIError(
+            f"{label}.GetNameList count mismatch: n={count} names={len(names)}"
+        )
+    canonical = tuple(_text(name, f"{label}.name") for name in names)
+    if len(set(canonical)) != len(canonical):
+        raise EtabsOAPIError(f"{label}.GetNameList returned duplicate identities")
+    return canonical, raw
+
+
+def read_point_names(point_obj: Any) -> tuple[tuple[str, ...], object]:
+    return _read_name_list(point_obj, "PointObj")
+
+
+def read_frame_names(frame_obj: Any) -> tuple[tuple[str, ...], object]:
+    return _read_name_list(frame_obj, "FrameObj")
+
+
+def read_area_names(area_obj: Any) -> tuple[tuple[str, ...], object]:
+    return _read_name_list(area_obj, "AreaObj")
+
+
 def read_point_restraint(point_obj: Any, point_name: str) -> PointRestraintFact:
     name = _text(str(point_name), "point_name")
     try:
@@ -67,7 +117,7 @@ def read_point_restraint(point_obj: Any, point_name: str) -> PointRestraintFact:
             f"PointObj.GetRestraint({name!r}) returned unsupported shape {type(raw).__name__}"
         )
     ret = raw[-1]
-    if not isinstance(ret, int) or ret != 0:
+    if not isinstance(ret, int) or isinstance(ret, bool) or ret != 0:
         raise EtabsOAPIError(f"PointObj.GetRestraint({name!r}) returned code {ret!r}")
     candidates: list[Sequence[Any]] = [
         item for item in raw[:-1]
@@ -90,7 +140,7 @@ def read_rebar_column(prop_frame: Any, section_name: str) -> RebarColumnFact:
         number_c, number_r3, number_r2, rebar_size, tie_size,
         tie_spacing, number_2_tie, number_3_tie, to_be_designed, ret,
     ) = values
-    if not isinstance(ret, int) or ret != 0:
+    if not isinstance(ret, int) or isinstance(ret, bool) or ret != 0:
         raise EtabsOAPIError(f"GetRebarColumn({section!r}) failed/raw={raw!r}")
     if not isinstance(to_be_designed, bool):
         raise EtabsOAPIError(
@@ -171,9 +221,87 @@ def read_wall_property(prop_area: Any, property_name: str) -> WallPropertyFact:
     )
 
 
+def read_point_names_from_session(session: EtabsVerifiedSession) -> tuple[tuple[str, ...], object]:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: read_point_names(sap.PointObj),
+        operation="oapi_point_obj_get_name_list",
+    )
+
+
+def read_frame_names_from_session(session: EtabsVerifiedSession) -> tuple[tuple[str, ...], object]:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: read_frame_names(sap.FrameObj),
+        operation="oapi_frame_obj_get_name_list",
+    )
+
+
+def read_area_names_from_session(session: EtabsVerifiedSession) -> tuple[tuple[str, ...], object]:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: read_area_names(sap.AreaObj),
+        operation="oapi_area_obj_get_name_list",
+    )
+
+
+def read_point_restraint_from_session(
+    session: EtabsVerifiedSession,
+    point_name: str,
+) -> PointRestraintFact:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: read_point_restraint(sap.PointObj, point_name),
+        operation="oapi_point_obj_get_restraint",
+    )
+
+
+def read_rebar_column_from_session(
+    session: EtabsVerifiedSession,
+    section_name: str,
+) -> RebarColumnFact:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: read_rebar_column(sap.PropFrame, section_name),
+        operation="oapi_prop_frame_get_rebar_column",
+    )
+
+
+def read_area_property_assignment_from_session(
+    session: EtabsVerifiedSession,
+    area_name: str,
+) -> AreaPropertyAssignmentFact:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: read_area_property_assignment(sap.AreaObj, area_name),
+        operation="oapi_area_obj_get_property",
+    )
+
+
+def read_wall_property_from_session(
+    session: EtabsVerifiedSession,
+    property_name: str,
+) -> WallPropertyFact:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: read_wall_property(sap.PropArea, property_name),
+        operation="oapi_prop_area_get_wall",
+    )
+
+
 __all__ = [
+    "read_area_names",
+    "read_area_names_from_session",
     "read_area_property_assignment",
+    "read_area_property_assignment_from_session",
+    "read_frame_names",
+    "read_frame_names_from_session",
+    "read_point_names",
+    "read_point_names_from_session",
     "read_point_restraint",
+    "read_point_restraint_from_session",
     "read_rebar_column",
+    "read_rebar_column_from_session",
     "read_wall_property",
+    "read_wall_property_from_session",
 ]
