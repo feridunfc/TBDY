@@ -1,22 +1,18 @@
 """Deterministic lifecycle orchestration for the typed ETABS gateway.
 
 The session owns the COM apartment, dedicated worker, and read-only connection.
-Construction is offline-safe: platform modules are still loaded lazily only
-when ``start`` is called.
+Raw ETABS COM references stay private. Trusted safety/OAPI code may execute a
+bounded factual callback on the owning STA thread without receiving those owner
+references as a returned capability.
 """
-
 from __future__ import annotations
 
 import threading
-from collections.abc import Sequence
-from typing import Any
+from collections.abc import Callable, Sequence
+from typing import Any, TypeVar
 
 from .com_apartment import ModuleLoader, WindowsCOMApartment
-from .connection import (
-    DEFAULT_ETABS_PROG_IDS,
-    ReadOnlyETABSConnection,
-    RuntimeLoader,
-)
+from .connection import DEFAULT_ETABS_PROG_IDS, ReadOnlyETABSConnection, RuntimeLoader
 from .contracts import (
     ConnectionDiagnostics,
     ConnectionRequest,
@@ -28,12 +24,10 @@ from .contracts import (
     utc_now,
 )
 from .diagnostics import error_event, info_event
-from .errors import (
-    ETABSGatewayError,
-    ETABSSessionCloseError,
-    ETABSSessionStateError,
-)
+from .errors import ETABSGatewayError, ETABSSessionCloseError, ETABSSessionStateError
 from .worker import DedicatedSTAWorker, WorkerState
+
+T = TypeVar("T")
 
 
 class ETABSGatewaySession:
@@ -44,6 +38,7 @@ class ETABSGatewaySession:
         *,
         com_module_loader: ModuleLoader | None = None,
         runtime_loader: RuntimeLoader | None = None,
+        comtypes_loader: RuntimeLoader | None = None,
         prog_ids: Sequence[str] = DEFAULT_ETABS_PROG_IDS,
         worker_name: str = "etabs-gateway-sta",
     ) -> None:
@@ -55,9 +50,7 @@ class ETABSGatewaySession:
         self._context: ETABSGatewayContext | None = None
         self._events: list[DiagnosticEvent] = []
 
-        self._apartment = WindowsCOMApartment(
-            module_loader=com_module_loader,
-        )
+        self._apartment = WindowsCOMApartment(module_loader=com_module_loader)
         self._worker = DedicatedSTAWorker(
             initializer=self._apartment.initialize,
             finalizer=self._apartment.finalize,
@@ -66,6 +59,7 @@ class ETABSGatewaySession:
         self._connection = ReadOnlyETABSConnection(
             self._worker,
             runtime_loader=runtime_loader,
+            comtypes_loader=comtypes_loader,
             prog_ids=prog_ids,
         )
 
@@ -96,9 +90,7 @@ class ETABSGatewaySession:
             else float(context_timeout_seconds)
         )
         if context_timeout <= 0:
-            raise ValueError(
-                "context_timeout_seconds must be greater than zero."
-            )
+            raise ValueError("context_timeout_seconds must be greater than zero.")
 
         with self._lock:
             if self._state is not GatewayState.NEW:
@@ -107,7 +99,6 @@ class ETABSGatewaySession:
                     operation="session_start",
                     details={"state": self._state.value},
                 )
-
             self._state = GatewayState.STARTING
             self._started_at_utc = utc_now()
             self._events.append(
@@ -120,12 +111,9 @@ class ETABSGatewaySession:
 
         try:
             attachment = self._connection.attach(resolved_request)
-            context = self._connection.read_context(
-                timeout_seconds=context_timeout,
-            )
+            context = self._connection.read_context(timeout_seconds=context_timeout)
         except BaseException as exc:
             cleanup_failures = self._cleanup_components()
-
             with self._lock:
                 self._state = GatewayState.FAILED
                 self._completed_at_utc = utc_now()
@@ -148,10 +136,7 @@ class ETABSGatewaySession:
             error = ETABSSessionStateError(
                 "Attachment identity changed during session startup.",
                 operation="session_start",
-                details={
-                    "stage": "attachment_identity",
-                    "cleanup_failures": cleanup_failures,
-                },
+                details={"stage": "attachment_identity", "cleanup_failures": cleanup_failures},
             )
             with self._lock:
                 self._state = GatewayState.FAILED
@@ -166,6 +151,7 @@ class ETABSGatewaySession:
                 )
             raise error
 
+        attach_diagnostics = self._connection.attach_diagnostics
         with self._lock:
             self._context = context
             self._state = GatewayState.READY
@@ -177,10 +163,34 @@ class ETABSGatewaySession:
                     details={
                         "prog_id": attachment.prog_id,
                         "worker_thread_id": attachment.worker_thread_id,
+                        "attach_strategy": attach_diagnostics["strategy"],
+                        "process_id": attach_diagnostics["process_id"],
+                        "attach_attempt_count": len(attach_diagnostics["attempts"]),
                     },
                 )
             )
             return context
+
+    def execute_bounded_read(
+        self,
+        function: Callable[[object, object], T],
+        *,
+        operation: str,
+        timeout_seconds: float = 30.0,
+    ) -> T:
+        """Execute one trusted safety/OAPI factual read on the owning STA thread."""
+        with self._lock:
+            if self._state is not GatewayState.READY:
+                raise ETABSSessionStateError(
+                    "Bounded ETABS reads require a ready gateway session.",
+                    operation=operation,
+                    details={"state": self._state.value},
+                )
+        return self._connection.execute_bounded_read(
+            function,
+            operation=operation,
+            timeout_seconds=timeout_seconds,
+        )
 
     def health(self) -> GatewayHealth:
         with self._lock:
@@ -192,11 +202,7 @@ class ETABSGatewaySession:
 
         if state is GatewayState.READY and context is not None:
             status = HealthStatus.HEALTHY
-        elif state in {
-            GatewayState.NEW,
-            GatewayState.STARTING,
-            GatewayState.CLOSING,
-        }:
+        elif state in {GatewayState.NEW, GatewayState.STARTING, GatewayState.CLOSING}:
             status = HealthStatus.DEGRADED
         else:
             status = HealthStatus.UNAVAILABLE
@@ -204,9 +210,7 @@ class ETABSGatewaySession:
         return GatewayHealth(
             status=status,
             state=state,
-            application=(
-                context.application if context is not None else None
-            ),
+            application=(context.application if context is not None else None),
             model=context.model if context is not None else None,
             diagnostics=ConnectionDiagnostics(
                 state=state,
@@ -219,11 +223,9 @@ class ETABSGatewaySession:
     def close(self, *, timeout_seconds: float = 5.0) -> bool:
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be greater than zero.")
-
         with self._lock:
             if self._state is GatewayState.CLOSED:
                 return False
-
             self._state = GatewayState.CLOSING
             self._events.append(
                 info_event(
@@ -234,11 +236,9 @@ class ETABSGatewaySession:
             )
 
         failures = self._cleanup_components(timeout_seconds=timeout_seconds)
-
         with self._lock:
             self._state = GatewayState.CLOSED
             self._completed_at_utc = utc_now()
-
             if failures:
                 self._events.append(
                     error_event(
@@ -263,52 +263,30 @@ class ETABSGatewaySession:
                 operation="session_close",
                 details={"failures": failures},
             )
-
         return True
 
-    def __enter__(self) -> ETABSGatewaySession:
+    def __enter__(self) -> "ETABSGatewaySession":
         self.start()
         return self
 
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc: BaseException | None,
-        traceback: object | None,
-    ) -> None:
+    def __exit__(self, exc_type, exc, traceback) -> None:
         self.close()
 
-    def _cleanup_components(
-        self,
-        *,
-        timeout_seconds: float = 5.0,
-    ) -> list[dict[str, Any]]:
+    def _cleanup_components(self, *, timeout_seconds: float = 5.0) -> list[dict[str, Any]]:
         failures: list[dict[str, Any]] = []
-
         try:
             if self._connection.attached:
-                self._connection.detach(
-                    timeout_seconds=timeout_seconds,
-                )
+                self._connection.detach(timeout_seconds=timeout_seconds)
         except BaseException as exc:
-            failures.append(
-                self._failure_record("connection_detach", exc)
-            )
-
+            failures.append(self._failure_record("connection_detach", exc))
         try:
             self._worker.close(timeout_seconds=timeout_seconds)
         except BaseException as exc:
-            failures.append(
-                self._failure_record("worker_close", exc)
-            )
-
+            failures.append(self._failure_record("worker_close", exc))
         return failures
 
     @staticmethod
-    def _failure_record(
-        component: str,
-        exc: BaseException,
-    ) -> dict[str, Any]:
+    def _failure_record(component: str, exc: BaseException) -> dict[str, Any]:
         record: dict[str, Any] = {
             "component": component,
             "exception_type": type(exc).__name__,
