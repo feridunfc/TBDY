@@ -1,0 +1,216 @@
+name: ETABS OAPI Layer 1 Stage A a4b
+
+on:
+  push:
+    branches: [validation/etabs-oapi-layer1-stage-a]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      CANDIDATE: a4b2c807926f2a1ca79a560e07f97eab6196da70
+      BASE: 74d5b6083afed75e44b832336c31755aee482daa
+      BRANCH: sprint/etabs-oapi-layer-1-common-factual-boundary
+      EVIDENCE: /tmp/oapi-stage-a-a4b
+      BASE_WT: /tmp/oapi-base
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify candidate ref
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$EVIDENCE"
+          echo "$GITHUB_SHA" > "$EVIDENCE/workflow_source_sha.txt"
+          git fetch --no-tags origin "refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
+          actual=$(git rev-parse "refs/remotes/origin/${BRANCH}")
+          echo "$actual" > "$EVIDENCE/candidate_ref_before.txt"
+          test "$actual" = "$CANDIDATE"
+      - uses: actions/checkout@v4
+        with:
+          ref: a4b2c807926f2a1ca79a560e07f97eab6196da70
+          fetch-depth: 0
+          clean: true
+      - name: Exactness and hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE"
+          test "$(git merge-base "$BASE" HEAD)" = "$BASE"
+          git diff --check "$BASE"...HEAD
+          test -z "$(git status --porcelain=v1 -uall)"
+          printf 'candidate=%s\nbase=%s\nmerge_base=%s\n' "$CANDIDATE" "$BASE" "$(git merge-base "$BASE" HEAD)" > "$EVIDENCE/exactness.txt"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install toolchain
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml jsonschema weasyprint==69.0 pydyf==0.12.1 pypdf==6.16.1 pypdfium2==5.12.1 openpyxl==3.1.5 et_xmlfile==2.0.0
+          python --version > "$EVIDENCE/python.txt"
+          python -m pip freeze | sort > "$EVIDENCE/toolchain.txt"
+      - name: Compile and imports
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          python -m compileall -q tbdy_engine tests packages/etabs_gateway
+          python - <<'PY' | tee "$EVIDENCE/imports.txt"
+          import etabs_gateway
+          import tbdy_engine.etabs.safety
+          import tbdy_engine.etabs.oapi
+          import tbdy_engine.integration.live_etabs_acquisition_context
+          print('PASS')
+          PY
+      - name: Gateway focused delta
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          set +e
+          timeout --signal=TERM --kill-after=10s 300s python -m pytest -q packages/etabs_gateway/tests > "$EVIDENCE/gateway_candidate.log" 2>&1
+          crc=$?
+          set -e
+          test "$crc" -ne 124
+          echo "$crc" > "$EVIDENCE/gateway_candidate.rc"
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' "$EVIDENCE/gateway_candidate.log" | sort -u > "$EVIDENCE/gateway_candidate.sig" || true
+          git worktree add --detach "$BASE_WT" "$BASE"
+          set +e
+          (cd "$BASE_WT" && PYTHONPATH="$BASE_WT/packages/etabs_gateway/src:$BASE_WT" timeout --signal=TERM --kill-after=10s 300s python -m pytest -q packages/etabs_gateway/tests > "$EVIDENCE/gateway_base.log" 2>&1)
+          brc=$?
+          set -e
+          test "$brc" -ne 124
+          echo "$brc" > "$EVIDENCE/gateway_base.rc"
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' "$EVIDENCE/gateway_base.log" | sort -u > "$EVIDENCE/gateway_base.sig" || true
+          comm -13 "$EVIDENCE/gateway_base.sig" "$EVIDENCE/gateway_candidate.sig" > "$EVIDENCE/gateway_new.sig"
+          comm -23 "$EVIDENCE/gateway_base.sig" "$EVIDENCE/gateway_candidate.sig" > "$EVIDENCE/gateway_missing.sig"
+          test ! -s "$EVIDENCE/gateway_new.sig"
+          test ! -s "$EVIDENCE/gateway_missing.sig"
+          git worktree remove --force "$BASE_WT"
+      - name: ETABS OAPI safety architecture
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=10s 300s python -m pytest -q tests/etabs | tee "$EVIDENCE/etabs.log"
+      - name: Acquisition and live infrastructure offline
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          timeout --signal=TERM --kill-after=10s 300s python -m pytest -q tests/integration/test_acq_ctx_1_trusted_live_etabs_acquisition_context.py tests/integration/test_etabs_oapi_live_acceptance_infrastructure.py | tee "$EVIDENCE/integration.log"
+      - name: Migrated provider regressions
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          python - <<'PY' > "$EVIDENCE/provider_paths.txt"
+          from pathlib import Path
+          tokens=('tbdy_engine.etabs.oapi','etabs_column_endpoint_restraint_provider','etabs_column_rebar_intent_provider','etabs_combo_definition_provider','etabs_static_linear_case_provider','etabs_load_pattern_catalog_provider','etabs_concrete_column_design_result_provider','etabs_concrete_design_section_provider','etabs_strict_column_topology_provider','etabs_concrete_design_combo_selection_probe')
+          out=[]
+          for p in Path('tests').rglob('test_*.py'):
+              s=p.read_text(encoding='utf-8-sig', errors='replace')
+              if any(t in s for t in tokens): out.append(p.as_posix())
+          print('\n'.join(sorted(set(out))))
+          PY
+          mapfile -t paths < "$EVIDENCE/provider_paths.txt"
+          test ${#paths[@]} -gt 0
+          timeout --signal=TERM --kill-after=10s 600s python -m pytest -q "${paths[@]}" | tee "$EVIDENCE/providers.log"
+      - name: Architecture guards and census
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          python -m pytest -q tests/etabs/test_oapi_layer1_architecture_guards.py
+          python - <<'PY' | tee "$EVIDENCE/census.txt"
+          import ast, runpy
+          from pathlib import Path
+          ns=runpy.run_path('tests/etabs/test_oapi_layer1_architecture_guards.py')
+          files=ns['_production_python_files'](); rel=ns['_relative']
+          attach=sorted(rel(p) for p in files if ns['_looks_like_etabs_attach_implementation'](p))
+          print('ATTACH_IMPLEMENTATION_COUNT_BEFORE=3')
+          print('ATTACH_IMPLEMENTATION_COUNT_AFTER='+str(len(attach)))
+          print('ATTACH_IMPLEMENTATIONS_AFTER='+';'.join(attach))
+          print('RUN_ANALYSIS_START_DESIGN_CALLS_AFTER='+str(len(ns['_production_call_sites']({'RunAnalysis','StartDesign'}))))
+          units=ns['_production_call_sites']({'SetPresentUnits','SetPresentUnits_2'})
+          print('PHYSICAL_SET_PRESENT_UNITS_CALLS_AFTER='+str(len(units)))
+          print('PHYSICAL_SET_PRESENT_UNITS_FILES_AFTER='+';'.join(sorted({p for p,_ in units})))
+          legacy=Path('tbdy_engine/etabs/_safety_legacy.py')
+          tree=ast.parse(legacy.read_text(encoding='utf-8-sig'), filename=str(legacy))
+          print('LEGACY_VERIFIED_SESSION_OWNER_COUNT='+str(sum(isinstance(n,ast.ClassDef) and n.name=='EtabsVerifiedSession' for n in tree.body)))
+          print('LEGACY_ATTACH_FUNCTION_COUNT_IN_SAFETY_IMPLEMENTATION='+str(sum(isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name=='attach_verified_to_running_etabs' for n in tree.body)))
+          csi={'GetRestraint','GetRebarColumn','GetCaseList','GetTypeCombo','GetLoadType','GetLoads','GetNameList','GetSummaryResultsColumn','GetDesignSection','GetTypeOAPI_1'}
+          owners=[]
+          for p in Path('tbdy_engine/providers').glob('etabs_*.py'):
+              t=ast.parse(p.read_text(encoding='utf-8-sig'), filename=str(p))
+              calls={ns['_dotted_name'](n.func).rsplit('.',1)[-1] for n in ast.walk(t) if isinstance(n,ast.Call)}
+              if calls & csi: owners.append(p.as_posix())
+          print('PROVIDER_LOCAL_ABI_OWNER_COUNT_BEFORE=7')
+          print('PROVIDER_LOCAL_ABI_OWNER_COUNT_AFTER='+str(len(owners)))
+          print('PROVIDER_LOCAL_ABI_OWNERS_AFTER='+';'.join(sorted(owners)))
+          ctx=Path('tbdy_engine/integration/live_etabs_acquisition_context.py')
+          t=ast.parse(ctx.read_text(encoding='utf-8-sig'), filename=str(ctx))
+          attrs={n.attr for n in ast.walk(t) if isinstance(n,ast.Attribute)}
+          funcs={n.name for n in ast.walk(t) if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and not n.name.startswith('_')}
+          escapes={'sap_model','attach_result','etabs_object','application','model_api'} & (attrs|funcs)
+          print('SUPPORTED_CONTEXT_RAW_ESCAPE_COUNT_AFTER='+str(len(escapes)))
+          PY
+      - name: Candidate broad
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          set +e
+          timeout --signal=TERM --kill-after=30s 1800s python -m pytest -q > "$EVIDENCE/candidate.log" 2>&1
+          rc=$?
+          set -e
+          test "$rc" -ne 124
+          echo "$rc" > "$EVIDENCE/candidate.rc"
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' "$EVIDENCE/candidate.log" | sort -u > "$EVIDENCE/candidate.sig" || true
+      - name: Frozen broad
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$BASE_WT" "$BASE"
+          set +e
+          (cd "$BASE_WT" && PYTHONPATH="$BASE_WT/packages/etabs_gateway/src:$BASE_WT" timeout --signal=TERM --kill-after=30s 1800s python -m pytest -q > "$EVIDENCE/base.log" 2>&1)
+          rc=$?
+          set -e
+          test "$rc" -ne 124
+          echo "$rc" > "$EVIDENCE/base.rc"
+          grep -E '^(FAILED|ERROR) |^ERROR collecting ' "$EVIDENCE/base.log" | sort -u > "$EVIDENCE/base.sig" || true
+      - name: Broad delta and final hygiene
+        shell: bash
+        run: |
+          set -euo pipefail
+          comm -13 "$EVIDENCE/base.sig" "$EVIDENCE/candidate.sig" > "$EVIDENCE/new.sig"
+          comm -23 "$EVIDENCE/base.sig" "$EVIDENCE/candidate.sig" > "$EVIDENCE/missing.sig"
+          test ! -s "$EVIDENCE/new.sig"
+          test ! -s "$EVIDENCE/missing.sig"
+          git worktree remove --force "$BASE_WT"
+          git diff --check "$BASE"..."$CANDIDATE"
+          test -z "$(git status --porcelain=v1 -uall)"
+          git fetch --no-tags origin "refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
+          test "$(git rev-parse "refs/remotes/origin/${BRANCH}")" = "$CANDIDATE"
+          printf 'STATE=STAGE_A_OFFLINE_GREEN_READY_FOR_MAIN_INTEGRATION\nCANDIDATE=%s\ncandidate_rc=%s\nbase_rc=%s\nnew=0\nmissing=0\nhygiene=PASS\n' "$CANDIDATE" "$(cat "$EVIDENCE/candidate.rc")" "$(cat "$EVIDENCE/base.rc")" | tee "$EVIDENCE/summary.txt"
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: etabs-oapi-layer1-stage-a-a4b-evidence
+          path: /tmp/oapi-stage-a-a4b
+          retention-days: 30
