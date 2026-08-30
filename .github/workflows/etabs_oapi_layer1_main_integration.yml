@@ -1,0 +1,53 @@
+name: ETABS OAPI Layer 1 Main Integration
+
+on:
+  push:
+    branches: [validation/etabs-oapi-layer1-stage-a]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_CANDIDATE: a4b2c807926f2a1ca79a560e07f97eab6196da70
+      EXPECTED_MAIN: a10f8f12f21c586e685dd792d2d1b016aee7b0ea
+      BRANCH: sprint/etabs-oapi-layer-1-common-factual-boundary
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH }}
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Verify exact heads
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_CANDIDATE"
+          git fetch --no-tags origin main
+          test "$(git rev-parse origin/main)" = "$EXPECTED_MAIN"
+          test -z "$(git status --porcelain=v1 -uall)"
+      - name: Merge current main without history rewrite
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "ETABS OAPI integration"
+          git config user.email "actions@users.noreply.github.com"
+          if ! git merge --no-ff --no-edit origin/main -m "Merge current main into ETABS-OAPI-LAYER-1 candidate"; then
+            git status --short
+            git merge --abort || true
+            exit 1
+          fi
+          test "$(git rev-parse HEAD^1)" = "$EXPECTED_CANDIDATE"
+          test "$(git rev-parse HEAD^2)" = "$EXPECTED_MAIN"
+          git diff --check "$EXPECTED_MAIN"...HEAD
+          test -z "$(git status --porcelain=v1 -uall)"
+      - name: Push integrated candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git push origin "HEAD:${BRANCH}"
+          echo "integrated_candidate_sha=$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
