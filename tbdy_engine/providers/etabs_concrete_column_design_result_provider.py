@@ -3,7 +3,9 @@
 The provider owns canonical component binding, source-unit conversion,
 EvidenceEpoch/provenance, row identity, and full-population accounting. Exact
 ``DesignConcrete.GetSummaryResultsColumn`` invocation and 14-slot CSI ABI
-validation are owned by ``tbdy_engine.etabs.oapi.concrete_design``.
+validation are owned by ``tbdy_engine.etabs.oapi.concrete_design``. Supported
+live acquisition consumes a verified session and typed OAPI batch facts; raw
+SapModel is retained only on the bounded compatibility seam.
 """
 from __future__ import annotations
 
@@ -14,12 +16,14 @@ import json
 from typing import Any, Sequence
 
 from tbdy_engine.etabs.oapi.concrete_design import (
+    ConcreteColumnSummaryBatchFact,
     ConcreteColumnSummaryFact,
     decode_summary_results_column_response,
     read_summary_results_column,
+    read_summary_results_columns_with_units_from_session,
 )
 from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError
-from tbdy_engine.etabs.safety import read_etabs_unit_snapshot
+from tbdy_engine.etabs.safety import EtabsVerifiedSession, read_etabs_unit_snapshot
 from tbdy_engine.etabs.source_units import (
     EtabsLengthUnit,
     EtabsSourceUnitError,
@@ -282,13 +286,12 @@ def decode_summary_results_column(
     )
 
 
-def capture_concrete_column_design_results(
-    sap_model: Any,
+def _validated_population_inputs(
     *,
     topology: ColumnTopologyEvidenceEnvelope,
     design_sections: ConcreteColumnDesignSectionPopulation,
     session_provenance_ref: str,
-) -> FactualColumnDesignResultPopulation:
+):
     if not isinstance(topology, ColumnTopologyEvidenceEnvelope):
         raise TypeError("topology must be ColumnTopologyEvidenceEnvelope")
     if not isinstance(design_sections, ConcreteColumnDesignSectionPopulation):
@@ -301,7 +304,6 @@ def capture_concrete_column_design_results(
         raise EtabsConcreteColumnDesignResultProviderError(
             "topology and design-section population must share model fingerprint/EvidenceEpoch"
         )
-
     columns = tuple(sorted(topology.topology.columns, key=lambda item: (item.component_id, item.unique_name)))
     expected_ids = tuple(item.component_id for item in columns)
     expected_names = tuple(item.unique_name for item in columns)
@@ -318,11 +320,23 @@ def capture_concrete_column_design_results(
         raise EtabsConcreteColumnDesignResultProviderError(
             "design-section population does not cover the exact canonical topology"
         )
+    return session_ref, columns, expected_ids, expected_names
 
-    design_concrete = getattr(sap_model, "DesignConcrete", None)
-    if design_concrete is None:
-        raise EtabsConcreteColumnDesignResultProviderError(f"{SOURCE_API} is unavailable")
-    before = read_etabs_unit_snapshot(sap_model)
+
+def _capture_from_batch(
+    batch: ConcreteColumnSummaryBatchFact,
+    *,
+    topology: ColumnTopologyEvidenceEnvelope,
+    design_sections: ConcreteColumnDesignSectionPopulation,
+    session_provenance_ref: str,
+) -> FactualColumnDesignResultPopulation:
+    session_ref, columns, expected_ids, expected_names = _validated_population_inputs(
+        topology=topology,
+        design_sections=design_sections,
+        session_provenance_ref=session_provenance_ref,
+    )
+    before = batch.units_before
+    after = batch.units_after
     if getattr(before, "present_units_api", None) != SOURCE_UNIT_API:
         raise EtabsConcreteColumnDesignResultProviderError(
             f"{SOURCE_API} requires explicit {SOURCE_UNIT_API} source-unit provenance"
@@ -333,6 +347,27 @@ def capture_concrete_column_design_results(
         raise EtabsConcreteColumnDesignResultProviderError(
             "design-result source length unit is unavailable/outside reviewed scope"
         ) from exc
+    if _snapshot_key(after) != _snapshot_key(before):
+        raise EtabsConcreteColumnDesignResultProviderError(
+            "ETABS unit provenance changed during design-result acquisition"
+        )
+    try:
+        after_length_unit = decode_csi_length_unit(after.present_length_unit)
+    except EtabsSourceUnitError as exc:
+        raise EtabsConcreteColumnDesignResultProviderError(
+            "post-capture source length unit is unavailable/outside reviewed scope"
+        ) from exc
+    if after_length_unit is not source_length_unit:
+        raise EtabsConcreteColumnDesignResultProviderError(
+            "source length unit changed during design-result acquisition"
+        )
+
+    facts = tuple(batch.summaries)
+    fact_by_name = {fact.requested_frame_name: fact for fact in facts}
+    if len(fact_by_name) != len(facts) or set(fact_by_name) != set(expected_names):
+        raise EtabsConcreteColumnDesignResultProviderError(
+            "typed design-result facts do not exactly cover canonical topology"
+        )
 
     attempted_ids: list[str] = []
     captured_ids: list[str] = []
@@ -376,12 +411,8 @@ def capture_concrete_column_design_results(
             raise EtabsConcreteColumnDesignResultProviderError(
                 f"component identity binding blocked for {column.unique_name!r}: {binding.status.value}"
             )
-        try:
-            fact = read_summary_results_column(design_concrete, column.unique_name)
-        except EtabsOAPIError as exc:
-            raise EtabsConcreteColumnDesignResultProviderError(str(exc)) from exc
         decoded = _promote_summary_fact(
-            fact,
+            fact_by_name[column.unique_name],
             component_id=column.component_id,
             unique_name=column.unique_name,
             story=column.story,
@@ -408,22 +439,6 @@ def capture_concrete_column_design_results(
         captured_ids.append(column.component_id)
         population_refs.extend(ref for row in decoded.rows for ref in row.source_refs)
 
-    after = read_etabs_unit_snapshot(sap_model)
-    if _snapshot_key(after) != _snapshot_key(before):
-        raise EtabsConcreteColumnDesignResultProviderError(
-            "ETABS unit provenance changed during design-result acquisition"
-        )
-    try:
-        after_length_unit = decode_csi_length_unit(after.present_length_unit)
-    except EtabsSourceUnitError as exc:
-        raise EtabsConcreteColumnDesignResultProviderError(
-            "post-capture source length unit is unavailable/outside reviewed scope"
-        ) from exc
-    if after_length_unit is not source_length_unit:
-        raise EtabsConcreteColumnDesignResultProviderError(
-            "source length unit changed during design-result acquisition"
-        )
-
     population = FactualColumnDesignResultPopulation(
         model_fingerprint=topology.model_fingerprint,
         evidence_epoch_id=topology.evidence_epoch_id,
@@ -441,6 +456,61 @@ def capture_concrete_column_design_results(
     return population
 
 
+def capture_concrete_column_design_results(
+    sap_model: Any,
+    *,
+    topology: ColumnTopologyEvidenceEnvelope,
+    design_sections: ConcreteColumnDesignSectionPopulation,
+    session_provenance_ref: str,
+) -> FactualColumnDesignResultPopulation:
+    """Compatibility path for an already-bounded raw SapModel caller."""
+    _, _, _, expected_names = _validated_population_inputs(
+        topology=topology,
+        design_sections=design_sections,
+        session_provenance_ref=session_provenance_ref,
+    )
+    design_concrete = getattr(sap_model, "DesignConcrete", None)
+    if design_concrete is None:
+        raise EtabsConcreteColumnDesignResultProviderError(f"{SOURCE_API} is unavailable")
+    before = read_etabs_unit_snapshot(sap_model)
+    try:
+        facts = tuple(read_summary_results_column(design_concrete, name) for name in expected_names)
+    except EtabsOAPIError as exc:
+        raise EtabsConcreteColumnDesignResultProviderError(str(exc)) from exc
+    after = read_etabs_unit_snapshot(sap_model)
+    return _capture_from_batch(
+        ConcreteColumnSummaryBatchFact(before, facts, after),
+        topology=topology,
+        design_sections=design_sections,
+        session_provenance_ref=session_provenance_ref,
+    )
+
+
+def capture_concrete_column_design_results_from_session(
+    session: EtabsVerifiedSession,
+    *,
+    topology: ColumnTopologyEvidenceEnvelope,
+    design_sections: ConcreteColumnDesignSectionPopulation,
+    session_provenance_ref: str,
+) -> FactualColumnDesignResultPopulation:
+    """Supported live path: session -> typed OAPI batch -> semantic population."""
+    _, _, _, expected_names = _validated_population_inputs(
+        topology=topology,
+        design_sections=design_sections,
+        session_provenance_ref=session_provenance_ref,
+    )
+    try:
+        batch = read_summary_results_columns_with_units_from_session(session, expected_names)
+    except EtabsOAPIError as exc:
+        raise EtabsConcreteColumnDesignResultProviderError(str(exc)) from exc
+    return _capture_from_batch(
+        batch,
+        topology=topology,
+        design_sections=design_sections,
+        session_provenance_ref=session_provenance_ref,
+    )
+
+
 __all__ = [
     "SOURCE_API",
     "SOURCE_ITEM_TYPE",
@@ -448,5 +518,6 @@ __all__ = [
     "DecodedSummaryResultsColumn",
     "EtabsConcreteColumnDesignResultProviderError",
     "capture_concrete_column_design_results",
+    "capture_concrete_column_design_results_from_session",
     "decode_summary_results_column",
 ]
