@@ -146,16 +146,63 @@ def test_replay_layer_contains_no_com_or_live_etabs_calls() -> None:
 
 def test_acceptance_layer_does_not_attach_or_mutate_etabs() -> None:
     path = SOURCE_ROOT / "acceptance.py"
-    text = path.read_text(encoding="utf-8")
-    tree = ast.parse(text, filename=str(path))
-    forbidden = {"GetActiveObject", "SapModel", "RunAnalysis", "SetPresentUnits", "GetTableForDisplayArray"}
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+
+    forbidden_runtime_names = {
+        "GetActiveObject",
+        "SapModel",
+        "GetVersion",
+        "GetModelFilename",
+        "GetModelIsLocked",
+        "GetPresentUnits",
+        "RunAnalysis",
+        "SetPresentUnits",
+        "GetTableForDisplayArray",
+    }
+    forbidden_import_roots = {
+        "pythoncom",
+        "win32com",
+        "comtypes",
+        "etabs_mcp",
+        "vendor",
+    }
+
     for node in ast.walk(tree):
-        if isinstance(node, ast.Call):
-            assert dotted_name(node.func).rsplit(".", 1)[-1] not in forbidden
-        if isinstance(node, ast.Attribute):
-            assert node.attr not in forbidden
-    for root in ("pythoncom", "win32com", "comtypes", "etabs_mcp", "vendor"):
-        assert root not in text
+        if isinstance(node, ast.Import):
+            roots = {
+                alias.name.split(".", 1)[0]
+                for alias in node.names
+            }
+            assert not roots.intersection(
+                forbidden_import_roots
+            ), roots
+
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            root = node.module.split(".", 1)[0]
+            assert root not in forbidden_import_roots, root
+
+        elif isinstance(node, ast.Call):
+            final_name = dotted_name(
+                node.func
+            ).rsplit(".", 1)[-1]
+
+            assert final_name not in forbidden_runtime_names, (
+                final_name
+            )
+
+            if final_name == "import_module" and node.args:
+                module_arg = node.args[0]
+                if (
+                    isinstance(module_arg, ast.Constant)
+                    and isinstance(module_arg.value, str)
+                ):
+                    root = module_arg.value.split(".", 1)[0]
+                    assert root not in forbidden_import_roots, root
+
+        elif isinstance(node, ast.Attribute):
+            assert node.attr not in forbidden_runtime_names, (
+                node.attr
+            )
 
 
 def test_source_manifest_declares_coverage_orchestration_phase() -> None:
