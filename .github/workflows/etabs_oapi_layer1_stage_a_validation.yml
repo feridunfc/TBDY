@@ -7,23 +7,24 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  repair-preflight:
+  promote-bounded-repair:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
       CANDIDATE_SHA: 008e9c569d3022a5e9c676cf5ec7a166c0a34f26
       CANDIDATE_BRANCH: sprint/etabs-oapi-layer-1-common-factual-boundary
-      EVIDENCE_DIR: /tmp/etabs-oapi-layer1-repair-preflight
+      EVIDENCE_DIR: /tmp/etabs-oapi-layer1-repair-promotion
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: true
 
-      - name: Verify candidate ref
+      - name: Verify candidate ref before promotion
         shell: bash
         run: |
           set -euo pipefail
@@ -39,19 +40,20 @@ jobs:
           ref: 008e9c569d3022a5e9c676cf5ec7a166c0a34f26
           fetch-depth: 0
           clean: true
+          persist-credentials: true
 
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install dependencies
+      - name: Install validation dependencies
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install pytest pyyaml jsonschema weasyprint==69.0 pydyf==0.12.1 pypdf==6.16.1 pypdfium2==5.12.1 openpyxl==3.1.5 et_xmlfile==2.0.0
 
-      - name: Apply bounded repair to worktree only
+      - name: Apply exact preflighted two-file repair
         shell: bash
         run: |
           set -euo pipefail
@@ -106,58 +108,67 @@ jobs:
           arch_text = arch.read_text(encoding='utf-8')
           needle = 'read_text(encoding="utf-8")'
           replacements = arch_text.count(needle)
-          assert replacements >= 8, replacements
+          assert replacements == 13, replacements
           arch_text = arch_text.replace(needle, 'read_text(encoding="utf-8-sig")')
           arch.write_text(arch_text, encoding='utf-8')
-
-          print(f'safety_session_cleanup_functions={len(targets)}')
-          print(f'architecture_bom_safe_read_replacements={replacements}')
           PY
-          cp tests/etabs/test_safety_foundation.py "$EVIDENCE_DIR/test_safety_foundation.py"
-          cp tests/etabs/test_oapi_layer1_architecture_guards.py "$EVIDENCE_DIR/test_oapi_layer1_architecture_guards.py"
-          git diff -- tests/etabs/test_safety_foundation.py tests/etabs/test_oapi_layer1_architecture_guards.py > "$EVIDENCE_DIR/preflight.patch"
-          git diff --check
 
-      - name: Preflight repaired ETABS focused suite
+          git diff --check
+          git status --short | tee "$EVIDENCE_DIR/status_before_commit.txt"
+          test "$(git status --short | wc -l)" -eq 2
+          git status --short | grep -Fx ' M tests/etabs/test_oapi_layer1_architecture_guards.py'
+          git status --short | grep -Fx ' M tests/etabs/test_safety_foundation.py'
+          sha256sum tests/etabs/test_safety_foundation.py tests/etabs/test_oapi_layer1_architecture_guards.py | tee "$EVIDENCE_DIR/repaired_file_sha256.txt"
+          grep -q '^0cd8929cd7ea8a706d1db2632035d84f7aa1379eeffb9056a0a999988a67bdc8  tests/etabs/test_safety_foundation.py$' "$EVIDENCE_DIR/repaired_file_sha256.txt"
+          grep -q '^7707e2c5d62e2c515a1e0466e26b4c1bc9e5266aa295c575b249535888ea31f1  tests/etabs/test_oapi_layer1_architecture_guards.py$' "$EVIDENCE_DIR/repaired_file_sha256.txt"
+
+      - name: Re-run exact preflight gate
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
         run: |
           set -euo pipefail
           python -m compileall -q tests/etabs
-          set +e
-          timeout --signal=TERM --kill-after=5s 30s python -m pytest -q tests/etabs > "$EVIDENCE_DIR/preflight_tests.log" 2>&1
-          rc=$?
-          set -e
-          printf '%s\n' "$rc" > "$EVIDENCE_DIR/preflight_tests.rc"
-          cat "$EVIDENCE_DIR/preflight_tests.log"
-          test "$rc" -eq 0
+          python -m pytest -q tests/etabs | tee "$EVIDENCE_DIR/tests_etabs.txt"
 
-      - name: Verify only two preflight files changed
+      - name: Create one bounded repair commit and push candidate
         shell: bash
         run: |
           set -euo pipefail
-          git status --short > "$EVIDENCE_DIR/preflight_status.txt"
-          cat "$EVIDENCE_DIR/preflight_status.txt"
-          test "$(git status --short | wc -l)" -eq 2
-          git status --short | grep -Fx ' M tests/etabs/test_oapi_layer1_architecture_guards.py'
-          git status --short | grep -Fx ' M tests/etabs/test_safety_foundation.py'
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/etabs/test_safety_foundation.py tests/etabs/test_oapi_layer1_architecture_guards.py
+          test "$(git diff --cached --name-only | wc -l)" -eq 2
+          git diff --cached --name-only | grep -Fx 'tests/etabs/test_oapi_layer1_architecture_guards.py'
+          git diff --cached --name-only | grep -Fx 'tests/etabs/test_safety_foundation.py'
+          git commit -m 'ETABS-OAPI-LAYER-1: repair Stage-A focused test regressions'
+          new_sha="$(git rev-parse HEAD)"
+          parent="$(git rev-parse HEAD^)"
+          test "$parent" = "$CANDIDATE_SHA"
+          printf '%s\n' "$new_sha" > "$EVIDENCE_DIR/new_candidate_sha.txt"
+          git show --stat --oneline --decorate=short HEAD | tee "$EVIDENCE_DIR/repair_commit.txt"
+          git push origin "HEAD:refs/heads/${CANDIDATE_BRANCH}"
 
-      - name: Verify candidate ref unchanged
-        if: always()
+      - name: Verify pushed candidate exact and bounded
         shell: bash
         run: |
           set -euo pipefail
+          new_sha="$(cat "$EVIDENCE_DIR/new_candidate_sha.txt")"
           git fetch --no-tags origin "refs/heads/${CANDIDATE_BRANCH}:refs/remotes/origin/${CANDIDATE_BRANCH}"
           actual="$(git rev-parse "refs/remotes/origin/${CANDIDATE_BRANCH}")"
           printf '%s\n' "$actual" > "$EVIDENCE_DIR/candidate_ref_after.txt"
-          test "$actual" = "$CANDIDATE_SHA"
+          test "$actual" = "$new_sha"
+          test "$(git rev-parse "$new_sha^")" = "$CANDIDATE_SHA"
+          git diff --name-only "$CANDIDATE_SHA".."$new_sha" | tee "$EVIDENCE_DIR/changed_files.txt"
+          test "$(git diff --name-only "$CANDIDATE_SHA".."$new_sha" | wc -l)" -eq 2
+          git diff --name-only "$CANDIDATE_SHA".."$new_sha" | grep -Fx 'tests/etabs/test_oapi_layer1_architecture_guards.py'
+          git diff --name-only "$CANDIDATE_SHA".."$new_sha" | grep -Fx 'tests/etabs/test_safety_foundation.py'
 
-      - name: Upload bounded repair preflight
+      - name: Upload repair promotion evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: etabs-oapi-layer1-bounded-repair-preflight
-          path: /tmp/etabs-oapi-layer1-repair-preflight
+          name: etabs-oapi-layer1-repair-promotion
+          path: /tmp/etabs-oapi-layer1-repair-promotion
           if-no-files-found: warn
           retention-days: 30
