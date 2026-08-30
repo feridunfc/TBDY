@@ -33,7 +33,7 @@ def test_nonzero_return_code_fails_closed():
 
 
 def test_non_boolean_dof_array_fails_closed():
-    with pytest.raises(EtabsColumnEndpointRestraintError, match="must contain booleans"):
+    with pytest.raises(EtabsColumnEndpointRestraintError, match="requires one six-boolean DOF array"):
         capture_etabs_point_restraint(
             PointObj(([1, 1, 0, 0, 0, 0], 0)),
             "956",

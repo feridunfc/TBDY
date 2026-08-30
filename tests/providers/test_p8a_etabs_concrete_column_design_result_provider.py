@@ -313,7 +313,7 @@ def test_decoder_requires_equal_array_lengths():
 
 def test_decoder_requires_exact_requested_frame_name():
     raw = _raw("U1", (_row(FrameName="OTHER"),))
-    with pytest.raises(EtabsConcreteColumnDesignResultProviderError, match="requested canonical UniqueName"):
+    with pytest.raises(EtabsConcreteColumnDesignResultProviderError, match="does not equal requested canonical frame"):
         _decode(raw)
 
 
