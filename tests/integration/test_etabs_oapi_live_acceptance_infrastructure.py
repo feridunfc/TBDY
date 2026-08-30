@@ -8,6 +8,7 @@ from types import MappingProxyType
 
 import pytest
 
+from etabs_gateway.errors import ETABSCallError
 from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError
 from tbdy_engine.etabs.safety import (
     EtabsSafetyErrorCode,
@@ -199,3 +200,37 @@ def test_stage2_plain_handles_mappingproxy_dataclass_without_deepcopy():
             "nested": {"value": 7},
         }
     }
+
+
+
+def test_stage2_recognizes_gateway_wrapped_oapi_failure_without_weakening_gateway_failures():
+    factual = EtabsOAPIError(
+        "DesignConcrete.GetDesignSection('__INVALID__') returned nonzero/invalid code 1"
+    )
+
+    try:
+        raise factual
+    except EtabsOAPIError as cause:
+        try:
+            raise ETABSCallError(
+                "Worker operation failed.",
+                operation="oapi_design_concrete_get_design_section",
+                details={
+                    "exception_type": "EtabsOAPIError",
+                    "exception_message": str(cause),
+                },
+            ) from cause
+        except ETABSCallError as wrapped:
+            assert stage2._wrapped_factual_oapi_failure(wrapped) is cause
+
+    generic_gateway_failure = ETABSCallError(
+        "Worker operation failed.",
+        operation="oapi_design_concrete_get_design_section",
+        details={
+            "exception_type": "ValueError",
+            "exception_message": "unexpected",
+        },
+    )
+
+    assert stage2._wrapped_factual_oapi_failure(generic_gateway_failure) is None
+    assert stage2._is_hard_failure(generic_gateway_failure) is True

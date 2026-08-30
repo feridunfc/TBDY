@@ -163,6 +163,14 @@ def _is_hard_failure(exc: Exception) -> bool:
     )
 
 
+def _wrapped_factual_oapi_failure(exc: Exception) -> EtabsOAPIError | None:
+    """Recover an OAPI factual failure transported through the gateway worker."""
+    if not isinstance(exc, ETABSGatewayError):
+        return None
+    cause = exc.__cause__
+    return cause if isinstance(cause, EtabsOAPIError) else None
+
+
 def _row(
     *,
     test_id: str,
@@ -783,12 +791,23 @@ def execute_stage2(
         try:
             unexpected = read_design_section_from_session(session, str(invalid_row["real_identity"]))
         except Exception as exc:
-            if _is_hard_failure(exc):
+            wrapped_oapi_failure = _wrapped_factual_oapi_failure(exc)
+            if _is_hard_failure(exc) and wrapped_oapi_failure is None:
                 _mark_fail(invalid_row, exc)
                 raise
+
+            factual_failure = wrapped_oapi_failure or exc
+            actual = {
+                "expected_factual_failure_type": type(factual_failure).__name__,
+                "message": str(factual_failure),
+            }
+            if wrapped_oapi_failure is not None:
+                actual["transport_error_type"] = type(exc).__name__
+                actual["transport_operation"] = getattr(exc, "operation", None)
+
             _mark_pass(
                 invalid_row,
-                actual={"expected_factual_failure_type": type(exc).__name__, "message": str(exc)},
+                actual=actual,
                 ret_code="NONZERO_OR_FACTUAL_FAILURE_VALIDATED",
                 provenance="FAILURE_SEMANTICS_PRESERVED",
             )
