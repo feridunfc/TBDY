@@ -5,7 +5,7 @@
   "branch": "sprint/col-runtime-1-production-runtime",
   "sprint": "PRODUCT-SPINE-COL-1",
   "supervisor_patch": "A1-P1",
-  "status": "CANDIDATE_COMMIT_PENDING_GITHUB_CI",
+  "status": "PR_OPENED_AWAITING_SUPERVISOR_REVIEW",
   "production_code_modified": true,
   "engineering_authority_modified": false,
   "etabs_run": false,
@@ -22,8 +22,15 @@
     "docs/audit/product_spine_col_1/handoff.json"
   ],
   "production_request_contract": {
-    "ProjectExecutionRequest": ["project_id", "report_id", "title", "column"],
-    "ColumnExecutionRequest": ["component_id"],
+    "ProjectExecutionRequest": [
+      "project_id",
+      "report_id",
+      "title",
+      "column"
+    ],
+    "ColumnExecutionRequest": [
+      "component_id"
+    ],
     "contains_fixture_truth": false,
     "contains_RegulatoryCompileInputs": false,
     "contains_EtabsVerifiedSession": false
@@ -86,10 +93,27 @@
   },
   "candidate_ci_gate": {
     "workflow": "PRODUCT-SPINE-COL-1 Validation",
+    "validated_candidate_head": "7b01a2f787f91b4ff1feb632ad2723a6b163f2ac",
+    "run_id": 33293139582,
     "frozen_base_ancestry_required": true,
     "candidate_vs_frozen_base_broad_delta_required": true,
     "final_repository_hygiene_required": true,
-    "status": "PENDING_GITHUB_RUN"
+    "status": "PASS",
+    "focused_a1_p1": "11 passed",
+    "required_authority_regression": "88 passed",
+    "candidate_broad": {
+      "exit_code": 2,
+      "inherited_collection_signatures": 9
+    },
+    "frozen_base_broad": {
+      "exit_code": 2,
+      "inherited_collection_signatures": 9,
+      "same_as_candidate": true
+    },
+    "new_failure_signatures": 0,
+    "changed_or_missing_inherited_signatures": 0,
+    "final_repository_hygiene": "PASS",
+    "full_repository_test_suite_pass_claimed": false
   },
   "non_claims": [
     "not full ColumnDomainRuntime closure",
@@ -99,5 +123,7 @@
     "not full TBDY/TS500 compliance",
     "not canonical by self-declaration",
     "not merge-ready by self-declaration"
-  ]
+  ],
+  "validated_candidate_head": "7b01a2f787f91b4ff1feb632ad2723a6b163f2ac",
+  "candidate_validation_run": 33293139582
 }

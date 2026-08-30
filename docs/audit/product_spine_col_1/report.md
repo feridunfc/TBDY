@@ -138,13 +138,13 @@ The public LIVE lineage-blocked path does not fabricate FCR/report closure for a
 
 # CURRENT SYMBOL TRACE
 
-The table distinguishes current production symbols from A1-P1 callers. `NONE FOUND`` means no pre-A1 production caller/constructor was found in the exact frozen source tree; tests do not convert that into production reachability.
+The table distinguishes current production symbols from A1-P1 callers. `NONE FOUND` means no pre-A1 production caller/constructor was found in the exact frozen source tree; tests do not convert that into production reachability.
 
 | Capability | CURRENT FILE | CURRENT SYMBOL | PRE-A1 CALLER | A1 CALLER | OUTPUT TYPE | A1 CONSUMER |
 |---|---|---|---|---|---|---|
 | FND-COL-1 | `tbdy_engine/regulatory/column_longitudinal_rebar.py` | `evaluate_column_longitudinal_layouts(...)` | **NONE FOUND in production**; existing direct callers were tests | private `_execute_column_domain_with_ready_fixture_for_test(...)` only | `ColumnLongitudinalLayoutAuthorityResult` | existing `compose_canonical_column_longitudinal_selection(...)` |
-| FND-COL-2X typed artifact | `tbdy_engine/regulatory/fnd_col_2_program.py` | `execute_source_bound_fnd_col_2_with_artifact(...)` | production wrapper `execute_source_bound_fnd_col_2(...)` consumes `.snapshot`; typed-artifact direct callers otherwise tests | private `_execute_fnd_col_2_with_qualified_inputs(...)`; **public LIVE A1-P1 does not call it** because live compile-input lineage is absent | `FndCol2ExecutionArtifact` | `_typed_readiness_binding(...)` |
-| Component readiness binding | `tbdy_engine/design/columns/column_combo_eligibility_projection.py` | `ComponentReadinessBinding` | **no production constructor found**; existing P8A-B/selection contracts consume the type and tests construct it | `_typed_readiness_binding(...)` | `ComponentReadinessBinding` | existing P8A-B composition |
+| FND-COL-2X typed artifact | `tbdy_engine/regulatory/fnd_col_2_program.py` | `execute_source_bound_fnd_col_2_with_artifact(...)` | production wrapper `execute_source_bound_fnd_col_2(...)` consumes `.snapshot`; typed-artifact direct callers otherwise tests | **PUBLIC LIVE CALLER: NONE**; `execute_column_domain(...)` stops before FND-COL-2X. **TEST-ONLY QUALIFIED CALLERS:** `_execute_column_domain_with_qualified_live_fnd2_for_test(...)` and `_execute_column_domain_with_ready_fixture_for_test(...)`, both through common private composition seam `_execute_fnd2(...)` | `FndCol2ExecutionArtifact` | `_execute_fnd2(...)` constructs and returns the typed execution/readiness path for those test-only callers |
+| Component readiness binding | `tbdy_engine/design/columns/column_combo_eligibility_projection.py` | `ComponentReadinessBinding` | **no production constructor found**; existing P8A-B/selection contracts consume the type and tests construct it | **PUBLIC LIVE CALLER: NONE**; public execution stops before FND-COL-2X. For test-only qualified composition, `_execute_fnd2(...)` constructs `ComponentReadinessBinding(...)` inline when typed readiness exists | `ComponentReadinessBinding` | existing P8A-B composition through the test-only READY path |
 | P8A combo reconciliation | `tbdy_engine/design/columns/column_concrete_design_evidence_authority.py` | `reconcile_concrete_design_combos(...)` | **NONE FOUND in production**; current direct callers are tests | **no public LIVE A1 caller**; test fixture supplies an existing `ConcreteDesignComboReconciliation` to the private test-only seam | `ConcreteDesignComboReconciliation` | existing combo-eligibility projection inside P8A-B |
 | P8A factual design-result capture | `tbdy_engine/providers/etabs_concrete_column_design_result_provider.py` + `tbdy_engine/integration/live_etabs_acquisition_context.py` | `capture_concrete_column_design_results(...)`; `TrustedLiveAcquisitionContext.capture_column_design_results(...)` | trusted acquisition context is an existing production caller of the factual provider | **not called by public A1-P1 downstream promotion**; B2 lineage guard blocks it from becoming promoted application truth | `FactualColumnDesignResultPopulation` | existing `promote_etabs_required_rebar(...)` inside P8A-B when legally supplied |
 | Reviewed selection policy | `tbdy_engine/design/columns/column_longitudinal_selection_policy_factory.py` | `build_reviewed_column_longitudinal_selection_policy_input()` | **NONE FOUND in production** before A1; tests only | private READY test-only seam | `ColumnLongitudinalSelectionPolicyInput` | existing P8A-B composition |
@@ -203,18 +203,13 @@ Completed locally against the exact frozen source snapshot plus the bounded A1-P
 
 Full `python -m pytest -q tests/design/columns` was attempted. It did not complete within the local command execution budget; no failure signature was emitted before termination. Therefore **FULL_COLUMN_SUITE_PASS is NOT CLAIMED**.
 
-## Candidate CI obligations after push
+## Candidate CI evidence
 
-The candidate workflow must still prove on GitHub:
+The validated code candidate head `7b01a2f787f91b4ff1feb632ad2723a6b163f2ac` completed `PRODUCT-SPINE-COL-1 Validation` in GitHub Actions run `33293139582` with overall workflow result **SUCCESS**. The focused A1-P1 suite reported **11 passed** and the required authority regression reported **88 passed**.
 
-1. frozen-base ancestry;
-2. compile/import;
-3. focused A1-P1 suite;
-4. candidate repository-wide broad suite vs frozen-base broad suite;
-5. zero new/changed inherited failure signatures;
-6. final repository hygiene.
+The repository-wide broad suites are not claimed as passing: both candidate and frozen base exited `2` with the same **9 inherited collection signatures**. The zero-new-failure delta reported **0 new** and **0 changed/missing inherited** signatures. Final repository hygiene reported **PASS**.
 
-Local success does not replace those candidate gates.
+This evidence applies to the validated code candidate head above; later audit-only documentation commits do not retroactively become the validated code candidate.
 
 ## Non-claims
 
