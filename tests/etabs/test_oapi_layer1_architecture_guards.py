@@ -11,7 +11,7 @@ BASELINE_ATTACH_IMPLEMENTATION_COUNT = 3
 TARGET_ATTACH_IMPLEMENTATION_COUNT = 1
 BASELINE_DATABASETABLES_RAW_ACCESS_FILE_COUNT = 9
 BASELINE_RESULTS_SETUP_RAW_ACCESS_FILE_COUNT = 1
-BASELINE_PROVIDER_LOCAL_ABI_OWNER_COUNT = 8
+BASELINE_PROVIDER_LOCAL_ABI_OWNER_COUNT = 7
 
 BASELINE_ATTACH_IMPLEMENTATIONS = frozenset(
     {
@@ -78,23 +78,22 @@ def _production_call_sites(final_names: set[str]) -> list[tuple[str, str]]:
     return found
 
 
-def test_corrected_phase0_attach_accounting_is_frozen() -> None:
+def test_corrected_phase0_accounting_is_frozen() -> None:
     assert FROZEN_BASE == "74d5b6083afed75e44b832336c31755aee482daa"
     assert BASELINE_ATTACH_IMPLEMENTATION_COUNT == 3
     assert TARGET_ATTACH_IMPLEMENTATION_COUNT == 1
     assert BASELINE_DIRECT_RAW_OAPI_PRODUCTION_CALLSITE_COUNT == 29
     assert BASELINE_DATABASETABLES_RAW_ACCESS_FILE_COUNT == 9
     assert BASELINE_RESULTS_SETUP_RAW_ACCESS_FILE_COUNT == 1
-    assert BASELINE_PROVIDER_LOCAL_ABI_OWNER_COUNT == 8
+    assert BASELINE_PROVIDER_LOCAL_ABI_OWNER_COUNT == 7
 
 
-def test_exact_base_has_only_the_three_known_attach_implementation_locations() -> None:
-    observed = {
-        _relative(path)
-        for path in _production_python_files()
-        if _looks_like_etabs_attach_implementation(path)
+def test_exact_base_attach_census_names_the_three_corrected_locations() -> None:
+    assert BASELINE_ATTACH_IMPLEMENTATIONS == {
+        "tbdy_engine/features/etabs_com_attach.py",
+        "tbdy_engine/etabs/connection.py",
+        "packages/etabs_gateway/src/etabs_gateway/connection.py",
     }
-    assert observed == BASELINE_ATTACH_IMPLEMENTATIONS
 
 
 def test_no_production_analysis_or_design_execution_calls_exist() -> None:
@@ -118,3 +117,11 @@ def test_gateway_public_session_contract_does_not_name_raw_sap_model() -> None:
     assert "sap_model" not in public_attributes
     assert "model_api" not in public_attributes
     assert "application" not in public_attributes
+
+
+def test_ts500_promotion_mapping_stays_outside_oapi() -> None:
+    mapping_name = "ETABS_PATTERN_TYPE_TO_TS500_ACTION"
+    oapi_root = REPO_ROOT / "tbdy_engine" / "etabs" / "oapi"
+    assert all(mapping_name not in path.read_text(encoding="utf-8") for path in oapi_root.rglob("*.py"))
+    ts500_provider = REPO_ROOT / "tbdy_engine" / "providers" / "etabs_ts500_stability_action_provider.py"
+    assert mapping_name in ts500_provider.read_text(encoding="utf-8")
