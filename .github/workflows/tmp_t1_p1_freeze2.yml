@@ -23,7 +23,7 @@ jobs:
           BRANCH=sprint/t1-etabs-test-isolation-1
           EXPECTED_CONNECTION=be171311583b0122d0a7952f98c81dc27ecf79c9
           EXPECTED_T1=e0a54c74a41c1d1adb5ecaa7cec909a4e1018f54
-          EXPECTED_SAFETY=7325198cdd177101faae1eb24b8d0f40016ea740
+          EXPECTED_SAFETY=7325198cd851c20a4debb165041720b6ce071861
 
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$BASE"
           test "$(git ls-remote origin refs/heads/$BRANCH | cut -f1)" = "$OLD"
