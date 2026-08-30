@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError
-from tbdy_engine.etabs.oapi.model_catalog import read_load_pattern_names
+from tbdy_engine.etabs.oapi.load_definitions import read_load_pattern_names
 from tbdy_engine.providers.etabs_static_linear_case_provider import (
     EtabsLoadPatternTypeEvidence,
     EtabsStaticLinearCaseProviderError,
