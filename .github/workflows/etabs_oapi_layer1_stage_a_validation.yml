@@ -10,23 +10,22 @@ permissions:
   contents: read
 
 jobs:
-  lifecycle-diagnostic:
+  safety-hang-diagnostic:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     env:
       CANDIDATE_SHA: 008e9c569d3022a5e9c676cf5ec7a166c0a34f26
       FROZEN_BASE_SHA: 74d5b6083afed75e44b832336c31755aee482daa
       CANDIDATE_BRANCH: sprint/etabs-oapi-layer-1-common-factual-boundary
-      EVIDENCE_DIR: /tmp/etabs-oapi-layer1-lifecycle-diagnostic
+      EVIDENCE_DIR: /tmp/etabs-oapi-layer1-safety-hang
       BASE_WORKTREE: /tmp/tbdy-oapi-frozen
 
     steps:
-      - name: Checkout workflow source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Verify candidate ref before diagnostic
+      - name: Verify candidate ref
         shell: bash
         run: |
           set -euo pipefail
@@ -37,104 +36,89 @@ jobs:
           printf '%s\n' "$actual" > "$EVIDENCE_DIR/candidate_ref_before.txt"
           test "$actual" = "$CANDIDATE_SHA"
 
-      - name: Checkout exact candidate
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: 008e9c569d3022a5e9c676cf5ec7a166c0a34f26
           fetch-depth: 0
           clean: true
 
-      - name: Setup Python 3.11 and dependencies
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install validation dependencies
+      - name: Install dependencies
         shell: bash
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install pytest pyyaml jsonschema weasyprint==69.0 pydyf==0.12.1 pypdf==6.16.1 pypdfium2==5.12.1 openpyxl==3.1.5 et_xmlfile==2.0.0
 
-      - name: Candidate safety-foundation lifecycle probe
+      - name: Candidate safety foundation under hard timeout
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
         run: |
           set -euo pipefail
-          python - <<'PY' > "$EVIDENCE_DIR/candidate_safety_foundation_lifecycle.txt" 2>&1
-          import os, sys, threading, pytest
-          rc = int(pytest.main(['-q', 'tests/etabs/test_safety_foundation.py']))
-          live = [
-              {'name': t.name, 'daemon': t.daemon, 'alive': t.is_alive(), 'ident': t.ident}
-              for t in threading.enumerate()
-              if t is not threading.main_thread()
-          ]
-          print(f'pytest_rc={rc}')
-          print(f'live_non_main_thread_count={len(live)}')
-          for item in live:
-              print('thread=' + repr(item))
-          sys.stdout.flush(); sys.stderr.flush()
-          os._exit(rc)
-          PY
+          set +e
+          timeout --signal=TERM --kill-after=5s 30s python -m pytest -vv -s tests/etabs/test_safety_foundation.py > "$EVIDENCE_DIR/candidate_safety_foundation.log" 2>&1
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$EVIDENCE_DIR/candidate_safety_foundation.rc"
+          tail -n 100 "$EVIDENCE_DIR/candidate_safety_foundation.log"
 
-      - name: Candidate verified-runtime lifecycle probe
+      - name: Candidate verified runtime under hard timeout
         shell: bash
         env:
           PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
         run: |
           set -euo pipefail
-          python - <<'PY' > "$EVIDENCE_DIR/candidate_verified_runtime_lifecycle.txt" 2>&1
-          import os, sys, threading, pytest
-          rc = int(pytest.main(['-q', 'tests/etabs/test_oapi_layer1_verified_safety_runtime.py']))
-          live = [
-              {'name': t.name, 'daemon': t.daemon, 'alive': t.is_alive(), 'ident': t.ident}
-              for t in threading.enumerate()
-              if t is not threading.main_thread()
-          ]
-          print(f'pytest_rc={rc}')
-          print(f'live_non_main_thread_count={len(live)}')
-          for item in live:
-              print('thread=' + repr(item))
-          sys.stdout.flush(); sys.stderr.flush()
-          os._exit(rc)
-          PY
+          set +e
+          timeout --signal=TERM --kill-after=5s 30s python -m pytest -vv -s tests/etabs/test_oapi_layer1_verified_safety_runtime.py > "$EVIDENCE_DIR/candidate_verified_runtime.log" 2>&1
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$EVIDENCE_DIR/candidate_verified_runtime.rc"
+          tail -n 100 "$EVIDENCE_DIR/candidate_verified_runtime.log"
 
-      - name: Frozen safety-foundation lifecycle probe
+      - name: Candidate architecture guards under hard timeout
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          set +e
+          timeout --signal=TERM --kill-after=5s 30s python -m pytest -vv -s tests/etabs/test_oapi_layer1_architecture_guards.py > "$EVIDENCE_DIR/candidate_architecture.log" 2>&1
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$EVIDENCE_DIR/candidate_architecture.rc"
+          tail -n 100 "$EVIDENCE_DIR/candidate_architecture.log"
+
+      - name: Frozen safety foundation under hard timeout
         shell: bash
         run: |
           set -euo pipefail
           git worktree add --detach "$BASE_WORKTREE" "$FROZEN_BASE_SHA"
           cd "$BASE_WORKTREE"
-          test "$(git rev-parse HEAD)" = "$FROZEN_BASE_SHA"
-          PYTHONPATH="$BASE_WORKTREE/packages/etabs_gateway/src:$BASE_WORKTREE" python - <<'PY' > "$EVIDENCE_DIR/frozen_safety_foundation_lifecycle.txt" 2>&1
-          import os, sys, threading, pytest
-          rc = int(pytest.main(['-q', 'tests/etabs/test_safety_foundation.py']))
-          live = [
-              {'name': t.name, 'daemon': t.daemon, 'alive': t.is_alive(), 'ident': t.ident}
-              for t in threading.enumerate()
-              if t is not threading.main_thread()
-          ]
-          print(f'pytest_rc={rc}')
-          print(f'live_non_main_thread_count={len(live)}')
-          for item in live:
-              print('thread=' + repr(item))
-          sys.stdout.flush(); sys.stderr.flush()
-          os._exit(rc)
-          PY
+          set +e
+          PYTHONPATH="$BASE_WORKTREE/packages/etabs_gateway/src:$BASE_WORKTREE" timeout --signal=TERM --kill-after=5s 30s python -m pytest -vv -s tests/etabs/test_safety_foundation.py > "$EVIDENCE_DIR/frozen_safety_foundation.log" 2>&1
+          rc=$?
+          set -e
+          printf '%s\n' "$rc" > "$EVIDENCE_DIR/frozen_safety_foundation.rc"
+          tail -n 100 "$EVIDENCE_DIR/frozen_safety_foundation.log"
 
-      - name: Compare lifecycle evidence
+      - name: Summarize diagnostic
         shell: bash
         run: |
           set -euo pipefail
           {
-            echo '=== candidate safety foundation ==='
-            cat "$EVIDENCE_DIR/candidate_safety_foundation_lifecycle.txt"
-            echo '=== candidate verified runtime ==='
-            cat "$EVIDENCE_DIR/candidate_verified_runtime_lifecycle.txt"
-            echo '=== frozen safety foundation ==='
-            cat "$EVIDENCE_DIR/frozen_safety_foundation_lifecycle.txt"
-          } | tee "$EVIDENCE_DIR/lifecycle_comparison.txt"
+            echo "candidate_safety_foundation_rc=$(cat "$EVIDENCE_DIR/candidate_safety_foundation.rc")"
+            echo "candidate_verified_runtime_rc=$(cat "$EVIDENCE_DIR/candidate_verified_runtime.rc")"
+            echo "candidate_architecture_rc=$(cat "$EVIDENCE_DIR/candidate_architecture.rc")"
+            echo "frozen_safety_foundation_rc=$(cat "$EVIDENCE_DIR/frozen_safety_foundation.rc")"
+            echo '--- candidate safety tail ---'
+            tail -n 40 "$EVIDENCE_DIR/candidate_safety_foundation.log"
+            echo '--- frozen safety tail ---'
+            tail -n 40 "$EVIDENCE_DIR/frozen_safety_foundation.log"
+          } | tee "$EVIDENCE_DIR/summary.txt"
 
       - name: Cleanup and candidate ref verification
         if: always()
@@ -147,11 +131,11 @@ jobs:
           printf '%s\n' "$actual" > "$EVIDENCE_DIR/candidate_ref_after.txt"
           test "$actual" = "$CANDIDATE_SHA"
 
-      - name: Upload lifecycle diagnostic
+      - name: Upload safety-hang diagnostic
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: etabs-oapi-layer1-lifecycle-diagnostic
-          path: /tmp/etabs-oapi-layer1-lifecycle-diagnostic
+          name: etabs-oapi-layer1-safety-hang-diagnostic
+          path: /tmp/etabs-oapi-layer1-safety-hang
           if-no-files-found: warn
           retention-days: 30
