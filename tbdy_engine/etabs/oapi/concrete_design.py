@@ -1,13 +1,21 @@
-"""Exact read-only CSI concrete-design ABI for current production consumers.
+"""Exact read-only CSI concrete-design ABI for current/live consumers.
 
 OAPI owns method invocation, positional tuple decoding, return-code validation,
 and aligned-array validation. Semantic component binding, unit conversion,
 EvidenceEpoch/provenance, and engineering meaning remain above this module.
+Session-bound reads execute only through the verified gateway STA boundary.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Sequence
+
+from tbdy_engine.etabs.safety import (
+    EtabsUnitSnapshot,
+    EtabsVerifiedSession,
+    _execute_verified_read,
+    read_etabs_unit_snapshot,
+)
 
 from .contracts import EtabsOAPIError
 
@@ -59,10 +67,26 @@ class ConcreteColumnSummaryFact:
     raw_response: object
 
 
+@dataclass(frozen=True, slots=True)
+class ConcreteColumnSummaryBatchFact:
+    """One bounded factual batch with source-unit snapshots bracketing all reads."""
+
+    units_before: EtabsUnitSnapshot
+    summaries: tuple[ConcreteColumnSummaryFact, ...]
+    units_after: EtabsUnitSnapshot
+
+
 def _canonical_text(value: object, label: str) -> str:
     if not isinstance(value, str) or not value.strip() or value != value.strip():
         raise EtabsOAPIError(f"{label} must be a nonblank canonical string")
     return value
+
+
+def _canonical_names(values: Sequence[str], label: str) -> tuple[str, ...]:
+    names = tuple(_canonical_text(item, label) for item in values)
+    if not names or len(names) != len(set(names)):
+        raise EtabsOAPIError(f"{label} must be a nonempty unique sequence")
+    return names
 
 
 def decode_design_section_response(raw: object, *, frame_name: str) -> ConcreteDesignSectionFact:
@@ -181,13 +205,72 @@ def read_summary_results_column(
     return decode_summary_results_column_response(raw, requested_frame_name=requested)
 
 
+def read_design_section_from_session(
+    session: EtabsVerifiedSession,
+    frame_name: str,
+) -> ConcreteDesignSectionFact:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: read_design_section(sap.DesignConcrete, frame_name),
+        operation="oapi_design_concrete_get_design_section",
+    )
+
+
+def read_design_sections_from_session(
+    session: EtabsVerifiedSession,
+    frame_names: Sequence[str],
+) -> tuple[ConcreteDesignSectionFact, ...]:
+    names = _canonical_names(frame_names, "frame_name")
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: tuple(read_design_section(sap.DesignConcrete, name) for name in names),
+        operation="oapi_design_concrete_get_design_sections",
+    )
+
+
+def read_summary_results_column_from_session(
+    session: EtabsVerifiedSession,
+    frame_name: str,
+) -> ConcreteColumnSummaryFact:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: read_summary_results_column(sap.DesignConcrete, frame_name),
+        operation="oapi_design_concrete_get_summary_results_column",
+    )
+
+
+def read_summary_results_columns_with_units_from_session(
+    session: EtabsVerifiedSession,
+    frame_names: Sequence[str],
+) -> ConcreteColumnSummaryBatchFact:
+    """Read all requested column summaries between exact safety-owned unit snapshots."""
+    names = _canonical_names(frame_names, "frame_name")
+
+    def acquire(_app: object, sap: Any) -> ConcreteColumnSummaryBatchFact:
+        before = read_etabs_unit_snapshot(sap)
+        facts = tuple(read_summary_results_column(sap.DesignConcrete, name) for name in names)
+        after = read_etabs_unit_snapshot(sap)
+        return ConcreteColumnSummaryBatchFact(before, facts, after)
+
+    return _execute_verified_read(
+        session,
+        acquire,
+        operation="oapi_design_concrete_summary_batch_with_units",
+    )
+
+
 __all__ = [
     "SUMMARY_RESULT_ARRAY_NAMES",
+    "ConcreteColumnSummaryBatchFact",
     "ConcreteColumnSummaryFact",
     "ConcreteColumnSummaryRowFact",
     "ConcreteDesignSectionFact",
     "decode_design_section_response",
     "decode_summary_results_column_response",
     "read_design_section",
+    "read_design_section_from_session",
+    "read_design_sections_from_session",
     "read_summary_results_column",
+    "read_summary_results_column_from_session",
+    "read_summary_results_columns_with_units_from_session",
 ]
