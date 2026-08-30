@@ -51,7 +51,7 @@ def _dotted_name(node: ast.AST) -> str:
 
 
 def _looks_like_etabs_attach_implementation(path: Path) -> bool:
-    text = path.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8-sig")
     if not (
         "CSI.ETABS.API.ETABSObject" in text
         or "ETABSv1.Helper" in text
@@ -71,7 +71,7 @@ def _looks_like_etabs_attach_implementation(path: Path) -> bool:
 def _production_call_sites(final_names: set[str]) -> list[tuple[str, str]]:
     found: list[tuple[str, str]] = []
     for path in _production_python_files():
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):
                 continue
@@ -83,7 +83,7 @@ def _production_call_sites(final_names: set[str]) -> list[tuple[str, str]]:
 
 
 def _imported_modules(path: Path) -> set[str]:
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
     modules: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -94,7 +94,7 @@ def _imported_modules(path: Path) -> set[str]:
 
 
 def _module_all_names(path: Path) -> tuple[str, ...]:
-    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
     for node in tree.body:
         if not isinstance(node, ast.Assign):
             continue
@@ -150,7 +150,7 @@ def test_set_present_units_is_confined_to_legacy_unit_context_helper() -> None:
 def test_new_oapi_layer_never_sets_present_units() -> None:
     oapi_root = REPO_ROOT / "tbdy_engine" / "etabs" / "oapi"
     for path in oapi_root.rglob("*.py"):
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        tree = ast.parse(path.read_text(encoding="utf-8-sig"), filename=str(path))
         calls = {
             _dotted_name(node.func).rsplit(".", 1)[-1]
             for node in ast.walk(tree)
@@ -161,7 +161,7 @@ def test_new_oapi_layer_never_sets_present_units() -> None:
 
 def test_gateway_public_session_contract_does_not_name_raw_sap_model() -> None:
     session_path = REPO_ROOT / "packages" / "etabs_gateway" / "src" / "etabs_gateway" / "session.py"
-    tree = ast.parse(session_path.read_text(encoding="utf-8"), filename=str(session_path))
+    tree = ast.parse(session_path.read_text(encoding="utf-8-sig"), filename=str(session_path))
     public_attributes = {
         node.name
         for node in ast.walk(tree)
@@ -174,7 +174,7 @@ def test_gateway_public_session_contract_does_not_name_raw_sap_model() -> None:
 
 def test_trusted_live_context_has_no_raw_sapmodel_or_attach_result_escape() -> None:
     context_path = REPO_ROOT / "tbdy_engine" / "integration" / "live_etabs_acquisition_context.py"
-    tree = ast.parse(context_path.read_text(encoding="utf-8"), filename=str(context_path))
+    tree = ast.parse(context_path.read_text(encoding="utf-8-sig"), filename=str(context_path))
     public_functions = {
         node.name
         for node in ast.walk(tree)
@@ -192,7 +192,7 @@ def test_legacy_attach_modules_are_delegation_only() -> None:
     connection_path = REPO_ROOT / "tbdy_engine" / "etabs" / "connection.py"
     for path in (feature_path, connection_path):
         assert not _looks_like_etabs_attach_implementation(path)
-        text = path.read_text(encoding="utf-8")
+        text = path.read_text(encoding="utf-8-sig")
         assert "LEGACY_COMPATIBILITY_ONLY = True" in text
 
 
@@ -210,7 +210,7 @@ def test_private_safety_legacy_is_reachable_only_through_the_safety_facade() -> 
 
 def test_private_safety_legacy_has_no_attach_or_verified_session_owner() -> None:
     legacy_path = REPO_ROOT / "tbdy_engine" / "etabs" / "_safety_legacy.py"
-    text = legacy_path.read_text(encoding="utf-8")
+    text = legacy_path.read_text(encoding="utf-8-sig")
     tree = ast.parse(text, filename=str(legacy_path))
     class_names = {node.name for node in tree.body if isinstance(node, ast.ClassDef)}
     function_names = {
@@ -250,7 +250,7 @@ def test_public_safety_facade_does_not_reexport_legacy_attach_or_raw_capability_
         "_execute_verified_read",
     }
     assert not forbidden.intersection(exported)
-    safety_text = safety_path.read_text(encoding="utf-8")
+    safety_text = safety_path.read_text(encoding="utf-8-sig")
     assert "from ._safety_legacy import" in safety_text
     assert "retained privately" in safety_text
 
@@ -273,7 +273,7 @@ def test_public_safety_facade_does_not_reexport_legacy_attach_or_raw_capability_
 
 def test_supported_verified_session_has_no_public_raw_capability_equivalent() -> None:
     safety_path = REPO_ROOT / "tbdy_engine" / "etabs" / "safety.py"
-    tree = ast.parse(safety_path.read_text(encoding="utf-8"), filename=str(safety_path))
+    tree = ast.parse(safety_path.read_text(encoding="utf-8-sig"), filename=str(safety_path))
     session_class = next(
         node
         for node in tree.body
@@ -313,6 +313,6 @@ def test_semantic_providers_do_not_reach_independent_attach_modules() -> None:
 def test_ts500_promotion_mapping_stays_outside_oapi() -> None:
     mapping_name = "ETABS_PATTERN_TYPE_TO_TS500_ACTION"
     oapi_root = REPO_ROOT / "tbdy_engine" / "etabs" / "oapi"
-    assert all(mapping_name not in path.read_text(encoding="utf-8") for path in oapi_root.rglob("*.py"))
+    assert all(mapping_name not in path.read_text(encoding="utf-8-sig") for path in oapi_root.rglob("*.py"))
     ts500_provider = REPO_ROOT / "tbdy_engine" / "providers" / "etabs_ts500_stability_action_provider.py"
-    assert mapping_name in ts500_provider.read_text(encoding="utf-8")
+    assert mapping_name in ts500_provider.read_text(encoding="utf-8-sig")
