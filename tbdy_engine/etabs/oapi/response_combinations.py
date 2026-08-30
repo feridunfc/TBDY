@@ -1,13 +1,16 @@
 """Exact factual CSI response-combination reads.
 
-This module owns ``RespCombo.GetTypeCombo`` and ``RespCombo.GetCaseList``
+This module owns ``RespCombo.GetNameList``, ``GetTypeCombo`` and ``GetCaseList``
 positional decoding. It does not decide whether a combination is expected,
-acceptable, governing, or regulatory.
+acceptable, governing, or regulatory. Session-bound entry points keep raw
+RespCombo capability inside the verified gateway STA boundary.
 """
 from __future__ import annotations
 
 import math
 from typing import Any
+
+from tbdy_engine.etabs.safety import EtabsVerifiedSession, _execute_verified_read
 
 from .contracts import (
     EtabsOAPIError,
@@ -44,6 +47,30 @@ def _items(value: Any) -> tuple[Any, ...]:
     return (value,)
 
 
+def read_response_combo_names(resp_combo: Any) -> tuple[tuple[str, ...], object]:
+    raw = resp_combo.GetNameList()
+    if not isinstance(raw, (tuple, list)) or len(raw) != 3:
+        raise EtabsOAPIError(f"RespCombo.GetNameList returned unexpected result: {raw!r}")
+    count_raw, names_raw, ret = tuple(raw)
+    if not isinstance(ret, int) or isinstance(ret, bool) or ret != 0:
+        raise EtabsOAPIError(f"RespCombo.GetNameList failed/raw={raw!r}")
+    if isinstance(count_raw, bool):
+        raise EtabsOAPIError("RespCombo.GetNameList count must be integer")
+    try:
+        count = int(count_raw)
+    except (TypeError, ValueError) as exc:
+        raise EtabsOAPIError("RespCombo.GetNameList count must be integer") from exc
+    names = _items(names_raw)
+    if count < 0 or count != len(names):
+        raise EtabsOAPIError(
+            f"RespCombo.GetNameList count mismatch: n={count} names={len(names)}"
+        )
+    canonical = tuple(_text(name, "combo_name") for name in names)
+    if len(set(canonical)) != len(canonical):
+        raise EtabsOAPIError("RespCombo.GetNameList returned duplicate names")
+    return canonical, raw
+
+
 def read_response_combo(resp_combo: Any, name: str) -> ResponseComboFact:
     """Read one exact ETABS response-combination definition."""
     combo_name = _text(name, "combo_name")
@@ -52,7 +79,7 @@ def read_response_combo(resp_combo: Any, name: str) -> ResponseComboFact:
     combo_type_raw, type_ret = _sequence(
         raw_type, method="GetTypeCombo", name=combo_name, length=2
     )
-    if not isinstance(type_ret, int) or type_ret != 0:
+    if not isinstance(type_ret, int) or isinstance(type_ret, bool) or type_ret != 0:
         raise EtabsOAPIError(f"GetTypeCombo({combo_name!r}) failed/raw={raw_type!r}")
     try:
         combo_type = int(combo_type_raw)
@@ -69,7 +96,7 @@ def read_response_combo(resp_combo: Any, name: str) -> ResponseComboFact:
     number_raw, cname_type_raw, cname_raw, scale_raw, case_ret = _sequence(
         raw_cases, method="GetCaseList", name=combo_name, length=5
     )
-    if not isinstance(case_ret, int) or case_ret != 0:
+    if not isinstance(case_ret, int) or isinstance(case_ret, bool) or case_ret != 0:
         raise EtabsOAPIError(f"GetCaseList({combo_name!r}) failed/raw={raw_cases!r}")
     try:
         number_items = int(number_raw)
@@ -122,4 +149,30 @@ def read_response_combo(resp_combo: Any, name: str) -> ResponseComboFact:
     )
 
 
-__all__ = ["read_response_combo"]
+def read_response_combo_names_from_session(
+    session: EtabsVerifiedSession,
+) -> tuple[tuple[str, ...], object]:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: read_response_combo_names(sap.RespCombo),
+        operation="oapi_resp_combo_get_name_list",
+    )
+
+
+def read_response_combo_from_session(
+    session: EtabsVerifiedSession,
+    name: str,
+) -> ResponseComboFact:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: read_response_combo(sap.RespCombo, name),
+        operation="oapi_resp_combo_definition",
+    )
+
+
+__all__ = [
+    "read_response_combo",
+    "read_response_combo_from_session",
+    "read_response_combo_names",
+    "read_response_combo_names_from_session",
+]
