@@ -261,6 +261,28 @@ class ReadOnlyETABSConnection:
     def _try_pid_attach(self, pid: int):
         strategy = STRATEGY_HELPER_GET_OBJECT_PROCESS
         attempts: list[_AttachAttempt] = []
+
+        # A custom active-object runtime selects a closed dependency universe.
+        # If no custom comtypes dependency was selected alongside it, the
+        # PID-helper capability is unavailable rather than permission to load
+        # the default (possibly real) comtypes runtime.  Report the capability
+        # as unsupported so the existing bounded generic policy can continue
+        # inside the already-selected custom runtime only.
+        if self._runtime_loader_is_custom and not self._comtypes_loader_is_custom:
+            attempts.append(
+                _AttachAttempt(
+                    strategy=strategy,
+                    status="FAILED",
+                    message=(
+                        "PID-specific helper attach is unavailable in the selected "
+                        "custom active-object runtime dependency universe."
+                    ),
+                    pid=pid,
+                    exception_type="UnsupportedDependency",
+                )
+            )
+            return None, attempts, True
+
         try:
             client = self._comtypes_loader()
         except BaseException as exc:
@@ -317,16 +339,32 @@ class ReadOnlyETABSConnection:
 
     def _try_generic_attach(self):
         attempts: list[_AttachAttempt] = []
-        candidate, direct_attempts = self._try_active_object_runtime(
-            loader=self._runtime_loader,
-            strategy=STRATEGY_WIN32_GET_ACTIVE_OBJECT,
-            strict_loader=self._runtime_loader_is_custom,
-        )
-        attempts.extend(direct_attempts)
-        if candidate is not None:
-            return candidate, attempts
+
+        # An explicitly injected active-object runtime is a closed dependency
+        # universe: preserve the historical injected-runtime behavior and never
+        # fall through to another (possibly real) COM provider.
         if self._runtime_loader_is_custom:
-            return None, attempts
+            candidate, direct_attempts = self._try_active_object_runtime(
+                loader=self._runtime_loader,
+                strategy=STRATEGY_WIN32_GET_ACTIVE_OBJECT,
+                strict_loader=True,
+            )
+            attempts.extend(direct_attempts)
+            return candidate, attempts
+
+        # If only the comtypes dependency is injected, that injection likewise
+        # selects the complete generic-attach dependency universe.  In
+        # particular, do not probe the default win32com runtime first: a test
+        # fake must remain fake even when a real ETABS active object exists.
+        if not self._comtypes_loader_is_custom:
+            candidate, direct_attempts = self._try_active_object_runtime(
+                loader=self._runtime_loader,
+                strategy=STRATEGY_WIN32_GET_ACTIVE_OBJECT,
+                strict_loader=False,
+            )
+            attempts.extend(direct_attempts)
+            if candidate is not None:
+                return candidate, attempts
 
         candidate, comtypes_attempts = self._try_active_object_runtime(
             loader=self._comtypes_loader,
