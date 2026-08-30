@@ -1,0 +1,77 @@
+name: ETABS OAPI Layer 1 A1 Lifecycle Repair
+
+on:
+  push:
+    branches: [validation/etabs-oapi-layer1-stage-a]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      EXPECTED_HEAD: df41bf34b12b26a0478407a60a241f7bd2d6cec0
+      BRANCH: sprint/etabs-oapi-layer-1-common-factual-boundary
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH }}
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Verify exact integrated parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_HEAD"
+          test -z "$(git status --porcelain=v1 -uall)"
+      - name: Close A1-owned verified sessions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path=Path('tests/application/test_product_spine_col_1.py')
+          text=path.read_text(encoding='utf-8')
+          old1='''    artifact = execute_project(_request(), verified_session=session)\n\n    assert len(calls) == 1\n    context = calls[0]\n    assert artifact.acquisition_context_ref == context.acquisition_context_ref\n    assert artifact.status == STATUS_FACTUAL_ACQUISITION_BLOCKED\n    assert artifact.column.blockers == (BLOCKER_LIVE_FND2_INPUT_LINEAGE,)\n    assert artifact.column.fnd_col_2_program is None\n    assert artifact.column.fnd_col_2_execution is None\n    assert artifact.column.readiness_binding is None\n    assert artifact.column.selected_rebar is None\n    assert artifact.structural_assessment is None\n    assert artifact.reconciliation is None\n    assert artifact.building_report_model is None\n'''
+          new1='''    try:\n        artifact = execute_project(_request(), verified_session=session)\n\n        assert len(calls) == 1\n        context = calls[0]\n        assert artifact.acquisition_context_ref == context.acquisition_context_ref\n        assert artifact.status == STATUS_FACTUAL_ACQUISITION_BLOCKED\n        assert artifact.column.blockers == (BLOCKER_LIVE_FND2_INPUT_LINEAGE,)\n        assert artifact.column.fnd_col_2_program is None\n        assert artifact.column.fnd_col_2_execution is None\n        assert artifact.column.readiness_binding is None\n        assert artifact.column.selected_rebar is None\n        assert artifact.structural_assessment is None\n        assert artifact.reconciliation is None\n        assert artifact.building_report_model is None\n    finally:\n        session.close()\n'''
+          old2='''    artifact = execute_project(_request(), verified_session=session)\n    assert artifact.status == STATUS_FACTUAL_ACQUISITION_BLOCKED\n'''
+          new2='''    try:\n        artifact = execute_project(_request(), verified_session=session)\n        assert artifact.status == STATUS_FACTUAL_ACQUISITION_BLOCKED\n    finally:\n        session.close()\n'''
+          if text.count(old1) != 1:
+              raise SystemExit(f'first A1 anchor count={text.count(old1)}')
+          text=text.replace(old1,new1,1)
+          if text.count(old2) != 1:
+              raise SystemExit(f'second A1 anchor count={text.count(old2)}')
+          text=text.replace(old2,new2,1)
+          path.write_text(text,encoding='utf-8')
+          PY
+          git diff --check
+          git diff -- tests/application/test_product_spine_col_1.py
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate A1 lifecycle repair
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/packages/etabs_gateway/src:${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml jsonschema
+          timeout --signal=TERM --kill-after=10s 120s python -m pytest -q tests/application/test_product_spine_col_1.py
+          timeout --signal=TERM --kill-after=10s 180s python -m pytest -q tests/etabs
+          timeout --signal=TERM --kill-after=10s 180s python -m pytest -q tests/integration/test_acq_ctx_1_trusted_live_etabs_acquisition_context.py tests/integration/test_etabs_oapi_live_acceptance_infrastructure.py
+          git diff --check
+      - name: Commit and fast-forward candidate
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "ETABS OAPI validation repair"
+          git config user.email "actions@users.noreply.github.com"
+          git add tests/application/test_product_spine_col_1.py
+          git commit -m "ETABS-OAPI-LAYER-1: close A1 verified-session lifecycle"
+          test "$(git rev-parse HEAD^)" = "$EXPECTED_HEAD"
+          git push origin "HEAD:${BRANCH}"
+          echo "new_candidate_sha=$(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
