@@ -1,9 +1,10 @@
-"""Minimal factual ETABS session and acquisition safety boundary.
+"""Private reusable factual/state mechanics for the ETABS safety boundary.
 
-This module intentionally contains no engineering interpretation. It provides
-session identity, capability facts, unit provenance, factual analysis status,
-and reversible output-selection transactions for the ETABS APIs currently
-consumed by the repository.
+This module intentionally contains no COM attachment, verified-session
+construction, engineering interpretation, or public raw-capability ownership.
+Gateway-owned bounded execution may pass raw ETABS objects into these helpers
+internally; only factual/state results are returned through the public safety
+facade.
 """
 from __future__ import annotations
 
@@ -13,14 +14,6 @@ from enum import Enum
 import ntpath
 import threading
 from typing import Any, Mapping, Sequence
-
-from tbdy_engine.features.etabs_com_attach import (
-    ATTACH_STATUS_ATTACHED,
-    ATTACH_STATUS_FAILED,
-    STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS,
-    EtabsAttachResult,
-    attach_to_running_etabs,
-)
 
 
 class CapabilityState(str, Enum):
@@ -223,14 +216,6 @@ class EtabsSessionIdentity:
             "model_locked": self.model_locked,
             "units": self.units.as_dict(),
         }
-
-
-@dataclass(frozen=True, slots=True)
-class EtabsVerifiedSession:
-    attach_result: EtabsAttachResult
-    identity: EtabsSessionIdentity
-    capabilities: EtabsCapabilitySnapshot
-    diagnostics: tuple[Mapping[str, Any], ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True, slots=True)
@@ -582,53 +567,14 @@ def verify_target_model(identity: EtabsSessionIdentity, expected_model_full_path
         )
 
 
-def _pid_attempts(attach_result: EtabsAttachResult | None) -> list[Any]:
-    if attach_result is None:
-        return []
-    return [
-        attempt
-        for attempt in attach_result.attempts
-        if attempt.strategy == STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS
-    ]
-
-
-def _pid_attempt_is_unsupported(attempt: Any) -> bool:
-    message = str(getattr(attempt, "message", ""))
-    return (
-        getattr(attempt, "exception_type", None) == "AttributeError"
-        and "GetObjectProcess" in message
-    ) or "GetObjectProcess was not accessible" in message
-
-
-def _pid_capability_from_attach(attach_result: EtabsAttachResult | None) -> CapabilityState:
-    if attach_result is None:
-        return CapabilityState.UNKNOWN
-    if attach_result.strategy == STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS:
-        return CapabilityState.SUPPORTED
-    attempts = _pid_attempts(attach_result)
-    if not attempts:
-        return CapabilityState.UNKNOWN
-    if any(getattr(attempt, "status", None) == "SUCCESS" for attempt in attempts):
-        return CapabilityState.SUPPORTED
-    if any(_pid_attempt_is_unsupported(attempt) for attempt in attempts):
-        return CapabilityState.UNSUPPORTED
-    if any(str(getattr(attempt, "prog_id", "")).startswith("CSI.ETABS.API.ETABSObject") for attempt in attempts):
-        return CapabilityState.SUPPORTED
-    return CapabilityState.UNKNOWN
-
-
-def read_capability_snapshot(
-    sap_model: Any,
-    *,
-    attach_result: EtabsAttachResult | None = None,
-) -> EtabsCapabilitySnapshot:
+def read_capability_snapshot(sap_model: Any) -> EtabsCapabilitySnapshot:
     analyze = _safe_attr(sap_model, "Analyze")
     results = _safe_attr(sap_model, "Results")
     setup = _safe_attr(results, "Setup")
     db = _safe_attr(sap_model, "DatabaseTables")
 
     return EtabsCapabilitySnapshot(
-        pid_attach=_pid_capability_from_attach(attach_result),
+        pid_attach=CapabilityState.UNKNOWN,
         present_units_2=_method_state(sap_model, "GetPresentUnits_2"),
         database_units_2=_method_state(sap_model, "GetDatabaseUnits_2"),
         case_status=_method_state(analyze, "GetCaseStatus"),
@@ -646,114 +592,6 @@ def read_capability_snapshot(
         database_output_options=_pair_state(
             db, "GetOutputOptionsForDisplay", "SetOutputOptionsForDisplay"
         ),
-    )
-
-
-def _raise_attach_failure(
-    attach_result: EtabsAttachResult,
-    *,
-    code: EtabsSafetyErrorCode,
-    message: str,
-) -> None:
-    raise EtabsSafetyError(
-        message,
-        code=code,
-        details={"attach": attach_result.as_diagnostic_dict()},
-    )
-
-
-def attach_verified_to_running_etabs(
-    expected_model_full_path: str,
-    *,
-    pid: int | None = None,
-    allow_pid_fallback: bool = False,
-    comtypes_client: Any | None = None,
-    win32com_client: Any | None = None,
-) -> EtabsVerifiedSession:
-    """Attach using bounded strategies, then hard-verify the exact target model.
-
-    An explicit ``pid`` is a canonical constraint. If Helper.GetObjectProcess is
-    callable but the requested process cannot be attached, the default is a
-    hard ``PID_ATTACH_FAILED``. Compatibility fallback after that failure
-    requires ``allow_pid_fallback=True``. If GetObjectProcess is genuinely
-    unsupported, bounded generic fallback may be used, but target full-path
-    verification remains mandatory.
-    """
-    attach_result = attach_to_running_etabs(
-        pid=pid,
-        allow_pid_fallback=allow_pid_fallback,
-        comtypes_client=comtypes_client,
-        win32com_client=win32com_client,
-    )
-
-    pid_capability = _pid_capability_from_attach(attach_result)
-
-    if pid is not None and attach_result.strategy != STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS:
-        if attach_result.status != ATTACH_STATUS_ATTACHED:
-            if pid_capability is CapabilityState.UNSUPPORTED:
-                _raise_attach_failure(
-                    attach_result,
-                    code=EtabsSafetyErrorCode.PID_ATTACH_UNSUPPORTED,
-                    message=f"PID-specific ETABS attach is unsupported for requested PID {pid}.",
-                )
-            _raise_attach_failure(
-                attach_result,
-                code=EtabsSafetyErrorCode.PID_ATTACH_FAILED,
-                message=f"PID-specific ETABS attach failed for requested PID {pid}.",
-            )
-
-        if pid_capability is CapabilityState.SUPPORTED and not allow_pid_fallback:
-            _raise_attach_failure(
-                attach_result,
-                code=EtabsSafetyErrorCode.PID_ATTACH_FAILED,
-                message=f"Requested ETABS PID {pid} could not be attached; generic fallback is disabled.",
-            )
-
-    if attach_result.status != ATTACH_STATUS_ATTACHED:
-        _raise_attach_failure(
-            attach_result,
-            code=EtabsSafetyErrorCode.ATTACH_FAILED,
-            message="ETABS attach failed.",
-        )
-
-    actual_pid = pid if attach_result.strategy == STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS else None
-    try:
-        identity = read_session_identity(
-            attach_result.etabs_object,
-            attach_result.sap_model,
-            process_id=actual_pid,
-            attach_strategy=attach_result.strategy,
-        )
-    except EtabsSafetyError:
-        raise
-    except Exception as exc:
-        raise EtabsCapabilityError(
-            f"ETABS session identity could not be read: {exc}",
-            code=EtabsSafetyErrorCode.SESSION_IDENTITY_UNAVAILABLE,
-        ) from exc
-
-    verify_target_model(identity, expected_model_full_path)
-    capabilities = read_capability_snapshot(attach_result.sap_model, attach_result=attach_result)
-    diagnostics: list[dict[str, Any]] = []
-    if pid is not None and attach_result.strategy != STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS:
-        if pid_capability is CapabilityState.UNSUPPORTED:
-            diagnostics.append({
-                "code": EtabsSafetyErrorCode.PID_ATTACH_UNSUPPORTED.value,
-                "requested_pid": int(pid),
-                "fallback_used": True,
-            })
-        elif pid_capability is CapabilityState.SUPPORTED:
-            diagnostics.append({
-                "code": EtabsSafetyErrorCode.PID_ATTACH_FAILED.value,
-                "requested_pid": int(pid),
-                "fallback_used": True,
-                "compatibility_opt_in": bool(allow_pid_fallback),
-            })
-    return EtabsVerifiedSession(
-        attach_result=attach_result,
-        identity=identity,
-        capabilities=capabilities,
-        diagnostics=tuple(diagnostics),
     )
 
 
@@ -1818,11 +1656,9 @@ __all__ = [
     "EtabsStateRestoreError",
     "EtabsStateVerificationError",
     "EtabsUnitSnapshot",
-    "EtabsVerifiedSession",
     "ResultsSetupReadTransaction",
     "ResultsSetupSelectionSnapshot",
     "RuntimeCaptureStatus",
-    "attach_verified_to_running_etabs",
     "classify_capture_status",
     "process_local_acquisition_lock",
     "read_analysis_readiness",

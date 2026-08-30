@@ -208,6 +208,36 @@ def test_private_safety_legacy_is_reachable_only_through_the_safety_facade() -> 
     assert PRIVATE_SAFETY_DEBT_CLASSIFICATION == "PRIVATE_COMPATIBILITY_IMPLEMENTATION_DEBT"
 
 
+def test_private_safety_legacy_has_no_attach_or_verified_session_owner() -> None:
+    legacy_path = REPO_ROOT / "tbdy_engine" / "etabs" / "_safety_legacy.py"
+    text = legacy_path.read_text(encoding="utf-8")
+    tree = ast.parse(text, filename=str(legacy_path))
+    class_names = {node.name for node in tree.body if isinstance(node, ast.ClassDef)}
+    function_names = {
+        node.name
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+    }
+    imported_names = {
+        alias.name
+        for node in tree.body
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+    imported_modules = _imported_modules(legacy_path)
+    exported = set(_module_all_names(legacy_path))
+
+    assert "EtabsVerifiedSession" not in class_names
+    assert "attach_verified_to_running_etabs" not in function_names
+    assert "EtabsAttachResult" not in imported_names
+    assert "attach_to_running_etabs" not in imported_names
+    assert "tbdy_engine.features.etabs_com_attach" not in imported_modules
+    assert "EtabsVerifiedSession" not in exported
+    assert "attach_verified_to_running_etabs" not in exported
+    assert "EtabsAttachResult" not in text
+    assert "attach_to_running_etabs" not in text
+
+
 def test_public_safety_facade_does_not_reexport_legacy_attach_or_raw_capability_apis() -> None:
     safety_path = REPO_ROOT / "tbdy_engine" / "etabs" / "safety.py"
     exported = set(_module_all_names(safety_path))
@@ -223,6 +253,47 @@ def test_public_safety_facade_does_not_reexport_legacy_attach_or_raw_capability_
     safety_text = safety_path.read_text(encoding="utf-8")
     assert "from ._safety_legacy import" in safety_text
     assert "retained privately" in safety_text
+
+    tree = ast.parse(safety_text, filename=str(safety_path))
+    legacy_imports = {
+        alias.name
+        for node in tree.body
+        if isinstance(node, ast.ImportFrom)
+        and node.level == 1
+        and node.module == "_safety_legacy"
+        for alias in node.names
+    }
+    assert not {
+        "EtabsVerifiedSession",
+        "attach_verified_to_running_etabs",
+        "EtabsAttachResult",
+        "attach_to_running_etabs",
+    }.intersection(legacy_imports)
+
+
+def test_supported_verified_session_has_no_public_raw_capability_equivalent() -> None:
+    safety_path = REPO_ROOT / "tbdy_engine" / "etabs" / "safety.py"
+    tree = ast.parse(safety_path.read_text(encoding="utf-8"), filename=str(safety_path))
+    session_class = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "EtabsVerifiedSession"
+    )
+    fields = {
+        node.target.id
+        for node in session_class.body
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
+    }
+    public_members = {
+        node.name
+        for node in session_class.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        and not node.name.startswith("_")
+    }
+    forbidden = {"attach_result", "sap_model", "etabs_object", "application", "model_api"}
+    assert not forbidden.intersection(fields)
+    assert not forbidden.intersection(public_members)
+    assert all(name.startswith("_") for name in fields if "gateway" in name)
 
 
 def test_semantic_providers_do_not_reach_independent_attach_modules() -> None:
