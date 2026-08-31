@@ -1,0 +1,175 @@
+schema: TBDY_CURRENT_CI_DEBT_REGISTRY_V1
+audit_id: R-CI-1
+frozen_base: 6273c19030ab6ecb7ad2637e3bfc74f88b1da086
+frozen_tree: 8f6ef822b5ab26d22c859438689e7bb9aea9439a
+generated_on: '2026-08-31'
+policy:
+  principle: RED != CURRENT_SPRINT_REGRESSION
+  regression_rule: >-
+    A registered inherited failure does not block an unrelated sprint when node and
+    normalized exception signatures are unchanged. Any new or materially changed
+    signature remains a blocker.
+  architecture_rule: >-
+    Historical tests may not force restoration of raw SapModel exposure, parallel COM
+    ownership, or fallback behavior forbidden by current architecture.
+root_causes:
+  PKG-GW-001:
+    title: etabs_gateway is available only through pytest-process sys.path injection
+    current_main_present: true
+    evidence:
+      - tests/conftest.py inserts repository root and packages/etabs_gateway/src into the running pytest interpreter's sys.path.
+      - C13.4 and UR-1E install pytest/report dependencies but do not install packages/etabs_gateway as an editable package or wheel.
+      - subprocess.run([sys.executable, ...]) and python -c start a fresh interpreter and do not inherit parent-process sys.path mutations.
+      - Fresh subprocess import reaches tbdy_engine.etabs.safety and fails at from etabs_gateway with ModuleNotFoundError.
+    preferred_repair: CI-D1 install tbdy-etabs-gateway as a real package in CI/subprocess environments and prove fresh-process imports.
+  ARCH-RAW-001:
+    title: Legacy C13.5 tests still require raw ETABS application/SapModel capability through compatibility DTOs
+    current_main_present: true
+    evidence:
+      - EtabsAttachResult rejects non-null etabs_object/sap_model.
+      - C13.5-P5/P6 fixtures still construct ATTACHED compatibility results carrying raw capability.
+      - This conflicts with current gateway/safety/OAPI ownership and G1/T1 reachability rules.
+    preferred_repair: CI-D2 migrate fixtures to bounded factual/provider seams; do not re-enable raw capability.
+  ARCH-SOURCE-001:
+    title: Legacy C13.5-P3 source-shape assertion expects COM import mechanics inside the compatibility facade
+    current_main_present: true
+    evidence:
+      - The test requires importlib.import_module and literal comtypes/win32com client strings in tbdy_engine.features.etabs_com_attach.
+      - Current architecture moved real COM/attach ownership to packages/etabs_gateway; the legacy facade is diagnostic compatibility only.
+    preferred_repair: CI-D2 rewrite around dependency ownership/negative reachability, not historical source text.
+  GOV-BASE-001:
+    title: UR-1E global PR workflow compares current candidates to an obsolete all-green historical sprint baseline
+    current_main_present: true
+    evidence:
+      - UR-1E FROZEN_BASE is e98ed36c13e8821f1e1a16a08eaee5b556b1dbce (CD-1-era merge).
+      - The workflow runs on pull_request to main.
+      - Its gate requires both historical base and candidate broad suites to be absolutely green.
+      - Current main has later accepted architecture/package changes and one known subprocess packaging failure in that broad scope.
+    preferred_repair: CI-D3 split immutable UR-1E historical acceptance from current global regression governance; use current sprint/base zero-new delta.
+  GOV-C13-001:
+    title: C13.4 global PR workflow is absolute-green while current main itself contains registered inherited C13.5 debt
+    current_main_present: true
+    evidence:
+      - C13.4 runs on every PR to main and push to main.
+      - Current-main-equivalent run executes 18 commands and fails 4 C13.5 command families.
+      - No candidate-vs-current-base failure delta exists in the workflow.
+    preferred_repair: CI-D4 only if debt remains after CI-D1/CI-D2; once current main is green return C13.4 to absolute-green.
+debts:
+  CI-DEBT-001:
+    workflow: C13.4 Offline Product Acceptance
+    command_family: pytest_c13_5_p2
+    node: tests/c13_5_p2/test_live_etabs_geometry_probe_contract.py::test_cli_refuses_live_probe_without_explicit_live_etabs_flag
+    signature: "subprocess exits 1 instead of expected 2; ModuleNotFoundError: No module named 'etabs_gateway'"
+    root_cause_id: PKG-GW-001
+    first_known_origin: C13.5-P2 historical live geometry probe contract; file history includes C13.5-P2/P3 acceptance work from 2026-06-19.
+    current_main_present: true
+    classification: PACKAGING
+    blocks_current_engineering: false
+    blocks_merge_when_unchanged: false
+    block_rule: Block only if the node/signature is new or changes, until CI-D1 closes the registered packaging debt.
+    proper_future_fix: Install packages/etabs_gateway into subprocess-visible environment; retain explicit --live-etabs refusal semantics.
+    expected_owner_sprint: CI-D1
+  CI-DEBT-002:
+    workflow: UR-1E Deterministic Report Package Validation
+    command_family: candidate broad regression
+    node: tests/features/test_vs6_p8a_f0_column_design_evidence_authority.py::test_design_evidence_authority_imports_without_regulatory_package
+    signature: "fresh python -c import fails via tbdy_engine.etabs.safety with ModuleNotFoundError: No module named 'etabs_gateway'"
+    root_cause_id: PKG-GW-001
+    first_known_origin: VS6-P8A-F0 import-safety test added during the 2026-08-27 VS6-P8A-F0 authority sprint.
+    current_main_present: true
+    classification: PACKAGING
+    blocks_current_engineering: false
+    blocks_merge_when_unchanged: false
+    block_rule: Same packaging root cause as CI-DEBT-001; unchanged reproduction is inherited, not a new engineering regression.
+    proper_future_fix: Same package-installation closure as CI-DEBT-001; do not weaken import-safety assertion.
+    expected_owner_sprint: CI-D1
+  CI-DEBT-003:
+    workflow: C13.4 Offline Product Acceptance
+    command_family: pytest_c13_5_p3
+    node: tests/c13_5_p3/test_etabs_com_attach_contract.py::test_attach_module_has_no_top_level_com_imports
+    signature: assertion requires historical importlib.import_module/comtypes.client/win32com.client source text in legacy compatibility facade
+    root_cause_id: ARCH-SOURCE-001
+    first_known_origin: C13.5-P3 attach compatibility contract, June 2026; later architecture moved COM ownership to etabs_gateway.
+    current_main_present: true
+    classification: OBSOLETE_TEST
+    blocks_current_engineering: false
+    blocks_merge_when_unchanged: false
+    block_rule: Do not restore COM import mechanics to satisfy this source-shape assertion.
+    proper_future_fix: Replace with architecture ownership/negative-reachability assertion against gateway and compatibility facade.
+    expected_owner_sprint: CI-D2
+  CI-DEBT-004:
+    workflow: C13.4 Offline Product Acceptance
+    command_family: pytest_c13_5_p3
+    node: tests/c13_5_p3/test_etabs_com_attach_contract.py::test_success_path_returns_attached_with_fake_sap_model
+    signature: legacy test expects ATTACHED result with raw SapModel; current compatibility path is diagnostic-only and exposes no raw capability
+    root_cause_id: ARCH-RAW-001
+    first_known_origin: C13.5-P3 compatibility contract, June 2026; became architecture-incompatible after gateway/safety cutover.
+    current_main_present: true
+    classification: RAW_CAPABILITY_DEBT
+    blocks_current_engineering: false
+    blocks_merge_when_unchanged: false
+    block_rule: Raw SapModel restoration is forbidden; unchanged failure is inherited debt.
+    proper_future_fix: Retire raw-capability expectation; test diagnostic-only compatibility or canonical bounded factual acquisition.
+    expected_owner_sprint: CI-D2
+  CI-DEBT-005:
+    workflow: C13.4 Offline Product Acceptance
+    command_family: pytest_c13_5_p5
+    nodes:
+      - tests/c13_5_p5/test_live_geometry_snapshot_from_accepted_mapping_negative_cases.py::test_assignment_table_fetch_failure_diagnostic
+      - tests/c13_5_p5/test_live_geometry_snapshot_from_accepted_mapping_negative_cases.py::test_assignment_table_fetched_zero_rows_diagnostic
+      - tests/c13_5_p5/test_live_geometry_snapshot_from_accepted_mapping_negative_cases.py::test_assignment_table_parse_empty_diagnostic
+      - tests/c13_5_p5/test_live_geometry_snapshot_from_accepted_mapping_negative_cases.py::test_property_table_fetch_failure_diagnostic
+      - tests/c13_5_p5/test_live_geometry_snapshot_from_accepted_mapping_negative_cases.py::test_summary_counts_for_live_table_read_results
+    signature: 'ValueError: legacy compatibility result must not expose ETABS application/SapModel capability'
+    root_cause_id: ARCH-RAW-001
+    first_known_origin: C13.5-P5 historical live geometry snapshot fixtures.
+    current_main_present: true
+    classification: RAW_CAPABILITY_DEBT
+    blocks_current_engineering: false
+    blocks_merge_when_unchanged: false
+    block_rule: Do not weaken EtabsAttachResult to carry SapModel.
+    proper_future_fix: Rebuild P5 fixtures around canonical bounded table/provider seams or test-only non-production factual doubles.
+    expected_owner_sprint: CI-D2
+  CI-DEBT-006:
+    workflow: C13.4 Offline Product Acceptance
+    command_family: pytest_c13_5_p6
+    nodes:
+      - tests/c13_5_p6/test_live_frame_component_type_resolution.py::test_live_fake_database_component_type_source_consumes_spaced_design_type
+      - tests/c13_5_p6/test_live_frame_component_type_resolution.py::test_live_fake_database_component_type_source_keeps_compact_design_type_alias
+      - tests/c13_5_p6/test_live_frame_component_type_resolution.py::test_component_type_source_table_missing_produces_diagnostic
+    signature: 'ValueError: legacy compatibility result must not expose ETABS application/SapModel capability'
+    root_cause_id: ARCH-RAW-001
+    first_known_origin: C13.5-P6 historical live frame component-type fixture family.
+    current_main_present: true
+    classification: RAW_CAPABILITY_DEBT
+    blocks_current_engineering: false
+    blocks_merge_when_unchanged: false
+    block_rule: Do not reintroduce raw SapModel compatibility to make fixtures pass.
+    proper_future_fix: Migrate P6 fixtures to canonical factual/provider boundary.
+    expected_owner_sprint: CI-D2
+  CI-DEBT-007:
+    workflow: UR-1E Deterministic Report Package Validation
+    node: 'workflow policy: Exact zero-failure broad delta gate'
+    signature: global PR gate compares candidate against e98ed36... and requires both base and candidate to be absolutely green
+    root_cause_id: GOV-BASE-001
+    first_known_origin: UR-1E workflow creation after CD-1; historical base e98ed36 is the merged CD-1-era main.
+    current_main_present: true
+    classification: STALE_BASELINE
+    blocks_current_engineering: false
+    blocks_merge_when_unchanged: false
+    block_rule: Historical UR-1E baseline is valid for immutable UR-1E acceptance, not as a perpetual global main baseline.
+    proper_future_fix: Separate historical UR-1E acceptance from current PR gate; use current sprint/base zero-new delta for broad regression.
+    expected_owner_sprint: CI-D3
+  CI-DEBT-008:
+    workflow: C13.4 Offline Product Acceptance
+    node: 'workflow policy: Run offline acceptance gate'
+    signature: absolute-green global PR gate has no current-main baseline/delta although current main has 4 registered failed command families
+    root_cause_id: GOV-C13-001
+    first_known_origin: C13.4-P10 global offline acceptance workflow; later architectural migrations invalidated some C13.5 assumptions.
+    current_main_present: true
+    classification: STALE_BASELINE
+    blocks_current_engineering: false
+    blocks_merge_when_unchanged: false
+    block_rule: Until CI-D1/CI-D2 close debt, classify exact registered signatures as inherited and block new/changed failures.
+    proper_future_fix: Prefer debt closure first. If debt remains, add current-sprint/base zero-new governance in a separate workflow sprint; after green, absolute-green is the target.
+    expected_owner_sprint: CI-D4
