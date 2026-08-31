@@ -19,18 +19,46 @@ Canonical governance rule:
 ```text
 RED != CURRENT_SPRINT_REGRESSION
 
-NEW node/signature or materially changed inherited signature
-→ BLOCKER
+FAILURE_SIGNATURE debt
+→ exact failed node + normalized exception match may classify an observed failure as inherited
+→ NEW node/signature or materially changed inherited signature = BLOCKER until classified
 
-unchanged registered inherited node/signature
-→ inherited debt; do not attribute to unrelated sprint
+WORKFLOW_GOVERNANCE debt
+→ classifies stale baseline / wrong global gate semantics only
+→ never acts as a failure-signature whitelist
 
 historical frozen SHA
 → valid for immutable historical sprint acceptance
 → not automatically valid as current global regression baseline
 ```
 
-Stable failure IDs are in `docs/audit/CURRENT_CI_DEBT_REGISTRY.yaml`.
+Stable CI debt IDs are in `docs/audit/CURRENT_CI_DEBT_REGISTRY.yaml`.
+
+### Debt-kind typing
+
+The registry has two distinct debt kinds:
+
+```text
+CI-DEBT-001 .. CI-DEBT-006
+→ debt_kind: FAILURE_SIGNATURE
+→ actual currently observed failing test node/signature debt
+→ eligible for exact failure-signature lookup
+
+CI-DEBT-007 .. CI-DEBT-008
+→ debt_kind: WORKFLOW_GOVERNANCE
+→ stale/incorrect gate-policy semantics
+→ NOT runtime/test failure signatures
+→ NOT eligible for failure-signature lookup
+```
+
+In particular:
+
+```text
+CI-DEBT-007 / CI-DEBT-008
+!= permission to ignore arbitrary failures in UR-1E / C13.4
+```
+
+Their only effect is classification of the workflow gate policy itself. Any actual UR-1E/C13.4 failed node still requires an exact `FAILURE_SIGNATURE` debt match or it remains a blocker until classified.
 
 ## 1. Workflow census
 
@@ -270,17 +298,21 @@ The **historical `e98ed36...` broad-comparison form of UR-1E** should not be the
 
 ## 7. Merge-blocker policy
 
-A failure is a real current merge blocker when:
+Observed workflow failures and workflow-governance debt are classified on separate paths.
+
+For actual runtime/test failures, a failure is a real current merge blocker when:
 
 - P2.10 becomes red;
 - current sprint focused/architecture tests become red;
-- C13.4 or UR-1E produces a node not registered/currently present on the exact sprint base;
-- a registered `CI-DEBT-*` node materially changes exception signature;
+- C13.4 or UR-1E produces a failed node/normalized exception that does not exactly match a `FAILURE_SIGNATURE` debt currently present on the exact sprint base;
+- a registered `FAILURE_SIGNATURE` node materially changes exception signature;
 - an architecture guard finds a new forbidden edge.
 
-The exact registered current-main failures in `CI-DEBT-001` through `CI-DEBT-008` are inherited debt, not proof that an unrelated candidate introduced them.
+Only `CI-DEBT-001` through `CI-DEBT-006` are failure-signature debts. Exact unchanged matches may be classified as inherited failure debt rather than attributed to an unrelated candidate.
 
-This does **not** mean they are acceptable forever; each has an owner repair sprint.
+`CI-DEBT-007` and `CI-DEBT-008` are `WORKFLOW_GOVERNANCE` debts. They describe stale/incorrect gate-policy semantics only. They are not runtime/test failure signatures and cannot whitelist, excuse, or suppress arbitrary failures in UR-1E or C13.4.
+
+All debt still requires an owner repair sprint; debt typing changes classification mechanics, not the obligation to repair it.
 
 ## 8. Smallest safe repair sequence
 
@@ -306,8 +338,8 @@ Only if C13.4 remains red after CI-D1/CI-D2. Introduce current-base/registry zer
 
 ## 9. Required final answers
 
-1. **Which red CI checks are real merge blockers?** New/changed signatures are blockers. P2.10 is green now, so any P2.10 failure is a blocker. Current exact C13.4/UR-1E registered signatures are inherited when unchanged.
-2. **Which are inherited?** C13.4: `CI-DEBT-001`, `003`, `004`, `005`, `006`, governance debt `008`. UR-1E: `CI-DEBT-002`, governance debt `007`.
+1. **Which red CI checks are real merge blockers?** New/changed runtime/test signatures are blockers. P2.10 is green now, so any P2.10 failure is a blocker. Current exact C13.4/UR-1E failures are inherited only when the failed node + normalized exception exactly match a `FAILURE_SIGNATURE` debt (`CI-DEBT-001..006`).
+2. **Which are inherited?** Failure-signature debt: C13.4 `CI-DEBT-001`, `003`, `004`, `005`, `006`; UR-1E `CI-DEBT-002`. Separately, workflow-governance debt: C13.4 `CI-DEBT-008`; UR-1E `CI-DEBT-007`. Governance debt does not whitelist failures.
 3. **Which use stale baselines?** Active problem: UR-1E `e98ed36...` as a global baseline. FND-COL-1 also calls a historical SHA `CURRENT_MAIN`, but its workflow is branch-historical, not a current global PR gate.
 4. **Which tests contradict current architecture?** P3 source-shape/raw-SapModel expectations, P5/P6 raw-capability fixtures, and any fake-COM test demanding fallback to real/default COM or all historical strategies.
 5. **Why does `etabs_gateway` fail in subprocesses?** Process-local pytest `sys.path` injection plus no actual gateway package installation; fresh subprocesses cannot resolve the src-layout package.
@@ -315,18 +347,40 @@ Only if C13.4 remains red after CI-D1/CI-D2. Introduce current-base/registry zer
 7. **Which workflow should use exact zero-new-failure delta?** UR-1E global broad now; C13.4 transitionally only if debt remains.
 8. **Which workflow should no longer run globally?** The historical `e98ed36...` UR-1E broad-baseline form.
 9. **Smallest safe sequence?** `CI-D1 → CI-D2 → CI-D3 → CI-D4 only if needed`.
-10. **Can supervisors use CI-DEBT IDs?** Yes. Lookup node + normalized exception; exact registered match means inherited, unknown/changed means current regression until proven otherwise.
+10. **Can supervisors use CI-DEBT IDs?** Yes, but by debt kind: actual failed node/exception lookup uses only `FAILURE_SIGNATURE`; gate-policy audit uses `WORKFLOW_GOVERNANCE` separately.
 
 ## 10. Supervisor lookup procedure
 
+### A. Failure-signature classification
+
 ```text
-CI turns red
-→ capture workflow + failed node + normalized exception
-→ lookup CURRENT_CI_DEBT_REGISTRY.yaml
-→ exact registered match?
-   YES → inherited debt; verify candidate-vs-current-sprint-base delta
-   NO  → treat as new current regression until classified
-→ route to expected_owner_sprint
+observe workflow failure
+→ identify failed node + normalized exception
+→ lookup only debts where debt_kind = FAILURE_SIGNATURE
+→ exact node + normalized exception match?
+   YES → inherited failure; verify candidate-vs-current-sprint-base delta
+   NO  → blocker until classified
+→ route matched debt to expected_owner_sprint
+```
+
+A `WORKFLOW_GOVERNANCE` entry must never satisfy this lookup.
+
+### B. Workflow-governance classification
+
+```text
+inspect workflow gate policy
+→ lookup debts where debt_kind = WORKFLOW_GOVERNANCE
+→ classify stale baseline / wrong global gate semantics
+→ route gate-policy debt to expected_owner_sprint
+```
+
+This second path classifies the workflow policy, not the runtime/test failure population.
+
+Therefore:
+
+```text
+CI-DEBT-007 / CI-DEBT-008
+!= permission to ignore arbitrary failures in UR-1E / C13.4
 ```
 
 This replaces repeated manual archaeology without weakening fail-closed regression policy.

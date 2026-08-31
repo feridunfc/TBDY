@@ -1,4 +1,4 @@
-schema: TBDY_CURRENT_CI_DEBT_REGISTRY_V1
+schema: TBDY_CURRENT_CI_DEBT_REGISTRY_V2
 audit_id: R-CI-1
 frozen_base: 6273c19030ab6ecb7ad2637e3bfc74f88b1da086
 frozen_tree: 8f6ef822b5ab26d22c859438689e7bb9aea9439a
@@ -6,12 +6,26 @@ generated_on: '2026-08-31'
 policy:
   principle: RED != CURRENT_SPRINT_REGRESSION
   regression_rule: >-
-    A registered inherited failure does not block an unrelated sprint when node and
-    normalized exception signatures are unchanged. Any new or materially changed
-    signature remains a blocker.
+    A registered inherited FAILURE_SIGNATURE debt does not block an unrelated sprint
+    when node and normalized exception signatures are unchanged. Any new or materially
+    changed signature remains a blocker until classified.
+  debt_kind_rule: >-
+    Only debts with debt_kind FAILURE_SIGNATURE participate in failed-node and normalized
+    exception lookup. WORKFLOW_GOVERNANCE debts classify gate-policy semantics only and
+    are never failure-signature whitelist entries.
+  workflow_governance_rule: >-
+    CI-DEBT-007 and CI-DEBT-008 may classify stale baseline or wrong global gate semantics,
+    but they never authorize ignoring arbitrary failures in UR-1E or C13.4.
   architecture_rule: >-
     Historical tests may not force restoration of raw SapModel exposure, parallel COM
     ownership, or fallback behavior forbidden by current architecture.
+debt_kinds:
+  FAILURE_SIGNATURE:
+    meaning: Actual currently observed failing test node/signature debt.
+    failure_signature_lookup_eligible: true
+  WORKFLOW_GOVERNANCE:
+    meaning: Stale or incorrect workflow gate-policy semantics, not a runtime/test failure signature.
+    failure_signature_lookup_eligible: false
 root_causes:
   PKG-GW-001:
     title: etabs_gateway is available only through pytest-process sys.path injection
@@ -56,6 +70,7 @@ root_causes:
     preferred_repair: CI-D4 only if debt remains after CI-D1/CI-D2; once current main is green return C13.4 to absolute-green.
 debts:
   CI-DEBT-001:
+    debt_kind: FAILURE_SIGNATURE
     workflow: C13.4 Offline Product Acceptance
     command_family: pytest_c13_5_p2
     node: tests/c13_5_p2/test_live_etabs_geometry_probe_contract.py::test_cli_refuses_live_probe_without_explicit_live_etabs_flag
@@ -70,6 +85,7 @@ debts:
     proper_future_fix: Install packages/etabs_gateway into subprocess-visible environment; retain explicit --live-etabs refusal semantics.
     expected_owner_sprint: CI-D1
   CI-DEBT-002:
+    debt_kind: FAILURE_SIGNATURE
     workflow: UR-1E Deterministic Report Package Validation
     command_family: candidate broad regression
     node: tests/features/test_vs6_p8a_f0_column_design_evidence_authority.py::test_design_evidence_authority_imports_without_regulatory_package
@@ -84,6 +100,7 @@ debts:
     proper_future_fix: Same package-installation closure as CI-DEBT-001; do not weaken import-safety assertion.
     expected_owner_sprint: CI-D1
   CI-DEBT-003:
+    debt_kind: FAILURE_SIGNATURE
     workflow: C13.4 Offline Product Acceptance
     command_family: pytest_c13_5_p3
     node: tests/c13_5_p3/test_etabs_com_attach_contract.py::test_attach_module_has_no_top_level_com_imports
@@ -98,6 +115,7 @@ debts:
     proper_future_fix: Replace with architecture ownership/negative-reachability assertion against gateway and compatibility facade.
     expected_owner_sprint: CI-D2
   CI-DEBT-004:
+    debt_kind: FAILURE_SIGNATURE
     workflow: C13.4 Offline Product Acceptance
     command_family: pytest_c13_5_p3
     node: tests/c13_5_p3/test_etabs_com_attach_contract.py::test_success_path_returns_attached_with_fake_sap_model
@@ -112,6 +130,7 @@ debts:
     proper_future_fix: Retire raw-capability expectation; test diagnostic-only compatibility or canonical bounded factual acquisition.
     expected_owner_sprint: CI-D2
   CI-DEBT-005:
+    debt_kind: FAILURE_SIGNATURE
     workflow: C13.4 Offline Product Acceptance
     command_family: pytest_c13_5_p5
     nodes:
@@ -131,6 +150,7 @@ debts:
     proper_future_fix: Rebuild P5 fixtures around canonical bounded table/provider seams or test-only non-production factual doubles.
     expected_owner_sprint: CI-D2
   CI-DEBT-006:
+    debt_kind: FAILURE_SIGNATURE
     workflow: C13.4 Offline Product Acceptance
     command_family: pytest_c13_5_p6
     nodes:
@@ -148,6 +168,7 @@ debts:
     proper_future_fix: Migrate P6 fixtures to canonical factual/provider boundary.
     expected_owner_sprint: CI-D2
   CI-DEBT-007:
+    debt_kind: WORKFLOW_GOVERNANCE
     workflow: UR-1E Deterministic Report Package Validation
     node: 'workflow policy: Exact zero-failure broad delta gate'
     signature: global PR gate compares candidate against e98ed36... and requires both base and candidate to be absolutely green
@@ -157,10 +178,11 @@ debts:
     classification: STALE_BASELINE
     blocks_current_engineering: false
     blocks_merge_when_unchanged: false
-    block_rule: Historical UR-1E baseline is valid for immutable UR-1E acceptance, not as a perpetual global main baseline.
+    block_rule: Historical UR-1E baseline is valid for immutable UR-1E acceptance, not as a perpetual global main baseline. This debt does not whitelist any test/runtime failure.
     proper_future_fix: Separate historical UR-1E acceptance from current PR gate; use current sprint/base zero-new delta for broad regression.
     expected_owner_sprint: CI-D3
   CI-DEBT-008:
+    debt_kind: WORKFLOW_GOVERNANCE
     workflow: C13.4 Offline Product Acceptance
     node: 'workflow policy: Run offline acceptance gate'
     signature: absolute-green global PR gate has no current-main baseline/delta although current main has 4 registered failed command families
@@ -170,6 +192,6 @@ debts:
     classification: STALE_BASELINE
     blocks_current_engineering: false
     blocks_merge_when_unchanged: false
-    block_rule: Until CI-D1/CI-D2 close debt, classify exact registered signatures as inherited and block new/changed failures.
+    block_rule: Until CI-D1/CI-D2 close debt, classify exact FAILURE_SIGNATURE debts as inherited and block new/changed failures. This governance debt does not whitelist any test/runtime failure.
     proper_future_fix: Prefer debt closure first. If debt remains, add current-sprint/base zero-new governance in a separate workflow sprint; after green, absolute-green is the target.
     expected_owner_sprint: CI-D4
