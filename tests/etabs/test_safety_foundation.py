@@ -4,6 +4,8 @@ from dataclasses import dataclass
 
 import pytest
 
+import etabs_gateway.connection as gateway_connection
+
 from tbdy_engine.engine.unit_context import attach_unit_context
 from tbdy_engine.etabs.safety import (
     AnalysisReadiness,
@@ -147,6 +149,30 @@ class FailingWin32:
         raise RuntimeError(prog_id)
 
 
+class FailingComtypesClient:
+    def __init__(self):
+        self.active_calls = []
+        self.create_calls = []
+
+    def GetActiveObject(self, prog_id):
+        self.active_calls.append(prog_id)
+        raise RuntimeError("fake active-object failure")
+
+    def CreateObject(self, prog_id):
+        self.create_calls.append(prog_id)
+        raise RuntimeError("fake helper failure")
+
+
+class WouldSucceedWin32:
+    def __init__(self, etabs_object):
+        self.etabs_object = etabs_object
+        self.calls = []
+
+    def GetActiveObject(self, prog_id):
+        self.calls.append(prog_id)
+        return self.etabs_object
+
+
 def test_exact_target_identity_accepted():
     sap = FakeSap()
     client = FakeComtypesClient(FakeEtabsObject(sap))
@@ -171,6 +197,52 @@ def test_wrong_model_is_hard_failure_with_stable_code():
             win32com_client=FailingWin32(),
         )
     assert caught.value.code is EtabsSafetyErrorCode.ATTACHED_MODEL_MISMATCH
+
+
+
+
+def test_fake_compatibility_attach_cannot_fall_through_to_real_win32(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    sap = FakeSap()
+    fake_client = FakeComtypesClient(FakeEtabsObject(sap))
+    real_runtime = WouldSucceedWin32(FakeEtabsObject(FakeSap(r"C:\\tmp\\REAL.EDB")))
+    real_loader_hits = []
+
+    def load_real_win32():
+        real_loader_hits.append("win32com.client")
+        return real_runtime
+
+    monkeypatch.setattr(gateway_connection, "_load_win32com_client", load_real_win32)
+
+    result = attach_to_running_etabs(comtypes_client=fake_client)
+
+    assert result.status == "ATTACHED"
+    assert result.strategy == "comtypes_get_active_object_etabs_api_object"
+    assert fake_client.active_calls == ["CSI.ETABS.API.ETABSObject"]
+    assert real_loader_hits == []
+    assert real_runtime.calls == []
+
+
+def test_fake_compatibility_attach_failure_has_no_real_win32_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    fake_client = FailingComtypesClient()
+    real_runtime = WouldSucceedWin32(FakeEtabsObject(FakeSap(r"C:\\tmp\\REAL.EDB")))
+    real_loader_hits = []
+
+    def load_real_win32():
+        real_loader_hits.append("win32com.client")
+        return real_runtime
+
+    monkeypatch.setattr(gateway_connection, "_load_win32com_client", load_real_win32)
+
+    result = attach_to_running_etabs(comtypes_client=fake_client)
+
+    assert result.status == "FAILED"
+    assert result.strategy is None
+    assert real_loader_hits == []
+    assert real_runtime.calls == []
 
 
 def test_pid_attach_is_preferred_when_requested():
