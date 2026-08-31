@@ -1,9 +1,9 @@
 # CURRENT CI BASELINE GOVERNANCE — R-CI-1
 
-**Mode:** research / CI governance only  
-**Frozen base:** `6273c19030ab6ecb7ad2637e3bfc74f88b1da086`  
-**Frozen tree:** `8f6ef822b5ab26d22c859438689e7bb9aea9439a`  
-**Current main:** reverified at the frozen base immediately before writing.  
+**Mode:** research / CI governance only
+**Frozen base:** `6273c19030ab6ecb7ad2637e3bfc74f88b1da086`
+**Frozen tree:** `8f6ef822b5ab26d22c859438689e7bb9aea9439a`
+**Current main:** reverified at the frozen base immediately before writing.
 **Write boundary:** documentation only. No workflow, production, or test expectation changes.
 
 ## Executive decision
@@ -274,7 +274,7 @@ Do not rely on `conftest.py` mutation as a subprocess/product packaging solution
 
 Use when current main is green and the workflow is a current supported invariant.
 
-**Now:** `P2.10 Wall Pack A Kernel`.  
+**Now:** `P2.10 Wall Pack A Kernel`.
 **Target state after debt closure:** `C13.4 Offline Product Acceptance`.
 
 ### EXACT_FROZEN_SPRINT_BASE_REQUIRED
