@@ -1,9 +1,9 @@
 # R-LIFE-1 — ETABS Execution Lifecycle Census
 
-**Mode:** STRICT RESEARCH / ARCHAEOLOGY / CAPABILITY CENSUS ONLY  
-**Frozen base:** `6273c19030ab6ecb7ad2637e3bfc74f88b1da086`  
-**Research branch:** `research/r-life-1-etabs-execution-lifecycle`  
-**Production code changed:** NO  
+**Mode:** STRICT RESEARCH / ARCHAEOLOGY / CAPABILITY CENSUS ONLY
+**Frozen base:** `6273c19030ab6ecb7ad2637e3bfc74f88b1da086`
+**Research branch:** `research/r-life-1-etabs-execution-lifecycle`
+**Production code changed:** NO
 **ETABS mutation / RunAnalysis / StartDesign / Save / SetPresentUnits executed:** NO
 
 ## 0. Evidence discipline
@@ -224,58 +224,58 @@ No accepted current scratch model controller was found on exact main.
 
 ### LIFE-REUSE-001 — DedicatedSTAWorker
 
-Historical `sprint/p1-1-dedicated-sta-worker` @ `b23253b381292e8db2115bac3ece3802b3f16717` established one owned worker thread, serialized calls, timeout/failure/close semantics, and poison-on-running-timeout behavior. Current gateway already embodies this.  
+Historical `sprint/p1-1-dedicated-sta-worker` @ `b23253b381292e8db2115bac3ece3802b3f16717` established one owned worker thread, serialized calls, timeout/failure/close semantics, and poison-on-running-timeout behavior. Current gateway already embodies this.
 Disposition: `REUSE_AS_IS` as transport mechanics only; this does not confer analysis/design/scratch semantic authority on the gateway.
 
 ### LIFE-REUSE-002 — typed gateway contract foundation
 
-Historical `sprint/p1-typed-etabs-gateway-foundation` @ `0ee5d37008d3d5480590af6c11de558c4dbd0f41` established typed model/unit/connection contracts, read-only default, no generic execution, no engineering verdict.  
+Historical `sprint/p1-typed-etabs-gateway-foundation` @ `0ee5d37008d3d5480590af6c11de558c4dbd0f41` established typed model/unit/connection contracts, read-only default, no generic execution, no engineering verdict.
 Disposition: `ADAPT_EXISTING` only through current gateway transport; do not resurrect placeholder code or treat the gateway as execution authority.
 
 ### LIFE-REUSE-003 — verified target qualification
 
-Current safety/gateway provides PID-aware attach, exact model-path qualification, units/lock/context facts, raw COM privacy.  
+Current safety/gateway provides PID-aware attach, exact model-path qualification, units/lock/context facts, raw COM privacy.
 Disposition: `REUSE_AS_IS`.
 
 ### LIFE-REUSE-004 — reversible read-state transactions
 
-Current `DatabaseTablesReadTransaction` and `ResultsSetupReadTransaction` provide snapshot/restore/verify mechanics.  
+Current `DatabaseTablesReadTransaction` and `ResultsSetupReadTransaction` provide snapshot/restore/verify mechanics.
 Disposition: `REUSE_AS_IS`; these do **not** provide model-mutation rollback.
 
 ### LIFE-REUSE-005 — analysis readiness fact
 
-Current safety owns factual `Analyze.GetCaseStatus`.  
+Current safety owns factual `Analyze.GetCaseStatus`.
 Disposition: `REUSE_AS_IS` as B5 post-run evidence.
 
 ### LIFE-REUSE-006 — analysis causal lineage contract
 
-Historical/current analysis-lineage work (`sprint/id-lineage-1-analysis-lineage` @ `adea99fd5adc5510ed39cffde2b72f8c4908a85d`) establishes no public positive issuer from pre-existing results and reserves trust for future causal execution proof.  
+Historical/current analysis-lineage work (`sprint/id-lineage-1-analysis-lineage` @ `adea99fd5adc5510ed39cffde2b72f8c4908a85d`) establishes no public positive issuer from pre-existing results and reserves trust for future causal execution proof.
 Disposition: `REUSE_AS_IS`; positive issuer belongs B5.
 
 ### LIFE-REUSE-007 — immutable analysis-basis snapshot
 
-Historical `sprint/f0-5-analysis-basis-lifecycle` @ `dbb97e554a14807f7d462bde9b9c3d9728cef46e`.  
-Reusable: deterministic immutable analysis-basis snapshot/provenance.  
+Historical `sprint/f0-5-analysis-basis-lifecycle` @ `dbb97e554a14807f7d462bde9b9c3d9728cef46e`.
+Reusable: deterministic immutable analysis-basis snapshot/provenance.
 Disposition: `EXTRACT_ONLY`; not a scratch/run implementation.
 
 ### LIFE-REUSE-008 — second-order readiness is not execution authority
 
-Historical `sprint/stab-1-second-order-analysis-basis-closure` @ `f0f0e20851906db5411cd7717123808c1562db64` proves fail-closed `REANALYSIS_REQUIRED` and no invented fallback.  
+Historical `sprint/stab-1-second-order-analysis-basis-closure` @ `f0f0e20851906db5411cd7717123808c1562db64` proves fail-closed `REANALYSIS_REQUIRED` and no invented fallback.
 Disposition: `EXTRACT_ONLY` as B4/B5 demand signal; it does not own `RunAnalysis`.
 
 ### LIFE-REUSE-009 — SourceModelIdentity / EvidenceEpoch
 
-Current `TrustedLiveAcquisitionContext` supplies stable verified source-path identity and acquisition epoch while explicitly not proving physical bytes or analysis freshness.  
+Current `TrustedLiveAcquisitionContext` supplies stable verified source-path identity and acquisition epoch while explicitly not proving physical bytes or analysis freshness.
 Disposition: `REUSE_AS_IS`.
 
 ### LIFE-REUSE-010 — factual OAPI reads
 
-Current OAPI owns object/load/combo/concrete-design/DatabaseTables read ABI.  
+Current OAPI owns object/load/combo/concrete-design/DatabaseTables read ABI.
 Disposition: `REUSE_AS_IS` where an exact fact is already wrapped. This factual-ABI role does not imply ownership of new write/execution operations.
 
 ### Historical G0 scratch proposals
 
-G0 material proposed source-no-save protection, source fingerprint checks, scratch identity verification, and future wrappers for analysis/design/file lifecycle. No complete accepted current implementation with causal scratch ownership + cleanup + failure recovery was found.  
+G0 material proposed source-no-save protection, source fingerprint checks, scratch identity verification, and future wrappers for analysis/design/file lifecycle. No complete accepted current implementation with causal scratch ownership + cleanup + failure recovery was found.
 Disposition: `NEW_REQUIRED` B4A; use G0 only as requirement/oracle material.
 
 ## 5. Rejected patterns
@@ -299,44 +299,44 @@ Disposition: `NEW_REQUIRED` B4A; use G0 only as requirement/oracle material.
 
 ### SOURCE_ATTACHED_READONLY
 
-Controller: current gateway + safety read bridge; gateway role here is COM/STA/session/attach and bounded callback transport only.  
-Allowed: identity/version/path/PID, units/lock, factual reads, physical source pre-snapshot.  
-Forbidden: save, unlock/mutate, run, design.  
+Controller: current gateway + safety read bridge; gateway role here is COM/STA/session/attach and bounded callback transport only.
+Allowed: identity/version/path/PID, units/lock, factual reads, physical source pre-snapshot.
+Forbidden: save, unlock/mutate, run, design.
 Transition only after causal scratch creation evidence.
 
 ### SCRATCH_CREATED
 
-Controller: future B4A semantic lifecycle controller; final module placement not decided by R-LIFE-1.  
-Required: creation attempt ID, parent SourceModelIdentity, source physical pre-state, scratch path/mechanism, initial scratch hash/size/mtime.  
+Controller: future B4A semantic lifecycle controller; final module placement not decided by R-LIFE-1.
+Required: creation attempt ID, parent SourceModelIdentity, source physical pre-state, scratch path/mechanism, initial scratch hash/size/mtime.
 No claim yet that ETABS opened scratch.
 
 ### SCRATCH_OPENED
 
-Controller: future B4A semantic lifecycle controller; final module placement not decided by R-LIFE-1.  
-Candidate operation: `File.OpenFile(scratch_path)` or a separately proven isolation route.  
+Controller: future B4A semantic lifecycle controller; final module placement not decided by R-LIFE-1.
+Candidate operation: `File.OpenFile(scratch_path)` or a separately proven isolation route.
 Postconditions: ret success; active model path equals scratch; source physical state unchanged; lock read; scratch ownership bundle complete. Only then issue scratch identity.
 
 ### SCRATCH_MUTATED_UNANALYZED
 
-Controller: future B4B semantic mutation controller; final module placement not decided by R-LIFE-1.  
-Every write: `SET -> ret -> READBACK -> compare -> manifest`.  
+Controller: future B4B semantic mutation controller; final module placement not decided by R-LIFE-1.
+Every write: `SET -> ret -> READBACK -> compare -> manifest`.
 Postcondition: parent analysis/design identities invalid for the derived state.
 
 ### SCRATCH_ANALYZED
 
-Controller: future B5 semantic analysis-execution controller; final module placement not decided by R-LIFE-1.  
-Candidate sequence: read run flags -> set intended flags -> optional explicit stale-result clearing by approved policy -> `RunAnalysis` -> `GetCaseStatus`.  
+Controller: future B5 semantic analysis-execution controller; final module placement not decided by R-LIFE-1.
+Candidate sequence: read run flags -> set intended flags -> optional explicit stale-result clearing by approved policy -> `RunAnalysis` -> `GetCaseStatus`.
 Only after ret=0 and all intended cases are qualified FINISHED may B5 issue causal `AnalysisResultIdentity`.
 
 ### SCRATCH_DESIGN_READY
 
-Controller: future B6 semantic design-execution preflight controller; final module placement not decided by R-LIFE-1.  
+Controller: future B6 semantic design-execution preflight controller; final module placement not decided by R-LIFE-1.
 Requires qualified AnalysisResultIdentity, bound design code/state, selected design combinations, eligible concrete population, and no later analysis-affecting mutation.
 
 ### SCRATCH_DESIGNED
 
-Controller: future B6 semantic design-execution controller; final module placement not decided by R-LIFE-1.  
-Candidate operation: `DesignConcrete.StartDesign`.  
+Controller: future B6 semantic design-execution controller; final module placement not decided by R-LIFE-1.
+Candidate operation: `DesignConcrete.StartDesign`.
 Postconditions: ret=0; results available; required result population acquisition complete; analysis identity still valid; source integrity unchanged. Only then issue future `DesignResultIdentity`.
 
 ### FAILED_EXECUTION
@@ -353,7 +353,7 @@ retry -> NEW execution attempt ID
 
 ### CLEANED_UP
 
-Controller: future B4A semantic lifecycle owner; final module placement not decided by R-LIFE-1.  
+Controller: future B4A semantic lifecycle owner; final module placement not decided by R-LIFE-1.
 Required: source after-state verified; scratch deleted or intentionally retained-for-audit; cleanup result recorded. Cleanup failure is itself a failure state.
 
 ## 7. Source model integrity
@@ -578,7 +578,7 @@ All additions in this section are **semantic capability requirements**, not modu
 - active-model path readback;
 - cleanup/failure disposition.
 
-Likely API gaps: `File.OpenFile`; possibly `File.Save(FileName)` depending chosen strategy.  
+Likely API gaps: `File.OpenFile`; possibly `File.Save(FileName)` depending chosen strategy.
 Status: `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`.
 
 ### B4B — ANALYSIS-STATE-MUTATION-1
@@ -590,7 +590,7 @@ Status: `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`.
 - mutation manifest;
 - result/design identity invalidation marker.
 
-No generic arbitrary SapModel execution API.  
+No generic arbitrary SapModel execution API.
 Status: `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`.
 
 ### B5 — ANALYSIS-EXEC-1
@@ -666,10 +666,10 @@ Source silent writes; scratch open/switch semantics; copy/save preservation of a
 
 ### 13. Minimum production write set per later sprint
 
-B4A: scratch lifecycle + source integrity + bounded file strategy.  
-B4B: exact typed mutation writers + readback/manifest/invalidation.  
-B5: run flags + RunAnalysis + status qualification + causal AnalysisResultIdentity issuer.  
-B6: design-state preflight + StartDesign + completeness + causal DesignResultIdentity issuer.  
+B4A: scratch lifecycle + source integrity + bounded file strategy.
+B4B: exact typed mutation writers + readback/manifest/invalidation.
+B5: run flags + RunAnalysis + status qualification + causal AnalysisResultIdentity issuer.
+B6: design-state preflight + StartDesign + completeness + causal DesignResultIdentity issuer.
 All final module placements for new write/execution calls require later explicit supervisor disposition.
 
 ## 16. Stop-condition findings
