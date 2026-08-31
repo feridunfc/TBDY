@@ -1,241 +1,311 @@
-# Prior Engineering Asset Reuse Guide — G0-R1
+# Prior Engineering Asset Reuse Guide — G0-R1 Supervisor Patch P1
 
 **Status:** `READY_FOR_SUPERVISOR_REVIEW`  
-**Base:** `6273c19030ab6ecb7ad2637e3bfc74f88b1da086`  
-**Base tree:** `8f6ef822b5ab26d22c859438689e7bb9aea9439a`  
+**Frozen base:** `6273c19030ab6ecb7ad2637e3bfc74f88b1da086`  
+**Frozen base tree:** `8f6ef822b5ab26d22c859438689e7bb9aea9439a`  
+**P1 parent:** `d21232faffe1c32879684e358e487748090e1ecd`  
 **Branch:** `research/g0-r1-prior-engineering-asset-reuse-index`
 
-This guide explains how to consume `PRIOR_ENGINEERING_ASSET_REUSE_INDEX.yaml`. It is a research/reuse artifact only.
+This guide accompanies `PRIOR_ENGINEERING_ASSET_REUSE_INDEX.yaml`. The index is research/routing/debt metadata only:
 
 ```text
 production_import_allowed = false
 engineering_authority = none
 ```
 
-Nothing in this guide or the YAML creates a new engineering authority, changes a current catalog, or permits historical worker code to enter production by import.
+## P1 corrections
 
-## 1. Post-T1 base refresh rule
+P1 preserves the 34-check census, historical W2/W3/W6/W7 classifications, current catalog archaeology, context archaeology, stable IDs, the beam shear catalog gap, T1 negative knowledge, and check-ID/product-capability separation.
 
-The final index is based on the exact post-T1 `main` above. Prior archaeology was not discarded, but old current-asset conclusions were not silently carried forward.
-
-For a previously researched current asset:
+Two current path/blob pairs were corrected:
 
 ```text
-OLD FINDING
-  -> current path exists?
-  -> old blob == current blob?
-       YES: classification may be retained
-       NO / old blob unavailable: reread + reclassify on current base
+tbdy_engine/features/etabs_analysis_lineage.py
+-> tbdy_engine/integration/etabs_analysis_lineage.py
+blob d78f08ef106123fd23aff41df3e1e2291d508bf4
+
+tbdy_engine/features/live_etabs_acquisition_context.py
+-> tbdy_engine/integration/live_etabs_acquisition_context.py
+blob 6adbebe79ea61d01d82c38d8dd513b8efb143204
 ```
 
-The prior per-path old blob ledger was not preserved for the seven previously classified current files listed in the YAML. Those seven were therefore **reclassified on the current base**, not claimed as blob-identical salvage. Historical W2/W3/W6/W7 findings remain historical test-vector/dependency/lineage knowledge and are explicitly marked historical.
-
-## 2. T1 is now current architecture
-
-The current boundary is:
+The final pair audit validates the exact pair, not path and blob independently:
 
 ```text
-packages/etabs_gateway
-=
-SOLE production COM / STA / session / attach owner
+tree[path].type == blob
+AND
+tree[path].sha == recorded blob
 ```
 
-The current gateway connection implementation and T1 isolation tests establish the reusable offline/mock mechanics:
+Result recorded in the YAML:
 
 ```text
-EXPLICIT CUSTOM/FAKE COM DEPENDENCY
-  -> CLOSED DEPENDENCY UNIVERSE
-  -> REAL/default COM FALLBACK FORBIDDEN
+CURRENT_ASSET_COUNT = 48
+CURRENT_PATH_BLOB_PAIRS_CHECKED = 48
+MISSING_CURRENT_PATHS = 0
+CURRENT_BLOB_MISMATCHES = 0
 ```
 
-Use these stable IDs in future prompts:
+## B1 causal-lineage semantics
 
-- `REUSE-OAPI-T1-GATEWAY-OWNERSHIP`
-- `REUSE-OAPI-T1-FAKE-RUNTIME-ISOLATION`
-- `REUSE-OAPI-T1-PID-ISOLATION`
-- `REUSE-OAPI-T1-CLOSED-DEPENDENCY-UNIVERSE`
+`REUSE-LINEAGE-ETABS-ANALYSIS` is the current B1 causal-lineage asset and covers:
 
-And these rejection IDs:
+- `AnalysisStateIdentity`
+- `AnalysisResultIdentity`
+- `AnalysisLineageQualification`
 
-- `REJECT-LEGACY-FALLBACK-ATTACH`
-- `REJECT-T1-CUSTOM-COMTYPES-DEFAULT-WIN32`
-- `REJECT-T1-CUSTOM-RUNTIME-DEFAULT-COMTYPES`
-- `REJECT-T1-RAW-COM-ESCAPE`
+The reusable rule is:
 
-T1 test mechanics are architecture/test knowledge only. They are not engineering authority.
+```text
+IDENTITY OBJECT != QUALIFIED LINEAGE
+```
 
-## 3. Current check census
+A naked identity object is not trusted engineering input. Current public production cannot positively qualify pre-existing ETABS results because the read-only surface cannot prove which execution generated them. `EvidenceEpoch`, `model_fingerprint`, component match, or a row's existence cannot substitute for causal lineage.
 
-The YAML serializes every current check as a concrete record:
+`TrustedLiveAcquisitionContext` and `SourceModelIdentity` remain factual provenance. Source-model reference identity is not physical-file identity, current in-memory state, analysis state, analysis result lineage, or design lineage.
 
-| Family | Count |
-|---|---:|
-| Beam | 9 |
-| Column | 5 |
-| Wall | 16 |
-| Story / Global | 4 |
-| **Total** | **34** |
+## Roadmap reuse sets
 
-The census is the union of the current base check catalog, the column-geometry overlay, and Wall Packs A/B/C. Every record carries required features, factual-source assets, combo and section-state status, shared/reviewed contexts, lineage requirements, result-selection requirement, reuse assets, mechanics oracle, current owner, blockers, future sprint, and forbidden shortcuts. Where current contracts do not resolve a field, the YAML says `UNKNOWN` rather than inventing an answer.
+P1 removes the erroneous Wall-Pack-by-letter mapping and records roadmap meaning explicitly.
 
-The YAML also indexes all 32 unique required feature IDs used by those 34 checks. It intentionally serializes **no raw table keys** in per-check reuse records; raw source-table authority remains behind `REUSE-CONTRACT-TABLE-REGISTRY` and `REUSE-CONTRACT-ETABS-FEATURE-SOURCE`.
+| Reuse set | Roadmap meaning | Semantic review |
+|---|---|---|
+| `B2_REUSE_SET` | `DESIGN-LINEAGE-1` | `VERIFIED` |
+| `B4A_REUSE_SET` | `DERIVED-STATE-1` | `VERIFIED` |
+| `B4B_REUSE_SET` | `ANALYSIS-STATE-MUTATION-1` | `VERIFIED` |
+| `B5_REUSE_SET` | `ANALYSIS-EXEC-1` | `VERIFIED` |
+| `C0_REUSE_SET` | `FND2-LIVE-MATERIALIZATION-1` | `VERIFIED` |
+| `B6_REUSE_SET` | `DESIGN-EXEC-1` | `VERIFIED` |
+| `C1_REUSE_SET` | `COLUMN-LIVE-CUTOVER-1` | `VERIFIED` |
+| `P8B_REUSE_SET` | `COLUMN-CANDIDATE-ADEQUACY-SELECTION-INTEGRATION` | `VERIFIED` |
 
-## 4. Check IDs are not product capabilities
+`BEAM_REUSE_SET`, `WALL_REUSE_SET`, `GLOBAL_REUSE_SET`, and `REPORTING_REUSE_SET` also carry explicit semantic review records.
 
-The following labels are tracked separately and are **not fabricated as current `check_catalog` IDs**:
+### B2 — design lineage
 
-- `FND-COL-1`
-- `FND-COL-2`
-- `P8A`
-- `P8A-B`
-- `FND-COL-4`
-- `P8B`
-- `FINAL COLUMN SHEAR`
-- `COLUMN-R1`
+B2 now centers B1 causal lineage, W6 factual design-result ABI/population negative knowledge, W7 exact component/combo/basis join knowledge, `design_combo_matrix`, table-registry design-result sources, load-combo vocabulary only, current P8A exact combo/basis projection, current factual P8A provider/population, and trusted live-acquisition provenance.
 
-Each capability points only to stable `REUSE-*` assets in the YAML.
+It explicitly rejects:
 
-## 5. Historical context concepts vs current objects
+```text
+component match -> design lineage
+EvidenceEpoch -> design lineage
+model fingerprint -> design lineage
+ETABS row exists -> DesignResultIdentity
+```
 
-| Concept | Current classification |
-|---|---|
-| `StructuralSystemContext` | `CURRENT_OBJECT_PARTIAL` |
-| `ReferenceLevelContext` | `CURRENT_OBJECT_PARTIAL` |
-| `GroundMotionContext` | `CURRENT_OBJECT_PARTIAL` |
-| `BuildingUseContext` | `CURRENT_OBJECT_PARTIAL` |
-| `DuctilityContext` | `CURRENT_OBJECT_PARTIAL` |
-| `ReviewedLoadFamilyBinding` | `CURRENT_OBJECT_PARTIAL` |
-| `ResultSelectionPolicy` | `CURRENT_OBJECT_PARTIAL` |
-| `SelectionTrace` | `CURRENT_OBJECT_EXISTS` |
-| `CheckExecutionContext` | `CURRENT_OBJECT_EXISTS` |
-| `MaterializedCheckDependencies` | `HISTORICAL_DESIGN_ONLY` |
+### B4A — derived/scratch state lifecycle
 
-Important distinctions:
+B4A centers `SourceModelIdentity`, trusted acquisition provenance, B1 identity boundaries, T1 session/transport ownership, closed fake/custom dependency universes, verified session/model-path facts, and the retired legacy raw-COM facade as a negative pattern.
 
-- Current `CheckExecutionContext` is an exact frozen carrier.
-- Current `SelectionTrace` exists in the Ndm slice.
-- Current `ReviewedNdmLoadBinding` and `ReviewedNdmPolicy` are target-scoped implementations, not proof that the historical generic shared abstractions are complete.
-- `WallRegulatoryReferenceFacts` is a real typed current reference context for the Wall Pack C domain, but it is not a generic `ReferenceLevelContext`.
-- `design_basis.yaml` contains partial seismic/building-use fields while `design_basis_reviewed=false`; those values are not silently promoted to executable regulatory truth.
-- The historical `MaterializedCheckDependencies` design remains useful architecture research, but no exact current object was found.
+Source mutation and raw `SapModel` export are forbidden. `R-LIFE-1` is recorded only as unmerged parallel research, never CURRENT.
 
-Exact current path/blob evidence and historical report names are in the YAML.
+### B4B — analysis-state mutation
 
-## 6. Catalog contradiction: record, do not repair
+B4B centers `section_state_policy`, current state transaction mechanics, B1 `AnalysisStateIdentity`, and T1 bounded transport.
 
-Stable debt ID:
+Required future chain:
+
+```text
+typed mutation
+-> SET
+-> ret
+-> READBACK
+-> equality/tolerance
+-> mutation manifest
+-> AnalysisStateIdentity
+```
+
+The current state-transaction asset is a mechanics oracle, not the future mutation authority.
+
+### B5 — controlled analysis execution
+
+B5 centers B1 lineage, trusted live acquisition, T1 transport/session isolation, verified session facts, factual analysis-case readiness, analysis-basis invariants and W7 exact-binding knowledge.
+
+Permanent rule:
+
+```text
+partial/failed execution
+-> NO qualified AnalysisResultIdentity
+```
+
+No partial-success salvage. `R-LINEAGE-1` remains unmerged research.
+
+### C0 — FND2 live materialization
+
+The target dependency chain is:
+
+```text
+TrustedLiveAcquisitionContext
++
+QUALIFIED AnalysisResultIdentity
++
+canonical factual providers
++
+reviewed typed regulatory inputs
++
+frozen engineering policy
+->
+canonical RegulatoryCompileInputs
+->
+existing FND-COL-2
+```
+
+No current generic `RegulatoryCompileInputs` object was found on the frozen base, so `GAP-REGULATORY-COMPILE-INPUTS` records new required work. C0 rejects giant `ModelContext`, FeatureSnapshot as regulatory context, and caller-supplied compile-input authority.
+
+### B6 — controlled design execution
+
+B6 centers B1 parent lineage, W6 factual ABI knowledge, W7 exact joins, current P8A design-result provider/population, exact combo eligibility, row-wise ETABS-required-rebar promotion, `design_combo_matrix`, actual selected-design-combo factual acquisition, and T1 isolation.
+
+Permanent rules:
+
+```text
+W6 factual result proof != positive design execution qualification
+W7 exact join != positive design execution qualification
+B6 owns StartDesign
+B6 != second RunAnalysis owner
+```
+
+`GAP-DESIGN-EXECUTION-QUALIFICATION` records the missing causal controlled-design qualification rather than pretending it already exists.
+
+## Asset classification fields
+
+Every CURRENT asset now carries:
+
+```text
+reuse_disposition
+semantic_role
+authority_ceiling
+```
+
+These ceilings are asset-specific. Examples:
+
+```text
+table_registry
+-> RAW_ETABS_FACT
+
+feature_catalog
+-> FACTUAL_NORMALIZATION_ONLY
+
+check_catalog
+-> CURRENT_CHECK_REQUIREMENT_DECLARATION_ONLY
+
+design_combo_matrix
+-> REQUIREMENT_DECLARATION_ONLY
+
+load_combo_policy
+-> DIAGNOSTIC_CLASSIFICATION_ONLY
+
+W2
+-> TEST_ORACLE_ONLY_MECHANICS_ONLY
+
+W6
+-> CONTRACT_CANDIDATE_FACTUAL_ABI_ONLY
+
+W7
+-> EXACT_BINDING_KNOWLEDGE_NOT_EXECUTION_QUALIFICATION
+
+B1 analysis lineage
+-> CURRENT_CANONICAL_LINEAGE_AUTHORITY
+```
+
+The index itself still has `engineering_authority = none`; an indexed current asset's authority ceiling is a description of that asset, not authority granted by G0-R1.
+
+## Parallel research
+
+The frozen base does not contain these research branches:
+
+- `R-LIFE-1` — candidate `84159cae238c489473ba5781ce03459a8fb1ab4b`
+- `R-LINEAGE-1` — candidate `9e491faf823aaa844188f806be1cd5efa0ce297c`
+- `R-CI-1` — candidate `32f51695543291e8954fc3e07e01499df3109795`
+
+They are encoded as `UNMERGED_RESEARCH / PARALLEL_RESEARCH_CANDIDATE`, never as CURRENT assets.
+
+```text
+UNMERGED RESEARCH != CURRENT ASSET
+```
+
+G0-R1 remains valid if any of those branches are later rejected.
+
+## Check/capability separation
+
+The current census remains:
+
+```text
+BEAM         = 9
+COLUMN       = 5
+WALL         = 16
+STORY_GLOBAL = 4
+TOTAL        = 34
+```
+
+The YAML serializes all 34 checks individually and retains 32 unique required feature IDs.
+
+These product/roadmap capabilities remain separate and are not fabricated as catalog check IDs:
+
+```text
+FND-COL-1
+FND-COL-2
+P8A
+P8A-B
+FND-COL-4
+P8B
+FINAL COLUMN SHEAR
+COLUMN-R1
+```
+
+## Catalog contradiction
+
+P1 preserves without repairing:
 
 ```text
 GAP-CATALOG-BEAM-SHEAR-ASW-TOP-AS
-```
+classification = POTENTIAL_CATALOG_SEMANTIC_CONTRADICTION
 
-Classification:
-
-```text
-POTENTIAL_CATALOG_SEMANTIC_CONTRADICTION
-```
-
-Observed current dependency:
-
-```text
 beam_shear_asw_ge_asw_min
-  -> beam_As_top_governing_required_mm2
+-> beam_As_top_governing_required_mm2
 ```
 
-The dependency is suspicious because an `Asw >= Asw,min` shear-reinforcement check points to a feature named as governing **top longitudinal reinforcement area**. That may be a placeholder, a naming problem, or a binding problem. G0-R1 makes no engineering correction. A future beam regulatory owner must reconcile the intended rule, formula, feature semantics, source history, and consumer before changing the catalog.
+A future beam regulatory owner must verify the intended rule and semantics before changing the catalog.
 
-## 7. How to cite reuse assets in future implementation prompts
+## Validation
 
-Future prompts should cite stable IDs, not copy a free-text archaeology paragraph.
-
-Examples:
+The YAML records:
 
 ```text
-Reuse C0_REUSE_SET.
-Preserve REUSE-OAPI-T1-CLOSED-DEPENDENCY-UNIVERSE.
-Enforce REJECT-T1-CUSTOM-RUNTIME-DEFAULT-COMTYPES.
-Do not import historical assets into production.
+all CURRENT (path, blob) pairs exact-tree verified = PASS
+all REUSE-* IDs unique = PASS
+all GAP-* IDs unique = PASS
+all REJECT-* IDs unique = PASS
+all 34 check IDs resolve = PASS
+all 32 required feature IDs resolve = PASS
+all reuse-set references resolve = PASS
+all reuse-set semantic reviews = PASS
+all CURRENT assets have reuse_disposition = PASS
+all CURRENT assets have semantic_role = PASS
+all CURRENT assets have authority_ceiling = PASS
+historical assets clearly historical = PASS
+unmerged research never CURRENT = PASS
+production_import_allowed = false
+index engineering_authority = none
 ```
 
-or:
-
-```text
-For wall execution, use WALL_REUSE_SET.
-Treat REUSE-CONTEXT-WALL-REFERENCE-FACTS as factual context only.
-Do not violate REJECT-FEATURE-REGULATORY-SEMANTIC-LEAK.
-```
-
-Required high-value sets present in the YAML:
-
-```text
-B2_REUSE_SET
-B4A_REUSE_SET
-B4B_REUSE_SET
-B5_REUSE_SET
-C0_REUSE_SET
-B6_REUSE_SET
-C1_REUSE_SET
-P8B_REUSE_SET
-
-BEAM_REUSE_SET
-WALL_REUSE_SET
-GLOBAL_REUSE_SET
-REPORTING_REUSE_SET
-```
-
-Every set member resolves to a stable `REUSE-*` asset ID.
-
-## 8. Historical assets: what “reuse” means
-
-Historical W2/W3/W6/W7 material may be reused only in the classification recorded by the YAML:
-
-- test vectors;
-- dependency/source archaeology;
-- negative-contract mechanics;
-- lineage/binding invariants.
-
-Historical worker code, fixtures, or prose do **not** become production truth or engineering authority merely because they are useful.
-
-In particular:
-
-```text
-TEST VECTOR != ENGINEERING AUTHORITY
-DEPENDENCY DISCOVERY != ENGINEERING AUTHORITY
-ETABS DESIGN RESULT != FINAL TBDY VERDICT
-```
-
-## 9. Validation status
-
-Connector verification established the exact current base/tree and current path/blob census. The generated YAML was parsed locally and its internal stable-ID, check-count, feature-reference, capability-reference, and reuse-set integrity checks passed.
-
-There was no exact repository checkout in the local container, and outbound GitHub DNS was unavailable there. Therefore these are deliberately not fabricated:
+No exact repository checkout is available in the local container, so repository-shell validations are not fabricated:
 
 ```text
 LOCAL_CHECKOUT_AVAILABLE = NO
 python -m compileall = NOT RUN LOCALLY
 git diff --check = NOT RUN LOCALLY
-git fetch origin = NOT RUN LOCALLY
-git rev-parse origin/main = NOT RUN LOCALLY
 ```
 
-Before candidate freeze, `main` must again resolve to `6273c19030ab6ecb7ad2637e3bfc74f88b1da086`. If it has moved, the candidate must stop as `BASE_MOVED`.
+The generated YAML itself is locally parsed and cross-reference validated before commit.
 
-## 10. Non-authority declaration
+Before candidate freeze, `main` must again resolve to `6273c19030ab6ecb7ad2637e3bfc74f88b1da086`. If it has moved, stop as `BASE_MOVED`.
 
-This sprint changes documentation only. The index is a routing/reuse/debt map for future workers.
-
-It is **not**:
-
-- a new check catalog;
-- a new feature catalog;
-- a regulatory source;
-- an ETABS acquisition implementation;
-- a selection authority;
-- a final engineering verdict engine;
-- a declaration that any historical branch is production-ready.
-
-The only allowed final review state for G0-R1 is:
+## Allowed status
 
 ```text
 READY_FOR_SUPERVISOR_REVIEW
 ```
+
+This guide does not declare the candidate canonical, merge-ready, or ready for merge.
