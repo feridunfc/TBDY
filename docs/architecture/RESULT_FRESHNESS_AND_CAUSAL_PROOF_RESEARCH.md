@@ -14,19 +14,26 @@ IDENTITY_ISSUER = NOT_IMPLEMENTED
 ENGINEERING_CHECK_CHANGES = 0
 ```
 
-This document is research for future B2/B5/B6. It is not an implementation specification with canonical authority and does not issue qualified lineage.
+This document is research for future B2/B5/B6. It is not a canonical implementation specification and does not issue qualified lineage.
 
-The governing research question is deliberately causal rather than merely correlational:
+The governing question is causal:
 
 > What evidence can prove that an exact result population was produced by one exact controller-owned execution whose exact parent state is known?
 
-The answer is not one ETABS field. The strongest defensible future proof is a bounded causal enclosure: exact pre-state, controller-owned execution attempt, execution/status evidence, no intervening state-changing action, and immediate exact-scope acquisition.
+The answer is not one ETABS field. The strongest defensible proof is a bounded causal enclosure with a predeclared execution scope, exact pre-state, controller-owned execution, execution/status evidence, no intervening state-changing action, complete population reconciliation for the entire declared scope, and immediate result acquisition.
+
+A second governing rule is now explicit:
+
+```text
+PARTIAL SUCCESS
+!= QUALIFIED RESULT LINEAGE
+```
+
+A failed or partial execution attempt may retain diagnostics and readable rows, but it may not salvage a successful subset into a qualified result identity.
 
 ---
 
 ## 1. Permanent non-equivalences
-
-The following are preserved without qualification:
 
 ```text
 SourceModelIdentity != AnalysisStateIdentity
@@ -43,7 +50,7 @@ combo name != design result lineage
 ETABS result row existence != qualified DesignResultIdentity
 ```
 
-Additional research conclusion:
+Additional research conclusions:
 
 ```text
 RunAnalysis ret == 0 != result-generation proof
@@ -52,9 +59,12 @@ model locked == true != result-generation proof
 result table nonempty != result-generation proof
 StartDesign ret == 0 != design-result generation proof
 GetResultsAvailable == true != design-result generation proof
+
+finished subset from partial attempt != qualified subset identity
+readable subset from failed attempt != usable causal result identity
 ```
 
-Those facts become useful only inside a controller-owned causal chain.
+These facts become useful only inside a controller-owned causal chain whose entire declared execution scope succeeds.
 
 ---
 
@@ -91,7 +101,7 @@ provenance_refs
 contract
 ```
 
-Its object existence is explicitly not self-authenticating. `analysis_generation_ref` is an identity input, not proof that a generation occurred.
+Its existence is explicitly not self-authenticating. `analysis_generation_ref` is an identity input, not proof that a generation occurred.
 
 `AnalysisLineageQualification` is factory-created and fail-closed. Positive qualification requires a verified execution proof coherent across:
 
@@ -104,6 +114,14 @@ analysis_generation_ref
 ```
 
 B1 exposes no public positive issuer. Existing live/pre-existing results therefore remain unqualified.
+
+P1 conclusion:
+
+```text
+B1_SEMANTIC_CHANGE_REQUIRED = NO
+```
+
+The required partial-execution fail-closed rule can be represented in a future external B5 attempt/proof artifact: a failed/partial attempt simply never reaches B1 positive issuance.
 
 ### 2.2 Source model and factual acquisition provenance
 
@@ -121,7 +139,7 @@ semantics
 model_fingerprint_semantics
 ```
 
-The module explicitly defines both `SourceModelIdentity` and `model_fingerprint` as identities of the verified source-model reference, not physical bytes, current in-memory state, analysis state, or result generation.
+Both `SourceModelIdentity` and `model_fingerprint` identify the verified source-model reference, not physical bytes, current in-memory state, analysis state, or result generation.
 
 `TrustedLiveAcquisitionContext` carries:
 
@@ -134,7 +152,7 @@ session_provenance_ref
 acquisition_context_ref
 ```
 
-`acquisition_generation_ref` is UUID-based. It proves one factual acquisition generation exists; it cannot prove an ETABS analysis/design execution.
+`acquisition_generation_ref` is factual acquisition provenance. It cannot prove an ETABS analysis/design execution.
 
 ### 2.3 EvidenceEpoch
 
@@ -142,7 +160,7 @@ Current owner:
 
 `tbdy_engine/features/evidence_epoch.py`
 
-Fields:
+Relevant fields:
 
 ```text
 epoch_id
@@ -180,33 +198,14 @@ Current owner:
 
 `tbdy_engine/analysis_basis/contracts.py`
 
-`AnalysisSystemAssumption` carries:
+`AnalysisSystemAssumption` and `AnalysisBasisCompatibility` preserve exact EvidenceEpoch / zone / direction / basis / provenance joins. `AnalysisBasisSnapshot` is a deterministic audit/provenance join and is explicitly not an authority.
+
+Therefore:
 
 ```text
-assumption_id
-epoch_ref
-structural_zone_ref
-direction
-observed_basis_ref
-analysis_evidence_refs
-provenance_refs
+AnalysisBasisCompatibility.MATCH
+!= AnalysisResultIdentity freshness
 ```
-
-`AnalysisBasisCompatibility` carries:
-
-```text
-compatibility_id
-epoch_ref
-structural_zone_ref
-direction
-required_basis_ref
-analysis_assumption_ref
-status
-diagnostic_refs
-provenance_refs
-```
-
-`AnalysisBasisSnapshot` carries deterministic join provenance and is explicitly documented as never an authority. `MATCH` proves basis compatibility at its declared grain; it does not prove when or by which execution the numerical analysis results were produced.
 
 ### 2.6 Current column concrete-design factual result population
 
@@ -218,28 +217,15 @@ tbdy_engine/providers/etabs_concrete_column_design_result_provider.py
 tbdy_engine/etabs/oapi/concrete_design.py
 ```
 
-`FactualColumnDesignResultRow` carries:
+`FactualColumnDesignResultRow` preserves exact component/section/result values plus:
 
 ```text
-source_row_id
-component_id
-unique_name
-story
-label
-assigned_section
-design_section
-my_option
-pmm_combo
-location_mm
-pmm_area_mm2
-error_summary
-warning_summary
 model_fingerprint
 evidence_epoch_id
 source_refs
 ```
 
-`FactualColumnDesignResultPopulation` carries:
+`FactualColumnDesignResultPopulation` preserves:
 
 ```text
 model_fingerprint
@@ -252,9 +238,9 @@ rows
 source_refs
 ```
 
-The provider validates the live-observed ETABS 23.2 `DesignConcrete.GetSummaryResultsColumn` 14-slot Python COM shape, exact row counts, requested FrameName, explicit source units and before/after unit provenance. These are strong factual ABI/population guarantees, but no field binds the rows to a particular `StartDesign` generation.
+The provider validates the live-observed ETABS 23.2 `DesignConcrete.GetSummaryResultsColumn` 14-slot Python COM shape, exact row counts, requested FrameName, explicit source units and before/after unit provenance. These are strong factual ABI/population guarantees, but no field binds rows to a particular `StartDesign` generation.
 
-Important naming warning: the current `ColumnDesignResultIdentity` in `column_concrete_design_evidence.py` is a factual component/section/model/EvidenceEpoch binding helper. It is not the future causal product-level `DesignResultIdentity` contemplated by B2/B6.
+The current `ColumnDesignResultIdentity` in `column_concrete_design_evidence.py` is a factual component/section/model/EvidenceEpoch binding helper. It is not the future causal product-level `DesignResultIdentity` contemplated by B2/B6.
 
 ### 2.7 Exact design-combo selection and definition evidence
 
@@ -265,34 +251,7 @@ tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py
 tbdy_engine/providers/etabs_combo_definition_provider.py
 ```
 
-Selected-combo population carries:
-
-```text
-row_id
-combo_type
-combo_name
-source_row_ref
-model_fingerprint
-evidence_epoch_id
-session_provenance_ref
-selected_signature_name
-source_refs
-```
-
-Combo-definition evidence carries:
-
-```text
-name
-combo_type_code
-combo_type
-constituents[index, cname_type_code, cname_type, name, scale_factor]
-nested_combos
-raw_get_type_combo
-raw_get_case_list
-status
-```
-
-These facts prove exact combo semantics and population, not execution generation.
+These preserve exact selected combo identity, combo type, definition, nested constituents, leaf names/types and scale factors. They prove exact combo semantics and population, not execution generation.
 
 ### 2.8 P8A / W7 exact combo-to-analysis-basis projection
 
@@ -300,50 +259,21 @@ Current owner:
 
 `tbdy_engine/design/columns/column_combo_eligibility_projection.py`
 
-`ComponentReadinessBinding` carries:
+`ComponentReadinessBinding`, `ComboAnalysisBasisBinding` and `ColumnComboEligibilityProjection` preserve the exact semantic join across:
 
 ```text
-readiness
-model_fingerprint
-evidence_epoch_id
-readiness_ref
-provenance_refs
+component
++ design combo identity
++ definition fingerprint
++ constituents
++ factual case types
++ reconstruction semantics
++ accepted analysis basis
++ model fingerprint
++ EvidenceEpoch
 ```
 
-`ComboAnalysisBasisBinding` carries:
-
-```text
-design_combo_identity
-AnalysisBasisEligibilityEvidence
-normalized_definition_fingerprint
-model_fingerprint
-evidence_epoch_id
-provenance_refs
-```
-
-`ColumnComboEligibilityProjection` additionally preserves:
-
-```text
-projection_id
-component_id
-design_combo_identity
-normalized_definition_fingerprint
-constituent_facts
-combo_pattern
-reconstruction_authority
-reconstruction_behavior_refs
-analysis_basis_status
-analysis_basis_ref
-component_readiness_status
-component_readiness_ref
-model_fingerprint
-evidence_epoch_id
-eligibility_state
-blockers
-provenance_refs
-```
-
-This is the correct exact semantic join for component × combo × definition × leaf case type × reconstruction basis × accepted analysis basis. It remains different from positive design-execution qualification.
+This remains different from positive design-execution qualification.
 
 ### 2.9 Current application blockers
 
@@ -363,7 +293,65 @@ A test-only seam that assumes qualified FND2 lineage then stops on:
 LIVE_DESIGN_RESULT_LINEAGE_NOT_QUALIFIED
 ```
 
-This is important negative evidence: current production deliberately does not promote same-model/EvidenceEpoch P8A facts into execution lineage.
+Current production therefore deliberately does not promote same-model/EvidenceEpoch P8A facts into execution lineage.
+
+### 2.10 Current factual analysis-readiness surface — EXISTING
+
+Current public bounded factual owner:
+
+`tbdy_engine.etabs.safety.read_verified_analysis_readiness(...)`
+
+Current implementation path:
+
+```text
+EtabsVerifiedSession
+→ safety._execute_verified_read(...)
+→ private safety helper read_analysis_readiness(...)
+→ SapModel.Analyze.GetCaseStatus()
+→ AnalysisCaseReadiness
+```
+
+The factual DTO preserves:
+
+```text
+case_name
+readiness
+etabs_status_code
+return_code
+source_api = Analyze.GetCaseStatus
+error_code
+```
+
+Current status mapping is already bounded:
+
+```text
+1 → ANALYSIS_NOT_RUN
+2 → ANALYSIS_COULD_NOT_START
+3 → ANALYSIS_INCOMPLETE
+4 → ANALYSIS_FINISHED
+other/unknown → ANALYSIS_UNKNOWN
+```
+
+Therefore:
+
+```text
+GetCaseStatus factual read surface = EXISTING
+```
+
+It must not be labeled wholesale as `MISSING_FUTURE_B5_OAPI` and B5 must not create a duplicate reader merely because B5 is new.
+
+What may still be `NEW_REQUIRED` is only the additional exact execution-scope/status mechanics that B5 proves are absent after reusing the current bounded read surface. Examples include a typed aggregate attempt-scope reconciliation or an exact run-flag factual reader if the accepted B5 design proves that is necessary.
+
+Architecture remains:
+
+```text
+gateway = COM / STA / session / transport ownership
+OAPI = factual ABI ownership
+safety = verified-session factual/state boundary and transaction discipline
+B5/B6 controller = future execution authority
+```
+
+Neither `RunAnalysis` nor `StartDesign` execution authority is assigned to OAPI or gateway by this research.
 
 ---
 
@@ -377,7 +365,7 @@ This is important negative evidence: current production deliberately does not pr
 | `SourceModelIdentity` | CORRELATION ONLY | verified source-model reference | physical/in-memory state or result generation |
 | `model_fingerprint` | CORRELATION ONLY | same bounded source-model reference | analysis/design freshness |
 | `EvidenceEpoch` | CORRELATION ONLY | same factual acquisition generation | analysis/design execution generation |
-| `acquisition_generation_ref` UUID | CORRELATION ONLY | acquisition instance label | ETABS execution occurrence |
+| `acquisition_generation_ref` | CORRELATION ONLY | acquisition instance label | ETABS execution occurrence |
 | `session_provenance_ref` | CORRELATION ONLY | acquisition session provenance | result freshness |
 | `source_row_id` / row hash | CORRELATION ONLY | deterministic row identity/payload trace | generation or execution |
 | exact component identity | CORRELATION ONLY | correct component binding | design generation |
@@ -385,36 +373,37 @@ This is important negative evidence: current production deliberately does not pr
 | exact combo definition fingerprint | CORRELATION ONLY | exact definition equality | execution occurrence |
 | factual leaf case types / reconstruction refs | CORRELATION ONLY | exact demand reconstruction semantics | execution occurrence |
 | `AnalysisBasisCompatibility.MATCH` | CORRELATION ONLY | accepted basis compatibility | result freshness |
-| `RunAnalysis` return 0 | DIAGNOSTIC ONLY alone | API reports successful run | all requested result rows were newly generated by this call |
-| `GetCaseStatus` | DIAGNOSTIC ONLY alone; causal support inside controlled window | per-case current execution status | which historical invocation produced pre-existing Finished results |
-| post-analysis locked state | DIAGNOSTIC ONLY | model currently locked; consistent with completed analysis | generation identity |
+| `RunAnalysis` return 0 | DIAGNOSTIC ONLY alone | execution API reports success | whole declared scope completion/freshness |
+| current `read_verified_analysis_readiness` / `GetCaseStatus` | EXISTING FACTUAL READ; DIAGNOSTIC ONLY alone | current per-case readiness/status | which historical invocation produced pre-existing Finished results |
+| post-analysis locked state | DIAGNOSTIC ONLY | model currently locked | generation identity |
 | result-table availability/nonempty rows | DIAGNOSTIC ONLY | results can currently be read | causal producer |
-| `StartDesign` return 0 | DIAGNOSTIC ONLY alone | design call reports successful start | exact row generation/freshness |
+| `StartDesign` return 0 | DIAGNOSTIC ONLY alone | design execution call reports success | complete fresh result generation |
 | `GetResultsAvailable == true` | DIAGNOSTIC ONLY | concrete design results exist | their generation or parent analysis |
-| timestamps/file mtimes | UNSAFE for qualification | possible chronology clue | causal execution |
+| timestamps/file mtimes | UNSAFE | possible chronology clue | causal execution |
 | random execution/generation UUID | UNSAFE when used alone | unique label | actual execution |
 | caller-provided READY/MATCH/status | UNSAFE | caller assertion | factual or causal proof |
+| finished subset of a failed/partial attempt | DIAGNOSTIC ONLY | subset status/rows are observable | any qualified result identity |
 
-Historical architecture PRs also confirm zero supported production `RunAnalysis` and `StartDesign` calls at the frozen architecture stage. Therefore no existing supported production route can already issue positive execution lineage.
+Historical architecture work also confirms zero supported production `RunAnalysis` and `StartDesign` calls at the frozen architecture stage. No existing supported production route can already issue positive execution lineage.
 
 ---
 
 ## 4. External ETABS facts relevant to causal proof
 
-Public CSI documentation establishes the following useful but bounded facts:
+Public CSI documentation establishes useful but bounded facts:
 
 1. `cAnalyze.RunAnalysis()` returns zero when the analysis model is successfully run.
-2. `cAnalyze.GetCaseStatus()` reports all load-case statuses; documented status values include Not run, Could not start, Not finished, and Finished.
-3. ETABS `Run Analysis` executes cases for which results are not available. Therefore a successful controlled call can coexist with older pre-existing results unless the controller first proves the intended result scope has no reusable prior results.
-4. ETABS automatically locks a model after analysis; unlocking deletes analysis results because subsequent changes would make them invalid.
-5. `cAnalyze.GetRunCaseFlag()` exposes which cases are marked to run; `SetRunCaseFlag` changes that configuration.
-6. `cAnalyze.DeleteResults()` can delete analysis results for cases/all. This may be useful to a future authorized B5 but is not used by this research task.
-7. `cDesignConcrete.StartDesign()` returns zero if design is successfully started and fails when analysis results are unavailable.
-8. `cDesignConcrete.GetResultsAvailable()` only reports whether concrete design results are available.
-9. `cDesignConcrete.GetCode()` retrieves the concrete design code.
-10. The public `cDesignConcrete` interface exposes design code, design section, results-available, summary-result and StartDesign APIs, but the reviewed interface exposes no immutable design-generation identifier or design-result timestamp that causally binds rows to a StartDesign invocation.
+2. `cAnalyze.GetCaseStatus()` reports load-case statuses.
+3. ETABS Run Analysis may skip cases whose results are already available; therefore a controlled call can coexist with old result generations unless the controller first removes or disproves reusable prior results for the declared scope.
+4. ETABS locks a model after analysis; unlocking deletes analysis results because subsequent changes would make them invalid.
+5. `cAnalyze.GetRunCaseFlag()` exposes run-selection configuration; if B5 needs this factual surface, it should be added only after reusing current factual reads and proving a gap.
+6. `cAnalyze.DeleteResults()` can delete analysis results; this may be relevant to a future authorized B5 but is not used here.
+7. `cDesignConcrete.StartDesign()` returns zero on documented successful start and requires analysis results.
+8. `cDesignConcrete.GetResultsAvailable()` reports availability only.
+9. `cDesignConcrete.GetCode()` retrieves the design code.
+10. No reviewed public API mechanism supplies an immutable analysis/design generation identifier that by itself causally binds result rows to a controller execution.
 
-External references reviewed:
+External references reviewed in the original research remain applicable:
 
 - https://docs.csiamerica.com/help-files/etabs-api-2016/html/4b00dc5d-9b60-e088-1b39-d7f7687145fc.htm
 - https://docs.csiamerica.com/help-files/etabs-api-2016/html/a24b2f43-be87-e0ff-587b-068339d9a350.htm
@@ -427,57 +416,107 @@ External references reviewed:
 - https://docs.csiamerica.com/help-files/etabs-api-2016/html/0271361b-2be9-36fb-3d48-631ee225776d.htm
 - https://docs.csiamerica.com/help-files/etabs-api-2016/html/4444b23f-4ec2-f061-a12d-239e8ca6dfc6.htm
 
-These are public ETABS 2016 API/help references. Exact ETABS 23.2 Python binding behavior for the new causal sequence must be live-verified before B5/B6 rely on it.
+Exact ETABS 23.2 behavior for the future controlled execution sequence still needs live verification where identified below.
 
 ---
 
 ## 5. B5 analysis-result qualification research
 
-### 5.1 Minimum defensible positive chain
+### 5.1 Declared execution scope is fixed before execution
 
-Future B5 should qualify an `AnalysisResultIdentity` only when all of the following are inside one controller-owned causal transaction:
+Before a `RunAnalysis` attempt begins, B5 must establish an immutable exact requested execution scope:
+
+```text
+requested_scope_refs = R
+```
+
+The scope may be deliberately narrow, but it must be declared before invocation.
+
+Allowed example:
+
+```text
+requested scope = {A, B}
+A finished
+B finished
+all required populations reconcile
+→ successful attempt may qualify exactly {A, B}
+```
+
+Forbidden example:
+
+```text
+requested scope = {A, B, C}
+A finished
+B finished
+C failed / unfinished / missing population
+→ ATTEMPT = FAILED / PARTIAL
+→ NO qualified {A, B}
+→ NO qualified AnalysisResultIdentity from this attempt
+```
+
+Post-hoc shrinkage of requested scope is not permitted.
+
+### 5.2 Minimum defensible positive chain
+
+Future B5 should issue a QUALIFIED `AnalysisResultIdentity` only when every condition below closes for the entire predeclared scope R:
 
 ```text
 A. controller owns scratch/execution state S
 B. exact AnalysisStateIdentity X is established from S
 C. exact state-basis readback for X succeeds immediately before analysis
-D. intended run/result scope R is reconciled
-E. prior reusable results for R are proven absent or explicitly invalidated under controller control
-F. controller creates unique attempt_ref Y and analysis_generation_ref G
-G. controller itself invokes RunAnalysis
-H. RunAnalysis returns exact success
-I. GetCaseStatus is successfully read and every qualified scope reports Finished
-J. post-run state/lock evidence is consistent with no state drift
-K. no analysis-affecting mutation, unlock, second run, or source switch occurs
-L. required result populations Z are acquired within the same exclusive window
-M. Z's exact result scopes/population are reconciled to the Finished scope set
-N. AnalysisResultIdentity(parent=X, generation=G, scopes=Z scopes) is built
-O. verified execution proof binds X, G, the result identity, attempt evidence and provenance
-P. only then may AnalysisLineageQualification become QUALIFIED
+D. exact requested execution scope R is declared before invocation
+E. run/configuration scope is reconciled with R to the extent required by accepted B5 mechanics
+F. prior reusable results for R are proven absent or explicitly invalidated under controller control
+G. controller creates unique attempt_ref Y and analysis_generation_ref G
+H. controller itself invokes RunAnalysis
+I. RunAnalysis returns exact success
+J. existing bounded factual status read is reused and every required/requested scope in R is ANALYSIS_FINISHED
+K. no requested/required scope is failed, incomplete, not-run, unknown, or absent from required status evidence
+L. post-run state/lock evidence is consistent with no state drift
+M. no analysis-affecting mutation, unlock, second run, or source switch occurs
+N. every required result population for every scope in R is acquired within the same exclusive causal window
+O. population reconciliation for R is complete with no missing required scope/population
+P. AnalysisResultIdentity(parent=X, generation=G, result_scope_refs=R) is built
+Q. verified execution proof binds X, G, result identity, exact declared scope R, attempt evidence and provenance
+R. only then may AnalysisLineageQualification become QUALIFIED
 ```
 
-No individual fact in the chain is sufficient by itself.
+Atomic attempt rule:
 
-### 5.2 Candidate evidence evaluation
+```text
+RunAnalysis failure
+OR any scope in R fails
+OR any scope in R is unfinished/unknown/not-run
+OR any required population for R is incomplete
+→ ATTEMPT = FAILED / PARTIAL
+→ NO QUALIFIED AnalysisResultIdentity
+→ NO usable causal result identity from the attempt
+```
+
+Finished/readable subsets may be retained only as diagnostics/attempt evidence.
+
+### 5.3 Candidate evidence evaluation
 
 | Candidate | Necessary? | Sufficient? | Offline-verifiable? | Live verification? | Disposition |
 |---|---:|---:|---:|---:|---|
 | controller owns scratch | yes | no | architecture can be tested | yes for real lifecycle | REAL CAUSAL PRECONDITION |
 | exact pre-call `AnalysisStateIdentity` | yes | no | yes | state readback must be live-proven | REAL CAUSAL PRECONDITION |
+| predeclared requested scope R | yes | no | yes | yes for runtime reconciliation | REAL CAUSAL SCOPE BOUNDARY |
 | controlled `RunAnalysis` invocation | yes | no | wrapper/control flow yes | yes | REAL CAUSAL EVENT |
-| `RunAnalysis` return code 0 | yes | no | decoder behavior yes | yes | DIAGNOSTIC WITHIN CAUSAL EVENT |
-| pre-run no-results / invalidated required scope | yes for strong generation claim | no | contract yes | yes | REAL CAUSAL DISAMBIGUATOR |
-| `GetRunCaseFlag` expected scope | recommended/necessary when run flags control scope | no | contract yes | yes | SCOPE EVIDENCE |
-| post-run `GetCaseStatus` Finished | yes for qualified scopes | no | contract yes | yes | SCOPE COMPLETION EVIDENCE |
+| `RunAnalysis` return code 0 | yes | no | controller contract yes | yes | DIAGNOSTIC WITHIN CAUSAL EVENT |
+| pre-run no-results / invalidated R | yes for strong generation claim | no | contract yes | yes | REAL CAUSAL DISAMBIGUATOR |
+| current bounded per-case readiness read | yes as status evidence | no | existing | execution-transition semantics need live proof | EXISTING FACTUAL SURFACE |
+| every requested/required scope == FINISHED | yes | no | aggregation can be tested | yes | WHOLE-SCOPE COMPLETION EVIDENCE |
 | post-analysis model locked | recommended | no | API contract yes | yes | INTEGRITY DIAGNOSTIC |
-| required result tables available | yes for claimed result kinds | no | parsers yes | yes | AVAILABILITY/POPULATION EVIDENCE |
-| no intervening analysis-affecting mutation | yes | no | orchestration reachability yes | yes | REAL CAUSAL CONTINUITY |
+| every required result population for R available/reconciled | yes | no | parsers yes | yes | WHOLE-SCOPE POPULATION EVIDENCE |
+| no intervening analysis-affecting mutation | yes | no | reachability yes | yes | REAL CAUSAL CONTINUITY |
 | controller-issued generation ref | yes as identity handle | no | yes | no by itself | CORRELATION HANDLE INSIDE PROOF |
 | exact parent AnalysisStateIdentity | yes | no | yes | parent state's factual establishment live | REAL CAUSAL BINDING |
+| finished subset when another requested scope failed | no authorizing value | no | yes | yes | DIAGNOSTIC ONLY / NO SALVAGE |
 
-### 5.3 The pre-existing-results trap
+### 5.4 The pre-existing-results trap
 
-CSI states that Run Analysis executes cases for which results are not available. Therefore this chain is unsafe:
+This chain is unsafe:
 
 ```text
 attach model with Finished results
@@ -487,17 +526,17 @@ attach model with Finished results
 → claim all results came from this call
 ```
 
-The call may have reused already-available results. B5 must therefore establish one of these equivalent causal preconditions for every qualified scope:
+B5 must establish, for the entire declared scope R, an accepted causal precondition such as:
 
 ```text
 fresh controller-created scratch with no prior result generation
 OR
-pre-run status proves result scope not run / results unavailable
+pre-run evidence proves required result scope unavailable/not run
 OR
-controller explicitly deletes/invalidates prior result scope and verifies deletion
+controller explicitly invalidates prior result scope and verifies invalidation
 ```
 
-Which mechanism is accepted should be decided after live ETABS 23.2 verification. A mere new UUID or EvidenceEpoch cannot repair this ambiguity.
+Which mechanism is accepted should be decided after live ETABS 23.2 verification. A new UUID or EvidenceEpoch cannot repair this ambiguity.
 
 ---
 
@@ -510,7 +549,9 @@ Controller owns scratch S
         ↓
 State X established + exact readback
         ↓
-required prior result scope absent/inactivated
+requested execution scope R declared BEFORE execution
+        ↓
+required prior results for R absent/inactivated
         ↓
 controller issues attempt Y / generation G
         ↓
@@ -518,27 +559,44 @@ controller invokes RunAnalysis
         ↓
 ret == 0
         ↓
-required cases transition to Finished
+EVERY required/requested scope in R == Finished
+        ↓
+EVERY required result population for R reconciled completely
         ↓
 no intervening analysis-affecting mutation
         ↓
-results Z acquired and exact scope reconciled
+results Z acquired for exactly R
         ↓
 Z is bound to G whose parent is X
+        ↓
+QUALIFIED identity may be issued
 ```
 
-Assumptions requiring live verification before implementation:
+Any failure before the last step means no qualified result identity exists for that attempt.
+
+Current factual-read reconciliation:
 
 ```text
-UNPROVEN: exact ETABS 23.2 Python tuple/return behavior for GetCaseStatus/GetRunCaseFlag in the intended runtime.
-UNPROVEN: whether every case marked Finished after a controlled run always has every required result API population available and internally complete.
-UNPROVEN: exact behavior when RunAnalysis returns nonzero but some cases nevertheless finish and retain readable results.
-UNPROVEN: exact dependency effects when one case fails and dependent cases/statuses are present.
-UNPROVEN: whether the intended scratch lifecycle can guarantee prior results absent without an unsafe mutation sequence.
-UNPROVEN: exact ETABS 23.2 lock/status transition timing relative to RunAnalysis return.
+EXISTING:
+read_verified_analysis_readiness(...)
+→ Analyze.GetCaseStatus factual readiness
 ```
 
-The causation itself should not depend on ETABS exposing a generation ID; none was identified in current repo or reviewed public API.
+Remaining live questions are not permission to duplicate that reader. They concern attempt-level execution semantics and any genuinely missing exact scope mechanics.
+
+Assumptions requiring live verification before B5 implementation:
+
+```text
+UNPROVEN: exact controlled RunAnalysis status transitions for predeclared multi-case scopes in ETABS 23.2.
+UNPROVEN: RunAnalysis overall return behavior when one requested case fails while others finish.
+UNPROVEN: dependency effects when one requested case fails and dependent cases/statuses/results exist.
+UNPROVEN: whether every requested case reporting Finished always exposes every required result population needed by B5.
+UNPROVEN: exact safe mechanism for establishing no reusable prior results on the declared scope.
+UNPROVEN: exact lock/status timing relative to RunAnalysis return where B5 uses lock evidence.
+UNPROVEN: whether B5 needs GetRunCaseFlag beyond the existing per-case factual readiness surface, and if so the exact bounded factual ABI required.
+```
+
+No immutable ETABS generation ID was identified; causation therefore depends on the controlled enclosure, not a generation field exposed by ETABS.
 
 ---
 
@@ -556,30 +614,32 @@ Research recommendation:
 execution_request_ref   optional logical parent across retries
 attempt_ref             unique per invocation attempt
 generation_ref          unique per invocation attempt; never reused after failure
+requested_scope_refs    immutable per attempt and fixed before invocation
 ```
 
-For attempt 1 failure:
+Attempt 1 failure/partial result:
 
-- preserve the attempt record, return code, pre/post case status, lock/state diagnostics and any readable result observations as diagnostics;
-- do not issue a qualified `AnalysisResultIdentity` from that failed attempt;
-- do not silently merge its artifacts into attempt 2;
-- before retry, re-establish the exact intended parent AnalysisStateIdentity and prove that failed/partial results cannot contaminate the next generation;
-- if that cannot be proven, discard/rebuild/reinitialize the scratch under the future authorized B5 policy.
+- preserve attempt record, return code, exact requested scope, pre/post case status, lock/state diagnostics and readable rows only as diagnostics;
+- do not issue any qualified `AnalysisResultIdentity`;
+- do not salvage finished subsets into a smaller qualified identity;
+- do not silently merge failed/partial artifacts into attempt 2;
+- before retry, re-establish exact intended parent `AnalysisStateIdentity`;
+- remove/re-establish any contamination from failed/partial analysis results under future accepted B5 policy.
 
-For attempt 2 success:
+Attempt 2:
 
-- new `attempt_ref`;
-- new `analysis_generation_ref`;
-- new proof record;
-- only attempt-2 qualified scopes may populate the new `AnalysisResultIdentity`.
+```text
+new attempt_ref
+new analysis_generation_ref
+new immutable requested_scope_refs
+new proof record
+```
 
-Using one generation UUID for multiple retries would erase the exact causal event and is rejected.
+Attempt 2 qualifies only if its entire own predeclared scope succeeds and reconciles completely.
 
 ---
 
-## 8. Partial analysis execution
-
-B1 already provides `AnalysisResultIdentity.result_scope_refs`. The recommended first implementation is therefore **not** to redesign B1.
+## 8. Partial analysis execution — fail closed
 
 Future B5 should add an execution-attempt evidence artifact outside B1 with at least:
 
@@ -588,38 +648,62 @@ attempt_ref
 analysis_generation_ref
 parent_analysis_state_ref
 requested_scope_refs
-run_flag_scope_refs
-finished_scope_refs
-failed_or_unfinished_scope_refs
+run_flag_scope_refs if required
 pre_status_by_scope
 post_status_by_scope
+finished_scope_refs
+failed_or_unfinished_scope_refs
 run_return_code
 result_population_refs
+population_reconciliation_status
 state_readback_refs
 provenance_refs
+attempt_status
 ```
 
-Then:
+This artifact records what happened. It does not authorize subset salvage.
 
-- `AnalysisResultIdentity.result_scope_refs` contains only scopes causally qualified as finished and actually acquired.
-- consumers must require their needed scopes to be contained in the qualified result scope.
-- a failed/unqualified scope cannot borrow qualification from another scope in the same invocation.
-- if cross-case dependency semantics make a finished subset unsafe, B5 must fail closed until live behavior is understood.
+Required semantics:
 
-Current recommendation:
+```text
+if RunAnalysis fails:
+    attempt_status = FAILED
+    qualified_result_identity = NONE
+
+if any requested/required scope fails or is unfinished/unknown/not-run:
+    attempt_status = PARTIAL or FAILED
+    qualified_result_identity = NONE
+
+if required population reconciliation for requested scope is incomplete:
+    attempt_status = PARTIAL or FAILED
+    qualified_result_identity = NONE
+
+only if entire predeclared requested scope succeeds and reconciles:
+    attempt_status = SUCCESS
+    AnalysisResultIdentity.result_scope_refs = exact requested_scope_refs
+    positive qualification may proceed
+```
+
+Therefore:
+
+```text
+requested {A,B,C}
+finished {A,B}
+failed {C}
+→ diagnostics may retain A/B rows
+→ NO qualified {A,B}
+→ NO qualified AnalysisResultIdentity
+```
+
+A deliberately narrow attempt remains valid only when the narrow scope is declared before execution and the whole narrow scope succeeds.
+
+Current recommendation remains:
 
 ```text
 B1_SEMANTIC_CHANGE_REQUIRED = NO
 ```
 
-Conditional future note:
-
-```text
-If the product later requires one AnalysisResultIdentity to encode requested + finished + failed scope status simultaneously,
-SEMANTIC_CHANGE_REQUIRED.
-```
-
-That richer execution-status data belongs more naturally to the B5 attempt/proof artifact, not the existing result identity.
+The B5 attempt/proof artifact owns requested/finished/failed status. B1 identity semantics need not encode partial attempt state because partial attempts never reach positive result identity issuance.
 
 ---
 
@@ -627,7 +711,9 @@ That richer execution-status data belongs more naturally to the B5 attempt/proof
 
 ### 9.1 What B2 must define
 
-B2 should define **identity semantics only**, not execute design. Minimum `DesignStateIdentity` research boundary:
+B2 should define identity semantics only, not execute design.
+
+Minimum `DesignStateIdentity` boundary:
 
 ```text
 design_state_ref
@@ -646,8 +732,6 @@ provenance_refs
 contract
 ```
 
-The exact field set should remain no broader than factual design-affecting state actually used by B6. Display/query selections and present units must not become design-state identity unless proven to affect design generation.
-
 B2 should also define candidate `DesignResultIdentity` semantics:
 
 ```text
@@ -661,7 +745,9 @@ provenance_refs
 contract
 ```
 
-Existence of this object must not self-qualify it. B2 should mirror B1's `identity != qualification` boundary.
+Existence must not self-qualify it. B2 should mirror B1's `identity != qualification` boundary.
+
+B2 must also define fail-closed design-attempt qualification semantics so B6 has no incentive to invent them.
 
 ### 9.2 Minimum B6 positive design chain
 
@@ -671,29 +757,40 @@ Future B6 should require:
 A. QUALIFIED AnalysisResultIdentity A covers every required analysis scope
 B. DesignStateIdentity D is exact and parented by A
 C. D is re-read/verified immediately before design
-D. prior concrete-design results are proven absent/stale or StartDesign overwrite semantics are live-proven for the exact required result scope
-E. controller issues unique design attempt_ref Yd and design_generation_ref Gd
-F. controller itself invokes DesignConcrete.StartDesign
-G. StartDesign returns exact success
-H. GetResultsAvailable == true after the controlled call
-I. no design-affecting state mutation, new analysis, second design call or source switch occurs
-J. W6/current canonical `GetSummaryResultsColumn` ABI acquisition captures the exact full component/result population
-K. W7/current P8A exact component × combo × definition × leaf-case × reconstruction × analysis-basis join succeeds
-L. acquired rows are bound to D/A/Gd inside the same exclusive causal window
-M. only then may a candidate DesignResultIdentity become QUALIFIED
+D. exact design execution/result scope Rd is declared before StartDesign
+E. prior concrete-design results for Rd are proven unable to contaminate the new attempt
+F. controller issues unique design attempt_ref Yd and design_generation_ref Gd
+G. controller itself invokes DesignConcrete.StartDesign
+H. StartDesign returns exact success
+I. required factual design-status/availability evidence succeeds
+J. no design-affecting state mutation, new analysis, second design call or source switch occurs
+K. W6/current canonical factual acquisition captures every required row/population for Rd
+L. W7/current P8A exact component × combo × definition × leaf-case × reconstruction × analysis-basis join succeeds for Rd
+M. all required populations for Rd reconcile completely
+N. acquired rows are bound to D/A/Gd inside the same exclusive causal window
+O. only then may a candidate DesignResultIdentity become QUALIFIED
 ```
 
-`GetResultsAvailable`, summary rows, component identity and combo identity are necessary factual pieces, but none is sufficient by itself.
+Atomic design attempt rule:
+
+```text
+StartDesign failure
+OR any required/requested design scope fails/is unavailable
+OR required result population is partial/incomplete
+→ NO qualified DesignResultIdentity
+```
+
+Readable design rows from a failed/partial attempt are diagnostics only and may not be salvaged into a smaller qualified design identity.
 
 ### 9.3 Design freshness gap
 
-The reviewed public concrete-design API exposes `StartDesign`, `GetResultsAvailable`, `GetCode`, `GetDesignSection`, and result summaries but no immutable generation ID. The following behavior is therefore a mandatory live-research gap before B6:
+Mandatory live-research gaps before B6 include:
 
 ```text
-UNPROVEN: whether successful StartDesign deterministically replaces all prior concrete-design results for the requested/current design state.
-UNPROVEN: which design-state mutations make GetResultsAvailable false or otherwise invalidate old design results.
-UNPROVEN: whether a failed StartDesign can leave a readable partial/previous result population.
-UNPROVEN: whether ErrorSummary/WarningSummary or another API can distinguish stale previous rows from rows produced by the current attempt.
+UNPROVEN: whether successful StartDesign deterministically replaces all prior concrete-design results for the declared design scope.
+UNPROVEN: which design-state mutations invalidate old concrete-design results.
+UNPROVEN: whether a failed/partial StartDesign can leave readable previous or partial rows.
+UNPROVEN: exact availability/status behavior needed to prove whole declared design scope completion.
 ```
 
 B6 must not infer freshness merely because rows are readable after StartDesign.
@@ -704,21 +801,22 @@ B6 must not infer freshness merely because rows are readable after StartDesign.
 
 ### W6 proves / contributes
 
-W6's scope established the required factual/negative-contract questions around:
+W6/current assets provide factual/negative-contract infrastructure around:
 
-- Python `GetSummaryResultsColumn` ABI;
-- explicit return code and exact arrays;
+- canonical `GetSummaryResultsColumn` factual acquisition;
+- exact live-observed 14-slot ABI;
+- explicit return code and array alignment;
 - zero-row handling;
 - factual case types;
 - reversible DatabaseTables selection state;
-- full component population accounting.
+- full expected/attempted/captured component population accounting.
 
-Later current P8A production code contains the live-observed ETABS 23.2 14-slot ABI and exact factual population provider. Future B6 should reuse that canonical OAPI/provider path rather than create another decoder.
+Future B6 should reuse that canonical OAPI/provider path rather than create another decoder.
 
 W6 cannot prove:
 
 ```text
-which StartDesign generation produced the rows
+which StartDesign generation produced rows
 whether rows are fresh
 which qualified AnalysisResultIdentity parented design
 positive design-execution qualification
@@ -726,7 +824,7 @@ positive design-execution qualification
 
 ### W7 proves / contributes
 
-W7 established the semantic requirement for an exact join:
+W7/current P8A provides the exact semantic join:
 
 ```text
 component
@@ -739,8 +837,6 @@ component
 + same model fingerprint
 + same EvidenceEpoch
 ```
-
-Current P8A implements that join through `ComboAnalysisBasisBinding` and `ColumnComboEligibilityProjection`.
 
 W7 cannot prove:
 
@@ -759,11 +855,11 @@ W7 exact join != positive design-execution qualification
 
 ### B2 must add
 
-Canonical `DesignStateIdentity`, candidate `DesignResultIdentity`, and fail-closed qualification vocabulary mirroring B1, with exact parent binding to a QUALIFIED `AnalysisResultIdentity`.
+Canonical `DesignStateIdentity`, candidate `DesignResultIdentity`, fail-closed qualification vocabulary and exact parent binding to a QUALIFIED `AnalysisResultIdentity`.
 
 ### B6 must add
 
-The controlled StartDesign issuer/execution proof and causal enclosure. B6 should consume, not reinvent, W6 factual acquisition and W7 exact semantic binding.
+Controlled StartDesign execution/proof with whole-declared-scope atomic qualification, consuming rather than reinventing W6 factual acquisition and W7 exact semantic binding.
 
 ---
 
@@ -779,76 +875,86 @@ DESIGN_RESULTS = UNQUALIFIED
 Why:
 
 - `Finished` case status can describe an old run.
+- current bounded `GetCaseStatus` factual availability does not identify the historical producer.
 - model locked state can describe an old run.
 - rows can be nonempty from an old run/design.
 - SourceModelIdentity/model fingerprint prove a model reference, not generation.
-- EvidenceEpoch proves only acquisition time/generation.
-- GetResultsAvailable proves only current availability.
-- exact component/combo/definition/basis joins prove semantic correctness of the observed rows, not their producer execution.
+- EvidenceEpoch proves only acquisition generation.
+- `GetResultsAvailable` proves availability only.
+- exact component/combo/definition/basis joins prove semantic correctness of observed rows, not their producer execution.
 
-No legitimate immutable ETABS analysis/design generation identifier was found in the current repository or reviewed public CSI interface. Therefore attaching after the fact cannot establish the missing causal edge.
-
-A stronger classification would require a verified ETABS mechanism that exposes a trustworthy immutable generation token plus parent-state binding. None is currently established.
+No legitimate immutable ETABS analysis/design generation identifier is established that could retroactively close the causal edge.
 
 ---
 
 ## 12. Result invalidation matrix
 
-`INVALID` below means prior qualified lineage must not be reused for the new state, even if ETABS happens to retain readable bytes/rows. `QUERY_ONLY` means underlying result generation is not changed but acquisition configuration/provenance may change.
+`INVALID` means prior qualified lineage must not be reused for the new state even if ETABS retains readable rows. `QUERY_ONLY` means underlying result generation is not changed but acquisition configuration/provenance may change.
 
 | Operation | Analysis result | Design result | Classification / research note |
 |---|---|---|---|
-| property mutation | INVALID | INVALID/UNQUALIFIED | analysis-affecting state mutation; locked model normally prevents it until unlock |
+| property mutation | INVALID | INVALID/UNQUALIFIED | analysis-affecting state mutation |
 | section modifier mutation | INVALID | INVALID/UNQUALIFIED | changes analysis state; downstream design parent changes |
 | load mutation | INVALID | INVALID/UNQUALIFIED | changes analysis input state |
-| unlock | INVALID | UNQUALIFIED | CSI explicitly states unlock deletes analysis results; any design lineage loses its qualified analysis parent even if design rows remain visible |
-| SaveAs without mutation | ETABS results may remain available; old identity does not automatically transfer to new source-model ref | same | copy/path lineage requires explicit future semantics; do not equate copy with same SourceModelIdentity |
-| open copy | UNQUALIFIED unless controller has explicit copy lineage and compatible identity semantics | UNQUALIFIED | pre-existing attachment problem reappears |
-| RunAnalysis | NEW/MIXED GENERATION RISK | prior design becomes stale for rerun analysis scopes | ETABS may only run cases lacking results; B5 must eliminate mixed-generation ambiguity |
-| StartDesign | unchanged analysis generation | NEW/REPLACEMENT BEHAVIOR UNPROVEN | live verification required for overwrite/freshness behavior |
-| new analysis run | new analysis generation for rerun scopes | INVALID/UNQUALIFIED | old design cannot parent the new AnalysisResultIdentity |
-| design combo change | unchanged analysis generation | INVALID/UNQUALIFIED | design state changed; old design results cannot qualify new state |
-| present units change | QUERY_ONLY | QUERY_ONLY | underlying generation unchanged; returned numeric interpretation/provenance may change; capture must bracket exact units |
-| Results.Setup selection change | QUERY_ONLY | N/A or query-only | output selection affects acquired population, not result generation |
-| DatabaseTables display selection change | QUERY_ONLY | QUERY_ONLY | display/query configuration; must be restored/read back but is not engineering-result generation |
-
-`StartDesign` invalidation/overwrite behavior remains explicitly `UNPROVEN` for ETABS 23.2 and requires live verification.
+| unlock | INVALID | UNQUALIFIED | unlock deletes/invalidate analysis results; design loses qualified analysis parent |
+| SaveAs without mutation | identity transfer UNKNOWN | identity transfer UNKNOWN | copy/path lineage requires explicit future semantics |
+| open copy | UNQUALIFIED unless explicit copy lineage exists | UNQUALIFIED | pre-existing attachment problem reappears |
+| RunAnalysis full successful declared attempt | candidate NEW generation for exact declared scope after qualification proof | prior design stale for rerun parent | only whole declared scope may qualify |
+| RunAnalysis failed/partial attempt | NO QUALIFIED RESULT IDENTITY | prior design must not be promoted against ambiguous/new parent state | finished subset is diagnostics only |
+| StartDesign full successful declared attempt | unchanged analysis generation | candidate NEW design generation after full proof | whole declared scope required |
+| StartDesign failed/partial attempt | unchanged analysis generation | NO QUALIFIED DESIGN RESULT IDENTITY | readable subset/old rows are diagnostics only |
+| new analysis run | new analysis generation only if whole declared attempt qualifies | INVALID/UNQUALIFIED | old design cannot parent new AnalysisResultIdentity |
+| design combo change | unchanged analysis generation | INVALID/UNQUALIFIED | design state changed |
+| present units change | QUERY_ONLY | QUERY_ONLY | generation unchanged; factual capture provenance may change |
+| Results.Setup selection change | QUERY_ONLY | N/A/query-only | query configuration, not execution generation |
+| DatabaseTables display selection change | QUERY_ONLY | QUERY_ONLY | query configuration; must restore/read back |
 
 ---
 
 ## 13. Exact result-binding precedence / authority diagram
 
-No hidden equivalence is permitted.
-
 ```text
 SOURCE / SESSION LAYER
 ======================
 SourceModelIdentity
-  └─ identifies verified source reference only
+  └─ verified source reference only
 
 TrustedLiveAcquisitionContext
   ├─ session_provenance_ref
   ├─ acquisition_context_ref
   └─ EvidenceEpoch
-       └─ identifies factual capture generation only
+       └─ factual capture generation only
 
                          NOT EQUAL TO
                              │
                              ▼
 ANALYSIS CAUSAL LAYER
 =====================
-controlled execution/scratch state
+controller-owned execution/scratch state
   ↓
 AnalysisStateIdentity X
   ↓
+predeclared requested scope R
+  ↓
 controlled RunAnalysis attempt Y / generation G
   + exact pre-state
-  + pre-result absence/invalidation
-  + return/status evidence
+  + old-result disambiguation
+  + execution return evidence
+  + EXISTING bounded GetCaseStatus readiness facts
+  + ALL R finished
+  + ALL required R populations reconciled
   + no intervening mutation
   ↓
+SUCCESS only
+  ↓
 qualified AnalysisResultIdentity A
-  └─ result_scope_refs are exact qualified scopes
+  └─ result_scope_refs == exact predeclared R
+
+if any part of R fails/incomplete:
+  ↓
+FAILED/PARTIAL ATTEMPT EVIDENCE ONLY
+  ↓
+NO AnalysisResultIdentity qualification
 
                              │
                              ▼
@@ -861,7 +967,7 @@ A (qualified parent analysis)
   + exact combo definitions
   + leaf load cases
   + factual case types
-  + sign/reconstruction basis
+  + reconstruction basis
   + analysis-basis compatibility
   ↓
 future DesignStateIdentity D (B2)
@@ -872,31 +978,32 @@ DESIGN CAUSAL LAYER
 ===================
 D
   ↓
+predeclared design scope Rd
+  ↓
 controlled StartDesign attempt Yd / generation Gd
   + execution outcome
   + no intervening design-affecting mutation
   + immediate W6 factual acquisition
+  + W7 exact semantic joins
+  + ALL required Rd populations reconciled
+  ↓
+SUCCESS only
   ↓
 future qualified DesignResultIdentity R (B6)
 
-                             │
-                             ▼
-ROW / ENGINEERING CONSUMPTION
-=============================
-R-qualified factual rows
-  + exact component identity
-  + exact combo identity/definition
-  + W7/P8A analysis-basis binding
+partial/failed design attempt
   ↓
-downstream engineering authority
+ATTEMPT EVIDENCE ONLY
+  ↓
+NO qualified DesignResultIdentity
 ```
 
-Precedence principle:
+Precedence:
 
 ```text
 semantic exactness cannot substitute for causal freshness;
-causal freshness cannot substitute for semantic exactness.
-Both are required where downstream authority needs both.
+causal freshness cannot substitute for semantic exactness;
+partial success cannot substitute for whole declared execution success.
 ```
 
 ---
@@ -905,24 +1012,25 @@ Both are required where downstream authority needs both.
 
 ### 1. What minimum proof should B5 require to issue QUALIFIED AnalysisResultIdentity?
 
-Minimum proof is the complete controller-owned causal enclosure:
-
 ```text
 controller-owned scratch/execution state
 + exact AnalysisStateIdentity and immediate readback
-+ exact required case/run scope
-+ proof old reusable results for that scope are absent/invalidated
++ immutable requested execution scope declared before RunAnalysis
++ proof old reusable results for the entire requested scope are absent/invalidated
 + unique attempt_ref + unique analysis_generation_ref
 + controller-owned RunAnalysis invocation
 + exact success return
-+ post-run required case statuses == Finished
++ reuse current bounded read_verified_analysis_readiness/GetCaseStatus facts
++ every required/requested scope == ANALYSIS_FINISHED
++ no failed/incomplete/unknown/not-run requested scope
 + no intervening analysis-affecting mutation/unlock/new run
-+ immediate exact-scope result acquisition and population reconciliation
-+ result identity parented by the exact AnalysisStateIdentity
-+ verified execution proof binding state/result/generation/attempt provenance
++ immediate acquisition of every required result population for the entire requested scope
++ complete population reconciliation for the entire requested scope
++ result identity parented by exact AnalysisStateIdentity with result_scope_refs equal to the exact predeclared scope
++ verified execution proof binding state/result/generation/attempt/scope provenance
 ```
 
-No smaller set identified in this research safely distinguishes a new controlled generation from pre-existing results.
+Any failure/partial outcome issues no qualified result identity.
 
 ### 2. What evidence is merely correlation and must never qualify analysis?
 
@@ -945,6 +1053,7 @@ model locked
 case Finished
 RunAnalysis ret=0
 result row/table existence
+finished subset from a partial attempt
 ```
 
 ### 3. What minimum proof should B6 require to issue QUALIFIED DesignResultIdentity?
@@ -952,23 +1061,23 @@ result row/table existence
 ```text
 QUALIFIED parent AnalysisResultIdentity
 + exact B2 DesignStateIdentity and immediate readback
-+ proof prior design results cannot be confused with the new generation
++ immutable design execution/result scope declared before StartDesign
++ proof prior design results cannot contaminate the declared scope
 + unique design attempt_ref + generation_ref
 + controller-owned StartDesign
 + exact successful return
-+ post-call GetResultsAvailable == true
++ required factual design status/availability evidence
 + no intervening design-affecting mutation/new analysis/second design
-+ W6/current canonical exact factual result acquisition and full population closure
++ W6/current canonical exact factual result acquisition
++ complete population closure for the entire declared design scope
 + W7/current exact component/combo/definition/basis binding
 + result population bound to exact DesignStateIdentity + parent AnalysisResultIdentity + generation
 + verified design-execution proof
 ```
 
-The exact method for proving prior design-result absence/replacement is still a live ETABS research gap.
+A partial/failed StartDesign issues no qualified `DesignResultIdentity`.
 
 ### 4. Which existing B1 contracts can be reused unchanged?
-
-Reuse unchanged:
 
 ```text
 AnalysisStateIdentity
@@ -982,56 +1091,55 @@ B1 identity != qualification rule
 B1 source/state/result/generation coherence rules
 ```
 
-The private verified-execution proof can remain the final B1 qualification seam if B5 supplies a richer controller-owned execution record and is the only bounded trusted issuer.
-
 ### 5. Which B1 semantics, if any, need extension?
-
-For the recommended B5 path:
 
 ```text
 B1_SEMANTIC_CHANGE_REQUIRED = NO
 ```
 
-B5 needs a new attempt/execution evidence artifact and a bounded positive issuer, not a redefinition of `AnalysisStateIdentity` or `AnalysisResultIdentity`.
+B5 needs an external attempt/execution evidence artifact and bounded positive issuer. Partial/failed attempts never produce a qualified result identity, so B1 need not encode salvage/subset semantics.
 
-Conditional future exception:
-
-```text
-cross-SaveAs qualified lineage transfer
-or one result identity carrying requested/failed/finished scope state
-→ SEMANTIC_CHANGE_REQUIRED
-```
-
-Neither is required for the minimum B5/B6 plan.
+A future request to encode failed/partial attempt status inside `AnalysisResultIdentity` itself, or to transfer qualification across unrelated SourceModelIdentity semantics, would require a separately reviewed semantic change.
 
 ### 6. What exactly should B2 define before B6?
 
 B2 should define:
 
-1. `DesignStateIdentity` with exact parent `AnalysisResultIdentity` and exact design-affecting state basis;
+1. `DesignStateIdentity` with exact parent QUALIFIED `AnalysisResultIdentity` and exact design-affecting state basis;
 2. `DesignResultIdentity` identity shape with parent design state, parent analysis result, generation and exact result scopes;
 3. design-lineage qualification status/object with `identity != qualification` semantics;
-4. a private/factory-only positive qualification seam analogous to B1;
+4. private/factory-only positive qualification seam analogous to B1;
 5. fail-closed non-equivalences preventing component/combo/model/EvidenceEpoch/row hashes from masquerading as design lineage;
-6. exact list of design-affecting state facts B6 must re-read before StartDesign.
-
-B2 must not run design or infer freshness.
+6. exact design-affecting state facts B6 must re-read before StartDesign;
+7. atomic attempt rule: partial/failed design execution issues no qualified `DesignResultIdentity`.
 
 ### 7. How should retries be represented?
 
 ```text
 logical request_ref may remain common
-attempt_ref is always unique per invocation
-generation_ref is always unique per invocation
-failed attempt never emits qualified result identity
-retry must re-establish parent state and eliminate partial-result contamination
+attempt_ref is unique per invocation
+generation_ref is unique per invocation
+requested_scope_refs are immutable per attempt and declared before invocation
+failed/partial attempt never emits qualified result identity
+retry gets a new attempt_ref and generation_ref
+retry must re-establish parent state and eliminate contamination
 ```
-
-Attempt 2 is never attempt 1 with a rewritten status.
 
 ### 8. How should partial execution be represented?
 
-Keep B1 unchanged. Add a B5 execution-attempt artifact with requested/finished/failed scopes and exact status evidence. `AnalysisResultIdentity.result_scope_refs` contains only causally qualified, acquired successful scopes. Consumers must prove required-scope inclusion. If ETABS dependency behavior makes a subset ambiguous, fail closed.
+In the external attempt/proof artifact only.
+
+```text
+requested scope fixed before execution
++ exact finished/failed/unfinished statuses
++ exact result-population diagnostics
++ attempt status FAILED/PARTIAL
+→ NO qualified AnalysisResultIdentity
+```
+
+No finished-scope salvage is allowed from the same failed/partial attempt.
+
+A deliberately narrow scope is allowed only if declared before execution and that entire scope succeeds.
 
 ### 9. How should stale pre-existing ETABS results be classified?
 
@@ -1039,31 +1147,39 @@ Keep B1 unchanged. Add a B5 execution-attempt artifact with requested/finished/f
 UNQUALIFIED
 ```
 
-for both analysis and design unless a controller-owned causal proof exists. Current ETABS factual APIs do not provide a trustworthy immutable generation token that can retroactively establish that edge.
+for both analysis and design unless a controller-owned causal proof exists.
 
 ### 10. Which evidence gaps require live ETABS verification?
 
 At minimum:
 
 ```text
-ETABS 23.2 GetCaseStatus Python shape/status behavior before/after RunAnalysis
-GetRunCaseFlag behavior and exact scope reconciliation
-RunAnalysis behavior when some/all required results already exist
-RunAnalysis nonzero return with partial Finished cases/results
+controlled RunAnalysis transition behavior for predeclared multi-case scopes
+RunAnalysis nonzero return with some cases Finished
 case dependency behavior under partial failure
-lock timing/state after RunAnalysis
-result API availability/completeness for Finished scopes
+whether every requested Finished case exposes every required result population
 safe pre-run result invalidation/no-results establishment
+whether B5 needs additional run-flag factual mechanics beyond the current bounded readiness read
+exact GetRunCaseFlag ABI if that gap is proven necessary
+lock timing/state where B5 chooses to use lock evidence
 StartDesign overwrite/freshness behavior with pre-existing design results
-GetResultsAvailable transitions around design-state changes and failed/successful StartDesign
-design-result behavior after new analysis
+GetResultsAvailable/status transitions around design-state changes and failed/successful StartDesign
 which design-state changes invalidate prior concrete-design results
-partial/failed StartDesign residual rows
+partial/failed StartDesign residual/previous row behavior
+whole-declared-design-scope completion evidence
 ```
+
+Not a gap:
+
+```text
+basic bounded per-case GetCaseStatus factual readiness read
+```
+
+That current read surface already exists in `tbdy_engine.etabs.safety.read_verified_analysis_readiness(...)` and should be reused.
 
 ### 11. Which W6/W7 assets should future workers explicitly reuse?
 
-Reuse W6/current assets:
+Reuse W6/current:
 
 ```text
 canonical DesignConcrete.GetSummaryResultsColumn OAPI wrapper/provider
@@ -1076,7 +1192,7 @@ DatabaseTables restoration discipline
 factual case-type acquisition discipline
 ```
 
-Reuse W7/current assets:
+Reuse W7/current:
 
 ```text
 exact (design_combo_type, combo_name) identity
@@ -1092,7 +1208,7 @@ no component-to-combo MATCH broadcast
 same-name cross-type ambiguity blocking
 ```
 
-Do not ask W6 or W7 to prove design execution generation; that is B6's causal responsibility.
+Do not ask W6 or W7 to prove design execution generation; that remains B6's causal responsibility.
 
 ---
 
@@ -1100,21 +1216,31 @@ Do not ask W6 or W7 to prove design execution generation; that is B6's causal re
 
 ### B5
 
-Own only controlled analysis execution, attempt evidence, positive B1 issuance and exact-scope acquisition qualification. Do not redesign engineering checks.
+Own controlled analysis execution, immutable predeclared attempt scope, attempt evidence, atomic whole-scope positive B1 issuance and exact-scope acquisition qualification. Reuse current factual status reads. Do not redesign engineering checks.
 
 ### B2
 
-Own only design-state/result identity vocabulary and fail-closed qualification semantics. No StartDesign.
+Own design-state/result identity vocabulary and fail-closed qualification semantics, including the atomic no-partial-qualification rule. No StartDesign.
 
 ### B6
 
-Own controlled design execution and positive design-result qualification, reusing W6 factual acquisition and W7 exact semantic joins.
+Own controlled design execution and atomic whole-scope positive design-result qualification, reusing W6 factual acquisition and W7 exact semantic joins.
+
+Architecture ownership remains:
+
+```text
+gateway = COM/STA/session/transport
+OAPI = factual ABI
+B5/B6 controller = execution authority
+```
 
 ---
 
 ## 16. Research disposition
 
 ```text
+PARTIAL_EXECUTION_CONFLICT_RESOLVED = YES
+CURRENT_STATUS_READ_RECONCILED = YES
 READY_FOR_SUPERVISOR_REVIEW
 ```
 
