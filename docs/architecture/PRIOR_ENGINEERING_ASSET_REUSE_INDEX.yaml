@@ -1,3 +1,713 @@
-{metadata: {artifact: PRIOR_ENGINEERING_ASSET_REUSE_INDEX, schema_version: 1.2-P2, status: READY_FOR_SUPERVISOR_REVIEW, base_sha: 6273c19030ab6ecb7ad2637e3bfc74f88b1da086, base_tree: 8f6ef822b5ab26d22c859438689e7bb9aea9439a, p2_parent: ed307e5084ad85bf837efcf24724bcacee1b25d9, branch: research/g0-r1-prior-engineering-asset-reuse-index, production_import_allowed: false, engineering_authority: none}, parallel_research_policy: {unmerged_research_is_current_asset: false, unmerged_research_may_supply_current_authority: false, reconciliation_owner: SUPERVISOR, rule: 'Parallel research candidates are reconciled externally at supervisor review time and are not frozen into this reuse index as CURRENT assets.
+metadata:
+  artifact: PRIOR_ENGINEERING_ASSET_REUSE_INDEX
+  schema_version: 1.2-P3
+  status: READY_FOR_SUPERVISOR_REVIEW
+  base_sha: 6273c19030ab6ecb7ad2637e3bfc74f88b1da086
+  base_tree: 8f6ef822b5ab26d22c859438689e7bb9aea9439a
+  p3_parent: 66ca38152ebed5ac9c358b4a94d5201e5156c91a
+  semantic_source: ed307e5084ad85bf837efcf24724bcacee1b25d9
+  branch: research/g0-r1-prior-engineering-asset-reuse-index
+  production_import_allowed: false
+  engineering_authority: none
+  scope: research-only reuse/debt index; no production authority
 
-      '}, t1_architecture: {production_owner: packages/etabs_gateway, owner_rule: sole production COM / STA / session / attach owner, closed_dependency_universe_rule: EXPLICIT CUSTOM/FAKE COM DEPENDENCY -> CLOSED DEPENDENCY UNIVERSE -> REAL/default COM FALLBACK FORBIDDEN, tests_are_engineering_authority: false}, asset_registry: {CURRENT: {REUSE-CONTRACT-CHECK-CATALOG-C1: {path: tbdy_engine/catalogs/check_catalog.yaml, blob: 08ae7bb1763f41f0557ab72a238d65d3c7773981, reuse_disposition: REUSE_AS_IS, semantic_role: CHECK_DEPENDENCY_CONTRACT, authority_ceiling: CURRENT_CHECK_REQUIREMENT_DECLARATION_ONLY}, REUSE-CONTRACT-FEATURE-CATALOG-C1: {path: tbdy_engine/catalogs/feature_catalog.yaml, blob: bb5208e03c1703b9b412bdd20a6ff7822029e056, reuse_disposition: REUSE_AS_IS, semantic_role: FACTUAL_FEATURE_CONTRACT, authority_ceiling: FACTUAL_NORMALIZATION_ONLY}, REUSE-CONTRACT-COLUMN-GEOMETRY-CHECK-OVERLAY: {path: tbdy_engine/catalogs/check_catalog_c13_5_p1_column_geometry.yaml, blob: 0b924d942a3b506d1489385c0164be865d0fb995, reuse_disposition: REUSE_AS_IS, semantic_role: CHECK_DEPENDENCY_CONTRACT, authority_ceiling: CURRENT_CHECK_REQUIREMENT_DECLARATION_ONLY}, REUSE-CONTRACT-COLUMN-GEOMETRY-FEATURE-OVERLAY: {path: tbdy_engine/catalogs/feature_catalog_c13_5_p1_column_geometry.yaml, blob: 173ef39754107d098e7a9e3d0d8f3b1ed5e2fa54, reuse_disposition: REUSE_AS_IS, semantic_role: FACTUAL_FEATURE_CONTRACT, authority_ceiling: FACTUAL_NORMALIZATION_ONLY}, REUSE-CONTRACT-WALL-PACK-A-CHECKS: {path: tbdy_engine/catalogs/check_catalog_p2_10_wall_pack_a.yaml, blob: f8aa0b56e8e884b20a97b027d25fe3e9ef6aca5c, reuse_disposition: REUSE_AS_IS, semantic_role: CHECK_DEPENDENCY_CONTRACT, authority_ceiling: CURRENT_CHECK_REQUIREMENT_DECLARATION_ONLY}, REUSE-CONTRACT-WALL-PACK-A-FEATURES: {path: tbdy_engine/catalogs/feature_catalog_p2_10_wall_pack_a.yaml, blob: 7b8ac7ab590ad799efc9cd5742b8b9d2fadce528, reuse_disposition: REUSE_AS_IS, semantic_role: FACTUAL_FEATURE_CONTRACT, authority_ceiling: FACTUAL_NORMALIZATION_ONLY}, REUSE-CONTRACT-WALL-PACK-B-CHECKS: {path: tbdy_engine/catalogs/check_catalog_p2_10_wall_pack_b.yaml, blob: 7abc01529e6069905b97f0c1869e7a948fbc9bf2, reuse_disposition: REUSE_AS_IS, semantic_role: CHECK_DEPENDENCY_CONTRACT, authority_ceiling: CURRENT_CHECK_REQUIREMENT_DECLARATION_ONLY}, REUSE-CONTRACT-WALL-PACK-B-FEATURES: {path: tbdy_engine/catalogs/feature_catalog_p2_10_wall_pack_b.yaml, blob: 0541937e0f028c5ab06fe65f1432ed20081fca00, reuse_disposition: REUSE_AS_IS, semantic_role: FACTUAL_FEATURE_CONTRACT, authority_ceiling: FACTUAL_NORMALIZATION_ONLY}, REUSE-CONTRACT-WALL-PACK-C-CHECKS: {path: tbdy_engine/catalogs/check_catalog_p2_10_wall_pack_c.yaml, blob: c2c36fcf1172f1e64630594866399deae29b67dd, reuse_disposition: REUSE_AS_IS, semantic_role: CHECK_DEPENDENCY_CONTRACT, authority_ceiling: CURRENT_CHECK_REQUIREMENT_DECLARATION_ONLY}, REUSE-CONTRACT-TABLE-REGISTRY: {path: tbdy_engine/catalogs/table_registry.yaml, blob: 2d34a489da5742fcd41df316ab16f7f5a777b391, reuse_disposition: REUSE_AS_IS, semantic_role: RAW_SOURCE_CONTRACT, authority_ceiling: RAW_ETABS_FACT}, REUSE-CONTRACT-ETABS-FEATURE-SOURCE: {path: tbdy_engine/catalogs/etabs_feature_source_contract.yaml, blob: f69f093ff0b7b7fedd603ee33cdfa042224adfb6, reuse_disposition: REUSE_AS_IS, semantic_role: RAW_SOURCE_CONTRACT, authority_ceiling: FACTUAL_SOURCE_MAPPING_ONLY}, REUSE-CONTRACT-LOAD-COMBO-POLICY: {path: tbdy_engine/catalogs/load_combo_policy.yaml, blob: 4219b9ae626838b359a4b5bb5e3581d4fb6bde4e, reuse_disposition: ADAPT_EXISTING, semantic_role: ENGINEERING_POLICY, authority_ceiling: DIAGNOSTIC_CLASSIFICATION_ONLY}, REUSE-CONTRACT-DESIGN-COMBO-MATRIX: {path: tbdy_engine/catalogs/design_combo_matrix.yaml, blob: 4f097b8c1f8de93cdeaa6b72f6a1dccb3bf80520, reuse_disposition: REUSE_AS_IS, semantic_role: CHECK_DEPENDENCY_CONTRACT, authority_ceiling: REQUIREMENT_DECLARATION_ONLY}, REUSE-CONTRACT-SECTION-STATE-POLICY: {path: tbdy_engine/catalogs/section_state_policy.yaml, blob: 072e46616a5c2bc3890d92abad45da8c1224b58e, reuse_disposition: REUSE_AS_IS, semantic_role: ENGINEERING_POLICY, authority_ceiling: FROZEN_POLICY_DECLARATION_ONLY}, REUSE-CONTRACT-DESIGN-BASIS: {path: tbdy_engine/catalogs/design_basis.yaml, blob: 75148dab1950e4e2336f91ba7006b1ebc930603c, reuse_disposition: ADAPT_EXISTING, semantic_role: REVIEWED_CONTEXT_PATTERN, authority_ceiling: UNREVIEWED_PROJECT_BASIS_ONLY}, REUSE-CONTEXT-CHECK-EXECUTION: {path: tbdy_engine/checks/input_adapter.py, blob: 1dc1e7345b32a718dd0da1f9e7ac0cde02651918, reuse_disposition: REUSE_AS_IS, semantic_role: REVIEWED_CONTEXT_PATTERN, authority_ceiling: CHECK_EXECUTION_TRANSPORT_ONLY}, REUSE-CONTEXT-STRUCTURAL-SYSTEM-PARTIAL: {path: tbdy_engine/regulatory/structural_system.py, blob: 3022d8ca21713c93e6d8a21e99281ce8befcdd61, reuse_disposition: EXTEND_EXISTING, semantic_role: REVIEWED_CONTEXT_PATTERN, authority_ceiling: REVIEWED_STRUCTURAL_SYSTEM_POLICY_ONLY}, REUSE-CONTEXT-WALL-REFERENCE-FACTS: {path: tbdy_engine/features/wall_critical_evidence.py, blob: 9327ff8b9077c6f18512419e3ec9a7f7412d5a67, reuse_disposition: REUSE_AS_IS, semantic_role: REVIEWED_CONTEXT_PATTERN, authority_ceiling: FACTUAL_REFERENCE_CONTEXT_ONLY}, REUSE-CONTEXT-WALL-EXECUTION-EVIDENCE: {path: tbdy_engine/checks/wall_pipeline.py, blob: 1b82c2ea06731d22ffb046e1c580972a3e81114b, reuse_disposition: REUSE_AS_IS, semantic_role: REVIEWED_CONTEXT_PATTERN, authority_ceiling: WALL_EXECUTION_MATERIALIZATION_ONLY}, REUSE-CONTEXT-LIVE-ETABS-ACQUISITION: {path: tbdy_engine/integration/live_etabs_acquisition_context.py, blob: 6adbebe79ea61d01d82c38d8dd513b8efb143204, reuse_disposition: REUSE_AS_IS, semantic_role: LINEAGE_PATTERN, authority_ceiling: TRUSTED_FACTUAL_ACQUISITION_PROVENANCE}, REUSE-OAPI-T1-GATEWAY-OWNERSHIP: {path: packages/etabs_gateway/src/etabs_gateway/connection.py, blob: be171311583b0122d0a7952f98c81dc27ecf79c9, reuse_disposition: REUSE_AS_IS, semantic_role: NEGATIVE_ARCHITECTURE_PATTERN, authority_ceiling: PRODUCTION_TRANSPORT_OWNERSHIP_ONLY}, REUSE-OAPI-T1-FAKE-RUNTIME-ISOLATION: {path: tests/etabs/test_t1_etabs_test_isolation.py, blob: e0a54c74a41c1d1adb5ecaa7cec909a4e1018f54, reuse_disposition: EXTRACT_ONLY, semantic_role: TEST_FIXTURE, authority_ceiling: TEST_CONTRACT_ONLY}, REUSE-OAPI-T1-PID-ISOLATION: {path: packages/etabs_gateway/tests/test_pid_and_bounded_read.py, blob: 61df4aaa2c1b54e7615869328f37fe3341bdc270, reuse_disposition: EXTRACT_ONLY, semantic_role: TEST_FIXTURE, authority_ceiling: TEST_CONTRACT_ONLY}, REUSE-OAPI-T1-CLOSED-DEPENDENCY-UNIVERSE: {path: packages/etabs_gateway/src/etabs_gateway/connection.py, blob: be171311583b0122d0a7952f98c81dc27ecf79c9, reuse_disposition: REUSE_AS_IS, semantic_role: NEGATIVE_ARCHITECTURE_PATTERN, authority_ceiling: PRODUCTION_TRANSPORT_OWNERSHIP_ONLY}, REUSE-LINEAGE-ANALYSIS-BASIS-CONTRACTS: {path: tbdy_engine/analysis_basis/contracts.py, blob: 5b6e94b57c73ccdf1acae8726d9ffbe859bfaf8f, reuse_disposition: REUSE_AS_IS, semantic_role: LINEAGE_PATTERN, authority_ceiling: ANALYSIS_BASIS_AUDIT_JOIN_ONLY}, REUSE-LINEAGE-ETABS-ANALYSIS: {path: tbdy_engine/integration/etabs_analysis_lineage.py, blob: d78f08ef106123fd23aff41df3e1e2291d508bf4, reuse_disposition: REUSE_AS_IS, semantic_role: LINEAGE_PATTERN, authority_ceiling: CURRENT_CANONICAL_LINEAGE_AUTHORITY}, REUSE-LINEAGE-EVIDENCE-EPOCH: {path: tbdy_engine/features/evidence_epoch.py, blob: da39368479754d1ab54b4b6e3d12bcfa2033c6e4, reuse_disposition: REUSE_AS_IS, semantic_role: LINEAGE_PATTERN, authority_ceiling: FACTUAL_EVIDENCE_EPOCH_ONLY}, REUSE-LINEAGE-DESIGN-BASIS-AUDIT: {path: tbdy_engine/engine/design_basis_audit.py, blob: 2690b0b8cb609d2fc021c90499d886671a69240f, reuse_disposition: REUSE_AS_IS, semantic_role: SCHEMA_VALIDATION, authority_ceiling: REVIEW_GATE_ONLY}, REUSE-LINEAGE-REPORT-TEMPLATE-BASIS: {path: tbdy_engine/engine/report_template_basis.py, blob: edb453a193e87710e09ff182b99ec6d06a996afd, reuse_disposition: EXTRACT_ONLY, semantic_role: REPORT_PRESENTATION_REFERENCE, authority_ceiling: PRESENTATION_PROVENANCE_ONLY}, REUSE-ORACLE-CHECK-MATRIX: {path: tbdy_engine/checks/check_matrix.py, blob: e1ff240345ebd7df51397cdfd7ce3c1517604236, reuse_disposition: EXTRACT_ONLY, semantic_role: MECHANICS_ORACLE, authority_ceiling: DEPENDENCY_MECHANICS_ONLY}, REUSE-ORACLE-TOPOLOGY: {path: tbdy_engine/engine/topology.py, blob: 3347d1f931380c3242a4762bb51c96cf26a4fa2f, reuse_disposition: ADAPT_EXISTING, semantic_role: MECHANICS_ORACLE, authority_ceiling: TOPOLOGY_FACTS_ONLY}, REUSE-ORACLE-WALL-PIPELINE: {path: tbdy_engine/checks/wall_pipeline.py, blob: 1b82c2ea06731d22ffb046e1c580972a3e81114b, reuse_disposition: REUSE_AS_IS, semantic_role: MECHANICS_ORACLE, authority_ceiling: WALL_ORCHESTRATION_ONLY}, REUSE-SELECTION-NDM: {path: tbdy_engine/checks/ndm_selection.py, blob: 5bd4b6dcac621815d3a96d99266c29930dcc2e8b, reuse_disposition: REUSE_AS_IS, semantic_role: RESULT_SELECTION_PATTERN, authority_ceiling: NDM_SELECTION_ONLY_NO_VERDICT}, REUSE-CONTRACT-FND-COL-1-SOURCE-AUTHORITY: {path: tbdy_engine/regulatory/sources/fnd_col_1_longitudinal.py, blob: a6a16a203955b9d6b5e1b0024ab986e036ec6aeb, reuse_disposition: REUSE_AS_IS, semantic_role: ENGINEERING_POLICY, authority_ceiling: CURRENT_SOURCE_BOUND_RULE_AUTHORITY}, REUSE-CONTRACT-FND-COL-2-AUTHORITY: {path: tbdy_engine/regulatory/fnd_col_2.py, blob: 6b3fe22e7cce4ebbfbd9de0f4a1d02e700ceb17c, reuse_disposition: REUSE_AS_IS, semantic_role: ENGINEERING_POLICY, authority_ceiling: CURRENT_SOURCE_BOUND_RULE_AUTHORITY}, REUSE-CONTRACT-FND-COL-4-CANDIDATE-AUTHORITY: {path: tbdy_engine/regulatory/sources/fnd_col_4_candidate_adequacy.py, blob: f4a51a802223d484b6999f9f0a1704f8134ab444, reuse_disposition: REUSE_AS_IS, semantic_role: ENGINEERING_POLICY, authority_ceiling: CURRENT_SOURCE_BOUND_RULE_AUTHORITY}, REUSE-ORACLE-COLUMN-CANDIDATE-ADEQUACY: {path: tbdy_engine/design/columns/column_candidate_adequacy.py, blob: 1dab91385e44bd2436701b928b9776a41f7f44e9, reuse_disposition: REUSE_AS_IS, semantic_role: MECHANICS_ORACLE, authority_ceiling: CANDIDATE_ADEQUACY_COMPOSITION_ONLY}, REUSE-SELECTION-COLUMN-LONGITUDINAL-CONTRACT: {path: tbdy_engine/design/columns/column_longitudinal_selection_contract.py, blob: 106ad1e0e74d3f4e49ed0cf2d16e536cecc7c9f0, reuse_disposition: REUSE_AS_IS, semantic_role: RESULT_SELECTION_PATTERN, authority_ceiling: COLUMN_SELECTION_CONTRACT_ONLY}, REUSE-CONTRACT-FINAL-COLUMN-SHEAR: {path: tbdy_engine/regulatory/column_shear_p7.py, blob: 61b424aa320c487c17483a45776d092f67e6c032, reuse_disposition: REUSE_AS_IS, semantic_role: ENGINEERING_POLICY, authority_ceiling: CURRENT_SOURCE_BOUND_RULE_AUTHORITY}, REUSE-SELECTION-REPORT-PACKAGE: {path: tbdy_engine/product_reports/report_package.py, blob: 5300fde5e8bdb8745c6ce4294e9b4c6b465dea84, reuse_disposition: REUSE_AS_IS, semantic_role: REPORT_PRESENTATION_REFERENCE, authority_ceiling: REPORT_PACKAGING_ONLY}, REUSE-OAPI-VERIFIED-SESSION-SAFETY: {path: tbdy_engine/etabs/safety.py, blob: 39a11b8644dcf8bed916c57315b90573b595ab6c, reuse_disposition: REUSE_AS_IS, semantic_role: NEGATIVE_ARCHITECTURE_PATTERN, authority_ceiling: VERIFIED_SESSION_FACTS_ONLY}, REUSE-ORACLE-ETABS-STATE-TRANSACTIONS: {path: tbdy_engine/etabs/_safety_legacy.py, blob: c04fd378a00992c88b04218f4b9e2a5c7027bb18, reuse_disposition: ADAPT_EXISTING, semantic_role: MECHANICS_ORACLE, authority_ceiling: FACTUAL_STATE_TRANSACTION_MECHANICS_ONLY}, REUSE-REJECT-LEGACY-CONNECTION-FACADE: {path: tbdy_engine/etabs/connection.py, blob: 770194c860cdb8625eba7c588d8e6f555c582cdf, reuse_disposition: RETIRE, semantic_role: LEGACY_COMPATIBILITY, authority_ceiling: COMPATIBILITY_ONLY_NO_RAW_COM}, REUSE-SELECTION-P8A-COMBO-ELIGIBILITY: {path: tbdy_engine/design/columns/column_combo_eligibility_projection.py, blob: 04e259d1cd7c9570b659ae072c230ccadba8bd5f, reuse_disposition: REUSE_AS_IS, semantic_role: LINEAGE_PATTERN, authority_ceiling: CURRENT_P8A_EXACT_COMBO_BASIS_PROJECTION_ONLY}, REUSE-SELECTION-P8A-REBAR-PROMOTION: {path: tbdy_engine/design/columns/column_design_rebar_promotion.py, blob: e53b442e8112daa8f57a8f09d6089ca35f9c5da5, reuse_disposition: REUSE_AS_IS, semantic_role: RESULT_SELECTION_PATTERN, authority_ceiling: ETABS_REQUIRED_REBAR_PROMOTION_ONLY}, REUSE-CONTRACT-P8A-FACTUAL-DESIGN-RESULT-POPULATION: {path: tbdy_engine/features/column_design_rebar_evidence.py, blob: 5d58a10636afffef9a343d7ab9d48c54b84c5178, reuse_disposition: REUSE_AS_IS, semantic_role: FACTUAL_FEATURE_CONTRACT, authority_ceiling: FACTUAL_DESIGN_RESULT_POPULATION_ONLY}, REUSE-OAPI-P8A-DESIGN-RESULT-PROVIDER: {path: tbdy_engine/providers/etabs_concrete_column_design_result_provider.py, blob: c5b97f98fcb470edba8b47eac3af0ecd7fdbfd22, reuse_disposition: REUSE_AS_IS, semantic_role: RAW_SOURCE_CONTRACT, authority_ceiling: FACTUAL_DESIGN_RESULT_ACQUISITION_ONLY}, REUSE-OAPI-P8A-DESIGN-COMBO-SELECTION: {path: tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py, blob: 67feb26cee206c9e5ad1b52107a2ea300ac112ed, reuse_disposition: REUSE_AS_IS, semantic_role: RAW_SOURCE_CONTRACT, authority_ceiling: FACTUAL_DESIGN_COMBO_SELECTION_ONLY}}, HISTORICAL: {REUSE-ORACLE-W2-COLUMN-GOLDENS-HISTORICAL: {reuse_disposition: EXTRACT_ONLY, semantic_role: TEST_FIXTURE, authority_ceiling: TEST_ORACLE_ONLY_MECHANICS_ONLY, historical_source: worker/w2-column-goldens}, REUSE-ORACLE-W3-BEAM-FOUNDATION-HISTORICAL: {reuse_disposition: EXTRACT_ONLY, semantic_role: MECHANICS_ORACLE, authority_ceiling: RESEARCH_DEPENDENCY_DISCOVERY_ONLY, historical_source: worker/w3-beam-foundation-20260829}, REUSE-ORACLE-W6-P8A-LIVE-HISTORICAL: {reuse_disposition: EXTRACT_ONLY, semantic_role: NEGATIVE_ARCHITECTURE_PATTERN, authority_ceiling: CONTRACT_CANDIDATE_FACTUAL_ABI_ONLY, historical_source: worker/W6-P8A-LIVE}, REUSE-LINEAGE-W7-ANALYSIS-BASIS-HISTORICAL: {reuse_disposition: EXTRACT_ONLY, semantic_role: LINEAGE_PATTERN, authority_ceiling: EXACT_BINDING_KNOWLEDGE_NOT_EXECUTION_QUALIFICATION, historical_source: worker/w7-p8a-analysis-basis}, REUSE-CONTEXT-HISTORICAL-SHARED-CONTEXT-DESIGN: {reuse_disposition: EXTRACT_ONLY, semantic_role: REVIEWED_CONTEXT_PATTERN, authority_ceiling: HISTORICAL_DESIGN_ONLY, historical_source: Pasted markdown(20260816-144557).md}, REUSE-SELECTION-HISTORICAL-GENERIC-POLICY-DESIGN: {reuse_disposition: EXTRACT_ONLY, semantic_role: RESULT_SELECTION_PATTERN, authority_ceiling: HISTORICAL_DESIGN_ONLY, historical_source: Pasted markdown(20260816-150035).md}}}, gap_registry: {GAP-CATALOG-BEAM-SHEAR-ASW-TOP-AS: {classification: POTENTIAL_CATALOG_SEMANTIC_CONTRADICTION, source_path: tbdy_engine/catalogs/check_catalog.yaml, exact_blob: 08ae7bb1763f41f0557ab72a238d65d3c7773981, affected_check: beam_shear_asw_ge_asw_min, observed_dependency: beam_As_top_governing_required_mm2, why_suspicious: 'A check named Asw >= Asw,min is bound to a feature whose canonical name denotes governing top longitudinal reinforcement area rather than transverse shear reinforcement.', verification_required: 'Reconcile intended TBDY/TS500 shear reinforcement rule, feature semantics, source history and current evaluator/consumer before any catalog correction.', future_owner: UNKNOWN}, GAP-GENERIC-RESULT-SELECTION-POLICY: {classification: CURRENT_PARTIAL_IMPLEMENTATION_GAP}, GAP-MATERIALIZED-CHECK-DEPENDENCIES: {classification: HISTORICAL_DESIGN_NOT_CURRENT_OBJECT}, GAP-REGULATORY-COMPILE-INPUTS: {classification: NEW_REQUIRED, future_owner: C0 / FND2-LIVE-MATERIALIZATION-1}, GAP-DESIGN-EXECUTION-QUALIFICATION: {classification: NEW_REQUIRED, future_owner: B6 / DESIGN-EXEC-1}}, reject_registry: [REJECT-LEGACY-FALLBACK-ATTACH, REJECT-T1-CUSTOM-COMTYPES-DEFAULT-WIN32, REJECT-T1-CUSTOM-RUNTIME-DEFAULT-COMTYPES, REJECT-T1-RAW-COM-ESCAPE, REJECT-NAME-HEURISTIC-AUTHORITY, REJECT-FEATURE-REGULATORY-SEMANTIC-LEAK, REJECT-ETABS-DESIGN-RESULT-AS-VERDICT, REJECT-MATCH-BROADCAST-TO-COMBOS, REJECT-COMPONENT-MATCH-AS-DESIGN-LINEAGE, REJECT-EVIDENCE-EPOCH-AS-DESIGN-LINEAGE, REJECT-MODEL-FINGERPRINT-AS-DESIGN-LINEAGE, REJECT-ROW-EXISTS-AS-DESIGN-RESULT-IDENTITY, REJECT-PARTIAL-ANALYSIS-AS-QUALIFIED-LINEAGE, REJECT-GIANT-MODEL-CONTEXT, REJECT-FEATURE-SNAPSHOT-AS-REGULATORY-CONTEXT, REJECT-CALLER-REGULATORY-COMPILE-AUTHORITY, REJECT-W6-AS-DESIGN-EXEC-QUALIFICATION, REJECT-W7-AS-DESIGN-EXEC-QUALIFICATION, REJECT-B6-RUNANALYSIS-OWNERSHIP, REJECT-SOURCE-MODEL-MUTATION], context_object_existence: {StructuralSystemContext: CURRENT_OBJECT_PARTIAL, ReferenceLevelContext: CURRENT_OBJECT_PARTIAL, GroundMotionContext: CURRENT_OBJECT_PARTIAL, BuildingUseContext: CURRENT_OBJECT_PARTIAL, DuctilityContext: CURRENT_OBJECT_PARTIAL, ReviewedLoadFamilyBinding: CURRENT_OBJECT_PARTIAL, ResultSelectionPolicy: CURRENT_OBJECT_PARTIAL, SelectionTrace: CURRENT_OBJECT_EXISTS, CheckExecutionContext: CURRENT_OBJECT_EXISTS, MaterializedCheckDependencies: HISTORICAL_DESIGN_ONLY}, current_check_census: {total: 34, beam: 9, column: 5, wall: 16, story_global: 4, ids: {beam: [beam_geometry_min_width, beam_geometry_min_depth, beam_span_depth_ratio, beam_depth_width_ratio, beam_flexure_top_selected_ge_governing_required, beam_flexure_bottom_selected_ge_governing_required, beam_shear_ve_le_vr, beam_shear_asw_ge_asw_min, beam_capacity_design_shear], column: [column_geometry_min_dimension, column_pmm_contract, column_shear_contract, column_geometry_min_width, column_geometry_min_depth], wall: [wall_geometry_min_thickness, wall_pier_design_contract, wall_shear_contract, WALL_GEOM_DEFINITION_LW_BW_GE6, WALL_GEOM_BODY_THICKNESS_GE_H16, WALL_GEOM_BODY_THICKNESS_GE_250, WALL_GEOM_UNRESTRAINED_THICKNESS_GE_L30, WALL_GEOM_RESTRAINED_LEG_THICKNESS, WALL_GEOM_SPECIAL_THICKNESS_GE_HMAX20, WALL_GEOM_SPECIAL_THICKNESS_GE_200, WALL_NET_SECTION_AXIAL_CAPACITY, WALL_END_REGIONS_REQUIRED_HW_LW_GT2, WALL_HCR_GE_LW, WALL_HCR_GE_HW_DIV6, WALL_HCR_LE_2LW, WALL_END_REGION_LENGTH_CRITICAL_GE_MAX_0_2LW_2BW], story_global: [story_drift_limit, torsional_irregularity_A1, modal_mass_participation, base_shear_scaling]}}, product_capabilities: {FND-COL-1: {is_current_check_id: false, capability: Longitudinal requirement + layout authority}, FND-COL-2: {is_current_check_id: false, capability: Minimum eccentricity + slenderness + stability demand readiness}, P8A: {is_current_check_id: false, capability: Exact concrete-design combo eligibility + factual design-result acquisition/promotion}, P8A-B: {is_current_check_id: false, capability: P8A exact combo/analysis-basis binding hardening}, FND-COL-4: {is_current_check_id: false, capability: Candidate PMM/adequacy authority and selection cutover support}, P8B: {is_current_check_id: false, capability: Column candidate adequacy / selection integration stage}, FINAL COLUMN SHEAR: {is_current_check_id: false, capability: Formal source-bound final column shear rules}, COLUMN-R1: {is_current_check_id: false, capability: Product-spine column reporting/review integration}}, reuse_sets: {B2_REUSE_SET: {roadmap_meaning: DESIGN-LINEAGE-1, assets: [REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-ORACLE-W6-P8A-LIVE-HISTORICAL, REUSE-LINEAGE-W7-ANALYSIS-BASIS-HISTORICAL, REUSE-CONTRACT-DESIGN-COMBO-MATRIX, REUSE-CONTRACT-TABLE-REGISTRY, REUSE-CONTRACT-LOAD-COMBO-POLICY, REUSE-SELECTION-P8A-COMBO-ELIGIBILITY, REUSE-CONTRACT-P8A-FACTUAL-DESIGN-RESULT-POPULATION, REUSE-OAPI-P8A-DESIGN-RESULT-PROVIDER, REUSE-CONTEXT-LIVE-ETABS-ACQUISITION], semantic_review: VERIFIED}, B4A_REUSE_SET: {roadmap_meaning: DERIVED-STATE-1, assets: [REUSE-CONTEXT-LIVE-ETABS-ACQUISITION, REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-OAPI-T1-GATEWAY-OWNERSHIP, REUSE-OAPI-T1-CLOSED-DEPENDENCY-UNIVERSE, REUSE-OAPI-T1-FAKE-RUNTIME-ISOLATION, REUSE-OAPI-VERIFIED-SESSION-SAFETY, REUSE-REJECT-LEGACY-CONNECTION-FACADE], semantic_review: VERIFIED}, B4B_REUSE_SET: {roadmap_meaning: ANALYSIS-STATE-MUTATION-1, assets: [REUSE-CONTRACT-SECTION-STATE-POLICY, REUSE-ORACLE-ETABS-STATE-TRANSACTIONS, REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-OAPI-T1-GATEWAY-OWNERSHIP, REUSE-OAPI-T1-CLOSED-DEPENDENCY-UNIVERSE], semantic_review: VERIFIED}, B5_REUSE_SET: {roadmap_meaning: ANALYSIS-EXEC-1, assets: [REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-CONTEXT-LIVE-ETABS-ACQUISITION, REUSE-OAPI-T1-GATEWAY-OWNERSHIP, REUSE-OAPI-T1-CLOSED-DEPENDENCY-UNIVERSE, REUSE-OAPI-VERIFIED-SESSION-SAFETY, REUSE-ORACLE-ETABS-STATE-TRANSACTIONS, REUSE-LINEAGE-ANALYSIS-BASIS-CONTRACTS, REUSE-LINEAGE-W7-ANALYSIS-BASIS-HISTORICAL], semantic_review: VERIFIED}, C0_REUSE_SET: {roadmap_meaning: FND2-LIVE-MATERIALIZATION-1, assets: [REUSE-CONTEXT-LIVE-ETABS-ACQUISITION, REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-CONTRACT-FND-COL-2-AUTHORITY, REUSE-CONTEXT-CHECK-EXECUTION, REUSE-CONTEXT-HISTORICAL-SHARED-CONTEXT-DESIGN, REUSE-SELECTION-HISTORICAL-GENERIC-POLICY-DESIGN, REUSE-CONTEXT-STRUCTURAL-SYSTEM-PARTIAL, REUSE-CONTRACT-FEATURE-CATALOG-C1], semantic_review: VERIFIED}, B6_REUSE_SET: {roadmap_meaning: DESIGN-EXEC-1, assets: [REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-ORACLE-W6-P8A-LIVE-HISTORICAL, REUSE-LINEAGE-W7-ANALYSIS-BASIS-HISTORICAL, REUSE-OAPI-P8A-DESIGN-RESULT-PROVIDER, REUSE-CONTRACT-P8A-FACTUAL-DESIGN-RESULT-POPULATION, REUSE-SELECTION-P8A-COMBO-ELIGIBILITY, REUSE-SELECTION-P8A-REBAR-PROMOTION, REUSE-CONTRACT-DESIGN-COMBO-MATRIX, REUSE-OAPI-P8A-DESIGN-COMBO-SELECTION, REUSE-OAPI-T1-GATEWAY-OWNERSHIP, REUSE-OAPI-T1-CLOSED-DEPENDENCY-UNIVERSE], semantic_review: VERIFIED}, C1_REUSE_SET: {roadmap_meaning: COLUMN-LIVE-CUTOVER-1, assets: [REUSE-CONTEXT-LIVE-ETABS-ACQUISITION, REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-CONTRACT-FND-COL-1-SOURCE-AUTHORITY, REUSE-CONTRACT-FND-COL-2-AUTHORITY, REUSE-OAPI-P8A-DESIGN-RESULT-PROVIDER, REUSE-SELECTION-P8A-COMBO-ELIGIBILITY, REUSE-SELECTION-P8A-REBAR-PROMOTION, REUSE-CONTRACT-FND-COL-4-CANDIDATE-AUTHORITY, REUSE-ORACLE-COLUMN-CANDIDATE-ADEQUACY, REUSE-SELECTION-COLUMN-LONGITUDINAL-CONTRACT, REUSE-CONTRACT-FINAL-COLUMN-SHEAR], semantic_review: VERIFIED}, P8B_REUSE_SET: {roadmap_meaning: COLUMN-CANDIDATE-ADEQUACY-SELECTION-INTEGRATION, assets: [REUSE-SELECTION-P8A-REBAR-PROMOTION, REUSE-CONTRACT-FND-COL-4-CANDIDATE-AUTHORITY, REUSE-ORACLE-COLUMN-CANDIDATE-ADEQUACY, REUSE-SELECTION-COLUMN-LONGITUDINAL-CONTRACT, REUSE-LINEAGE-ANALYSIS-BASIS-CONTRACTS, REUSE-ORACLE-W2-COLUMN-GOLDENS-HISTORICAL], semantic_review: VERIFIED}, BEAM_REUSE_SET: {roadmap_meaning: BEAM_DOMAIN, assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-LOAD-COMBO-POLICY, REUSE-CONTRACT-DESIGN-COMBO-MATRIX, REUSE-CONTRACT-SECTION-STATE-POLICY, REUSE-ORACLE-W3-BEAM-FOUNDATION-HISTORICAL], semantic_review: VERIFIED}, WALL_REUSE_SET: {roadmap_meaning: WALL_DOMAIN, assets: [REUSE-CONTRACT-WALL-PACK-A-CHECKS, REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTRACT-WALL-PACK-B-CHECKS, REUSE-CONTRACT-WALL-PACK-B-FEATURES, REUSE-CONTRACT-WALL-PACK-C-CHECKS, REUSE-CONTEXT-WALL-REFERENCE-FACTS, REUSE-CONTEXT-WALL-EXECUTION-EVIDENCE, REUSE-SELECTION-NDM, REUSE-ORACLE-WALL-PIPELINE], semantic_review: VERIFIED}, GLOBAL_REUSE_SET: {roadmap_meaning: STORY_GLOBAL_DOMAIN, assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-LOAD-COMBO-POLICY, REUSE-LINEAGE-ANALYSIS-BASIS-CONTRACTS, REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-SELECTION-HISTORICAL-GENERIC-POLICY-DESIGN], semantic_review: VERIFIED}, REPORTING_REUSE_SET: {roadmap_meaning: REPORTING_DOMAIN, assets: [REUSE-SELECTION-REPORT-PACKAGE, REUSE-LINEAGE-REPORT-TEMPLATE-BASIS, REUSE-LINEAGE-DESIGN-BASIS-AUDIT, REUSE-CONTRACT-DESIGN-BASIS], semantic_review: VERIFIED}}, integrity_validation: {current_asset_count: 48, current_path_blob_pairs_checked: 48, missing_current_paths: 0, current_blob_mismatches: 0, stable_id_integrity: PASS, reuse_set_reference_integrity: PASS, reuse_set_semantic_integrity: PASS, asset_classification_integrity: PASS, parallel_research_dynamic_refs: 0, check_census: PASS_34}}
+p1_patch:
+  preserved: [34-check census, historical W2/W3/W6/W7 classification, current catalogs, context archaeology, stable-ID model, catalog contradiction, T1 negative knowledge, product-capability separation]
+  corrected_path_blob_pairs:
+    REUSE-LINEAGE-ETABS-ANALYSIS: {old_path: tbdy_engine/features/etabs_analysis_lineage.py, new_path: tbdy_engine/integration/etabs_analysis_lineage.py, blob: d78f08ef106123fd23aff41df3e1e2291d508bf4}
+    REUSE-CONTEXT-LIVE-ETABS-ACQUISITION: {old_path: tbdy_engine/features/live_etabs_acquisition_context.py, new_path: tbdy_engine/integration/live_etabs_acquisition_context.py, blob: 6adbebe79ea61d01d82c38d8dd513b8efb143204}
+  b1_semantic_hardening:
+    objects: [AnalysisStateIdentity, AnalysisResultIdentity, AnalysisLineageQualification]
+    rules: ['IDENTITY OBJECT != QUALIFIED LINEAGE', 'current public production cannot positively qualify pre-existing ETABS results']
+
+p3_restoration:
+  semantic_source: ed307e5084ad85bf837efcf24724bcacee1b25d9
+  rule: P1 semantic payload is preserved; only volatile unmerged parallel-research branch/SHA ledger data is removed.
+
+validation_provenance:
+  base_ref_verification: CONNECTOR-VERIFIED
+  current_path_blob_pair_validation: CONNECTOR-EXACT-TREE-PAIR-VERIFIED
+  local_checkout_available: 'NO'
+  local_yaml_parse_and_internal_cross_reference: PASS
+  python_compileall: NOT RUN LOCALLY
+  git_diff_check: NOT RUN LOCALLY
+
+base_refresh:
+  required_current_base: {sha: 6273c19030ab6ecb7ad2637e3bfc74f88b1da086, tree: 8f6ef822b5ab26d22c859438689e7bb9aea9439a}
+  current_base_assets_revalidated: 48
+  old_base_findings_salvaged: 4
+  old_base_findings_reclassified: 7
+  carry_forward_rule: Current conclusions are valid only after exact frozen-base path/blob revalidation; historical findings remain explicitly historical.
+
+t1_architecture:
+  production_owner: packages/etabs_gateway
+  owner_rule: sole production COM / STA / session / attach owner
+  closed_dependency_universe_rule: EXPLICIT CUSTOM/FAKE COM DEPENDENCY -> CLOSED DEPENDENCY UNIVERSE -> REAL/default COM FALLBACK FORBIDDEN
+  tests_are_engineering_authority: false
+
+parallel_research_policy:
+  unmerged_research_is_current_asset: false
+  unmerged_research_may_supply_current_authority: false
+  reconciliation_owner: SUPERVISOR
+  rule: >
+    Parallel research candidates are reconciled externally at supervisor
+    review time and are not frozen into this reuse index as CURRENT assets.
+
+asset_registry:
+  REUSE-CONTRACT-CHECK-CATALOG-C1: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/check_catalog.yaml, blob: 08ae7bb1763f41f0557ab72a238d65d3c7773981, reuse_disposition: REUSE_AS_IS, semantic_role: CHECK_DEPENDENCY_CONTRACT, authority_ceiling: CURRENT_CHECK_REQUIREMENT_DECLARATION_ONLY, reuse_scope: Current C1 check requirement declarations; catalog presence does not prove implementation/execution readiness., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-FEATURE-CATALOG-C1: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/feature_catalog.yaml, blob: bb5208e03c1703b9b412bdd20a6ff7822029e056, reuse_disposition: REUSE_AS_IS, semantic_role: FACTUAL_FEATURE_CONTRACT, authority_ceiling: FACTUAL_NORMALIZATION_ONLY, reuse_scope: Canonical base factual/design-feature vocabulary and normalization/source metadata., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-COLUMN-GEOMETRY-CHECK-OVERLAY: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/check_catalog_c13_5_p1_column_geometry.yaml, blob: 0b924d942a3b506d1489385c0164be865d0fb995, reuse_disposition: REUSE_AS_IS, semantic_role: CHECK_DEPENDENCY_CONTRACT, authority_ceiling: CURRENT_CHECK_REQUIREMENT_DECLARATION_ONLY, reuse_scope: Additive column geometry requirement declarations., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-COLUMN-GEOMETRY-FEATURE-OVERLAY: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/feature_catalog_c13_5_p1_column_geometry.yaml, blob: 173ef39754107d098e7a9e3d0d8f3b1ed5e2fa54, reuse_disposition: REUSE_AS_IS, semantic_role: FACTUAL_FEATURE_CONTRACT, authority_ceiling: FACTUAL_NORMALIZATION_ONLY, reuse_scope: Column width/depth factual feature definitions; section-name parsing is forbidden., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-WALL-PACK-A-CHECKS: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/check_catalog_p2_10_wall_pack_a.yaml, blob: f8aa0b56e8e884b20a97b027d25fe3e9ef6aca5c, reuse_disposition: REUSE_AS_IS, semantic_role: CHECK_DEPENDENCY_CONTRACT, authority_ceiling: CURRENT_CHECK_REQUIREMENT_DECLARATION_ONLY, reuse_scope: Wall Pack A geometry check requirements., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-WALL-PACK-A-FEATURES: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/feature_catalog_p2_10_wall_pack_a.yaml, blob: 7b8ac7ab590ad799efc9cd5742b8b9d2fadce528, reuse_disposition: REUSE_AS_IS, semantic_role: FACTUAL_FEATURE_CONTRACT, authority_ceiling: FACTUAL_NORMALIZATION_ONLY, reuse_scope: Wall factual geometry/location/topology features; no regulatory applicability verdict., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-WALL-PACK-B-CHECKS: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/check_catalog_p2_10_wall_pack_b.yaml, blob: 7abc01529e6069905b97f0c1869e7a948fbc9bf2, reuse_disposition: REUSE_AS_IS, semantic_role: CHECK_DEPENDENCY_CONTRACT, authority_ceiling: CURRENT_CHECK_REQUIREMENT_DECLARATION_ONLY, reuse_scope: Wall Pack B requirements and fail-closed execution-context declarations., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-WALL-PACK-B-FEATURES: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/feature_catalog_p2_10_wall_pack_b.yaml, blob: 0541937e0f028c5ab06fe65f1432ed20081fca00, reuse_disposition: REUSE_AS_IS, semantic_role: FACTUAL_FEATURE_CONTRACT, authority_ceiling: FACTUAL_NORMALIZATION_ONLY, reuse_scope: Wall Pack B factual-only features; Ndm/Vt/engineering aggregates are not FeatureSnapshot facts., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-WALL-PACK-C-CHECKS: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/check_catalog_p2_10_wall_pack_c.yaml, blob: c2c36fcf1172f1e64630594866399deae29b67dd, reuse_disposition: REUSE_AS_IS, semantic_role: CHECK_DEPENDENCY_CONTRACT, authority_ceiling: CURRENT_CHECK_REQUIREMENT_DECLARATION_ONLY, reuse_scope: Wall Pack C requirement declarations; Hw/Hcr and applicability remain derived/evaluated outside FeatureSnapshot., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-TABLE-REGISTRY: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/table_registry.yaml, blob: 2d34a489da5742fcd41df316ab16f7f5a777b391, reuse_disposition: REUSE_AS_IS, semantic_role: RAW_SOURCE_CONTRACT, authority_ceiling: RAW_ETABS_FACT, reuse_scope: 'Canonical ETABS table-key/source vocabulary, including design-result source contracts.', production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-ETABS-FEATURE-SOURCE: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/etabs_feature_source_contract.yaml, blob: f69f093ff0b7b7fedd603ee33cdfa042224adfb6, reuse_disposition: REUSE_AS_IS, semantic_role: RAW_SOURCE_CONTRACT, authority_ceiling: FACTUAL_SOURCE_MAPPING_ONLY, reuse_scope: ETABS-to-feature factual source mapping contract., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-LOAD-COMBO-POLICY: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/load_combo_policy.yaml, blob: 4219b9ae626838b359a4b5bb5e3581d4fb6bde4e, reuse_disposition: ADAPT_EXISTING, semantic_role: ENGINEERING_POLICY, authority_ceiling: DIAGNOSTIC_CLASSIFICATION_ONLY, reuse_scope: Load/combo vocabulary and diagnostics; regex/name matching is never formal reviewed binding authority., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-DESIGN-COMBO-MATRIX: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/design_combo_matrix.yaml, blob: 4f097b8c1f8de93cdeaa6b72f6a1dccb3bf80520, reuse_disposition: REUSE_AS_IS, semantic_role: CHECK_DEPENDENCY_CONTRACT, authority_ceiling: REQUIREMENT_DECLARATION_ONLY, reuse_scope: Design-combination role/requirement matrix used for lineage and design-execution reconciliation., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-SECTION-STATE-POLICY: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/section_state_policy.yaml, blob: 072e46616a5c2bc3890d92abad45da8c1224b58e, reuse_disposition: REUSE_AS_IS, semantic_role: ENGINEERING_POLICY, authority_ceiling: FROZEN_POLICY_DECLARATION_ONLY, reuse_scope: Section-state/cracking policy declaration for analysis-state materialization., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-DESIGN-BASIS: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/catalogs/design_basis.yaml, blob: 75148dab1950e4e2336f91ba7006b1ebc930603c, reuse_disposition: ADAPT_EXISTING, semantic_role: REVIEWED_CONTEXT_PATTERN, authority_ceiling: UNREVIEWED_PROJECT_BASIS_ONLY, reuse_scope: Partial project/design-basis contract; design_basis_reviewed=false remains a hard non-authority boundary., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTEXT-CHECK-EXECUTION: {category: REUSE-CONTEXT, temporal_status: CURRENT, path: tbdy_engine/checks/input_adapter.py, blob: 1dc1e7345b32a718dd0da1f9e7ac0cde02651918, reuse_disposition: REUSE_AS_IS, semantic_role: REVIEWED_CONTEXT_PATTERN, authority_ceiling: CHECK_EXECUTION_TRANSPORT_ONLY, reuse_scope: Frozen bounded non-FeatureSnapshot execution carrier., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTEXT-STRUCTURAL-SYSTEM-PARTIAL: {category: REUSE-CONTEXT, temporal_status: CURRENT, path: tbdy_engine/regulatory/structural_system.py, blob: 3022d8ca21713c93e6d8a21e99281ce8befcdd61, reuse_disposition: EXTEND_EXISTING, semantic_role: REVIEWED_CONTEXT_PATTERN, authority_ceiling: REVIEWED_STRUCTURAL_SYSTEM_POLICY_ONLY, reuse_scope: Reviewed directional RC structural-system/ductility/R-D pieces; not a generic StructuralSystemContext., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTEXT-WALL-REFERENCE-FACTS: {category: REUSE-CONTEXT, temporal_status: CURRENT, path: tbdy_engine/features/wall_critical_evidence.py, blob: 9327ff8b9077c6f18512419e3ec9a7f7412d5a67, reuse_disposition: REUSE_AS_IS, semantic_role: REVIEWED_CONTEXT_PATTERN, authority_ceiling: FACTUAL_REFERENCE_CONTEXT_ONLY, reuse_scope: Typed wall regulatory reference facts plus Pack-C factual story/wall evidence; no Hw/Hcr verdict., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTEXT-WALL-EXECUTION-EVIDENCE: {category: REUSE-CONTEXT, temporal_status: CURRENT, path: tbdy_engine/checks/wall_pipeline.py, blob: 1b82c2ea06731d22ffb046e1c580972a3e81114b, reuse_disposition: REUSE_AS_IS, semantic_role: REVIEWED_CONTEXT_PATTERN, authority_ceiling: WALL_EXECUTION_MATERIALIZATION_ONLY, reuse_scope: Bounded wall run-level evidence materialized into per-check CheckExecutionContext., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTEXT-LIVE-ETABS-ACQUISITION: {category: REUSE-CONTEXT, temporal_status: CURRENT, path: tbdy_engine/integration/live_etabs_acquisition_context.py, blob: 6adbebe79ea61d01d82c38d8dd513b8efb143204, reuse_disposition: REUSE_AS_IS, semantic_role: LINEAGE_PATTERN, authority_ceiling: TRUSTED_FACTUAL_ACQUISITION_PROVENANCE, reuse_scope: TrustedLiveAcquisitionContext/SourceModelIdentity factual provenance. SourceModelIdentity and model_fingerprint do not prove in-memory/analysis/design state., production_import_allowed: false, engineering_authority: none}
+  REUSE-OAPI-T1-GATEWAY-OWNERSHIP: {category: REUSE-OAPI, temporal_status: CURRENT, path: packages/etabs_gateway/src/etabs_gateway/connection.py, blob: be171311583b0122d0a7952f98c81dc27ecf79c9, reuse_disposition: REUSE_AS_IS, semantic_role: NEGATIVE_ARCHITECTURE_PATTERN, authority_ceiling: PRODUCTION_TRANSPORT_OWNERSHIP_ONLY, reuse_scope: Sole production COM/STA/session/attach owner., production_import_allowed: false, engineering_authority: none}
+  REUSE-OAPI-T1-FAKE-RUNTIME-ISOLATION: {category: REUSE-OAPI, temporal_status: CURRENT, path: tests/etabs/test_t1_etabs_test_isolation.py, blob: e0a54c74a41c1d1adb5ecaa7cec909a4e1018f54, reuse_disposition: EXTRACT_ONLY, semantic_role: TEST_FIXTURE, authority_ceiling: TEST_CONTRACT_ONLY, reuse_scope: Negative test oracle for fake/custom runtime isolation., production_import_allowed: false, engineering_authority: none}
+  REUSE-OAPI-T1-PID-ISOLATION: {category: REUSE-OAPI, temporal_status: CURRENT, path: packages/etabs_gateway/tests/test_pid_and_bounded_read.py, blob: 61df4aaa2c1b54e7615869328f37fe3341bdc270, reuse_disposition: EXTRACT_ONLY, semantic_role: TEST_FIXTURE, authority_ceiling: TEST_CONTRACT_ONLY, reuse_scope: PID exact-process/fallback test oracle., production_import_allowed: false, engineering_authority: none}
+  REUSE-OAPI-T1-CLOSED-DEPENDENCY-UNIVERSE: {category: REUSE-OAPI, temporal_status: CURRENT, path: packages/etabs_gateway/src/etabs_gateway/connection.py, blob: be171311583b0122d0a7952f98c81dc27ecf79c9, reuse_disposition: REUSE_AS_IS, semantic_role: NEGATIVE_ARCHITECTURE_PATTERN, authority_ceiling: PRODUCTION_TRANSPORT_OWNERSHIP_ONLY, reuse_scope: Explicit custom/fake COM dependency closes the dependency universe; implicit real/default fallback is unreachable., production_import_allowed: false, engineering_authority: none}
+  REUSE-LINEAGE-ANALYSIS-BASIS-CONTRACTS: {category: REUSE-LINEAGE, temporal_status: CURRENT, path: tbdy_engine/analysis_basis/contracts.py, blob: 5b6e94b57c73ccdf1acae8726d9ffbe859bfaf8f, reuse_disposition: REUSE_AS_IS, semantic_role: LINEAGE_PATTERN, authority_ceiling: ANALYSIS_BASIS_AUDIT_JOIN_ONLY, reuse_scope: 'Immutable reviewed-declaration/assumption/compatibility/snapshot joins; snapshot is audit/provenance, not authority.', production_import_allowed: false, engineering_authority: none}
+  REUSE-LINEAGE-ETABS-ANALYSIS: {category: REUSE-LINEAGE, temporal_status: CURRENT, path: tbdy_engine/integration/etabs_analysis_lineage.py, blob: d78f08ef106123fd23aff41df3e1e2291d508bf4, reuse_disposition: REUSE_AS_IS, semantic_role: LINEAGE_PATTERN, authority_ceiling: CURRENT_CANONICAL_LINEAGE_AUTHORITY, reuse_scope: 'Current B1 causal lineage contracts: AnalysisStateIdentity, AnalysisResultIdentity and AnalysisLineageQualification. Identity object != qualified lineage; current public production cannot positively qualify pre-existing ETABS results.', production_import_allowed: false, engineering_authority: none}
+  REUSE-LINEAGE-EVIDENCE-EPOCH: {category: REUSE-LINEAGE, temporal_status: CURRENT, path: tbdy_engine/features/evidence_epoch.py, blob: da39368479754d1ab54b4b6e3d12bcfa2033c6e4, reuse_disposition: REUSE_AS_IS, semantic_role: LINEAGE_PATTERN, authority_ceiling: FACTUAL_EVIDENCE_EPOCH_ONLY, reuse_scope: Factual evidence acquisition generation identity only; never analysis/design lineage., production_import_allowed: false, engineering_authority: none}
+  REUSE-LINEAGE-DESIGN-BASIS-AUDIT: {category: REUSE-LINEAGE, temporal_status: CURRENT, path: tbdy_engine/engine/design_basis_audit.py, blob: 2690b0b8cb609d2fc021c90499d886671a69240f, reuse_disposition: REUSE_AS_IS, semantic_role: SCHEMA_VALIDATION, authority_ceiling: REVIEW_GATE_ONLY, reuse_scope: Design-basis review/audit mechanics; unreviewed basis is not executable truth., production_import_allowed: false, engineering_authority: none}
+  REUSE-LINEAGE-REPORT-TEMPLATE-BASIS: {category: REUSE-LINEAGE, temporal_status: CURRENT, path: tbdy_engine/engine/report_template_basis.py, blob: edb453a193e87710e09ff182b99ec6d06a996afd, reuse_disposition: EXTRACT_ONLY, semantic_role: REPORT_PRESENTATION_REFERENCE, authority_ceiling: PRESENTATION_PROVENANCE_ONLY, reuse_scope: Report-template basis/provenance reference., production_import_allowed: false, engineering_authority: none}
+  REUSE-ORACLE-CHECK-MATRIX: {category: REUSE-ORACLE, temporal_status: CURRENT, path: tbdy_engine/checks/check_matrix.py, blob: e1ff240345ebd7df51397cdfd7ce3c1517604236, reuse_disposition: EXTRACT_ONLY, semantic_role: MECHANICS_ORACLE, authority_ceiling: DEPENDENCY_MECHANICS_ONLY, reuse_scope: Legacy/current dependency/run-level mechanics oracle; current catalog census remains separate., production_import_allowed: false, engineering_authority: none}
+  REUSE-ORACLE-TOPOLOGY: {category: REUSE-ORACLE, temporal_status: CURRENT, path: tbdy_engine/engine/topology.py, blob: 3347d1f931380c3242a4762bb51c96cf26a4fa2f, reuse_disposition: ADAPT_EXISTING, semantic_role: MECHANICS_ORACLE, authority_ceiling: TOPOLOGY_FACTS_ONLY, reuse_scope: Topology/identity mechanics; inferred topology is not reviewed regulatory truth., production_import_allowed: false, engineering_authority: none}
+  REUSE-ORACLE-WALL-PIPELINE: {category: REUSE-ORACLE, temporal_status: CURRENT, path: tbdy_engine/checks/wall_pipeline.py, blob: 1b82c2ea06731d22ffb046e1c580972a3e81114b, reuse_disposition: REUSE_AS_IS, semantic_role: MECHANICS_ORACLE, authority_ceiling: WALL_ORCHESTRATION_ONLY, reuse_scope: Wall orchestration/materialization and fail-closed context readiness mechanics., production_import_allowed: false, engineering_authority: none}
+  REUSE-SELECTION-NDM: {category: REUSE-SELECTION, temporal_status: CURRENT, path: tbdy_engine/checks/ndm_selection.py, blob: 5bd4b6dcac621815d3a96d99266c29930dcc2e8b, reuse_disposition: REUSE_AS_IS, semantic_role: RESULT_SELECTION_PATTERN, authority_ceiling: NDM_SELECTION_ONLY_NO_VERDICT, reuse_scope: Ndm-only exact reviewed binding/policy/SelectionTrace; no capacity/verdict authority., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-FND-COL-1-SOURCE-AUTHORITY: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/regulatory/sources/fnd_col_1_longitudinal.py, blob: a6a16a203955b9d6b5e1b0024ab986e036ec6aeb, reuse_disposition: REUSE_AS_IS, semantic_role: ENGINEERING_POLICY, authority_ceiling: CURRENT_SOURCE_BOUND_RULE_AUTHORITY, reuse_scope: Reviewed source authority for FND-COL-1 longitudinal requirements/layout., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-FND-COL-2-AUTHORITY: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/regulatory/fnd_col_2.py, blob: 6b3fe22e7cce4ebbfbd9de0f4a1d02e700ceb17c, reuse_disposition: REUSE_AS_IS, semantic_role: ENGINEERING_POLICY, authority_ceiling: CURRENT_SOURCE_BOUND_RULE_AUTHORITY, reuse_scope: Source-bound FND-COL-2 demand-readiness seam delegating accepted mechanics to existing kernels., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-FND-COL-4-CANDIDATE-AUTHORITY: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/regulatory/sources/fnd_col_4_candidate_adequacy.py, blob: f4a51a802223d484b6999f9f0a1704f8134ab444, reuse_disposition: REUSE_AS_IS, semantic_role: ENGINEERING_POLICY, authority_ceiling: CURRENT_SOURCE_BOUND_RULE_AUTHORITY, reuse_scope: Reviewed candidate-adequacy source authority for FND-COL-4., production_import_allowed: false, engineering_authority: none}
+  REUSE-ORACLE-COLUMN-CANDIDATE-ADEQUACY: {category: REUSE-ORACLE, temporal_status: CURRENT, path: tbdy_engine/design/columns/column_candidate_adequacy.py, blob: 1dab91385e44bd2436701b928b9776a41f7f44e9, reuse_disposition: REUSE_AS_IS, semantic_role: MECHANICS_ORACLE, authority_ceiling: CANDIDATE_ADEQUACY_COMPOSITION_ONLY, reuse_scope: Exhaustive candidate adequacy population using accepted primitives; no independent formula/ranking/final selection., production_import_allowed: false, engineering_authority: none}
+  REUSE-SELECTION-COLUMN-LONGITUDINAL-CONTRACT: {category: REUSE-SELECTION, temporal_status: CURRENT, path: tbdy_engine/design/columns/column_longitudinal_selection_contract.py, blob: 106ad1e0e74d3f4e49ed0cf2d16e536cecc7c9f0, reuse_disposition: REUSE_AS_IS, semantic_role: RESULT_SELECTION_PATTERN, authority_ceiling: COLUMN_SELECTION_CONTRACT_ONLY, reuse_scope: Column longitudinal selection contract/binding mechanics., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-FINAL-COLUMN-SHEAR: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/regulatory/column_shear_p7.py, blob: 61b424aa320c487c17483a45776d092f67e6c032, reuse_disposition: REUSE_AS_IS, semantic_role: ENGINEERING_POLICY, authority_ceiling: CURRENT_SOURCE_BOUND_RULE_AUTHORITY, reuse_scope: Formal source-bound column-shear rules; acquisition/capacity/context promotion occur upstream., production_import_allowed: false, engineering_authority: none}
+  REUSE-SELECTION-REPORT-PACKAGE: {category: REUSE-SELECTION, temporal_status: CURRENT, path: tbdy_engine/product_reports/report_package.py, blob: 5300fde5e8bdb8745c6ce4294e9b4c6b465dea84, reuse_disposition: REUSE_AS_IS, semantic_role: REPORT_PRESENTATION_REFERENCE, authority_ceiling: REPORT_PACKAGING_ONLY, reuse_scope: Deterministic packaging of already-rendered outputs; no ETABS/check execution., production_import_allowed: false, engineering_authority: none}
+  REUSE-OAPI-VERIFIED-SESSION-SAFETY: {category: REUSE-OAPI, temporal_status: CURRENT, path: tbdy_engine/etabs/safety.py, blob: 39a11b8644dcf8bed916c57315b90573b595ab6c, reuse_disposition: REUSE_AS_IS, semantic_role: NEGATIVE_ARCHITECTURE_PATTERN, authority_ceiling: VERIFIED_SESSION_FACTS_ONLY, reuse_scope: Verified-session/model-path factual safety facade above gateway; no independent COM ownership., production_import_allowed: false, engineering_authority: none}
+  REUSE-ORACLE-ETABS-STATE-TRANSACTIONS: {category: REUSE-ORACLE, temporal_status: CURRENT, path: tbdy_engine/etabs/_safety_legacy.py, blob: c04fd378a00992c88b04218f4b9e2a5c7027bb18, reuse_disposition: ADAPT_EXISTING, semantic_role: MECHANICS_ORACLE, authority_ceiling: FACTUAL_STATE_TRANSACTION_MECHANICS_ONLY, reuse_scope: 'Private reusable factual/state mechanics: analysis readiness and snapshot/set/readback/restore verification patterns; no COM attach or engineering authority.', production_import_allowed: false, engineering_authority: none}
+  REUSE-REJECT-LEGACY-CONNECTION-FACADE: {category: REUSE-OAPI, temporal_status: CURRENT, path: tbdy_engine/etabs/connection.py, blob: 770194c860cdb8625eba7c588d8e6f555c582cdf, reuse_disposition: RETIRE, semantic_role: LEGACY_COMPATIBILITY, authority_ceiling: COMPATIBILITY_ONLY_NO_RAW_COM, reuse_scope: Current compatibility facade proving direct attach/raw SapModel export is retired., production_import_allowed: false, engineering_authority: none}
+  REUSE-SELECTION-P8A-COMBO-ELIGIBILITY: {category: REUSE-SELECTION, temporal_status: CURRENT, path: tbdy_engine/design/columns/column_combo_eligibility_projection.py, blob: 04e259d1cd7c9570b659ae072c230ccadba8bd5f, reuse_disposition: REUSE_AS_IS, semantic_role: LINEAGE_PATTERN, authority_ceiling: CURRENT_P8A_EXACT_COMBO_BASIS_PROJECTION_ONLY, reuse_scope: 'Exact component x (design_combo_type, combo_name) P8A eligibility projection with definition fingerprint, demand and combo-grain analysis-basis binding; component MATCH is never broadcast.', production_import_allowed: false, engineering_authority: none}
+  REUSE-SELECTION-P8A-REBAR-PROMOTION: {category: REUSE-SELECTION, temporal_status: CURRENT, path: tbdy_engine/design/columns/column_design_rebar_promotion.py, blob: e53b442e8112daa8f57a8f09d6089ca35f9c5da5, reuse_disposition: REUSE_AS_IS, semantic_role: RESULT_SELECTION_PATTERN, authority_ceiling: ETABS_REQUIRED_REBAR_PROMOTION_ONLY, reuse_scope: Row-wise ETABS_REQUIRED_REBAR promotion with total population accounting; no first/last/max/envelope collapse., production_import_allowed: false, engineering_authority: none}
+  REUSE-CONTRACT-P8A-FACTUAL-DESIGN-RESULT-POPULATION: {category: REUSE-CONTRACT, temporal_status: CURRENT, path: tbdy_engine/features/column_design_rebar_evidence.py, blob: 5d58a10636afffef9a343d7ab9d48c54b84c5178, reuse_disposition: REUSE_AS_IS, semantic_role: FACTUAL_FEATURE_CONTRACT, authority_ceiling: FACTUAL_DESIGN_RESULT_POPULATION_ONLY, reuse_scope: Provider-neutral factual design-result row/population contract., production_import_allowed: false, engineering_authority: none}
+  REUSE-OAPI-P8A-DESIGN-RESULT-PROVIDER: {category: REUSE-OAPI, temporal_status: CURRENT, path: tbdy_engine/providers/etabs_concrete_column_design_result_provider.py, blob: c5b97f98fcb470edba8b47eac3af0ecd7fdbfd22, reuse_disposition: REUSE_AS_IS, semantic_role: RAW_SOURCE_CONTRACT, authority_ceiling: FACTUAL_DESIGN_RESULT_ACQUISITION_ONLY, reuse_scope: 'Semantic factual P8A concrete-column design-result provider: exact component binding, units, epoch/provenance, row identity, full-population accounting; CSI 14-slot ABI remains OAPI-owned.', production_import_allowed: false, engineering_authority: none}
+  REUSE-OAPI-P8A-DESIGN-COMBO-SELECTION: {category: REUSE-OAPI, temporal_status: CURRENT, path: tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py, blob: 67feb26cee206c9e5ad1b52107a2ea300ac112ed, reuse_disposition: REUSE_AS_IS, semantic_role: RAW_SOURCE_CONTRACT, authority_ceiling: FACTUAL_DESIGN_COMBO_SELECTION_ONLY, reuse_scope: Factual acquisition of the actual concrete-design combo selection population., production_import_allowed: false, engineering_authority: none}
+  REUSE-ORACLE-W2-COLUMN-GOLDENS-HISTORICAL: {category: REUSE-ORACLE, temporal_status: HISTORICAL, reuse_disposition: EXTRACT_ONLY, semantic_role: TEST_FIXTURE, authority_ceiling: TEST_ORACLE_ONLY_MECHANICS_ONLY, reuse_scope: Fourteen isolated column mechanics benchmark vectors; test oracle only., production_import_allowed: false, engineering_authority: none, historical_source: worker/w2-column-goldens, historical_commit: b2bc3ce}
+  REUSE-ORACLE-W3-BEAM-FOUNDATION-HISTORICAL: {category: REUSE-ORACLE, temporal_status: HISTORICAL, reuse_disposition: EXTRACT_ONLY, semantic_role: MECHANICS_ORACLE, authority_ceiling: RESEARCH_DEPENDENCY_DISCOVERY_ONLY, reuse_scope: Beam provider/consumer/source archaeology and reconciliation leads; revalidate before implementation., production_import_allowed: false, engineering_authority: none, historical_source: worker/w3-beam-foundation-20260829, historical_commit: 497e654}
+  REUSE-ORACLE-W6-P8A-LIVE-HISTORICAL: {category: REUSE-ORACLE, temporal_status: HISTORICAL, reuse_disposition: EXTRACT_ONLY, semantic_role: NEGATIVE_ARCHITECTURE_PATTERN, authority_ceiling: CONTRACT_CANDIDATE_FACTUAL_ABI_ONLY, reuse_scope: P8A design-result ABI/population and negative-contract knowledge only; not positive design execution qualification., production_import_allowed: false, engineering_authority: none, historical_source: worker/W6-P8A-LIVE, historical_commit: d5b708}
+  REUSE-LINEAGE-W7-ANALYSIS-BASIS-HISTORICAL: {category: REUSE-LINEAGE, temporal_status: HISTORICAL, reuse_disposition: EXTRACT_ONLY, semantic_role: LINEAGE_PATTERN, authority_ceiling: EXACT_BINDING_KNOWLEDGE_NOT_EXECUTION_QUALIFICATION, reuse_scope: Exact component/combo/definition/basis join knowledge; not positive analysis/design execution qualification., production_import_allowed: false, engineering_authority: none, historical_source: worker/w7-p8a-analysis-basis, historical_commit: 1c70a2e}
+  REUSE-CONTEXT-HISTORICAL-SHARED-CONTEXT-DESIGN: {category: REUSE-CONTEXT, temporal_status: HISTORICAL, reuse_disposition: EXTRACT_ONLY, semantic_role: REVIEWED_CONTEXT_PATTERN, authority_ceiling: HISTORICAL_DESIGN_ONLY, reuse_scope: Historical typed shared-context architecture design; distinguish proposed abstractions from current objects., production_import_allowed: false, engineering_authority: none, historical_source: Pasted markdown(20260816-144557).md}
+  REUSE-SELECTION-HISTORICAL-GENERIC-POLICY-DESIGN: {category: REUSE-SELECTION, temporal_status: HISTORICAL, reuse_disposition: EXTRACT_ONLY, semantic_role: RESULT_SELECTION_PATTERN, authority_ceiling: HISTORICAL_DESIGN_ONLY, reuse_scope: Historical generic ResultSelectionPolicy/MaterializedCheckDependencies design., production_import_allowed: false, engineering_authority: none, historical_source: Pasted markdown(20260816-150035).md}
+
+current_path_blob_pair_validation:
+  base_tree: 8f6ef822b5ab26d22c859438689e7bb9aea9439a
+  current_asset_count: 48
+  current_path_blob_pairs_checked: 48
+  missing_current_paths: 0
+  current_blob_mismatches: 0
+  requirement: tree[path].type == blob AND tree[path].sha == recorded blob
+
+gap_registry:
+  GAP-CATALOG-BEAM-SHEAR-ASW-TOP-AS: {classification: POTENTIAL_CATALOG_SEMANTIC_CONTRADICTION, source_path: tbdy_engine/catalogs/check_catalog.yaml, exact_blob: 08ae7bb1763f41f0557ab72a238d65d3c7773981, affected_check: beam_shear_asw_ge_asw_min, observed_dependency: beam_As_top_governing_required_mm2, why_suspicious: 'A check named Asw >= Asw,min is bound to a feature whose canonical name denotes governing top longitudinal reinforcement area rather than transverse shear reinforcement.', verification_required: 'Reconcile intended TBDY/TS500 shear reinforcement rule, feature semantics, source history and current evaluator/consumer before any catalog correction.', future_owner: UNKNOWN}
+  GAP-GENERIC-RESULT-SELECTION-POLICY: {classification: CURRENT_PARTIAL_IMPLEMENTATION_GAP, why: 'Ndm has exact reviewed binding/policy/trace, but the historical shared generic ResultSelectionPolicy abstraction is not a current generic object.', future_owner: UNKNOWN}
+  GAP-MATERIALIZED-CHECK-DEPENDENCIES: {classification: HISTORICAL_DESIGN_NOT_CURRENT_OBJECT, why: Historical design proposed MaterializedCheckDependencies; current wall pipeline materializes directly into CheckExecutionContext., future_owner: UNKNOWN}
+  GAP-REGULATORY-COMPILE-INPUTS: {classification: NEW_REQUIRED, why: No current generic RegulatoryCompileInputs object was found on the frozen base; C0 requires canonical materialization rather than caller-supplied authority., future_owner: C0 / FND2-LIVE-MATERIALIZATION-1}
+  GAP-DESIGN-EXECUTION-QUALIFICATION: {classification: NEW_REQUIRED, why: B6 controlled StartDesign execution/causal qualification is not established by W6 factual rows or W7 exact joins., future_owner: B6 / DESIGN-EXEC-1}
+
+reject_registry:
+  REJECT-LEGACY-FALLBACK-ATTACH: {pattern: Any production direct/fallback attach outside packages/etabs_gateway., reason: T1 gateway is the sole production COM/STA/session/attach owner.}
+  REJECT-T1-CUSTOM-COMTYPES-DEFAULT-WIN32: {pattern: Explicit custom comtypes dependency followed by implicit/default win32 attach., reason: Closed dependency universe.}
+  REJECT-T1-CUSTOM-RUNTIME-DEFAULT-COMTYPES: {pattern: Explicit custom/fake runtime reaching default real comtypes helper/runtime when not explicitly selected., reason: Fake/custom runtime isolation.}
+  REJECT-T1-RAW-COM-ESCAPE: {pattern: Returning SapModel/raw COM capability through legacy/product layers., reason: Raw capability ownership is retired outside bounded gateway/safety/OAPI execution.}
+  REJECT-NAME-HEURISTIC-AUTHORITY: {pattern: 'Runtime case/property-name substring, regex, lexical or first-match heuristic as formal engineering binding authority.', reason: Discovery/diagnostics are not reviewed binding authority.}
+  REJECT-FEATURE-REGULATORY-SEMANTIC-LEAK: {pattern: 'Store regulatory applicability, reviewed system selection or policy-derived governing demand as factual FeatureSnapshot.', reason: FeatureSnapshot remains factual.}
+  REJECT-ETABS-DESIGN-RESULT-AS-VERDICT: {pattern: Treat ETABS required/design result as engine-selected/final detailing reinforcement or final TBDY verdict., reason: Design-result role and engineering verdict/selection are distinct.}
+  REJECT-MATCH-BROADCAST-TO-COMBOS: {pattern: Broadcast component-level MATCH/readiness across unproven design combo identities., reason: 'Exact combo identity, definition and basis joins are required.'}
+  REJECT-COMPONENT-MATCH-AS-DESIGN-LINEAGE: {pattern: component match -> design lineage, reason: Component identity/readiness is not causal design execution lineage.}
+  REJECT-EVIDENCE-EPOCH-AS-DESIGN-LINEAGE: {pattern: EvidenceEpoch -> design lineage, reason: EvidenceEpoch identifies factual acquisition generation only.}
+  REJECT-MODEL-FINGERPRINT-AS-DESIGN-LINEAGE: {pattern: model fingerprint -> design lineage, reason: Source-model reference fingerprint is not in-memory analysis/design state or causal execution proof.}
+  REJECT-ROW-EXISTS-AS-DESIGN-RESULT-IDENTITY: {pattern: ETABS row exists -> DesignResultIdentity, reason: Row presence alone does not establish causal design generation identity.}
+  REJECT-PARTIAL-ANALYSIS-AS-QUALIFIED-LINEAGE: {pattern: partial/failed analysis execution -> qualified AnalysisResultIdentity, reason: Partial/failed execution cannot issue qualified lineage and no partial-success salvage is allowed.}
+  REJECT-GIANT-MODEL-CONTEXT: {pattern: One giant ModelContext becomes shared regulatory authority., reason: Typed bounded dependencies and reviewed contexts are required.}
+  REJECT-FEATURE-SNAPSHOT-AS-REGULATORY-CONTEXT: {pattern: FeatureSnapshot used as regulatory context/policy carrier., reason: Factual and regulatory/result lanes remain separate.}
+  REJECT-CALLER-REGULATORY-COMPILE-AUTHORITY: {pattern: Caller-supplied RegulatoryCompileInputs become engineering authority., reason: C0 must canonically materialize reviewed inputs from bounded sources.}
+  REJECT-W6-AS-DESIGN-EXEC-QUALIFICATION: {pattern: W6 factual result proof -> positive design execution qualification, reason: Historical ABI/population proof cannot establish causal StartDesign execution.}
+  REJECT-W7-AS-DESIGN-EXEC-QUALIFICATION: {pattern: W7 exact join -> positive design execution qualification, reason: Exact binding knowledge is necessary but not causal execution proof.}
+  REJECT-B6-RUNANALYSIS-OWNERSHIP: {pattern: B6 owns or duplicates RunAnalysis., reason: B6 owns controlled StartDesign; controlled analysis execution is B5.}
+  REJECT-SOURCE-MODEL-MUTATION: {pattern: Scratch/derived-state work mutates the trusted source model or exports raw SapModel authority., reason: Derived state must preserve source identity and bounded transport.}
+
+context_object_existence:
+  StructuralSystemContext: {classification: CURRENT_OBJECT_PARTIAL, current_evidence: [{path: tbdy_engine/regulatory/structural_system.py, blob: 3022d8ca21713c93e6d8a21e99281ce8befcdd61}], current_scope: Reviewed directional RC system declarations/classification and ductility/R-D policy pieces exist; no exact generic StructuralSystemContext object., historical_source: Pasted markdown(20260816-144557).md}
+  ReferenceLevelContext: {classification: CURRENT_OBJECT_PARTIAL, current_evidence: [{path: tbdy_engine/features/wall_critical_evidence.py, blob: 9327ff8b9077c6f18512419e3ec9a7f7412d5a67}], current_scope: WallRegulatoryReferenceFacts is typed Wall Pack C reference truth; no generic role-to-level ReferenceLevelContext., historical_source: Pasted markdown(20260816-144557).md}
+  GroundMotionContext: {classification: CURRENT_OBJECT_PARTIAL, current_evidence: [{path: tbdy_engine/catalogs/design_basis.yaml, blob: 75148dab1950e4e2336f91ba7006b1ebc930603c}], current_scope: 'Partial seismic design-basis fields exist, but review_status is false and no typed reviewed GroundMotionContext exists.', historical_source: Pasted markdown(20260816-144557).md}
+  BuildingUseContext: {classification: CURRENT_OBJECT_PARTIAL, current_evidence: [{path: tbdy_engine/catalogs/design_basis.yaml, blob: 75148dab1950e4e2336f91ba7006b1ebc930603c}], current_scope: importance_factor_I exists only in unreviewed design-basis contract; reviewed BKS/building-use typed context is absent., historical_source: Pasted markdown(20260816-144557).md}
+  DuctilityContext: {classification: CURRENT_OBJECT_PARTIAL, current_evidence: [{path: tbdy_engine/regulatory/structural_system.py, blob: 3022d8ca21713c93e6d8a21e99281ce8befcdd61}, {path: tbdy_engine/catalogs/design_basis.yaml, blob: 75148dab1950e4e2336f91ba7006b1ebc930603c}], current_scope: Directional structural-system/ductility policy exists; no separate generic DuctilityContext., historical_source: Pasted markdown(20260816-144557).md}
+  ReviewedLoadFamilyBinding: {classification: CURRENT_OBJECT_PARTIAL, current_evidence: [{path: tbdy_engine/checks/ndm_selection.py, blob: 5bd4b6dcac621815d3a96d99266c29930dcc2e8b}], current_scope: 'ReviewedNdmLoadBinding is target-scoped, not the historical generic shared binding.', historical_source: Pasted markdown(20260816-150035).md}
+  ResultSelectionPolicy: {classification: CURRENT_OBJECT_PARTIAL, current_evidence: [{path: tbdy_engine/checks/ndm_selection.py, blob: 5bd4b6dcac621815d3a96d99266c29930dcc2e8b}], current_scope: ReviewedNdmPolicy is target-scoped; no generic ResultSelectionPolicy object., historical_source: Pasted markdown(20260816-150035).md}
+  SelectionTrace: {classification: CURRENT_OBJECT_EXISTS, current_evidence: [{path: tbdy_engine/checks/ndm_selection.py, blob: 5bd4b6dcac621815d3a96d99266c29930dcc2e8b}], current_scope: Exact SelectionTrace exists in Ndm result-selection slice., historical_source: Pasted markdown(20260816-150035).md}
+  CheckExecutionContext: {classification: CURRENT_OBJECT_EXISTS, current_evidence: [{path: tbdy_engine/checks/input_adapter.py, blob: 1dc1e7345b32a718dd0da1f9e7ac0cde02651918}], current_scope: Exact frozen CheckExecutionContext exists and carries bounded non-FeatureSnapshot evidence., historical_source: Pasted markdown(20260816-144557).md}
+  MaterializedCheckDependencies: {classification: HISTORICAL_DESIGN_ONLY, historical_source: Pasted markdown(20260816-150035).md, historical_scope: Proposed per-check dependency materialization output suitable for CheckExecutionContext., current_evidence: [], current_scope: No exact current object found; current wall pipeline materializes directly into CheckExecutionContext.}
+
+current_check_census:
+  total: 34
+  beam: 9
+  column: 5
+  wall: 16
+  story_global: 4
+  source_catalog_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-COLUMN-GEOMETRY-CHECK-OVERLAY, REUSE-CONTRACT-WALL-PACK-A-CHECKS, REUSE-CONTRACT-WALL-PACK-B-CHECKS, REUSE-CONTRACT-WALL-PACK-C-CHECKS]
+
+feature_resolution_index:
+  base_reaction_x_kN: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  base_reaction_y_kN: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  beam_As_bottom_engine_selected_mm2: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  beam_As_bottom_governing_required_mm2: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  beam_As_top_engine_selected_mm2: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  beam_As_top_governing_required_mm2: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  beam_Md_left_neg_kNm: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  beam_Md_right_neg_kNm: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  beam_Vd_left_kN: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  beam_Vd_right_kN: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  beam_clear_span_mm: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  beam_depth_mm: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  beam_effective_depth_mm: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  beam_width_mm: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  column_Nd_max_kN: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  column_depth_mm: {source_assets: [REUSE-CONTRACT-COLUMN-GEOMETRY-FEATURE-OVERLAY]}
+  column_width_mm: {source_assets: [REUSE-CONTRACT-COLUMN-GEOMETRY-FEATURE-OVERLAY]}
+  concrete_fck_mpa: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-WALL-PACK-B-FEATURES]}
+  design_base_shear_kN: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  modal_sum_ux: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  modal_sum_uy: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  story_drift_max_mm: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  story_height_mm: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-WALL-PACK-A-FEATURES]}
+  story_torsion_a1_coefficient: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  unrestrained_plan_length_mm: {source_assets: [REUSE-CONTRACT-WALL-PACK-A-FEATURES]}
+  wall_Vd_kN: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1]}
+  wall_body_classification: {source_assets: [REUSE-CONTRACT-WALL-PACK-A-FEATURES]}
+  wall_both_ends_laterally_restrained: {source_assets: [REUSE-CONTRACT-WALL-PACK-A-FEATURES]}
+  wall_geometry_classification: {source_assets: [REUSE-CONTRACT-WALL-PACK-A-FEATURES]}
+  wall_is_basement: {source_assets: [REUSE-CONTRACT-WALL-PACK-A-FEATURES]}
+  wall_length_mm: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-WALL-PACK-A-FEATURES]}
+  wall_thickness_mm: {source_assets: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-WALL-PACK-A-FEATURES]}
+current_table_key_references_in_this_index: []
+
+check_defaults: &CHECK_DEFAULTS
+  combo_requirements: {status: UNKNOWN, governing_contract: REUSE-CONTRACT-LOAD-COMBO-POLICY}
+  section_state_requirements: {status: UNKNOWN, governing_contract: REUSE-CONTRACT-SECTION-STATE-POLICY}
+  shared_reviewed_contexts: {status: UNKNOWN, required: []}
+  analysis_lineage_requirement: UNKNOWN
+  design_lineage_requirement: UNKNOWN
+  result_selection_requirement: UNKNOWN
+  current_owner: TBDY Engine
+  future_sprint: UNKNOWN
+  forbidden_shortcuts: [REJECT-NAME-HEURISTIC-AUTHORITY, REJECT-FEATURE-REGULATORY-SEMANTIC-LEAK, REJECT-ETABS-DESIGN-RESULT-AS-VERDICT]
+
+checks:
+  beam_geometry_min_width:
+    <<: *CHECK_DEFAULTS
+    element_type: beam
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [beam_width_mm]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    mechanics_oracle: REUSE-ORACLE-CHECK-MATRIX
+    known_blockers: [Catalog requirement exists; execution readiness remains separate.]
+  beam_geometry_min_depth:
+    <<: *CHECK_DEFAULTS
+    element_type: beam
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [beam_depth_mm]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    mechanics_oracle: REUSE-ORACLE-CHECK-MATRIX
+    known_blockers: [Catalog requirement exists; execution readiness remains separate.]
+  beam_span_depth_ratio:
+    <<: *CHECK_DEFAULTS
+    element_type: beam
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [beam_clear_span_mm, beam_depth_mm]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    mechanics_oracle: REUSE-ORACLE-CHECK-MATRIX
+    known_blockers: [beam_clear_span_mm remains partial/needs factual closure.]
+  beam_depth_width_ratio:
+    <<: *CHECK_DEFAULTS
+    element_type: beam
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [beam_depth_mm, beam_width_mm]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    mechanics_oracle: REUSE-ORACLE-CHECK-MATRIX
+    known_blockers: []
+  beam_flexure_top_selected_ge_governing_required:
+    <<: *CHECK_DEFAULTS
+    element_type: beam
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [beam_As_top_engine_selected_mm2, beam_As_top_governing_required_mm2]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    design_lineage_requirement: REQUIRED
+    result_selection_requirement: REQUIRED
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-DESIGN-COMBO-MATRIX]
+    mechanics_oracle: REUSE-ORACLE-W3-BEAM-FOUNDATION-HISTORICAL
+    known_blockers: [Engine-selected reinforcement requires reviewed design selection.]
+  beam_flexure_bottom_selected_ge_governing_required:
+    <<: *CHECK_DEFAULTS
+    element_type: beam
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [beam_As_bottom_engine_selected_mm2, beam_As_bottom_governing_required_mm2]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    design_lineage_requirement: REQUIRED
+    result_selection_requirement: REQUIRED
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-DESIGN-COMBO-MATRIX]
+    mechanics_oracle: REUSE-ORACLE-W3-BEAM-FOUNDATION-HISTORICAL
+    known_blockers: [Engine-selected reinforcement requires reviewed design selection.]
+  beam_shear_ve_le_vr:
+    <<: *CHECK_DEFAULTS
+    element_type: beam
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [beam_Vd_left_kN, beam_Vd_right_kN, beam_width_mm, beam_effective_depth_mm]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    combo_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-LOAD-COMBO-POLICY}
+    analysis_lineage_requirement: REQUIRED
+    result_selection_requirement: REQUIRED
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-LOAD-COMBO-POLICY, REUSE-LINEAGE-ETABS-ANALYSIS]
+    mechanics_oracle: REUSE-ORACLE-W3-BEAM-FOUNDATION-HISTORICAL
+    known_blockers: [Capacity feature not implemented in C1.]
+  beam_shear_asw_ge_asw_min:
+    <<: *CHECK_DEFAULTS
+    element_type: beam
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [beam_As_top_governing_required_mm2, beam_width_mm]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    design_lineage_requirement: REQUIRED
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    mechanics_oracle: REUSE-ORACLE-W3-BEAM-FOUNDATION-HISTORICAL
+    known_blockers: [GAP-CATALOG-BEAM-SHEAR-ASW-TOP-AS, Catalog shear-rebar contract is a placeholder; do not repair in G0-R1.]
+  beam_capacity_design_shear:
+    <<: *CHECK_DEFAULTS
+    element_type: beam
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [beam_Md_left_neg_kNm, beam_Md_right_neg_kNm, beam_clear_span_mm]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    combo_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-LOAD-COMBO-POLICY}
+    analysis_lineage_requirement: REQUIRED
+    design_lineage_requirement: REQUIRED
+    result_selection_requirement: REQUIRED
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-LOAD-COMBO-POLICY, REUSE-LINEAGE-ETABS-ANALYSIS]
+    mechanics_oracle: REUSE-ORACLE-W3-BEAM-FOUNDATION-HISTORICAL
+    known_blockers: [Capacity-design resolver remains deferred.]
+  column_geometry_min_dimension:
+    <<: *CHECK_DEFAULTS
+    element_type: column
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [column_width_mm, column_depth_mm]
+    factual_sources: [REUSE-CONTRACT-COLUMN-GEOMETRY-FEATURE-OVERLAY, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-COLUMN-GEOMETRY-FEATURE-OVERLAY, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    mechanics_oracle: REUSE-ORACLE-CHECK-MATRIX
+    known_blockers: []
+  column_pmm_contract:
+    <<: *CHECK_DEFAULTS
+    element_type: column
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [column_Nd_max_kN, column_width_mm, column_depth_mm]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-COLUMN-GEOMETRY-FEATURE-OVERLAY]
+    combo_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-LOAD-COMBO-POLICY}
+    section_state_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-SECTION-STATE-POLICY}
+    shared_reviewed_contexts: {status: REQUIRED, required: [StructuralSystemContext]}
+    analysis_lineage_requirement: REQUIRED
+    design_lineage_requirement: REQUIRED
+    result_selection_requirement: REQUIRED
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FND-COL-4-CANDIDATE-AUTHORITY, REUSE-ORACLE-COLUMN-CANDIDATE-ADEQUACY, REUSE-SELECTION-COLUMN-LONGITUDINAL-CONTRACT]
+    mechanics_oracle: REUSE-ORACLE-W2-COLUMN-GOLDENS-HISTORICAL
+    known_blockers: [Do not conflate catalog check with FND-COL-4/P8B product capabilities.]
+  column_shear_contract:
+    <<: *CHECK_DEFAULTS
+    element_type: column
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [column_Nd_max_kN, column_width_mm, column_depth_mm]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-COLUMN-GEOMETRY-FEATURE-OVERLAY]
+    combo_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-LOAD-COMBO-POLICY}
+    section_state_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-SECTION-STATE-POLICY}
+    shared_reviewed_contexts: {status: REQUIRED, required: [StructuralSystemContext]}
+    analysis_lineage_requirement: REQUIRED
+    design_lineage_requirement: REQUIRED
+    result_selection_requirement: REQUIRED
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FINAL-COLUMN-SHEAR, REUSE-LINEAGE-ANALYSIS-BASIS-CONTRACTS]
+    mechanics_oracle: REUSE-ORACLE-W2-COLUMN-GOLDENS-HISTORICAL
+    known_blockers: [FINAL COLUMN SHEAR is a separate product capability/authority slice.]
+    future_sprint: FINAL COLUMN SHEAR
+  column_geometry_min_width:
+    <<: *CHECK_DEFAULTS
+    element_type: column
+    source_catalog: REUSE-CONTRACT-COLUMN-GEOMETRY-CHECK-OVERLAY
+    required_features: [column_width_mm]
+    factual_sources: [REUSE-CONTRACT-COLUMN-GEOMETRY-FEATURE-OVERLAY, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    shared_reviewed_contexts: {status: NOT_REQUIRED, required: []}
+    analysis_lineage_requirement: NOT_REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: NOT_REQUIRED
+    reuse_assets: [REUSE-CONTRACT-COLUMN-GEOMETRY-CHECK-OVERLAY, REUSE-CONTRACT-COLUMN-GEOMETRY-FEATURE-OVERLAY, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    mechanics_oracle: REUSE-ORACLE-CHECK-MATRIX
+    known_blockers: []
+  column_geometry_min_depth:
+    <<: *CHECK_DEFAULTS
+    element_type: column
+    source_catalog: REUSE-CONTRACT-COLUMN-GEOMETRY-CHECK-OVERLAY
+    required_features: [column_depth_mm]
+    factual_sources: [REUSE-CONTRACT-COLUMN-GEOMETRY-FEATURE-OVERLAY, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    shared_reviewed_contexts: {status: NOT_REQUIRED, required: []}
+    analysis_lineage_requirement: NOT_REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: NOT_REQUIRED
+    reuse_assets: [REUSE-CONTRACT-COLUMN-GEOMETRY-CHECK-OVERLAY, REUSE-CONTRACT-COLUMN-GEOMETRY-FEATURE-OVERLAY, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    mechanics_oracle: REUSE-ORACLE-CHECK-MATRIX
+    known_blockers: []
+  wall_geometry_min_thickness:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [wall_thickness_mm]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-WALL-PACK-A-FEATURES]
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-WALL-PACK-A-FEATURES]
+    mechanics_oracle: REUSE-ORACLE-CHECK-MATRIX
+    known_blockers: [Base wall contract exists; wall pipeline readiness remains separate.]
+  wall_pier_design_contract:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [wall_length_mm, wall_thickness_mm]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-WALL-PACK-A-FEATURES]
+    design_lineage_requirement: REQUIRED
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-WALL-PACK-A-FEATURES]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: [Base contract does not by itself prove design readiness.]
+  wall_shear_contract:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [wall_Vd_kN, wall_thickness_mm, wall_length_mm]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-WALL-PACK-A-FEATURES]
+    combo_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-LOAD-COMBO-POLICY}
+    section_state_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-SECTION-STATE-POLICY}
+    shared_reviewed_contexts: {status: REQUIRED, required: [StructuralSystemContext]}
+    analysis_lineage_requirement: REQUIRED
+    design_lineage_requirement: REQUIRED
+    result_selection_requirement: REQUIRED
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTRACT-LOAD-COMBO-POLICY, REUSE-LINEAGE-ETABS-ANALYSIS]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: [Selected demand/capacity authority remains outside this reuse index.]
+  WALL_GEOM_DEFINITION_LW_BW_GE6:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-WALL-PACK-A-CHECKS
+    required_features: [wall_length_mm, wall_thickness_mm, wall_is_basement]
+    factual_sources: [REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    shared_reviewed_contexts: {status: NOT_REQUIRED, required: []}
+    analysis_lineage_requirement: NOT_REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: NOT_REQUIRED
+    reuse_assets: [REUSE-CONTRACT-WALL-PACK-A-CHECKS, REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: [wall_is_basement is partial canonical context; property-name inference forbidden.]
+  WALL_GEOM_BODY_THICKNESS_GE_H16:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-WALL-PACK-A-CHECKS
+    required_features: [wall_thickness_mm, story_height_mm, wall_body_classification, wall_is_basement]
+    factual_sources: [REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    shared_reviewed_contexts: {status: REQUIRED, required: [wall_system_context]}
+    analysis_lineage_requirement: NOT_REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: NOT_REQUIRED
+    reuse_assets: [REUSE-CONTRACT-WALL-PACK-A-CHECKS, REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTEXT-WALL-EXECUTION-EVIDENCE]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: [Reviewed wall system context required.]
+  WALL_GEOM_BODY_THICKNESS_GE_250:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-WALL-PACK-A-CHECKS
+    required_features: [wall_thickness_mm, wall_body_classification, wall_is_basement]
+    factual_sources: [REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    shared_reviewed_contexts: {status: REQUIRED, required: [wall_system_context]}
+    analysis_lineage_requirement: NOT_REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: NOT_REQUIRED
+    reuse_assets: [REUSE-CONTRACT-WALL-PACK-A-CHECKS, REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTEXT-WALL-EXECUTION-EVIDENCE]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: [Reviewed wall system context required.]
+  WALL_GEOM_UNRESTRAINED_THICKNESS_GE_L30:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-WALL-PACK-A-CHECKS
+    required_features: [wall_thickness_mm, unrestrained_plan_length_mm, wall_geometry_classification, wall_is_basement]
+    factual_sources: [REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    shared_reviewed_contexts: {status: NOT_REQUIRED, required: []}
+    analysis_lineage_requirement: NOT_REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: NOT_REQUIRED
+    reuse_assets: [REUSE-CONTRACT-WALL-PACK-A-CHECKS, REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: [Unrestrained plan length/classification require factual topology; total wall length substitution forbidden.]
+  WALL_GEOM_RESTRAINED_LEG_THICKNESS:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-WALL-PACK-A-CHECKS
+    required_features: [wall_thickness_mm, story_height_mm, wall_both_ends_laterally_restrained, wall_is_basement]
+    factual_sources: [REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    shared_reviewed_contexts: {status: NOT_REQUIRED, required: []}
+    analysis_lineage_requirement: NOT_REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: NOT_REQUIRED
+    reuse_assets: [REUSE-CONTRACT-WALL-PACK-A-CHECKS, REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: [Both-end lateral restraint blocks when unknown.]
+  WALL_GEOM_SPECIAL_THICKNESS_GE_HMAX20:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-WALL-PACK-B-CHECKS
+    required_features: [wall_thickness_mm, wall_is_basement]
+    factual_sources: [REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTRACT-WALL-PACK-B-FEATURES]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    shared_reviewed_contexts: {status: REQUIRED, required: [wall_system_context, highest_applicable_story_height_mm]}
+    analysis_lineage_requirement: NOT_REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: NOT_REQUIRED
+    reuse_assets: [REUSE-CONTRACT-WALL-PACK-B-CHECKS, REUSE-CONTEXT-WALL-EXECUTION-EVIDENCE]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: [No default general/special branch.]
+  WALL_GEOM_SPECIAL_THICKNESS_GE_200:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-WALL-PACK-B-CHECKS
+    required_features: [wall_thickness_mm, wall_is_basement]
+    factual_sources: [REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTRACT-WALL-PACK-B-FEATURES]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    shared_reviewed_contexts: {status: REQUIRED, required: [wall_system_context]}
+    analysis_lineage_requirement: NOT_REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: NOT_REQUIRED
+    reuse_assets: [REUSE-CONTRACT-WALL-PACK-B-CHECKS, REUSE-CONTEXT-WALL-EXECUTION-EVIDENCE]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: [Reviewed system context required.]
+  WALL_NET_SECTION_AXIAL_CAPACITY:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-WALL-PACK-B-CHECKS
+    required_features: [wall_is_basement, concrete_fck_mpa]
+    factual_sources: [REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTRACT-WALL-PACK-B-FEATURES]
+    combo_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-LOAD-COMBO-POLICY}
+    section_state_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-SECTION-STATE-POLICY}
+    shared_reviewed_contexts: {status: REQUIRED, required: [pier_forces_result_bundle, wall_to_pier_binding, ndm_demand, net_section_topology]}
+    analysis_lineage_requirement: REQUIRED
+    design_lineage_requirement: REQUIRED
+    result_selection_requirement: REQUIRED
+    reuse_assets: [REUSE-CONTRACT-WALL-PACK-B-CHECKS, REUSE-SELECTION-NDM, REUSE-CONTEXT-WALL-EXECUTION-EVIDENCE, REUSE-LINEAGE-ETABS-ANALYSIS]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: ['FULL Pier Forces capture, exact binding, reviewed Ndm selection and net-section topology required.']
+  WALL_END_REGIONS_REQUIRED_HW_LW_GT2:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-WALL-PACK-C-CHECKS
+    required_features: [wall_length_mm, wall_thickness_mm]
+    factual_sources: [REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTEXT-WALL-REFERENCE-FACTS]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    shared_reviewed_contexts: {status: REQUIRED, required: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence]}
+    analysis_lineage_requirement: NOT_REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: NOT_REQUIRED
+    reuse_assets: [REUSE-CONTRACT-WALL-PACK-C-CHECKS, REUSE-CONTEXT-WALL-REFERENCE-FACTS, REUSE-CONTEXT-WALL-EXECUTION-EVIDENCE]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: [Hw/Hcr/applicability/critical-region membership are engine-derived; factual context fails closed.]
+  WALL_HCR_GE_LW:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-WALL-PACK-C-CHECKS
+    required_features: [wall_length_mm, wall_thickness_mm]
+    factual_sources: [REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTEXT-WALL-REFERENCE-FACTS]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    shared_reviewed_contexts: {status: REQUIRED, required: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence]}
+    analysis_lineage_requirement: NOT_REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: NOT_REQUIRED
+    reuse_assets: [REUSE-CONTRACT-WALL-PACK-C-CHECKS, REUSE-CONTEXT-WALL-REFERENCE-FACTS, REUSE-CONTEXT-WALL-EXECUTION-EVIDENCE]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: [Hw/Hcr/applicability/critical-region membership are engine-derived; factual context fails closed.]
+  WALL_HCR_GE_HW_DIV6:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-WALL-PACK-C-CHECKS
+    required_features: [wall_length_mm, wall_thickness_mm]
+    factual_sources: [REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTEXT-WALL-REFERENCE-FACTS]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    shared_reviewed_contexts: {status: REQUIRED, required: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence]}
+    analysis_lineage_requirement: NOT_REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: NOT_REQUIRED
+    reuse_assets: [REUSE-CONTRACT-WALL-PACK-C-CHECKS, REUSE-CONTEXT-WALL-REFERENCE-FACTS, REUSE-CONTEXT-WALL-EXECUTION-EVIDENCE]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: [Hw/Hcr/applicability/critical-region membership are engine-derived; factual context fails closed.]
+  WALL_HCR_LE_2LW:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-WALL-PACK-C-CHECKS
+    required_features: [wall_length_mm, wall_thickness_mm]
+    factual_sources: [REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTEXT-WALL-REFERENCE-FACTS]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    shared_reviewed_contexts: {status: REQUIRED, required: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence]}
+    analysis_lineage_requirement: NOT_REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: NOT_REQUIRED
+    reuse_assets: [REUSE-CONTRACT-WALL-PACK-C-CHECKS, REUSE-CONTEXT-WALL-REFERENCE-FACTS, REUSE-CONTEXT-WALL-EXECUTION-EVIDENCE]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: [Hw/Hcr/applicability/critical-region membership are engine-derived; factual context fails closed.]
+  WALL_END_REGION_LENGTH_CRITICAL_GE_MAX_0_2LW_2BW:
+    <<: *CHECK_DEFAULTS
+    element_type: wall
+    source_catalog: REUSE-CONTRACT-WALL-PACK-C-CHECKS
+    required_features: [wall_length_mm, wall_thickness_mm]
+    factual_sources: [REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTEXT-WALL-REFERENCE-FACTS]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    shared_reviewed_contexts: {status: REQUIRED, required: [wall_vertical_profile, wall_regulatory_reference_facts, wall_section_reduction_evidence]}
+    analysis_lineage_requirement: NOT_REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: NOT_REQUIRED
+    reuse_assets: [REUSE-CONTRACT-WALL-PACK-C-CHECKS, REUSE-CONTEXT-WALL-REFERENCE-FACTS, REUSE-CONTEXT-WALL-EXECUTION-EVIDENCE]
+    mechanics_oracle: REUSE-ORACLE-WALL-PIPELINE
+    known_blockers: [Hw/Hcr/applicability/critical-region membership are engine-derived; factual context fails closed.]
+  story_drift_limit:
+    <<: *CHECK_DEFAULTS
+    element_type: story
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [story_drift_max_mm, story_height_mm]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    combo_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-LOAD-COMBO-POLICY}
+    section_state_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-SECTION-STATE-POLICY}
+    shared_reviewed_contexts: {status: REQUIRED, required: [StructuralSystemContext, ResultSelectionPolicy]}
+    analysis_lineage_requirement: REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: REQUIRED
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-LOAD-COMBO-POLICY, REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-SELECTION-HISTORICAL-GENERIC-POLICY-DESIGN]
+    mechanics_oracle: REUSE-ORACLE-CHECK-MATRIX
+    known_blockers: [Generic current ResultSelectionPolicy remains partial.]
+  torsional_irregularity_A1:
+    <<: *CHECK_DEFAULTS
+    element_type: story
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [story_torsion_a1_coefficient]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    combo_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-LOAD-COMBO-POLICY}
+    section_state_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-SECTION-STATE-POLICY}
+    shared_reviewed_contexts: {status: REQUIRED, required: [StructuralSystemContext, ResultSelectionPolicy]}
+    analysis_lineage_requirement: REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: REQUIRED
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-LOAD-COMBO-POLICY, REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-SELECTION-HISTORICAL-GENERIC-POLICY-DESIGN]
+    mechanics_oracle: REUSE-ORACLE-CHECK-MATRIX
+    known_blockers: [Generic current ResultSelectionPolicy remains partial.]
+  modal_mass_participation:
+    <<: *CHECK_DEFAULTS
+    element_type: global
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [modal_sum_ux, modal_sum_uy]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    combo_requirements: {status: NOT_REQUIRED}
+    section_state_requirements: {status: NOT_REQUIRED}
+    analysis_lineage_requirement: REQUIRED
+    design_lineage_requirement: NOT_REQUIRED
+    result_selection_requirement: REQUIRED
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-LINEAGE-ETABS-ANALYSIS]
+    mechanics_oracle: REUSE-ORACLE-CHECK-MATRIX
+    known_blockers: [Modal completeness/cumulative-row selection must be exact.]
+  base_shear_scaling:
+    <<: *CHECK_DEFAULTS
+    element_type: global
+    source_catalog: REUSE-CONTRACT-CHECK-CATALOG-C1
+    required_features: [base_reaction_x_kN, base_reaction_y_kN, design_base_shear_kN]
+    factual_sources: [REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-ETABS-FEATURE-SOURCE]
+    combo_requirements: {status: REQUIRED, governing_contract: REUSE-CONTRACT-LOAD-COMBO-POLICY}
+    shared_reviewed_contexts: {status: REQUIRED, required: [StructuralSystemContext, ResultSelectionPolicy]}
+    analysis_lineage_requirement: REQUIRED
+    design_lineage_requirement: REQUIRED
+    result_selection_requirement: REQUIRED
+    reuse_assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-LOAD-COMBO-POLICY, REUSE-LINEAGE-ANALYSIS-BASIS-CONTRACTS, REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-SELECTION-HISTORICAL-GENERIC-POLICY-DESIGN]
+    mechanics_oracle: REUSE-ORACLE-CHECK-MATRIX
+    known_blockers: [Directional structural-system/analysis compatibility and reviewed selection must be proven.]
+
+product_capabilities:
+  FND-COL-1: {is_current_check_id: false, capability: Longitudinal requirement + layout authority, current_reuse_assets: [REUSE-CONTRACT-FND-COL-1-SOURCE-AUTHORITY, REUSE-SELECTION-COLUMN-LONGITUDINAL-CONTRACT, REUSE-ORACLE-W2-COLUMN-GOLDENS-HISTORICAL], blockers_or_notes: [Capability label is not a catalog check ID.]}
+  FND-COL-2: {is_current_check_id: false, capability: Minimum eccentricity + slenderness + stability demand readiness, current_reuse_assets: [REUSE-CONTRACT-FND-COL-2-AUTHORITY, REUSE-LINEAGE-ANALYSIS-BASIS-CONTRACTS, REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-ORACLE-W2-COLUMN-GOLDENS-HISTORICAL], blockers_or_notes: [Accepted mechanics remain in current authority; G0-R1 creates none.]}
+  P8A: {is_current_check_id: false, capability: Exact concrete-design combo eligibility + factual design-result acquisition/promotion, current_reuse_assets: [REUSE-OAPI-P8A-DESIGN-RESULT-PROVIDER, REUSE-CONTRACT-P8A-FACTUAL-DESIGN-RESULT-POPULATION, REUSE-SELECTION-P8A-COMBO-ELIGIBILITY, REUSE-SELECTION-P8A-REBAR-PROMOTION, REUSE-CONTEXT-LIVE-ETABS-ACQUISITION], blockers_or_notes: [No component-level MATCH broadcast; no row collapse.]}
+  P8A-B: {is_current_check_id: false, capability: P8A exact combo/analysis-basis binding hardening, current_reuse_assets: [REUSE-SELECTION-P8A-COMBO-ELIGIBILITY, REUSE-LINEAGE-ANALYSIS-BASIS-CONTRACTS, REUSE-LINEAGE-W7-ANALYSIS-BASIS-HISTORICAL], blockers_or_notes: [Exact join knowledge is not execution qualification.]}
+  FND-COL-4: {is_current_check_id: false, capability: Candidate PMM/adequacy authority and selection cutover support, current_reuse_assets: [REUSE-CONTRACT-FND-COL-4-CANDIDATE-AUTHORITY, REUSE-ORACLE-COLUMN-CANDIDATE-ADEQUACY, REUSE-SELECTION-COLUMN-LONGITUDINAL-CONTRACT], blockers_or_notes: [Candidate adequacy is not final ranking/selection.]}
+  P8B: {is_current_check_id: false, capability: Column candidate adequacy / selection integration stage, current_reuse_assets: [REUSE-CONTRACT-FND-COL-4-CANDIDATE-AUTHORITY, REUSE-ORACLE-COLUMN-CANDIDATE-ADEQUACY, REUSE-SELECTION-COLUMN-LONGITUDINAL-CONTRACT, REUSE-SELECTION-P8A-REBAR-PROMOTION, REUSE-LINEAGE-ANALYSIS-BASIS-CONTRACTS], blockers_or_notes: [Do not conflate with column_pmm_contract.]}
+  'FINAL COLUMN SHEAR': {is_current_check_id: false, capability: Formal source-bound final column shear rules, current_reuse_assets: [REUSE-CONTRACT-FINAL-COLUMN-SHEAR, REUSE-LINEAGE-ANALYSIS-BASIS-CONTRACTS, REUSE-ORACLE-W2-COLUMN-GOLDENS-HISTORICAL], blockers_or_notes: [Acquisition/capacity/context promotion remain upstream.]}
+  COLUMN-R1: {is_current_check_id: false, capability: Product-spine column reporting/review integration, current_reuse_assets: [REUSE-SELECTION-REPORT-PACKAGE, REUSE-SELECTION-COLUMN-LONGITUDINAL-CONTRACT, REUSE-LINEAGE-REPORT-TEMPLATE-BASIS], blockers_or_notes: [Reporting consumes authoritative results; it creates none.]}
+
+reuse_sets:
+  B2_REUSE_SET: {roadmap_meaning: DESIGN-LINEAGE-1, assets: [REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-ORACLE-W6-P8A-LIVE-HISTORICAL, REUSE-LINEAGE-W7-ANALYSIS-BASIS-HISTORICAL, REUSE-CONTRACT-DESIGN-COMBO-MATRIX, REUSE-CONTRACT-TABLE-REGISTRY, REUSE-CONTRACT-LOAD-COMBO-POLICY, REUSE-SELECTION-P8A-COMBO-ELIGIBILITY, REUSE-CONTRACT-P8A-FACTUAL-DESIGN-RESULT-POPULATION, REUSE-OAPI-P8A-DESIGN-RESULT-PROVIDER, REUSE-CONTEXT-LIVE-ETABS-ACQUISITION], semantic_review: {status: VERIFIED, rationale: ['Centers design-lineage prerequisites, exact combo/basis joins and factual design-result population rather than wall artifacts.', load_combo_policy is vocabulary/diagnostic classification only; it is not exact reviewed binding authority., 'Explicitly rejects component-match, EvidenceEpoch, model-fingerprint or row-existence shortcuts as design lineage.']}}
+  B4A_REUSE_SET: {roadmap_meaning: DERIVED-STATE-1, assets: [REUSE-CONTEXT-LIVE-ETABS-ACQUISITION, REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-OAPI-T1-GATEWAY-OWNERSHIP, REUSE-OAPI-T1-CLOSED-DEPENDENCY-UNIVERSE, REUSE-OAPI-T1-FAKE-RUNTIME-ISOLATION, REUSE-OAPI-VERIFIED-SESSION-SAFETY, REUSE-REJECT-LEGACY-CONNECTION-FACADE], semantic_review: {status: VERIFIED, rationale: ['Centers SourceModelIdentity preservation, derived/scratch-state identity boundaries and bounded transport/session ownership.', Raw SapModel export/direct attach and source-model mutation are rejection patterns., Unmerged parallel lifecycle research is deliberately absent from CURRENT assets.]}}
+  B4B_REUSE_SET: {roadmap_meaning: ANALYSIS-STATE-MUTATION-1, assets: [REUSE-CONTRACT-SECTION-STATE-POLICY, REUSE-ORACLE-ETABS-STATE-TRANSACTIONS, REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-OAPI-T1-GATEWAY-OWNERSHIP, REUSE-OAPI-T1-CLOSED-DEPENDENCY-UNIVERSE], semantic_review: {status: VERIFIED, rationale: [Required lifecycle is typed mutation -> SET -> return code -> READBACK -> equality/tolerance -> mutation manifest -> AnalysisStateIdentity., Current state-transaction mechanics provide snapshot/set/verify/restore patterns; they are not themselves the future mutation authority., No current exact cracked/uncracked mutation lifecycle asset was promoted merely from historical prose.]}}
+  B5_REUSE_SET: {roadmap_meaning: ANALYSIS-EXEC-1, assets: [REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-CONTEXT-LIVE-ETABS-ACQUISITION, REUSE-OAPI-T1-GATEWAY-OWNERSHIP, REUSE-OAPI-T1-CLOSED-DEPENDENCY-UNIVERSE, REUSE-OAPI-VERIFIED-SESSION-SAFETY, REUSE-ORACLE-ETABS-STATE-TRANSACTIONS, REUSE-LINEAGE-ANALYSIS-BASIS-CONTRACTS, REUSE-LINEAGE-W7-ANALYSIS-BASIS-HISTORICAL], semantic_review: {status: VERIFIED, rationale: ['Centers controlled RunAnalysis causal qualification, session/source provenance and factual case readiness.', Partial/failed execution cannot yield qualified AnalysisResultIdentity; no partial-success salvage., Unmerged parallel lineage research is not CURRENT.]}}
+  C0_REUSE_SET: {roadmap_meaning: FND2-LIVE-MATERIALIZATION-1, assets: [REUSE-CONTEXT-LIVE-ETABS-ACQUISITION, REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-CONTRACT-FND-COL-2-AUTHORITY, REUSE-CONTEXT-CHECK-EXECUTION, REUSE-CONTEXT-HISTORICAL-SHARED-CONTEXT-DESIGN, REUSE-SELECTION-HISTORICAL-GENERIC-POLICY-DESIGN, REUSE-CONTEXT-STRUCTURAL-SYSTEM-PARTIAL, REUSE-CONTRACT-FEATURE-CATALOG-C1], semantic_review: {status: VERIFIED, rationale: [Target materialization requires trusted factual acquisition + QUALIFIED AnalysisResultIdentity + factual providers + reviewed typed context + frozen policy before FND-COL-2., No current generic RegulatoryCompileInputs object was found; GAP-REGULATORY-COMPILE-INPUTS records new work., 'Reject giant ModelContext, FeatureSnapshot-as-regulatory-context and caller-supplied compile authority.']}}
+  B6_REUSE_SET: {roadmap_meaning: DESIGN-EXEC-1, assets: [REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-ORACLE-W6-P8A-LIVE-HISTORICAL, REUSE-LINEAGE-W7-ANALYSIS-BASIS-HISTORICAL, REUSE-OAPI-P8A-DESIGN-RESULT-PROVIDER, REUSE-CONTRACT-P8A-FACTUAL-DESIGN-RESULT-POPULATION, REUSE-SELECTION-P8A-COMBO-ELIGIBILITY, REUSE-SELECTION-P8A-REBAR-PROMOTION, REUSE-CONTRACT-DESIGN-COMBO-MATRIX, REUSE-OAPI-P8A-DESIGN-COMBO-SELECTION, REUSE-OAPI-T1-GATEWAY-OWNERSHIP, REUSE-OAPI-T1-CLOSED-DEPENDENCY-UNIVERSE], semantic_review: {status: VERIFIED, rationale: [Centers future controlled StartDesign execution and exact selected design-combo/result lineage., 'W6 factual result proof and W7 exact join are prerequisites/negative knowledge, never positive design-execution qualification.', B6 must not become a second RunAnalysis owner; GAP-DESIGN-EXECUTION-QUALIFICATION records missing causal StartDesign qualification.]}}
+  C1_REUSE_SET: {roadmap_meaning: COLUMN-LIVE-CUTOVER-1, assets: [REUSE-CONTEXT-LIVE-ETABS-ACQUISITION, REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-CONTRACT-FND-COL-1-SOURCE-AUTHORITY, REUSE-CONTRACT-FND-COL-2-AUTHORITY, REUSE-OAPI-P8A-DESIGN-RESULT-PROVIDER, REUSE-SELECTION-P8A-COMBO-ELIGIBILITY, REUSE-SELECTION-P8A-REBAR-PROMOTION, REUSE-CONTRACT-FND-COL-4-CANDIDATE-AUTHORITY, REUSE-ORACLE-COLUMN-CANDIDATE-ADEQUACY, REUSE-SELECTION-COLUMN-LONGITUDINAL-CONTRACT, REUSE-CONTRACT-FINAL-COLUMN-SHEAR], semantic_review: {status: VERIFIED, rationale: ['Maps to column live cutover, joining trusted live facts/lineage with accepted column authorities and P8A/FND-COL-4 selection stages.', Does not use the old generic C1 catalog set merely because the roadmap label is C1.]}}
+  P8B_REUSE_SET: {roadmap_meaning: COLUMN-CANDIDATE-ADEQUACY-SELECTION-INTEGRATION, assets: [REUSE-SELECTION-P8A-REBAR-PROMOTION, REUSE-CONTRACT-FND-COL-4-CANDIDATE-AUTHORITY, REUSE-ORACLE-COLUMN-CANDIDATE-ADEQUACY, REUSE-SELECTION-COLUMN-LONGITUDINAL-CONTRACT, REUSE-LINEAGE-ANALYSIS-BASIS-CONTRACTS, REUSE-ORACLE-W2-COLUMN-GOLDENS-HISTORICAL], semantic_review: {status: VERIFIED, rationale: [Connects factual promoted requirements to candidate adequacy and selection contracts without treating P8B as a catalog check ID., Candidate adequacy remains distinct from final ranking/selection authority.]}}
+  BEAM_REUSE_SET: {roadmap_meaning: BEAM_DOMAIN, assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-LOAD-COMBO-POLICY, REUSE-CONTRACT-DESIGN-COMBO-MATRIX, REUSE-CONTRACT-SECTION-STATE-POLICY, REUSE-ORACLE-W3-BEAM-FOUNDATION-HISTORICAL], semantic_review: {status: VERIFIED, rationale: [Beam contract/source/policy archaeology only; the beam shear catalog contradiction remains a GAP and is not repaired.]}}
+  WALL_REUSE_SET: {roadmap_meaning: WALL_DOMAIN, assets: [REUSE-CONTRACT-WALL-PACK-A-CHECKS, REUSE-CONTRACT-WALL-PACK-A-FEATURES, REUSE-CONTRACT-WALL-PACK-B-CHECKS, REUSE-CONTRACT-WALL-PACK-B-FEATURES, REUSE-CONTRACT-WALL-PACK-C-CHECKS, REUSE-CONTEXT-WALL-REFERENCE-FACTS, REUSE-CONTEXT-WALL-EXECUTION-EVIDENCE, REUSE-SELECTION-NDM, REUSE-ORACLE-WALL-PIPELINE], semantic_review: {status: VERIFIED, rationale: ['Wall domain set is retained because every member directly contributes wall factual contracts, selection, execution-context or orchestration mechanics.']}}
+  GLOBAL_REUSE_SET: {roadmap_meaning: STORY_GLOBAL_DOMAIN, assets: [REUSE-CONTRACT-CHECK-CATALOG-C1, REUSE-CONTRACT-FEATURE-CATALOG-C1, REUSE-CONTRACT-LOAD-COMBO-POLICY, REUSE-LINEAGE-ANALYSIS-BASIS-CONTRACTS, REUSE-LINEAGE-ETABS-ANALYSIS, REUSE-SELECTION-HISTORICAL-GENERIC-POLICY-DESIGN], semantic_review: {status: VERIFIED, rationale: [Story/global checks require exact analysis lineage and reviewed result selection; historical generic selection design remains historical.]}}
+  REPORTING_REUSE_SET: {roadmap_meaning: REPORTING_DOMAIN, assets: [REUSE-SELECTION-REPORT-PACKAGE, REUSE-LINEAGE-REPORT-TEMPLATE-BASIS, REUSE-LINEAGE-DESIGN-BASIS-AUDIT, REUSE-CONTRACT-DESIGN-BASIS], semantic_review: {status: VERIFIED, rationale: [Reporting/package assets consume already-established engineering results and provenance; they do not create engineering authority.]}}
+
+integrity_validation:
+  all_current_path_blob_pairs_exact_tree_verified: PASS
+  reuse_ids_unique: PASS
+  gap_ids_unique: PASS
+  reject_ids_unique: PASS
+  all_check_ids_resolve: PASS
+  all_feature_ids_resolve: PASS
+  all_reuse_set_ids_resolve: PASS
+  all_reuse_set_semantic_meanings_research_validated: PASS
+  all_current_assets_have_reuse_disposition: PASS
+  all_current_assets_have_semantic_role: PASS
+  all_current_assets_have_authority_ceiling: PASS
+  historical_assets_clearly_historical: PASS
+  unmerged_research_never_current: PASS
+  production_import_allowed_false: PASS
+  index_engineering_authority_none: PASS
+  check_census: PASS_34
+  reuse_set_reference_integrity: PASS
+  reuse_set_semantic_integrity: PASS
+  parallel_research_dynamic_refs: 0
+  local_yaml_parse: PASS
+  python_compileall: NOT RUN LOCALLY
+  git_diff_check: NOT RUN LOCALLY
