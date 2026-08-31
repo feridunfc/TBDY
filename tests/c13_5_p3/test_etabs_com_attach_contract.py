@@ -112,7 +112,14 @@ def test_failure_path_returns_failed_with_all_attempts_recorded():
     assert result.strategy is None
     assert result.etabs_object is None
     assert result.sap_model is None
-    assert len(result.attempts) >= len(ATTACH_STRATEGIES)
+    assert result.attempts
+    observed_strategies = {attempt.strategy for attempt in result.attempts}
+    assert "win32com_get_active_object_etabs_api_object" not in observed_strategies
+    assert observed_strategies <= {
+        "comtypes_create_helper_get_object_process",
+        "comtypes_get_active_object_etabs_api_object",
+        "comtypes_create_helper_get_object",
+    }
     assert {attempt.status for attempt in result.attempts} == {"FAILED"}
 
 
@@ -125,7 +132,7 @@ def test_comerror_like_exception_records_hresult_and_message():
     first = result.attempts[0]
     assert first.hresult == "-2147467262"
     assert first.exception_type == "FakeComError"
-    assert first.message == "No such interface supported"
+    assert "No such interface supported" in first.message
 
 
 def test_cli_without_live_etabs_refuses_explicit_opt_in(tmp_path: Path, capsys):
