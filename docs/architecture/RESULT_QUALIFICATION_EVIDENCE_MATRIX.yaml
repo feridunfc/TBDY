@@ -49,7 +49,7 @@ evidence_epoch:
     - design
   source: tbdy_engine/features/evidence_epoch.py
   current_owner: EvidenceEpoch
-  proves: facts were captured in the same factory-owned evidence acquisition generation
+  proves: facts were captured in the same factory-owned factual acquisition generation
   does_not_prove: AnalysisStateIdentity, AnalysisResultIdentity, analysis execution, design execution, or result freshness
   necessary: false
   sufficient: false
@@ -84,7 +84,7 @@ trusted_live_acquisition_context:
     - B6
   known_failure_modes:
     - acquisition_context_ref treated as AnalysisResultIdentity
-    - acquisition_generation_ref UUID treated as execution proof
+    - acquisition_generation_ref treated as execution proof
 
 feature_snapshot:
   concept: component-scoped factual feature and evidence projection
@@ -93,7 +93,7 @@ feature_snapshot:
     - design
   source: tbdy_engine/features/snapshot.py
   current_owner: FeatureSnapshot
-  proves: captured component facts and their evidence at the snapshot boundary
+  proves: captured component facts and evidence at the snapshot boundary
   does_not_prove: when or by which analysis/design generation those facts/results were produced
   necessary: false
   sufficient: false
@@ -134,7 +134,7 @@ analysis_result_identity_naked:
   source: tbdy_engine/integration/etabs_analysis_lineage.py
   current_owner: AnalysisResultIdentity
   proves: declared source root, parent analysis state, generation handle, and result scopes are structurally identified
-  does_not_prove: that the generation actually occurred or that result rows were produced by it
+  does_not_prove: that the generation occurred, that the whole declared execution succeeded, or that rows were produced by it
   necessary: true
   sufficient: false
   authority_class: CORRELATION_ONLY
@@ -145,8 +145,8 @@ analysis_result_identity_naked:
     - B2
     - B6
   known_failure_modes:
-    - arbitrary generation string or UUID supplied without execution proof
-    - result scopes declared without causal acquisition evidence
+    - arbitrary generation string supplied without execution proof
+    - finished subset from a partial attempt placed into result_scope_refs
 
 analysis_lineage_qualification:
   concept: fail-closed positive/negative analysis lineage qualification
@@ -155,8 +155,8 @@ analysis_lineage_qualification:
     - design
   source: tbdy_engine/integration/etabs_analysis_lineage.py
   current_owner: AnalysisLineageQualification
-  proves: when QUALIFIED, the B1 state/result/proof coherence rules were satisfied by the trusted issuer boundary
-  does_not_prove: anything if constructed from an untrusted or fabricated proof; current public production cannot issue QUALIFIED
+  proves: when QUALIFIED, B1 state/result/proof coherence was satisfied by the trusted issuer after a fully successful declared attempt
+  does_not_prove: anything when attempt evidence is partial, failed, fabricated, or incomplete
   necessary: true
   sufficient: true
   authority_class: REAL_CAUSAL_EVIDENCE
@@ -168,7 +168,7 @@ analysis_lineage_qualification:
     - B6
   known_failure_modes:
     - widening the private issuer surface
-    - accepting caller-provided QUALIFIED status
+    - allowing a partial attempt to reach positive issuance
 
 controller_owned_scratch:
   concept: exclusive controller ownership of the execution model/state used for the attempt
@@ -188,8 +188,8 @@ controller_owned_scratch:
     - B5
     - B6
   known_failure_modes:
-    - attaching to an arbitrary pre-existing user model
-    - external mutation between pre-state proof and result acquisition
+    - arbitrary pre-existing user model is treated as controlled scratch
+    - external mutation occurs during the causal window
 
 pre_execution_state_readback:
   concept: exact state-basis verification immediately before controlled execution
@@ -213,13 +213,32 @@ pre_execution_state_readback:
     - incomplete state basis
     - stale readback taken before an intervening mutation
 
+analysis_declared_execution_scope:
+  concept: immutable exact requested analysis execution/result scope fixed before RunAnalysis
+  applies_to:
+    - analysis
+  source: R-LINEAGE-1 P1 fail-closed scope rule
+  current_owner: MISSING_FUTURE_B5_ATTEMPT_PROOF
+  proves: the exact scope whose complete success is required before positive result identity issuance
+  does_not_prove: execution occurrence, completion, or result freshness
+  necessary: true
+  sufficient: false
+  authority_class: REAL_CAUSAL_EVIDENCE
+  offline_verified: true
+  live_verified: false
+  consumers:
+    - B5
+  known_failure_modes:
+    - requested scope is shrunk after execution to salvage finished cases
+    - undeclared dependency/result scope is silently treated as qualified
+
 pre_analysis_result_absence_or_invalidation:
-  concept: proof that required analysis scopes cannot silently reuse older result generations
+  concept: proof that declared analysis scopes cannot silently reuse older result generations
   applies_to:
     - analysis
   source: CSI Run Analysis behavior plus R-LINEAGE-1 causal analysis
   current_owner: MISSING_FUTURE_B5
-  proves: required result scopes are eligible to be causally attributed to the new controlled analysis attempt rather than skipped as already available
+  proves: declared result scopes can be causally attributed to the new controlled attempt rather than skipped as already available
   does_not_prove: successful execution
   necessary: true
   sufficient: false
@@ -230,16 +249,16 @@ pre_analysis_result_absence_or_invalidation:
     - B5
   known_failure_modes:
     - RunAnalysis skips cases whose results already exist
-    - partial results from a failed prior attempt contaminate a retry
+    - partial results from a failed prior attempt contaminate retry
 
 analysis_run_case_flags:
-  concept: exact load-case run-selection scope
+  concept: exact load-case run-selection factual scope if B5 proves it is required beyond current readiness reads
   applies_to:
     - analysis
   source: CSI cAnalyze.GetRunCaseFlag
-  current_owner: MISSING_CANONICAL_OAPI_OWNER_FOR_B5
-  proves: which load cases ETABS is currently configured to run
-  does_not_prove: that any case ran or produced fresh results
+  current_owner: NEW_REQUIRED_ONLY_IF_B5_PROVES_FACTUAL_SCOPE_GAP
+  proves: which load cases ETABS is configured to run at the factual ABI boundary
+  does_not_prove: that any case ran, completed, or produced fresh results
   necessary: conditional
   sufficient: false
   authority_class: DIAGNOSTIC_ONLY
@@ -248,17 +267,17 @@ analysis_run_case_flags:
   consumers:
     - B5
   known_failure_modes:
-    - flags differ from intended result scope
-    - dependencies create additional execution behavior
+    - duplicate reader created without reusing current safety/read surfaces
+    - run flags confused with executed/qualified scope
 
 controlled_runanalysis_invocation:
   concept: controller-owned invocation event for one exact attempt
   applies_to:
     - analysis
   source: CSI cAnalyze.RunAnalysis plus future B5 controller
-  current_owner: MISSING_FUTURE_B5
-  proves: the controller invoked ETABS analysis inside the causal window
-  does_not_prove: success, exact completed scopes, or freshness if prior results were available
+  current_owner: MISSING_FUTURE_B5_EXECUTION_CONTROLLER
+  proves: the B5 controller invoked ETABS analysis inside the causal window
+  does_not_prove: success, whole-scope completion, or freshness if prior results were available
   necessary: true
   sufficient: false
   authority_class: REAL_CAUSAL_EVIDENCE
@@ -268,16 +287,16 @@ controlled_runanalysis_invocation:
     - B5
   known_failure_modes:
     - call occurs after state drift
-    - pre-existing results are silently retained
+    - execution authority is incorrectly assigned to OAPI or gateway
 
 runanalysis_return_code:
-  concept: ETABS RunAnalysis API return outcome
+  concept: return outcome observed from the controller-owned RunAnalysis execution event
   applies_to:
     - analysis
-  source: CSI cAnalyze.RunAnalysis
-  current_owner: MISSING_FUTURE_B5_OAPI
-  proves: ETABS reports successful analysis-model run when code is zero
-  does_not_prove: exact case completion, fresh generation, or row population completeness
+  source: CSI cAnalyze.RunAnalysis through future B5 execution controller
+  current_owner: MISSING_FUTURE_B5_EXECUTION_CONTROLLER_NOT_OAPI_OR_GATEWAY
+  proves: ETABS reports successful analysis invocation when the accepted success code is observed
+  does_not_prove: whole requested scope completion, fresh generation, or result population completeness
   necessary: true
   sufficient: false
   authority_class: DIAGNOSTIC_ONLY
@@ -286,47 +305,48 @@ runanalysis_return_code:
   consumers:
     - B5
   known_failure_modes:
-    - ret zero while some results were pre-existing and skipped
-    - nonzero return with unknown partial-case outcome
+    - return success is treated as whole-scope qualification
+    - return observation is mistaken for factual OAPI ownership of execution
 
 post_analysis_case_status:
-  concept: per-case post-execution status
+  concept: bounded factual per-case analysis readiness/status
   applies_to:
     - analysis
-  source: CSI cAnalyze.GetCaseStatus
-  current_owner: MISSING_FUTURE_B5_OAPI
-  proves: current ETABS status of each case; Finished is required for scopes proposed for qualification
-  does_not_prove: historical producer execution when observed on an attached pre-existing model
+  source: tbdy_engine.etabs.safety.read_verified_analysis_readiness -> Analyze.GetCaseStatus
+  current_owner: EXISTING_TBDY_ENGINE_ETABS_SAFETY_READ_VERIFIED_ANALYSIS_READINESS
+  proves: current typed per-case status/readiness including NOT_RUN, COULD_NOT_START, INCOMPLETE, FINISHED, or UNKNOWN
+  does_not_prove: historical producer execution; a Finished case on an attached model may predate the controller attempt
   necessary: true
   sufficient: false
   authority_class: DIAGNOSTIC_ONLY
-  offline_verified: false
-  live_verified: false
+  offline_verified: true
+  live_verified: true
   consumers:
     - B5
   known_failure_modes:
-    - Finished status predates the controller attempt
-    - partial failure/dependency semantics not yet live characterized
+    - current factual reader is duplicated merely because B5 is new
+    - Finished status is treated as a generation token
+    - finished subset is salvaged after another requested case fails
 
 post_analysis_lock_state:
-  concept: model lock state after analysis
+  concept: factual model lock state after analysis
   applies_to:
     - analysis
     - design
-  source: CSI GetModelIsLocked and Lock Model documentation
-  current_owner: MISSING_FUTURE_B5_OAPI
-  proves: model is locked; this is consistent with ETABS post-analysis integrity behavior
+  source: current safety/session identity reread plus CSI lock semantics
+  current_owner: EXISTING_ETABS_SAFETY_SESSION_IDENTITY_READ
+  proves: current model lock state
   does_not_prove: which execution generated results
   necessary: false
   sufficient: false
   authority_class: DIAGNOSTIC_ONLY
-  offline_verified: false
-  live_verified: false
+  offline_verified: true
+  live_verified: true
   consumers:
     - B5
     - B6
   known_failure_modes:
-    - model was already locked with old results before the controller attached
+    - model was already locked with old results before the attempt
 
 no_intervening_analysis_mutation_window:
   concept: continuity between exact pre-state, analysis execution, and result acquisition
@@ -335,7 +355,7 @@ no_intervening_analysis_mutation_window:
     - design
   source: R-LINEAGE-1 research recommendation
   current_owner: MISSING_FUTURE_B5_B6_CONTROLLER
-  proves: causal chain was not broken by an analysis-affecting mutation, unlock, source switch, or second execution
+  proves: causal chain was not broken by analysis-affecting mutation, unlock, source switch, or second execution
   does_not_prove: execution success by itself
   necessary: true
   sufficient: false
@@ -347,7 +367,7 @@ no_intervening_analysis_mutation_window:
     - B6
   known_failure_modes:
     - hidden mutable capability escape
-    - user/UI mutation during the execution window
+    - user/UI mutation during execution window
 
 analysis_generation_ref:
   concept: controller-issued unique identity handle for one analysis invocation generation
@@ -356,8 +376,8 @@ analysis_generation_ref:
     - design
   source: AnalysisResultIdentity plus R-LINEAGE-1 retry recommendation
   current_owner: B1_SHAPE_EXISTS_ISSUER_MISSING
-  proves: unique generation naming when issued by the controlled execution authority
-  does_not_prove: that the invocation occurred
+  proves: unique generation naming when issued inside the controlled execution authority
+  does_not_prove: that the invocation occurred or succeeded
   necessary: true
   sufficient: false
   authority_class: CORRELATION_ONLY
@@ -375,8 +395,8 @@ analysis_attempt_ref:
   concept: unique identifier for one concrete RunAnalysis invocation attempt
   applies_to:
     - analysis
-  source: R-LINEAGE-1 research recommendation
-  current_owner: MISSING_FUTURE_B5
+  source: R-LINEAGE-1 retry recommendation
+  current_owner: MISSING_FUTURE_B5_ATTEMPT_PROOF
   proves: diagnostics and outcome belong to one exact invocation attempt
   does_not_prove: success or freshness
   necessary: true
@@ -391,12 +411,12 @@ analysis_attempt_ref:
     - same attempt id reused after failure
 
 analysis_result_population_availability:
-  concept: required analysis-result rows/tables are readable for the qualified scope
+  concept: required analysis-result populations are readable and completely reconciled for the declared scope
   applies_to:
     - analysis
   source: current ETABS factual result providers and CSI Results APIs
   current_owner: EXISTING_FACTUAL_PROVIDERS_PER_RESULT_KIND
-  proves: current result population is available and can be captured at the declared scope
+  proves: current required result populations can be captured and reconciled at the declared scope
   does_not_prove: causal generation
   necessary: true
   sufficient: false
@@ -406,8 +426,27 @@ analysis_result_population_availability:
   consumers:
     - B5
   known_failure_modes:
-    - old rows are still readable
-    - query selection yields an incomplete subset
+    - old rows remain readable
+    - one requested scope population is missing while finished subsets are salvaged
+
+analysis_attempt_atomic_qualification:
+  concept: fail-closed whole-declared-scope success gate for one analysis attempt
+  applies_to:
+    - analysis
+  source: R-LINEAGE-1 supervisor P1
+  current_owner: MISSING_FUTURE_B5_ATTEMPT_PROOF
+  proves: positive issuance is permitted only when RunAnalysis succeeds and every requested/required scope and required population succeeds completely
+  does_not_prove: state/result identity coherence without the remaining B1 causal proof
+  necessary: true
+  sufficient: false
+  authority_class: REAL_CAUSAL_EVIDENCE
+  offline_verified: true
+  live_verified: false
+  consumers:
+    - B5
+  known_failure_modes:
+    - requested A/B/C yields A/B Finished and C Failed, then A/B is incorrectly salvaged
+    - incomplete population reconciliation is ignored
 
 analysis_basis_compatibility:
   concept: reviewed analysis-basis compatibility join
@@ -457,7 +496,7 @@ combo_definition_evidence:
     - design
   source: tbdy_engine/providers/etabs_combo_definition_provider.py
   current_owner: EtabsComboDefinitionEvidence
-  proves: combo type, leaf/nested names, constituent types and scale factors for the captured definition
+  proves: combo type, nested/leaf names, constituent types and scale factors
   does_not_prove: execution generation
   necessary: true
   sufficient: false
@@ -468,11 +507,11 @@ combo_definition_evidence:
     - B2
     - B6
   known_failure_modes:
-    - definition changes between capture and StartDesign
+    - definition changes between capture and design
     - same combo name with different definition
 
 w7_combo_analysis_basis_binding:
-  concept: exact component and design-combo to accepted analysis-basis semantic join
+  concept: exact component/design-combo to accepted analysis-basis semantic join
   applies_to:
     - design
   source: tbdy_engine/design/columns/column_combo_eligibility_projection.py
@@ -496,7 +535,7 @@ w6_summary_results_column_abi:
   applies_to:
     - design
   source: tbdy_engine/etabs/oapi/concrete_design.py and tbdy_engine/providers/etabs_concrete_column_design_result_provider.py
-  current_owner: canonical OAPI concrete-design reader and provider
+  current_owner: canonical OAPI concrete-design factual reader and provider
   proves: exact 14-slot Python COM response shape, return code, row-array alignment, component binding, units, and full capture accounting
   does_not_prove: which StartDesign generation produced the rows
   necessary: true
@@ -516,7 +555,7 @@ design_code:
     - design
   source: CSI cDesignConcrete.GetCode
   current_owner: MISSING_B2_STATE_BINDING
-  proves: current concrete design code string when read successfully
+  proves: current concrete design code when read successfully
   does_not_prove: design execution or freshness
   necessary: true
   sufficient: false
@@ -550,13 +589,33 @@ design_state_identity:
     - component/combo/EvidenceEpoch substituted for design-state identity
     - display/query configuration accidentally included as engineering state
 
+design_declared_execution_scope:
+  concept: immutable exact requested design execution/result scope fixed before StartDesign
+  applies_to:
+    - design
+  source: R-LINEAGE-1 P1 fail-closed design rule
+  current_owner: MISSING_FUTURE_B2_B6_ATTEMPT_PROOF
+  proves: the exact design scope whose complete success is required before positive DesignResultIdentity issuance
+  does_not_prove: execution occurrence, completion, or freshness
+  necessary: true
+  sufficient: false
+  authority_class: REAL_CAUSAL_EVIDENCE
+  offline_verified: true
+  live_verified: false
+  consumers:
+    - B2
+    - B6
+  known_failure_modes:
+    - scope is narrowed after partial StartDesign output
+    - readable subset is treated as qualified result scope
+
 pre_design_result_absence_or_replacement_proof:
   concept: proof that old concrete-design rows cannot be mistaken for the new StartDesign generation
   applies_to:
     - design
   source: R-LINEAGE-1 research gap
   current_owner: MISSING_FUTURE_B6
-  proves: required result scope is causally attributable to the controlled StartDesign rather than stale pre-existing design output
+  proves: declared result scope can be causally attributed to the controlled StartDesign rather than stale pre-existing output
   does_not_prove: StartDesign success
   necessary: true
   sufficient: false
@@ -566,8 +625,7 @@ pre_design_result_absence_or_replacement_proof:
   consumers:
     - B6
   known_failure_modes:
-    - GetResultsAvailable remains true from an old design
-    - successful StartDesign does not replace every old row
+    - GetResultsAvailable remains true from old design
     - failed StartDesign leaves previous or partial rows
 
 controlled_startdesign_invocation:
@@ -575,9 +633,9 @@ controlled_startdesign_invocation:
   applies_to:
     - design
   source: CSI cDesignConcrete.StartDesign plus future B6 controller
-  current_owner: MISSING_FUTURE_B6
-  proves: controller invoked concrete design inside the causal window
-  does_not_prove: exact result population freshness without replacement/availability/acquisition evidence
+  current_owner: MISSING_FUTURE_B6_EXECUTION_CONTROLLER
+  proves: B6 controller invoked concrete design inside the causal window
+  does_not_prove: whole declared scope completion or exact row freshness
   necessary: true
   sufficient: false
   authority_class: REAL_CAUSAL_EVIDENCE
@@ -586,17 +644,17 @@ controlled_startdesign_invocation:
   consumers:
     - B6
   known_failure_modes:
-    - invocation occurs against a different design state than DesignStateIdentity
-    - previous rows remain available
+    - invocation occurs against different DesignStateIdentity
+    - execution authority is incorrectly assigned to OAPI or gateway
 
 startdesign_return_code:
-  concept: ETABS concrete design start result
+  concept: return outcome observed from the controller-owned StartDesign execution event
   applies_to:
     - design
-  source: CSI cDesignConcrete.StartDesign
-  current_owner: MISSING_FUTURE_B6_OAPI
-  proves: zero reports successful design start
-  does_not_prove: full completion, freshness, or exact row generation
+  source: CSI cDesignConcrete.StartDesign through future B6 execution controller
+  current_owner: MISSING_FUTURE_B6_EXECUTION_CONTROLLER_NOT_OAPI_OR_GATEWAY
+  proves: accepted success return for the concrete design invocation
+  does_not_prove: whole declared design scope completion, freshness, or exact row generation
   necessary: true
   sufficient: false
   authority_class: DIAGNOSTIC_ONLY
@@ -605,18 +663,18 @@ startdesign_return_code:
   consumers:
     - B6
   known_failure_modes:
-    - successful start does not expose a generation token
-    - partial or retained prior result behavior is unknown
+    - success return treated as complete fresh generation
+    - execution ownership silently moved into OAPI/gateway
 
 design_results_available:
-  concept: current concrete-design result availability flag
+  concept: factual current concrete-design result availability
   applies_to:
     - design
   source: CSI cDesignConcrete.GetResultsAvailable
-  current_owner: MISSING_FUTURE_B6_OAPI
+  current_owner: NEW_REQUIRED_B6_FACTUAL_ABI_ONLY_IF_CURRENT_SURFACE_GAP_IS_CONFIRMED
   proves: concrete design results are currently available
-  does_not_prove: generation, parent analysis, design state, component/combo binding, or freshness
-  necessary: true
+  does_not_prove: generation, parent analysis, design state, component/combo binding, freshness, or whole-scope success
+  necessary: conditional
   sufficient: false
   authority_class: DIAGNOSTIC_ONLY
   offline_verified: false
@@ -624,15 +682,15 @@ design_results_available:
   consumers:
     - B6
   known_failure_modes:
-    - true before StartDesign because stale design results already exist
-    - behavior after design-state change is unverified
+    - true before StartDesign because stale results already exist
+    - availability is treated as completion/generation proof
 
 design_attempt_ref:
   concept: unique identifier for one StartDesign invocation attempt
   applies_to:
     - design
-  source: R-LINEAGE-1 research recommendation
-  current_owner: MISSING_FUTURE_B6
+  source: R-LINEAGE-1 retry recommendation
+  current_owner: MISSING_FUTURE_B6_ATTEMPT_PROOF
   proves: diagnostics and outcome belong to one exact design invocation attempt
   does_not_prove: execution success or row freshness
   necessary: true
@@ -643,7 +701,7 @@ design_attempt_ref:
   consumers:
     - B6
   known_failure_modes:
-    - retry overwrites the failed design attempt
+    - retry overwrites failed design attempt
     - id reused across attempts
 
 design_generation_ref:
@@ -653,7 +711,7 @@ design_generation_ref:
   source: R-LINEAGE-1 recommendation for B2/B6
   current_owner: MISSING_FUTURE_B2_B6
   proves: unique generation naming inside a trusted causal proof
-  does_not_prove: that StartDesign occurred
+  does_not_prove: that StartDesign occurred or succeeded
   necessary: true
   sufficient: false
   authority_class: CORRELATION_ONLY
@@ -683,7 +741,27 @@ factual_design_result_population:
     - B6
   known_failure_modes:
     - stale pre-existing rows form a complete population
-    - row hashes are mistaken for design generation
+    - partial design attempt finished subset is promoted
+
+design_attempt_atomic_qualification:
+  concept: fail-closed whole-declared-scope success gate for one design attempt
+  applies_to:
+    - design
+  source: R-LINEAGE-1 supervisor P1
+  current_owner: MISSING_FUTURE_B2_B6_ATTEMPT_PROOF
+  proves: positive DesignResultIdentity issuance is permitted only when StartDesign succeeds and every required/requested design scope and population closes completely
+  does_not_prove: DesignStateIdentity/result coherence without the remaining causal proof
+  necessary: true
+  sufficient: false
+  authority_class: REAL_CAUSAL_EVIDENCE
+  offline_verified: true
+  live_verified: false
+  consumers:
+    - B2
+    - B6
+  known_failure_modes:
+    - failed/partial StartDesign rows are salvaged into qualified result identity
+    - incomplete population closure is ignored
 
 component_identity:
   concept: exact frame/component binding for result rows
@@ -721,7 +799,6 @@ source_row_hash:
     - B5
     - B6
   known_failure_modes:
-    - identical rows across generations have the same semantic content but different causal history
     - row hash used as generation id
 
 present_units_state:
@@ -731,7 +808,7 @@ present_units_state:
     - design
   source: current ETABS safety/providers and CSI GetPresentUnits APIs
   current_owner: ETABS safety/OAPI unit provenance
-  proves: unit interpretation used by the factual acquisition
+  proves: unit interpretation used by factual acquisition
   does_not_prove: result generation or engineering state freshness
   necessary: true
   sufficient: false
@@ -743,7 +820,7 @@ present_units_state:
     - B6
   known_failure_modes:
     - present units change during acquisition
-    - unit configuration incorrectly included as causal generation identity
+    - query configuration is mistaken for generation identity
 
 results_display_selection:
   concept: load case/combo output selection used when querying analysis results
@@ -751,8 +828,8 @@ results_display_selection:
     - analysis
   source: CSI AnalysisResults.Setup and current transaction-safe result acquisition patterns
   current_owner: ETABS OAPI/safety transaction boundary
-  proves: which result scopes are selected for a particular query
-  does_not_prove: underlying analysis generation
+  proves: which result scopes are selected for a factual query
+  does_not_prove: underlying analysis generation or executed scope
   necessary: conditional
   sufficient: false
   authority_class: DIAGNOSTIC_ONLY
@@ -771,7 +848,7 @@ database_table_selection_state:
     - design
   source: W6/current DatabaseTables transaction discipline
   current_owner: ETABS safety/OAPI DatabaseTables boundary
-  proves: factual query configuration is restored and bounded
+  proves: factual query configuration is bounded and restored
   does_not_prove: analysis/design execution generation
   necessary: conditional
   sufficient: false
@@ -790,7 +867,7 @@ qualified_analysis_to_design_parent_binding:
     - design
   source: R-LINEAGE-1 recommendation for B2
   current_owner: MISSING_FUTURE_B2
-  proves: design state is based on one exact qualified analysis result identity and scope
+  proves: design state is based on one exact qualified analysis result identity and required scope
   does_not_prove: design execution occurrence
   necessary: true
   sufficient: false
@@ -801,17 +878,17 @@ qualified_analysis_to_design_parent_binding:
     - B2
     - B6
   known_failure_modes:
-    - design state references only model_fingerprint/EvidenceEpoch instead of AnalysisResultIdentity
-    - required analysis scopes are not covered by the parent result
+    - only model_fingerprint/EvidenceEpoch is used instead of AnalysisResultIdentity
+    - required analysis scopes are not covered by parent result
 
 controlled_analysis_causal_enclosure:
-  concept: aggregate positive analysis-generation causal proof
+  concept: aggregate positive analysis-generation causal proof for one atomic declared attempt
   applies_to:
     - analysis
     - design
-  source: R-LINEAGE-1 synthesis of B1 plus CSI execution/status facts
+  source: R-LINEAGE-1 synthesis of B1 plus controlled execution and current factual status reads
   current_owner: MISSING_FUTURE_B5
-  proves: result scopes were acquired from one exact controlled RunAnalysis attempt whose exact parent AnalysisStateIdentity is known and whose causal window was not broken
+  proves: the exact predeclared result scope was acquired from one fully successful controlled RunAnalysis attempt whose parent AnalysisStateIdentity is known and whose causal window was not broken
   does_not_prove: downstream design generation
   necessary: true
   sufficient: true
@@ -823,17 +900,18 @@ controlled_analysis_causal_enclosure:
     - B2
     - B6
   known_failure_modes:
-    - any required evidence component is missing
-    - mixed old/new case generations
-    - intervening mutation or retry contamination
+    - any requested/required scope fails or remains unfinished
+    - population reconciliation is incomplete
+    - finished subset is salvaged from a failed/partial attempt
+    - mixed old/new case generations or intervening mutation
 
 controlled_design_causal_enclosure:
-  concept: aggregate positive design-generation causal proof
+  concept: aggregate positive design-generation causal proof for one atomic declared design attempt
   applies_to:
     - design
-  source: R-LINEAGE-1 synthesis of B1 pattern plus W6/W7 and CSI concrete-design APIs
+  source: R-LINEAGE-1 synthesis of B1 pattern plus W6/W7 and controlled StartDesign
   current_owner: MISSING_FUTURE_B6
-  proves: exact design result scopes were acquired from one controlled StartDesign attempt parented by exact DesignStateIdentity and qualified AnalysisResultIdentity
+  proves: exact predeclared design result scope was acquired from one fully successful controlled StartDesign attempt parented by exact DesignStateIdentity and qualified AnalysisResultIdentity
   does_not_prove: engineering adequacy or selection beyond the factual/lineage boundary
   necessary: true
   sufficient: true
@@ -843,6 +921,7 @@ controlled_design_causal_enclosure:
   consumers:
     - B6
   known_failure_modes:
+    - any requested/required design scope or population is partial/incomplete
     - old design results remain available and are mistaken for new rows
+    - failed/partial attempt rows are salvaged
     - design-state drift between readback and StartDesign
-    - W6 population or W7 exact join is incomplete
