@@ -30,16 +30,23 @@ The current repository has a mature read-only factual boundary but no approved e
 
 ```text
 packages/etabs_gateway
-  -> sole attach / COM / STA / bounded-execution owner
+  -> SOLE production COM / STA / session / attach transport owner
+  -> bounded COM callback / worker-thread transport owner
+  -> NOT analysis execution authority
+  -> NOT design execution authority
+  -> NOT scratch lifecycle authority
+  -> NOT engineering orchestration authority
 
 tbdy_engine.etabs.safety
   -> verified-session qualification
   -> model identity / units / lock / capability reads
   -> DatabaseTables and Results.Setup reversible state mechanics
   -> Analyze.GetCaseStatus factual readiness
+  -> current safety read bridge may reuse gateway worker transport
 
 tbdy_engine.etabs.oapi
   -> exact factual read ABI for current consumers
+  -> factual ABI, NOT lifecycle/execution authority
   -> no File.OpenFile / File.Save
   -> no Analyze.SetRunCaseFlag / RunAnalysis / DeleteResults
   -> no DesignConcrete.StartDesign
@@ -49,39 +56,55 @@ tbdy_engine.integration.etabs_analysis_lineage
   -> deliberately no public positive AnalysisResultIdentity issuer
 ```
 
-Current architecture tests forbid production `RunAnalysis` and `StartDesign`, confine `SetPresentUnits` to a compatibility helper, and forbid execution/file mutation inside the gateway package. Therefore B4A/B4B/B5/B6 require new bounded write capabilities in later approved sprints. R-LIFE-1 implements none of them.
+Current architecture tests forbid production `RunAnalysis` and `StartDesign`, confine `SetPresentUnits` to a compatibility helper, and forbid execution/file mutation inside the gateway package. Therefore B4A/B4B/B5/B6 require new bounded lifecycle/write/execution capabilities in later approved sprints. R-LIFE-1 implements none of them.
+
+Future B4A/B4B/B5/B6 semantic authority belongs to the future bounded lifecycle/execution controller defined by those sprints. In this document, `future owner: B4A/B4B/B5/B6` means **semantic sprint/controller authority only**; it does not decide Python package or module placement.
+
+The following remain `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED` and are not assigned by R-LIFE-1 to either `packages/etabs_gateway` or `tbdy_engine.etabs.oapi`:
+
+```text
+File.OpenFile
+File.Save
+typed model setters
+Analyze.SetRunCaseFlag
+Analyze.RunAnalysis
+Analyze.DeleteResults
+DesignConcrete.StartDesign
+```
+
+Any future expansion of gateway beyond transport, or OAPI beyond factual ABI, requires explicit supervisor disposition.
 
 ## 2. Exact current-repo capability census
 
 | Requested concept | Exact symbol/API found | Current status | Disposition |
 |---|---|---|---|
-| Run analysis | `SapModel.Analyze.RunAnalysis()` | no production wrapper; production call forbidden by guard | `NEW_REQUIRED` B5 |
-| Start concrete design | `SapModel.DesignConcrete.StartDesign()` | no production wrapper; production call forbidden by guard | `NEW_REQUIRED` B6 |
-| Start steel design | `SapModel.DesignSteel.StartDesign()` | no production wrapper | only if future steel scope requires it |
-| Save | `SapModel.File.Save(FileName)` | no current wrapper | B4A decision; `NEW_REQUIRED` if used |
+| Run analysis | `SapModel.Analyze.RunAnalysis()` | no production wrapper; production call forbidden by guard | `NEW_REQUIRED` B5; `FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED` |
+| Start concrete design | `SapModel.DesignConcrete.StartDesign()` | no production wrapper; production call forbidden by guard | `NEW_REQUIRED` B6; `FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED` |
+| Start steel design | `SapModel.DesignSteel.StartDesign()` | no production wrapper | only if future steel scope requires it; placement not decided here |
+| Save | `SapModel.File.Save(FileName)` | no current wrapper | B4A semantic decision; `NEW_REQUIRED` if used; `FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED` |
 | SaveAs | exact symbol not found in inspected CSI reference | documented save-to-path capability is `File.Save(FileName)` | do not invent `SaveAs` |
-| Open existing model | `SapModel.File.OpenFile(FileName)` | no current wrapper | `NEW_REQUIRED` B4A if selected |
+| Open existing model | `SapModel.File.OpenFile(FileName)` | no current wrapper | `NEW_REQUIRED` B4A if selected; `FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED` |
 | Initialize model | `SapModel.InitializeNewModel(...)` | no lifecycle wrapper; gateway guard forbids it | not justified merely to clone source |
 | New model | CSI `File.New*` template family exists | no lifecycle owner | not required for source-copy lifecycle by default |
 | Current model filename | `SapModel.GetModelFilename(bool)` | gateway context reader / safety identity | reusable |
 | Current model filepath | `SapModel.GetModelFilepath()` exists in CSI docs | current gateway already uses `GetModelFilename(True)` | optional factual gap only if needed |
 | File-path read | `SapModel.File.GetFilePath()` exists in CSI docs | no wrapper observed | optional factual gap |
 | Model lock read | `SapModel.GetModelIsLocked()` | gateway/safety | reusable |
-| Model lock write | `SapModel.SetModelIsLocked(bool)` | gateway guard forbids it | `NEW_REQUIRED` only if B4B proves need |
+| Model lock write | `SapModel.SetModelIsLocked(bool)` | gateway guard forbids it | `NEW_REQUIRED` only if B4B proves need; `FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED` |
 | Present units read | `SapModel.GetPresentUnits()` plus safety snapshot | gateway/safety | reusable |
 | Present units write | `SapModel.SetPresentUnits(...)` | compatibility-only `engine/unit_context.py`; production reachability guarded | reject for B4/B5/B6 |
-| Analysis result clearing | `SapModel.Analyze.DeleteResults(Name, All=False)` | no wrapper | freshness policy gap |
+| Analysis result clearing | `SapModel.Analyze.DeleteResults(Name, All=False)` | no wrapper | freshness policy gap; if adopted `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED` |
 | Create analysis model | `SapModel.Analyze.CreateAnalysisModel()` | no wrapper | CSI says not required before RunAnalysis |
 | Case status | `SapModel.Analyze.GetCaseStatus(...)` | safety factual mechanics | reusable |
-| Run flags read | `SapModel.Analyze.GetRunCaseFlag(...)` | no wrapper | `NEW_REQUIRED` B5 |
-| Run flags write | `SapModel.Analyze.SetRunCaseFlag(Name, Run, All=False)` | no wrapper | `NEW_REQUIRED` B5 |
+| Run flags read | `SapModel.Analyze.GetRunCaseFlag(...)` | no wrapper | `NEW_REQUIRED` B5; placement not decided here |
+| Run flags write | `SapModel.Analyze.SetRunCaseFlag(Name, Run, All=False)` | no wrapper | `NEW_REQUIRED` B5; `FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED` |
 | Results selection | `SapModel.Results.Setup...` | safety transaction + restoration proof | reusable read-state mechanics |
 | DatabaseTables | `SapModel.DatabaseTables...` | safety transaction + OAPI display read | reusable read-state mechanics |
 | DB case display selection | `SetLoadCasesSelectedForDisplay` | private safety transaction mechanics | reusable temporary state |
 | DB combo display selection | `SetLoadCombinationsSelectedForDisplay` | private safety transaction mechanics | reusable temporary state |
 | Concrete design code read | `DesignConcrete.GetCode(ref CodeName)` | CSI contract exists; no dedicated current OAPI wrapper observed | B6 factual gap if needed |
-| Concrete design code write | `DesignConcrete.SetCode(...)` | no wrapper | design-state mutation; future policy |
-| Concrete design combo write | `DesignConcrete.SetComboStrength(Name, Selected)` | no write wrapper; current repo has factual selected-combo acquisition path | future B6 only if mutation is required |
+| Concrete design code write | `DesignConcrete.SetCode(...)` | no wrapper | design-state mutation; future policy and architecture placement required |
+| Concrete design combo write | `DesignConcrete.SetComboStrength(Name, Selected)` | no write wrapper; current repo has factual selected-combo acquisition path | future B6 only if mutation is required; placement not decided here |
 | Concrete results availability | `DesignConcrete.GetResultsAvailable()` | no lifecycle wrapper observed | B6 postcondition candidate |
 | Concrete design section read | `DesignConcrete.GetDesignSection` | current OAPI | reusable |
 | Concrete column summary | `DesignConcrete.GetSummaryResultsColumn` | current OAPI/provider | reusable |
@@ -97,6 +120,10 @@ Exact-base executable guards provide stronger evidence than substring archaeolog
 - gateway public session does not export raw `SapModel`.
 - `TrustedLiveAcquisitionContext` has no `sap_model` / `attach_result` raw escape.
 - unit mutation is isolated to a compatibility helper and is not lifecycle authority.
+
+### Authority terminology for the owner census
+
+All `future owner` entries below identify the future sprint/controller that holds **semantic lifecycle/execution authority**. They do not assign the underlying CSI call to a final Python module. For new write/execution operations, architecture placement remains `FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED` until explicit supervisor disposition.
 
 ## 3. Owner census
 
@@ -115,7 +142,7 @@ Exact-base executable guards provide stronger evidence than substring archaeolog
 - historical owner: proposals only; no accepted complete implementation found
 - gateway/OAPI wrapper: NONE
 - future owner: B4A
-- status: `NEW_REQUIRED`
+- status: `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`
 
 ### LIFE-CAP-003 — open scratch
 
@@ -123,7 +150,7 @@ Exact-base executable guards provide stronger evidence than substring archaeolog
 - current owner/wrapper: NONE
 - source mutation risk: HIGH if session/source isolation is wrong
 - future owner: B4A
-- status: `NEW_REQUIRED`
+- status: `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`
 
 ### LIFE-CAP-004 — save-to-path
 
@@ -131,6 +158,7 @@ Exact-base executable guards provide stronger evidence than substring archaeolog
 - exact `SaveAs`: NOT FOUND in inspected reference
 - current owner/wrapper: NONE
 - future owner: B4A only if chosen scratch strategy needs it
+- architecture placement: `FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`
 - source rule: never save to immutable source path in derived-state lifecycle
 
 ### LIFE-CAP-005 — analysis-affecting mutation
@@ -138,21 +166,21 @@ Exact-base executable guards provide stronger evidence than substring archaeolog
 - generic current writer: NONE
 - future owner: B4B
 - required protocol: `SET -> ret==0 -> READBACK -> equality/tolerance -> mutation manifest`
-- status: `NEW_REQUIRED`
+- status: `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`
 
 ### LIFE-CAP-006 — run-case scope
 
 - CSI candidates: `Analyze.GetRunCaseFlag`, `Analyze.SetRunCaseFlag`
 - current wrapper: NONE
 - future owner: B5
-- status: `NEW_REQUIRED`
+- status: `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`
 
 ### LIFE-CAP-007 — analysis execution
 
 - CSI: `Analyze.RunAnalysis`
 - current owner/wrapper: NONE
 - future owner: B5 only
-- status: `NEW_REQUIRED`
+- status: `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`
 
 ### LIFE-CAP-008 — analysis completion/readiness
 
@@ -166,8 +194,8 @@ Exact-base executable guards provide stronger evidence than substring archaeolog
 
 - CSI candidate: `Analyze.DeleteResults(Name, All=False)`
 - current wrapper: NONE
-- future owner: explicit B4B/B5 policy decision
-- status: `NEW_REQUIRED` if explicit clearing is part of freshness protocol
+- future owner: explicit B4B/B5 semantic policy decision
+- status: `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED` if explicit clearing is part of freshness protocol
 
 ### LIFE-CAP-010 — trusted analysis identity
 
@@ -180,7 +208,7 @@ Exact-base executable guards provide stronger evidence than substring archaeolog
 
 - current assets: OAPI design-section/summary reads; factual selected-design-combo provider; unit/provenance binding
 - missing lifecycle facts: active code and explicit results-available wrapper if B6 needs them
-- future owner: B6 factual/OAPI layer as demanded by exact consumers
+- future owner: B6 semantic preflight; any new boundary expansion still requires explicit placement disposition
 
 ### LIFE-CAP-012 — concrete design execution
 
@@ -188,7 +216,7 @@ Exact-base executable guards provide stronger evidence than substring archaeolog
 - current wrapper: NONE
 - CSI precondition candidate: concrete frames and analysis results must be available
 - future owner: B6 only
-- status: `NEW_REQUIRED`
+- status: `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`
 
 ## 4. Scratch-model archaeology and reusable assets
 
@@ -197,12 +225,12 @@ No accepted current scratch model controller was found on exact main.
 ### LIFE-REUSE-001 — DedicatedSTAWorker
 
 Historical `sprint/p1-1-dedicated-sta-worker` @ `b23253b381292e8db2115bac3ece3802b3f16717` established one owned worker thread, serialized calls, timeout/failure/close semantics, and poison-on-running-timeout behavior. Current gateway already embodies this.  
-Disposition: `REUSE_AS_IS`.
+Disposition: `REUSE_AS_IS` as transport mechanics only; this does not confer analysis/design/scratch semantic authority on the gateway.
 
 ### LIFE-REUSE-002 — typed gateway contract foundation
 
 Historical `sprint/p1-typed-etabs-gateway-foundation` @ `0ee5d37008d3d5480590af6c11de558c4dbd0f41` established typed model/unit/connection contracts, read-only default, no generic execution, no engineering verdict.  
-Disposition: `ADAPT_EXISTING` only through current gateway; do not resurrect placeholder code.
+Disposition: `ADAPT_EXISTING` only through current gateway transport; do not resurrect placeholder code or treat the gateway as execution authority.
 
 ### LIFE-REUSE-003 — verified target qualification
 
@@ -243,7 +271,7 @@ Disposition: `REUSE_AS_IS`.
 ### LIFE-REUSE-010 — factual OAPI reads
 
 Current OAPI owns object/load/combo/concrete-design/DatabaseTables read ABI.  
-Disposition: `REUSE_AS_IS` where an exact fact is already wrapped.
+Disposition: `REUSE_AS_IS` where an exact fact is already wrapped. This factual-ABI role does not imply ownership of new write/execution operations.
 
 ### Historical G0 scratch proposals
 
@@ -264,48 +292,50 @@ Disposition: `NEW_REQUIRED` B4A; use G0 only as requirement/oracle material.
 - `LIFE-REJECT-010`: assume `StartDesign` cannot trigger/re-run analysis without live evidence.
 - `LIFE-REJECT-011`: generic mutation rollback as a substitute for scratch isolation.
 - `LIFE-REJECT-012`: treat DatabaseTables/Results.Setup restoration as model-mutation rollback.
+- `LIFE-REJECT-013`: infer lifecycle/execution semantic authority from gateway worker transport ownership.
+- `LIFE-REJECT-014`: silently place new write/execution calls in gateway or OAPI without supervisor disposition.
 
 ## 6. Proposed factual state machine
 
 ### SOURCE_ATTACHED_READONLY
 
-Controller: current gateway + safety.  
+Controller: current gateway + safety read bridge; gateway role here is COM/STA/session/attach and bounded callback transport only.  
 Allowed: identity/version/path/PID, units/lock, factual reads, physical source pre-snapshot.  
 Forbidden: save, unlock/mutate, run, design.  
 Transition only after causal scratch creation evidence.
 
 ### SCRATCH_CREATED
 
-Controller: B4A.  
+Controller: future B4A semantic lifecycle controller; final module placement not decided by R-LIFE-1.  
 Required: creation attempt ID, parent SourceModelIdentity, source physical pre-state, scratch path/mechanism, initial scratch hash/size/mtime.  
 No claim yet that ETABS opened scratch.
 
 ### SCRATCH_OPENED
 
-Controller: B4A.  
+Controller: future B4A semantic lifecycle controller; final module placement not decided by R-LIFE-1.  
 Candidate operation: `File.OpenFile(scratch_path)` or a separately proven isolation route.  
 Postconditions: ret success; active model path equals scratch; source physical state unchanged; lock read; scratch ownership bundle complete. Only then issue scratch identity.
 
 ### SCRATCH_MUTATED_UNANALYZED
 
-Controller: B4B.  
+Controller: future B4B semantic mutation controller; final module placement not decided by R-LIFE-1.  
 Every write: `SET -> ret -> READBACK -> compare -> manifest`.  
 Postcondition: parent analysis/design identities invalid for the derived state.
 
 ### SCRATCH_ANALYZED
 
-Controller: B5.  
+Controller: future B5 semantic analysis-execution controller; final module placement not decided by R-LIFE-1.  
 Candidate sequence: read run flags -> set intended flags -> optional explicit stale-result clearing by approved policy -> `RunAnalysis` -> `GetCaseStatus`.  
 Only after ret=0 and all intended cases are qualified FINISHED may B5 issue causal `AnalysisResultIdentity`.
 
 ### SCRATCH_DESIGN_READY
 
-Controller: B6 preflight.  
+Controller: future B6 semantic design-execution preflight controller; final module placement not decided by R-LIFE-1.  
 Requires qualified AnalysisResultIdentity, bound design code/state, selected design combinations, eligible concrete population, and no later analysis-affecting mutation.
 
 ### SCRATCH_DESIGNED
 
-Controller: B6.  
+Controller: future B6 semantic design-execution controller; final module placement not decided by R-LIFE-1.  
 Candidate operation: `DesignConcrete.StartDesign`.  
 Postconditions: ret=0; results available; required result population acquisition complete; analysis identity still valid; source integrity unchanged. Only then issue future `DesignResultIdentity`.
 
@@ -323,7 +353,7 @@ retry -> NEW execution attempt ID
 
 ### CLEANED_UP
 
-Controller: B4A lifecycle owner.  
+Controller: future B4A semantic lifecycle owner; final module placement not decided by R-LIFE-1.  
 Required: source after-state verified; scratch deleted or intentionally retained-for-audit; cleanup result recorded. Cleanup failure is itself a failure state.
 
 ## 7. Source model integrity
@@ -411,7 +441,7 @@ A random UUID, path, filename, or hash alone is insufficient. A true copy may in
 | concrete design code/combo selection | DESIGN_STATE_AFFECTING | invalidate design identity |
 | concrete design section mutation | DESIGN_STATE_AFFECTING; potential analysis coupling depends exact semantics | exact policy/readback required |
 
-Every future analysis-affecting setter requires verified scratch ownership, ret code, readback, comparison rule, mutation-manifest entry, and invalidation of prior analysis/design identities.
+Every future analysis-affecting setter requires verified scratch ownership, ret code, readback, comparison rule, mutation-manifest entry, and invalidation of prior analysis/design identities. Its final module placement remains `FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`.
 
 ## 10. Lock / result invalidation
 
@@ -464,6 +494,8 @@ CSI candidate surfaces:
 4. `Analyze.GetCaseStatus`
 5. optionally `Analyze.DeleteResults` if explicit stale-result clearing is adopted
 
+The B5 semantic controller owns the analysis-execution decision and causal qualification. R-LIFE-1 does not assign the new CSI calls above to gateway or OAPI; their architecture placement is `FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`.
+
 Required future evidence:
 
 ```text
@@ -500,20 +532,22 @@ Concrete target:
 2. read/bind active concrete design code (`DesignConcrete.GetCode`) if not already supplied by an accepted factual owner;
 3. read/bind actual selected design combinations through current factual acquisition path;
 4. establish DesignStateIdentity;
-5. call `DesignConcrete.StartDesign` — `NEW_REQUIRED`;
+5. call `DesignConcrete.StartDesign` — `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`;
 6. require ret=0;
 7. read `DesignConcrete.GetResultsAvailable` — wrapper gap if adopted;
 8. acquire required design result populations through current OAPI/providers;
 9. bind results to exact model/analysis/design state;
 10. issue DesignResultIdentity only after qualification.
 
-Permanent ownership:
+Permanent semantic ownership:
 
 ```text
 B5 OWNS RunAnalysis
 B6 OWNS StartDesign
 B6 MUST NOT CALL RunAnalysis
 ```
+
+These statements define future **semantic execution authority**, not the final module location of the CSI call. `DesignConcrete.StartDesign` remains placement-neutral in R-LIFE-1.
 
 CSI says StartDesign fails when analysis results are unavailable. That does **not** prove it can never internally trigger or repeat analysis. Status: `LIVE_VERIFICATION_REQUIRED`.
 
@@ -533,6 +567,8 @@ CSI says StartDesign fails when analysis results are unavailable. That does **no
 
 ## 14. Minimum future production write sets
 
+All additions in this section are **semantic capability requirements**, not module-placement decisions. New write/execution CSI calls remain `FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`; gateway remains transport and OAPI remains factual ABI unless a later supervisor disposition explicitly expands either boundary.
+
 ### B4A — DERIVED-STATE-1
 
 - scratch lifecycle controller;
@@ -543,7 +579,7 @@ CSI says StartDesign fails when analysis results are unavailable. That does **no
 - cleanup/failure disposition.
 
 Likely API gaps: `File.OpenFile`; possibly `File.Save(FileName)` depending chosen strategy.  
-Status: `NEW_REQUIRED`.
+Status: `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`.
 
 ### B4B — ANALYSIS-STATE-MUTATION-1
 
@@ -555,18 +591,18 @@ Status: `NEW_REQUIRED`.
 - result/design identity invalidation marker.
 
 No generic arbitrary SapModel execution API.  
-Status: `NEW_REQUIRED`.
+Status: `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`.
 
 ### B5 — ANALYSIS-EXEC-1
 
-- run-flag read/set wrapper;
+- run-flag read/set capability;
 - controlled RunAnalysis;
 - case-status postqualification using current safety semantics;
 - optional exact stale-result clearing policy;
 - causal execution-attempt proof;
 - sole trusted AnalysisResultIdentity issuer.
 
-Status: `NEW_REQUIRED`.
+Status: `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`.
 
 ### B6 — DESIGN-EXEC-1
 
@@ -576,33 +612,33 @@ Status: `NEW_REQUIRED`.
 - causal DesignResultIdentity issuer;
 - explicit guard that RunAnalysis is unreachable from B6.
 
-Status: `NEW_REQUIRED`.
+Status: `NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED`.
 
 ## 15. Required final answers
 
 ### 1. Exact operations required for B4A
 
-At minimum source/scratch path and lock reads plus a controlled scratch creation/open strategy. CSI exact candidates are `File.OpenFile(FileName)`, `File.Save(FileName)` if save-to-path is chosen, `GetModelFilename(True)` / `GetModelFilepath()`, and `GetModelIsLocked()`. Physical copy/hash/size/mtime is outside CSI. Final strategy still needs live proof.
+At minimum source/scratch path and lock reads plus a controlled scratch creation/open strategy. CSI exact candidates are `File.OpenFile(FileName)`, `File.Save(FileName)` if save-to-path is chosen, `GetModelFilename(True)` / `GetModelFilepath()`, and `GetModelIsLocked()`. Physical copy/hash/size/mtime is outside CSI. Final strategy still needs live proof. New write-call module placement is not decided here.
 
 ### 2. Exact operations required for B4B
 
-Only specific analysis-affecting setters required by the approved derived-state plan, each paired with exact readback. `SetModelIsLocked` may be necessary but is not assumed. No generic writer is justified.
+Only specific analysis-affecting setters required by the approved derived-state plan, each paired with exact readback. `SetModelIsLocked` may be necessary but is not assumed. No generic writer is justified. Final module placement of setters is not decided here.
 
 ### 3. Exact operations required for B5
 
-`Analyze.GetRunCaseFlag`, `Analyze.SetRunCaseFlag`, `Analyze.RunAnalysis`, `Analyze.GetCaseStatus`; optionally `Analyze.DeleteResults` under an explicit freshness policy. Current GetCaseStatus mechanics are reusable.
+`Analyze.GetRunCaseFlag`, `Analyze.SetRunCaseFlag`, `Analyze.RunAnalysis`, `Analyze.GetCaseStatus`; optionally `Analyze.DeleteResults` under an explicit freshness policy. Current GetCaseStatus mechanics are reusable. New write/execution calls remain placement-neutral pending supervisor disposition.
 
 ### 4. Exact operations required for B6
 
-For concrete design: factual `DesignConcrete.GetCode`, actual selected design-combo acquisition, `DesignConcrete.StartDesign`, `DesignConcrete.GetResultsAvailable`, then current `GetDesignSection` / `GetSummaryResultsColumn` reads as required by completeness. StartDesign is B6-only.
+For concrete design: factual `DesignConcrete.GetCode`, actual selected design-combo acquisition, `DesignConcrete.StartDesign`, `DesignConcrete.GetResultsAvailable`, then current `GetDesignSection` / `GetSummaryResultsColumn` reads as required by completeness. StartDesign is B6 semantic authority only; its final module placement is not decided here.
 
 ### 5. Reusable wrappers/mechanics
 
-Gateway attach/STA/bounded execution; safety identity/unit/lock/capability reads; DatabaseTables and Results.Setup transactions; Analyze.GetCaseStatus; current factual OAPI reads; SourceModelIdentity/EvidenceEpoch; analysis-lineage no-positive-issuer rule.
+Gateway attach/STA/bounded callback transport; safety identity/unit/lock/capability reads; DatabaseTables and Results.Setup transactions; Analyze.GetCaseStatus; current factual OAPI reads; SourceModelIdentity/EvidenceEpoch; analysis-lineage no-positive-issuer rule. Reuse of gateway worker transport does not make the gateway the lifecycle/execution authority.
 
 ### 6. Raw SapModel operations needing bounded work
 
-`File.OpenFile`, `File.Save(FileName)` if chosen, `SetModelIsLocked`, `Analyze.GetRunCaseFlag`, `SetRunCaseFlag`, `RunAnalysis`, `DeleteResults`, missing design-state reads such as `DesignConcrete.GetCode`/`GetResultsAvailable`, and `DesignConcrete.StartDesign`. Product code must never receive raw SapModel.
+`File.OpenFile`, `File.Save(FileName)` if chosen, `SetModelIsLocked`, `Analyze.GetRunCaseFlag`, `SetRunCaseFlag`, `RunAnalysis`, `DeleteResults`, missing design-state reads such as `DesignConcrete.GetCode`/`GetResultsAvailable`, and `DesignConcrete.StartDesign`. Product code must never receive raw SapModel. R-LIFE-1 does not assign these new write/execution calls to gateway or OAPI.
 
 ### 7. What can mutate the source model?
 
@@ -633,25 +669,26 @@ Source silent writes; scratch open/switch semantics; copy/save preservation of a
 B4A: scratch lifecycle + source integrity + bounded file strategy.  
 B4B: exact typed mutation writers + readback/manifest/invalidation.  
 B5: run flags + RunAnalysis + status qualification + causal AnalysisResultIdentity issuer.  
-B6: design-state preflight + StartDesign + completeness + causal DesignResultIdentity issuer.
+B6: design-state preflight + StartDesign + completeness + causal DesignResultIdentity issuer.  
+All final module placements for new write/execution calls require later explicit supervisor disposition.
 
 ## 16. Stop-condition findings
 
-Research revealed future gaps that R-LIFE-1 must not implement:
+Research revealed future gaps that R-LIFE-1 must not implement or place into a final module:
 
 ```text
-File.OpenFile wrapper                  NEW_REQUIRED (B4A)
-File.Save(FileName) wrapper if used   NEW_REQUIRED (B4A)
-analysis mutation writers              NEW_REQUIRED (B4B)
-Analyze.Get/SetRunCaseFlag wrappers    NEW_REQUIRED (B5)
-Analyze.RunAnalysis wrapper            NEW_REQUIRED (B5)
-Analyze.DeleteResults wrapper if used  NEW_REQUIRED (B4B/B5 policy)
-DesignConcrete.StartDesign wrapper     NEW_REQUIRED (B6)
-AnalysisResultIdentity positive issuer NEW_REQUIRED (B5)
-DesignResultIdentity/freshness issuer  NEW_REQUIRED (B6)
+File.OpenFile capability                 NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED (B4A)
+File.Save(FileName) capability if used   NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED (B4A)
+analysis mutation writers                NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED (B4B)
+Analyze.Get/SetRunCaseFlag capabilities  NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED (B5)
+Analyze.RunAnalysis capability           NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED (B5)
+Analyze.DeleteResults capability if used NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED (B4B/B5 policy)
+DesignConcrete.StartDesign capability    NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED (B6)
+AnalysisResultIdentity positive issuer   NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED (B5)
+DesignResultIdentity/freshness issuer    NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED (B6)
 ```
 
-No implementation was performed.
+No implementation was performed. None of these gaps is assigned by R-LIFE-1 to `packages/etabs_gateway` or `tbdy_engine.etabs.oapi`.
 
 ## 17. Evidence ledger
 
@@ -696,6 +733,15 @@ CANONICAL
 
 PRODUCTION IMPLEMENTATION
 = NONE
+
+GATEWAY ROLE
+= COM / STA / SESSION / ATTACH + BOUNDED CALLBACK TRANSPORT ONLY
+
+OAPI ROLE
+= FACTUAL ABI
+
+FUTURE B4A/B4B/B5/B6 WRITE/EXECUTION PLACEMENT
+= FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
 
 LIVE ETABS MUTATION / RUN / DESIGN
 = NONE

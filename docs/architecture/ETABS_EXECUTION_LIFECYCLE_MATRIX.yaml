@@ -1,4 +1,4 @@
-schema_version: "R-LIFE-1.1"
+schema_version: "R-LIFE-1.2"
 frozen_base: "6273c19030ab6ecb7ad2637e3bfc74f88b1da086"
 mode: "STRICT_RESEARCH_ONLY"
 status: "READY_FOR_SUPERVISOR_REVIEW"
@@ -8,6 +8,40 @@ evidence_levels:
   - HISTORICAL
   - CSI_CONTRACT_CANDIDATE
   - LIVE_VERIFICATION_REQUIRED
+
+authority_boundary:
+  packages_etabs_gateway:
+    role:
+      - SOLE_PRODUCTION_COM_STA_SESSION_ATTACH_TRANSPORT_OWNER
+      - BOUNDED_COM_CALLBACK_WORKER_THREAD_TRANSPORT_OWNER
+    not_authority_for:
+      - ANALYSIS_EXECUTION
+      - DESIGN_EXECUTION
+      - SCRATCH_LIFECYCLE
+      - ENGINEERING_ORCHESTRATION
+  tbdy_engine_etabs_safety:
+    current_role: READ_SAFETY_BRIDGE
+    may_reuse_gateway_worker_transport: true
+  tbdy_engine_etabs_oapi:
+    role: FACTUAL_ABI
+    not_authority_for:
+      - ANALYSIS_EXECUTION
+      - DESIGN_EXECUTION
+      - SCRATCH_LIFECYCLE
+      - ENGINEERING_ORCHESTRATION
+  future_lifecycle_execution:
+    semantic_authority_sprints: [B4A, B4B, B5, B6]
+    final_module_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
+    supervisor_disposition_required: true
+    unplaced_operations:
+      - SapModel.File.OpenFile
+      - SapModel.File.Save
+      - TYPED_MODEL_SETTERS
+      - SapModel.Analyze.SetRunCaseFlag
+      - SapModel.Analyze.RunAnalysis
+      - SapModel.Analyze.DeleteResults
+      - SapModel.DesignConcrete.StartDesign
+  terminology_rule: "future_owner fields identify semantic sprint/controller authority, not final Python package/module placement"
 
 capabilities:
   source_identity:
@@ -47,6 +81,7 @@ capabilities:
     readback: [filesystem_hash_size_mtime]
     failure_modes: [copy_failure, source_mismatch, partial_scratch]
     future_owner: B4A
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     reuse_assets: [LIFE-REUSE-003, LIFE-REUSE-009]
     rejected_patterns: [LIFE-REJECT-002, LIFE-REJECT-005]
     missing_evidence: [final_creation_strategy, live_save_copy_result_preservation]
@@ -66,6 +101,7 @@ capabilities:
     readback: [SapModel.GetModelFilename(True), SapModel.GetModelIsLocked()]
     failure_modes: [nonzero_return, wrong_active_path, source_integrity_mismatch]
     future_owner: B4A
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     reuse_assets: [LIFE-REUSE-003]
     rejected_patterns: [LIFE-REJECT-002]
     missing_evidence: [active_model_switch_semantics, silent_source_write_behavior]
@@ -85,6 +121,7 @@ capabilities:
     readback: [model_path, physical_target_facts]
     failure_modes: [nonzero_return, wrong_path, source_modified]
     future_owner: B4A
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     reuse_assets: []
     rejected_patterns: [LIFE-REJECT-002, LIFE-REJECT-008]
     missing_evidence:
@@ -106,6 +143,7 @@ capabilities:
     readback: [SapModel.GetModelIsLocked()]
     failure_modes: [nonzero_return, lock_mismatch]
     future_owner: B4B
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     reuse_assets: [LIFE-REUSE-003]
     rejected_patterns: [LIFE-REJECT-002]
     missing_evidence: [whether_unlock_itself_invalidates_results]
@@ -125,6 +163,7 @@ capabilities:
     readback: [setter_specific_getter_or_table]
     failure_modes: [nonzero_return, readback_mismatch, unsupported_getter]
     future_owner: B4B
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     reuse_assets: [LIFE-REUSE-008]
     rejected_patterns: [LIFE-REJECT-011, LIFE-REJECT-012]
     missing_evidence: [exact_setter_readback_per_derived_state_requirement]
@@ -144,6 +183,7 @@ capabilities:
     readback: [SapModel.Analyze.GetRunCaseFlag]
     failure_modes: [nonzero_return, count_array_mismatch, readback_mismatch]
     future_owner: B5
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     reuse_assets: []
     rejected_patterns: [LIFE-REJECT-009]
     missing_evidence: [exact_Python_binding_ABI, persistence_behavior]
@@ -163,6 +203,7 @@ capabilities:
     readback: [GetCaseStatus_or_result_availability_defined_later]
     failure_modes: [nonzero_return, unexpected_retained_or_deleted_results]
     future_owner: B4B_OR_B5_POLICY_DECISION
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     reuse_assets: [LIFE-REUSE-005]
     rejected_patterns: [LIFE-REJECT-004]
     missing_evidence: [whether_explicit_clearing_required_before_each_controlled_run]
@@ -182,6 +223,7 @@ capabilities:
     readback: [SapModel.Analyze.GetCaseStatus]
     failure_modes: [exception, nonzero_return, partial_case_failure, source_integrity_mismatch]
     future_owner: B5
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     reuse_assets: [LIFE-REUSE-001, LIFE-REUSE-005, LIFE-REUSE-006]
     rejected_patterns: [LIFE-REJECT-004, LIFE-REJECT-009]
     missing_evidence: [partial_failure_behavior, automatic_file_writes, failure_result_persistence]
@@ -220,6 +262,7 @@ capabilities:
     readback: [execution_proof, case_completion]
     failure_modes: [naked_preexisting_identity, cross_model_or_epoch_binding]
     future_owner: B5
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     reuse_assets: [LIFE-REUSE-006]
     rejected_patterns: [LIFE-REJECT-004, LIFE-REJECT-009]
     missing_evidence: [positive_issuer_intentionally_absent]
@@ -280,10 +323,10 @@ capabilities:
     postconditions: [factual_concrete_design_code]
     readback: [CodeName]
     failure_modes: [nonzero_return, unknown_code_text]
-    future_owner: B6_OAPI_FACTUAL
+    future_owner: B6_FACTUAL_PREFLIGHT
     reuse_assets: [LIFE-REUSE-001]
     rejected_patterns: []
-    missing_evidence: [exact_Python_COM_projection, check_existing_equivalent_provider_before_adding]
+    missing_evidence: [exact_Python_COM_projection, check_existing_equivalent_provider_before_adding, final_boundary_placement_requires_supervisor_disposition_if_current_boundaries_expand]
 
   design_combo_state:
     capability_id: LIFE-CAP-015
@@ -302,6 +345,7 @@ capabilities:
     readback: [accepted_provider_DatabaseTables_evidence]
     failure_modes: [incomplete_selection_population, mutation_readback_mismatch]
     future_owner: B6
+    architecture_placement_for_future_write: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     reuse_assets: [LIFE-REUSE-004, LIFE-REUSE-010]
     rejected_patterns: [LIFE-REJECT-006]
     missing_evidence: [exact_write_readback_contract_if_B6_must_modify_selection]
@@ -321,6 +365,7 @@ capabilities:
     readback: [SapModel.DesignConcrete.GetResultsAvailable, current_concrete_design_fact_providers]
     failure_modes: [exception, nonzero_return, no_results, incomplete_results, hidden_analysis_execution]
     future_owner: B6
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     reuse_assets: [LIFE-REUSE-001, LIFE-REUSE-010]
     rejected_patterns: [LIFE-REJECT-006, LIFE-REJECT-009, LIFE-REJECT-010]
     missing_evidence: [hidden_or_repeated_analysis, automatic_file_write, concrete_design_result_clearing_freshness]
@@ -340,51 +385,61 @@ capabilities:
     readback: [result_availability, result_population_provenance]
     failure_modes: [stale_analysis, design_failure, incomplete_results]
     future_owner: B6
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     reuse_assets: [LIFE-REUSE-010]
     rejected_patterns: [LIFE-REJECT-009]
     missing_evidence: [complete_design_freshness_contract]
 
 state_machine:
   SOURCE_ATTACHED_READONLY:
-    controller: CURRENT_GATEWAY_SAFETY
+    controller: CURRENT_GATEWAY_SAFETY_READ_BRIDGE
+    authority_note: "gateway supplies COM/STA/session/attach + bounded callback transport only"
     allowed: [factual_identity_state_reads, physical_source_pre_snapshot]
     forbidden: [Save, mutation, RunAnalysis, StartDesign]
     next: [SCRATCH_CREATED]
   SCRATCH_CREATED:
-    controller: B4A
+    controller: B4A_SEMANTIC_CONTROLLER
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     required_evidence: [scratch_creation_attempt_id, parent_source_identity, source_physical_pre, scratch_physical_initial]
     next: [SCRATCH_OPENED, FAILED_EXECUTION]
   SCRATCH_OPENED:
-    controller: B4A
+    controller: B4A_SEMANTIC_CONTROLLER
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     required_postconditions: [active_model_path_equals_scratch, source_physical_unchanged, scratch_ownership_qualified]
     next: [SCRATCH_MUTATED_UNANALYZED, FAILED_EXECUTION]
   SCRATCH_MUTATED_UNANALYZED:
-    controller: B4B
+    controller: B4B_SEMANTIC_CONTROLLER
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     required_postconditions: [every_set_read_back, mutation_manifest_complete, prior_analysis_identity_invalid, prior_design_identity_invalid]
     next: [SCRATCH_ANALYZED, FAILED_EXECUTION]
   SCRATCH_ANALYZED:
-    controller: B5
+    controller: B5_SEMANTIC_ANALYSIS_EXECUTION_CONTROLLER
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     required_postconditions: [run_analysis_ret_zero, intended_cases_finished, source_integrity_unchanged, causal_analysis_result_identity_issued]
     next: [SCRATCH_DESIGN_READY, FAILED_EXECUTION]
   SCRATCH_DESIGN_READY:
-    controller: B6
+    controller: B6_SEMANTIC_DESIGN_EXECUTION_CONTROLLER
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     required_preconditions: [qualified_analysis_result_identity, bound_design_code, bound_design_combo_state]
     next: [SCRATCH_DESIGNED, FAILED_EXECUTION]
   SCRATCH_DESIGNED:
-    controller: B6
+    controller: B6_SEMANTIC_DESIGN_EXECUTION_CONTROLLER
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     required_postconditions: [start_design_ret_zero, design_results_available, required_result_population_complete, causal_design_result_identity_issued]
     next: [CLEANED_UP, FAILED_EXECUTION]
   FAILED_EXECUTION:
-    controller: LIFECYCLE_OWNER
+    controller: FUTURE_LIFECYCLE_SEMANTIC_CONTROLLER
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     hard_rules: [failed_analysis_no_AnalysisResultIdentity, failed_design_no_DesignResultIdentity, retry_new_execution_attempt, source_integrity_check_mandatory]
     next: [CLEANED_UP]
   CLEANED_UP:
-    controller: B4A
+    controller: B4A_SEMANTIC_CONTROLLER
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     required_postconditions: [source_integrity_verified, scratch_deleted_or_audit_retention_recorded, cleanup_result_recorded]
 
 reuse_assets:
-  LIFE-REUSE-001: "DedicatedSTAWorker serialized bounded execution and deterministic lifecycle."
-  LIFE-REUSE-002: "Typed gateway contract/read-only boundary."
+  LIFE-REUSE-001: "DedicatedSTAWorker serialized bounded callback transport and deterministic worker lifecycle; transport reuse does not confer analysis/design/scratch authority."
+  LIFE-REUSE-002: "Typed gateway contract/read-only transport boundary."
   LIFE-REUSE-003: "Verified PID/model/session identity, units and lock facts."
   LIFE-REUSE-004: "DatabaseTablesReadTransaction and ResultsSetupReadTransaction restoration."
   LIFE-REUSE-005: "Analyze.GetCaseStatus factual readiness."
@@ -392,7 +447,7 @@ reuse_assets:
   LIFE-REUSE-007: "Immutable analysis-basis snapshot/provenance from F0-5."
   LIFE-REUSE-008: "STAB-1 fail-closed reanalysis-required evidence."
   LIFE-REUSE-009: "SourceModelIdentity + EvidenceEpoch, explicitly not physical file proof."
-  LIFE-REUSE-010: "Current OAPI factual reads and concrete-design result providers."
+  LIFE-REUSE-010: "Current OAPI factual reads and concrete-design result providers; factual ABI only."
 
 rejected_patterns:
   LIFE-REJECT-001: "Public/provider raw SapModel escape."
@@ -407,6 +462,8 @@ rejected_patterns:
   LIFE-REJECT-010: "Assume StartDesign cannot rerun analysis without live evidence."
   LIFE-REJECT-011: "Generic mutation rollback instead of scratch isolation."
   LIFE-REJECT-012: "Read-state restoration as proof of model-mutation rollback."
+  LIFE-REJECT-013: "Infer lifecycle/execution semantic authority from gateway worker transport ownership."
+  LIFE-REJECT-014: "Silently place new write/execution operations in gateway or OAPI without explicit supervisor disposition."
 
 live_verification_required:
   - attach/source silent-write behavior
@@ -425,15 +482,23 @@ live_verification_required:
 future_minimum_write_sets:
   B4A:
     status: NEW_REQUIRED
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
+    semantic_authority: B4A
     additions: [scratch_lifecycle_controller, physical_source_integrity_proof, causal_scratch_ownership_identity, bounded_file_strategy_after_live_proof, cleanup_failure_disposition]
   B4B:
     status: NEW_REQUIRED
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
+    semantic_authority: B4B
     additions: [typed_domain_specific_mutation_commands, set_ret_readback_contract, mutation_manifest, analysis_design_identity_invalidation]
   B5:
     status: NEW_REQUIRED
-    additions: [Analyze.GetRunCaseFlag_wrapper, Analyze.SetRunCaseFlag_wrapper, controlled_Analyze.RunAnalysis, case_status_qualification, optional_DeleteResults_policy, sole_AnalysisResultIdentity_issuer]
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
+    semantic_authority: B5
+    additions: [Analyze.GetRunCaseFlag_capability, Analyze.SetRunCaseFlag_capability, controlled_Analyze.RunAnalysis, case_status_qualification, optional_DeleteResults_policy, sole_AnalysisResultIdentity_issuer]
   B6:
     status: NEW_REQUIRED
+    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
+    semantic_authority: B6
     additions: [concrete_design_state_preflight, controlled_DesignConcrete.StartDesign, design_result_availability_completeness, trusted_DesignResultIdentity_issuer, guard_forbidding_RunAnalysis]
 
 source_integrity:
@@ -444,11 +509,12 @@ source_integrity:
   permanent_rule: "PHYSICAL_SOURCE_INTEGRITY != SourceModelIdentity"
 
 research_stop_conditions:
-  File_OpenFile_wrapper: NEW_REQUIRED
-  File_Save_to_path_wrapper_if_used: NEW_REQUIRED
-  RunAnalysis_wrapper: NEW_REQUIRED
-  StartDesign_wrapper: NEW_REQUIRED
-  analysis_mutation_writers: NEW_REQUIRED
-  run_case_flag_wrappers: NEW_REQUIRED
-  analysis_result_freshness_issuer: NEW_REQUIRED
-  design_result_freshness_issuer: NEW_REQUIRED
+  File_OpenFile_capability: "NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED"
+  File_Save_to_path_capability_if_used: "NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED"
+  RunAnalysis_capability: "NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED"
+  StartDesign_capability: "NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED"
+  analysis_mutation_writers: "NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED"
+  run_case_flag_capabilities: "NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED"
+  DeleteResults_capability_if_used: "NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED"
+  analysis_result_freshness_issuer: "NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED"
+  design_result_freshness_issuer: "NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED"
