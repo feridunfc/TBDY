@@ -3,18 +3,20 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from tbdy_engine.features.etabs_com_attach import (
     ATTACH_STRATEGIES,
     CANDIDATE_PROG_IDS,
     EtabsAttachAttempt,
     EtabsAttachFailure,
     EtabsAttachResult,
+    LEGACY_COMPATIBILITY_ONLY,
     attach_to_running_etabs,
 )
 from tools import probe_live_etabs_geometry_snapshot as probe_cli
 
 ROOT = Path(__file__).resolve().parents[2]
-ATTACH_MODULE_PATH = ROOT / "tbdy_engine" / "features" / "etabs_com_attach.py"
 _FAKE_SAP_MODEL = object()
 
 
@@ -67,14 +69,20 @@ def test_etabs_com_attach_imports_without_etabs_or_com_modules():
     assert module.ATTACH_STRATEGIES == ATTACH_STRATEGIES
 
 
-def test_attach_module_has_no_top_level_com_imports():
-    source = ATTACH_MODULE_PATH.read_text(encoding="utf-8")
+def test_attach_module_is_diagnostic_compatibility_facade_without_raw_capability():
+    assert LEGACY_COMPATIBILITY_ONLY is True
 
-    assert "import comtypes" not in source
-    assert "import win32com" not in source
-    assert "importlib.import_module(" in source
-    assert '"comtypes.client"' in source
-    assert '"win32com.client"' in source
+    with pytest.raises(
+        ValueError,
+        match="legacy compatibility result must not expose ETABS application/SapModel capability",
+    ):
+        EtabsAttachResult(
+            status="ATTACHED",
+            strategy="comtypes_get_active_object_etabs_api_object",
+            etabs_object=object(),
+            sap_model=object(),
+            attempts=(),
+        )
 
 
 def test_attach_strategies_are_bounded_and_ordered():
@@ -91,15 +99,16 @@ def test_attach_strategies_are_bounded_and_ordered():
     )
 
 
-def test_success_path_returns_attached_with_fake_sap_model():
+def test_success_path_returns_attached_diagnostics_without_raw_capability():
     result = attach_to_running_etabs(comtypes_client=SuccessfulActiveObjectClient())
 
     assert result.status == "ATTACHED"
     assert result.strategy == "comtypes_get_active_object_etabs_api_object"
-    assert result.etabs_object is not None
-    assert result.sap_model is _FAKE_SAP_MODEL
+    assert result.etabs_object is None
+    assert result.sap_model is None
     assert len(result.attempts) == 1
     assert result.attempts[0].status == "SUCCESS"
+    assert result.as_diagnostic_dict()["raw_capability_exposed"] is False
 
 
 def test_failure_path_returns_failed_with_all_attempts_recorded():
@@ -181,4 +190,3 @@ def test_cli_attach_failure_writes_structured_failure_outputs(tmp_path: Path, mo
     assert diagnostics[0]["attempts"][0]["hresult"] == "-2147467262"
     assert manifest["feature_snapshot_written"] is False
     assert manifest["live_etabs_required_for_ci"] is False
-    assert manifest["probe_is_read_only"] is True
