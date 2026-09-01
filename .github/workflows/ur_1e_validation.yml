@@ -213,6 +213,7 @@ jobs:
         shell: bash
         run: |
           rm -rf -- "$GITHUB_WORKSPACE/frozen_base"
+          rm -rf -- "$GITHUB_WORKSPACE/packages/etabs_gateway/src/tbdy_etabs_gateway.egg-info"
           rm -f -- "$GITHUB_WORKSPACE/candidate_broad.log" "$GITHUB_WORKSPACE/baseline_broad.log"
 
       - name: Final repository hygiene
