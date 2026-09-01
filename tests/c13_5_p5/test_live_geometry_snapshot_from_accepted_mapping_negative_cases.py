@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
-from tbdy_engine.features.etabs_com_attach import EtabsAttachAttempt, EtabsAttachResult
+import tbdy_engine.features.live_etabs_geometry_probe as live_geometry_probe
 from tbdy_engine.features.live_etabs_geometry_probe import (
     DEFAULT_ACCEPTED_GEOMETRY_MAPPING,
     AcceptedMappingGeometryRowProvider,
-    create_live_etabs_geometry_provider,
     probe_geometry_feature_snapshots,
     read_live_etabs_table_for_geometry,
     resolve_geometry_rows_from_accepted_mapping,
@@ -36,23 +34,6 @@ class _FakeDatabaseTables:
         if isinstance(payload, Exception):
             raise payload
         return payload
-
-
-def _attached_result(database_tables: _FakeDatabaseTables) -> EtabsAttachResult:
-    return EtabsAttachResult(
-        status="ATTACHED",
-        strategy="comtypes_get_active_object_etabs_api_object",
-        etabs_object=object(),
-        sap_model=SimpleNamespace(DatabaseTables=database_tables),
-        attempts=(
-            EtabsAttachAttempt(
-                strategy="comtypes_get_active_object_etabs_api_object",
-                status="SUCCESS",
-                message="Attached fake ETABS for tests",
-                prog_id="CSI.ETABS.API.ETABSObject",
-            ),
-        ),
-    )
 
 
 def _valid_assignment_rows():
@@ -111,6 +92,17 @@ def _codes(diagnostics):
     return {diagnostic.code for diagnostic in diagnostics}
 
 
+def _table_diagnostics(*, role: str, table_key: str, payload):
+    result = read_live_etabs_table_for_geometry(
+        _FakeDatabaseTables({table_key: payload}),
+        table_key,
+    )
+    return result, live_geometry_probe._table_read_diagnostics(
+        table_role=role,
+        result=result,
+    )
+
+
 def test_table_read_decodes_string_flat_data_rows():
     result = read_live_etabs_table_for_geometry(
         _FakeDatabaseTables({ASSIGNMENT_TABLE: _valid_assignment_display_array()}),
@@ -157,65 +149,62 @@ def test_raw_display_array_parse_empty_returns_diagnostic_status():
     assert "divisible" in str(result.message)
 
 
-def test_assignment_table_fetch_failure_diagnostic(tmp_path: Path):
-    provider = create_live_etabs_geometry_provider(
-        attach_result=_attached_result(
-            _FakeDatabaseTables(_live_payloads(**{ASSIGNMENT_TABLE: RuntimeError("assignment fetch failed")}))
-        )
+def test_assignment_table_fetch_failure_diagnostic():
+    result, diagnostics = _table_diagnostics(
+        role="ASSIGNMENT",
+        table_key=ASSIGNMENT_TABLE,
+        payload=RuntimeError("assignment fetch failed"),
     )
 
-    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
-
-    assert result.status == "FAIL"
-    assert result.snapshot_count == 0
-    assert "ASSIGNMENT_TABLE_FETCH_FAILED" in _codes(provider.iter_geometry_diagnostics())
+    assert result.status == "FAILED"
+    assert _codes(diagnostics) == {"ASSIGNMENT_TABLE_FETCH_FAILED"}
 
 
-def test_assignment_table_fetched_zero_rows_diagnostic(tmp_path: Path):
-    provider = create_live_etabs_geometry_provider(
-        attach_result=_attached_result(
-            _FakeDatabaseTables(_live_payloads(**{ASSIGNMENT_TABLE: (0, ASSIGNMENT_COLUMNS, [])}))
-        )
+def test_assignment_table_fetched_zero_rows_diagnostic():
+    result, diagnostics = _table_diagnostics(
+        role="ASSIGNMENT",
+        table_key=ASSIGNMENT_TABLE,
+        payload=(0, ASSIGNMENT_COLUMNS, []),
     )
 
-    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
-
-    assert result.status == "FAIL"
-    assert result.snapshot_count == 0
-    assert "ASSIGNMENT_TABLE_FETCHED_ZERO_ROWS" in _codes(provider.iter_geometry_diagnostics())
+    assert result.status == "EMPTY"
+    assert _codes(diagnostics) == {"ASSIGNMENT_TABLE_FETCHED_ZERO_ROWS"}
 
 
-def test_assignment_table_parse_empty_diagnostic(tmp_path: Path):
-    provider = create_live_etabs_geometry_provider(
-        attach_result=_attached_result(
-            _FakeDatabaseTables(_live_payloads(**{ASSIGNMENT_TABLE: (1, ASSIGNMENT_COLUMNS, ["orphan-value"])}))
-        )
+def test_assignment_table_parse_empty_diagnostic():
+    result, diagnostics = _table_diagnostics(
+        role="ASSIGNMENT",
+        table_key=ASSIGNMENT_TABLE,
+        payload=(1, ASSIGNMENT_COLUMNS, ["orphan-value"]),
     )
 
-    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
-
-    assert result.status == "FAIL"
-    assert result.snapshot_count == 0
-    assert "ASSIGNMENT_TABLE_PARSE_EMPTY" in _codes(provider.iter_geometry_diagnostics())
+    assert result.status == "PARSE_EMPTY"
+    assert _codes(diagnostics) == {"ASSIGNMENT_TABLE_PARSE_EMPTY"}
 
 
-def test_property_table_fetch_failure_diagnostic(tmp_path: Path):
-    provider = create_live_etabs_geometry_provider(
-        attach_result=_attached_result(
-            _FakeDatabaseTables(_live_payloads(**{PROPERTY_TABLE: RuntimeError("property fetch failed")}))
-        )
+def test_property_table_fetch_failure_diagnostic():
+    result, diagnostics = _table_diagnostics(
+        role="PROPERTY",
+        table_key=PROPERTY_TABLE,
+        payload=RuntimeError("property fetch failed"),
     )
 
-    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
-
-    assert result.status == "FAIL"
-    assert result.snapshot_count == 0
-    assert "PROPERTY_TABLE_FETCH_FAILED" in _codes(provider.iter_geometry_diagnostics())
+    assert result.status == "FAILED"
+    assert _codes(diagnostics) == {"PROPERTY_TABLE_FETCH_FAILED"}
 
 
 def test_summary_counts_for_live_table_read_results(tmp_path: Path):
-    provider = create_live_etabs_geometry_provider(
-        attach_result=_attached_result(_FakeDatabaseTables(_live_payloads()))
+    database_tables = _FakeDatabaseTables(_live_payloads())
+    assignment_result = read_live_etabs_table_for_geometry(database_tables, ASSIGNMENT_TABLE)
+    property_result = read_live_etabs_table_for_geometry(database_tables, PROPERTY_TABLE)
+    component_result = read_live_etabs_table_for_geometry(database_tables, COMPONENT_TYPE_TABLE)
+    provider = AcceptedMappingGeometryRowProvider(
+        assignment_rows=assignment_result.rows,
+        property_rows=property_result.rows,
+        component_type_rows=component_result.rows,
+        component_type_source_table=COMPONENT_TYPE_TABLE,
+        component_type_source_column="ObjectType",
+        component_type_join_key_column="UniqueName",
     )
 
     result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
