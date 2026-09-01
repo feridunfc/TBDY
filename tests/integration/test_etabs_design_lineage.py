@@ -705,3 +705,175 @@ def test_private_design_proof_constructor_is_not_public_test_helper():
             combo_grain_binding_refs=COMBO_BINDINGS,
             provenance_refs=("proof:test",),
         )
+
+
+def _same_analysis_result_with_distinct_qualification(
+    *,
+    qualification_provenance_ref: str,
+    capture_provenance_ref: str,
+):
+    state = _analysis_state()
+    result = _analysis_result(state)
+    proof = analysis._VerifiedAnalysisExecutionProof(
+        _token=analysis._EXECUTION_PROOF_FACTORY_TOKEN,
+        proof_ref="analysis-execution-proof:same-result",
+        source_model_ref=SOURCE,
+        execution_state_ref=state.execution_state_ref,
+        analysis_state_ref=state.identity_ref,
+        analysis_result_ref=result.identity_ref,
+        analysis_generation_ref=result.analysis_generation_ref,
+        provenance_refs=("run-analysis:return-code:0", "analysis-result-readback:verified"),
+    )
+    lineage = analysis._build_qualified_analysis_lineage(
+        _token=analysis._QUALIFICATION_FACTORY_TOKEN,
+        analysis_state=state,
+        analysis_result=result,
+        execution_proof=proof,
+        qualification_provenance_refs=(qualification_provenance_ref,),
+        capture_provenance_refs=(capture_provenance_ref,),
+    )
+    return lineage
+
+
+def test_evidence_epoch_is_non_identity_design_state_binding_evidence():
+    lineage = _qualified_analysis()
+    one = _design_state(lineage, evidence_epoch_id="epoch:observation:a")
+    two = _design_state(lineage, evidence_epoch_id="epoch:observation:b")
+
+    assert one.evidence_epoch_id != two.evidence_epoch_id
+    assert one.identity_ref == two.identity_ref
+
+
+def test_model_fingerprint_is_non_identity_design_state_binding_evidence():
+    lineage = _qualified_analysis()
+    one = _design_state(lineage, model_fingerprint="model-fingerprint:observation:a")
+    two = _design_state(lineage, model_fingerprint="model-fingerprint:observation:b")
+
+    assert one.model_fingerprint != two.model_fingerprint
+    assert one.identity_ref == two.identity_ref
+
+
+def test_parent_analysis_qualification_provenance_is_non_identity_for_design_state():
+    one_lineage = _same_analysis_result_with_distinct_qualification(
+        qualification_provenance_ref="analysis-qualification:provenance:a",
+        capture_provenance_ref="analysis-capture:a",
+    )
+    two_lineage = _same_analysis_result_with_distinct_qualification(
+        qualification_provenance_ref="analysis-qualification:provenance:b",
+        capture_provenance_ref="analysis-capture:b",
+    )
+
+    assert (
+        one_lineage.require_qualified_result().identity_ref
+        == two_lineage.require_qualified_result().identity_ref
+    )
+    assert one_lineage.qualification_ref != two_lineage.qualification_ref
+
+    one = _design_state(one_lineage)
+    two = _design_state(two_lineage)
+
+    assert one.analysis_lineage_qualification_ref != two.analysis_lineage_qualification_ref
+    assert one.identity_ref == two.identity_ref
+
+
+def test_private_qualification_still_checks_parent_analysis_qualification_binding():
+    lineage = _same_analysis_result_with_distinct_qualification(
+        qualification_provenance_ref="analysis-qualification:expected",
+        capture_provenance_ref="analysis-capture:expected",
+    )
+    other_lineage = _same_analysis_result_with_distinct_qualification(
+        qualification_provenance_ref="analysis-qualification:other",
+        capture_provenance_ref="analysis-capture:other",
+    )
+    assert (
+        lineage.require_qualified_result().identity_ref
+        == other_lineage.require_qualified_result().identity_ref
+    )
+
+    state = _design_state(lineage)
+    result = _design_result(state)
+    proof = _design_proof(
+        state,
+        result,
+        lineage,
+        analysis_lineage_qualification_ref=other_lineage.qualification_ref,
+    )
+
+    with pytest.raises(
+        subject.DesignLineageQualificationError,
+        match="execution proof parent analysis qualification mismatch",
+    ):
+        _qualified_design(lineage, state, result, proof)
+
+
+def test_semantic_design_option_state_basis_and_parent_result_change_state_identity():
+    lineage = _qualified_analysis()
+    baseline = _design_state(lineage)
+
+    changed_option = subject.build_design_state_identity(
+        analysis_lineage=lineage,
+        model_fingerprint=MODEL_FINGERPRINT,
+        evidence_epoch_id=EVIDENCE_EPOCH,
+        design_code_ref=DESIGN_CODE,
+        design_domain_ref=DESIGN_DOMAIN,
+        design_procedure_ref=DESIGN_PROCEDURE,
+        selected_design_combo_population_ref=SELECTED_COMBO_POPULATION,
+        combo_definition_population_refs=COMBO_DEFINITION_REFS,
+        combo_grain_binding_refs=COMBO_BINDINGS,
+        design_component_population_refs=COMPONENT_POPULATION_REFS,
+        design_option_refs=("design-option:overwrite-set:reviewed:2",),
+        state_basis_refs=DESIGN_STATE_BASIS,
+    )
+    changed_basis = subject.build_design_state_identity(
+        analysis_lineage=lineage,
+        model_fingerprint=MODEL_FINGERPRINT,
+        evidence_epoch_id=EVIDENCE_EPOCH,
+        design_code_ref=DESIGN_CODE,
+        design_domain_ref=DESIGN_DOMAIN,
+        design_procedure_ref=DESIGN_PROCEDURE,
+        selected_design_combo_population_ref=SELECTED_COMBO_POPULATION,
+        combo_definition_population_refs=COMBO_DEFINITION_REFS,
+        combo_grain_binding_refs=COMBO_BINDINGS,
+        design_component_population_refs=COMPONENT_POPULATION_REFS,
+        design_option_refs=DESIGN_OPTIONS,
+        state_basis_refs=("design-state-basis:section-population:changed",),
+    )
+    other_parent = _qualified_analysis(generation="analysis-generation:semantic-change")
+    changed_parent = _design_state(other_parent)
+
+    assert baseline.identity_ref != changed_option.identity_ref
+    assert baseline.identity_ref != changed_basis.identity_ref
+    assert baseline.identity_ref != changed_parent.identity_ref
+
+
+def test_design_result_identity_inherits_non_identity_provenance_separation():
+    one_lineage = _same_analysis_result_with_distinct_qualification(
+        qualification_provenance_ref="analysis-qualification:result:a",
+        capture_provenance_ref="analysis-capture:result:a",
+    )
+    two_lineage = _same_analysis_result_with_distinct_qualification(
+        qualification_provenance_ref="analysis-qualification:result:b",
+        capture_provenance_ref="analysis-capture:result:b",
+    )
+
+    one_state = _design_state(
+        one_lineage,
+        model_fingerprint="model-fingerprint:result:a",
+        evidence_epoch_id="epoch:result:a",
+    )
+    two_state = _design_state(
+        two_lineage,
+        model_fingerprint="model-fingerprint:result:b",
+        evidence_epoch_id="epoch:result:b",
+    )
+    assert one_state.identity_ref == two_state.identity_ref
+    assert one_state.parent_analysis_result_ref == two_state.parent_analysis_result_ref
+
+    one_result = _design_result(one_state)
+    two_result = _design_result(two_state)
+
+    assert one_result.parent_design_state_ref == two_result.parent_design_state_ref
+    assert one_result.parent_analysis_result_ref == two_result.parent_analysis_result_ref
+    assert one_result.design_generation_ref == two_result.design_generation_ref
+    assert one_result.result_scope_refs == two_result.result_scope_refs
+    assert one_result.identity_ref == two_result.identity_ref

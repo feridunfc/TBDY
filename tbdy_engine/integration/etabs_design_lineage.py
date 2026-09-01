@@ -119,9 +119,6 @@ def _design_state_ref(
     *,
     source_model_ref: str,
     parent_analysis_result_ref: str,
-    analysis_lineage_qualification_ref: str,
-    model_fingerprint: str,
-    evidence_epoch_id: str,
     design_code_ref: str,
     design_domain_ref: str,
     design_procedure_ref: str,
@@ -132,6 +129,12 @@ def _design_state_ref(
     design_option_refs: Sequence[str],
     state_basis_refs: Sequence[str],
 ) -> str:
+    """Return the semantic causal design-state identity.
+
+    Analysis qualification, model-fingerprint, EvidenceEpoch, and observation
+    provenance deliberately do not participate in state sameness.  They remain
+    binding evidence that positive design-lineage qualification must verify.
+    """
     return _sha_ref(
         DESIGN_STATE_REF_PREFIX,
         {
@@ -141,12 +144,6 @@ def _design_state_ref(
                 parent_analysis_result_ref,
                 "parent_analysis_result_ref",
             ),
-            "analysis_lineage_qualification_ref": _text(
-                analysis_lineage_qualification_ref,
-                "analysis_lineage_qualification_ref",
-            ),
-            "model_fingerprint": _text(model_fingerprint, "model_fingerprint"),
-            "evidence_epoch_id": _text(evidence_epoch_id, "evidence_epoch_id"),
             "design_code_ref": _text(design_code_ref, "design_code_ref"),
             "design_domain_ref": _text(design_domain_ref, "design_domain_ref"),
             "design_procedure_ref": _text(
@@ -190,7 +187,7 @@ def _design_state_ref(
 
 @dataclass(frozen=True, slots=True)
 class DesignStateIdentity:
-    """Exact design-affecting state parented by one qualified analysis result."""
+    """Semantic design state plus non-identity qualification/binding evidence."""
 
     identity_ref: str
     source_model_ref: str
@@ -275,9 +272,6 @@ class DesignStateIdentity:
         expected = _design_state_ref(
             source_model_ref=self.source_model_ref,
             parent_analysis_result_ref=self.parent_analysis_result_ref,
-            analysis_lineage_qualification_ref=self.analysis_lineage_qualification_ref,
-            model_fingerprint=self.model_fingerprint,
-            evidence_epoch_id=self.evidence_epoch_id,
             design_code_ref=self.design_code_ref,
             design_domain_ref=self.design_domain_ref,
             design_procedure_ref=self.design_procedure_ref,
@@ -338,11 +332,14 @@ def build_design_state_identity(
     design_option_refs: Sequence[str] = (),
     provenance_refs: Sequence[str] = (),
 ) -> DesignStateIdentity:
-    """Build a naked design-state identity from a qualified analysis parent.
+    """Build semantic state while retaining non-identity qualification evidence.
 
     The returned identity is deterministic but is not a positive design-result
     qualification. Exact P8A/W7 combo-grain bindings are consumed as opaque,
     already-reviewed references and are never inferred or broadcast here.
+    Analysis qualification, model fingerprint, and EvidenceEpoch are retained
+    only as later qualification/binding evidence and do not define state
+    identity.
     """
     parent_result = _analysis_result_from_qualified(analysis_lineage)
     kwargs = {
@@ -383,8 +380,23 @@ def build_design_state_identity(
             required=True,
         ),
     }
+    identity_ref = _design_state_ref(
+        source_model_ref=kwargs["source_model_ref"],
+        parent_analysis_result_ref=kwargs["parent_analysis_result_ref"],
+        design_code_ref=kwargs["design_code_ref"],
+        design_domain_ref=kwargs["design_domain_ref"],
+        design_procedure_ref=kwargs["design_procedure_ref"],
+        selected_design_combo_population_ref=kwargs[
+            "selected_design_combo_population_ref"
+        ],
+        combo_definition_population_refs=kwargs["combo_definition_population_refs"],
+        combo_grain_binding_refs=kwargs["combo_grain_binding_refs"],
+        design_component_population_refs=kwargs["design_component_population_refs"],
+        design_option_refs=kwargs["design_option_refs"],
+        state_basis_refs=kwargs["state_basis_refs"],
+    )
     return DesignStateIdentity(
-        identity_ref=_design_state_ref(**kwargs),
+        identity_ref=identity_ref,
         provenance_refs=_refs(provenance_refs, "provenance_ref"),
         **kwargs,
     )
