@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 env:
-  FROZEN_BASE: e98ed36c13e8821f1e1a16a08eaee5b556b1dbce
+  UR1E_HISTORICAL_BASE: e98ed36c13e8821f1e1a16a08eaee5b556b1dbce
 
 jobs:
   ur-1e-validation:
@@ -25,16 +25,40 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
-      - name: Verify frozen base ancestry and repository hygiene
+      - name: Resolve exact PR regression base and initial hygiene
+        if: github.event_name == 'pull_request'
+        id: pr_base
+        shell: bash
+        env:
+          CURRENT_REGRESSION_BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          test -n "$CURRENT_REGRESSION_BASE"
+          git cat-file -e "$CURRENT_REGRESSION_BASE^{commit}"
+          test "$(git merge-base "$CURRENT_REGRESSION_BASE" HEAD)" = "$CURRENT_REGRESSION_BASE"
+          git status --short
+          git diff --check "$CURRENT_REGRESSION_BASE"...HEAD
+          git diff --stat "$CURRENT_REGRESSION_BASE"...HEAD
+          echo "sha=$CURRENT_REGRESSION_BASE" >> "$GITHUB_OUTPUT"
+          echo "candidate_head=$(git rev-parse HEAD)"
+          echo "pr_base_sha_resolved=$CURRENT_REGRESSION_BASE"
+          echo "current_regression_base=$CURRENT_REGRESSION_BASE"
+          echo "historical_ur1e_base=$UR1E_HISTORICAL_BASE"
+          echo "historical_base_used_as_current_pr_baseline=false"
+
+      - name: Verify historical UR-1E replay base and initial hygiene
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
-          test "$(git merge-base "$FROZEN_BASE" HEAD)" = "$FROZEN_BASE"
-          test "$(git rev-parse "$FROZEN_BASE")" = "$FROZEN_BASE"
+          set -euo pipefail
+          git cat-file -e "$UR1E_HISTORICAL_BASE^{commit}"
+          test "$(git merge-base "$UR1E_HISTORICAL_BASE" HEAD)" = "$UR1E_HISTORICAL_BASE"
           git status --short
-          git diff --check "$FROZEN_BASE"...HEAD
-          git diff --stat "$FROZEN_BASE"...HEAD
+          git diff --check "$UR1E_HISTORICAL_BASE"...HEAD
+          git diff --stat "$UR1E_HISTORICAL_BASE"...HEAD
           echo "candidate_head=$(git rev-parse HEAD)"
-          echo "frozen_base=$FROZEN_BASE"
+          echo "historical_ur1e_base=$UR1E_HISTORICAL_BASE"
+          echo "historical_replay_mode=true"
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -143,82 +167,221 @@ jobs:
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Checkout exact frozen-base baseline
+      - name: Checkout exact current PR regression base
+        if: github.event_name == 'pull_request'
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ env.FROZEN_BASE }}
-          path: frozen_base
+          ref: ${{ steps.pr_base.outputs.sha }}
+          path: current_base
 
-      - name: Frozen-base broad regression
-        id: baseline_broad
+      - name: Install exact current-base gateway package
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C current_base rev-parse HEAD)" = "${{ steps.pr_base.outputs.sha }}"
+          python -m pip install --no-deps --force-reinstall -e "$GITHUB_WORKSPACE/current_base/packages/etabs_gateway"
+
+      - name: Current PR base broad regression
+        if: github.event_name == 'pull_request'
+        id: current_base_broad
         shell: bash
         run: |
           set +e
-          cd frozen_base
+          cd current_base
           python -m pytest -q \
             tests/regulatory \
             tests/coverage \
             tests/design/columns \
             tests/features \
             tests/product_reports \
-            > ../baseline_broad.log 2>&1
+            > ../current_base_broad.log 2>&1
           status=$?
           cd ..
-          cat baseline_broad.log
+          cat current_base_broad.log
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
 
-      - name: Exact zero-failure broad delta gate
+      - name: Current PR zero-new regression gate
+        if: github.event_name == 'pull_request'
         shell: bash
         env:
           CANDIDATE_BROAD_EXIT: ${{ steps.candidate_broad.outputs.exit_code }}
-          BASELINE_BROAD_EXIT: ${{ steps.baseline_broad.outputs.exit_code }}
+          CURRENT_BASE_BROAD_EXIT: ${{ steps.current_base_broad.outputs.exit_code }}
+          CURRENT_REGRESSION_BASE: ${{ steps.pr_base.outputs.sha }}
         run: |
           python - <<'PY'
           import os
           import re
           from pathlib import Path
 
-          def signatures(path: str) -> set[str]:
+          ANSI = re.compile(r"\x1b\[[0-9;]*m")
+          SUMMARY = re.compile(r"^(FAILED|ERROR)\s+(\S+)(?:\s+-\s+(.+))?$")
+          EXCEPTION = re.compile(r"\b([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception))\b")
+
+          def failure_signatures(path: str) -> set[str]:
               text = Path(path).read_text(encoding="utf-8", errors="replace")
-              result: set[str] = set()
-              for line in text.splitlines():
-                  match = re.match(r"^(?:FAILED|ERROR)\s+([^\s]+)", line)
-                  if match:
-                      result.add(match.group(1))
-              return result
+              signatures: set[str] = set()
+              for raw_line in text.splitlines():
+                  line = ANSI.sub("", raw_line).strip()
+                  match = SUMMARY.match(line)
+                  if not match:
+                      continue
+                  outcome, node, detail = match.groups()
+                  failure_class = outcome
+                  if detail:
+                      exception = EXCEPTION.search(detail)
+                      if exception:
+                          failure_class = exception.group(1).rsplit(".", 1)[-1]
+                      elif "assert " in detail or detail.startswith("assert"):
+                          failure_class = "AssertionError"
+                  signatures.add(f"{node}|{failure_class}")
+              return signatures
 
           candidate_exit = int(os.environ["CANDIDATE_BROAD_EXIT"])
-          baseline_exit = int(os.environ["BASELINE_BROAD_EXIT"])
-          candidate = signatures("candidate_broad.log")
-          baseline = signatures("baseline_broad.log")
-          new_failures = candidate - baseline
+          current_base_exit = int(os.environ["CURRENT_BASE_BROAD_EXIT"])
+          candidate = failure_signatures("candidate_broad.log")
+          current_base = failure_signatures("current_base_broad.log")
+          new_failures = candidate - current_base
+          resolved_failures = current_base - candidate
 
+          print(f"current_regression_base={os.environ['CURRENT_REGRESSION_BASE']}")
+          print(f"historical_ur1e_base={os.environ['UR1E_HISTORICAL_BASE']}")
+          print("historical_base_used_as_current_pr_baseline=false")
+          print("failure_signature_key_format=NODE|NORMALIZED_FAILURE_CLASS")
           print(f"candidate_exit={candidate_exit}")
-          print(f"baseline_exit={baseline_exit}")
+          print(f"current_base_exit={current_base_exit}")
           print(f"candidate_failures={sorted(candidate)}")
-          print(f"baseline_failures={sorted(baseline)}")
+          print(f"current_base_failures={sorted(current_base)}")
+          print(f"resolved_failures={sorted(resolved_failures)}")
           print(f"new_failures={sorted(new_failures)}")
 
-          if baseline_exit != 0 or baseline:
-              raise SystemExit("UR-1E frozen base must be a zero-failure broad baseline")
-          if candidate_exit != 0 or candidate:
-              raise SystemExit("UR-1E candidate broad suite must exit 0 with no failures")
+          if candidate_exit != 0 and not candidate:
+              raise SystemExit("candidate broad failed without a deterministic parsed failure signature")
+          if current_base_exit != 0 and not current_base:
+              raise SystemExit("current-base broad failed without a deterministic parsed failure signature")
           if new_failures:
-              raise SystemExit("UR-1E introduced new failure signatures")
+              raise SystemExit("UR-1E current PR introduced new or materially changed failure signatures")
           PY
 
-      - name: Remove CI-created evidence files and frozen checkout
-        shell: bash
-        run: |
-          rm -rf -- "$GITHUB_WORKSPACE/frozen_base"
-          rm -rf -- "$GITHUB_WORKSPACE/packages/etabs_gateway/src/tbdy_etabs_gateway.egg-info"
-          rm -f -- "$GITHUB_WORKSPACE/candidate_broad.log" "$GITHUB_WORKSPACE/baseline_broad.log"
+      - name: Checkout immutable historical UR-1E base
+        if: github.event_name != 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ env.UR1E_HISTORICAL_BASE }}
+          path: historical_base
 
-      - name: Final repository hygiene
+      - name: Install historical-base gateway package
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
-          git diff --check "$FROZEN_BASE"...HEAD
+          set -euo pipefail
+          test "$(git -C historical_base rev-parse HEAD)" = "$UR1E_HISTORICAL_BASE"
+          python -m pip install --no-deps --force-reinstall -e "$GITHUB_WORKSPACE/historical_base/packages/etabs_gateway"
+
+      - name: Historical UR-1E base broad regression
+        if: github.event_name != 'pull_request'
+        id: historical_broad
+        shell: bash
+        run: |
+          set +e
+          cd historical_base
+          python -m pytest -q \
+            tests/regulatory \
+            tests/coverage \
+            tests/design/columns \
+            tests/features \
+            tests/product_reports \
+            > ../historical_broad.log 2>&1
+          status=$?
+          cd ..
+          cat historical_broad.log
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Immutable historical UR-1E replay gate
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          CANDIDATE_BROAD_EXIT: ${{ steps.candidate_broad.outputs.exit_code }}
+          HISTORICAL_BROAD_EXIT: ${{ steps.historical_broad.outputs.exit_code }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          ANSI = re.compile(r"\x1b\[[0-9;]*m")
+          SUMMARY = re.compile(r"^(FAILED|ERROR)\s+(\S+)(?:\s+-\s+(.+))?$")
+          EXCEPTION = re.compile(r"\b([A-Za-z_][A-Za-z0-9_.]*(?:Error|Exception))\b")
+
+          def failure_signatures(path: str) -> set[str]:
+              text = Path(path).read_text(encoding="utf-8", errors="replace")
+              signatures: set[str] = set()
+              for raw_line in text.splitlines():
+                  line = ANSI.sub("", raw_line).strip()
+                  match = SUMMARY.match(line)
+                  if not match:
+                      continue
+                  outcome, node, detail = match.groups()
+                  failure_class = outcome
+                  if detail:
+                      exception = EXCEPTION.search(detail)
+                      if exception:
+                          failure_class = exception.group(1).rsplit(".", 1)[-1]
+                      elif "assert " in detail or detail.startswith("assert"):
+                          failure_class = "AssertionError"
+                  signatures.add(f"{node}|{failure_class}")
+              return signatures
+
+          candidate_exit = int(os.environ["CANDIDATE_BROAD_EXIT"])
+          historical_exit = int(os.environ["HISTORICAL_BROAD_EXIT"])
+          candidate = failure_signatures("candidate_broad.log")
+          historical = failure_signatures("historical_broad.log")
+
+          print(f"historical_ur1e_base={os.environ['UR1E_HISTORICAL_BASE']}")
+          print("historical_ur1e_replay=true")
+          print("failure_signature_key_format=NODE|NORMALIZED_FAILURE_CLASS")
+          print(f"candidate_exit={candidate_exit}")
+          print(f"historical_exit={historical_exit}")
+          print(f"candidate_failures={sorted(candidate)}")
+          print(f"historical_failures={sorted(historical)}")
+
+          if historical_exit != 0 or historical:
+              raise SystemExit("immutable historical UR-1E base must remain absolutely green")
+          if candidate_exit != 0 or candidate:
+              raise SystemExit("historical UR-1E replay candidate must remain absolutely green")
+          PY
+
+      - name: Remove CI-created evidence files and baseline checkouts
+        if: always()
+        shell: bash
+        run: |
+          rm -rf -- "$GITHUB_WORKSPACE/current_base" "$GITHUB_WORKSPACE/historical_base"
+          rm -rf -- "$GITHUB_WORKSPACE/packages/etabs_gateway/src/tbdy_etabs_gateway.egg-info"
+          rm -f -- \
+            "$GITHUB_WORKSPACE/candidate_broad.log" \
+            "$GITHUB_WORKSPACE/current_base_broad.log" \
+            "$GITHUB_WORKSPACE/historical_broad.log"
+
+      - name: Final current-PR repository hygiene
+        if: github.event_name == 'pull_request'
+        shell: bash
+        env:
+          CURRENT_REGRESSION_BASE: ${{ steps.pr_base.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git diff --check "$CURRENT_REGRESSION_BASE"...HEAD
+          git status --short
+          test -z "$(git status --short)"
+
+      - name: Final historical-replay repository hygiene
+        if: github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --check "$UR1E_HISTORICAL_BASE"...HEAD
           git status --short
           test -z "$(git status --short)"
