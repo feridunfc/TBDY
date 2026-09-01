@@ -2,12 +2,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from types import SimpleNamespace
 
-from tbdy_engine.features.etabs_com_attach import EtabsAttachAttempt, EtabsAttachResult
 from tbdy_engine.features.live_etabs_geometry_probe import (
     AcceptedMappingGeometryRowProvider,
-    create_live_etabs_geometry_provider,
     probe_geometry_feature_snapshots,
     read_live_frame_component_type_source,
 )
@@ -37,23 +34,6 @@ class _FakeDatabaseTables:
         if isinstance(payload, Exception):
             raise payload
         return payload
-
-
-def _attached_result(database_tables: _FakeDatabaseTables) -> EtabsAttachResult:
-    return EtabsAttachResult(
-        status="ATTACHED",
-        strategy="comtypes_get_active_object_etabs_api_object",
-        etabs_object=object(),
-        sap_model=SimpleNamespace(DatabaseTables=database_tables),
-        attempts=(
-            EtabsAttachAttempt(
-                strategy="comtypes_get_active_object_etabs_api_object",
-                status="SUCCESS",
-                message="Attached fake ETABS for tests",
-                prog_id="CSI.ETABS.API.ETABSObject",
-            ),
-        ),
-    )
 
 
 def _rows(path: Path):
@@ -108,6 +88,10 @@ def _compact_component_type_display_array():
 
 def _codes(result):
     return {diagnostic.code for diagnostic in result.iter_geometry_diagnostics()}
+
+
+def _source_codes(result):
+    return {diagnostic.code for diagnostic in result.diagnostics}
 
 
 def test_fake_rows_emit_beam_feature_snapshot_from_explicit_component_type_source(tmp_path: Path):
@@ -261,39 +245,31 @@ def test_evidence_preserves_component_type_source_table_column_and_raw_row(tmp_p
     assert source_row["component_type_source_row"] == {"Design Type": "Beam", "UniqueName": "297"}
 
 
-def test_live_fake_database_component_type_source_consumes_spaced_design_type(tmp_path: Path):
-    database_tables = _FakeDatabaseTables(
-        {
-            ASSIGNMENT_TABLE: _valid_assignment_display_array(),
-            PROPERTY_TABLE: _valid_property_display_array(),
-            COMPONENT_TYPE_TABLE: _valid_component_type_display_array(),
-        }
+def test_bounded_component_type_source_consumes_spaced_design_type():
+    result = read_live_frame_component_type_source(
+        _FakeDatabaseTables({COMPONENT_TYPE_TABLE: _valid_component_type_display_array()}),
+        max_candidate_tables=1,
     )
-    provider = create_live_etabs_geometry_provider(attach_result=_attached_result(database_tables), max_candidate_tables=1)
 
-    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
-    summary = json.loads((tmp_path / "live_geometry_probe_summary.json").read_text(encoding="utf-8"))
-
-    assert result.status == "OK"
-    assert result.snapshot_count == 2
-    assert summary["component_type_source_status"] == "FETCHED"
-    assert summary["component_type_source_row_count"] == 2
+    assert result.status == "FETCHED"
+    assert result.source_table == COMPONENT_TYPE_TABLE
+    assert result.source_column == "Design Type"
+    assert result.row_count == 2
+    assert result.evidence_by_unique_name["297"].component_type == "beam"
+    assert result.evidence_by_unique_name["301"].component_type == "column"
 
 
-def test_live_fake_database_component_type_source_keeps_compact_design_type_alias(tmp_path: Path):
-    database_tables = _FakeDatabaseTables(
-        {
-            ASSIGNMENT_TABLE: _valid_assignment_display_array(),
-            PROPERTY_TABLE: _valid_property_display_array(),
-            COMPONENT_TYPE_TABLE: _compact_component_type_display_array(),
-        }
+def test_bounded_component_type_source_keeps_compact_design_type_alias():
+    result = read_live_frame_component_type_source(
+        _FakeDatabaseTables({COMPONENT_TYPE_TABLE: _compact_component_type_display_array()}),
+        max_candidate_tables=1,
     )
-    provider = create_live_etabs_geometry_provider(attach_result=_attached_result(database_tables), max_candidate_tables=1)
 
-    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
-
-    assert result.status == "OK"
-    assert result.snapshot_count == 2
+    assert result.status == "FETCHED"
+    assert result.source_column == "DesignType"
+    assert result.row_count == 2
+    assert result.evidence_by_unique_name["297"].component_type == "beam"
+    assert result.evidence_by_unique_name["301"].component_type == "column"
 
 
 def test_read_live_frame_component_type_source_reports_spaced_design_type_column():
@@ -310,24 +286,15 @@ def test_read_live_frame_component_type_source_reports_spaced_design_type_column
     assert result.evidence_by_unique_name["301"].component_type == "column"
 
 
-def test_component_type_source_table_missing_produces_diagnostic(tmp_path: Path):
-    provider = create_live_etabs_geometry_provider(
-        attach_result=_attached_result(
-            _FakeDatabaseTables(
-                {
-                    ASSIGNMENT_TABLE: _valid_assignment_display_array(),
-                    PROPERTY_TABLE: _valid_property_display_array(),
-                }
-            )
-        ),
+def test_bounded_component_type_source_table_missing_produces_diagnostic():
+    result = read_live_frame_component_type_source(
+        _FakeDatabaseTables({}),
         max_candidate_tables=1,
     )
 
-    result = probe_geometry_feature_snapshots(provider=provider, output_dir=tmp_path)
-
-    assert result.status == "FAIL"
-    assert result.snapshot_count == 0
-    assert "COMPONENT_TYPE_SOURCE_TABLE_MISSING" in _codes(provider)
+    assert result.status == "MISSING"
+    assert result.row_count == 0
+    assert _source_codes(result) == {"COMPONENT_TYPE_SOURCE_TABLE_MISSING"}
 
 
 def test_component_type_source_column_missing_produces_diagnostic(tmp_path: Path):
