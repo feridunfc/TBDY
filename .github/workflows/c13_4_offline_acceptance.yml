@@ -24,6 +24,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install pytest pyyaml jsonschema
+          python -m pip install -e packages/etabs_gateway
 
       - name: Run offline acceptance gate
         run: python tools/run_offline_product_acceptance.py --out local_out/c13_4_ci_offline_acceptance

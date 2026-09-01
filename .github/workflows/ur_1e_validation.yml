@@ -54,6 +54,7 @@ jobs:
             pypdfium2==5.12.1 \
             openpyxl==3.1.5 \
             et_xmlfile==2.0.0
+          python -m pip install -e packages/etabs_gateway
 
       - name: Compile candidate
         run: python -m compileall -q tbdy_engine tests
