@@ -232,7 +232,7 @@ def _design_proof(state, result, lineage, **overrides):
         **overrides,
     )
     return subject._VerifiedDesignExecutionProof(
-        _token=subject._DESIGN_EXECUTION_PROOF_FACTORY_TOKEN,
+        _token=subject._DESIGN_PROOF_FACTORY_KEY,
         proof_ref=proof_ref,
         **values,
     )
@@ -251,7 +251,7 @@ def _qualified_design(
     result = result or _design_result(state)
     proof = proof or _design_proof(state, result, lineage)
     return subject._build_qualified_design_lineage(
-        _token=subject._DESIGN_QUALIFICATION_FACTORY_TOKEN,
+        _token=subject._DESIGN_LINEAGE_FACTORY_KEY,
         parent_analysis_lineage=lineage,
         design_state=state,
         design_result=result,
@@ -363,7 +363,7 @@ def test_convenient_observational_or_caller_shaped_data_cannot_substitute_for_ca
     result = _design_result(state)
     with pytest.raises(TypeError, match="verified causal design-execution proof"):
         subject._build_qualified_design_lineage(
-            _token=subject._DESIGN_QUALIFICATION_FACTORY_TOKEN,
+            _token=subject._DESIGN_LINEAGE_FACTORY_KEY,
             parent_analysis_lineage=lineage,
             design_state=state,
             design_result=result,
@@ -508,7 +508,7 @@ def test_result_rows_or_identity_without_causal_proof_fail_closed():
             match="verified causal design-execution proof",
         ):
             subject._build_qualified_design_lineage(
-                _token=subject._DESIGN_QUALIFICATION_FACTORY_TOKEN,
+                _token=subject._DESIGN_LINEAGE_FACTORY_KEY,
                 parent_analysis_lineage=lineage,
                 design_state=state,
                 design_result=result,
@@ -533,7 +533,7 @@ def test_partial_scope_cannot_be_disguised_as_complete_design_result():
         match="partial or failed design scope",
     ):
         subject._VerifiedDesignExecutionProof(
-            _token=subject._DESIGN_EXECUTION_PROOF_FACTORY_TOKEN,
+            _token=subject._DESIGN_PROOF_FACTORY_KEY,
             proof_ref=proof_ref,
             **values,
         )
@@ -620,8 +620,8 @@ def test_public_design_lineage_api_has_no_positive_qualification_issuer():
     }.issubset(public)
     assert "_VerifiedDesignExecutionProof" not in public
     assert "_build_qualified_design_lineage" not in public
-    assert "_DESIGN_QUALIFICATION_FACTORY_TOKEN" not in public
-    assert "_DESIGN_EXECUTION_PROOF_FACTORY_TOKEN" not in public
+    assert "_DESIGN_LINEAGE_FACTORY_KEY" not in public
+    assert "_DESIGN_PROOF_FACTORY_KEY" not in public
 
     public_callables = {
         name
@@ -630,6 +630,28 @@ def test_public_design_lineage_api_has_no_positive_qualification_issuer():
     }
     assert not any(name.startswith("qualify") for name in public_callables)
     assert not any("execution_proof" in name.lower() for name in public_callables)
+
+
+def test_b2_private_symbol_names_do_not_contain_b1_forbidden_private_substrings():
+    b2_private_symbols = (
+        "_DESIGN_LINEAGE_FACTORY_KEY",
+        "_DESIGN_PROOF_FACTORY_KEY",
+        "_VerifiedDesignExecutionProof",
+        "_build_qualified_design_lineage",
+    )
+    b1_forbidden_substrings = (
+        "_QUALIFICATION_FACTORY_TOKEN",
+        "_EXECUTION_PROOF_FACTORY_TOKEN",
+        "_VerifiedAnalysisExecutionProof",
+        "_build_qualified_analysis_lineage",
+    )
+    collisions = [
+        (b2_symbol, b1_forbidden)
+        for b2_symbol in b2_private_symbols
+        for b1_forbidden in b1_forbidden_substrings
+        if b1_forbidden in b2_symbol
+    ]
+    assert collisions == []
 
 
 def test_design_lineage_owner_contains_zero_execution_or_raw_boundary_capability():
@@ -653,8 +675,8 @@ def test_private_design_qualification_symbols_are_negative_reachable_from_produc
         ROOT / "tbdy_engine/integration/etabs_design_lineage.py"
     ).resolve()
     forbidden = (
-        "_DESIGN_QUALIFICATION_FACTORY_TOKEN",
-        "_DESIGN_EXECUTION_PROOF_FACTORY_TOKEN",
+        "_DESIGN_LINEAGE_FACTORY_KEY",
+        "_DESIGN_PROOF_FACTORY_KEY",
         "_VerifiedDesignExecutionProof",
         "_build_qualified_design_lineage",
     )

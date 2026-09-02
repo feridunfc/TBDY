@@ -36,8 +36,8 @@ DESIGN_RESULT_REF_PREFIX = "design-result:sha256:"
 DESIGN_LINEAGE_REF_PREFIX = "design-lineage-qualification:sha256:"
 _DESIGN_EXECUTION_PROOF_REF_PREFIX = "design-execution-proof:sha256:"
 
-_DESIGN_QUALIFICATION_FACTORY_TOKEN = object()
-_DESIGN_EXECUTION_PROOF_FACTORY_TOKEN = object()
+_DESIGN_LINEAGE_FACTORY_KEY = object()
+_DESIGN_PROOF_FACTORY_KEY = object()
 
 
 class DesignLineageError(ValueError):
@@ -661,7 +661,7 @@ class _VerifiedDesignExecutionProof:
         provenance_refs: tuple[str, ...],
         contract: str = _VERIFIED_DESIGN_EXECUTION_PROOF_CONTRACT,
     ) -> None:
-        if _token is not _DESIGN_EXECUTION_PROOF_FACTORY_TOKEN:
+        if _token is not _DESIGN_PROOF_FACTORY_KEY:
             raise TypeError("verified design-execution proof is issuer-created only")
         if contract != _VERIFIED_DESIGN_EXECUTION_PROOF_CONTRACT:
             raise DesignLineageError("design-execution proof contract mismatch")
@@ -800,7 +800,7 @@ class DesignLineageQualification:
         blockers: tuple[str, ...],
         contract: str = DESIGN_LINEAGE_QUALIFICATION_CONTRACT,
     ) -> None:
-        if _token is not _DESIGN_QUALIFICATION_FACTORY_TOKEN:
+        if _token is not _DESIGN_LINEAGE_FACTORY_KEY:
             raise TypeError(
                 "DesignLineageQualification is factory-created only; "
                 "use build_unqualified_design_lineage or a future verified-design issuer"
@@ -1002,7 +1002,7 @@ def build_unqualified_design_lineage(
     crefs = _refs(capture_provenance_refs, "capture_provenance_ref")
     status = DesignLineageQualificationStatus.UNQUALIFIED
     return DesignLineageQualification(
-        _token=_DESIGN_QUALIFICATION_FACTORY_TOKEN,
+        _token=_DESIGN_LINEAGE_FACTORY_KEY,
         status=status,
         source_model_ref=source_model_ref,
         parent_analysis_lineage=parent_analysis_lineage,
@@ -1035,7 +1035,7 @@ def _build_qualified_design_lineage(
     capture_provenance_refs: Sequence[str] = (),
 ) -> DesignLineageQualification:
     """Private primitive reserved for a future verified controlled-design issuer."""
-    if _token is not _DESIGN_QUALIFICATION_FACTORY_TOKEN:
+    if _token is not _DESIGN_LINEAGE_FACTORY_KEY:
         raise TypeError("qualified design lineage is issuer-created only")
     if not isinstance(parent_analysis_lineage, AnalysisLineageQualification):
         raise TypeError(
@@ -1155,7 +1155,7 @@ def _build_qualified_design_lineage(
     crefs = _refs(capture_provenance_refs, "capture_provenance_ref")
     status = DesignLineageQualificationStatus.QUALIFIED
     return DesignLineageQualification(
-        _token=_DESIGN_QUALIFICATION_FACTORY_TOKEN,
+        _token=_DESIGN_LINEAGE_FACTORY_KEY,
         status=status,
         source_model_ref=design_state.source_model_ref,
         parent_analysis_lineage=parent_analysis_lineage,
