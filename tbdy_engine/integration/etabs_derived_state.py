@@ -1,7 +1,8 @@
 """Fail-closed B4A derived/pre-analysis state semantics.
 
 Representation/comparison only: no ETABS transport, mutation, analysis, design,
-or result-lineage qualification.
+or result-lineage qualification. Positive factual establishment is deliberately
+private and reserved for the future B4B mutation/readback authority.
 """
 from __future__ import annotations
 
@@ -26,6 +27,7 @@ REQUESTED_STATE_REF_PREFIX = "derived-state-request:sha256:"
 ESTABLISHED_STATE_REF_PREFIX = "derived-state-established:sha256:"
 DERIVED_STATE_COMPARISON_REF_PREFIX = "derived-state-comparison:sha256:"
 _ENTRY_TOKEN = object()
+_POSITIVE_ESTABLISHMENT_ISSUER_TOKEN = object()
 _COMPARISON_TOKEN = object()
 
 
@@ -245,30 +247,47 @@ class EstablishedDerivedState:
     provenance_refs: tuple[str, ...]
 
     def __init__(
-        self, *, _token=None, family, status, canonical_value_json, normalization,
-        evidence_refs, diagnostic, provenance_refs,
+        self,
+        *,
+        _token=None,
+        _positive_issuer_token=None,
+        family,
+        status,
+        canonical_value_json,
+        normalization,
+        evidence_refs,
+        diagnostic,
+        provenance_refs,
     ):
         if _token is not _ENTRY_TOKEN:
-            raise TypeError("EstablishedDerivedState is factory-created only; use factual readback outcome factories")
+            raise TypeError("EstablishedDerivedState is factory-created only")
         _causal(family)
         if not isinstance(status, DerivedStateEstablishmentStatus):
             raise TypeError("status must be DerivedStateEstablishmentStatus")
         evidence = _refs(evidence_refs, "readback_evidence_ref")
         diagnostic = None if diagnostic is None else _text(diagnostic, "diagnostic")
         if status is DerivedStateEstablishmentStatus.ESTABLISHED:
+            if _positive_issuer_token is not _POSITIVE_ESTABLISHMENT_ISSUER_TOKEN:
+                raise TypeError("positive EstablishedDerivedState is issuer-created only")
             if canonical_value_json is None or not evidence:
                 raise DerivedStateError("ESTABLISHED readback requires canonical value and factual readback evidence")
             json.loads(canonical_value_json)
             if diagnostic is not None:
                 raise DerivedStateError("ESTABLISHED readback cannot carry a failure diagnostic")
         else:
+            if _positive_issuer_token is not None:
+                raise DerivedStateError("non-positive readback must not carry positive issuer authority")
             if canonical_value_json is not None:
                 raise DerivedStateError(f"{status.value} readback cannot carry an established value")
             if diagnostic is None:
                 raise DerivedStateError(f"{status.value} readback requires a diagnostic")
         for name, value in (
-            ("family", family), ("status", status), ("canonical_value_json", canonical_value_json),
-            ("normalization", normalization), ("evidence_refs", evidence), ("diagnostic", diagnostic),
+            ("family", family),
+            ("status", status),
+            ("canonical_value_json", canonical_value_json),
+            ("normalization", normalization),
+            ("evidence_refs", evidence),
+            ("diagnostic", diagnostic),
             ("provenance_refs", _refs(provenance_refs, "provenance_ref")),
         ):
             object.__setattr__(self, name, value)
@@ -287,7 +306,9 @@ class EstablishedDerivedState:
 
 
 def request_derived_state(
-    *, family: DerivedStateFamily, value: object,
+    *,
+    family: DerivedStateFamily,
+    value: object,
     normalization: NormalizationContract = NormalizationContract(),
     tolerance: NumericTolerance = NO_NUMERIC_TOLERANCE,
     provenance_refs: Sequence[str] = (),
@@ -296,41 +317,67 @@ def request_derived_state(
     if not isinstance(normalization, NormalizationContract) or not isinstance(tolerance, NumericTolerance):
         raise TypeError("normalization/tolerance contract type mismatch")
     return RequestedDerivedState(
-        _token=_ENTRY_TOKEN, family=family, canonical_value_json=_value_json(value, normalization),
-        normalization=normalization, tolerance=tolerance, provenance_refs=_refs(provenance_refs, "provenance_ref"),
+        _token=_ENTRY_TOKEN,
+        family=family,
+        canonical_value_json=_value_json(value, normalization),
+        normalization=normalization,
+        tolerance=tolerance,
+        provenance_refs=_refs(provenance_refs, "provenance_ref"),
     )
 
 
-def establish_derived_state_from_readback(
-    *, family: DerivedStateFamily, readback_value: object, readback_evidence_refs: Sequence[str],
-    normalization: NormalizationContract = NormalizationContract(), provenance_refs: Sequence[str] = (),
+def _establish_derived_state_from_verified_readback(
+    *,
+    _issuer_token: object = None,
+    family: DerivedStateFamily,
+    readback_value: object,
+    readback_evidence_refs: Sequence[str],
+    normalization: NormalizationContract = NormalizationContract(),
+    provenance_refs: Sequence[str] = (),
 ) -> EstablishedDerivedState:
+    """Private positive primitive reserved for future B4B verified readback."""
+    if _issuer_token is not _POSITIVE_ESTABLISHMENT_ISSUER_TOKEN:
+        raise TypeError("positive established-state readback is issuer-created only")
     _causal(family)
     if _setter_return_only(readback_value):
         raise DerivedStateError("setter return-code-shaped data cannot establish derived state")
     if not isinstance(normalization, NormalizationContract):
         raise TypeError("normalization must be NormalizationContract")
     return EstablishedDerivedState(
-        _token=_ENTRY_TOKEN, family=family, status=DerivedStateEstablishmentStatus.ESTABLISHED,
-        canonical_value_json=_value_json(readback_value, normalization), normalization=normalization,
-        evidence_refs=_refs(readback_evidence_refs, "readback_evidence_ref", required=True), diagnostic=None,
+        _token=_ENTRY_TOKEN,
+        _positive_issuer_token=_POSITIVE_ESTABLISHMENT_ISSUER_TOKEN,
+        family=family,
+        status=DerivedStateEstablishmentStatus.ESTABLISHED,
+        canonical_value_json=_value_json(readback_value, normalization),
+        normalization=normalization,
+        evidence_refs=_refs(readback_evidence_refs, "readback_evidence_ref", required=True),
+        diagnostic=None,
         provenance_refs=_refs(provenance_refs, "provenance_ref"),
     )
 
 
 def record_derived_state_readback_failure(
-    *, family: DerivedStateFamily, status: DerivedStateEstablishmentStatus, diagnostic: str,
-    readback_evidence_refs: Sequence[str] = (), normalization: NormalizationContract = NormalizationContract(),
+    *,
+    family: DerivedStateFamily,
+    status: DerivedStateEstablishmentStatus,
+    diagnostic: str,
+    readback_evidence_refs: Sequence[str] = (),
+    normalization: NormalizationContract = NormalizationContract(),
     provenance_refs: Sequence[str] = (),
 ) -> EstablishedDerivedState:
     if status is DerivedStateEstablishmentStatus.ESTABLISHED:
-        raise DerivedStateError("ESTABLISHED must use establish_derived_state_from_readback")
+        raise DerivedStateError("positive ESTABLISHED issuance is private to the future B4B authority")
     if not isinstance(normalization, NormalizationContract):
         raise TypeError("normalization must be NormalizationContract")
     return EstablishedDerivedState(
-        _token=_ENTRY_TOKEN, family=family, status=status, canonical_value_json=None,
-        normalization=normalization, evidence_refs=_refs(readback_evidence_refs, "readback_evidence_ref"),
-        diagnostic=diagnostic, provenance_refs=_refs(provenance_refs, "provenance_ref"),
+        _token=_ENTRY_TOKEN,
+        family=family,
+        status=status,
+        canonical_value_json=None,
+        normalization=normalization,
+        evidence_refs=_refs(readback_evidence_refs, "readback_evidence_ref"),
+        diagnostic=diagnostic,
+        provenance_refs=_refs(provenance_refs, "provenance_ref"),
     )
 
 
@@ -364,13 +411,19 @@ class RequestedDerivedStateManifest:
         if self.contract != REQUESTED_STATE_MANIFEST_CONTRACT:
             raise DerivedStateError("requested derived-state manifest contract mismatch")
         payload = {
-            "contract": self.contract, "derived_state_contract": DERIVED_STATE_CONTRACT,
-            "source_model_ref": source, "entries": [entry.semantic_dict() for entry in ordered],
+            "contract": self.contract,
+            "derived_state_contract": DERIVED_STATE_CONTRACT,
+            "source_model_ref": source,
+            "entries": [entry.semantic_dict() for entry in ordered],
         }
         object.__setattr__(self, "source_model_ref", source)
         object.__setattr__(self, "entries", ordered)
         object.__setattr__(self, "provenance_refs", _refs(self.provenance_refs, "provenance_ref"))
         object.__setattr__(self, "manifest_ref", _sha(REQUESTED_STATE_REF_PREFIX, payload))
+
+    @property
+    def family_set(self) -> frozenset[DerivedStateFamily]:
+        return frozenset(entry.family for entry in self.entries)
 
 
 @dataclass(frozen=True, slots=True)
@@ -388,8 +441,10 @@ class EstablishedDerivedStateManifest:
         if self.contract != ESTABLISHED_STATE_MANIFEST_CONTRACT:
             raise DerivedStateError("established derived-state manifest contract mismatch")
         payload = {
-            "contract": self.contract, "derived_state_contract": DERIVED_STATE_CONTRACT,
-            "source_model_ref": source, "entries": [entry.semantic_dict() for entry in ordered],
+            "contract": self.contract,
+            "derived_state_contract": DERIVED_STATE_CONTRACT,
+            "source_model_ref": source,
+            "entries": [entry.semantic_dict() for entry in ordered],
         }
         object.__setattr__(self, "source_model_ref", source)
         object.__setattr__(self, "entries", ordered)
@@ -397,23 +452,29 @@ class EstablishedDerivedStateManifest:
         object.__setattr__(self, "manifest_ref", _sha(ESTABLISHED_STATE_REF_PREFIX, payload))
 
     @property
+    def family_set(self) -> frozenset[DerivedStateFamily]:
+        return frozenset(entry.family for entry in self.entries)
+
+    @property
     def is_fully_established(self) -> bool:
-        return bool(self.entries) and all(entry.status is DerivedStateEstablishmentStatus.ESTABLISHED for entry in self.entries)
+        return bool(self.entries) and all(
+            entry.status is DerivedStateEstablishmentStatus.ESTABLISHED for entry in self.entries
+        )
 
 
 @dataclass(frozen=True, slots=True)
 class DerivedStateFamilyComparison:
     family: DerivedStateFamily
     status: DerivedStateComparisonStatus
-    requested_canonical_value_json: str
+    requested_canonical_value_json: str | None
     established_canonical_value_json: str | None
     mismatch_reason: str | None
     missing_evidence: tuple[str, ...]
     tolerance: NumericTolerance
 
     @property
-    def requested_canonical_value(self) -> object:
-        return json.loads(self.requested_canonical_value_json)
+    def requested_canonical_value(self) -> object | None:
+        return None if self.requested_canonical_value_json is None else json.loads(self.requested_canonical_value_json)
 
     @property
     def established_canonical_value(self) -> object | None:
@@ -421,10 +482,12 @@ class DerivedStateFamilyComparison:
 
     def semantic_dict(self) -> dict[str, object]:
         return {
-            "family": self.family.value, "status": self.status.value,
+            "family": self.family.value,
+            "status": self.status.value,
             "requested_canonical_value": self.requested_canonical_value,
             "established_canonical_value": self.established_canonical_value,
-            "mismatch_reason": self.mismatch_reason, "missing_evidence": list(self.missing_evidence),
+            "mismatch_reason": self.mismatch_reason,
+            "missing_evidence": list(self.missing_evidence),
             "tolerance": self.tolerance.as_dict(),
         }
 
@@ -437,7 +500,9 @@ def _mismatch(left: object, right: object, tolerance: NumericTolerance, path: st
     if _json(left) == _json(right):
         return None
     if _numeric(left) and _numeric(right):
-        return None if math.isclose(float(left), float(right), rel_tol=tolerance.relative, abs_tol=tolerance.absolute) else path
+        return None if math.isclose(
+            float(left), float(right), rel_tol=tolerance.relative, abs_tol=tolerance.absolute
+        ) else path
     if isinstance(left, dict) and isinstance(right, dict):
         if tuple(left) != tuple(right):
             return f"{path}.keys"
@@ -457,18 +522,31 @@ def _mismatch(left: object, right: object, tolerance: NumericTolerance, path: st
     return path
 
 
-def compare_derived_state_entries(requested: RequestedDerivedState, established: EstablishedDerivedState) -> DerivedStateFamilyComparison:
+def compare_derived_state_entries(
+    requested: RequestedDerivedState,
+    established: EstablishedDerivedState,
+) -> DerivedStateFamilyComparison:
     if not isinstance(requested, RequestedDerivedState) or not isinstance(established, EstablishedDerivedState):
         raise TypeError("requested/established entry type mismatch")
     common = dict(
-        family=requested.family, requested_canonical_value_json=requested.canonical_value_json,
+        family=requested.family,
+        requested_canonical_value_json=requested.canonical_value_json,
         established_canonical_value_json=established.canonical_value_json,
-        missing_evidence=(), tolerance=requested.tolerance,
+        missing_evidence=(),
+        tolerance=requested.tolerance,
     )
     if requested.family is not established.family:
-        return DerivedStateFamilyComparison(status=DerivedStateComparisonStatus.MISMATCH, mismatch_reason=f"WRONG_STATE_FAMILY:{established.family.value}", **common)
+        return DerivedStateFamilyComparison(
+            status=DerivedStateComparisonStatus.MISMATCH,
+            mismatch_reason=f"WRONG_STATE_FAMILY:{established.family.value}",
+            **common,
+        )
     if requested.normalization != established.normalization:
-        return DerivedStateFamilyComparison(status=DerivedStateComparisonStatus.MISMATCH, mismatch_reason="NORMALIZATION_CONTRACT_MISMATCH", **common)
+        return DerivedStateFamilyComparison(
+            status=DerivedStateComparisonStatus.MISMATCH,
+            mismatch_reason="NORMALIZATION_CONTRACT_MISMATCH",
+            **common,
+        )
     if established.status is not DerivedStateEstablishmentStatus.ESTABLISHED:
         status = {
             DerivedStateEstablishmentStatus.UNAVAILABLE: DerivedStateComparisonStatus.UNAVAILABLE,
@@ -476,14 +554,16 @@ def compare_derived_state_entries(requested: RequestedDerivedState, established:
             DerivedStateEstablishmentStatus.INCOMPLETE: DerivedStateComparisonStatus.INCOMPLETE,
         }[established.status]
         return DerivedStateFamilyComparison(
-            status=status, mismatch_reason=established.diagnostic,
+            status=status,
+            mismatch_reason=established.diagnostic,
             missing_evidence=() if established.evidence_refs else (f"readback:{requested.family.value}",),
             **{key: value for key, value in common.items() if key != "missing_evidence"},
         )
     path = _mismatch(requested.canonical_value, established.canonical_value, requested.tolerance)
     return DerivedStateFamilyComparison(
         status=DerivedStateComparisonStatus.MATCH if path is None else DerivedStateComparisonStatus.MISMATCH,
-        mismatch_reason=None if path is None else f"CANONICAL_VALUE_MISMATCH:{path}", **common,
+        mismatch_reason=None if path is None else f"CANONICAL_VALUE_MISMATCH:{path}",
+        **common,
     )
 
 
@@ -498,17 +578,29 @@ class DerivedStateComparison:
     contract: str
 
     def __init__(
-        self, *, _token=None, requested_manifest, established_manifest, status,
-        family_results, comparison_ref, provenance_refs, contract=DERIVED_STATE_COMPARISON_CONTRACT,
+        self,
+        *,
+        _token=None,
+        requested_manifest,
+        established_manifest,
+        status,
+        family_results,
+        comparison_ref,
+        provenance_refs,
+        contract=DERIVED_STATE_COMPARISON_CONTRACT,
     ):
         if _token is not _COMPARISON_TOKEN:
             raise TypeError("DerivedStateComparison is factory-created only; use compare_derived_state_manifests")
         if contract != DERIVED_STATE_COMPARISON_CONTRACT:
             raise DerivedStateError("derived-state comparison contract mismatch")
         for name, value in (
-            ("requested_manifest", requested_manifest), ("established_manifest", established_manifest),
-            ("status", status), ("family_results", family_results), ("comparison_ref", comparison_ref),
-            ("provenance_refs", _refs(provenance_refs, "provenance_ref")), ("contract", contract),
+            ("requested_manifest", requested_manifest),
+            ("established_manifest", established_manifest),
+            ("status", status),
+            ("family_results", family_results),
+            ("comparison_ref", comparison_ref),
+            ("provenance_refs", _refs(provenance_refs, "provenance_ref")),
+            ("contract", contract),
         ):
             object.__setattr__(self, name, value)
 
@@ -516,9 +608,19 @@ class DerivedStateComparison:
     def matched(self) -> bool:
         return self.status is DerivedStateComparisonStatus.MATCH
 
+    @property
+    def exact_causal_family_population(self) -> bool:
+        return self.requested_manifest.family_set == self.established_manifest.family_set
+
     def require_established_state_ref(self) -> str:
-        if not self.matched or not self.established_manifest.is_fully_established:
-            raise DerivedStateComparisonError("derived/pre-analysis state is not factually established and matched")
+        if (
+            not self.matched
+            or not self.exact_causal_family_population
+            or not self.established_manifest.is_fully_established
+        ):
+            raise DerivedStateComparisonError(
+                "derived/pre-analysis state is not factually established with an exact matched causal-family population"
+            )
         return self.established_manifest.manifest_ref
 
 
@@ -527,8 +629,10 @@ def _aggregate(results: Sequence[DerivedStateFamilyComparison]) -> DerivedStateC
     if statuses == {DerivedStateComparisonStatus.MATCH}:
         return DerivedStateComparisonStatus.MATCH
     for status in (
-        DerivedStateComparisonStatus.MISMATCH, DerivedStateComparisonStatus.UNSUPPORTED,
-        DerivedStateComparisonStatus.UNAVAILABLE, DerivedStateComparisonStatus.INCOMPLETE,
+        DerivedStateComparisonStatus.MISMATCH,
+        DerivedStateComparisonStatus.UNSUPPORTED,
+        DerivedStateComparisonStatus.UNAVAILABLE,
+        DerivedStateComparisonStatus.INCOMPLETE,
     ):
         if status in statuses:
             return status
@@ -536,31 +640,56 @@ def _aggregate(results: Sequence[DerivedStateFamilyComparison]) -> DerivedStateC
 
 
 def compare_derived_state_manifests(
-    requested: RequestedDerivedStateManifest, established: EstablishedDerivedStateManifest,
-    *, provenance_refs: Sequence[str] = (),
+    requested: RequestedDerivedStateManifest,
+    established: EstablishedDerivedStateManifest,
+    *,
+    provenance_refs: Sequence[str] = (),
 ) -> DerivedStateComparison:
-    if not isinstance(requested, RequestedDerivedStateManifest) or not isinstance(established, EstablishedDerivedStateManifest):
+    if not isinstance(requested, RequestedDerivedStateManifest) or not isinstance(
+        established, EstablishedDerivedStateManifest
+    ):
         raise TypeError("requested/established manifest type mismatch")
     observed = {entry.family: entry for entry in established.entries}
-    results = []
+    requested_by_family = {entry.family: entry for entry in requested.entries}
+    results: list[DerivedStateFamilyComparison] = []
+
     for wanted in requested.entries:
         actual = observed.get(wanted.family)
         if actual is None:
             results.append(DerivedStateFamilyComparison(
-                family=wanted.family, status=DerivedStateComparisonStatus.INCOMPLETE,
-                requested_canonical_value_json=wanted.canonical_value_json, established_canonical_value_json=None,
+                family=wanted.family,
+                status=DerivedStateComparisonStatus.INCOMPLETE,
+                requested_canonical_value_json=wanted.canonical_value_json,
+                established_canonical_value_json=None,
                 mismatch_reason="REQUESTED_FAMILY_READBACK_MISSING",
-                missing_evidence=(f"readback:{wanted.family.value}",), tolerance=wanted.tolerance,
+                missing_evidence=(f"readback:{wanted.family.value}",),
+                tolerance=wanted.tolerance,
             ))
         elif requested.source_model_ref != established.source_model_ref:
             results.append(DerivedStateFamilyComparison(
-                family=wanted.family, status=DerivedStateComparisonStatus.MISMATCH,
+                family=wanted.family,
+                status=DerivedStateComparisonStatus.MISMATCH,
                 requested_canonical_value_json=wanted.canonical_value_json,
                 established_canonical_value_json=actual.canonical_value_json,
-                mismatch_reason="SOURCE_MODEL_REF_MISMATCH", missing_evidence=(), tolerance=wanted.tolerance,
+                mismatch_reason="SOURCE_MODEL_REF_MISMATCH",
+                missing_evidence=(),
+                tolerance=wanted.tolerance,
             ))
         else:
             results.append(compare_derived_state_entries(wanted, actual))
+
+    for family in sorted(set(observed) - set(requested_by_family), key=lambda item: item.value):
+        actual = observed[family]
+        results.append(DerivedStateFamilyComparison(
+            family=family,
+            status=DerivedStateComparisonStatus.MISMATCH,
+            requested_canonical_value_json=None,
+            established_canonical_value_json=actual.canonical_value_json,
+            mismatch_reason="UNREQUESTED_CAUSAL_FAMILY",
+            missing_evidence=(),
+            tolerance=NO_NUMERIC_TOLERANCE,
+        ))
+
     family_results = tuple(results)
     status = _aggregate(family_results)
     payload = {
@@ -568,20 +697,27 @@ def compare_derived_state_manifests(
         "requested_manifest_ref": requested.manifest_ref,
         "established_manifest_ref": established.manifest_ref,
         "status": status.value,
+        "exact_causal_family_population": requested.family_set == established.family_set,
         "family_results": [item.semantic_dict() for item in family_results],
     }
     return DerivedStateComparison(
-        _token=_COMPARISON_TOKEN, requested_manifest=requested, established_manifest=established,
-        status=status, family_results=family_results,
+        _token=_COMPARISON_TOKEN,
+        requested_manifest=requested,
+        established_manifest=established,
+        status=status,
+        family_results=family_results,
         comparison_ref=_sha(DERIVED_STATE_COMPARISON_REF_PREFIX, payload),
         provenance_refs=_refs(provenance_refs, "provenance_ref"),
     )
 
 
 def build_analysis_state_identity_from_derived_state(
-    *, comparison: DerivedStateComparison, state_basis_refs: Sequence[str], provenance_refs: Sequence[str] = (),
+    *,
+    comparison: DerivedStateComparison,
+    state_basis_refs: Sequence[str],
+    provenance_refs: Sequence[str] = (),
 ) -> AnalysisStateIdentity:
-    """Bind matched B4A state to the existing B1 execution-state seam only."""
+    """Bind exact matched B4A state to the existing B1 execution-state seam only."""
     if not isinstance(comparison, DerivedStateComparison):
         raise TypeError("comparison must be DerivedStateComparison")
     return build_analysis_state_identity(
@@ -593,13 +729,29 @@ def build_analysis_state_identity_from_derived_state(
 
 
 __all__ = [
-    "DERIVED_STATE_COMPARISON_CONTRACT", "DERIVED_STATE_CONTRACT",
-    "ESTABLISHED_STATE_MANIFEST_CONTRACT", "REQUESTED_STATE_MANIFEST_CONTRACT",
-    "DerivedStateComparison", "DerivedStateComparisonError", "DerivedStateComparisonStatus",
-    "DerivedStateError", "DerivedStateEstablishmentStatus", "DerivedStateFamily",
-    "DerivedStateFamilyClassification", "EstablishedDerivedState", "EstablishedDerivedStateManifest",
-    "NormalizationContract", "NumericTolerance", "RequestedDerivedState", "RequestedDerivedStateManifest",
-    "STATE_FAMILY_CLASSIFICATION", "SequenceOrdering", "build_analysis_state_identity_from_derived_state",
-    "compare_derived_state_entries", "compare_derived_state_manifests", "establish_derived_state_from_readback",
-    "record_derived_state_readback_failure", "request_derived_state", "state_family_classification",
+    "DERIVED_STATE_COMPARISON_CONTRACT",
+    "DERIVED_STATE_CONTRACT",
+    "ESTABLISHED_STATE_MANIFEST_CONTRACT",
+    "REQUESTED_STATE_MANIFEST_CONTRACT",
+    "DerivedStateComparison",
+    "DerivedStateComparisonError",
+    "DerivedStateComparisonStatus",
+    "DerivedStateError",
+    "DerivedStateEstablishmentStatus",
+    "DerivedStateFamily",
+    "DerivedStateFamilyClassification",
+    "EstablishedDerivedState",
+    "EstablishedDerivedStateManifest",
+    "NormalizationContract",
+    "NumericTolerance",
+    "RequestedDerivedState",
+    "RequestedDerivedStateManifest",
+    "STATE_FAMILY_CLASSIFICATION",
+    "SequenceOrdering",
+    "build_analysis_state_identity_from_derived_state",
+    "compare_derived_state_entries",
+    "compare_derived_state_manifests",
+    "record_derived_state_readback_failure",
+    "request_derived_state",
+    "state_family_classification",
 ]
