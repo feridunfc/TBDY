@@ -30,11 +30,10 @@ authority_boundary:
       - SCRATCH_LIFECYCLE
       - ENGINEERING_ORCHESTRATION
   future_lifecycle_execution:
-    semantic_authority_sprints: [B4A, B4B, B5, B6]
+    semantic_authority_sprints: [B4A, B4S, B4B, B5, B6]
     final_module_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     supervisor_disposition_required: true
     unplaced_operations:
-      - SapModel.File.OpenFile
       - SapModel.File.Save
       - TYPED_MODEL_SETTERS
       - SapModel.Analyze.SetRunCaseFlag
@@ -68,43 +67,43 @@ capabilities:
 
   scratch_create:
     capability_id: LIFE-CAP-002
-    api_surface: [OS_FILE_COPY_CANDIDATE, SapModel.File.Save(FileName)_CANDIDATE]
-    current_owner: NONE
+    api_surface: [OS_FILE_COPY]
+    current_owner: tbdy_engine.integration.etabs_scratch_lifecycle
     historical_owners: [G0_PROPOSAL_ONLY]
     read_or_write: WRITE
     analysis_affecting: false
     source_mutation_risk: HIGH
-    current_wrapper: NONE
-    live_verified: false
-    preconditions: [immutable_source_physical_snapshot, verified_SourceModelIdentity]
-    postconditions: [causal_scratch_creation_record, scratch_physical_facts]
+    current_wrapper: PRESENT
+    live_verified: OFFLINE_IMPLEMENTED_LIVE_ACCEPTANCE_REQUIRED
+    preconditions: [trusted_live_acquisition_context, immutable_source_physical_snapshot, verified_SourceModelIdentity]
+    postconditions: [causal_scratch_creation_record, scratch_physical_facts, byte_hash_size_match]
     readback: [filesystem_hash_size_mtime]
-    failure_modes: [copy_failure, source_mismatch, partial_scratch]
-    future_owner: B4A
-    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
+    failure_modes: [copy_failure, source_mismatch, partial_scratch, existing_destination]
+    future_owner: B4S
+    architecture_placement: tbdy_engine.integration.etabs_scratch_lifecycle
     reuse_assets: [LIFE-REUSE-003, LIFE-REUSE-009]
     rejected_patterns: [LIFE-REJECT-002, LIFE-REJECT-005]
-    missing_evidence: [final_creation_strategy, live_save_copy_result_preservation]
+    missing_evidence: [live_OS_copy_open_result_preservation]
 
   scratch_open:
     capability_id: LIFE-CAP-003
     api_surface: [SapModel.File.OpenFile(FileName)]
-    current_owner: NONE
+    current_owner: "tbdy_engine.integration.etabs_scratch_lifecycle (semantic) + tbdy_engine.etabs.oapi.file_lifecycle (factual ABI)"
     historical_owners: [G0_PROPOSAL_ONLY]
     read_or_write: WRITE_STATE_TRANSITION
     analysis_affecting: UNKNOWN
     source_mutation_risk: HIGH
-    current_wrapper: NONE
-    live_verified: false
-    preconditions: [SCRATCH_CREATED, source_physical_pre_state]
-    postconditions: [active_model_path_equals_scratch, source_physical_unchanged]
-    readback: [SapModel.GetModelFilename(True), SapModel.GetModelIsLocked()]
-    failure_modes: [nonzero_return, wrong_active_path, source_integrity_mismatch]
-    future_owner: B4A
-    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
+    current_wrapper: PRESENT
+    live_verified: OFFLINE_IMPLEMENTED_LIVE_ACCEPTANCE_REQUIRED
+    preconditions: [SCRATCH_CREATED, source_physical_pre_state, B4T_bounded_mutation_transport]
+    postconditions: [open_ret_zero, active_model_path_equals_scratch, source_physical_unchanged, owned_scratch_context_issued]
+    readback: [SapModel.GetModelFilename(True), source_filesystem_hash_size_mtime]
+    failure_modes: [exception, nonzero_return, wrong_active_path, source_integrity_mismatch, unknown_ABI_shape]
+    future_owner: B4S
+    architecture_placement: "semantic=tbdy_engine.integration.etabs_scratch_lifecycle; factual=tbdy_engine.etabs.oapi.file_lifecycle"
     reuse_assets: [LIFE-REUSE-003]
-    rejected_patterns: [LIFE-REJECT-002]
-    missing_evidence: [active_model_switch_semantics, silent_source_write_behavior]
+    rejected_patterns: [LIFE-REJECT-002, LIFE-REJECT-005]
+    missing_evidence: [live_active_model_switch_semantics, live_silent_source_write_behavior]
 
   file_save_to_path:
     capability_id: LIFE-CAP-004
@@ -398,14 +397,14 @@ state_machine:
     forbidden: [Save, mutation, RunAnalysis, StartDesign]
     next: [SCRATCH_CREATED]
   SCRATCH_CREATED:
-    controller: B4A_SEMANTIC_CONTROLLER
-    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
-    required_evidence: [scratch_creation_attempt_id, parent_source_identity, source_physical_pre, scratch_physical_initial]
+    controller: B4S_SEMANTIC_SCRATCH_LIFECYCLE_CONTROLLER
+    architecture_placement: tbdy_engine.integration.etabs_scratch_lifecycle
+    required_evidence: [parent_source_identity, source_physical_pre, scratch_physical_initial, OS_copy_evidence]
     next: [SCRATCH_OPENED, FAILED_EXECUTION]
   SCRATCH_OPENED:
-    controller: B4A_SEMANTIC_CONTROLLER
-    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
-    required_postconditions: [active_model_path_equals_scratch, source_physical_unchanged, scratch_ownership_qualified]
+    controller: B4S_SEMANTIC_SCRATCH_LIFECYCLE_CONTROLLER
+    architecture_placement: tbdy_engine.integration.etabs_scratch_lifecycle
+    required_postconditions: [open_file_ret_zero, active_model_path_equals_scratch, source_physical_unchanged, scratch_ownership_qualified]
     next: [SCRATCH_MUTATED_UNANALYZED, FAILED_EXECUTION]
   SCRATCH_MUTATED_UNANALYZED:
     controller: B4B_SEMANTIC_CONTROLLER
@@ -433,9 +432,9 @@ state_machine:
     hard_rules: [failed_analysis_no_AnalysisResultIdentity, failed_design_no_DesignResultIdentity, retry_new_execution_attempt, source_integrity_check_mandatory]
     next: [CLEANED_UP]
   CLEANED_UP:
-    controller: B4A_SEMANTIC_CONTROLLER
-    architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
-    required_postconditions: [source_integrity_verified, scratch_deleted_or_audit_retention_recorded, cleanup_result_recorded]
+    controller: B4S_SEMANTIC_SCRATCH_LIFECYCLE_CONTROLLER
+    architecture_placement: tbdy_engine.integration.etabs_scratch_lifecycle
+    required_postconditions: [source_integrity_verified, scratch_deleted_or_preserved_for_evidence, cleanup_result_recorded]
 
 reuse_assets:
   LIFE-REUSE-001: "DedicatedSTAWorker serialized bounded callback transport and deterministic worker lifecycle; transport reuse does not confer analysis/design/scratch authority."
@@ -484,7 +483,12 @@ future_minimum_write_sets:
     status: NEW_REQUIRED
     architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
     semantic_authority: B4A
-    additions: [scratch_lifecycle_controller, physical_source_integrity_proof, causal_scratch_ownership_identity, bounded_file_strategy_after_live_proof, cleanup_failure_disposition]
+    additions: [derived_state_contracts_only]
+  B4S:
+    status: IMPLEMENTED_CANDIDATE_LIVE_ACCEPTANCE_REQUIRED
+    architecture_placement: tbdy_engine.integration.etabs_scratch_lifecycle
+    semantic_authority: B4S
+    additions: [OS_copy_scratch_creation, physical_source_integrity_proof, causal_owned_scratch_context, typed_OAPI_File_OpenFile, active_path_readback_binding, conservative_evidence_preservation]
   B4B:
     status: NEW_REQUIRED
     architecture_placement: FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED
@@ -509,7 +513,7 @@ source_integrity:
   permanent_rule: "PHYSICAL_SOURCE_INTEGRITY != SourceModelIdentity"
 
 research_stop_conditions:
-  File_OpenFile_capability: "NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED"
+  File_OpenFile_capability: "IMPLEMENTED_B4S_CANDIDATE / LIVE_ACCEPTANCE_REQUIRED"
   File_Save_to_path_capability_if_used: "NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED"
   RunAnalysis_capability: "NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED"
   StartDesign_capability: "NEW_REQUIRED / FUTURE_ARCHITECTURE_PLACEMENT_REQUIRED"
