@@ -24,7 +24,9 @@ FORBIDDEN = {
 
 
 def _text(path: Path) -> str:
-    return path.read_text(encoding="utf-8")
+    # The repository contains inherited UTF-8 BOM Python sources.  Architecture
+    # census must parse them without treating unrelated BOM debt as B4B drift.
+    return path.read_text(encoding="utf-8-sig")
 
 
 def test_b4b_production_files_forbid_execution_and_second_com_path():
@@ -47,7 +49,7 @@ def test_raw_frame_modifier_setters_exist_only_in_typed_oapi_module():
     production = ROOT / "tbdy_engine"
     call_sites = []
     for path in production.rglob("*.py"):
-        tree = ast.parse(_text(path))
+        tree = ast.parse(_text(path), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                 if node.func.attr == "SetModifiers":
