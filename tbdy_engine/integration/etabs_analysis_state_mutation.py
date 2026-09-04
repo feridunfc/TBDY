@@ -80,6 +80,7 @@ class MutationRestorationStatus(StrEnum):
     NOT_REQUIRED = "NOT_REQUIRED"
     RESTORED = "RESTORED"
     FAILED = "FAILED"
+    BLOCKED_UNSAFE = "BLOCKED_UNSAFE"
 
 
 def _text(value: object, label: str) -> str:
@@ -397,6 +398,19 @@ def _read_identity(context: TrustedLiveAcquisitionContext):
     return reread_verified_session_identity(context.verified_session)
 
 
+def _active_model_is_owned_scratch(
+    context: TrustedLiveAcquisitionContext,
+    owned_scratch: OwnedScratchContext,
+) -> bool:
+    try:
+        identity = _read_identity(context)
+        return _canonical_model_path(identity.model_full_path) == _canonical_model_path(
+            owned_scratch.scratch_path
+        )
+    except Exception:
+        return False
+
+
 def _require_bindings(
     context: TrustedLiveAcquisitionContext,
     owned_scratch: OwnedScratchContext,
@@ -449,6 +463,7 @@ def _require_source_unchanged(current: PhysicalFileSnapshot, baseline: PhysicalF
 
 def _restoration(
     context: TrustedLiveAcquisitionContext,
+    owned_scratch: OwnedScratchContext,
     before: Mapping[tuple[str, str], FrameModifierReadFact],
     applied: Sequence[tuple[str, str]],
     *,
@@ -456,8 +471,12 @@ def _restoration(
 ) -> MutationRestorationStatus:
     if not applied:
         return MutationRestorationStatus.NOT_REQUIRED
+    if not _active_model_is_owned_scratch(context, owned_scratch):
+        return MutationRestorationStatus.BLOCKED_UNSAFE
     try:
         for key in reversed(tuple(applied)):
+            if not _active_model_is_owned_scratch(context, owned_scratch):
+                return MutationRestorationStatus.BLOCKED_UNSAFE
             original = before[key]
             setter = set_frame_modifiers_from_session(
                 context.verified_session,
@@ -484,6 +503,7 @@ def _restoration(
 def _raise_with_restoration(
     *,
     context: TrustedLiveAcquisitionContext,
+    owned_scratch: OwnedScratchContext,
     before: Mapping[tuple[str, str], FrameModifierReadFact],
     applied: Sequence[tuple[str, str]],
     timeout_seconds: float,
@@ -492,7 +512,13 @@ def _raise_with_restoration(
     details: Mapping[str, object] | None = None,
     cause: BaseException | None = None,
 ) -> None:
-    status = _restoration(context, before, applied, timeout_seconds=timeout_seconds)
+    status = _restoration(
+        context,
+        owned_scratch,
+        before,
+        applied,
+        timeout_seconds=timeout_seconds,
+    )
     error = AnalysisStateMutationError(
         message,
         stage=stage,
@@ -543,6 +569,9 @@ def establish_frame_modifier_analysis_state(
     mutations: list[FrameModifierMutationFact] = []
     try:
         for target in targets:
+            # Mark the target before entering the setter because an exception can
+            # occur after ETABS has partially or fully applied the mutation.
+            applied.append(target.key)
             setter = set_frame_modifiers_from_session(
                 context.verified_session,
                 surface=target.surface,
@@ -550,10 +579,10 @@ def establish_frame_modifier_analysis_state(
                 modifiers=target.modifiers,
                 timeout_seconds=timeout,
             )
-            applied.append(target.key)
             if not setter.success:
                 _raise_with_restoration(
                     context=context,
+                    owned_scratch=owned_scratch,
                     before=before,
                     applied=applied,
                     timeout_seconds=timeout,
@@ -570,6 +599,7 @@ def establish_frame_modifier_analysis_state(
             if not after.success:
                 _raise_with_restoration(
                     context=context,
+                    owned_scratch=owned_scratch,
                     before=before,
                     applied=applied,
                     timeout_seconds=timeout,
@@ -583,6 +613,7 @@ def establish_frame_modifier_analysis_state(
     except Exception as exc:
         _raise_with_restoration(
             context=context,
+            owned_scratch=owned_scratch,
             before=before,
             applied=applied,
             timeout_seconds=timeout,
@@ -591,100 +622,153 @@ def establish_frame_modifier_analysis_state(
             cause=exc,
         )
 
-    identity_after = _read_identity(context)
-    if _canonical_model_path(identity_after.model_full_path) != _canonical_model_path(owned_scratch.scratch_path):
+    try:
+        try:
+            identity_after = _read_identity(context)
+        except Exception as exc:
+            _raise_with_restoration(
+                context=context,
+                owned_scratch=owned_scratch,
+                before=before,
+                applied=applied,
+                timeout_seconds=timeout,
+                stage="active_scratch_postcondition_read_failed",
+                message="active ETABS model could not be re-read after B4B mutation",
+                cause=exc,
+            )
+        if _canonical_model_path(identity_after.model_full_path) != _canonical_model_path(owned_scratch.scratch_path):
+            _raise_with_restoration(
+                context=context,
+                owned_scratch=owned_scratch,
+                before=before,
+                applied=applied,
+                timeout_seconds=timeout,
+                stage="active_scratch_postcondition",
+                message="active ETABS model changed away from the owned scratch during B4B",
+                details={"active_model_path": identity_after.model_full_path},
+            )
+
+        try:
+            source_after = capture_physical_file_snapshot(owned_scratch.source_pre.canonical_absolute_path)
+        except Exception as exc:
+            _raise_with_restoration(
+                context=context,
+                owned_scratch=owned_scratch,
+                before=before,
+                applied=applied,
+                timeout_seconds=timeout,
+                stage="source_post_mutation_snapshot_failed",
+                message="protected source physical state could not be re-read after B4B mutation",
+                cause=exc,
+            )
+        if not _same_physical_bytes(source_before, source_after):
+            _raise_with_restoration(
+                context=context,
+                owned_scratch=owned_scratch,
+                before=before,
+                applied=applied,
+                timeout_seconds=timeout,
+                stage="source_post_mutation_integrity",
+                message="protected source physical bytes changed during B4B mutation",
+                details={"before_sha256": source_before.sha256_content_digest, "after_sha256": source_after.sha256_content_digest},
+            )
+
+        mutation_manifest = AnalysisStateMutationManifest(
+            source_model_ref=context.source_model_identity.source_model_ref,
+            ownership_proof_ref=owned_scratch.ownership_proof_ref,
+            requested_manifest_ref=requested_manifest.manifest_ref,
+            active_model_path_before=identity_before.model_full_path,
+            active_model_path_after=identity_after.model_full_path,
+            model_locked_before=identity_before.model_locked,
+            model_locked_after=identity_after.model_locked,
+            source_before=source_before,
+            source_after=source_after,
+            mutations=tuple(mutations),
+        )
+
+        readback_targets = [
+            {"surface": item.surface.value, "target_name": item.target_name, "modifiers": item.after.modifiers.as_list()}
+            for item in mutations
+        ]
+        requested_entry = requested_manifest.entries[0]
+        established_entry = _establish_derived_state_from_verified_readback(
+            _issuer_token=_POSITIVE_ESTABLISHMENT_ISSUER_TOKEN,
+            family=DerivedStateFamily.SECTION_STIFFNESS_MODIFIERS,
+            readback_value={"contract": FRAME_MODIFIER_PLAN_CONTRACT, "targets": readback_targets},
+            readback_evidence_refs=tuple(item.after.evidence_ref for item in mutations),
+            normalization=requested_entry.normalization,
+            provenance_refs=(
+                owned_scratch.ownership_proof_ref,
+                mutation_manifest.manifest_ref,
+                context.acquisition_context_ref,
+                context.session_provenance_ref,
+            ),
+        )
+        established_manifest = EstablishedDerivedStateManifest(
+            source_model_ref=context.source_model_identity.source_model_ref,
+            entries=(established_entry,),
+            provenance_refs=(owned_scratch.ownership_proof_ref, mutation_manifest.manifest_ref),
+        )
+        comparison = compare_derived_state_manifests(
+            requested_manifest,
+            established_manifest,
+            provenance_refs=(mutation_manifest.manifest_ref,),
+        )
+
+        if not comparison.matched or not comparison.exact_causal_family_population:
+            _raise_with_restoration(
+                context=context,
+                owned_scratch=owned_scratch,
+                before=before,
+                applied=applied,
+                timeout_seconds=timeout,
+                stage="requested_vs_readback_mismatch",
+                message="requested frame modifier state does not match factual ETABS readback",
+                details={"comparison_ref": comparison.comparison_ref, "comparison_status": comparison.status.value},
+            )
+
+        analysis_state = build_analysis_state_identity_from_derived_state(
+            comparison=comparison,
+            state_basis_refs=(owned_scratch.ownership_proof_ref, requested_manifest.manifest_ref, mutation_manifest.manifest_ref),
+            provenance_refs=(
+                context.acquisition_context_ref,
+                context.session_provenance_ref,
+                owned_scratch.ownership_proof_ref,
+                mutation_manifest.manifest_ref,
+            ),
+        )
+        return AnalysisStateMutationResult(
+            requested_manifest=requested_manifest,
+            mutation_manifest=mutation_manifest,
+            established_manifest=established_manifest,
+            comparison=comparison,
+            analysis_state_identity=analysis_state,
+        )
+    except AnalysisStateMutationError as exc:
+        if exc.restoration_status != MutationRestorationStatus.NOT_REQUIRED.value:
+            raise
         _raise_with_restoration(
             context=context,
+            owned_scratch=owned_scratch,
             before=before,
             applied=applied,
             timeout_seconds=timeout,
-            stage="active_scratch_postcondition",
-            message="active ETABS model changed away from the owned scratch during B4B",
-            details={"active_model_path": identity_after.model_full_path},
+            stage="post_mutation_qualification_error",
+            message="B4B post-mutation qualification failed before positive AnalysisStateIdentity issuance",
+            details={"inner_stage": exc.stage},
+            cause=exc,
         )
-
-    source_after = capture_physical_file_snapshot(owned_scratch.source_pre.canonical_absolute_path)
-    if not _same_physical_bytes(source_before, source_after):
+    except Exception as exc:
         _raise_with_restoration(
             context=context,
+            owned_scratch=owned_scratch,
             before=before,
             applied=applied,
             timeout_seconds=timeout,
-            stage="source_post_mutation_integrity",
-            message="protected source physical bytes changed during B4B mutation",
-            details={"before_sha256": source_before.sha256_content_digest, "after_sha256": source_after.sha256_content_digest},
+            stage="post_mutation_qualification_exception",
+            message="B4B post-mutation qualification raised an unexpected error",
+            cause=exc,
         )
-
-    mutation_manifest = AnalysisStateMutationManifest(
-        source_model_ref=context.source_model_identity.source_model_ref,
-        ownership_proof_ref=owned_scratch.ownership_proof_ref,
-        requested_manifest_ref=requested_manifest.manifest_ref,
-        active_model_path_before=identity_before.model_full_path,
-        active_model_path_after=identity_after.model_full_path,
-        model_locked_before=identity_before.model_locked,
-        model_locked_after=identity_after.model_locked,
-        source_before=source_before,
-        source_after=source_after,
-        mutations=tuple(mutations),
-    )
-
-    readback_targets = [
-        {"surface": item.surface.value, "target_name": item.target_name, "modifiers": item.after.modifiers.as_list()}
-        for item in mutations
-    ]
-    requested_entry = requested_manifest.entries[0]
-    established_entry = _establish_derived_state_from_verified_readback(
-        _issuer_token=_POSITIVE_ESTABLISHMENT_ISSUER_TOKEN,
-        family=DerivedStateFamily.SECTION_STIFFNESS_MODIFIERS,
-        readback_value={"contract": FRAME_MODIFIER_PLAN_CONTRACT, "targets": readback_targets},
-        readback_evidence_refs=tuple(item.after.evidence_ref for item in mutations),
-        normalization=requested_entry.normalization,
-        provenance_refs=(
-            owned_scratch.ownership_proof_ref,
-            mutation_manifest.manifest_ref,
-            context.acquisition_context_ref,
-            context.session_provenance_ref,
-        ),
-    )
-    established_manifest = EstablishedDerivedStateManifest(
-        source_model_ref=context.source_model_identity.source_model_ref,
-        entries=(established_entry,),
-        provenance_refs=(owned_scratch.ownership_proof_ref, mutation_manifest.manifest_ref),
-    )
-    comparison = compare_derived_state_manifests(
-        requested_manifest,
-        established_manifest,
-        provenance_refs=(mutation_manifest.manifest_ref,),
-    )
-
-    if not comparison.matched or not comparison.exact_causal_family_population:
-        _raise_with_restoration(
-            context=context,
-            before=before,
-            applied=applied,
-            timeout_seconds=timeout,
-            stage="requested_vs_readback_mismatch",
-            message="requested frame modifier state does not match factual ETABS readback",
-            details={"comparison_ref": comparison.comparison_ref, "comparison_status": comparison.status.value},
-        )
-
-    analysis_state = build_analysis_state_identity_from_derived_state(
-        comparison=comparison,
-        state_basis_refs=(owned_scratch.ownership_proof_ref, requested_manifest.manifest_ref, mutation_manifest.manifest_ref),
-        provenance_refs=(
-            context.acquisition_context_ref,
-            context.session_provenance_ref,
-            owned_scratch.ownership_proof_ref,
-            mutation_manifest.manifest_ref,
-        ),
-    )
-    return AnalysisStateMutationResult(
-        requested_manifest=requested_manifest,
-        mutation_manifest=mutation_manifest,
-        established_manifest=established_manifest,
-        comparison=comparison,
-        analysis_state_identity=analysis_state,
-    )
 
 
 __all__ = [
