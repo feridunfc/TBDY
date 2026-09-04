@@ -1,7 +1,7 @@
 schema_version: "B4B-LIFE-AMENDMENT-1.0"
 status: "IMPLEMENTED_CANDIDATE_LIVE_ACCEPTED"
 base_sha: "7f5d355dcf808aa9b70b3a8330028ed2f8de38ee"
-accepted_candidate_sha: "25f259e1e118bb68905989c6800a9111c31b614a"
+production_code_live_acceptance_sha: "25f259e1e118bb68905989c6800a9111c31b614a"
 
 supersedes_research_placeholders:
   source: docs/architecture/ETABS_EXECUTION_LIFECYCLE_MATRIX.yaml
