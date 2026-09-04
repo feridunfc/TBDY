@@ -107,12 +107,16 @@ def harness(monkeypatch):
         "nonzero_target": None,
         "nonzero_emitted": False,
         "ignore_target": None,
+        "raise_target": None,
+        "raise_emitted": False,
+        "switch_active_after_target": None,
     }
 
     def set_fact(_session, *, surface, target_name, modifiers, timeout_seconds=30.0):
+        target_key = key(surface, target_name)
         calls.append(("SET", surface.value, target_name, modifiers.as_tuple()))
         if (
-            setter_behavior["nonzero_target"] == key(surface, target_name)
+            setter_behavior["nonzero_target"] == target_key
             and not setter_behavior["nonzero_emitted"]
         ):
             setter_behavior["nonzero_emitted"] = True
@@ -122,8 +126,16 @@ def harness(monkeypatch):
                 requested_modifiers=modifiers,
                 return_code=9,
             )
-        if setter_behavior["ignore_target"] != key(surface, target_name):
-            values[key(surface, target_name)] = modifiers
+        if setter_behavior["ignore_target"] != target_key:
+            values[target_key] = modifiers
+        if (
+            setter_behavior["raise_target"] == target_key
+            and not setter_behavior["raise_emitted"]
+        ):
+            setter_behavior["raise_emitted"] = True
+            raise RuntimeError("simulated setter exception after possible side effect")
+        if setter_behavior["switch_active_after_target"] == target_key:
+            identity_state["path"] = r"C:\tmp\unexpected-other-model.edb"
         return FrameModifierSetFact(
             surface=surface,
             target_name=target_name,
@@ -279,6 +291,52 @@ def test_nonzero_second_setter_restores_first_and_second_targets(harness):
     assert exc.value.restoration_status == subject.MutationRestorationStatus.RESTORED.value
     assert harness.values[first.key].as_tuple() == _vector(1.0, 1.0).as_tuple()
     assert harness.values.get(second.key, _vector(1.0, 1.0)).as_tuple() == _vector(1.0, 1.0).as_tuple()
+
+
+def test_setter_exception_restores_current_target_conservatively(harness):
+    target = subject.FrameModifierTargetRequest(
+        surface=FrameModifierSurface.FRAME_OBJECT,
+        target_name="F1",
+        modifiers=_vector(0.25, 0.30),
+    )
+    manifest = _manifest(harness, (target,))
+    harness.setter_behavior["raise_target"] = target.key
+
+    with pytest.raises(subject.AnalysisStateMutationError) as exc:
+        subject.establish_frame_modifier_analysis_state(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            requested_manifest=manifest,
+        )
+
+    assert exc.value.stage == "mutation_exception"
+    assert exc.value.restoration_status == subject.MutationRestorationStatus.RESTORED.value
+    assert harness.values[target.key].as_tuple() == _vector(1.0, 1.0).as_tuple()
+    set_calls = [call for call in harness.calls if call[0] == "SET"]
+    assert len(set_calls) == 2
+
+
+def test_active_model_drift_blocks_restoration_without_touching_other_model(harness):
+    target = subject.FrameModifierTargetRequest(
+        surface=FrameModifierSurface.FRAME_OBJECT,
+        target_name="F1",
+        modifiers=_vector(0.25, 0.30),
+    )
+    manifest = _manifest(harness, (target,))
+    harness.setter_behavior["switch_active_after_target"] = target.key
+
+    with pytest.raises(subject.AnalysisStateMutationError) as exc:
+        subject.establish_frame_modifier_analysis_state(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            requested_manifest=manifest,
+        )
+
+    assert exc.value.stage == "active_scratch_postcondition"
+    assert exc.value.restoration_status == subject.MutationRestorationStatus.BLOCKED_UNSAFE.value
+    set_calls = [call for call in harness.calls if call[0] == "SET"]
+    assert len(set_calls) == 1
+    assert harness.values[target.key].as_tuple() == target.modifiers.as_tuple()
 
 
 def test_readback_mismatch_restores_and_never_issues_analysis_state(harness):
