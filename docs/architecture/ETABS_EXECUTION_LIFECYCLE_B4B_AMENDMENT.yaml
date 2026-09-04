@@ -1,0 +1,128 @@
+schema_version: "B4B-LIFE-AMENDMENT-1.0"
+status: "IMPLEMENTED_CANDIDATE_LIVE_ACCEPTED"
+base_sha: "7f5d355dcf808aa9b70b3a8330028ed2f8de38ee"
+accepted_candidate_sha: "25f259e1e118bb68905989c6800a9111c31b614a"
+
+supersedes_research_placeholders:
+  source: docs/architecture/ETABS_EXECUTION_LIFECYCLE_MATRIX.yaml
+  fields:
+    - capabilities.analysis_mutation_writer
+    - state_machine.SCRATCH_MUTATED_UNANALYZED
+    - future_minimum_write_sets.B4B
+    - research_stop_conditions.analysis_mutation_writers
+  rule: "This amendment supersedes only the listed B4B research placeholders; all unrelated lifecycle-matrix entries remain unchanged."
+
+architecture_placement:
+  factual_abi: tbdy_engine.etabs.oapi.frame_modifiers
+  semantic_authority: tbdy_engine.integration.etabs_analysis_state_mutation
+  transport: packages.etabs_gateway.mutation_transport
+  scratch_precondition: tbdy_engine.integration.etabs_scratch_lifecycle.OwnedScratchContext
+  derived_state_contract: tbdy_engine.integration.etabs_derived_state
+  analysis_state_identity: tbdy_engine.integration.etabs_analysis_lineage.AnalysisStateIdentity
+
+implemented_scope:
+  derived_state_family: SECTION_STIFFNESS_MODIFIERS
+  typed_surfaces:
+    FRAME_OBJECT:
+      getter: SapModel.FrameObj.GetModifiers
+      setter: SapModel.FrameObj.SetModifiers
+      targeting: eItemType.Objects
+      live_acceptance: PASS
+    FRAME_SECTION_PROPERTY:
+      getter: SapModel.PropFrame.GetModifiers
+      setter: SapModel.PropFrame.SetModifiers
+      live_acceptance: NOT_RUN
+  lifecycle:
+    - exact OwnedScratchContext binding
+    - protected-source byte-integrity check before mutation
+    - typed pre-GET factual read
+    - typed SET through existing B4T STA transport
+    - setter return-code qualification
+    - typed direct GET readback
+    - requested-versus-established comparison
+    - mutation manifest
+    - logical invalidation of prior analysis-result identities
+    - logical invalidation of prior design-result identities
+    - positive EstablishedDerivedState issuance through existing B4A private seam
+    - AnalysisStateIdentity issuance through existing B4A helper
+    - protected-source byte-integrity check after mutation
+
+fail_closed_rules:
+  - unsupported derived-state family issues no positive established state
+  - nonzero setter result issues no AnalysisStateIdentity
+  - nonzero getter/readback result issues no AnalysisStateIdentity
+  - ABI decode ambiguity issues no AnalysisStateIdentity
+  - requested/readback mismatch issues no AnalysisStateIdentity
+  - active-model mismatch issues no AnalysisStateIdentity
+  - protected-source byte mismatch issues no AnalysisStateIdentity
+  - restoration may execute only while the active model is still the exact owned scratch
+  - unsafe restoration is blocked rather than mutating an unverified active model
+
+explicit_non_scope:
+  - SapModel.SetModelIsLocked
+  - SapModel.Analyze.SetRunCaseFlag
+  - SapModel.Analyze.RunAnalysis
+  - SapModel.Analyze.DeleteResults
+  - SapModel.DesignConcrete.StartDesign
+  - SapModel.SetPresentUnits
+  - SapModel.File.Save
+  - AnalysisResultIdentity issuance
+  - DesignResultIdentity issuance
+  - engineering selection of numeric stiffness modifiers
+  - effective object-property modifier composition
+
+not_implemented_in_b4b_r1:
+  derived_state_families:
+    - MASS_SOURCE
+    - MODAL_CASE_SETUP
+    - ANALYSIS_OPTIONS
+  area_object_modifiers:
+    status: DEFERRED
+    reason: "AreaObj modifier-vector semantics are not proven from the supplied ETABS v23.2 OAPI documentation."
+  frame_section_property_live_acceptance:
+    status: PENDING_IF_REQUIRED
+    note: "Offline factual ABI and lifecycle support exists, but the accepted live gate exercised FRAME_OBJECT only. Do not promote PropFrame runtime behavior beyond that evidence."
+
+live_acceptance:
+  result: PASS
+  etabs_program: ETABS
+  etabs_version: "23.2.0"
+  exact_process_attach: true
+  attach_strategy: comtypes_create_helper_get_object_process
+  protected_source_sha256_before: a648262e40951084eed8d5835672ac0bd37992fe4c42db040abbd1ff4697482e
+  protected_source_sha256_after: a648262e40951084eed8d5835672ac0bd37992fe4c42db040abbd1ff4697482e
+  protected_source_size_before: 3446606
+  protected_source_size_after: 3446606
+  source_bytes_unchanged: true
+  fresh_owned_scratch: true
+  surface: FRAME_OBJECT
+  target_selection_semantics: TEST_ONLY_DETERMINISTIC_NOT_ENGINEERING_AUTHORITY
+  baseline_modifiers: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+  requested_modifiers: [1.0, 1.0, 1.0, 1.0, 0.987654321, 0.97654321, 1.0, 1.0]
+  readback_modifiers: [1.0, 1.0, 1.0, 1.0, 0.987654321, 0.97654321, 1.0, 1.0]
+  setter_return_code: 0
+  getter_return_code: 0
+  model_locked_before: false
+  model_locked_after: false
+  requested_manifest_ref: "derived-state-request:sha256:9c0d9b617ae5f434cfdb8ff9f43b9582694bbe4e5e630705eb7f090e3f358b73"
+  mutation_manifest_ref: "b4b-analysis-state-mutation:sha256:866a3142c83c25aa767ce14502df78e8aef76c032a892480e2e2b90fae955ab7"
+  established_manifest_ref: "derived-state-established:sha256:bfc055f65aa3d656709ada8958b48f3bb1c100886d04ef56223d667d53989d60"
+  comparison_ref: "derived-state-comparison:sha256:3917bb78ce1b07ab8a8ed97b320c6c1bc2a28eaf4416a06100a3bf0d4c5ec60b"
+  analysis_state_identity: "analysis-state:sha256:da92984b89a38f8b61801d3acabe3f64f8dd6170b6016dc00661cb7718732706"
+  run_analysis_executed: false
+  start_design_executed: false
+  delete_results_executed: false
+  set_model_is_locked_executed: false
+  save_executed: false
+
+next_serial_owner:
+  sprint: B5
+  meaning: ANALYSIS-EXEC-1
+  required_input: "B4B-qualified AnalysisStateIdentity on an owned scratch"
+  required_additions:
+    - Analyze.GetRunCaseFlag capability
+    - Analyze.SetRunCaseFlag capability
+    - controlled Analyze.RunAnalysis
+    - case-status qualification
+    - explicit DeleteResults policy disposition if needed
+    - sole trusted AnalysisResultIdentity issuance
