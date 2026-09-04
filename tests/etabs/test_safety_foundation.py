@@ -25,6 +25,8 @@ from tbdy_engine.etabs.safety import (
     read_analysis_readiness,
     read_capability_snapshot,
     read_etabs_unit_snapshot,
+    read_session_identity,
+    verify_target_model,
 )
 from tbdy_engine.features.etabs_com_attach import (
     STRATEGY_COMTYPES_HELPER_GET_OBJECT_PROCESS,
@@ -87,6 +89,26 @@ class FakeSap:
     def SetPresentUnits(self, value):
         self.set_present_units_calls += 1
         raise AssertionError("canonical acquisition must not call SetPresentUnits")
+
+
+class FakeEtabs23ModelReferenceSap(FakeSap):
+    def __init__(
+        self,
+        *,
+        model_filename: str | None = "1.EDB",
+        model_filepath: str | None = "C:\\tmp\\",
+    ):
+        super().__init__(r"C:\tmp\1.EDB")
+        self.model_filename = model_filename
+        self.model_filepath = model_filepath
+        self.get_model_filename_calls = []
+
+    def GetModelFilename(self, include_path=True):
+        self.get_model_filename_calls.append(include_path)
+        return r"C:\tmp\1.$et" if include_path else self.model_filename
+
+    def GetModelFilepath(self):
+        return self.model_filepath
 
 
 class FakeEtabsObject:
@@ -185,6 +207,105 @@ def test_exact_target_identity_accepted():
     assert session.identity.model_locked is True
     assert session.identity.program_version == "22.7.0"
     session.close()
+
+
+def test_etabs23_model_reference_reconstructs_from_filename_leaf_and_filepath():
+    sap = FakeEtabs23ModelReferenceSap()
+
+    identity = read_session_identity(FakeEtabsObject(sap), sap)
+
+    assert identity.model_full_path == r"C:\tmp\1.EDB"
+    assert sap.get_model_filename_calls == [False]
+
+
+def test_etabs23_reconstructed_model_reference_verifies_exact_target():
+    sap = FakeEtabs23ModelReferenceSap()
+    identity = read_session_identity(FakeEtabsObject(sap), sap)
+
+    verify_target_model(identity, r"C:\tmp\1.EDB")
+
+
+def test_include_path_true_result_is_not_consulted_for_reference_resolution():
+    sap = FakeEtabs23ModelReferenceSap()
+
+    identity = read_session_identity(FakeEtabsObject(sap), sap)
+
+    assert identity.model_full_path == r"C:\tmp\1.EDB"
+    assert sap.get_model_filename_calls == [False]
+
+
+@pytest.mark.parametrize(
+    ("model_filename", "model_filepath"),
+    [
+        (None, "C:\\tmp\\"),
+        ("1.EDB", None),
+    ],
+)
+def test_missing_model_filename_filepath_pair_fails_closed(
+    model_filename,
+    model_filepath,
+):
+    sap = FakeEtabs23ModelReferenceSap(
+        model_filename=model_filename,
+        model_filepath=model_filepath,
+    )
+
+    with pytest.raises(EtabsCapabilityError) as caught:
+        read_session_identity(FakeEtabsObject(sap), sap)
+
+    assert caught.value.code is EtabsSafetyErrorCode.SESSION_IDENTITY_UNAVAILABLE
+    assert sap.get_model_filename_calls == [False]
+
+
+
+@pytest.mark.parametrize(
+    "model_filename",
+    [
+        r"C:\tmp\1.EDB",
+        r"subdir\1.EDB",
+        ".",
+        "..",
+    ],
+)
+def test_path_qualified_or_ambiguous_filename_leaf_fails_closed(model_filename):
+    sap = FakeEtabs23ModelReferenceSap(model_filename=model_filename)
+
+    with pytest.raises(EtabsCapabilityError) as caught:
+        read_session_identity(FakeEtabsObject(sap), sap)
+
+    assert caught.value.code is EtabsSafetyErrorCode.SESSION_IDENTITY_UNAVAILABLE
+    assert sap.get_model_filename_calls == [False]
+
+
+@pytest.mark.parametrize(
+    "model_filepath",
+    [
+        "tmp",
+        r"C:tmp",
+    ],
+)
+def test_non_absolute_model_filepath_fails_closed(model_filepath):
+    sap = FakeEtabs23ModelReferenceSap(model_filepath=model_filepath)
+
+    with pytest.raises(EtabsCapabilityError) as caught:
+        read_session_identity(FakeEtabsObject(sap), sap)
+
+    assert caught.value.code is EtabsSafetyErrorCode.SESSION_IDENTITY_UNAVAILABLE
+    assert sap.get_model_filename_calls == [False]
+
+
+def test_model_reference_resolution_never_substitutes_file_extension():
+    sap = FakeEtabs23ModelReferenceSap(model_filename=r"1.$et")
+
+    identity = read_session_identity(FakeEtabsObject(sap), sap)
+
+    assert identity.model_full_path == r"C:\tmp\1.$et"
+    assert sap.get_model_filename_calls == [False]
+
+    with pytest.raises(EtabsIdentityMismatchError) as caught:
+        verify_target_model(identity, r"C:\tmp\1.EDB")
+
+    assert caught.value.code is EtabsSafetyErrorCode.ATTACHED_MODEL_MISMATCH
 
 
 def test_wrong_model_is_hard_failure_with_stable_code():
