@@ -468,29 +468,46 @@ def _read_program_info(sap_model: Any) -> tuple[str | None, str | None, str | No
 
 
 def _read_model_full_path(sap_model: Any) -> str:
+    """Reconstruct the exact ETABS model reference from bounded filename/path facts.
+
+    This compatibility boundary deliberately uses ``GetModelFilename(False)``
+    together with ``GetModelFilepath()``. It accepts only an unqualified
+    filename leaf plus an absolute Windows directory.
+
+    It does not infer original-file provenance, map file extensions, or treat
+    another ETABS file representation as identity-equivalent.
+    """
     filename: str | None = None
     method = _safe_attr(sap_model, "GetModelFilename")
     if callable(method):
         try:
-            filename = _first_nonempty_string(method(True))
-        except TypeError:
-            try:
-                filename = _first_nonempty_string(method())
-            except Exception:
-                filename = None
+            filename = _first_nonempty_string(method(False))
         except Exception:
             filename = None
 
     filepath = _first_nonempty_string(_read_scalar_method(sap_model, "GetModelFilepath"))
-    if filename and (ntpath.isabs(filename) or ntpath.dirname(filename)):
-        return ntpath.normpath(filename)
-    if filename and filepath:
-        return ntpath.normpath(ntpath.join(filepath, filename))
+    filename_has_path = bool(
+        filename and (ntpath.isabs(filename) or bool(ntpath.dirname(filename)))
+    )
+    filepath_is_absolute = bool(
+        filepath and (ntpath.isabs(filepath) or filepath.startswith("\\\\"))
+    )
+    if (
+        filename
+        and filepath
+        and not filename_has_path
+        and filename not in {".", ".."}
+        and filepath_is_absolute
+    ):
+        model_reference = ntpath.normpath(ntpath.join(filepath, filename))
+        if ntpath.isabs(model_reference) or model_reference.startswith("\\\\"):
+            return model_reference
+
     raise EtabsCapabilityError(
-        "Exact ETABS model full path could not be retrieved.",
+        "Exact ETABS model reference could not be reconstructed from "
+        "GetModelFilename(False) and GetModelFilepath().",
         code=EtabsSafetyErrorCode.SESSION_IDENTITY_UNAVAILABLE,
     )
-
 
 def read_session_identity(
     etabs_object: Any,
