@@ -57,7 +57,10 @@ def harness(monkeypatch):
     monkeypatch.setattr(subject, "TrustedLiveAcquisitionContext", _FakeContext)
     monkeypatch.setattr(subject, "OwnedScratchContext", _FakeOwnedScratch)
 
-    identity_state = {"path": owned.scratch_path, "locked": False}
+    identity_state = {
+        "path": owned.scratch_path,
+        "locked": False,
+    }
 
     def reread(_session):
         return SimpleNamespace(
@@ -75,7 +78,11 @@ def harness(monkeypatch):
         mtime_ns=1,
     )
     monkeypatch.setattr(subject, "PhysicalFileSnapshot", SimpleNamespace)
-    monkeypatch.setattr(subject, "capture_physical_file_snapshot", lambda _path: source_snapshot)
+    monkeypatch.setattr(
+        subject,
+        "capture_physical_file_snapshot",
+        lambda _path: source_snapshot,
+    )
 
     values = {}
     calls = []
@@ -96,11 +103,19 @@ def harness(monkeypatch):
             return_code=0,
         )
 
-    setter_behavior = {"nonzero_target": None, "ignore_target": None}
+    setter_behavior = {
+        "nonzero_target": None,
+        "nonzero_emitted": False,
+        "ignore_target": None,
+    }
 
     def set_fact(_session, *, surface, target_name, modifiers, timeout_seconds=30.0):
         calls.append(("SET", surface.value, target_name, modifiers.as_tuple()))
-        if setter_behavior["nonzero_target"] == key(surface, target_name):
+        if (
+            setter_behavior["nonzero_target"] == key(surface, target_name)
+            and not setter_behavior["nonzero_emitted"]
+        ):
+            setter_behavior["nonzero_emitted"] = True
             return FrameModifierSetFact(
                 surface=surface,
                 target_name=target_name,
@@ -131,7 +146,9 @@ def harness(monkeypatch):
 
 
 def _vector(i22, i33):
-    return FrameModifierVector.from_sequence([1.0, 1.0, 1.0, 1.0, i22, i33, 1.0, 1.0])
+    return FrameModifierVector.from_sequence(
+        [1.0, 1.0, 1.0, 1.0, i22, i33, 1.0, 1.0]
+    )
 
 
 def _manifest(harness, targets):
@@ -153,7 +170,10 @@ def test_request_manifest_is_exact_section_stiffness_family(harness):
             ),
         ),
     )
-    assert manifest.family_set == frozenset({DerivedStateFamily.SECTION_STIFFNESS_MODIFIERS})
+
+    assert manifest.family_set == frozenset(
+        {DerivedStateFamily.SECTION_STIFFNESS_MODIFIERS}
+    )
     assert manifest.entries[0].canonical_value["contract"] == subject.FRAME_MODIFIER_PLAN_CONTRACT
 
 
@@ -171,11 +191,13 @@ def test_successful_b4b_mutation_issues_analysis_state_identity(harness):
         ),
     )
     manifest = _manifest(harness, targets)
+
     result = subject.establish_frame_modifier_analysis_state(
         context=harness.context,
         owned_scratch=harness.owned,
         requested_manifest=manifest,
     )
+
     assert result.comparison.matched is True
     assert result.analysis_state_identity.source_model_ref == harness.context.source_model_identity.source_model_ref
     assert result.analysis_state_identity.execution_state_ref == result.established_manifest.manifest_ref
@@ -196,12 +218,14 @@ def test_wrong_source_request_rejected_before_any_etabs_call(harness):
             ),
         ),
     )
+
     with pytest.raises(subject.AnalysisStateMutationError) as exc:
         subject.establish_frame_modifier_analysis_state(
             context=harness.context,
             owned_scratch=harness.owned,
             requested_manifest=manifest,
         )
+
     assert exc.value.stage == "source_binding"
     assert harness.calls == []
 
@@ -218,12 +242,14 @@ def test_active_model_must_be_exact_owned_scratch(harness):
             ),
         ),
     )
+
     with pytest.raises(subject.AnalysisStateMutationError) as exc:
         subject.establish_frame_modifier_analysis_state(
             context=harness.context,
             owned_scratch=harness.owned,
             requested_manifest=manifest,
         )
+
     assert exc.value.stage == "active_scratch_binding"
     assert harness.calls == []
 
@@ -241,12 +267,14 @@ def test_nonzero_second_setter_restores_first_and_second_targets(harness):
     )
     manifest = _manifest(harness, (first, second))
     harness.setter_behavior["nonzero_target"] = second.key
+
     with pytest.raises(subject.AnalysisStateMutationError) as exc:
         subject.establish_frame_modifier_analysis_state(
             context=harness.context,
             owned_scratch=harness.owned,
             requested_manifest=manifest,
         )
+
     assert exc.value.stage == "setter_nonzero"
     assert exc.value.restoration_status == subject.MutationRestorationStatus.RESTORED.value
     assert harness.values[first.key].as_tuple() == _vector(1.0, 1.0).as_tuple()
@@ -261,12 +289,14 @@ def test_readback_mismatch_restores_and_never_issues_analysis_state(harness):
     )
     manifest = _manifest(harness, (target,))
     harness.setter_behavior["ignore_target"] = target.key
+
     with pytest.raises(subject.AnalysisStateMutationError) as exc:
         subject.establish_frame_modifier_analysis_state(
             context=harness.context,
             owned_scratch=harness.owned,
             requested_manifest=manifest,
         )
+
     assert exc.value.stage == "requested_vs_readback_mismatch"
     assert exc.value.restoration_status == subject.MutationRestorationStatus.RESTORED.value
 
@@ -292,22 +322,28 @@ def test_source_byte_change_fails_closed_and_restores(harness, monkeypatch):
         )
 
     monkeypatch.setattr(subject, "capture_physical_file_snapshot", changing_snapshot)
+
     with pytest.raises(subject.AnalysisStateMutationError) as exc:
         subject.establish_frame_modifier_analysis_state(
             context=harness.context,
             owned_scratch=harness.owned,
             requested_manifest=manifest,
         )
+
     assert exc.value.stage == "source_post_mutation_integrity"
     assert exc.value.restoration_status == subject.MutationRestorationStatus.RESTORED.value
 
 
 def test_only_section_stiffness_modifier_family_is_accepted(harness):
-    other = request_derived_state(family=DerivedStateFamily.MASS_SOURCE, value={"name": "MS1"})
+    other = request_derived_state(
+        family=DerivedStateFamily.MASS_SOURCE,
+        value={"name": "MS1"},
+    )
     manifest = RequestedDerivedStateManifest(
         source_model_ref=harness.context.source_model_identity.source_model_ref,
         entries=(other,),
     )
+
     with pytest.raises(subject.AnalysisStateMutationError, match="only SECTION_STIFFNESS_MODIFIERS"):
         subject.establish_frame_modifier_analysis_state(
             context=harness.context,
