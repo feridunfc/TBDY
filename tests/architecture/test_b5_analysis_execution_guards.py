@@ -14,6 +14,7 @@ B5_OAPI = TBDY / "etabs" / "oapi" / "analysis_execution.py"
 B5_INTEGRATION = TBDY / "integration" / "etabs_analysis_execution.py"
 B4B_INTEGRATION = TBDY / "integration" / "etabs_analysis_state_mutation.py"
 LINEAGE = TBDY / "integration" / "etabs_analysis_lineage.py"
+RESULT_PROVIDER = TBDY / "providers" / "etabs_column_force_result_population_provider.py"
 
 
 def _text(path: Path) -> str:
@@ -54,9 +55,13 @@ def test_runanalysis_has_exactly_one_factual_callsite_and_one_semantic_owner():
     assert _call_sites("RunAnalysis") == [
         ("tbdy_engine/etabs/oapi/analysis_execution.py", "model_api.Analyze.RunAnalysis")
     ]
-    source = _text(B5_INTEGRATION)
-    assert "run_analysis_from_session" in source
-    assert ".RunAnalysis" not in source
+    semantic_calls = [
+        _dotted(node.func).rsplit(".", 1)[-1]
+        for node in ast.walk(_tree(B5_INTEGRATION))
+        if isinstance(node, ast.Call)
+    ]
+    assert semantic_calls.count("run_analysis_from_session") == 1
+    assert "RunAnalysis" not in semantic_calls
     assert "RunAnalysis(" not in _text(B4B_INTEGRATION)
 
 
@@ -93,7 +98,7 @@ def test_b5_factual_oapi_reuses_b4t_and_semantic_owner_never_imports_b4t():
     assert "_execute_bounded_model_mutation" not in semantic
 
 
-def test_private_b1_positive_lineage_seam_is_consumed_only_by_b5_execution_owner():
+def test_b1_private_factories_remain_private_and_narrow_issuer_has_one_consumer():
     private_symbols = {
         "_EXECUTION_PROOF_FACTORY_TOKEN",
         "_QUALIFICATION_FACTORY_TOKEN",
@@ -102,14 +107,21 @@ def test_private_b1_positive_lineage_seam_is_consumed_only_by_b5_execution_owner
     }
     offenders: dict[str, set[str]] = {}
     for path in _production_files():
-        if path == LINEAGE or path == B5_INTEGRATION:
+        if path == LINEAGE:
             continue
         used = private_symbols.intersection(_text(path))
         if used:
             offenders[path.relative_to(ROOT).as_posix()] = used
     assert offenders == {}
-    b5_source = _text(B5_INTEGRATION)
-    assert private_symbols.issubset(set(symbol for symbol in private_symbols if symbol in b5_source))
+
+    issuer = "issue_qualified_analysis_lineage_from_controlled_execution"
+    assert _call_sites(issuer) == [
+        (
+            "tbdy_engine/integration/etabs_analysis_execution.py",
+            issuer,
+        )
+    ]
+    assert issuer in _text(LINEAGE)
 
 
 def test_b5_public_execution_input_contains_intent_not_caller_truth_authority():
@@ -129,6 +141,7 @@ def test_b5_public_execution_input_contains_intent_not_caller_truth_authority():
         "attempt_ref",
         "qualification",
         "result_population",
+        "expected_column_unique_names",
         "evidence_epoch",
         "model_fingerprint",
     }
@@ -141,7 +154,7 @@ def test_b5_requires_concrete_b4b_positive_result_not_naked_identity():
     assert "a naked AnalysisStateIdentity is not accepted" in source
 
 
-def test_b5_freezes_scope_before_run_and_forbids_subset_salvage_shape():
+def test_b5_freezes_case_and_required_population_scope_before_run():
     tree = _tree(B5_INTEGRATION)
     function = next(
         node
@@ -162,6 +175,13 @@ def test_b5_freezes_scope_before_run_and_forbids_subset_salvage_shape():
     source = ast.get_source_segment(_text(B5_INTEGRATION), function) or ""
     assert "successful_subset" not in source
     assert "result_scope_refs=scope.result_scope_refs" in source
+    assert "capture_column_force_population_expectation_from_session" in source
+    assert source.index("capture_column_force_population_expectation_from_session") < source.index(
+        "run_analysis_from_session"
+    )
+    assert source.index("capture_column_force_result_population_from_session") > source.index(
+        "run_analysis_from_session"
+    )
 
 
 def test_b5_stale_result_policy_is_explicit_all_case_delete_before_run():
@@ -170,7 +190,41 @@ def test_b5_stale_result_policy_is_explicit_all_case_delete_before_run():
     run_pos = source.index("run_analysis_from_session(")
     assert delete_pos < run_pos
     assert "all_cases=True" in source[delete_pos:run_pos]
-    assert "AnalysisReadiness.ANALYSIS_NOT_RUN" in source[delete_pos:run_pos]
+    assert "CSI_ANALYSIS_STATUS_NOT_RUN" in source[delete_pos:run_pos]
+
+
+def test_b5_result_population_provider_is_session_bound_and_no_raw_capability_escapes():
+    provider = _text(RESULT_PROVIDER)
+    semantic = _text(B5_INTEGRATION)
+    assert "fetch_display_table_from_session" in provider
+    assert "fetch_display_table_for_output_from_session" in provider
+    assert "EtabsVerifiedSession" in provider
+    assert "sap_model" not in provider
+    assert "database_tables" not in provider
+    assert "SapModel" not in semantic
+    assert "DatabaseTables" not in semantic
+
+    tree = _tree(RESULT_PROVIDER)
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and not node.name.startswith("_"):
+            arg_names = {
+                arg.arg
+                for arg in (*node.args.posonlyargs, *node.args.args, *node.args.kwonlyargs)
+            }
+            assert "sap_model" not in arg_names
+            assert "database_tables" not in arg_names
+            assert "rows" not in arg_names
+            assert "fetcher" not in arg_names
+            assert "callback" not in arg_names
+
+
+def test_b5_result_scope_is_bound_to_exact_required_population_contract():
+    source = _text(B5_INTEGRATION)
+    assert "COLUMN_FORCE_RESULT_POPULATION_CONTRACT" in source
+    assert "TABLE_COLUMN_FORCES" in source
+    assert "result_population_expectation" in source
+    assert "result_populations" in source
+    assert "result_population_refs" in source
 
 
 def test_b5_oapi_exports_no_raw_model_or_generic_callback_capability():
