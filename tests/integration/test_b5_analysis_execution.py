@@ -7,6 +7,9 @@ import pytest
 import tbdy_engine.integration.etabs_analysis_execution as subject
 from tbdy_engine.etabs.oapi.analysis_execution import (
     CaseStatusPopulationFact,
+    DefinedAnalysisCasePopulationFact,
+    EtabsRuntimeVersionFact,
+    LoadCaseTypeRuntimeFact,
     DeleteAnalysisResultsFact,
     RunAnalysisFact,
     RunCaseFlagSetFact,
@@ -124,6 +127,14 @@ def harness(monkeypatch):
         "expectation_error": None,
         "population_error_cases": set(),
         "population_calls": [],
+        "retire_after_run": set(),
+        "runtime_auto_codes": {
+            "DEAD": 0,
+            "MODAL": 0,
+            "EX": 0,
+        },
+        "runtime_program_version": "23.2.0",
+        "runtime_internal_version": 0.0,
     }
 
     def identity(_session, *, timeout_seconds=30.0):
@@ -204,6 +215,44 @@ def harness(monkeypatch):
             return_code=0,
         )
 
+    def defined_fact(_session, *, timeout_seconds=30.0):
+        return DefinedAnalysisCasePopulationFact(
+            case_names=tuple(state["run_flags"]),
+            return_code=0,
+        )
+
+    def runtime_version_fact(
+        _session,
+        *,
+        timeout_seconds=30.0,
+    ):
+        return EtabsRuntimeVersionFact(
+            program_version=state["runtime_program_version"],
+            internal_version_number=state[
+                "runtime_internal_version"
+            ],
+            return_code=0,
+        )
+
+    def runtime_type_fact(
+        _session,
+        *,
+        case_name,
+        timeout_seconds=30.0,
+    ):
+        return LoadCaseTypeRuntimeFact(
+            case_name=case_name,
+            case_type=1,
+            sub_type=0,
+            design_type=1,
+            design_type_option=0,
+            runtime_auto_slot_value=state["runtime_auto_codes"].get(
+                case_name,
+                0,
+            ),
+            return_code=0,
+        )
+
     def readiness(_session, case_name, *, timeout_seconds=30.0):
         code = state["statuses"].get(case_name)
         mapping = {
@@ -232,6 +281,11 @@ def harness(monkeypatch):
             contaminated = state["contaminate_non_requested"]
             if contaminated is not None:
                 state["statuses"][contaminated] = 4
+
+            for name in tuple(state["retire_after_run"]):
+                state["run_flags"].pop(name, None)
+                state["statuses"].pop(name, None)
+
         return RunAnalysisFact(return_code=ret)
 
     comparison = SimpleNamespace(
@@ -275,6 +329,21 @@ def harness(monkeypatch):
             rows=_force_rows(case_name, expectation.expected_unique_names),
         )
 
+    monkeypatch.setattr(
+        subject,
+        "get_defined_analysis_cases_from_session",
+        defined_fact,
+    )
+    monkeypatch.setattr(
+        subject,
+        "get_etabs_runtime_version_fact_from_session",
+        runtime_version_fact,
+    )
+    monkeypatch.setattr(
+        subject,
+        "get_load_case_type_runtime_fact_from_session",
+        runtime_type_fact,
+    )
     monkeypatch.setattr(subject, "get_run_case_flags_from_session", flags_fact)
     monkeypatch.setattr(subject, "set_run_case_flag_from_session", set_flag)
     monkeypatch.setattr(subject, "delete_analysis_results_from_session", delete_results)
@@ -661,3 +730,222 @@ def test_execution_api_has_no_caller_generation_or_population_truth_parameter():
         "expected_column_unique_names",
     ):
         assert forbidden not in params
+
+
+def test_execution_dependency_finishes_without_result_population(harness):
+    before = dict(harness.state["run_flags"])
+    harness.state["runtime_auto_codes"]["MODAL"] = 5
+
+    result = subject.execute_controlled_analysis(
+        context=harness.context,
+        owned_scratch=harness.owned,
+        established_state=harness.established,
+        requested_case_names=("EX",),
+    )
+
+    assert result.qualification.qualified is True
+    assert result.manifest.scope.case_names == ("EX",)
+    assert result.manifest.scope.execution_dependency_case_names == (
+        "MODAL",
+    )
+    assert result.manifest.scope.execution_case_names == (
+        "EX",
+        "MODAL",
+    )
+    assert harness.state["population_calls"] == ["EX"]
+    assert harness.state["run_flags"] == before
+
+
+def test_declared_runtime_retirement_uses_projected_restoration(harness):
+    harness.state["runtime_auto_codes"]["DEAD"] = 3
+    harness.state["retire_after_run"] = {"DEAD"}
+
+    result = subject.execute_controlled_analysis(
+        context=harness.context,
+        owned_scratch=harness.owned,
+        established_state=harness.established,
+        requested_case_names=("EX",),
+    )
+
+    assert result.qualification.qualified is True
+    assert result.manifest.defined_cases_before.case_names == (
+        "DEAD",
+        "EX",
+        "MODAL",
+    )
+    assert result.manifest.defined_cases_after.case_names == (
+        "EX",
+        "MODAL",
+    )
+    assert (
+        result.manifest.run_flag_restoration_status
+        is subject.RunFlagRestorationStatus.RESTORED_WITH_DECLARED_RETIREMENTS
+    )
+    assert result.manifest.run_flags_restored.case_flags == (
+        ("EX", True),
+        ("MODAL", False),
+    )
+
+
+def test_undeclared_runtime_retirement_fails_closed(harness):
+    harness.state["retire_after_run"] = {"DEAD"}
+
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.execute_controlled_analysis(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            established_state=harness.established,
+            requested_case_names=("EX",),
+        )
+
+    assert exc.value.stage == "post_case_universe_transition"
+    assert exc.value.details["actual_retired"] == ("DEAD",)
+
+
+def test_declared_retirement_that_does_not_occur_fails_closed(harness):
+    harness.state["runtime_auto_codes"]["DEAD"] = 10
+
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.execute_controlled_analysis(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            established_state=harness.established,
+            requested_case_names=("EX",),
+        )
+
+    assert exc.value.stage == "post_case_universe_transition"
+
+
+def test_scope_roles_must_be_disjoint():
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.AnalysisExecutionScope.from_case_names(
+            ("EX",),
+            execution_dependency_case_names=("EX",),
+        )
+
+    assert exc.value.stage == "scope_contract"
+
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.AnalysisExecutionScope.from_case_names(
+            ("EX",),
+            permitted_runtime_retired_case_names=("EX",),
+        )
+
+    assert exc.value.stage == "scope_contract"
+
+
+def test_runtime_compatibility_does_not_cross_etabs_version_boundary(
+    harness,
+):
+    harness.state["runtime_program_version"] = "23.1.0"
+    harness.state["runtime_auto_codes"]["MODAL"] = 5
+
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.execute_controlled_analysis(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            established_state=harness.established,
+            requested_case_names=("EX",),
+        )
+
+    assert exc.value.stage == "runtime_scope_resolution"
+    assert exc.value.details["program_version"] == "23.1.0"
+    assert exc.value.details["runtime_auto_slot_value"] == 5
+
+    assert harness.state["run_calls"] == 0
+    assert harness.state["delete_calls"] == 0
+
+
+def test_runtime_compatibility_requires_exact_internal_version_profile(
+    harness,
+):
+    harness.state["runtime_internal_version"] = 23.2
+    harness.state["runtime_auto_codes"]["MODAL"] = 5
+
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.execute_controlled_analysis(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            established_state=harness.established,
+            requested_case_names=("EX",),
+        )
+
+    assert exc.value.stage == "runtime_scope_resolution"
+    assert exc.value.details["internal_version_number"] == 23.2
+    assert harness.state["run_calls"] == 0
+
+
+def test_supported_version_rejects_unknown_undocumented_runtime_slot(
+    harness,
+):
+    harness.state["runtime_auto_codes"]["MODAL"] = 9
+
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.execute_controlled_analysis(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            established_state=harness.established,
+            requested_case_names=("EX",),
+        )
+
+    assert exc.value.stage == "runtime_scope_resolution"
+    assert exc.value.details["program_version"] == "23.2.0"
+    assert exc.value.details["runtime_auto_slot_value"] == 9
+    assert harness.state["run_calls"] == 0
+
+
+def test_supported_version_neutral_observed_runtime_slots_do_not_widen_execution(
+    harness,
+):
+    harness.state["runtime_auto_codes"]["DEAD"] = 6
+    harness.state["runtime_auto_codes"]["MODAL"] = 7
+
+    result = subject.execute_controlled_analysis(
+        context=harness.context,
+        owned_scratch=harness.owned,
+        established_state=harness.established,
+        requested_case_names=("EX",),
+    )
+
+    assert result.qualification.qualified is True
+    assert result.manifest.scope.case_names == ("EX",)
+    assert (
+        result.manifest.scope.execution_dependency_case_names
+        == ()
+    )
+    assert (
+        result.manifest.scope.permitted_runtime_retired_case_names
+        == ()
+    )
+    assert harness.state["population_calls"] == ["EX"]
+
+
+def test_runtime_scope_resolution_is_bound_into_manifest_and_lineage(
+    harness,
+):
+    result = subject.execute_controlled_analysis(
+        context=harness.context,
+        owned_scratch=harness.owned,
+        established_state=harness.established,
+        requested_case_names=("EX",),
+    )
+
+    resolution = result.manifest.runtime_scope_resolution
+
+    assert resolution.runtime_version.program_version == "23.2.0"
+    assert resolution.runtime_version.internal_version_number == 0.0
+    assert resolution.scope == result.manifest.scope
+
+    assert tuple(
+        fact.case_name
+        for fact in resolution.case_type_facts
+    ) == ("DEAD", "EX", "MODAL")
+
+    assert (
+        resolution.evidence_ref
+        in result.analysis_result_identity.provenance_refs
+    )
+    assert (
+        resolution.evidence_ref
+        in result.qualification.qualification_provenance_refs
+    )

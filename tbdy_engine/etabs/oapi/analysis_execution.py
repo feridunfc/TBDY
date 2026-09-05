@@ -29,6 +29,9 @@ from .contracts import EtabsOAPIError
 RUN_CASE_FLAG_SNAPSHOT_CONTRACT = "ETABS_RUN_CASE_FLAG_SNAPSHOT_V1"
 RUN_CASE_FLAG_SET_FACT_CONTRACT = "ETABS_RUN_CASE_FLAG_SET_FACT_V1"
 CASE_STATUS_POPULATION_CONTRACT = "ETABS_CASE_STATUS_POPULATION_V1"
+DEFINED_ANALYSIS_CASE_POPULATION_CONTRACT = "ETABS_DEFINED_ANALYSIS_CASE_POPULATION_V1"
+LOAD_CASE_TYPE_RUNTIME_FACT_CONTRACT = "ETABS_LOAD_CASE_TYPE_RUNTIME_FACT_V1"
+ETABS_RUNTIME_VERSION_FACT_CONTRACT = "ETABS_RUNTIME_VERSION_FACT_V1"
 DELETE_ANALYSIS_RESULTS_FACT_CONTRACT = "ETABS_DELETE_ANALYSIS_RESULTS_FACT_V1"
 RUN_ANALYSIS_FACT_CONTRACT = "ETABS_RUN_ANALYSIS_FACT_V1"
 ANALYSIS_EXECUTION_EVIDENCE_PREFIX = "etabs-analysis-execution:sha256:"
@@ -107,6 +110,198 @@ def _decode_counted_population(
         raise AssertionError(value_kind)
 
     return tuple((str(name), value) for name, value in zip(names, values, strict=True)), int(ret_raw)
+
+
+def _decode_counted_names(
+    raw: object,
+    *,
+    method: str,
+) -> tuple[tuple[str, ...], int]:
+    """Decode CSI ByRef [count, names, ret] using count as authority."""
+    if not isinstance(raw, (tuple, list)) or len(raw) != 3:
+        raise EtabsOAPIError(
+            f"{method} returned unsupported Python ABI shape: {raw!r}"
+        )
+    count_raw, names_raw, ret_raw = raw
+    if type(count_raw) is not int or count_raw < 0:
+        raise EtabsOAPIError(
+            f"{method} returned invalid authoritative count: {count_raw!r}"
+        )
+    if type(ret_raw) is not int:
+        raise EtabsOAPIError(
+            f"{method} returned invalid return code: {ret_raw!r}"
+        )
+    if not isinstance(names_raw, (tuple, list)):
+        raise EtabsOAPIError(
+            f"{method} did not return an indexable name array"
+        )
+
+    count = int(count_raw)
+    if len(names_raw) < count:
+        raise EtabsOAPIError(
+            f"{method} returned payload shorter than authoritative count={count}"
+        )
+
+    names = tuple(names_raw[:count])
+    if any(
+        not isinstance(name, str)
+        or not name.strip()
+        or name != name.strip()
+        for name in names
+    ):
+        raise EtabsOAPIError(
+            f"{method} returned invalid case-name prefix"
+        )
+    if len(set(names)) != len(names):
+        raise EtabsOAPIError(
+            f"{method} returned duplicate case names"
+        )
+    return tuple(str(name) for name in names), int(ret_raw)
+
+
+@dataclass(frozen=True, slots=True)
+class DefinedAnalysisCasePopulationFact:
+    case_names: tuple[str, ...]
+    return_code: int
+    evidence_ref: str = field(init=False)
+    contract: str = DEFINED_ANALYSIS_CASE_POPULATION_CONTRACT
+
+    def __post_init__(self) -> None:
+        if self.contract != DEFINED_ANALYSIS_CASE_POPULATION_CONTRACT:
+            raise EtabsOAPIError(
+                "defined-analysis-case population contract mismatch"
+            )
+        names = tuple(sorted(_text(name, "case_name") for name in self.case_names))
+        if len(set(names)) != len(names):
+            raise EtabsOAPIError(
+                "defined-analysis-case population contains duplicate cases"
+            )
+        if type(self.return_code) is not int:
+            raise EtabsOAPIError("return_code must be int")
+        object.__setattr__(self, "case_names", names)
+        object.__setattr__(
+            self,
+            "evidence_ref",
+            _digest({
+                "contract": self.contract,
+                "case_names": list(names),
+                "return_code": self.return_code,
+            }),
+        )
+
+    @property
+    def success(self) -> bool:
+        return self.return_code == 0
+
+
+@dataclass(frozen=True, slots=True)
+class EtabsRuntimeVersionFact:
+    """Exact factual SapModel.GetVersion runtime observation."""
+
+    program_version: str
+    internal_version_number: float
+    return_code: int
+    evidence_ref: str = field(init=False)
+    contract: str = ETABS_RUNTIME_VERSION_FACT_CONTRACT
+
+    def __post_init__(self) -> None:
+        if self.contract != ETABS_RUNTIME_VERSION_FACT_CONTRACT:
+            raise EtabsOAPIError(
+                "ETABS runtime-version fact contract mismatch"
+            )
+
+        object.__setattr__(
+            self,
+            "program_version",
+            _text(self.program_version, "program_version"),
+        )
+
+        if type(self.internal_version_number) is not float:
+            raise EtabsOAPIError(
+                "internal_version_number must be exact float"
+            )
+        if type(self.return_code) is not int:
+            raise EtabsOAPIError(
+                "return_code must be exact int"
+            )
+
+        object.__setattr__(
+            self,
+            "evidence_ref",
+            _digest({
+                "contract": self.contract,
+                "program_version": self.program_version,
+                "internal_version_number": self.internal_version_number,
+                "return_code": self.return_code,
+            }),
+        )
+
+    @property
+    def success(self) -> bool:
+        return self.return_code == 0
+
+
+@dataclass(frozen=True, slots=True)
+class LoadCaseTypeRuntimeFact:
+    """Exact observed GetTypeOAPI_1 Python projection.
+
+    CSI documents the ByRef fields as CaseType, SubType, DesignType,
+    DesignTypeOption and Auto. ETABS v23.2 live observation returned runtime
+    Auto-slot values beyond the documented 0/1 domain. Preserve the integer
+    fact exactly; semantic compatibility policy belongs above this ABI layer.
+    """
+
+    case_name: str
+    case_type: int
+    sub_type: int
+    design_type: int
+    design_type_option: int
+    runtime_auto_slot_value: int
+    return_code: int
+    evidence_ref: str = field(init=False)
+    contract: str = LOAD_CASE_TYPE_RUNTIME_FACT_CONTRACT
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "case_name",
+            _text(self.case_name, "case_name"),
+        )
+        if self.contract != LOAD_CASE_TYPE_RUNTIME_FACT_CONTRACT:
+            raise EtabsOAPIError(
+                "load-case type runtime fact contract mismatch"
+            )
+        for name in (
+            "case_type",
+            "sub_type",
+            "design_type",
+            "design_type_option",
+            "runtime_auto_slot_value",
+            "return_code",
+        ):
+            if type(getattr(self, name)) is not int:
+                raise EtabsOAPIError(
+                    f"{name} must be an exact integer"
+                )
+
+        object.__setattr__(
+            self,
+            "evidence_ref",
+            _digest({
+                "contract": self.contract,
+                "case_name": self.case_name,
+                "case_type": self.case_type,
+                "sub_type": self.sub_type,
+                "design_type": self.design_type,
+                "design_type_option": self.design_type_option,
+                "runtime_auto_slot_value": self.runtime_auto_slot_value,
+                "return_code": self.return_code,
+            }),
+        )
+
+    @property
+    def success(self) -> bool:
+        return self.return_code == 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -279,6 +474,170 @@ class RunAnalysisFact:
         return self.return_code == 0
 
 
+def get_defined_analysis_cases_from_session(
+    session: EtabsVerifiedSession,
+    *,
+    timeout_seconds: float = 30.0,
+) -> DefinedAnalysisCasePopulationFact:
+    """Retrieve the exact currently-defined LoadCases.GetNameList population."""
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+    timeout = float(timeout_seconds)
+    if timeout <= 0:
+        raise ValueError("timeout_seconds must be greater than zero")
+
+    def acquire(
+        _application: object,
+        model_api: Any,
+    ) -> DefinedAnalysisCasePopulationFact:
+        raw = model_api.LoadCases.GetNameList()
+        names, return_code = _decode_counted_names(
+            raw,
+            method="LoadCases.GetNameList",
+        )
+        return DefinedAnalysisCasePopulationFact(
+            case_names=names,
+            return_code=return_code,
+        )
+
+    return _execute_verified_read(
+        session,
+        acquire,
+        operation="oapi_load_cases_get_name_list",
+        timeout_seconds=timeout,
+    )
+
+
+def get_etabs_runtime_version_fact_from_session(
+    session: EtabsVerifiedSession,
+    *,
+    timeout_seconds: float = 30.0,
+) -> EtabsRuntimeVersionFact:
+    """Read the exact SapModel.GetVersion runtime projection.
+
+    Live ETABS 23.2.0 acceptance established the Python projection:
+    [program_version: str, internal_version_number: float, ret: int].
+    """
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+
+    timeout = float(timeout_seconds)
+    if timeout <= 0:
+        raise ValueError("timeout_seconds must be greater than zero")
+
+    def acquire(
+        _application: object,
+        model_api: Any,
+    ) -> EtabsRuntimeVersionFact:
+        raw = model_api.GetVersion()
+
+        if not isinstance(raw, (tuple, list)) or len(raw) != 3:
+            raise EtabsOAPIError(
+                "SapModel.GetVersion returned unsupported "
+                f"Python ABI shape: {raw!r}"
+            )
+
+        program_version, internal_version_number, return_code = raw
+
+        if (
+            not isinstance(program_version, str)
+            or not program_version.strip()
+            or program_version != program_version.strip()
+        ):
+            raise EtabsOAPIError(
+                "SapModel.GetVersion returned invalid program version"
+            )
+        if type(internal_version_number) is not float:
+            raise EtabsOAPIError(
+                "SapModel.GetVersion returned invalid internal "
+                f"version-number type: {raw!r}"
+            )
+        if type(return_code) is not int:
+            raise EtabsOAPIError(
+                "SapModel.GetVersion returned invalid return-code "
+                f"type: {raw!r}"
+            )
+
+        return EtabsRuntimeVersionFact(
+            program_version=program_version,
+            internal_version_number=internal_version_number,
+            return_code=return_code,
+        )
+
+    return _execute_verified_read(
+        session,
+        acquire,
+        operation="oapi_sap_model_get_version",
+        timeout_seconds=timeout,
+    )
+
+
+def get_load_case_type_runtime_fact_from_session(
+    session: EtabsVerifiedSession,
+    *,
+    case_name: str,
+    timeout_seconds: float = 30.0,
+) -> LoadCaseTypeRuntimeFact:
+    """Read one exact GetTypeOAPI_1 runtime projection.
+
+    The six-item Python projection is acceptance-gated runtime ABI:
+    [CaseType, SubType, DesignType, DesignTypeOption, Auto, ret].
+    The OAPI layer preserves the integer Auto slot without interpreting
+    undocumented ETABS v23.2 values.
+    """
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+
+    name = _text(case_name, "case_name")
+    timeout = float(timeout_seconds)
+    if timeout <= 0:
+        raise ValueError("timeout_seconds must be greater than zero")
+
+    def acquire(
+        _application: object,
+        model_api: Any,
+    ) -> LoadCaseTypeRuntimeFact:
+        raw = model_api.LoadCases.GetTypeOAPI_1(name)
+
+        if not isinstance(raw, (tuple, list)) or len(raw) != 6:
+            raise EtabsOAPIError(
+                "LoadCases.GetTypeOAPI_1 returned unsupported "
+                f"Python ABI shape: {raw!r}"
+            )
+
+        if any(type(value) is not int for value in raw):
+            raise EtabsOAPIError(
+                "LoadCases.GetTypeOAPI_1 returned non-integer "
+                f"runtime projection: {raw!r}"
+            )
+
+        (
+            case_type,
+            sub_type,
+            design_type,
+            design_type_option,
+            runtime_auto_slot_value,
+            return_code,
+        ) = raw
+
+        return LoadCaseTypeRuntimeFact(
+            case_name=name,
+            case_type=case_type,
+            sub_type=sub_type,
+            design_type=design_type,
+            design_type_option=design_type_option,
+            runtime_auto_slot_value=runtime_auto_slot_value,
+            return_code=return_code,
+        )
+
+    return _execute_verified_read(
+        session,
+        acquire,
+        operation="oapi_load_cases_get_type_oapi_1",
+        timeout_seconds=timeout,
+    )
+
+
 def get_run_case_flags_from_session(
     session: EtabsVerifiedSession,
     *,
@@ -439,16 +798,25 @@ __all__ = [
     "ANALYSIS_EXECUTION_EVIDENCE_PREFIX",
     "CASE_STATUS_POPULATION_CONTRACT",
     "DELETE_ANALYSIS_RESULTS_FACT_CONTRACT",
+    "DEFINED_ANALYSIS_CASE_POPULATION_CONTRACT",
+    "LOAD_CASE_TYPE_RUNTIME_FACT_CONTRACT",
+    "ETABS_RUNTIME_VERSION_FACT_CONTRACT",
     "RUN_ANALYSIS_FACT_CONTRACT",
     "RUN_CASE_FLAG_SET_FACT_CONTRACT",
     "RUN_CASE_FLAG_SNAPSHOT_CONTRACT",
     "CaseStatusPopulationFact",
+    "DefinedAnalysisCasePopulationFact",
+    "EtabsRuntimeVersionFact",
+    "LoadCaseTypeRuntimeFact",
     "DeleteAnalysisResultsFact",
     "RunAnalysisFact",
     "RunCaseFlagSetFact",
     "RunCaseFlagSnapshotFact",
     "delete_analysis_results_from_session",
     "get_case_status_population_from_session",
+    "get_defined_analysis_cases_from_session",
+    "get_etabs_runtime_version_fact_from_session",
+    "get_load_case_type_runtime_fact_from_session",
     "get_run_case_flags_from_session",
     "run_analysis_from_session",
     "set_run_case_flag_from_session",

@@ -182,3 +182,44 @@ def test_result_capture_qualifies_exact_full_population(monkeypatch):
     assert fact.observed_unique_names == ("1", "2")
     assert fact.row_count == 2
     assert fact.evidence_ref.startswith(subject.COLUMN_FORCE_POPULATION_REF_PREFIX)
+
+
+def test_linstat_population_accepts_absent_step_fields():
+    expectation = _expectation()
+    rows = [dict(row) for row in _rows()]
+    for row in rows:
+        row.pop("StepType")
+        row.pop("StepNumber")
+
+    fact = subject.ColumnForceResultPopulationFact(
+        case_name="EX",
+        expectation_ref=expectation.evidence_ref,
+        expected_unique_names=expectation.expected_unique_names,
+        observed_unique_names=expectation.expected_unique_names,
+        rows=tuple(rows),
+    )
+
+    assert fact.row_count == 2
+    assert all(row["StepType"] is None for row in fact.rows)
+    assert all(row["StepNumber"] is None for row in fact.rows)
+
+
+def test_non_linstat_population_does_not_invent_absent_step_fields():
+    expectation = _expectation()
+    rows = [dict(row) for row in _rows()]
+    for row in rows:
+        row["CaseType"] = "ResponseSpectrum"
+        row.pop("StepType")
+        row.pop("StepNumber")
+
+    with pytest.raises(
+        subject.ColumnForceResultPopulationError,
+        match="missing required field",
+    ):
+        subject.ColumnForceResultPopulationFact(
+            case_name="EX",
+            expectation_ref=expectation.evidence_ref,
+            expected_unique_names=expectation.expected_unique_names,
+            observed_unique_names=expectation.expected_unique_names,
+            rows=tuple(rows),
+        )

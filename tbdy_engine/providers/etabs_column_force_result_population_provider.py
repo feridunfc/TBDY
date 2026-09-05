@@ -219,7 +219,20 @@ class ColumnForceResultPopulationFact:
         canonical_rows: list[list[Any]] = []
         for index, raw in enumerate(self.rows):
             row = dict(raw)
-            row.setdefault("StepNumber", None)
+
+            # Live ETABS v23.2 "Element Forces - Columns" for LinStatic
+            # omits StepType and StepNumber from the table schema entirely.
+            # Preserve that factual not-applicable state as None. Do not
+            # generalize the compatibility to other case types.
+            case_type_raw = row.get("CaseType")
+            if (
+                isinstance(case_type_raw, str)
+                and case_type_raw.strip() == "LinStatic"
+                and case_type_raw == case_type_raw.strip()
+            ):
+                row.setdefault("StepType", None)
+                row.setdefault("StepNumber", None)
+
             missing_fields = required - set(row)
             if missing_fields:
                 raise ColumnForceResultPopulationError(
@@ -229,6 +242,7 @@ class ColumnForceResultPopulationFact:
             _text(row.get("Story"), f"row[{index}].Story")
             _text(row.get("Column"), f"row[{index}].Column")
             _text(row.get("UniqueName"), f"row[{index}].UniqueName")
+            _text(row.get("CaseType"), f"row[{index}].CaseType")
             if _text(row.get("OutputCase"), f"row[{index}].OutputCase") != case_name:
                 raise ColumnForceResultPopulationError(
                     f"column-force row {index} belongs to wrong OutputCase"
