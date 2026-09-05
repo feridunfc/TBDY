@@ -24,6 +24,9 @@ B1_PRIVATE = {
     "_build_qualified_analysis_lineage",
 }
 MUTATION = {"RunAnalysis", "StartDesign", "Save", "SaveAs", "SetPresentUnits", "SetPresentUnits_2"}
+CANONICAL_MUTATION_CALLS = {
+    ("tbdy_engine/etabs/oapi/analysis_execution.py", "RunAnalysis"),
+}
 RAW_PARAMS = {"sap_model", "database_tables", "design_concrete", "resp_combo"}
 RAW_ROOTS = {"DatabaseTables", "Results", "DesignConcrete", "FrameObj", "AreaObj", "PointObj", "PropFrame", "PropArea", "PropMaterial", "RespCombo"}
 
@@ -178,7 +181,7 @@ def legacy_debt() -> set[str]:
                 facts.add(f"LEGACY_IMPORT|{rel}|tbdy_engine.features.etabs_com_attach")
             elif isinstance(node, ast.Call):
                 final = dotted(node.func).rsplit(".", 1)[-1]
-                if final in MUTATION:
+                if final in MUTATION and (rel, final) not in CANONICAL_MUTATION_CALLS:
                     facts.add(f"MUTATION_CALL|{rel}|{final}")
             elif isinstance(node, ast.Attribute) and not boundary_internal:
                 name = dotted(node)

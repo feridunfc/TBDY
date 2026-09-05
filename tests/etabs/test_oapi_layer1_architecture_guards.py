@@ -137,8 +137,14 @@ def test_candidate_has_exactly_one_production_attach_implementation() -> None:
     assert observed == TARGET_ATTACH_IMPLEMENTATIONS
 
 
-def test_no_production_analysis_or_design_execution_calls_exist() -> None:
-    assert _production_call_sites({"RunAnalysis", "StartDesign"}) == []
+def test_analysis_execution_has_exact_b5_oapi_callsite_and_no_design_execution() -> None:
+    assert _production_call_sites({"RunAnalysis"}) == [
+        (
+            "tbdy_engine/etabs/oapi/analysis_execution.py",
+            "model_api.Analyze.RunAnalysis",
+        )
+    ]
+    assert _production_call_sites({"StartDesign"}) == []
 
 
 def test_set_present_units_is_confined_to_legacy_unit_context_helper() -> None:

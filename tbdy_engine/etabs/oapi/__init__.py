@@ -22,6 +22,7 @@ def fetch_display_table_from_session(
     table_name: str,
     *,
     max_rows: int | None = None,
+    timeout_seconds: float = 30.0,
 ) -> DisplayTableFetchResult:
     return _execute_verified_read(
         session,
@@ -31,6 +32,7 @@ def fetch_display_table_from_session(
             max_rows=max_rows,
         ),
         operation="oapi_database_tables_get_table_for_display_array",
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -40,6 +42,7 @@ def fetch_display_table_for_output_from_session(
     *,
     preferred_output_case: str,
     max_rows: int | None = None,
+    timeout_seconds: float = 30.0,
 ) -> DisplayTableFetchResult:
     """Execute the safety-owned reversible display-selection transaction on STA."""
     return _execute_verified_read(
@@ -51,6 +54,7 @@ def fetch_display_table_for_output_from_session(
             max_rows=max_rows,
         ),
         operation="oapi_database_tables_selected_display_read",
+        timeout_seconds=timeout_seconds,
     )
 
 

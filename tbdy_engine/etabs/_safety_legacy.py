@@ -653,20 +653,20 @@ def _decode_database_selected_names(
     ETABS/comtypes may return a SAFEARRAY whose tail retains old capacity and is
     padded with ``None`` after a singleton selection. Only ``payload[:count]``
     is authoritative. The padded tail is never inferred as selected state.
+
+    CSI documents zero as the successful return code. ETABS v23.2 live
+    acceptance additionally observes one narrow empty-selection projection:
+    after the documented single-blank-string setter establishes no selected
+    names, these selected-name getters return count=0, only empty/None
+    placeholders, and return code 1. That exact runtime ABI projection is
+    normalized to the semantic empty selection; no other nonzero return is
+    accepted.
     """
     if not isinstance(raw, (tuple, list)) or len(raw) < 3:
         raise EtabsCapabilityError(
             f"{getter_name} did not return [count, payload, return_code].",
             code=error_code,
             details={"raw_type": type(raw).__name__},
-        )
-
-    code = _return_code(raw)
-    if code != 0:
-        raise EtabsCapabilityError(
-            f"{getter_name} returned {code}.",
-            code=error_code,
-            details={"api_return_code": code},
         )
 
     raw_count = raw[0]
@@ -700,6 +700,33 @@ def _decode_database_selected_names(
             f"{getter_name} selected-name payload is shorter than its authoritative count.",
             code=error_code,
             details={"selected_count": count, "payload_length": len(payload)},
+        )
+
+    code = _return_code(raw)
+    empty_selection_getters = {
+        "GetLoadCasesSelectedForDisplay",
+        "GetLoadCombinationsSelectedForDisplay",
+        "GetLoadPatternsSelectedForDisplay",
+    }
+    live_observed_empty_projection = (
+        getter_name in empty_selection_getters
+        and code == 1
+        and count == 0
+        and len(payload) > 0
+        and all(
+            value is None
+            or (isinstance(value, str) and not value.strip())
+            for value in payload
+        )
+    )
+    if live_observed_empty_projection:
+        return ()
+
+    if code != 0:
+        raise EtabsCapabilityError(
+            f"{getter_name} returned {code}.",
+            code=error_code,
+            details={"api_return_code": code},
         )
 
     prefix = payload[:count]
@@ -755,8 +782,12 @@ def _set_selected_names(
             f"{setter_name} is required for reversible selection mutation.",
             code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
         )
+    # CSI requires a single blank string, not an empty array, to represent
+    # "no selected names" for DatabaseTables case/combo/pattern selection.
+    requested_names = list(names)
+    encoded_names = requested_names if requested_names else [""]
     try:
-        raw = setter(list(names))
+        raw = setter(encoded_names)
     except Exception as exc:
         raise EtabsStateVerificationError(
             f"{setter_name} raised {type(exc).__name__}: {exc}",
