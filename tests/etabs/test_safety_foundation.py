@@ -688,15 +688,39 @@ def test_count_aware_getter_ignores_none_padding_after_count():
     ) == ("ENV_GRAV", "ENV_UNC")
 
 
-def test_count_aware_getter_nonzero_return_fails_closed():
+@pytest.mark.parametrize(
+    "getter_name",
+    [
+        "GetLoadCasesSelectedForDisplay",
+        "GetLoadCombinationsSelectedForDisplay",
+        "GetLoadPatternsSelectedForDisplay",
+    ],
+)
+def test_etabs23_live_observed_empty_selection_projection_decodes_as_empty(getter_name):
+    assert _decode_database_selected_names(
+        [0, (None, None), 1],
+        getter_name,
+        error_code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
+    ) == ()
+
+
+@pytest.mark.parametrize(
+    "raw,getter_name",
+    [
+        ([1, ("LC_DL",), 1], "GetLoadCasesSelectedForDisplay"),
+        ([0, ("STALE", None), 1], "GetLoadCasesSelectedForDisplay"),
+        ([0, (None,), 2], "GetLoadCasesSelectedForDisplay"),
+        ([0, (None,), 1], "UnknownSelectedNamesGetter"),
+    ],
+)
+def test_selected_name_getter_nonzero_compatibility_does_not_widen(raw, getter_name):
     with pytest.raises(EtabsCapabilityError) as caught:
         _decode_database_selected_names(
-            [0, (None, None), 1],
-            "GetLoadCasesSelectedForDisplay",
+            raw,
+            getter_name,
             error_code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED,
         )
     assert caught.value.code is EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED
-    assert caught.value.details["api_return_code"] == 1
 
 
 def test_count_aware_getter_count_greater_than_payload_fails_closed():
@@ -777,6 +801,63 @@ def test_live_padded_singleton_combo_shape_verifies_exactly_and_preserves_cases(
         assert combo_diag["temporary_combos_verified_exact"] is True
     assert tuple(db.cases) == original_cases
     assert tuple(db.combos) == original_combos
+
+
+class FakeEtabs23EmptySelectionDatabaseTables(FakeDatabaseTables):
+    """Reproduce documented blank-string setter plus v23.2 empty getter ABI."""
+
+    def __init__(self):
+        super().__init__()
+        self.cases = []
+        self.patterns = []
+
+    @staticmethod
+    def _runtime_get(names):
+        if not names:
+            return [0, (None,), 1]
+        return [len(names), tuple(names), 0]
+
+    def GetLoadCasesSelectedForDisplay(self):
+        return self._runtime_get(self.cases)
+
+    def SetLoadCasesSelectedForDisplay(self, names):
+        names = list(names)
+        self.case_set_calls.append(tuple(names))
+        self.cases = [] if names == [""] else names
+        return [tuple(names), 0]
+
+    def GetLoadCombinationsSelectedForDisplay(self):
+        return self._runtime_get(self.combos)
+
+    def SetLoadCombinationsSelectedForDisplay(self, names):
+        names = list(names)
+        self.combo_set_calls.append(tuple(names))
+        if self.fail_combo_target and names not in ([""], ["OLD_COMBO"]):
+            return [tuple(names), 1]
+        self.combos = [] if names == [""] else names
+        return [tuple(names), 0]
+
+    def GetLoadPatternsSelectedForDisplay(self):
+        return self._runtime_get(self.patterns)
+
+    def SetLoadPatternsSelectedForDisplay(self, names):
+        names = list(names)
+        self.patterns = [] if names == [""] else names
+        return [tuple(names), 0]
+
+
+def test_database_transaction_snapshots_and_restores_live_observed_empty_selection():
+    db = FakeEtabs23EmptySelectionDatabaseTables()
+
+    with DatabaseTablesReadTransaction(db) as tx:
+        assert tx.snapshot is not None
+        assert tx.snapshot.cases == ()
+        assert tx.snapshot.patterns == ()
+
+    # Semantic empty selection must cross the CSI ABI as one blank string.
+    assert ("",) in db.case_set_calls
+    assert db.cases == []
+    assert db.combos == ["OLD_COMBO"]
 
 
 def test_database_transaction_restores_state_on_success():
