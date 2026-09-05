@@ -6,9 +6,9 @@ decisions.
 
 A naked ``AnalysisStateIdentity`` or ``AnalysisResultIdentity`` is not trusted
 engineering input.  Trust is represented only by a factory-created
-``AnalysisLineageQualification``.  B1 intentionally exposes no public positive
-issuer because the current read-only ETABS surface cannot prove which analysis
-execution generated pre-existing results.
+``AnalysisLineageQualification``.  Positive issuance is exposed only through
+the narrow controlled-execution seam consumed by the B5 execution authority;
+all proof factories and qualification tokens remain private to this module.
 """
 from __future__ import annotations
 
@@ -176,8 +176,8 @@ class AnalysisResultIdentity:
     """One result generation parented by exactly one AnalysisStateIdentity.
 
     The object is deliberately not self-authenticating.  Its generation field
-    becomes trusted only when a later controlled-analysis issuer proves the
-    causal execution.  Row hashes, acquisition ids and case status cannot do so.
+    becomes trusted only when a controlled-analysis issuer proves the causal
+    execution. Row hashes, acquisition ids and case status cannot do so alone.
     """
 
     identity_ref: str
@@ -230,7 +230,7 @@ class AnalysisResultIdentity:
 
 @dataclass(frozen=True, slots=True, init=False)
 class _VerifiedAnalysisExecutionProof:
-    """Private proof shape reserved for a future controlled RunAnalysis issuer."""
+    """Private proof shape used only by the B1 controlled-execution issuer."""
 
     proof_ref: str
     source_model_ref: str
@@ -325,7 +325,7 @@ class AnalysisLineageQualification:
         if _token is not _QUALIFICATION_FACTORY_TOKEN:
             raise TypeError(
                 "AnalysisLineageQualification is factory-created only; "
-                "use build_unqualified_analysis_lineage or a future verified-execution issuer"
+                "use build_unqualified_analysis_lineage or the controlled-execution issuer"
             )
         if not isinstance(status, AnalysisLineageQualificationStatus):
             raise TypeError("status must be AnalysisLineageQualificationStatus")
@@ -477,7 +477,7 @@ def _build_qualified_analysis_lineage(
     qualification_provenance_refs: Sequence[str],
     capture_provenance_refs: Sequence[str] = (),
 ) -> AnalysisLineageQualification:
-    """Private primitive reserved for a future verified controlled-analysis issuer."""
+    """Private primitive used only by the B1 controlled-execution issuer."""
     if _token is not _QUALIFICATION_FACTORY_TOKEN:
         raise TypeError("qualified analysis lineage is issuer-created only")
     if not isinstance(analysis_state, AnalysisStateIdentity):
@@ -522,6 +522,49 @@ def _build_qualified_analysis_lineage(
     )
 
 
+def issue_qualified_analysis_lineage_from_controlled_execution(
+    *,
+    analysis_state: AnalysisStateIdentity,
+    analysis_result: AnalysisResultIdentity,
+    execution_proof_ref: str,
+    execution_provenance_refs: Sequence[str],
+    qualification_provenance_refs: Sequence[str],
+    capture_provenance_refs: Sequence[str] = (),
+) -> AnalysisLineageQualification:
+    """Issue QUALIFIED lineage for the sole verified controlled-execution owner.
+
+    The B5 execution authority supplies only reviewed causal facts and refs. The
+    private proof object, factory tokens, and positive qualification primitive
+    never leave B1.
+    """
+    if not isinstance(analysis_state, AnalysisStateIdentity):
+        raise TypeError("analysis_state must be AnalysisStateIdentity")
+    if not isinstance(analysis_result, AnalysisResultIdentity):
+        raise TypeError("analysis_result must be AnalysisResultIdentity")
+    execution_proof = _VerifiedAnalysisExecutionProof(
+        _token=_EXECUTION_PROOF_FACTORY_TOKEN,
+        proof_ref=_text(execution_proof_ref, "execution_proof_ref"),
+        source_model_ref=analysis_state.source_model_ref,
+        execution_state_ref=analysis_state.execution_state_ref,
+        analysis_state_ref=analysis_state.identity_ref,
+        analysis_result_ref=analysis_result.identity_ref,
+        analysis_generation_ref=analysis_result.analysis_generation_ref,
+        provenance_refs=_refs(
+            execution_provenance_refs,
+            "execution_provenance_ref",
+            required=True,
+        ),
+    )
+    return _build_qualified_analysis_lineage(
+        _token=_QUALIFICATION_FACTORY_TOKEN,
+        analysis_state=analysis_state,
+        analysis_result=analysis_result,
+        execution_proof=execution_proof,
+        qualification_provenance_refs=qualification_provenance_refs,
+        capture_provenance_refs=capture_provenance_refs,
+    )
+
+
 __all__ = [
     "ANALYSIS_LINEAGE_QUALIFICATION_CONTRACT",
     "ANALYSIS_RESULT_IDENTITY_CONTRACT",
@@ -535,4 +578,5 @@ __all__ = [
     "build_analysis_result_identity",
     "build_analysis_state_identity",
     "build_unqualified_analysis_lineage",
+    "issue_qualified_analysis_lineage_from_controlled_execution",
 ]
