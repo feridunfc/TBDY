@@ -8,6 +8,7 @@ TBDY = ROOT / "tbdy_engine"
 GATEWAY = ROOT / "packages" / "etabs_gateway" / "src" / "etabs_gateway"
 
 OAPI_FILE = ROOT / "tbdy_engine" / "etabs" / "oapi" / "file_lifecycle.py"
+B4B_OAPI_FILE = ROOT / "tbdy_engine" / "etabs" / "oapi" / "frame_modifiers.py"
 SCRATCH_FILE = ROOT / "tbdy_engine" / "integration" / "etabs_scratch_lifecycle.py"
 
 B4T_MODULE = "etabs_gateway.mutation_transport"
@@ -15,6 +16,10 @@ B4T_PRIVATE = {
     "_B4T_MUTATION_TRANSPORT_KEY",
     "_execute_bounded_model_mutation",
     "_execute_mutation_on_worker",
+}
+B4T_TYPED_OAPI_ALLOWLIST = {
+    OAPI_FILE,
+    B4B_OAPI_FILE,
 }
 B4S_PRIVATE_ISSUANCE = {
     "_OWNED_SCRATCH_ISSUANCE_KEY",
@@ -84,12 +89,12 @@ def _runtime_owner_census_python_files() -> tuple[Path, ...]:
     )
 
 
-def test_b4s_oapi_is_only_tbdy_engine_consumer_of_private_b4t_transport():
+def test_private_b4t_transport_is_consumed_only_by_exact_typed_oapi_allowlist():
     violations: list[tuple[str, str]] = []
     for path in _production_python_files():
         source = _text(path)
         rel = path.relative_to(ROOT).as_posix()
-        if path == OAPI_FILE or path.is_relative_to(GATEWAY):
+        if path in B4T_TYPED_OAPI_ALLOWLIST or path.is_relative_to(GATEWAY):
             continue
         if B4T_MODULE in source:
             violations.append((rel, B4T_MODULE))
@@ -98,10 +103,11 @@ def test_b4s_oapi_is_only_tbdy_engine_consumer_of_private_b4t_transport():
                 violations.append((rel, symbol))
     assert violations == []
 
-    oapi_source = _text(OAPI_FILE)
-    assert B4T_MODULE in oapi_source
-    assert "_execute_bounded_model_mutation" in oapi_source
-    assert "_B4T_MUTATION_TRANSPORT_KEY" in oapi_source
+    for typed_oapi in sorted(B4T_TYPED_OAPI_ALLOWLIST):
+        source = _text(typed_oapi)
+        assert B4T_MODULE in source
+        assert "_execute_bounded_model_mutation" in source
+        assert "_B4T_MUTATION_TRANSPORT_KEY" in source
 
 
 def test_integration_scratch_owner_never_bypasses_oapi_into_b4t():
