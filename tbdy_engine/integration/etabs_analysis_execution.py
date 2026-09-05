@@ -3,20 +3,22 @@
 The supported positive path is deliberately narrow:
 
 qualified B4B AnalysisStateMutationResult + exact OwnedScratchContext
--> predeclared analysis-case scope
--> full run-flag snapshot
--> exact requested run-scope establishment
--> explicit stale-result clearing on the owned scratch
+-> predeclared exact case/result-population scope
+-> factual expected column population
+-> full run-flag snapshot and exact run-scope establishment
+-> explicit all-case stale-result clearing on the owned scratch
 -> exactly one RunAnalysis
--> every requested case FINISHED
+-> every requested case FINISHED and every non-requested case still NOT_RUN
+-> complete exact ``Element Forces - Columns`` population for every case
 -> exact B4B causal-state revalidation
 -> exact run-flag restoration
 -> protected-source integrity
--> existing B1 AnalysisResultIdentity/private execution proof/QUALIFIED lineage.
+-> B1-owned controlled-execution issuance of QUALIFIED AnalysisResultIdentity.
 
-A successful RunAnalysis return code alone never qualifies results.  Partial
-success, stale-result ambiguity, state drift, source drift, missing cases, or
-restoration failure issues no usable AnalysisResultIdentity.
+A successful RunAnalysis return code or FINISHED case status alone never
+qualifies results. Partial success, population incompleteness, scope
+contamination, stale-result ambiguity, state drift, source drift, missing cases,
+or restoration failure issues no usable AnalysisResultIdentity.
 """
 from __future__ import annotations
 
@@ -47,11 +49,8 @@ from tbdy_engine.etabs.safety import (
 from tbdy_engine.integration.etabs_analysis_lineage import (
     AnalysisLineageQualification,
     AnalysisResultIdentity,
-    _EXECUTION_PROOF_FACTORY_TOKEN,
-    _QUALIFICATION_FACTORY_TOKEN,
-    _VerifiedAnalysisExecutionProof,
-    _build_qualified_analysis_lineage,
     build_analysis_result_identity,
+    issue_qualified_analysis_lineage_from_controlled_execution,
 )
 from tbdy_engine.integration.etabs_analysis_state_mutation import (
     AnalysisStateMutationResult,
@@ -68,6 +67,14 @@ from tbdy_engine.integration.etabs_scratch_lifecycle import (
 from tbdy_engine.integration.live_etabs_acquisition_context import (
     TrustedLiveAcquisitionContext,
 )
+from tbdy_engine.providers.etabs_column_force_result_population_provider import (
+    COLUMN_FORCE_RESULT_POPULATION_CONTRACT,
+    TABLE_COLUMN_FORCES,
+    ColumnForcePopulationExpectation,
+    ColumnForceResultPopulationFact,
+    capture_column_force_population_expectation_from_session,
+    capture_column_force_result_population_from_session,
+)
 
 
 ANALYSIS_EXECUTION_SCOPE_CONTRACT = "TBDY_B5_ANALYSIS_EXECUTION_SCOPE_V1"
@@ -79,6 +86,10 @@ ANALYSIS_ATTEMPT_REF_PREFIX = "analysis-execution-attempt:"
 ANALYSIS_GENERATION_REF_PREFIX = "analysis-generation:"
 ANALYSIS_EXECUTION_MANIFEST_REF_PREFIX = "analysis-execution-manifest:sha256:"
 ANALYSIS_EXECUTION_PROOF_REF_PREFIX = "analysis-execution-proof:sha256:"
+
+# CSI GetCaseStatus documented integer meanings used as factual postconditions.
+CSI_ANALYSIS_STATUS_NOT_RUN = 1
+CSI_ANALYSIS_STATUS_FINISHED = 4
 
 
 class RunFlagRestorationStatus(StrEnum):
@@ -147,7 +158,12 @@ def _case_scope_ref(case_name: str) -> str:
     name = _text(case_name, "case_name")
     return _digest(
         ANALYSIS_CASE_SCOPE_REF_PREFIX,
-        {"contract": ANALYSIS_EXECUTION_SCOPE_CONTRACT, "case_name": name},
+        {
+            "contract": ANALYSIS_EXECUTION_SCOPE_CONTRACT,
+            "case_name": name,
+            "required_result_population_contract": COLUMN_FORCE_RESULT_POPULATION_CONTRACT,
+            "required_result_table": TABLE_COLUMN_FORCES,
+        },
     )
 
 
@@ -175,7 +191,9 @@ class AnalysisExecutionScope:
                 "analysis execution scope contains duplicate case names",
                 stage="scope_contract",
             )
-        refs = tuple(_case_scope_ref(name) for name in names)
+        # B1 canonicalizes refs independently of case-name order. Store the same
+        # canonical ordering here so manifest and AnalysisResultIdentity agree.
+        refs = tuple(sorted(_case_scope_ref(name) for name in names))
         object.__setattr__(self, "case_names", names)
         object.__setattr__(self, "result_scope_refs", refs)
         object.__setattr__(
@@ -186,6 +204,8 @@ class AnalysisExecutionScope:
                 {
                     "contract": self.contract,
                     "case_names": list(names),
+                    "required_result_population_contract": COLUMN_FORCE_RESULT_POPULATION_CONTRACT,
+                    "required_result_table": TABLE_COLUMN_FORCES,
                     "result_scope_refs": list(refs),
                 },
             ),
@@ -201,6 +221,8 @@ class AnalysisExecutionScope:
         return {
             "contract": self.contract,
             "case_names": list(self.case_names),
+            "required_result_population_contract": COLUMN_FORCE_RESULT_POPULATION_CONTRACT,
+            "required_result_table": TABLE_COLUMN_FORCES,
             "result_scope_refs": list(self.result_scope_refs),
             "scope_ref": self.scope_ref,
         }
@@ -248,6 +270,8 @@ class AnalysisExecutionManifest:
     delete_results: DeleteAnalysisResultsFact
     run_analysis: RunAnalysisFact
     post_case_status: CaseStatusPopulationFact
+    result_population_expectation: ColumnForcePopulationExpectation
+    result_populations: tuple[ColumnForceResultPopulationFact, ...]
     state_revalidation: AnalysisStateRevalidationResult
     manifest_ref: str = field(init=False)
     contract: str = ANALYSIS_EXECUTION_MANIFEST_CONTRACT
@@ -264,6 +288,36 @@ class AnalysisExecutionManifest:
             raise TypeError("scope must be AnalysisExecutionScope")
         if not isinstance(self.attempt, AnalysisExecutionAttempt):
             raise TypeError("attempt must be AnalysisExecutionAttempt")
+        if not isinstance(self.result_population_expectation, ColumnForcePopulationExpectation):
+            raise TypeError(
+                "result_population_expectation must be ColumnForcePopulationExpectation"
+            )
+        populations = tuple(self.result_populations)
+        if not populations or any(
+            not isinstance(item, ColumnForceResultPopulationFact) for item in populations
+        ):
+            raise TypeError(
+                "result_populations must contain ColumnForceResultPopulationFact"
+            )
+        population_cases = tuple(sorted(item.case_name for item in populations))
+        if population_cases != self.scope.case_names:
+            raise AnalysisExecutionError(
+                "positive execution manifest requires one exact result population per requested case",
+                stage="manifest_contract",
+            )
+        if any(
+            item.expectation_ref != self.result_population_expectation.evidence_ref
+            for item in populations
+        ):
+            raise AnalysisExecutionError(
+                "result populations do not bind the manifest expectation",
+                stage="manifest_contract",
+            )
+        object.__setattr__(
+            self,
+            "result_populations",
+            tuple(sorted(populations, key=lambda item: item.case_name)),
+        )
         if not self.run_analysis.success:
             raise AnalysisExecutionError(
                 "positive execution manifest requires RunAnalysis success",
@@ -307,11 +361,24 @@ class AnalysisExecutionManifest:
                     "delete_results_ref": self.delete_results.evidence_ref,
                     "run_analysis_ref": self.run_analysis.evidence_ref,
                     "post_case_status": list(self.post_case_status.case_statuses),
+                    "result_population_expectation_ref": self.result_population_expectation.evidence_ref,
+                    "result_populations": [
+                        {
+                            "case_name": item.case_name,
+                            "evidence_ref": item.evidence_ref,
+                            "row_count": item.row_count,
+                        }
+                        for item in self.result_populations
+                    ],
                     "state_comparison_ref": self.state_revalidation.comparison.comparison_ref,
                     "current_analysis_state_ref": self.state_revalidation.current_analysis_state.identity_ref,
                 },
             ),
         )
+
+    @property
+    def result_population_refs(self) -> tuple[str, ...]:
+        return tuple(item.evidence_ref for item in self.result_populations)
 
     @property
     def execution_proof_ref(self) -> str:
@@ -324,6 +391,8 @@ class AnalysisExecutionManifest:
                 "generation_ref": self.attempt.generation_ref,
                 "analysis_state_ref": self.analysis_state_ref,
                 "result_scope_refs": list(self.scope.result_scope_refs),
+                "result_population_expectation_ref": self.result_population_expectation.evidence_ref,
+                "result_population_refs": list(self.result_population_refs),
             },
         )
 
@@ -350,6 +419,11 @@ class AnalysisExecutionResult:
         if self.qualification.analysis_result != self.analysis_result_identity:
             raise AnalysisExecutionError(
                 "qualification/result identity mismatch",
+                stage="result_contract",
+            )
+        if self.analysis_result_identity.result_scope_refs != self.manifest.scope.result_scope_refs:
+            raise AnalysisExecutionError(
+                "analysis-result identity does not match the exact manifest scope",
                 stage="result_contract",
             )
         if self.execution_proof_ref != self.manifest.execution_proof_ref:
@@ -465,6 +539,28 @@ def _raise_after_run_scope_mutation(
     raise error from cause
 
 
+def _require_same_case_population(
+    *,
+    run_flags: RunCaseFlagSnapshotFact,
+    statuses: CaseStatusPopulationFact,
+    stage: str,
+    attempt: AnalysisExecutionAttempt,
+) -> None:
+    flag_cases = set(run_flags.case_names)
+    status_cases = set(statuses.as_mapping())
+    if flag_cases != status_cases:
+        raise AnalysisExecutionError(
+            "run-flag and case-status populations do not reconcile exactly",
+            stage=stage,
+            attempt_ref=attempt.attempt_ref,
+            generation_ref=attempt.generation_ref,
+            details={
+                "missing_from_status": tuple(sorted(flag_cases - status_cases)),
+                "extra_in_status": tuple(sorted(status_cases - flag_cases)),
+            },
+        )
+
+
 def execute_controlled_analysis(
     *,
     context: TrustedLiveAcquisitionContext,
@@ -473,7 +569,7 @@ def execute_controlled_analysis(
     requested_case_names: Sequence[str],
     timeout_seconds: float = 300.0,
 ) -> AnalysisExecutionResult:
-    """Execute and causally qualify one exact analysis-case generation."""
+    """Execute and causally qualify one exact analysis/result generation."""
     if not isinstance(context, TrustedLiveAcquisitionContext):
         raise TypeError("context must be TrustedLiveAcquisitionContext")
     if not isinstance(owned_scratch, OwnedScratchContext):
@@ -537,6 +633,19 @@ def execute_controlled_analysis(
         timeout_seconds=timeout,
     )
 
+    try:
+        population_expectation = capture_column_force_population_expectation_from_session(
+            context.verified_session,
+            timeout_seconds=timeout,
+        )
+    except Exception as exc:
+        raise AnalysisExecutionError(
+            "required factual column population could not be established before execution",
+            stage="result_population_expectation",
+            attempt_ref=attempt.attempt_ref,
+            generation_ref=attempt.generation_ref,
+        ) from exc
+
     run_flags_before = get_run_case_flags_from_session(
         context.verified_session,
         timeout_seconds=timeout,
@@ -570,13 +679,12 @@ def execute_controlled_analysis(
             attempt_ref=attempt.attempt_ref,
             generation_ref=attempt.generation_ref,
         )
-    if set(scope.case_names) - set(pre_status.as_mapping()):
-        raise AnalysisExecutionError(
-            "pre-execution case-status population is missing requested scope",
-            stage="pre_case_status",
-            attempt_ref=attempt.attempt_ref,
-            generation_ref=attempt.generation_ref,
-        )
+    _require_same_case_population(
+        run_flags=run_flags_before,
+        statuses=pre_status,
+        stage="pre_case_status",
+        attempt=attempt,
+    )
 
     anchor = run_flags_before.case_names[0]
     run_scope_mutated = False
@@ -624,8 +732,9 @@ def execute_controlled_analysis(
             context.verified_session,
             timeout_seconds=timeout,
         )
+        requested_set = set(scope.case_names)
         expected_flags = tuple(
-            sorted((name, name in set(scope.case_names)) for name in run_flags_before.case_names)
+            sorted((name, name in requested_set) for name in run_flags_before.case_names)
         )
         if not run_flags_configured.success or run_flags_configured.case_flags != expected_flags:
             _raise_after_run_scope_mutation(
@@ -643,7 +752,7 @@ def execute_controlled_analysis(
             )
 
         # Frozen B5 freshness policy: purge every prior analysis result on the
-        # owned scratch before executing the new generation.  Existing rows or
+        # owned scratch before executing the new generation. Existing rows or
         # FINISHED flags can never qualify the new attempt.
         delete_fact = delete_analysis_results_from_session(
             context.verified_session,
@@ -676,6 +785,43 @@ def execute_controlled_analysis(
                 owned_scratch=owned_scratch,
                 run_flags_before=run_flags_before,
                 timeout_seconds=timeout,
+            )
+        try:
+            _require_same_case_population(
+                run_flags=run_flags_before,
+                statuses=cleared_status,
+                stage="stale_result_clear_verify",
+                attempt=attempt,
+            )
+        except AnalysisExecutionError as exc:
+            _raise_after_run_scope_mutation(
+                message=str(exc),
+                stage=exc.stage,
+                attempt=attempt,
+                context=context,
+                owned_scratch=owned_scratch,
+                run_flags_before=run_flags_before,
+                timeout_seconds=timeout,
+                details=exc.details,
+                cause=exc,
+            )
+        uncleared = tuple(
+            sorted(
+                (name, status)
+                for name, status in cleared_status.case_statuses
+                if status != CSI_ANALYSIS_STATUS_NOT_RUN
+            )
+        )
+        if uncleared:
+            _raise_after_run_scope_mutation(
+                message="all-case result clearing did not leave the full case population NOT_RUN",
+                stage="stale_result_clear_verify",
+                attempt=attempt,
+                context=context,
+                owned_scratch=owned_scratch,
+                run_flags_before=run_flags_before,
+                timeout_seconds=timeout,
+                details={"uncleared_cases": uncleared},
             )
         for case_name in scope.case_names:
             readiness = read_verified_analysis_readiness(
@@ -750,18 +896,43 @@ def execute_controlled_analysis(
                 run_flags_before=run_flags_before,
                 timeout_seconds=timeout,
             )
-        post_map = post_status.as_mapping()
-        missing_post = tuple(sorted(set(scope.case_names) - set(post_map)))
-        if missing_post:
-            _raise_after_run_scope_mutation(
-                message="post-run case-status population is missing requested cases",
+        try:
+            _require_same_case_population(
+                run_flags=run_flags_before,
+                statuses=post_status,
                 stage="post_case_status",
+                attempt=attempt,
+            )
+        except AnalysisExecutionError as exc:
+            _raise_after_run_scope_mutation(
+                message=str(exc),
+                stage=exc.stage,
                 attempt=attempt,
                 context=context,
                 owned_scratch=owned_scratch,
                 run_flags_before=run_flags_before,
                 timeout_seconds=timeout,
-                details={"missing_cases": missing_post},
+                details=exc.details,
+                cause=exc,
+            )
+        post_map = post_status.as_mapping()
+        contaminated = tuple(
+            sorted(
+                (name, status)
+                for name, status in post_map.items()
+                if name not in requested_set and status != CSI_ANALYSIS_STATUS_NOT_RUN
+            )
+        )
+        if contaminated:
+            _raise_after_run_scope_mutation(
+                message="non-requested analysis cases changed state during exact-scope execution",
+                stage="post_case_scope_contamination",
+                attempt=attempt,
+                context=context,
+                owned_scratch=owned_scratch,
+                run_flags_before=run_flags_before,
+                timeout_seconds=timeout,
+                details={"contaminated_cases": contaminated},
             )
         for case_name in scope.case_names:
             readiness = read_verified_analysis_readiness(
@@ -784,7 +955,47 @@ def execute_controlled_analysis(
                         "status_code": readiness.etabs_status_code,
                     },
                 )
+            if post_map.get(case_name) != CSI_ANALYSIS_STATUS_FINISHED:
+                _raise_after_run_scope_mutation(
+                    message="requested case status did not reconcile to FINISHED",
+                    stage="post_case_readiness",
+                    attempt=attempt,
+                    context=context,
+                    owned_scratch=owned_scratch,
+                    run_flags_before=run_flags_before,
+                    timeout_seconds=timeout,
+                    details={
+                        "case_name": case_name,
+                        "status_code": post_map.get(case_name),
+                    },
+                )
 
+        result_populations: list[ColumnForceResultPopulationFact] = []
+        for case_name in scope.case_names:
+            try:
+                population = capture_column_force_result_population_from_session(
+                    context.verified_session,
+                    case_name=case_name,
+                    expectation=population_expectation,
+                    timeout_seconds=timeout,
+                )
+            except Exception as exc:
+                _raise_after_run_scope_mutation(
+                    message="required post-run result population did not qualify",
+                    stage="result_population_acquisition",
+                    attempt=attempt,
+                    context=context,
+                    owned_scratch=owned_scratch,
+                    run_flags_before=run_flags_before,
+                    timeout_seconds=timeout,
+                    details={"case_name": case_name, "error": str(exc)},
+                    cause=exc,
+                )
+            result_populations.append(population)
+
+        # Result acquisition uses reversible display-selection transactions. Only
+        # after every required population is complete do we re-prove that the
+        # structural causal state is still the exact B4B state.
         state_revalidation = revalidate_frame_modifier_analysis_state(
             context=context,
             owned_scratch=owned_scratch,
@@ -845,9 +1056,15 @@ def execute_controlled_analysis(
             delete_results=delete_fact,
             run_analysis=run_fact,
             post_case_status=post_status,
+            result_population_expectation=population_expectation,
+            result_populations=tuple(result_populations),
             state_revalidation=state_revalidation,
         )
 
+        population_provenance = (
+            population_expectation.evidence_ref,
+            *manifest.result_population_refs,
+        )
         analysis_result = build_analysis_result_identity(
             source_model_ref=context.source_model_identity.source_model_ref,
             parent_analysis_state_ref=established_state.analysis_state_identity.identity_ref,
@@ -858,34 +1075,27 @@ def execute_controlled_analysis(
                 scope.scope_ref,
                 run_fact.evidence_ref,
                 post_status.evidence_ref,
+                *population_provenance,
             ),
         )
-        execution_proof = _VerifiedAnalysisExecutionProof(
-            _token=_EXECUTION_PROOF_FACTORY_TOKEN,
-            proof_ref=manifest.execution_proof_ref,
-            source_model_ref=context.source_model_identity.source_model_ref,
-            execution_state_ref=established_state.analysis_state_identity.execution_state_ref,
-            analysis_state_ref=established_state.analysis_state_identity.identity_ref,
-            analysis_result_ref=analysis_result.identity_ref,
-            analysis_generation_ref=attempt.generation_ref,
-            provenance_refs=(
+        qualification = issue_qualified_analysis_lineage_from_controlled_execution(
+            analysis_state=established_state.analysis_state_identity,
+            analysis_result=analysis_result,
+            execution_proof_ref=manifest.execution_proof_ref,
+            execution_provenance_refs=(
                 manifest.manifest_ref,
                 scope.scope_ref,
                 run_fact.evidence_ref,
                 post_status.evidence_ref,
                 state_revalidation.comparison.comparison_ref,
                 owned_scratch.ownership_proof_ref,
+                *population_provenance,
             ),
-        )
-        qualification = _build_qualified_analysis_lineage(
-            _token=_QUALIFICATION_FACTORY_TOKEN,
-            analysis_state=established_state.analysis_state_identity,
-            analysis_result=analysis_result,
-            execution_proof=execution_proof,
             qualification_provenance_refs=(
                 manifest.manifest_ref,
                 manifest.execution_proof_ref,
                 scope.scope_ref,
+                *population_provenance,
             ),
             capture_provenance_refs=(
                 context.acquisition_context_ref,
