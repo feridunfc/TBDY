@@ -17,6 +17,10 @@ from tbdy_engine.integration.etabs_analysis_lineage import build_analysis_state_
 from tbdy_engine.integration.etabs_analysis_state_revalidation import (
     AnalysisStateRevalidationError,
 )
+from tbdy_engine.providers.etabs_column_force_result_population_provider import (
+    ColumnForcePopulationExpectation,
+    ColumnForceResultPopulationFact,
+)
 
 
 class _FakeContext:
@@ -65,6 +69,32 @@ class _FakeEstablishedState:
         self.requested_manifest = SimpleNamespace(manifest_ref="requested-state:test")
 
 
+def _force_rows(case_name: str, unique_names: tuple[str, ...]) -> tuple[dict[str, object], ...]:
+    rows: list[dict[str, object]] = []
+    for index, uid in enumerate(unique_names, start=1):
+        rows.append(
+            {
+                "Story": "Story1",
+                "Column": f"C{index}",
+                "UniqueName": uid,
+                "OutputCase": case_name,
+                "CaseType": "LinStatic",
+                "StepType": "",
+                "StepNumber": None,
+                "Station": 0.0,
+                "Element": uid,
+                "ElemStation": 0.0,
+                "P": float(index),
+                "V2": 0.0,
+                "V3": 0.0,
+                "T": 0.0,
+                "M2": float(index) * 2.0,
+                "M3": float(index) * 3.0,
+            }
+        )
+    return tuple(rows)
+
+
 @pytest.fixture
 def harness(monkeypatch):
     context = _FakeContext()
@@ -83,12 +113,17 @@ def harness(monkeypatch):
         "run_return": 0,
         "run_exception": None,
         "unfinished_cases": set(),
+        "contaminate_non_requested": None,
         "revalidation_error": None,
         "set_fail_on_call": None,
         "set_calls": 0,
         "delete_calls": 0,
         "run_calls": 0,
         "source_digest": "a" * 64,
+        "expected_uids": ("1", "2"),
+        "expectation_error": None,
+        "population_error_cases": set(),
+        "population_calls": [],
     }
 
     def identity(_session, *, timeout_seconds=30.0):
@@ -194,6 +229,9 @@ def harness(monkeypatch):
                     state["statuses"][name] = (
                         3 if name in state["unfinished_cases"] else 4
                     )
+            contaminated = state["contaminate_non_requested"]
+            if contaminated is not None:
+                state["statuses"][contaminated] = 4
         return RunAnalysisFact(return_code=ret)
 
     comparison = SimpleNamespace(
@@ -211,6 +249,32 @@ def harness(monkeypatch):
             current_analysis_state=established.analysis_state_identity,
         )
 
+    def expectation(_session, *, timeout_seconds=30.0):
+        if state["expectation_error"] is not None:
+            raise state["expectation_error"]
+        return ColumnForcePopulationExpectation(
+            expected_unique_names=state["expected_uids"],
+            source_row_count=len(state["expected_uids"]),
+        )
+
+    def population(
+        _session,
+        *,
+        case_name,
+        expectation,
+        timeout_seconds=30.0,
+    ):
+        state["population_calls"].append(case_name)
+        if case_name in state["population_error_cases"]:
+            raise RuntimeError(f"simulated incomplete population for {case_name}")
+        return ColumnForceResultPopulationFact(
+            case_name=case_name,
+            expectation_ref=expectation.evidence_ref,
+            expected_unique_names=expectation.expected_unique_names,
+            observed_unique_names=expectation.expected_unique_names,
+            rows=_force_rows(case_name, expectation.expected_unique_names),
+        )
+
     monkeypatch.setattr(subject, "get_run_case_flags_from_session", flags_fact)
     monkeypatch.setattr(subject, "set_run_case_flag_from_session", set_flag)
     monkeypatch.setattr(subject, "delete_analysis_results_from_session", delete_results)
@@ -218,6 +282,16 @@ def harness(monkeypatch):
     monkeypatch.setattr(subject, "read_verified_analysis_readiness", readiness)
     monkeypatch.setattr(subject, "run_analysis_from_session", run_analysis)
     monkeypatch.setattr(subject, "revalidate_frame_modifier_analysis_state", revalidate)
+    monkeypatch.setattr(
+        subject,
+        "capture_column_force_population_expectation_from_session",
+        expectation,
+    )
+    monkeypatch.setattr(
+        subject,
+        "capture_column_force_result_population_from_session",
+        population,
+    )
 
     return SimpleNamespace(
         context=context,
@@ -248,12 +322,21 @@ def test_positive_execution_qualifies_exact_predeclared_scope_and_restores_flags
         result.manifest.scope.result_scope_refs
     )
     assert result.manifest.scope.case_names == ("EX", "MODAL")
+    assert tuple(item.case_name for item in result.manifest.result_populations) == (
+        "EX",
+        "MODAL",
+    )
+    assert result.manifest.result_population_expectation.expected_unique_names == ("1", "2")
     assert result.manifest.run_analysis.return_code == 0
     assert harness.state["run_calls"] == 1
     assert harness.state["delete_calls"] == 1
+    assert harness.state["population_calls"] == ["EX", "MODAL"]
     assert harness.state["run_flags"] == before
     assert result.manifest.run_flags_before.case_flags == result.manifest.run_flags_restored.case_flags
     assert result.execution_proof_ref == result.manifest.execution_proof_ref
+    for population_ref in result.manifest.result_population_refs:
+        assert population_ref in result.analysis_result_identity.provenance_refs
+        assert population_ref in result.qualification.qualification_provenance_refs
 
 
 def test_scope_identity_is_deterministic_and_runtime_generation_is_not_part_of_scope():
@@ -262,6 +345,7 @@ def test_scope_identity_is_deterministic_and_runtime_generation_is_not_part_of_s
 
     assert left.scope_ref == right.scope_ref
     assert left.result_scope_refs == right.result_scope_refs
+    assert left.result_scope_refs == tuple(sorted(left.result_scope_refs))
 
 
 def test_duplicate_requested_case_is_rejected_before_execution(harness):
@@ -308,6 +392,23 @@ def test_wrong_source_fails_before_run_scope_mutation(harness):
     assert harness.state["run_calls"] == 0
 
 
+def test_population_expectation_failure_occurs_before_any_run_scope_mutation(harness):
+    harness.state["expectation_error"] = RuntimeError("no factual column population")
+
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.execute_controlled_analysis(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            established_state=harness.established,
+            requested_case_names=("EX",),
+        )
+
+    assert exc.value.stage == "result_population_expectation"
+    assert harness.state["set_calls"] == 0
+    assert harness.state["delete_calls"] == 0
+    assert harness.state["run_calls"] == 0
+
+
 def test_missing_requested_case_fails_before_any_run_analysis(harness):
     with pytest.raises(subject.AnalysisExecutionError) as exc:
         subject.execute_controlled_analysis(
@@ -333,7 +434,9 @@ def test_preexisting_finished_rows_are_explicitly_cleared_before_run(harness):
 
     assert result.manifest.pre_case_status.as_mapping()["EX"] == 4
     assert result.manifest.cleared_case_status.as_mapping()["EX"] == 1
+    assert all(value == 1 for value in result.manifest.cleared_case_status.as_mapping().values())
     assert result.manifest.post_case_status.as_mapping()["EX"] == 4
+    assert result.manifest.post_case_status.as_mapping()["DEAD"] == 1
     assert harness.state["delete_calls"] == 1
 
 
@@ -387,7 +490,47 @@ def test_one_unfinished_case_rejects_entire_successful_subset(harness):
     assert exc.value.stage == "post_case_readiness"
     assert exc.value.details["case_name"] == "MODAL"
     assert harness.state["statuses"]["EX"] == 4
+    assert harness.state["population_calls"] == []
     assert harness.state["run_calls"] == 1
+
+
+def test_nonrequested_case_execution_contamination_rejects_entire_attempt(harness):
+    before = dict(harness.state["run_flags"])
+    harness.state["contaminate_non_requested"] = "DEAD"
+
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.execute_controlled_analysis(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            established_state=harness.established,
+            requested_case_names=("EX",),
+        )
+
+    assert exc.value.stage == "post_case_scope_contamination"
+    assert exc.value.restoration_status is subject.RunFlagRestorationStatus.RESTORED
+    assert harness.state["population_calls"] == []
+    assert harness.state["run_flags"] == before
+
+
+def test_finished_cases_without_complete_result_population_do_not_qualify(harness):
+    before = dict(harness.state["run_flags"])
+    harness.state["population_error_cases"] = {"MODAL"}
+
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.execute_controlled_analysis(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            established_state=harness.established,
+            requested_case_names=("EX", "MODAL"),
+        )
+
+    assert exc.value.stage == "result_population_acquisition"
+    assert exc.value.details["case_name"] == "MODAL"
+    assert exc.value.restoration_status is subject.RunFlagRestorationStatus.RESTORED
+    assert harness.state["statuses"]["EX"] == 4
+    assert harness.state["statuses"]["MODAL"] == 4
+    assert harness.state["population_calls"] == ["EX", "MODAL"]
+    assert harness.state["run_flags"] == before
 
 
 def test_post_run_causal_state_mismatch_rejects_result(harness):
@@ -406,7 +549,8 @@ def test_post_run_causal_state_mismatch_rejects_result(harness):
             current_analysis_state=harness.established.analysis_state_identity,
         )
 
-    # Revalidation occurs before scope mutation, after DeleteResults, and after run.
+    # Revalidation occurs before scope mutation, after DeleteResults, and after
+    # complete post-run population acquisition.
     subject.revalidate_frame_modifier_analysis_state = fail_second_revalidation
 
     with pytest.raises(subject.AnalysisExecutionError) as exc:
@@ -419,6 +563,7 @@ def test_post_run_causal_state_mismatch_rejects_result(harness):
 
     assert exc.value.stage == "unexpected_execution_error"
     assert exc.value.restoration_status is subject.RunFlagRestorationStatus.RESTORED
+    assert harness.state["population_calls"] == ["EX"]
     assert harness.state["run_calls"] == 1
 
 
@@ -456,6 +601,7 @@ def test_run_flag_restoration_failure_rejects_otherwise_successful_execution(har
 
     assert exc.value.stage == "run_flag_restore"
     assert exc.value.restoration_status is subject.RunFlagRestorationStatus.FAILED
+    assert harness.state["population_calls"] == ["EX"]
     assert harness.state["run_calls"] == 1
 
 
@@ -501,12 +647,17 @@ def test_retry_after_failure_gets_new_attempt_and_generation(harness):
     assert all(gen and gen.startswith(subject.ANALYSIS_GENERATION_REF_PREFIX) for _, gen in refs)
 
 
-def test_execution_api_has_no_caller_generation_parameter():
+def test_execution_api_has_no_caller_generation_or_population_truth_parameter():
     import inspect
 
     params = inspect.signature(subject.execute_controlled_analysis).parameters
-    assert "analysis_generation_ref" not in params
-    assert "generation_ref" not in params
-    assert "attempt_ref" not in params
-    assert "analysis_result_identity" not in params
-    assert "qualification" not in params
+    for forbidden in (
+        "analysis_generation_ref",
+        "generation_ref",
+        "attempt_ref",
+        "analysis_result_identity",
+        "qualification",
+        "result_population",
+        "expected_column_unique_names",
+    ):
+        assert forbidden not in params
