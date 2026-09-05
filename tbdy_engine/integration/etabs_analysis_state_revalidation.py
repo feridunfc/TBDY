@@ -1,9 +1,14 @@
 """Read-only revalidation of an already-established B4B analysis state.
 
 B5 must prove that the exact causal analysis state it received before execution
-still exists after execution.  This module reuses the B4B request contract, the
+still exists after execution. This module reuses the B4B request contract, the
 same factual frame-modifier getter, and the B4A establishment/comparison spine.
 It performs no model mutation and cannot establish a new requested state.
+
+The complete original ``AnalysisStateIdentity.state_basis_refs`` population is
+preserved on revalidation. Opaque additional identity commitments remain
+identity commitments only; this module does not reinterpret them as B4B
+SECTION_STIFFNESS_MODIFIERS state.
 """
 from __future__ import annotations
 
@@ -77,8 +82,6 @@ class AnalysisStateRevalidationResult:
             raise TypeError("original_analysis_state must be AnalysisStateIdentity")
         if not isinstance(self.current_analysis_state, AnalysisStateIdentity):
             raise TypeError("current_analysis_state must be AnalysisStateIdentity")
-        if not isinstance(self.comparison, DerivedStateComparison):
-            raise TypeError("comparison must be DerivedStateComparison")
         if self.original_analysis_state.identity_ref != self.current_analysis_state.identity_ref:
             raise AnalysisStateRevalidationError(
                 "current causal analysis state does not match the pre-execution AnalysisStateIdentity",
@@ -212,11 +215,7 @@ def revalidate_frame_modifier_analysis_state(
 
     current_state = build_analysis_state_identity_from_derived_state(
         comparison=comparison,
-        state_basis_refs=(
-            owned_scratch.ownership_proof_ref,
-            established_state.requested_manifest.manifest_ref,
-            established_state.mutation_manifest.manifest_ref,
-        ),
+        state_basis_refs=established_state.analysis_state_identity.state_basis_refs,
         provenance_refs=(
             context.acquisition_context_ref,
             context.session_provenance_ref,

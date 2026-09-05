@@ -11,6 +11,10 @@ AnalysisStateIdentity.
 It does not run analysis, select run cases, delete results, start design,
 change present units, choose engineering modifier values, or expose raw ETABS
 capabilities.
+
+``additional_state_basis_refs`` is an opaque identity-commitment seam only. B4B
+does not interpret those refs as derived state or factual truth; downstream
+positive authorities must validate the typed evidence that owns any such ref.
 """
 from __future__ import annotations
 
@@ -115,6 +119,13 @@ def _same_physical_bytes(left: PhysicalFileSnapshot, right: PhysicalFileSnapshot
         and left.file_size_bytes == right.file_size_bytes
         and left.sha256_content_digest == right.sha256_content_digest
     )
+
+
+def _additional_basis_refs(values: Sequence[str]) -> tuple[str, ...]:
+    if isinstance(values, (str, bytes)) or not isinstance(values, Sequence):
+        raise TypeError("additional_state_basis_refs must be a sequence of strings")
+    normalized = tuple(sorted({_text(value, "additional_state_basis_ref") for value in values}))
+    return normalized
 
 
 @dataclass(frozen=True, slots=True)
@@ -535,12 +546,20 @@ def establish_frame_modifier_analysis_state(
     context: TrustedLiveAcquisitionContext,
     owned_scratch: OwnedScratchContext,
     requested_manifest: RequestedDerivedStateManifest,
+    additional_state_basis_refs: Sequence[str] = (),
     timeout_seconds: float = 30.0,
 ) -> AnalysisStateMutationResult:
-    """Mutate and causally establish one exact B4B frame-modifier state."""
+    """Mutate and causally establish one exact B4B frame-modifier state.
+
+    ``additional_state_basis_refs`` commits already-existing external evidence
+    into the resulting state identity without making B4B the semantic owner of
+    that evidence. The caller must have obtained such evidence before entering
+    this synchronous mutation lifecycle; B4B merely commits its opaque ref.
+    """
     timeout = float(timeout_seconds)
     if timeout <= 0:
         raise ValueError("timeout_seconds must be greater than zero")
+    extra_basis_refs = _additional_basis_refs(additional_state_basis_refs)
 
     identity_before = _require_bindings(context, owned_scratch, requested_manifest)
     targets = _parse_requested_targets(requested_manifest)
@@ -729,12 +748,18 @@ def establish_frame_modifier_analysis_state(
 
         analysis_state = build_analysis_state_identity_from_derived_state(
             comparison=comparison,
-            state_basis_refs=(owned_scratch.ownership_proof_ref, requested_manifest.manifest_ref, mutation_manifest.manifest_ref),
+            state_basis_refs=(
+                owned_scratch.ownership_proof_ref,
+                requested_manifest.manifest_ref,
+                mutation_manifest.manifest_ref,
+                *extra_basis_refs,
+            ),
             provenance_refs=(
                 context.acquisition_context_ref,
                 context.session_provenance_ref,
                 owned_scratch.ownership_proof_ref,
                 mutation_manifest.manifest_ref,
+                *extra_basis_refs,
             ),
         )
         return AnalysisStateMutationResult(
