@@ -8,7 +8,7 @@ turning fixture truth into production request state.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from tbdy_engine.application.contracts import ColumnExecutionRequest
 from tbdy_engine.design.columns.column_combo_eligibility_projection import ComponentReadinessBinding
@@ -18,10 +18,16 @@ from tbdy_engine.integration.live_etabs_acquisition_context import TrustedLiveAc
 from tbdy_engine.regulatory.column_candidate_adequacy_authority import authorize_candidate_adequacy_policy
 from tbdy_engine.regulatory.column_longitudinal_rebar import evaluate_column_longitudinal_layouts
 from tbdy_engine.regulatory.column_pmm_authority import authorize_pmm_numerical_policy
+from tbdy_engine.regulatory.column_transverse_confinement import (
+    ColumnTransverseConfinementInput,
+    ColumnTransverseConfinementResult,
+    evaluate_column_transverse_confinement,
+)
 from tbdy_engine.regulatory.fnd_col_2_program import compile_source_bound_fnd_col_2_program, execute_source_bound_fnd_col_2_with_artifact
 from tbdy_engine.regulatory.sources.fnd_col_1_longitudinal import FND_COL_1_AUTHORITY_CATALOG
 from tbdy_engine.regulatory.sources.fnd_col_4_candidate_adequacy import FND_COL_4_CANDIDATE_ADEQUACY_AUTHORITY_CATALOG
 from tbdy_engine.regulatory.sources.fnd_col_4_pmm import FND_COL_4_PMM_AUTHORITY_CATALOG
+from tbdy_engine.regulatory.vs6_column_shear_p7_program import VS6P7ColumnShearRun
 
 STATUS_FACTUAL_ACQUISITION_BLOCKED = "FACTUAL_ACQUISITION_BLOCKED"
 STATUS_APPLICATION_BLOCKED = "APPLICATION_BLOCKED"
@@ -32,6 +38,7 @@ STATUS_REANALYSIS_REQUIRED = "REANALYSIS_REQUIRED"
 STATUS_UNRESOLVED = "UNRESOLVED"
 BLOCKER_LIVE_FND2_INPUT_LINEAGE = "LIVE_FND2_INPUT_LINEAGE_NOT_QUALIFIED"
 BLOCKER_LIVE_DESIGN_LINEAGE = "LIVE_DESIGN_RESULT_LINEAGE_NOT_QUALIFIED"
+BLOCKER_LANE_C_SHEAR = "QUALIFIED_COLUMN_SHEAR_RESULT_NOT_AVAILABLE"
 
 
 class ColumnExecutionContractError(ValueError):
@@ -50,6 +57,8 @@ class ColumnDomainArtifact:
     readiness_binding: ComponentReadinessBinding | None = None
     layout_authority: object | None = None
     longitudinal_selection: object | None = None
+    transverse_confinement: ColumnTransverseConfinementResult | None = None
+    column_shear: VS6P7ColumnShearRun | None = None
 
     @property
     def selected_rebar(self):
@@ -114,6 +123,47 @@ def _execute_fnd2(request, *, model_fingerprint, evidence_epoch_id, fnd_col_2_in
     )
 
 
+def _compose_lane_c_outputs(
+    column: ColumnDomainArtifact,
+    *,
+    transverse_input: ColumnTransverseConfinementInput,
+    column_shear: VS6P7ColumnShearRun | None,
+) -> ColumnDomainArtifact:
+    """Compose canonical Lane-C outputs without creating a second engineering owner."""
+    if not isinstance(column, ColumnDomainArtifact):
+        raise TypeError("column must be ColumnDomainArtifact")
+    if not isinstance(transverse_input, ColumnTransverseConfinementInput):
+        raise TypeError("transverse_input must be ColumnTransverseConfinementInput")
+    if transverse_input.component_id != column.component_id:
+        raise ColumnExecutionContractError("Lane-C transverse component identity mismatch")
+    transverse = evaluate_column_transverse_confinement(
+        transverse_input,
+        selected_rebar=column.selected_rebar,
+    )
+    blockers = list(column.blockers)
+    blockers.extend(f"TRANSVERSE_CONFINEMENT:{item}" for item in transverse.blockers)
+    if column_shear is None:
+        blockers.append(BLOCKER_LANE_C_SHEAR)
+    else:
+        if not isinstance(column_shear, VS6P7ColumnShearRun):
+            raise TypeError("column_shear must be VS6P7ColumnShearRun or None")
+        if column_shear.component_id != column.component_id:
+            raise ColumnExecutionContractError("Lane-C shear component identity mismatch")
+        if tuple(item.direction for item in column_shear.directions) != ("V2", "V3"):
+            raise ColumnExecutionContractError("Lane-C shear requires exact V2/V3 direction population")
+    if blockers and column.status == STATUS_SELECTED:
+        status = STATUS_APPLICATION_BLOCKED
+    else:
+        status = column.status
+    return replace(
+        column,
+        status=status,
+        blockers=tuple(dict.fromkeys(blockers)),
+        transverse_confinement=transverse,
+        column_shear=column_shear,
+    )
+
+
 def _execute_column_domain_with_qualified_live_fnd2_for_test(
     request, *, model_fingerprint, evidence_epoch_id, fnd_col_2_inputs
 ):
@@ -148,6 +198,8 @@ def _execute_column_domain_with_ready_fixture_for_test(
     combo_analysis_basis_bindings,
     factual_design_results,
     material_context,
+    lane_c_transverse_input=None,
+    lane_c_column_shear=None,
 ):
     """Test-only READY proof. None of these authoritative objects live in production DTOs."""
     column = _execute_fnd2(
@@ -195,7 +247,7 @@ def _execute_column_domain_with_ready_fixture_for_test(
         material_context=material_context,
         adequacy_policy=authorize_candidate_adequacy_policy(authority_catalog=FND_COL_4_CANDIDATE_ADEQUACY_AUTHORITY_CATALOG),
     )
-    return ColumnDomainArtifact(
+    composed = ColumnDomainArtifact(
         component_id=column.component_id,
         model_fingerprint=column.model_fingerprint,
         evidence_epoch_id=column.evidence_epoch_id,
@@ -206,6 +258,15 @@ def _execute_column_domain_with_ready_fixture_for_test(
         readiness_binding=column.readiness_binding,
         layout_authority=layout,
         longitudinal_selection=selection,
+    )
+    if lane_c_transverse_input is None:
+        if lane_c_column_shear is not None:
+            raise ColumnExecutionContractError("Lane-C shear cannot be composed without transverse/confinement input")
+        return composed
+    return _compose_lane_c_outputs(
+        composed,
+        transverse_input=lane_c_transverse_input,
+        column_shear=lane_c_column_shear,
     )
 
 
