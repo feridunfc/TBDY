@@ -270,11 +270,14 @@ def read_summary_results_column(
 
 def read_results_available_from_session(
     session: EtabsVerifiedSession,
+    *,
+    timeout_seconds: float = 30.0,
 ) -> ConcreteDesignResultsAvailabilityFact:
     return _execute_verified_read(
         session,
         lambda _app, sap: read_results_available(sap.DesignConcrete),
         operation="oapi_design_concrete_get_results_available",
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -304,11 +307,14 @@ def read_design_sections_from_session(
 def read_summary_results_column_from_session(
     session: EtabsVerifiedSession,
     frame_name: str,
+    *,
+    timeout_seconds: float = 30.0,
 ) -> ConcreteColumnSummaryFact:
     return _execute_verified_read(
         session,
         lambda _app, sap: read_summary_results_column(sap.DesignConcrete, frame_name),
         operation="oapi_design_concrete_get_summary_results_column",
+        timeout_seconds=timeout_seconds,
     )
 
 

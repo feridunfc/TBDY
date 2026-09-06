@@ -71,16 +71,47 @@ def test_session_bound_get_results_available_uses_verified_read_boundary(
     session = object()
     calls = []
 
-    def execute(verified_session, callback, *, operation):
-        calls.append((verified_session, operation))
+    def execute(verified_session, callback, *, operation, timeout_seconds=30.0):
+        calls.append((verified_session, operation, timeout_seconds))
         sap = SimpleNamespace(DesignConcrete=_DesignConcrete(False))
         return callback(object(), sap)
 
     monkeypatch.setattr(subject, "_execute_verified_read", execute)
 
-    fact = subject.read_results_available_from_session(session)
+    fact = subject.read_results_available_from_session(
+        session,
+        timeout_seconds=7.25,
+    )
 
     assert fact.results_available is False
     assert calls == [
-        (session, "oapi_design_concrete_get_results_available")
+        (session, "oapi_design_concrete_get_results_available", 7.25)
+    ]
+
+
+def test_session_bound_summary_result_read_propagates_timeout(monkeypatch) -> None:
+    session = object()
+    calls = []
+    sentinel = object()
+
+    def execute(verified_session, callback, *, operation, timeout_seconds=30.0):
+        calls.append((verified_session, operation, timeout_seconds))
+        return callback(object(), SimpleNamespace(DesignConcrete=object()))
+
+    monkeypatch.setattr(subject, "_execute_verified_read", execute)
+    monkeypatch.setattr(
+        subject,
+        "read_summary_results_column",
+        lambda _design_concrete, frame_name: sentinel if frame_name == "10" else None,
+    )
+
+    fact = subject.read_summary_results_column_from_session(
+        session,
+        "10",
+        timeout_seconds=9.5,
+    )
+
+    assert fact is sentinel
+    assert calls == [
+        (session, "oapi_design_concrete_get_summary_results_column", 9.5)
     ]

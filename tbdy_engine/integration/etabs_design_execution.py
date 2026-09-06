@@ -332,6 +332,7 @@ def _validate_bindings(
     owned_scratch: OwnedScratchContext,
     analysis_lineage: AnalysisLineageQualification,
     topology: ColumnTopologyEvidenceEnvelope,
+    timeout_seconds: float,
 ) -> object:
     if not isinstance(context, TrustedLiveAcquisitionContext):
         raise TypeError("context must be TrustedLiveAcquisitionContext")
@@ -359,6 +360,15 @@ def _validate_bindings(
             "OwnedScratchContext belongs to a different source-model root"
         )
 
+    ownership_proof_ref = _text(
+        owned_scratch.ownership_proof_ref,
+        "owned_scratch.ownership_proof_ref",
+    )
+    if ownership_proof_ref not in analysis_lineage.capture_provenance_refs:
+        raise DesignPreflightError(
+            "qualified B5 lineage is not bound to this exact OwnedScratchContext"
+        )
+
     try:
         context.require_model_epoch(
             model_fingerprint=topology.model_fingerprint,
@@ -370,7 +380,10 @@ def _validate_bindings(
         ) from exc
 
     try:
-        active_identity = reread_verified_session_identity(context.verified_session)
+        active_identity = reread_verified_session_identity(
+            context.verified_session,
+            timeout_seconds=timeout_seconds,
+        )
     except Exception as exc:
         raise DesignPreflightError(
             "active ETABS model path could not be re-read for B6 preflight"
@@ -436,6 +449,7 @@ def _capture_expected_column_census(
             fact = read_summary_results_column_from_session(
                 context.verified_session,
                 frame_name,
+                timeout_seconds=timeout_seconds,
             )
         except Exception as exc:
             entries.append(
@@ -558,11 +572,13 @@ def capture_design_preflight(
     ) or float(timeout_seconds) <= 0:
         raise DesignPreflightError("timeout_seconds must be positive numeric")
 
+    timeout = float(timeout_seconds)
     analysis_result = _validate_bindings(
         context=context,
         owned_scratch=owned_scratch,
         analysis_lineage=analysis_lineage,
         topology=topology,
+        timeout_seconds=timeout,
     )
 
     availability: ConcreteDesignResultsAvailabilityFact | None
@@ -570,6 +586,7 @@ def capture_design_preflight(
     try:
         availability = read_results_available_from_session(
             context.verified_session,
+            timeout_seconds=timeout,
         )
     except Exception as exc:
         availability = None
@@ -581,7 +598,7 @@ def capture_design_preflight(
     census = _capture_expected_column_census(
         context=context,
         topology=topology,
-        timeout_seconds=float(timeout_seconds),
+        timeout_seconds=timeout,
     )
     status, blockers = _classify(
         availability=availability,
