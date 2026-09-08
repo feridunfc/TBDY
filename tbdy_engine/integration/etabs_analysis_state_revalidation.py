@@ -1,25 +1,35 @@
 """Read-only revalidation of an already-established B4B analysis state.
 
-B5 must prove that the exact causal analysis state it received before execution
-still exists after execution. This module reuses the B4B request contract, the
-same factual frame-modifier getter, and the B4A establishment/comparison spine.
-It performs no model mutation and cannot establish a new requested state.
+B5 must prove that the exact causal analysis state it received still exists
+immediately before destructive execution-state changes, immediately before
+``RunAnalysis`` and after analysis.  A5-I0 extended B4B from the legacy
+frame-only modifier plan to the V2 mixed Frame/Area section-modifier plan, so
+this revalidator accepts both contracts without weakening the legacy path.
+
+Revalidation is factual only: it rereads the exact requested target population,
+rebuilds the existing B4A derived-state comparison and requires the same
+``AnalysisStateIdentity``.  It performs no mutation and cannot establish a new
+requested state.
 
 The complete original ``AnalysisStateIdentity.state_basis_refs`` population is
-preserved on revalidation. Opaque additional identity commitments remain
-identity commitments only; this module does not reinterpret them as B4B
-SECTION_STIFFNESS_MODIFIERS state.
+preserved. Opaque additional identity commitments remain identity commitments
+only; this module does not reinterpret them as section-modifier facts.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 import ntpath
+from typing import Callable, Sequence
 
 from tbdy_engine.etabs.oapi.frame_modifiers import get_frame_modifiers_from_session
 from tbdy_engine.etabs.safety import reread_verified_session_identity
 from tbdy_engine.integration.etabs_analysis_state_mutation import (
     FRAME_MODIFIER_PLAN_CONTRACT,
+    SECTION_MODIFIER_PLAN_CONTRACT,
     AnalysisStateMutationResult,
+    SectionModifierTargetRequest,
+    _get_section_modifier_fact,
+    _parse_requested_section_targets,
     _parse_requested_targets,
 )
 from tbdy_engine.integration.etabs_derived_state import (
@@ -41,7 +51,8 @@ from tbdy_engine.integration.live_etabs_acquisition_context import (
 )
 
 
-ANALYSIS_STATE_REVALIDATION_CONTRACT = "TBDY_B4B_ANALYSIS_STATE_REVALIDATION_V1"
+ANALYSIS_STATE_REVALIDATION_CONTRACT = "TBDY_B4B_ANALYSIS_STATE_REVALIDATION_V2"
+_REVALIDATION_PROVENANCE_REF = "b5-read-only-causal-state-revalidation"
 
 
 class AnalysisStateRevalidationError(RuntimeError):
@@ -84,7 +95,7 @@ class AnalysisStateRevalidationResult:
             raise TypeError("current_analysis_state must be AnalysisStateIdentity")
         if self.original_analysis_state.identity_ref != self.current_analysis_state.identity_ref:
             raise AnalysisStateRevalidationError(
-                "current causal analysis state does not match the pre-execution AnalysisStateIdentity",
+                "current causal analysis state does not match the B4B AnalysisStateIdentity",
                 stage="identity_mismatch",
             )
 
@@ -93,39 +104,64 @@ class AnalysisStateRevalidationResult:
         return (
             self.comparison.matched
             and self.comparison.exact_causal_family_population
-            and self.original_analysis_state.identity_ref == self.current_analysis_state.identity_ref
+            and self.original_analysis_state.identity_ref
+            == self.current_analysis_state.identity_ref
         )
 
 
-def revalidate_frame_modifier_analysis_state(
+def _requested_plan_contract(established_state: AnalysisStateMutationResult) -> str:
+    manifest = established_state.requested_manifest
+    if len(manifest.entries) != 1:
+        raise AnalysisStateRevalidationError(
+            "B4B revalidation requires exactly one requested derived-state entry",
+            stage="request_contract",
+        )
+    value = manifest.entries[0].canonical_value
+    if not isinstance(value, dict):
+        raise AnalysisStateRevalidationError(
+            "B4B requested section-modifier state is not a mapping",
+            stage="request_contract",
+        )
+    contract = value.get("contract")
+    if contract not in {FRAME_MODIFIER_PLAN_CONTRACT, SECTION_MODIFIER_PLAN_CONTRACT}:
+        raise AnalysisStateRevalidationError(
+            "unsupported B4B section-modifier plan contract",
+            stage="request_contract",
+        )
+    return str(contract)
+
+
+def _require_bindings(
     *,
     context: TrustedLiveAcquisitionContext,
     owned_scratch: OwnedScratchContext,
     established_state: AnalysisStateMutationResult,
-    timeout_seconds: float = 30.0,
-) -> AnalysisStateRevalidationResult:
-    """Reread the B4B-R1 causal family and require the exact same state identity."""
+    timeout_seconds: float,
+) -> PhysicalFileSnapshot:
     if not isinstance(context, TrustedLiveAcquisitionContext):
         raise TypeError("context must be TrustedLiveAcquisitionContext")
     if not isinstance(owned_scratch, OwnedScratchContext):
         raise TypeError("owned_scratch must be OwnedScratchContext")
     if not isinstance(established_state, AnalysisStateMutationResult):
         raise TypeError("established_state must be AnalysisStateMutationResult")
-    timeout = float(timeout_seconds)
-    if timeout <= 0:
-        raise ValueError("timeout_seconds must be greater than zero")
 
     if owned_scratch.source_model_identity != context.source_model_identity:
         raise AnalysisStateRevalidationError(
             "owned scratch does not belong to the trusted acquisition context",
             stage="source_binding",
         )
-    if established_state.analysis_state_identity.source_model_ref != context.source_model_identity.source_model_ref:
+    if (
+        established_state.analysis_state_identity.source_model_ref
+        != context.source_model_identity.source_model_ref
+    ):
         raise AnalysisStateRevalidationError(
             "established AnalysisStateIdentity belongs to a different source model",
             stage="source_binding",
         )
-    if established_state.mutation_manifest.ownership_proof_ref != owned_scratch.ownership_proof_ref:
+    if (
+        established_state.mutation_manifest.ownership_proof_ref
+        != owned_scratch.ownership_proof_ref
+    ):
         raise AnalysisStateRevalidationError(
             "B4B mutation result is not bound to this exact owned scratch",
             stage="scratch_binding",
@@ -133,9 +169,11 @@ def revalidate_frame_modifier_analysis_state(
 
     identity = reread_verified_session_identity(
         context.verified_session,
-        timeout_seconds=timeout,
+        timeout_seconds=timeout_seconds,
     )
-    if _canonical_path(identity.model_full_path) != _canonical_path(owned_scratch.scratch_path):
+    if _canonical_path(identity.model_full_path) != _canonical_path(
+        owned_scratch.scratch_path
+    ):
         raise AnalysisStateRevalidationError(
             "active ETABS model is not the exact owned scratch",
             stage="active_scratch_binding",
@@ -149,17 +187,30 @@ def revalidate_frame_modifier_analysis_state(
             "protected source physical bytes changed",
             stage="source_integrity",
         )
+    return source_snapshot
 
-    targets = _parse_requested_targets(established_state.requested_manifest)
-    readbacks = []
+
+def _revalidate(
+    *,
+    context: TrustedLiveAcquisitionContext,
+    owned_scratch: OwnedScratchContext,
+    established_state: AnalysisStateMutationResult,
+    plan_contract: str,
+    targets: Sequence[object],
+    factual_reader: Callable[[object], object],
+    timeout_seconds: float,
+) -> AnalysisStateRevalidationResult:
+    source_snapshot = _require_bindings(
+        context=context,
+        owned_scratch=owned_scratch,
+        established_state=established_state,
+        timeout_seconds=timeout_seconds,
+    )
+
+    readbacks: list[object] = []
     for target in targets:
-        fact = get_frame_modifiers_from_session(
-            context.verified_session,
-            surface=target.surface,
-            target_name=target.target_name,
-            timeout_seconds=timeout,
-        )
-        if not fact.success:
+        fact = factual_reader(target)
+        if not getattr(fact, "success", False):
             raise AnalysisStateRevalidationError(
                 "causal-state factual readback returned nonzero",
                 stage="readback_nonzero",
@@ -171,7 +222,7 @@ def revalidate_frame_modifier_analysis_state(
         _issuer_token=_POSITIVE_ESTABLISHMENT_ISSUER_TOKEN,
         family=requested_entry.family,
         readback_value={
-            "contract": FRAME_MODIFIER_PLAN_CONTRACT,
+            "contract": plan_contract,
             "targets": [
                 {
                     "surface": fact.surface.value,
@@ -188,7 +239,7 @@ def revalidate_frame_modifier_analysis_state(
             established_state.mutation_manifest.manifest_ref,
             context.acquisition_context_ref,
             context.session_provenance_ref,
-            "b5-post-execution-read-only-revalidation",
+            _REVALIDATION_PROVENANCE_REF,
         ),
     )
     current_manifest = EstablishedDerivedStateManifest(
@@ -204,7 +255,7 @@ def revalidate_frame_modifier_analysis_state(
         current_manifest,
         provenance_refs=(
             established_state.mutation_manifest.manifest_ref,
-            "b5-post-execution-read-only-revalidation",
+            _REVALIDATION_PROVENANCE_REF,
         ),
     )
     if not comparison.matched or not comparison.exact_causal_family_population:
@@ -221,12 +272,12 @@ def revalidate_frame_modifier_analysis_state(
             context.session_provenance_ref,
             owned_scratch.ownership_proof_ref,
             established_state.mutation_manifest.manifest_ref,
-            "b5-post-execution-read-only-revalidation",
+            _REVALIDATION_PROVENANCE_REF,
         ),
     )
     if current_state.identity_ref != established_state.analysis_state_identity.identity_ref:
         raise AnalysisStateRevalidationError(
-            "post-execution AnalysisStateIdentity differs from the B4B-established identity",
+            "revalidated AnalysisStateIdentity differs from the B4B-established identity",
             stage="identity_mismatch",
         )
 
@@ -239,9 +290,118 @@ def revalidate_frame_modifier_analysis_state(
     )
 
 
+def revalidate_frame_modifier_analysis_state(
+    *,
+    context: TrustedLiveAcquisitionContext,
+    owned_scratch: OwnedScratchContext,
+    established_state: AnalysisStateMutationResult,
+    timeout_seconds: float = 30.0,
+) -> AnalysisStateRevalidationResult:
+    """Legacy V1 frame-only revalidation, retained for frozen callers/tests."""
+    timeout = float(timeout_seconds)
+    if timeout <= 0:
+        raise ValueError("timeout_seconds must be greater than zero")
+    if _requested_plan_contract(established_state) != FRAME_MODIFIER_PLAN_CONTRACT:
+        raise AnalysisStateRevalidationError(
+            "frame-only revalidation received a non-V1 B4B plan",
+            stage="request_contract",
+        )
+    targets = _parse_requested_targets(established_state.requested_manifest)
+
+    def reader(target: object) -> object:
+        return get_frame_modifiers_from_session(
+            context.verified_session,
+            surface=target.surface,
+            target_name=target.target_name,
+            timeout_seconds=timeout,
+        )
+
+    return _revalidate(
+        context=context,
+        owned_scratch=owned_scratch,
+        established_state=established_state,
+        plan_contract=FRAME_MODIFIER_PLAN_CONTRACT,
+        targets=targets,
+        factual_reader=reader,
+        timeout_seconds=timeout,
+    )
+
+
+def revalidate_section_modifier_analysis_state(
+    *,
+    context: TrustedLiveAcquisitionContext,
+    owned_scratch: OwnedScratchContext,
+    established_state: AnalysisStateMutationResult,
+    timeout_seconds: float = 30.0,
+) -> AnalysisStateRevalidationResult:
+    """Reread the exact A5-I0 V2 mixed Frame/Area target population."""
+    timeout = float(timeout_seconds)
+    if timeout <= 0:
+        raise ValueError("timeout_seconds must be greater than zero")
+    if _requested_plan_contract(established_state) != SECTION_MODIFIER_PLAN_CONTRACT:
+        raise AnalysisStateRevalidationError(
+            "mixed section revalidation requires the B4B V2 section plan",
+            stage="request_contract",
+        )
+    targets = _parse_requested_section_targets(established_state.requested_manifest)
+
+    def reader(target: object) -> object:
+        if not isinstance(target, tuple(getattr(__import__(
+            "tbdy_engine.integration.etabs_analysis_state_mutation",
+            fromlist=["FrameModifierTargetRequest", "AreaModifierTargetRequest"],
+        ), name) for name in ("FrameModifierTargetRequest", "AreaModifierTargetRequest"))):
+            raise TypeError("unsupported section-modifier target")
+        return _get_section_modifier_fact(
+            context,
+            target,
+            timeout_seconds=timeout,
+        )
+
+    return _revalidate(
+        context=context,
+        owned_scratch=owned_scratch,
+        established_state=established_state,
+        plan_contract=SECTION_MODIFIER_PLAN_CONTRACT,
+        targets=targets,
+        factual_reader=reader,
+        timeout_seconds=timeout,
+    )
+
+
+def revalidate_analysis_state(
+    *,
+    context: TrustedLiveAcquisitionContext,
+    owned_scratch: OwnedScratchContext,
+    established_state: AnalysisStateMutationResult,
+    timeout_seconds: float = 30.0,
+) -> AnalysisStateRevalidationResult:
+    """Dispatch to the exact B4B contract; never downgrade V2 to frame-only."""
+    contract = _requested_plan_contract(established_state)
+    if contract == FRAME_MODIFIER_PLAN_CONTRACT:
+        return revalidate_frame_modifier_analysis_state(
+            context=context,
+            owned_scratch=owned_scratch,
+            established_state=established_state,
+            timeout_seconds=timeout_seconds,
+        )
+    if contract == SECTION_MODIFIER_PLAN_CONTRACT:
+        return revalidate_section_modifier_analysis_state(
+            context=context,
+            owned_scratch=owned_scratch,
+            established_state=established_state,
+            timeout_seconds=timeout_seconds,
+        )
+    raise AnalysisStateRevalidationError(
+        "unsupported B4B plan contract",
+        stage="request_contract",
+    )
+
+
 __all__ = [
     "ANALYSIS_STATE_REVALIDATION_CONTRACT",
     "AnalysisStateRevalidationError",
     "AnalysisStateRevalidationResult",
+    "revalidate_analysis_state",
     "revalidate_frame_modifier_analysis_state",
+    "revalidate_section_modifier_analysis_state",
 ]
