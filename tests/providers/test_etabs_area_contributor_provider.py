@@ -8,10 +8,13 @@ import tbdy_engine.providers.etabs_area_contributor_provider as subject
 from tbdy_engine.etabs.oapi.area_contributors import (
     AreaDesignOrientation,
     AreaDesignOrientationFact,
+    AreaDiaphragmAssignmentFact,
     AreaLocalAxesFact,
     AreaMaterialOverwriteFact,
     AreaPropertyFamilyProbeFact,
     AreaTransformationMatrixFact,
+    AreaWallAssignmentFact,
+    DiaphragmDefinitionFact,
 )
 from tbdy_engine.etabs.oapi.area_modifiers import (
     AreaModifierReadFact,
@@ -91,6 +94,35 @@ def factual_runtime(monkeypatch):
             return_code=0,
         ),
     )
+    monkeypatch.setattr(
+        subject,
+        "read_area_diaphragm_assignment_from_session",
+        lambda _session, name: AreaDiaphragmAssignmentFact(
+            area_name=name,
+            diaphragm_name="D1",
+            return_code=0,
+        ),
+    )
+    monkeypatch.setattr(
+        subject,
+        "read_diaphragm_definition_from_session",
+        lambda _session, name: DiaphragmDefinitionFact(
+            diaphragm_name=name,
+            semi_rigid=True,
+            return_code=0,
+        ),
+    )
+    monkeypatch.setattr(
+        subject,
+        "read_area_wall_assignments_from_session",
+        lambda _session, name: AreaWallAssignmentFact(
+            area_name=name,
+            pier_name="P1",
+            spandrel_name="None",
+            pier_return_code=0,
+            spandrel_return_code=0,
+        ),
+    )
 
     def modifiers(_session, *, surface, target_name):
         return _modifier(surface, target_name, 1.0 if surface is AreaModifierSurface.AREA_OBJECT else 0.5)
@@ -135,7 +167,7 @@ def factual_runtime(monkeypatch):
     return session
 
 
-def test_complete_population_preserves_object_and_property_facts(factual_runtime):
+def test_complete_population_preserves_object_property_and_participation_facts(factual_runtime):
     population = subject.capture_area_contributor_population_from_session(
         factual_runtime,
         model_fingerprint="model-1",
@@ -152,8 +184,15 @@ def test_complete_population_preserves_object_and_property_facts(factual_runtime
     assert wall.property_state.family is subject.AreaPropertyFamily.WALL
     assert floor.property_state.family is subject.AreaPropertyFamily.SLAB
     assert floor.property_state.shell_type_code == 2
+    assert floor.semi_rigid_diaphragm_assigned is True
+    assert floor.diaphragm_assignment.diaphragm_name == "D1"
+    assert floor.diaphragm_definition.semi_rigid is True
+    assert wall.wall_assignment_role == "PIER"
+    assert wall.default_local_axes_assignment_proven is True
     assert null.property_state is None
     assert null.property_name == "None"
+    assert null.diaphragm_assignment is None
+    assert null.wall_assignment is None
 
     assert wall.object_modifiers.surface is AreaModifierSurface.AREA_OBJECT
     assert wall.property_state.property_modifiers.surface is AreaModifierSurface.AREA_PROPERTY
@@ -161,6 +200,52 @@ def test_complete_population_preserves_object_and_property_facts(factual_runtime
     assert wall.property_state.property_modifiers.modifiers.as_tuple() == (0.5,) * 10
     assert population.advanced_local_axis_area_names == ()
     assert population.unresolved_property_area_names == ()
+    assert population.conflicting_wall_assignment_area_names == ()
+
+
+def test_floor_without_diaphragm_preserves_positive_nonassignment(factual_runtime, monkeypatch):
+    monkeypatch.setattr(
+        subject,
+        "read_area_diaphragm_assignment_from_session",
+        lambda _session, name: AreaDiaphragmAssignmentFact(
+            area_name=name,
+            diaphragm_name="None",
+            return_code=0,
+        ),
+    )
+
+    population = subject.capture_area_contributor_population_from_session(
+        factual_runtime,
+        model_fingerprint="model-1",
+        evidence_epoch_id="epoch-1",
+        session_provenance_ref="session-1",
+    )
+    floor = next(row for row in population.rows if row.area_name == "A-F")
+    assert floor.semi_rigid_diaphragm_assigned is False
+    assert floor.diaphragm_definition is None
+
+
+def test_wall_assignment_conflict_is_preserved(factual_runtime, monkeypatch):
+    monkeypatch.setattr(
+        subject,
+        "read_area_wall_assignments_from_session",
+        lambda _session, name: AreaWallAssignmentFact(
+            area_name=name,
+            pier_name="P1",
+            spandrel_name="S1",
+            pier_return_code=0,
+            spandrel_return_code=0,
+        ),
+    )
+    population = subject.capture_area_contributor_population_from_session(
+        factual_runtime,
+        model_fingerprint="model-1",
+        evidence_epoch_id="epoch-1",
+        session_provenance_ref="session-1",
+    )
+    assert population.conflicting_wall_assignment_area_names == ("A-W",)
+    wall = next(row for row in population.rows if row.area_name == "A-W")
+    assert wall.wall_assignment_role == "CONFLICT"
 
 
 def test_floor_property_with_no_positive_family_is_explicit_unresolved(
@@ -217,7 +302,7 @@ def test_ambiguous_floor_property_family_fails_closed(factual_runtime, monkeypat
         )
 
 
-def test_advanced_local_axis_is_preserved_not_interpreted(
+def test_advanced_local_axis_is_preserved_not_promoted_to_default(
     factual_runtime, monkeypatch
 ):
     original = subject.read_area_local_axes_from_session
@@ -244,6 +329,7 @@ def test_advanced_local_axis_is_preserved_not_interpreted(
     assert population.advanced_local_axis_area_names == ("A-W",)
     wall = next(row for row in population.rows if row.area_name == "A-W")
     assert wall.local_axes_angle_degrees == 22.5
+    assert wall.default_local_axes_assignment_proven is False
 
 
 def test_nonzero_object_modifier_read_blocks_exact_population(
