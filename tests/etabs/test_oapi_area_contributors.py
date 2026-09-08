@@ -25,6 +25,20 @@ class _AreaObj:
     def GetMaterialOverwrite(self, name):
         return ["None", 0]
 
+    def GetDiaphragm(self, name):
+        return ["D1", 0]
+
+    def GetPier(self, name):
+        return ["P1", 0]
+
+    def GetSpandrel(self, name):
+        return ["None", 0]
+
+
+class _Diaphragm:
+    def GetDiaphragm(self, name):
+        return [True, 0]
+
 
 class _PropArea:
     def __init__(self):
@@ -41,7 +55,11 @@ class _PropArea:
 @pytest.fixture
 def runtime(monkeypatch):
     session = _FakeSession()
-    model = SimpleNamespace(AreaObj=_AreaObj(), PropArea=_PropArea())
+    model = SimpleNamespace(
+        AreaObj=_AreaObj(),
+        PropArea=_PropArea(),
+        Diaphragm=_Diaphragm(),
+    )
     monkeypatch.setattr(subject, "EtabsVerifiedSession", _FakeSession)
 
     def fake_read(_session, function, *, operation, timeout_seconds=30.0):
@@ -59,6 +77,9 @@ def test_runtime_r1_shapes_decode_without_engineering_meaning(runtime):
     axes = subject.read_area_local_axes_from_session(session, "25")
     matrix = subject.read_area_transformation_matrix_from_session(session, "25")
     overwrite = subject.read_area_material_overwrite_from_session(session, "25")
+    diaphragm = subject.read_area_diaphragm_assignment_from_session(session, "25")
+    diaphragm_definition = subject.read_diaphragm_definition_from_session(session, "D1")
+    wall = subject.read_area_wall_assignments_from_session(session, "25")
     slab = subject.read_slab_property_probe_from_session(session, "Slab_d=15")
 
     assert orientation.orientation is subject.AreaDesignOrientation.FLOOR
@@ -67,6 +88,14 @@ def test_runtime_r1_shapes_decode_without_engineering_meaning(runtime):
     assert axes.advanced is False
     assert matrix.values == (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
     assert overwrite.raw_material_name == "None"
+    assert diaphragm.assigned is True
+    assert diaphragm.diaphragm_name == "D1"
+    assert diaphragm_definition.success is True
+    assert diaphragm_definition.semi_rigid is True
+    assert wall.success is True
+    assert wall.pier_assigned is True
+    assert wall.spandrel_assigned is False
+    assert wall.assignment_conflict is False
     assert slab.success is True
     assert slab.family == "SLAB"
     assert slab.family_type_code == 0
@@ -87,6 +116,29 @@ def test_nonmatching_property_family_probe_preserves_failure(runtime):
     assert deck.thickness is None
 
 
+def test_none_diaphragm_assignment_is_preserved_not_promoted(runtime):
+    session, model = runtime
+    model.AreaObj.GetDiaphragm = lambda _name: ["None", 0]
+
+    fact = subject.read_area_diaphragm_assignment_from_session(session, "25")
+
+    assert fact.success is True
+    assert fact.assigned is False
+    assert fact.diaphragm_name == "None"
+
+
+def test_wall_assignment_conflict_is_explicit(runtime):
+    session, model = runtime
+    model.AreaObj.GetSpandrel = lambda _name: ["S1", 0]
+
+    fact = subject.read_area_wall_assignments_from_session(session, "25")
+
+    assert fact.success is True
+    assert fact.pier_assigned is True
+    assert fact.spandrel_assigned is True
+    assert fact.assignment_conflict is True
+
+
 @pytest.mark.parametrize(
     ("method", "raw"),
     [
@@ -94,21 +146,39 @@ def test_nonmatching_property_family_probe_preserves_failure(runtime):
         ("GetLocalAxes", [0.0, 0, 0]),
         ("GetTransformationMatrix", [(1.0,) * 8, 0]),
         ("GetMaterialOverwrite", [None, 0]),
+        ("GetDiaphragm", ["D1"]),
+        ("GetPier", ["P1"]),
+        ("GetSpandrel", ["None"]),
     ],
 )
 def test_area_fact_abi_fails_closed(runtime, method, raw):
     session, model = runtime
     setattr(model.AreaObj, method, lambda _name, value=raw: value)
 
-    call = {
-        "GetDesignOrientation": subject.read_area_design_orientation_from_session,
-        "GetLocalAxes": subject.read_area_local_axes_from_session,
-        "GetTransformationMatrix": subject.read_area_transformation_matrix_from_session,
-        "GetMaterialOverwrite": subject.read_area_material_overwrite_from_session,
-    }[method]
+    if method in {"GetPier", "GetSpandrel"}:
+        call = subject.read_area_wall_assignments_from_session
+    else:
+        call = {
+            "GetDesignOrientation": subject.read_area_design_orientation_from_session,
+            "GetLocalAxes": subject.read_area_local_axes_from_session,
+            "GetTransformationMatrix": subject.read_area_transformation_matrix_from_session,
+            "GetMaterialOverwrite": subject.read_area_material_overwrite_from_session,
+            "GetDiaphragm": subject.read_area_diaphragm_assignment_from_session,
+        }[method]
 
     with pytest.raises(EtabsOAPIError):
         call(session, "25")
+
+
+def test_diaphragm_definition_abi_and_boolean_fail_closed(runtime):
+    session, model = runtime
+    model.Diaphragm.GetDiaphragm = lambda _name: [1, 0]
+    with pytest.raises(EtabsOAPIError, match="non-boolean"):
+        subject.read_diaphragm_definition_from_session(session, "D1")
+
+    model.Diaphragm.GetDiaphragm = lambda _name: [True]
+    with pytest.raises(EtabsOAPIError, match="unsupported Python ABI shape"):
+        subject.read_diaphragm_definition_from_session(session, "D1")
 
 
 def test_unknown_orientation_code_is_not_promoted(runtime):
