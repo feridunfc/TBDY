@@ -1,16 +1,8 @@
 """TS 500 Eq. 7.13 whole-system uncracked analysis-state authority.
 
-This module is deliberately bounded to engineering target selection.  It does
-not acquire ETABS facts, mutate ETABS, run analysis, or create a second B4B/B5
-owner.  Inputs must already be factual, same-epoch evidence.
-
-Canonical law:
-- the governing Delta_i comes from one coherent participating structural state;
-- every concrete section-stiffness mode participating in that response is on an
-  uncracked/gross elastic basis;
-- participation is mode-specific;
-- non-participating modes, mass, and weight are preserved;
-- unresolved gross geometry/material/formulation fails closed.
+Pure engineering authority only: no ETABS acquisition, mutation, analysis, or
+lifecycle ownership lives here.  Same-epoch factual callers must prove gross
+geometry/material and mode participation before a mutation target can exist.
 """
 from __future__ import annotations
 
@@ -25,18 +17,14 @@ from tbdy_engine.regulatory.ts500_concrete_elastic_modulus import (
     compare_etabs_gc_to_ts500_eq_3_3,
 )
 
-TS500_EQ713_UNCRACKED_ANALYSIS_STATE_CONTRACT = (
-    "TS500_EQ713_UNCRACKED_ANALYSIS_STATE_V1"
-)
+TS500_EQ713_UNCRACKED_ANALYSIS_STATE_CONTRACT = "TS500_EQ713_UNCRACKED_ANALYSIS_STATE_V1"
 TS500_EQ713_SOURCE_REF = "TS500_2000_7_6_2_1_EQ_7_13"
 AREA_PROPERTY_MODIFIER_SOURCE_REF = "CSI:PropArea.GetModifiers:10_SLOT_SEMANTICS"
-AREA_OBJECT_UNITY_NEUTRALITY_CONTRACT = (
-    "AREA_OBJECT_MODIFIER_VECTOR_ALL_UNITY_IS_COMPOSITION_NEUTRAL_V1"
-)
+AREA_OBJECT_UNITY_NEUTRALITY_CONTRACT = "AREA_OBJECT_MODIFIER_VECTOR_ALL_UNITY_IS_COMPOSITION_NEUTRAL_V1"
 
 
 class Eq713AnalysisBasisError(RuntimeError):
-    """Raised when an Eq. 7.13 target would require unsupported inference."""
+    pass
 
 
 class ContributorDisposition(StrEnum):
@@ -84,24 +72,16 @@ class FrameStiffnessMode(StrEnum):
     FLEXURE_3 = "FLEXURE_3"
 
 
-_AREA_SLOT_BY_MODE: dict[AreaStiffnessMode, int] = {
-    AreaStiffnessMode.F11: 0,
-    AreaStiffnessMode.F22: 1,
-    AreaStiffnessMode.F12: 2,
-    AreaStiffnessMode.M11: 3,
-    AreaStiffnessMode.M22: 4,
-    AreaStiffnessMode.M12: 5,
-    AreaStiffnessMode.V13: 6,
-    AreaStiffnessMode.V23: 7,
+_AREA_SLOT = {
+    AreaStiffnessMode.F11: 0, AreaStiffnessMode.F22: 1,
+    AreaStiffnessMode.F12: 2, AreaStiffnessMode.M11: 3,
+    AreaStiffnessMode.M22: 4, AreaStiffnessMode.M12: 5,
+    AreaStiffnessMode.V13: 6, AreaStiffnessMode.V23: 7,
 }
-
-_FRAME_SLOT_BY_MODE: dict[FrameStiffnessMode, int] = {
-    FrameStiffnessMode.AXIAL: 0,
-    FrameStiffnessMode.SHEAR_2: 1,
-    FrameStiffnessMode.SHEAR_3: 2,
-    FrameStiffnessMode.TORSION: 3,
-    FrameStiffnessMode.FLEXURE_2: 4,
-    FrameStiffnessMode.FLEXURE_3: 5,
+_FRAME_SLOT = {
+    FrameStiffnessMode.AXIAL: 0, FrameStiffnessMode.SHEAR_2: 1,
+    FrameStiffnessMode.SHEAR_3: 2, FrameStiffnessMode.TORSION: 3,
+    FrameStiffnessMode.FLEXURE_2: 4, FrameStiffnessMode.FLEXURE_3: 5,
 }
 
 
@@ -117,17 +97,15 @@ def _decimal(value: object, label: str) -> Decimal:
     return result
 
 
-def _vector(values: Sequence[object], *, length: int, label: str) -> tuple[Decimal, ...]:
-    result = tuple(_decimal(value, f"{label}[{index}]") for index, value in enumerate(values))
+def _vector(values: Sequence[object], length: int, label: str) -> tuple[Decimal, ...]:
+    result = tuple(_decimal(v, f"{label}[{i}]") for i, v in enumerate(values))
     if len(result) != length:
-        raise Eq713AnalysisBasisError(
-            f"{label} must contain exactly {length} values; observed={len(result)}"
-        )
+        raise Eq713AnalysisBasisError(f"{label} must contain exactly {length} values")
     return result
 
 
 def _refs(values: Sequence[str]) -> tuple[str, ...]:
-    result = tuple(dict.fromkeys(value for value in values if isinstance(value, str) and value.strip()))
+    result = tuple(dict.fromkeys(v for v in values if isinstance(v, str) and v.strip()))
     if not result:
         raise Eq713AnalysisBasisError("source_refs must not be empty")
     return result
@@ -147,50 +125,31 @@ class ConcreteUncrackedMaterialBasis:
 
     @property
     def qualified(self) -> bool:
-        return (
-            self.ec_status is Ts500EcComparisonStatus.MATCH
-            and self.gc_status is Ts500EcComparisonStatus.MATCH
-        )
+        return self.ec_status is Ts500EcComparisonStatus.MATCH and self.gc_status is Ts500EcComparisonStatus.MATCH
 
 
-def build_concrete_uncracked_material_basis(
-    *,
-    material_name: str,
-    fck_mpa: object,
-    factual_ec_mpa: object,
-    factual_gc_mpa: object,
-    source_refs: Sequence[str],
-) -> ConcreteUncrackedMaterialBasis:
+def build_concrete_uncracked_material_basis(*, material_name: str, fck_mpa: object,
+        factual_ec_mpa: object, factual_gc_mpa: object,
+        source_refs: Sequence[str]) -> ConcreteUncrackedMaterialBasis:
     ec = compare_etabs_ec_to_ts500_table_3_2(
-        concrete_fck_mpa=fck_mpa,
-        factual_etabs_ec_mpa=factual_ec_mpa,
+        concrete_fck_mpa=fck_mpa, factual_etabs_ec_mpa=factual_ec_mpa
     )
     if ec.required_ts500_ec_mpa is None:
         return ConcreteUncrackedMaterialBasis(
-            material_name=material_name,
-            fck_mpa=ec.fck_mpa,
-            factual_ec_mpa=ec.factual_etabs_ec_mpa,
-            factual_gc_mpa=_decimal(factual_gc_mpa, "factual_gc_mpa"),
-            required_ec_mpa=None,
-            required_gc_mpa=None,
-            ec_status=ec.status,
-            gc_status=Ts500EcComparisonStatus.UNRESOLVED,
-            source_refs=_refs((*source_refs, *ec.source_refs)),
+            material_name, ec.fck_mpa, ec.factual_etabs_ec_mpa,
+            _decimal(factual_gc_mpa, "factual_gc_mpa"), None, None,
+            ec.status, Ts500EcComparisonStatus.UNRESOLVED,
+            _refs((*source_refs, *ec.source_refs)),
         )
     gc = compare_etabs_gc_to_ts500_eq_3_3(
         required_ts500_ec_mpa=ec.required_ts500_ec_mpa,
         factual_etabs_gc_mpa=factual_gc_mpa,
     )
     return ConcreteUncrackedMaterialBasis(
-        material_name=material_name,
-        fck_mpa=ec.fck_mpa,
-        factual_ec_mpa=ec.factual_etabs_ec_mpa,
-        factual_gc_mpa=gc.factual_etabs_gc_mpa,
-        required_ec_mpa=ec.required_ts500_ec_mpa,
-        required_gc_mpa=gc.required_ts500_gc_mpa,
-        ec_status=ec.status,
-        gc_status=gc.status,
-        source_refs=_refs((*source_refs, *ec.source_refs, *gc.source_refs)),
+        material_name, ec.fck_mpa, ec.factual_etabs_ec_mpa,
+        gc.factual_etabs_gc_mpa, ec.required_ts500_ec_mpa,
+        gc.required_ts500_gc_mpa, ec.status, gc.status,
+        _refs((*source_refs, *ec.source_refs, *gc.source_refs)),
     )
 
 
@@ -225,70 +184,43 @@ class AreaGrossBasePropertyEvidence:
     source_refs: tuple[str, ...]
 
     @classmethod
-    def build(
-        cls,
-        *,
-        area_name: str,
-        property_name: str,
-        category: AreaCategory,
-        formulation: AreaFormulation,
-        is_concrete: bool,
-        gross_geometry_proven: bool,
-        thickness_proven: bool,
-        homogeneous_simple_property: bool,
-        material_overwrite_qualified: bool,
-        thickness_overwrite_qualified: bool,
-        property_modifiers: Sequence[object],
-        object_modifiers: Sequence[object],
-        material_basis: ConcreteUncrackedMaterialBasis | None,
-        semi_rigid_diaphragm_participation: bool | None = None,
-        wall_role: WallRole | None = None,
-        default_wall_local_axes_proven: bool | None = None,
-        plate_participation: bool | None = None,
-        transverse_shear_participation: bool | None = None,
-        source_refs: Sequence[str],
-    ) -> "AreaGrossBasePropertyEvidence":
+    def build(cls, *, area_name: str, property_name: str, category: AreaCategory,
+            formulation: AreaFormulation, is_concrete: bool,
+            gross_geometry_proven: bool, thickness_proven: bool,
+            homogeneous_simple_property: bool, material_overwrite_qualified: bool,
+            thickness_overwrite_qualified: bool, property_modifiers: Sequence[object],
+            object_modifiers: Sequence[object],
+            material_basis: ConcreteUncrackedMaterialBasis | None,
+            semi_rigid_diaphragm_participation: bool | None = None,
+            wall_role: WallRole | None = None,
+            default_wall_local_axes_proven: bool | None = None,
+            plate_participation: bool | None = None,
+            transverse_shear_participation: bool | None = None,
+            source_refs: Sequence[str]) -> "AreaGrossBasePropertyEvidence":
         return cls(
-            area_name=area_name,
-            property_name=property_name,
-            category=category,
-            formulation=formulation,
-            is_concrete=bool(is_concrete),
-            gross_geometry_proven=bool(gross_geometry_proven),
-            thickness_proven=bool(thickness_proven),
-            homogeneous_simple_property=bool(homogeneous_simple_property),
-            material_overwrite_qualified=bool(material_overwrite_qualified),
-            thickness_overwrite_qualified=bool(thickness_overwrite_qualified),
-            property_modifiers=_vector(property_modifiers, length=10, label="property_modifiers"),
-            object_modifiers=_vector(object_modifiers, length=10, label="object_modifiers"),
-            material_basis=material_basis,
-            semi_rigid_diaphragm_participation=semi_rigid_diaphragm_participation,
-            wall_role=wall_role,
-            default_wall_local_axes_proven=default_wall_local_axes_proven,
-            plate_participation=plate_participation,
-            transverse_shear_participation=transverse_shear_participation,
-            source_refs=_refs(source_refs),
+            area_name, property_name, category, formulation, bool(is_concrete),
+            bool(gross_geometry_proven), bool(thickness_proven),
+            bool(homogeneous_simple_property), bool(material_overwrite_qualified),
+            bool(thickness_overwrite_qualified),
+            _vector(property_modifiers, 10, "property_modifiers"),
+            _vector(object_modifiers, 10, "object_modifiers"), material_basis,
+            semi_rigid_diaphragm_participation, wall_role,
+            default_wall_local_axes_proven, plate_participation,
+            transverse_shear_participation, _refs(source_refs),
         )
 
     @property
-    def object_modifier_vector_is_unity(self) -> bool:
-        return all(value == Decimal("1") for value in self.object_modifiers)
+    def object_modifiers_unity(self) -> bool:
+        return all(v == Decimal("1") for v in self.object_modifiers)
 
     @property
     def gross_base_qualified(self) -> bool:
-        if self.category is AreaCategory.NULL:
+        if self.category is AreaCategory.NULL or not self.is_concrete:
             return True
-        if not self.is_concrete:
-            return True
-        return (
-            self.gross_geometry_proven
-            and self.thickness_proven
-            and self.homogeneous_simple_property
-            and self.material_overwrite_qualified
-            and self.thickness_overwrite_qualified
-            and self.material_basis is not None
-            and self.material_basis.qualified
-        )
+        return all((self.gross_geometry_proven, self.thickness_proven,
+                    self.homogeneous_simple_property,
+                    self.material_overwrite_qualified,
+                    self.thickness_overwrite_qualified)) and self.material_basis is not None and self.material_basis.qualified
 
 
 @dataclass(frozen=True, slots=True)
@@ -301,224 +233,109 @@ class AreaEq713TargetDisposition:
 
     @property
     def qualified(self) -> bool:
-        return not self.blocked_reasons and all(
-            item.disposition is not ContributorDisposition.BLOCKED_UNSUPPORTED
-            for item in self.mode_dispositions
-        )
+        return not self.blocked_reasons
+
+    @property
+    def applicable(self) -> bool:
+        return any(r.disposition is ContributorDisposition.TARGETED_UNCRACKED for r in self.mode_dispositions)
 
 
-def _blocked_all_area_modes(
-    fact: AreaGrossBasePropertyEvidence, reason: str
-) -> AreaEq713TargetDisposition:
-    refs = _refs((*fact.source_refs, TS500_EQ713_SOURCE_REF))
-    return AreaEq713TargetDisposition(
-        area_name=fact.area_name,
-        mode_dispositions=tuple(
-            ModeDisposition(
-                mode=mode,
-                disposition=ContributorDisposition.BLOCKED_UNSUPPORTED,
-                reason=reason,
-                source_refs=refs,
-            )
-            for mode in AreaStiffnessMode
-        ),
-        target_property_modifiers=None,
-        blocked_reasons=(reason,),
-        source_refs=refs,
-    )
+def _all_area(fact: AreaGrossBasePropertyEvidence, disposition: ContributorDisposition,
+              reason: str, *, target: tuple[Decimal, ...] | None = None) -> AreaEq713TargetDisposition:
+    refs = _refs((*fact.source_refs, TS500_EQ713_SOURCE_REF, AREA_PROPERTY_MODIFIER_SOURCE_REF))
+    rows = tuple(ModeDisposition(m, disposition, reason, refs) for m in AreaStiffnessMode)
+    blocked = (reason,) if disposition is ContributorDisposition.BLOCKED_UNSUPPORTED else ()
+    return AreaEq713TargetDisposition(fact.area_name, rows, target, blocked, refs)
 
 
-def build_area_eq713_target(
-    fact: AreaGrossBasePropertyEvidence,
-) -> AreaEq713TargetDisposition:
-    """Build only source-supported changes; unresolved participation fails closed."""
+def build_area_eq713_target(fact: AreaGrossBasePropertyEvidence) -> AreaEq713TargetDisposition:
     refs = _refs((*fact.source_refs, TS500_EQ713_SOURCE_REF, AREA_PROPERTY_MODIFIER_SOURCE_REF))
     if fact.category is AreaCategory.NULL:
-        return AreaEq713TargetDisposition(
-            area_name=fact.area_name,
-            mode_dispositions=tuple(
-                ModeDisposition(
-                    mode=mode,
-                    disposition=ContributorDisposition.PROVEN_NOT_APPLICABLE,
-                    reason="Null/no-property Area has no shell-section stiffness target",
-                    source_refs=refs,
-                )
-                for mode in AreaStiffnessMode
-            ),
-            target_property_modifiers=None,
-            blocked_reasons=(),
-            source_refs=refs,
-        )
-    if not fact.object_modifier_vector_is_unity:
-        return _blocked_all_area_modes(
-            fact,
-            "non-unity AreaObj modifier vector has no independently proven slot semantics",
-        )
+        return _all_area(fact, ContributorDisposition.PROVEN_NOT_APPLICABLE,
+                         "Null/no-property Area has no shell-section stiffness target")
+    if not fact.object_modifiers_unity:
+        return _all_area(fact, ContributorDisposition.BLOCKED_UNSUPPORTED,
+                         "non-unity AreaObj modifier vector has no independently proven slot semantics")
     if not fact.is_concrete:
-        return AreaEq713TargetDisposition(
-            area_name=fact.area_name,
-            mode_dispositions=tuple(
-                ModeDisposition(
-                    mode=mode,
-                    disposition=ContributorDisposition.PROVEN_NOT_APPLICABLE,
-                    reason="TS500 concrete cracking normalization is not applied to non-concrete Area property",
-                    source_refs=refs,
-                )
-                for mode in AreaStiffnessMode
-            ),
-            target_property_modifiers=None,
-            blocked_reasons=(),
-            source_refs=refs,
-        )
+        return _all_area(fact, ContributorDisposition.PROVEN_NOT_APPLICABLE,
+                         "TS500 concrete cracking normalization is not applied to non-concrete Area property")
     if not fact.gross_base_qualified:
-        reasons: list[str] = []
-        if not fact.gross_geometry_proven:
-            reasons.append("gross geometry not proven")
-        if not fact.thickness_proven:
-            reasons.append("gross thickness not proven")
-        if not fact.homogeneous_simple_property:
-            reasons.append("property is layered/equivalent/composite or otherwise unsupported")
-        if not fact.material_overwrite_qualified:
-            reasons.append("material overwrite not qualified")
-        if not fact.thickness_overwrite_qualified:
-            reasons.append("thickness overwrite not qualified")
-        if fact.material_basis is None:
-            reasons.append("concrete Ec/Gc material basis missing")
-        elif not fact.material_basis.qualified:
-            reasons.append(
-                "concrete Ec/Gc does not match the required TS500 uncracked elastic basis"
-            )
-        return _blocked_all_area_modes(fact, "; ".join(reasons))
+        reasons = []
+        if not fact.gross_geometry_proven: reasons.append("gross geometry not proven")
+        if not fact.thickness_proven: reasons.append("gross thickness not proven")
+        if not fact.homogeneous_simple_property: reasons.append("unsupported layered/equivalent/composite property")
+        if not fact.material_overwrite_qualified: reasons.append("material overwrite not qualified")
+        if not fact.thickness_overwrite_qualified: reasons.append("thickness overwrite not qualified")
+        if fact.material_basis is None: reasons.append("concrete Ec/Gc material basis missing")
+        elif not fact.material_basis.qualified: reasons.append("concrete Ec/Gc does not match the required TS500 uncracked elastic basis")
+        return _all_area(fact, ContributorDisposition.BLOCKED_UNSUPPORTED, "; ".join(reasons))
     if fact.formulation not in {AreaFormulation.SHELL_THICK, AreaFormulation.MEMBRANE}:
-        return _blocked_all_area_modes(fact, "unsupported Area formulation")
+        return _all_area(fact, ContributorDisposition.BLOCKED_UNSUPPORTED, "unsupported Area formulation")
 
     dispositions: dict[AreaStiffnessMode, ModeDisposition] = {}
     target = list(fact.property_modifiers)
 
-    def mark_target(*modes: AreaStiffnessMode, reason: str) -> None:
+    def mark(modes, disposition, reason, normalize=False):
         for mode in modes:
-            target[_AREA_SLOT_BY_MODE[mode]] = Decimal("1")
-            dispositions[mode] = ModeDisposition(
-                mode=mode,
-                disposition=ContributorDisposition.TARGETED_UNCRACKED,
-                reason=reason,
-                source_refs=refs,
-            )
+            if normalize: target[_AREA_SLOT[mode]] = Decimal("1")
+            dispositions[mode] = ModeDisposition(mode, disposition, reason, refs)
 
-    def mark_nonparticipating(*modes: AreaStiffnessMode, reason: str) -> None:
-        for mode in modes:
-            dispositions[mode] = ModeDisposition(
-                mode=mode,
-                disposition=ContributorDisposition.PROVEN_NON_PARTICIPATING_MODE,
-                reason=reason,
-                source_refs=refs,
-            )
-
-    def mark_not_applicable(*modes: AreaStiffnessMode, reason: str) -> None:
-        for mode in modes:
-            dispositions[mode] = ModeDisposition(
-                mode=mode,
-                disposition=ContributorDisposition.PROVEN_NOT_APPLICABLE,
-                reason=reason,
-                source_refs=refs,
-            )
-
-    def mark_blocked(*modes: AreaStiffnessMode, reason: str) -> None:
-        for mode in modes:
-            dispositions[mode] = ModeDisposition(
-                mode=mode,
-                disposition=ContributorDisposition.BLOCKED_UNSUPPORTED,
-                reason=reason,
-                source_refs=refs,
-            )
+    in_plane = (AreaStiffnessMode.F11, AreaStiffnessMode.F22, AreaStiffnessMode.F12)
+    plate = (AreaStiffnessMode.M11, AreaStiffnessMode.M22, AreaStiffnessMode.M12)
+    transverse = (AreaStiffnessMode.V13, AreaStiffnessMode.V23)
 
     if fact.category is AreaCategory.FLOOR:
         if fact.semi_rigid_diaphragm_participation is not True:
-            return _blocked_all_area_modes(
-                fact,
-                "floor in-plane Eq7.13 participation is not positively established as semi-rigid diaphragm response",
-            )
-        mark_target(
-            AreaStiffnessMode.F11,
-            AreaStiffnessMode.F22,
-            AreaStiffnessMode.F12,
-            reason="participating concrete semi-rigid diaphragm in-plane normal/shear stiffness",
-        )
+            return _all_area(fact, ContributorDisposition.BLOCKED_UNSUPPORTED,
+                             "floor in-plane Eq7.13 participation is not positively established as semi-rigid diaphragm response")
+        mark(in_plane, ContributorDisposition.TARGETED_UNCRACKED,
+             "participating concrete semi-rigid diaphragm in-plane normal/shear stiffness", True)
         if fact.formulation is AreaFormulation.MEMBRANE:
-            mark_not_applicable(
-                AreaStiffnessMode.M11,
-                AreaStiffnessMode.M22,
-                AreaStiffnessMode.M12,
-                AreaStiffnessMode.V13,
-                AreaStiffnessMode.V23,
-                reason="Membrane formulation has no plate-bending/transverse-shear mechanism",
-            )
+            mark((*plate, *transverse), ContributorDisposition.PROVEN_NOT_APPLICABLE,
+                 "Membrane formulation has no plate-bending/transverse-shear mechanism")
         else:
-            plate_modes = (
-                AreaStiffnessMode.M11,
-                AreaStiffnessMode.M22,
-                AreaStiffnessMode.M12,
-            )
             if fact.plate_participation is True:
-                mark_target(*plate_modes, reason="positively established participating plate response")
+                mark(plate, ContributorDisposition.TARGETED_UNCRACKED, "positively established participating plate response", True)
             elif fact.plate_participation is False:
-                mark_nonparticipating(*plate_modes, reason="plate response positively excluded from Eq7.13 displacement response")
+                mark(plate, ContributorDisposition.PROVEN_NON_PARTICIPATING_MODE, "plate response positively excluded from Eq7.13 displacement response")
             else:
-                mark_blocked(*plate_modes, reason="plate participation in Eq7.13 displacement response is unresolved")
-            shear_modes = (AreaStiffnessMode.V13, AreaStiffnessMode.V23)
+                mark(plate, ContributorDisposition.BLOCKED_UNSUPPORTED, "plate participation in Eq7.13 displacement response is unresolved")
             if fact.transverse_shear_participation is True:
-                mark_target(*shear_modes, reason="positively established participating thick-shell transverse shear")
+                mark(transverse, ContributorDisposition.TARGETED_UNCRACKED, "positively established participating thick-shell transverse shear", True)
             elif fact.transverse_shear_participation is False:
-                mark_nonparticipating(*shear_modes, reason="transverse shear positively excluded from Eq7.13 displacement response")
+                mark(transverse, ContributorDisposition.PROVEN_NON_PARTICIPATING_MODE, "transverse shear positively excluded from Eq7.13 displacement response")
             else:
-                mark_blocked(*shear_modes, reason="transverse-shear participation in Eq7.13 displacement response is unresolved")
+                mark(transverse, ContributorDisposition.BLOCKED_UNSUPPORTED, "transverse-shear participation in Eq7.13 displacement response is unresolved")
     elif fact.category is AreaCategory.WALL:
         if fact.wall_role not in {WallRole.PIER, WallRole.SPANDREL}:
-            return _blocked_all_area_modes(fact, "wall pier/spandrel role is not positively established")
+            return _all_area(fact, ContributorDisposition.BLOCKED_UNSUPPORTED, "wall pier/spandrel role is not positively established")
         if fact.default_wall_local_axes_proven is not True:
-            return _blocked_all_area_modes(fact, "wall local-axis mapping is not positively established")
-        normal_mode = (
-            AreaStiffnessMode.F22
-            if fact.wall_role is WallRole.PIER
-            else AreaStiffnessMode.F11
-        )
-        other_normal = (
-            AreaStiffnessMode.F11
-            if normal_mode is AreaStiffnessMode.F22
-            else AreaStiffnessMode.F22
-        )
-        mark_target(normal_mode, reason=f"{fact.wall_role.value.lower()} in-plane flexure")
-        mark_target(AreaStiffnessMode.F12, reason="participating wall in-plane shear")
-        mark_nonparticipating(other_normal, reason="other local membrane-normal family is not the established wall flexural mode")
-        plate_modes = (
-            AreaStiffnessMode.M11,
-            AreaStiffnessMode.M22,
-            AreaStiffnessMode.M12,
-        )
+            return _all_area(fact, ContributorDisposition.BLOCKED_UNSUPPORTED, "wall local-axis mapping is not positively established")
+        flex = AreaStiffnessMode.F22 if fact.wall_role is WallRole.PIER else AreaStiffnessMode.F11
+        other = AreaStiffnessMode.F11 if flex is AreaStiffnessMode.F22 else AreaStiffnessMode.F22
+        mark((flex, AreaStiffnessMode.F12), ContributorDisposition.TARGETED_UNCRACKED,
+             f"{fact.wall_role.value.lower()} in-plane flexure plus participating wall in-plane shear", True)
+        mark((other,), ContributorDisposition.PROVEN_NON_PARTICIPATING_MODE,
+             "other local membrane-normal family is not the established wall flexural mode")
         if fact.plate_participation is True:
-            mark_target(*plate_modes, reason="positively established participating wall out-of-plane bending")
+            mark(plate, ContributorDisposition.TARGETED_UNCRACKED, "positively established participating wall out-of-plane bending", True)
         elif fact.plate_participation is False:
-            mark_nonparticipating(*plate_modes, reason="wall out-of-plane bending positively excluded from Eq7.13 response")
+            mark(plate, ContributorDisposition.PROVEN_NON_PARTICIPATING_MODE, "wall out-of-plane bending positively excluded from Eq7.13 response")
         else:
-            mark_blocked(*plate_modes, reason="wall out-of-plane participation is unresolved")
-        shear_modes = (AreaStiffnessMode.V13, AreaStiffnessMode.V23)
+            mark(plate, ContributorDisposition.BLOCKED_UNSUPPORTED, "wall out-of-plane participation is unresolved")
         if fact.transverse_shear_participation is True:
-            mark_target(*shear_modes, reason="positively established participating wall transverse shear")
+            mark(transverse, ContributorDisposition.TARGETED_UNCRACKED, "positively established participating wall transverse shear", True)
         elif fact.transverse_shear_participation is False:
-            mark_nonparticipating(*shear_modes, reason="wall transverse shear positively excluded from Eq7.13 response")
+            mark(transverse, ContributorDisposition.PROVEN_NON_PARTICIPATING_MODE, "wall transverse shear positively excluded from Eq7.13 response")
         else:
-            mark_blocked(*shear_modes, reason="wall transverse-shear participation is unresolved")
+            mark(transverse, ContributorDisposition.BLOCKED_UNSUPPORTED, "wall transverse-shear participation is unresolved")
     else:
-        return _blocked_all_area_modes(fact, "unsupported Area category")
+        return _all_area(fact, ContributorDisposition.BLOCKED_UNSUPPORTED, "unsupported Area category")
 
-    ordered = tuple(dispositions[mode] for mode in AreaStiffnessMode)
-    blocked = tuple(item.reason for item in ordered if item.disposition is ContributorDisposition.BLOCKED_UNSUPPORTED)
+    rows = tuple(dispositions[m] for m in AreaStiffnessMode)
+    blocked = tuple(dict.fromkeys(r.reason for r in rows if r.disposition is ContributorDisposition.BLOCKED_UNSUPPORTED))
     return AreaEq713TargetDisposition(
-        area_name=fact.area_name,
-        mode_dispositions=ordered,
-        target_property_modifiers=tuple(target) if not blocked else None,
-        blocked_reasons=tuple(dict.fromkeys(blocked)),
-        source_refs=refs,
+        fact.area_name, rows, tuple(target) if not blocked else None, blocked, refs
     )
 
 
@@ -533,56 +350,39 @@ class FrameModeAuditDisposition:
     def qualified(self) -> bool:
         return not self.blocked_reasons
 
+    @property
+    def applicable(self) -> bool:
+        return any(r.disposition is ContributorDisposition.TARGETED_UNCRACKED for r in self.mode_dispositions)
 
-def audit_frame_eq713_modes(
-    *,
-    component_uid: str,
-    property_modifiers: Sequence[object],
-    object_modifiers: Sequence[object],
-    participation: Mapping[FrameStiffnessMode, bool | None],
-    material_basis: ConcreteUncrackedMaterialBasis,
-    source_refs: Sequence[str],
-) -> FrameModeAuditDisposition:
-    """Audit documented frame stiffness modes without inventing participation."""
-    prop = _vector(property_modifiers, length=8, label="frame_property_modifiers")
-    obj = _vector(object_modifiers, length=8, label="frame_object_modifiers")
+
+def audit_frame_eq713_modes(*, component_uid: str, property_modifiers: Sequence[object],
+        object_modifiers: Sequence[object],
+        participation: Mapping[FrameStiffnessMode, bool | None],
+        material_basis: ConcreteUncrackedMaterialBasis,
+        source_refs: Sequence[str]) -> FrameModeAuditDisposition:
+    prop = _vector(property_modifiers, 8, "frame_property_modifiers")
+    obj = _vector(object_modifiers, 8, "frame_object_modifiers")
     refs = _refs((*source_refs, TS500_EQ713_SOURCE_REF))
-    rows: list[ModeDisposition] = []
-    blocked: list[str] = []
+    rows, blocked = [], []
     for mode in FrameStiffnessMode:
         participates = participation.get(mode)
         if participates is None:
+            disposition = ContributorDisposition.BLOCKED_UNSUPPORTED
             reason = f"{mode.value} participation in Eq7.13 Delta_i is unresolved"
-            disposition = ContributorDisposition.BLOCKED_UNSUPPORTED
             blocked.append(reason)
-        elif participates is False:
-            reason = f"{mode.value} positively excluded from Eq7.13 Delta_i response"
+        elif not participates:
             disposition = ContributorDisposition.PROVEN_NON_PARTICIPATING_MODE
+            reason = f"{mode.value} positively excluded from Eq7.13 Delta_i response"
         elif not material_basis.qualified:
-            reason = "concrete Ec/Gc material basis is not qualified"
             disposition = ContributorDisposition.BLOCKED_UNSUPPORTED
+            reason = "concrete Ec/Gc material basis is not qualified"
             blocked.append(reason)
         else:
-            effective = prop[_FRAME_SLOT_BY_MODE[mode]] * obj[_FRAME_SLOT_BY_MODE[mode]]
-            reason = (
-                f"participating {mode.value} effective modifier={effective}; "
-                "gross target is effective modifier 1 with gross material/geometry basis"
-            )
+            effective = prop[_FRAME_SLOT[mode]] * obj[_FRAME_SLOT[mode]]
             disposition = ContributorDisposition.TARGETED_UNCRACKED
-        rows.append(
-            ModeDisposition(
-                mode=mode,
-                disposition=disposition,
-                reason=reason,
-                source_refs=refs,
-            )
-        )
-    return FrameModeAuditDisposition(
-        component_uid=component_uid,
-        mode_dispositions=tuple(rows),
-        blocked_reasons=tuple(dict.fromkeys(blocked)),
-        source_refs=refs,
-    )
+            reason = f"participating {mode.value} effective modifier={effective}; gross target is effective modifier 1 on a qualified gross material/geometry basis"
+        rows.append(ModeDisposition(mode, disposition, reason, refs))
+    return FrameModeAuditDisposition(component_uid, tuple(rows), tuple(dict.fromkeys(blocked)), refs)
 
 
 @dataclass(frozen=True, slots=True)
@@ -592,55 +392,29 @@ class Eq713PopulationDisposition:
 
     @property
     def expected_applicable_contributors(self) -> tuple[str, ...]:
-        values: list[str] = []
-        for row in self.area_rows:
-            if any(
-                item.disposition is ContributorDisposition.TARGETED_UNCRACKED
-                for item in row.mode_dispositions
-            ):
-                values.append(f"AREA:{row.area_name}")
-        for row in self.frame_rows:
-            if any(
-                item.disposition is ContributorDisposition.TARGETED_UNCRACKED
-                for item in row.mode_dispositions
-            ):
-                values.append(f"FRAME:{row.component_uid}")
+        values = [f"AREA:{r.area_name}" for r in self.area_rows if r.applicable]
+        values.extend(f"FRAME:{r.component_uid}" for r in self.frame_rows if r.applicable)
         return tuple(sorted(values))
 
     @property
     def qualified_contributors(self) -> tuple[str, ...]:
-        values = [f"AREA:{row.area_name}" for row in self.area_rows if row.qualified]
-        values.extend(f"FRAME:{row.component_uid}" for row in self.frame_rows if row.qualified)
+        values = [f"AREA:{r.area_name}" for r in self.area_rows if r.applicable and r.qualified]
+        values.extend(f"FRAME:{r.component_uid}" for r in self.frame_rows if r.applicable and r.qualified)
         return tuple(sorted(values))
 
     @property
     def positive(self) -> bool:
-        return (
-            all(row.qualified for row in self.area_rows)
-            and all(row.qualified for row in self.frame_rows)
-            and self.expected_applicable_contributors == self.qualified_contributors
-        )
+        return all(r.qualified for r in self.area_rows) and all(r.qualified for r in self.frame_rows) and self.expected_applicable_contributors == self.qualified_contributors
 
 
 __all__ = [
-    "AREA_OBJECT_UNITY_NEUTRALITY_CONTRACT",
-    "AREA_PROPERTY_MODIFIER_SOURCE_REF",
-    "TS500_EQ713_SOURCE_REF",
-    "TS500_EQ713_UNCRACKED_ANALYSIS_STATE_CONTRACT",
-    "AreaCategory",
-    "AreaEq713TargetDisposition",
-    "AreaFormulation",
-    "AreaGrossBasePropertyEvidence",
-    "AreaStiffnessMode",
-    "ConcreteUncrackedMaterialBasis",
-    "ContributorDisposition",
-    "Eq713AnalysisBasisError",
-    "Eq713PopulationDisposition",
-    "FrameModeAuditDisposition",
-    "FrameStiffnessMode",
-    "ModeDisposition",
-    "WallRole",
-    "audit_frame_eq713_modes",
-    "build_area_eq713_target",
+    "AREA_OBJECT_UNITY_NEUTRALITY_CONTRACT", "AREA_PROPERTY_MODIFIER_SOURCE_REF",
+    "TS500_EQ713_SOURCE_REF", "TS500_EQ713_UNCRACKED_ANALYSIS_STATE_CONTRACT",
+    "AreaCategory", "AreaEq713TargetDisposition", "AreaFormulation",
+    "AreaGrossBasePropertyEvidence", "AreaStiffnessMode",
+    "ConcreteUncrackedMaterialBasis", "ContributorDisposition",
+    "Eq713AnalysisBasisError", "Eq713PopulationDisposition",
+    "FrameModeAuditDisposition", "FrameStiffnessMode", "ModeDisposition", "WallRole",
+    "audit_frame_eq713_modes", "build_area_eq713_target",
     "build_concrete_uncracked_material_basis",
 ]
