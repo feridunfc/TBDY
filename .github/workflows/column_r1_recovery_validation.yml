@@ -5,6 +5,7 @@ on:
     branches:
       - sprint/column-r1-a-live-fnd2-closure
       - sprint/column-r1-join
+      - sprint/column-r1-final-closure
   workflow_dispatch:
 
 permissions:
@@ -33,5 +34,8 @@ jobs:
       - name: Compile
         run: python -m compileall -q tbdy_engine tests
 
-      - name: A3 focused
+      - name: A3 authority focused
         run: python -m pytest -q tests/analysis_basis/test_eq713_uncracked_analysis_state.py
+
+      - name: A3 factual OAPI focused
+        run: python -m pytest -q tests/etabs/test_oapi_area_contributors.py
