@@ -3,15 +3,20 @@
 ETABS API fact discipline for COLUMN-R1 A3:
 
 ``DOCUMENTED FACT``
-    ``FrameObj.GetReleases`` retrieves four six-entry arrays named ``II``,
-    ``JJ``, ``StartValue`` and ``EndValue`` for a named frame object.
+    ``FrameObj.GetReleases`` retrieves four arrays named ``II``, ``JJ``,
+    ``StartValue`` and ``EndValue`` for a named frame object.
+
+``DOCUMENTED FACT — PAIRED SETTER ONLY``
+    ``FrameObj.SetReleases`` documents six positions as U1/U2/U3/R1/R2/R3
+    releases, with the same six positions used for the I/J partial-fixity
+    spring vectors.
 
 ``INFERENCE``
-    The paired ``FrameObj.SetReleases`` documentation assigns the six release
-    positions to P/V2/V3/T/M2/M3.  The supplied ``GetReleases`` page does not
-    itself restate those slot meanings.  This factual module therefore does
-    *not* expose named release-DOF attributes and does not promote the paired
-    setter mapping into a documented getter fact.
+    The supplied ``GetReleases`` page does not itself restate those six slot
+    meanings.  Identical parameter names and release context strongly suggest
+    the paired setter ordering also describes getter output, but this factual
+    module does not promote that inference to documented getter semantics.
+    It therefore exposes no named release-DOF attributes.
 
 No engineering participation or TS500 Eq. 7.13 qualification is owned here.
 """
