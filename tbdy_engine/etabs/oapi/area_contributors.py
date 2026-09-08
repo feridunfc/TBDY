@@ -1,8 +1,9 @@
-"""Typed factual ETABS Area contributor reads for COLUMN-R1 A2.
+"""Typed factual ETABS Area contributor reads for COLUMN-R1 A2/A3.
 
 This module extends the existing OAPI factual layer only. It captures design
-orientation, local axes, transformation matrix, material-overwrite token and
-Slab/Deck property-family facts. It owns no Eq.7.13 participation or gross
+orientation, local axes, transformation matrix, material-overwrite token,
+Slab/Deck property-family facts, diaphragm assignment/definition, and exact
+pier/spandrel assignment tokens. It owns no Eq.7.13 participation or gross
 stiffness policy, and it never assigns PropArea slot semantics to AreaObj
 modifier vectors.
 """
@@ -188,6 +189,102 @@ class AreaMaterialOverwriteFact:
 
 
 @dataclass(frozen=True, slots=True)
+class AreaDiaphragmAssignmentFact:
+    area_name: str
+    diaphragm_name: str
+    return_code: int
+    evidence_ref: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        name = _text(self.area_name, "area_name")
+        diaphragm = _text(self.diaphragm_name, "diaphragm_name", allow_blank=True)
+        ret = _int(self.return_code, "return_code")
+        object.__setattr__(self, "area_name", name)
+        object.__setattr__(self, "diaphragm_name", diaphragm)
+        object.__setattr__(self, "return_code", ret)
+        object.__setattr__(self, "evidence_ref", _digest({
+            "api": "AreaObj.GetDiaphragm", "area_name": name,
+            "diaphragm_name": diaphragm, "return_code": ret,
+        }))
+
+    @property
+    def success(self) -> bool:
+        return self.return_code == 0
+
+    @property
+    def assigned(self) -> bool:
+        return self.success and self.diaphragm_name not in {"", "None"}
+
+
+@dataclass(frozen=True, slots=True)
+class DiaphragmDefinitionFact:
+    diaphragm_name: str
+    semi_rigid: bool
+    return_code: int
+    evidence_ref: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        name = _text(self.diaphragm_name, "diaphragm_name")
+        if type(self.semi_rigid) is not bool:
+            raise EtabsOAPIError("semi_rigid must be boolean")
+        ret = _int(self.return_code, "return_code")
+        object.__setattr__(self, "diaphragm_name", name)
+        object.__setattr__(self, "return_code", ret)
+        object.__setattr__(self, "evidence_ref", _digest({
+            "api": "Diaphragm.GetDiaphragm", "diaphragm_name": name,
+            "semi_rigid": self.semi_rigid, "return_code": ret,
+        }))
+
+    @property
+    def success(self) -> bool:
+        return self.return_code == 0
+
+
+@dataclass(frozen=True, slots=True)
+class AreaWallAssignmentFact:
+    area_name: str
+    pier_name: str
+    spandrel_name: str
+    pier_return_code: int
+    spandrel_return_code: int
+    evidence_ref: str = field(init=False)
+
+    def __post_init__(self) -> None:
+        name = _text(self.area_name, "area_name")
+        pier = _text(self.pier_name, "pier_name", allow_blank=True)
+        spandrel = _text(self.spandrel_name, "spandrel_name", allow_blank=True)
+        pier_ret = _int(self.pier_return_code, "pier_return_code")
+        spandrel_ret = _int(self.spandrel_return_code, "spandrel_return_code")
+        object.__setattr__(self, "area_name", name)
+        object.__setattr__(self, "pier_name", pier)
+        object.__setattr__(self, "spandrel_name", spandrel)
+        object.__setattr__(self, "pier_return_code", pier_ret)
+        object.__setattr__(self, "spandrel_return_code", spandrel_ret)
+        object.__setattr__(self, "evidence_ref", _digest({
+            "api": "AreaObj.GetPier+GetSpandrel", "area_name": name,
+            "pier_name": pier, "spandrel_name": spandrel,
+            "pier_return_code": pier_ret,
+            "spandrel_return_code": spandrel_ret,
+        }))
+
+    @property
+    def success(self) -> bool:
+        return self.pier_return_code == 0 and self.spandrel_return_code == 0
+
+    @property
+    def pier_assigned(self) -> bool:
+        return self.success and self.pier_name not in {"", "None"}
+
+    @property
+    def spandrel_assigned(self) -> bool:
+        return self.success and self.spandrel_name not in {"", "None"}
+
+    @property
+    def assignment_conflict(self) -> bool:
+        return self.pier_assigned and self.spandrel_assigned
+
+
+@dataclass(frozen=True, slots=True)
 class AreaPropertyFamilyProbeFact:
     property_name: str
     family: str
@@ -274,6 +371,43 @@ def read_area_material_overwrite(area_obj: Any, area_name: str) -> AreaMaterialO
     )
 
 
+def read_area_diaphragm_assignment(area_obj: Any, area_name: str) -> AreaDiaphragmAssignmentFact:
+    name = _text(area_name, "area_name")
+    diaphragm_name, ret = _items(
+        area_obj.GetDiaphragm(name), "AreaObj.GetDiaphragm", 2
+    )
+    return AreaDiaphragmAssignmentFact(
+        name,
+        _text(diaphragm_name, "diaphragm_name", allow_blank=True),
+        _int(ret, "return_code"),
+    )
+
+
+def read_diaphragm_definition(diaphragm: Any, diaphragm_name: str) -> DiaphragmDefinitionFact:
+    name = _text(diaphragm_name, "diaphragm_name")
+    semi_rigid, ret = _items(
+        diaphragm.GetDiaphragm(name), "Diaphragm.GetDiaphragm", 2
+    )
+    if type(semi_rigid) is not bool:
+        raise EtabsOAPIError("Diaphragm.GetDiaphragm returned non-boolean SemiRigid")
+    return DiaphragmDefinitionFact(name, semi_rigid, _int(ret, "return_code"))
+
+
+def read_area_wall_assignments(area_obj: Any, area_name: str) -> AreaWallAssignmentFact:
+    name = _text(area_name, "area_name")
+    pier_name, pier_ret = _items(area_obj.GetPier(name), "AreaObj.GetPier", 2)
+    spandrel_name, spandrel_ret = _items(
+        area_obj.GetSpandrel(name), "AreaObj.GetSpandrel", 2
+    )
+    return AreaWallAssignmentFact(
+        name,
+        _text(pier_name, "pier_name", allow_blank=True),
+        _text(spandrel_name, "spandrel_name", allow_blank=True),
+        _int(pier_ret, "pier_return_code"),
+        _int(spandrel_ret, "spandrel_return_code"),
+    )
+
+
 def _read_property_family_probe(
     prop_area: Any, property_name: str, *, family: str
 ) -> AreaPropertyFamilyProbeFact:
@@ -342,6 +476,30 @@ def read_area_material_overwrite_from_session(session: EtabsVerifiedSession, are
     )
 
 
+def read_area_diaphragm_assignment_from_session(session: EtabsVerifiedSession, area_name: str):
+    return _session_read(
+        session,
+        lambda _app, sap: read_area_diaphragm_assignment(sap.AreaObj, area_name),
+        operation="oapi_area_obj_get_diaphragm",
+    )
+
+
+def read_diaphragm_definition_from_session(session: EtabsVerifiedSession, diaphragm_name: str):
+    return _session_read(
+        session,
+        lambda _app, sap: read_diaphragm_definition(sap.Diaphragm, diaphragm_name),
+        operation="oapi_diaphragm_get_diaphragm",
+    )
+
+
+def read_area_wall_assignments_from_session(session: EtabsVerifiedSession, area_name: str):
+    return _session_read(
+        session,
+        lambda _app, sap: read_area_wall_assignments(sap.AreaObj, area_name),
+        operation="oapi_area_obj_get_wall_assignments",
+    )
+
+
 def read_slab_property_probe_from_session(session: EtabsVerifiedSession, property_name: str):
     return _session_read(
         session,
@@ -360,13 +518,17 @@ def read_deck_property_probe_from_session(session: EtabsVerifiedSession, propert
 
 __all__ = [
     "AREA_CONTRIBUTOR_FACT_PREFIX",
-    "AreaDesignOrientation", "AreaDesignOrientationFact", "AreaLocalAxesFact",
-    "AreaMaterialOverwriteFact", "AreaPropertyFamilyProbeFact", "AreaShellType",
-    "AreaTransformationMatrixFact", "read_area_design_orientation",
-    "read_area_design_orientation_from_session", "read_area_local_axes",
+    "AreaDesignOrientation", "AreaDesignOrientationFact", "AreaDiaphragmAssignmentFact",
+    "AreaLocalAxesFact", "AreaMaterialOverwriteFact", "AreaPropertyFamilyProbeFact",
+    "AreaShellType", "AreaTransformationMatrixFact", "AreaWallAssignmentFact",
+    "DiaphragmDefinitionFact", "read_area_design_orientation",
+    "read_area_design_orientation_from_session", "read_area_diaphragm_assignment",
+    "read_area_diaphragm_assignment_from_session", "read_area_local_axes",
     "read_area_local_axes_from_session", "read_area_material_overwrite",
     "read_area_material_overwrite_from_session", "read_area_transformation_matrix",
-    "read_area_transformation_matrix_from_session", "read_deck_property_probe",
-    "read_deck_property_probe_from_session", "read_slab_property_probe",
+    "read_area_transformation_matrix_from_session", "read_area_wall_assignments",
+    "read_area_wall_assignments_from_session", "read_deck_property_probe",
+    "read_deck_property_probe_from_session", "read_diaphragm_definition",
+    "read_diaphragm_definition_from_session", "read_slab_property_probe",
     "read_slab_property_probe_from_session",
 ]
