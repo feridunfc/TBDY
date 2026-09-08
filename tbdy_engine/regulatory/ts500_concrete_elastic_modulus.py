@@ -1,8 +1,9 @@
-"""Reviewed TS 500 Table 3.2 concrete elastic-modulus authority.
+"""Reviewed TS 500 concrete elastic-modulus and shear-modulus authority.
 
 Bounded to normal-weight 28-day concrete classes listed in TS 500:2000
-Table 3.2.  Values are represented in canonical MPa decimals and compared
-exactly; this module owns no ETABS mutation or factual acquisition.
+Table 3.2 and the TS 500:2000 Eq. 3.3 relation Gc = 0.40 Ec. Values are
+represented in canonical MPa decimals and compared exactly; this module owns
+no ETABS mutation or factual acquisition.
 """
 from __future__ import annotations
 
@@ -12,7 +13,9 @@ from enum import StrEnum
 
 TS500_TABLE_3_2_SOURCE_REF = "TS500_2000_TABLE_3_2"
 TS500_3_3_3_1_SOURCE_REF = "TS500_2000_3_3_3_1"
+TS500_3_3_3_3_SOURCE_REF = "TS500_2000_EQ_3_3"
 TS500_EC_NUMERICAL_POLICY = "EXACT_CANONICAL_MPA_DECIMAL"
+TS500_GC_OVER_EC = Decimal("0.40")
 
 # TS 500:2000 Table 3.2: characteristic cylinder strength fck -> 28-day Ec.
 _TS500_EC_MPA_BY_FCK: dict[Decimal, Decimal] = {
@@ -71,6 +74,31 @@ class Ts500ConcreteEcComparison:
             )
 
 
+@dataclass(frozen=True, slots=True)
+class Ts500ConcreteGcComparison:
+    required_ts500_ec_mpa: Decimal
+    factual_etabs_gc_mpa: Decimal
+    required_ts500_gc_mpa: Decimal
+    status: Ts500EcComparisonStatus
+    numerical_policy: str = TS500_EC_NUMERICAL_POLICY
+    source_refs: tuple[str, ...] = (
+        TS500_TABLE_3_2_SOURCE_REF,
+        TS500_3_3_3_3_SOURCE_REF,
+    )
+
+    @property
+    def positive(self) -> bool:
+        return self.status is Ts500EcComparisonStatus.MATCH
+
+    def require_match(self) -> None:
+        if not self.positive:
+            raise ValueError(
+                f"TS500 Gc comparison is not positive: {self.status.value}; "
+                f"factual_Gc={self.factual_etabs_gc_mpa} MPa "
+                f"required_Gc={self.required_ts500_gc_mpa} MPa"
+            )
+
+
 def compare_etabs_ec_to_ts500_table_3_2(
     *,
     concrete_fck_mpa: object,
@@ -94,11 +122,37 @@ def compare_etabs_ec_to_ts500_table_3_2(
     )
 
 
+def compare_etabs_gc_to_ts500_eq_3_3(
+    *,
+    required_ts500_ec_mpa: object,
+    factual_etabs_gc_mpa: object,
+) -> Ts500ConcreteGcComparison:
+    """Compare factual Gc to TS 500 Eq. 3.3 using the required TS500 Ec basis."""
+    required_ec = _decimal(required_ts500_ec_mpa, "required_ts500_ec_mpa")
+    factual_gc = _decimal(factual_etabs_gc_mpa, "factual_etabs_gc_mpa")
+    required_gc = TS500_GC_OVER_EC * required_ec
+    status = (
+        Ts500EcComparisonStatus.MATCH
+        if factual_gc == required_gc
+        else Ts500EcComparisonStatus.MISMATCH
+    )
+    return Ts500ConcreteGcComparison(
+        required_ts500_ec_mpa=required_ec,
+        factual_etabs_gc_mpa=factual_gc,
+        required_ts500_gc_mpa=required_gc,
+        status=status,
+    )
+
+
 __all__ = [
     "TS500_3_3_3_1_SOURCE_REF",
+    "TS500_3_3_3_3_SOURCE_REF",
     "TS500_EC_NUMERICAL_POLICY",
+    "TS500_GC_OVER_EC",
     "TS500_TABLE_3_2_SOURCE_REF",
     "Ts500ConcreteEcComparison",
+    "Ts500ConcreteGcComparison",
     "Ts500EcComparisonStatus",
     "compare_etabs_ec_to_ts500_table_3_2",
+    "compare_etabs_gc_to_ts500_eq_3_3",
 ]
