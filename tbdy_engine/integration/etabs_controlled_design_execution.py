@@ -47,9 +47,9 @@ from tbdy_engine.integration.etabs_design_lineage import (
 from tbdy_engine.integration.etabs_scratch_lifecycle import OwnedScratchContext
 from tbdy_engine.integration.live_etabs_acquisition_context import (
     TrustedLiveAcquisitionContext,
+    acquire_actual_concrete_design_combo_selection_from_context,
     capture_concrete_column_design_results_from_context,
     capture_concrete_column_design_sections_from_context,
-    capture_actual_concrete_design_combo_selection_from_context,
 )
 
 
@@ -107,7 +107,9 @@ def design_component_scope_ref(component_id: str) -> str:
 
 def _population_ref(selection: object) -> str:
     refs = tuple(getattr(selection, "source_refs", ()) or ())
-    matches = tuple(ref for ref in refs if ref.startswith("selected-design-combo-population:sha256:"))
+    matches = tuple(
+        ref for ref in refs if ref.startswith("selected-design-combo-population:sha256:")
+    )
     if len(matches) != 1:
         raise ControlledDesignExecutionError(
             "selected design-combo population does not expose one canonical population ref",
@@ -262,7 +264,9 @@ def execute_controlled_concrete_design(
             stage="preflight",
         )
 
-    selected_before = capture_actual_concrete_design_combo_selection_from_context(context)
+    selected_before = acquire_actual_concrete_design_combo_selection_from_context(
+        context=context
+    )
     selected_ref = _population_ref(selected_before)
     parent_result, expected_scopes = _validate_design_state(
         context=context,
@@ -291,7 +295,6 @@ def execute_controlled_concrete_design(
         },
     )
 
-    # The only StartDesign call in production lives below this line.
     start_fact = start_concrete_design_from_session(
         context.verified_session,
         timeout_seconds=timeout,
@@ -323,16 +326,21 @@ def execute_controlled_concrete_design(
             stage="post_design_results_unavailable",
         )
 
-    selected_after = capture_actual_concrete_design_combo_selection_from_context(context)
+    selected_after = acquire_actual_concrete_design_combo_selection_from_context(
+        context=context
+    )
     if _population_ref(selected_after) != selected_ref:
         raise ControlledDesignExecutionError(
             "selected concrete design-combo population changed during StartDesign",
             stage="design_state_revalidation",
         )
 
-    design_sections = capture_concrete_column_design_sections_from_context(context)
+    design_sections = capture_concrete_column_design_sections_from_context(
+        context=context,
+        topology=topology,
+    )
     factual_results = capture_concrete_column_design_results_from_context(
-        context,
+        context=context,
         topology=topology,
         design_sections=design_sections,
     )
@@ -341,7 +349,13 @@ def execute_controlled_concrete_design(
             "post-design exact result population did not close",
             stage="result_population",
         )
-    if tuple(sorted(design_component_scope_ref(item) for item in factual_results.expected_component_ids)) != expected_scopes:
+    captured_scope_refs = tuple(
+        sorted(
+            design_component_scope_ref(component_id)
+            for component_id in factual_results.expected_component_ids
+        )
+    )
+    if captured_scope_refs != expected_scopes:
         raise ControlledDesignExecutionError(
             "post-design result population differs from DesignState component scope",
             stage="result_population",
