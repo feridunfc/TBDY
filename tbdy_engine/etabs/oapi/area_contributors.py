@@ -1,13 +1,10 @@
 """Typed factual ETABS Area contributor reads for COLUMN-R1 A2.
 
-This module extends the existing ``tbdy_engine.etabs.oapi`` factual layer.  It
-captures CSI/runtime facts only: design orientation, local axes,
-transformation matrix, material-overwrite token, and ordinary slab/deck
-property records.  It deliberately makes no TS500/TBDY participation or gross
-stiffness decision.
-
-``AreaObj`` modifier vectors remain owned by :mod:`area_modifiers`; this module
-does not assign property-slot semantics to object modifiers.
+This module extends the existing OAPI factual layer only. It captures design
+orientation, local axes, transformation matrix, material-overwrite token and
+Slab/Deck property-family facts. It owns no Eq.7.13 participation or gross
+stiffness policy, and it never assigns PropArea slot semantics to AreaObj
+modifier vectors.
 """
 from __future__ import annotations
 
@@ -19,9 +16,7 @@ import math
 from typing import Any, Sequence
 
 from tbdy_engine.etabs.safety import EtabsVerifiedSession, _execute_verified_read
-
 from .contracts import EtabsOAPIError
-
 
 AREA_CONTRIBUTOR_FACT_PREFIX = "etabs-area-contributor-fact:sha256:"
 
@@ -46,20 +41,18 @@ class AreaShellType(IntEnum):
 def _text(value: object, label: str, *, allow_blank: bool = False) -> str:
     if not isinstance(value, str):
         raise EtabsOAPIError(f"{label} must be a string")
-    if value != value.strip():
-        raise EtabsOAPIError(f"{label} must be canonical/trimmed")
-    if not allow_blank and not value:
-        raise EtabsOAPIError(f"{label} must be nonblank")
+    if value != value.strip() or (not allow_blank and not value):
+        raise EtabsOAPIError(f"{label} must be a canonical string")
     return value
 
 
-def _integer(value: object, label: str) -> int:
+def _int(value: object, label: str) -> int:
     if type(value) is not int:
         raise EtabsOAPIError(f"{label} must be an integer")
     return int(value)
 
 
-def _finite(value: object, label: str) -> float:
+def _number(value: object, label: str) -> float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise EtabsOAPIError(f"{label} must be finite numeric")
     result = float(value)
@@ -68,28 +61,21 @@ def _finite(value: object, label: str) -> float:
     return result
 
 
-def _sequence(raw: object, *, method: str, expected: int) -> tuple[object, ...]:
-    if not isinstance(raw, (tuple, list)):
-        raise EtabsOAPIError(
-            f"{method} returned unsupported Python ABI shape: {type(raw).__name__}"
-        )
-    values = tuple(raw)
-    if len(values) != expected:
-        raise EtabsOAPIError(
-            f"{method} returned {len(values)} values; expected {expected}: {raw!r}"
-        )
-    return values
+def _items(raw: object, method: str, length: int) -> tuple[object, ...]:
+    if not isinstance(raw, (tuple, list)) or len(raw) != length:
+        raise EtabsOAPIError(f"{method} returned unsupported Python ABI shape: {raw!r}")
+    return tuple(raw)
 
 
 def _digest(payload: object) -> str:
-    encoded = json.dumps(
+    data = json.dumps(
         payload,
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=True,
         allow_nan=False,
     ).encode("utf-8")
-    return AREA_CONTRIBUTOR_FACT_PREFIX + hashlib.sha256(encoded).hexdigest()
+    return AREA_CONTRIBUTOR_FACT_PREFIX + hashlib.sha256(data).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,28 +86,20 @@ class AreaDesignOrientationFact:
     evidence_ref: str = field(init=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "area_name", _text(self.area_name, "area_name"))
-        code = _integer(self.orientation_code, "orientation_code")
+        name = _text(self.area_name, "area_name")
+        code = _int(self.orientation_code, "orientation_code")
         try:
             AreaDesignOrientation(code)
         except ValueError as exc:
-            raise EtabsOAPIError(
-                f"unsupported eAreaDesignOrientation code {code}"
-            ) from exc
+            raise EtabsOAPIError(f"unsupported eAreaDesignOrientation code {code}") from exc
+        ret = _int(self.return_code, "return_code")
+        object.__setattr__(self, "area_name", name)
         object.__setattr__(self, "orientation_code", code)
-        object.__setattr__(self, "return_code", _integer(self.return_code, "return_code"))
-        object.__setattr__(
-            self,
-            "evidence_ref",
-            _digest(
-                {
-                    "api": "AreaObj.GetDesignOrientation",
-                    "area_name": self.area_name,
-                    "orientation_code": code,
-                    "return_code": self.return_code,
-                }
-            ),
-        )
+        object.__setattr__(self, "return_code", ret)
+        object.__setattr__(self, "evidence_ref", _digest({
+            "api": "AreaObj.GetDesignOrientation", "area_name": name,
+            "orientation_code": code, "return_code": ret,
+        }))
 
     @property
     def orientation(self) -> AreaDesignOrientation:
@@ -141,26 +119,18 @@ class AreaLocalAxesFact:
     evidence_ref: str = field(init=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "area_name", _text(self.area_name, "area_name"))
-        object.__setattr__(
-            self, "angle_degrees", _finite(self.angle_degrees, "angle_degrees")
-        )
+        name = _text(self.area_name, "area_name")
+        angle = _number(self.angle_degrees, "angle_degrees")
         if type(self.advanced) is not bool:
             raise EtabsOAPIError("advanced must be boolean")
-        object.__setattr__(self, "return_code", _integer(self.return_code, "return_code"))
-        object.__setattr__(
-            self,
-            "evidence_ref",
-            _digest(
-                {
-                    "api": "AreaObj.GetLocalAxes",
-                    "area_name": self.area_name,
-                    "angle_degrees": self.angle_degrees,
-                    "advanced": self.advanced,
-                    "return_code": self.return_code,
-                }
-            ),
-        )
+        ret = _int(self.return_code, "return_code")
+        object.__setattr__(self, "area_name", name)
+        object.__setattr__(self, "angle_degrees", angle)
+        object.__setattr__(self, "return_code", ret)
+        object.__setattr__(self, "evidence_ref", _digest({
+            "api": "AreaObj.GetLocalAxes", "area_name": name,
+            "angle_degrees": angle, "advanced": self.advanced, "return_code": ret,
+        }))
 
     @property
     def success(self) -> bool:
@@ -175,27 +145,18 @@ class AreaTransformationMatrixFact:
     evidence_ref: str = field(init=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "area_name", _text(self.area_name, "area_name"))
+        name = _text(self.area_name, "area_name")
         if len(tuple(self.values)) != 9:
             raise EtabsOAPIError("Area transformation matrix must contain exactly 9 values")
-        normalized = tuple(
-            _finite(value, f"transformation_matrix[{index}]")
-            for index, value in enumerate(self.values)
-        )
-        object.__setattr__(self, "values", normalized)
-        object.__setattr__(self, "return_code", _integer(self.return_code, "return_code"))
-        object.__setattr__(
-            self,
-            "evidence_ref",
-            _digest(
-                {
-                    "api": "AreaObj.GetTransformationMatrix",
-                    "area_name": self.area_name,
-                    "values": list(normalized),
-                    "return_code": self.return_code,
-                }
-            ),
-        )
+        values = tuple(_number(v, f"matrix[{i}]") for i, v in enumerate(self.values))
+        ret = _int(self.return_code, "return_code")
+        object.__setattr__(self, "area_name", name)
+        object.__setattr__(self, "values", values)
+        object.__setattr__(self, "return_code", ret)
+        object.__setattr__(self, "evidence_ref", _digest({
+            "api": "AreaObj.GetTransformationMatrix", "area_name": name,
+            "values": list(values), "return_code": ret,
+        }))
 
     @property
     def success(self) -> bool:
@@ -210,25 +171,16 @@ class AreaMaterialOverwriteFact:
     evidence_ref: str = field(init=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "area_name", _text(self.area_name, "area_name"))
-        object.__setattr__(
-            self,
-            "raw_material_name",
-            _text(self.raw_material_name, "raw_material_name", allow_blank=True),
-        )
-        object.__setattr__(self, "return_code", _integer(self.return_code, "return_code"))
-        object.__setattr__(
-            self,
-            "evidence_ref",
-            _digest(
-                {
-                    "api": "AreaObj.GetMaterialOverwrite",
-                    "area_name": self.area_name,
-                    "raw_material_name": self.raw_material_name,
-                    "return_code": self.return_code,
-                }
-            ),
-        )
+        name = _text(self.area_name, "area_name")
+        material = _text(self.raw_material_name, "raw_material_name", allow_blank=True)
+        ret = _int(self.return_code, "return_code")
+        object.__setattr__(self, "area_name", name)
+        object.__setattr__(self, "raw_material_name", material)
+        object.__setattr__(self, "return_code", ret)
+        object.__setattr__(self, "evidence_ref", _digest({
+            "api": "AreaObj.GetMaterialOverwrite", "area_name": name,
+            "raw_material_name": material, "return_code": ret,
+        }))
 
     @property
     def success(self) -> bool:
@@ -247,54 +199,38 @@ class AreaPropertyFamilyProbeFact:
     evidence_ref: str = field(init=False)
 
     def __post_init__(self) -> None:
-        object.__setattr__(
-            self, "property_name", _text(self.property_name, "property_name")
-        )
+        name = _text(self.property_name, "property_name")
         if self.family not in {"SLAB", "DECK"}:
             raise EtabsOAPIError("property family probe must be SLAB or DECK")
-        object.__setattr__(self, "return_code", _integer(self.return_code, "return_code"))
-        if self.return_code == 0:
+        ret = _int(self.return_code, "return_code")
+        family_type = shell_type = material = thickness = None
+        if ret == 0:
             if self.family_type_code is None or self.shell_type_code is None:
                 raise EtabsOAPIError("successful property family probe requires type codes")
-            family_type_code = _integer(self.family_type_code, "family_type_code")
-            shell_type_code = _integer(self.shell_type_code, "shell_type_code")
+            family_type = _int(self.family_type_code, "family_type_code")
+            shell_type = _int(self.shell_type_code, "shell_type_code")
             try:
-                AreaShellType(shell_type_code)
+                AreaShellType(shell_type)
             except ValueError as exc:
-                raise EtabsOAPIError(
-                    f"unsupported eShellType code {shell_type_code}"
-                ) from exc
-            material = _text(
+                raise EtabsOAPIError(f"unsupported eShellType code {shell_type}") from exc
+            material = None if self.material_name is None else _text(
                 self.material_name, "material_name", allow_blank=True
-            ) if self.material_name is not None else None
-            thickness = (
-                _finite(self.thickness, "thickness") if self.thickness is not None else None
             )
-            object.__setattr__(self, "family_type_code", family_type_code)
-            object.__setattr__(self, "shell_type_code", shell_type_code)
-            object.__setattr__(self, "material_name", material)
-            object.__setattr__(self, "thickness", thickness)
-        else:
-            object.__setattr__(self, "family_type_code", None)
-            object.__setattr__(self, "shell_type_code", None)
-            object.__setattr__(self, "material_name", None)
-            object.__setattr__(self, "thickness", None)
-        object.__setattr__(
-            self,
-            "evidence_ref",
-            _digest(
-                {
-                    "api": f"PropArea.Get{self.family.title()}",
-                    "property_name": self.property_name,
-                    "family": self.family,
-                    "family_type_code": self.family_type_code,
-                    "shell_type_code": self.shell_type_code,
-                    "material_name": self.material_name,
-                    "thickness": self.thickness,
-                    "return_code": self.return_code,
-                }
-            ),
-        )
+            thickness = None if self.thickness is None else _number(
+                self.thickness, "thickness"
+            )
+        object.__setattr__(self, "property_name", name)
+        object.__setattr__(self, "return_code", ret)
+        object.__setattr__(self, "family_type_code", family_type)
+        object.__setattr__(self, "shell_type_code", shell_type)
+        object.__setattr__(self, "material_name", material)
+        object.__setattr__(self, "thickness", thickness)
+        object.__setattr__(self, "evidence_ref", _digest({
+            "api": f"PropArea.Get{self.family.title()}", "property_name": name,
+            "family": self.family, "family_type_code": family_type,
+            "shell_type_code": shell_type, "material_name": material,
+            "thickness": thickness, "return_code": ret,
+        }))
 
     @property
     def success(self) -> bool:
@@ -303,106 +239,60 @@ class AreaPropertyFamilyProbeFact:
 
 def read_area_design_orientation(area_obj: Any, area_name: str) -> AreaDesignOrientationFact:
     name = _text(area_name, "area_name")
-    raw = area_obj.GetDesignOrientation(name)
-    code, ret = _sequence(
-        raw, method=f"AreaObj.GetDesignOrientation({name!r})", expected=2
-    )
-    return AreaDesignOrientationFact(
-        area_name=name,
-        orientation_code=_integer(code, "orientation_code"),
-        return_code=_integer(ret, "return_code"),
-    )
+    code, ret = _items(area_obj.GetDesignOrientation(name), "AreaObj.GetDesignOrientation", 2)
+    return AreaDesignOrientationFact(name, _int(code, "orientation_code"), _int(ret, "return_code"))
 
 
 def read_area_local_axes(area_obj: Any, area_name: str) -> AreaLocalAxesFact:
     name = _text(area_name, "area_name")
-    raw = area_obj.GetLocalAxes(name)
-    angle, advanced, ret = _sequence(
-        raw, method=f"AreaObj.GetLocalAxes({name!r})", expected=3
-    )
+    angle, advanced, ret = _items(area_obj.GetLocalAxes(name), "AreaObj.GetLocalAxes", 3)
     if type(advanced) is not bool:
-        raise EtabsOAPIError(
-            f"AreaObj.GetLocalAxes({name!r}) returned non-boolean Advanced={advanced!r}"
-        )
-    return AreaLocalAxesFact(
-        area_name=name,
-        angle_degrees=_finite(angle, "angle_degrees"),
-        advanced=advanced,
-        return_code=_integer(ret, "return_code"),
-    )
+        raise EtabsOAPIError("AreaObj.GetLocalAxes returned non-boolean Advanced")
+    return AreaLocalAxesFact(name, _number(angle, "angle_degrees"), advanced, _int(ret, "return_code"))
 
 
-def read_area_transformation_matrix(
-    area_obj: Any, area_name: str
-) -> AreaTransformationMatrixFact:
+def read_area_transformation_matrix(area_obj: Any, area_name: str) -> AreaTransformationMatrixFact:
     name = _text(area_name, "area_name")
-    raw = area_obj.GetTransformationMatrix(name)
-    matrix, ret = _sequence(
-        raw, method=f"AreaObj.GetTransformationMatrix({name!r})", expected=2
+    matrix, ret = _items(
+        area_obj.GetTransformationMatrix(name), "AreaObj.GetTransformationMatrix", 2
     )
-    if isinstance(matrix, (str, bytes)) or not isinstance(matrix, Sequence):
-        raise EtabsOAPIError(
-            f"AreaObj.GetTransformationMatrix({name!r}) returned no numeric sequence"
-        )
-    values = tuple(matrix)
-    if len(values) != 9:
-        raise EtabsOAPIError(
-            f"AreaObj.GetTransformationMatrix({name!r}) requires 9 values"
-        )
+    if isinstance(matrix, (str, bytes)) or not isinstance(matrix, Sequence) or len(matrix) != 9:
+        raise EtabsOAPIError("AreaObj.GetTransformationMatrix requires one 9-value sequence")
     return AreaTransformationMatrixFact(
-        area_name=name,
-        values=tuple(_finite(value, f"matrix[{index}]") for index, value in enumerate(values)),
-        return_code=_integer(ret, "return_code"),
+        name, tuple(_number(v, f"matrix[{i}]") for i, v in enumerate(matrix)),
+        _int(ret, "return_code")
     )
 
 
-def read_area_material_overwrite(
-    area_obj: Any, area_name: str
-) -> AreaMaterialOverwriteFact:
+def read_area_material_overwrite(area_obj: Any, area_name: str) -> AreaMaterialOverwriteFact:
     name = _text(area_name, "area_name")
-    raw = area_obj.GetMaterialOverwrite(name)
-    material, ret = _sequence(
-        raw, method=f"AreaObj.GetMaterialOverwrite({name!r})", expected=2
+    material, ret = _items(
+        area_obj.GetMaterialOverwrite(name), "AreaObj.GetMaterialOverwrite", 2
     )
     return AreaMaterialOverwriteFact(
-        area_name=name,
-        raw_material_name=_text(
-            material, "raw_material_name", allow_blank=True
-        ),
-        return_code=_integer(ret, "return_code"),
+        name, _text(material, "raw_material_name", allow_blank=True), _int(ret, "return_code")
     )
 
 
 def _read_property_family_probe(
-    prop_area: Any,
-    property_name: str,
-    *,
-    family: str,
+    prop_area: Any, property_name: str, *, family: str
 ) -> AreaPropertyFamilyProbeFact:
     name = _text(property_name, "property_name")
-    method = getattr(prop_area, f"Get{family.title()}")
-    raw = method(name)
-    values = _sequence(raw, method=f"PropArea.Get{family.title()}({name!r})", expected=8)
-    family_type, shell_type, material, thickness, _color, _notes, _guid, ret = values
-    return_code = _integer(ret, "return_code")
+    raw = getattr(prop_area, f"Get{family.title()}")(name)
+    family_type, shell_type, material, thickness, _color, _notes, _guid, ret = _items(
+        raw, f"PropArea.Get{family.title()}", 8
+    )
+    return_code = _int(ret, "return_code")
     if return_code != 0:
-        return AreaPropertyFamilyProbeFact(
-            property_name=name,
-            family=family,
-            family_type_code=None,
-            shell_type_code=None,
-            material_name=None,
-            thickness=None,
-            return_code=return_code,
-        )
+        return AreaPropertyFamilyProbeFact(name, family, None, None, None, None, return_code)
     return AreaPropertyFamilyProbeFact(
-        property_name=name,
-        family=family,
-        family_type_code=_integer(family_type, "family_type_code"),
-        shell_type_code=_integer(shell_type, "shell_type_code"),
-        material_name=_text(material, "material_name", allow_blank=True),
-        thickness=_finite(thickness, "thickness"),
-        return_code=return_code,
+        name,
+        family,
+        _int(family_type, "family_type_code"),
+        _int(shell_type, "shell_type_code"),
+        None if material is None else _text(material, "material_name", allow_blank=True),
+        None if thickness is None else _number(thickness, "thickness"),
+        return_code,
     )
 
 
@@ -420,9 +310,7 @@ def _session_read(session: EtabsVerifiedSession, function, *, operation: str):
     return _execute_verified_read(session, function, operation=operation)
 
 
-def read_area_design_orientation_from_session(
-    session: EtabsVerifiedSession, area_name: str
-) -> AreaDesignOrientationFact:
+def read_area_design_orientation_from_session(session: EtabsVerifiedSession, area_name: str):
     return _session_read(
         session,
         lambda _app, sap: read_area_design_orientation(sap.AreaObj, area_name),
@@ -430,9 +318,7 @@ def read_area_design_orientation_from_session(
     )
 
 
-def read_area_local_axes_from_session(
-    session: EtabsVerifiedSession, area_name: str
-) -> AreaLocalAxesFact:
+def read_area_local_axes_from_session(session: EtabsVerifiedSession, area_name: str):
     return _session_read(
         session,
         lambda _app, sap: read_area_local_axes(sap.AreaObj, area_name),
@@ -440,9 +326,7 @@ def read_area_local_axes_from_session(
     )
 
 
-def read_area_transformation_matrix_from_session(
-    session: EtabsVerifiedSession, area_name: str
-) -> AreaTransformationMatrixFact:
+def read_area_transformation_matrix_from_session(session: EtabsVerifiedSession, area_name: str):
     return _session_read(
         session,
         lambda _app, sap: read_area_transformation_matrix(sap.AreaObj, area_name),
@@ -450,9 +334,7 @@ def read_area_transformation_matrix_from_session(
     )
 
 
-def read_area_material_overwrite_from_session(
-    session: EtabsVerifiedSession, area_name: str
-) -> AreaMaterialOverwriteFact:
+def read_area_material_overwrite_from_session(session: EtabsVerifiedSession, area_name: str):
     return _session_read(
         session,
         lambda _app, sap: read_area_material_overwrite(sap.AreaObj, area_name),
@@ -460,9 +342,7 @@ def read_area_material_overwrite_from_session(
     )
 
 
-def read_slab_property_probe_from_session(
-    session: EtabsVerifiedSession, property_name: str
-) -> AreaPropertyFamilyProbeFact:
+def read_slab_property_probe_from_session(session: EtabsVerifiedSession, property_name: str):
     return _session_read(
         session,
         lambda _app, sap: read_slab_property_probe(sap.PropArea, property_name),
@@ -470,9 +350,7 @@ def read_slab_property_probe_from_session(
     )
 
 
-def read_deck_property_probe_from_session(
-    session: EtabsVerifiedSession, property_name: str
-) -> AreaPropertyFamilyProbeFact:
+def read_deck_property_probe_from_session(session: EtabsVerifiedSession, property_name: str):
     return _session_read(
         session,
         lambda _app, sap: read_deck_property_probe(sap.PropArea, property_name),
@@ -482,23 +360,13 @@ def read_deck_property_probe_from_session(
 
 __all__ = [
     "AREA_CONTRIBUTOR_FACT_PREFIX",
-    "AreaDesignOrientation",
-    "AreaDesignOrientationFact",
-    "AreaLocalAxesFact",
-    "AreaMaterialOverwriteFact",
-    "AreaPropertyFamilyProbeFact",
-    "AreaShellType",
-    "AreaTransformationMatrixFact",
-    "read_area_design_orientation",
-    "read_area_design_orientation_from_session",
-    "read_area_local_axes",
-    "read_area_local_axes_from_session",
-    "read_area_material_overwrite",
-    "read_area_material_overwrite_from_session",
-    "read_area_transformation_matrix",
-    "read_area_transformation_matrix_from_session",
-    "read_deck_property_probe",
-    "read_deck_property_probe_from_session",
-    "read_slab_property_probe",
+    "AreaDesignOrientation", "AreaDesignOrientationFact", "AreaLocalAxesFact",
+    "AreaMaterialOverwriteFact", "AreaPropertyFamilyProbeFact", "AreaShellType",
+    "AreaTransformationMatrixFact", "read_area_design_orientation",
+    "read_area_design_orientation_from_session", "read_area_local_axes",
+    "read_area_local_axes_from_session", "read_area_material_overwrite",
+    "read_area_material_overwrite_from_session", "read_area_transformation_matrix",
+    "read_area_transformation_matrix_from_session", "read_deck_property_probe",
+    "read_deck_property_probe_from_session", "read_slab_property_probe",
     "read_slab_property_probe_from_session",
 ]
