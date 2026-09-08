@@ -64,13 +64,30 @@ def test_ts500_material_basis_requires_both_ec_and_gc_exactly():
     live_c35 = build_concrete_uncracked_material_basis(
         material_name="C35/45",
         fck_mpa=35,
-        factual_ec_mpa="38123.781155801",
-        factual_gc_mpa="15884.908814917",
+        factual_ec_mpa="34000",
+        factual_gc_mpa="14166.66667",
         source_refs=("ETABS:MATERIAL:C35/45",),
     )
     assert not live_c35.qualified
+    assert live_c35.required_ec_mpa == Decimal("33000")
+    assert live_c35.required_gc_mpa == Decimal("13200.00")
     assert live_c35.ec_status.value == "MISMATCH"
     assert live_c35.gc_status.value == "MISMATCH"
+
+
+def test_exact_live_c30_material_basis_is_also_not_ts500_uncracked_basis():
+    live_c30 = build_concrete_uncracked_material_basis(
+        material_name="C30/37",
+        fck_mpa=30,
+        factual_ec_mpa="33000",
+        factual_gc_mpa="13750",
+        source_refs=("ETABS:MATERIAL:C30/37",),
+    )
+    assert not live_c30.qualified
+    assert live_c30.required_ec_mpa == Decimal("32000")
+    assert live_c30.required_gc_mpa == Decimal("12800.00")
+    assert live_c30.ec_status.value == "MISMATCH"
+    assert live_c30.gc_status.value == "MISMATCH"
 
 
 def test_floor_shellthick_targets_only_in_plane_when_plate_and_transverse_shear_excluded():
@@ -148,8 +165,8 @@ def test_material_mismatch_fails_before_modifier_target_generation():
     material = build_concrete_uncracked_material_basis(
         material_name="C35/45",
         fck_mpa=35,
-        factual_ec_mpa="38123.781155801",
-        factual_gc_mpa="15884.908814917",
+        factual_ec_mpa="34000",
+        factual_gc_mpa="14166.66667",
         source_refs=("ETABS:MATERIAL:C35/45",),
     )
     result = build_area_eq713_target(_area(material_basis=material))
