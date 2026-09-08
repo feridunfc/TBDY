@@ -1,9 +1,11 @@
-"""Exact live ETABS Area contributor factual population for COLUMN-R1 A2.
+"""Exact live ETABS Area contributor factual population for COLUMN-R1 A2/A3.
 
 The provider composes existing typed OAPI owners and preserves factual surfaces
-without deciding TS500 Eq.7.13 applicability.  In particular, Area-object and
+without deciding TS500 Eq.7.13 applicability. In particular, Area-object and
 Area-property modifier vectors remain separate and no AreaObj slot is assigned
-PropArea engineering meaning here.
+PropArea engineering meaning here. A3 extends the same population with exact
+floor-diaphragm and wall pier/spandrel assignment facts; those facts remain
+factual and do not themselves decide Eq.7.13 participation.
 """
 from __future__ import annotations
 
@@ -13,12 +15,18 @@ from typing import Sequence
 
 from tbdy_engine.etabs.oapi.area_contributors import (
     AreaDesignOrientation,
+    AreaDiaphragmAssignmentFact,
     AreaPropertyFamilyProbeFact,
+    AreaWallAssignmentFact,
+    DiaphragmDefinitionFact,
     read_area_design_orientation_from_session,
+    read_area_diaphragm_assignment_from_session,
     read_area_local_axes_from_session,
     read_area_material_overwrite_from_session,
     read_area_transformation_matrix_from_session,
+    read_area_wall_assignments_from_session,
     read_deck_property_probe_from_session,
+    read_diaphragm_definition_from_session,
     read_slab_property_probe_from_session,
 )
 from tbdy_engine.etabs.oapi.area_modifiers import (
@@ -36,7 +44,7 @@ from tbdy_engine.etabs.safety import EtabsVerifiedSession
 
 
 class EtabsAreaContributorProviderError(RuntimeError):
-    """Raised when the exact A2 factual population cannot be captured truthfully."""
+    """Raised when the exact A2/A3 factual population cannot be captured truthfully."""
 
 
 class AreaPropertyFamily(StrEnum):
@@ -107,6 +115,9 @@ class AreaContributorFact:
     transformation_matrix: tuple[float, ...]
     raw_material_overwrite_name: str
     object_modifiers: AreaModifierReadFact
+    diaphragm_assignment: AreaDiaphragmAssignmentFact | None
+    diaphragm_definition: DiaphragmDefinitionFact | None
+    wall_assignment: AreaWallAssignmentFact | None
     model_fingerprint: str
     evidence_epoch_id: str
     session_provenance_ref: str
@@ -153,6 +164,63 @@ class AreaContributorFact:
             raise EtabsAreaContributorProviderError(
                 f"AreaObj.GetModifiers failed for {self.area_name!r}"
             )
+
+        if self.orientation is AreaDesignOrientation.FLOOR:
+            if not isinstance(self.diaphragm_assignment, AreaDiaphragmAssignmentFact):
+                raise EtabsAreaContributorProviderError(
+                    "Floor Area requires typed diaphragm assignment fact"
+                )
+            if self.diaphragm_assignment.area_name != self.area_name:
+                raise EtabsAreaContributorProviderError(
+                    "diaphragm assignment does not match Area identity"
+                )
+            if not self.diaphragm_assignment.success:
+                raise EtabsAreaContributorProviderError(
+                    "AreaObj.GetDiaphragm failed for Floor Area"
+                )
+            if self.diaphragm_assignment.assigned:
+                if not isinstance(self.diaphragm_definition, DiaphragmDefinitionFact):
+                    raise EtabsAreaContributorProviderError(
+                        "assigned Floor diaphragm requires typed definition fact"
+                    )
+                if (
+                    self.diaphragm_definition.diaphragm_name
+                    != self.diaphragm_assignment.diaphragm_name
+                ):
+                    raise EtabsAreaContributorProviderError(
+                        "diaphragm definition does not match Area assignment"
+                    )
+                if not self.diaphragm_definition.success:
+                    raise EtabsAreaContributorProviderError(
+                        "Diaphragm.GetDiaphragm failed for assigned Floor diaphragm"
+                    )
+            elif self.diaphragm_definition is not None:
+                raise EtabsAreaContributorProviderError(
+                    "unassigned Floor diaphragm cannot carry a definition fact"
+                )
+        elif self.diaphragm_assignment is not None or self.diaphragm_definition is not None:
+            raise EtabsAreaContributorProviderError(
+                "diaphragm facts are bounded to Floor Area contributors"
+            )
+
+        if self.orientation is AreaDesignOrientation.WALL:
+            if not isinstance(self.wall_assignment, AreaWallAssignmentFact):
+                raise EtabsAreaContributorProviderError(
+                    "Wall Area requires typed pier/spandrel assignment fact"
+                )
+            if self.wall_assignment.area_name != self.area_name:
+                raise EtabsAreaContributorProviderError(
+                    "wall assignment does not match Area identity"
+                )
+            if not self.wall_assignment.success:
+                raise EtabsAreaContributorProviderError(
+                    "AreaObj.GetPier/GetSpandrel failed for Wall Area"
+                )
+        elif self.wall_assignment is not None:
+            raise EtabsAreaContributorProviderError(
+                "wall assignment fact is bounded to Wall Area contributors"
+            )
+
         for name in (
             "model_fingerprint",
             "evidence_epoch_id",
@@ -160,6 +228,33 @@ class AreaContributorFact:
         ):
             object.__setattr__(self, name, _text(getattr(self, name), name))
         object.__setattr__(self, "source_refs", _refs(self.source_refs))
+
+    @property
+    def semi_rigid_diaphragm_assigned(self) -> bool | None:
+        if self.orientation is not AreaDesignOrientation.FLOOR:
+            return None
+        assert self.diaphragm_assignment is not None
+        if not self.diaphragm_assignment.assigned:
+            return False
+        assert self.diaphragm_definition is not None
+        return self.diaphragm_definition.semi_rigid
+
+    @property
+    def wall_assignment_role(self) -> str | None:
+        if self.orientation is not AreaDesignOrientation.WALL:
+            return None
+        assert self.wall_assignment is not None
+        if self.wall_assignment.assignment_conflict:
+            return "CONFLICT"
+        if self.wall_assignment.pier_assigned:
+            return "PIER"
+        if self.wall_assignment.spandrel_assigned:
+            return "SPANDREL"
+        return "OTHER"
+
+    @property
+    def default_local_axes_assignment_proven(self) -> bool:
+        return not self.advanced_local_axes and self.local_axes_angle_degrees == 0.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -217,10 +312,21 @@ class AreaContributorPopulation:
             and row.property_state.family is AreaPropertyFamily.UNRESOLVED
         )
 
+    @property
+    def conflicting_wall_assignment_area_names(self) -> tuple[str, ...]:
+        return tuple(
+            row.area_name for row in self.rows if row.wall_assignment_role == "CONFLICT"
+        )
+
 
 def _require_success(fact: object, *, api: str, target: str) -> None:
     if not bool(getattr(fact, "success", False)):
         code = getattr(fact, "return_code", None)
+        if code is None:
+            code = (
+                getattr(fact, "pier_return_code", None),
+                getattr(fact, "spandrel_return_code", None),
+            )
         raise EtabsAreaContributorProviderError(
             f"{api} failed for {target!r}; return_code={code!r}"
         )
@@ -317,12 +423,7 @@ def capture_area_contributor_population_from_session(
     evidence_epoch_id: str,
     session_provenance_ref: str,
 ) -> AreaContributorPopulation:
-    """Capture the complete AreaObj factual population for one trusted epoch.
-
-    This function intentionally does not return an Eq.7.13 expected contributor
-    set.  It supplies the exact facts from which the existing engineering layer
-    must later derive that set.
-    """
+    """Capture the complete AreaObj factual population for one trusted epoch."""
     if not isinstance(session, EtabsVerifiedSession):
         raise TypeError("session must be EtabsVerifiedSession")
     model = _text(model_fingerprint, "model_fingerprint")
@@ -335,6 +436,7 @@ def capture_area_contributor_population_from_session(
         raise EtabsAreaContributorProviderError(str(exc)) from exc
     expected = tuple(sorted(names))
     property_cache: dict[tuple[str, AreaDesignOrientation], AreaPropertyFactualState] = {}
+    diaphragm_cache: dict[str, DiaphragmDefinitionFact] = {}
     rows: list[AreaContributorFact] = []
     population_refs: list[str] = [
         f"CSI:AreaObj.GetNameList:COUNT:{len(expected)}",
@@ -385,6 +487,58 @@ def capture_area_contributor_population_from_session(
                 )
                 property_cache[key] = property_state
 
+        diaphragm_assignment: AreaDiaphragmAssignmentFact | None = None
+        diaphragm_definition: DiaphragmDefinitionFact | None = None
+        wall_assignment: AreaWallAssignmentFact | None = None
+        if orientation is AreaDesignOrientation.FLOOR:
+            try:
+                diaphragm_assignment = read_area_diaphragm_assignment_from_session(
+                    session, area_name
+                )
+            except EtabsOAPIError as exc:
+                raise EtabsAreaContributorProviderError(
+                    f"Floor diaphragm factual capture failed for {area_name!r}: {exc}"
+                ) from exc
+            _require_success(
+                diaphragm_assignment, api="AreaObj.GetDiaphragm", target=area_name
+            )
+            if diaphragm_assignment.assigned:
+                diaphragm_definition = diaphragm_cache.get(
+                    diaphragm_assignment.diaphragm_name
+                )
+                if diaphragm_definition is None:
+                    try:
+                        diaphragm_definition = read_diaphragm_definition_from_session(
+                            session, diaphragm_assignment.diaphragm_name
+                        )
+                    except EtabsOAPIError as exc:
+                        raise EtabsAreaContributorProviderError(
+                            "assigned diaphragm definition factual capture failed for "
+                            f"{diaphragm_assignment.diaphragm_name!r}: {exc}"
+                        ) from exc
+                    _require_success(
+                        diaphragm_definition,
+                        api="Diaphragm.GetDiaphragm",
+                        target=diaphragm_assignment.diaphragm_name,
+                    )
+                    diaphragm_cache[diaphragm_assignment.diaphragm_name] = (
+                        diaphragm_definition
+                    )
+        elif orientation is AreaDesignOrientation.WALL:
+            try:
+                wall_assignment = read_area_wall_assignments_from_session(
+                    session, area_name
+                )
+            except EtabsOAPIError as exc:
+                raise EtabsAreaContributorProviderError(
+                    f"Wall assignment factual capture failed for {area_name!r}: {exc}"
+                ) from exc
+            _require_success(
+                wall_assignment,
+                api="AreaObj.GetPier/GetSpandrel",
+                target=area_name,
+            )
+
         refs = [
             f"CSI:AreaObj.GetProperty:{area_name}:{assignment.property_name}",
             orientation_fact.evidence_ref,
@@ -395,6 +549,12 @@ def capture_area_contributor_population_from_session(
         ]
         if property_state is not None:
             refs.extend(property_state.source_refs)
+        if diaphragm_assignment is not None:
+            refs.append(diaphragm_assignment.evidence_ref)
+        if diaphragm_definition is not None:
+            refs.append(diaphragm_definition.evidence_ref)
+        if wall_assignment is not None:
+            refs.append(wall_assignment.evidence_ref)
 
         row = AreaContributorFact(
             area_name=area_name,
@@ -406,6 +566,9 @@ def capture_area_contributor_population_from_session(
             transformation_matrix=transform.values,
             raw_material_overwrite_name=overwrite.raw_material_name,
             object_modifiers=object_modifiers,
+            diaphragm_assignment=diaphragm_assignment,
+            diaphragm_definition=diaphragm_definition,
+            wall_assignment=wall_assignment,
             model_fingerprint=model,
             evidence_epoch_id=epoch,
             session_provenance_ref=provenance,
