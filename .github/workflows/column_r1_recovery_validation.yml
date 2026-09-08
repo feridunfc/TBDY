@@ -39,3 +39,6 @@ jobs:
 
       - name: A3 factual OAPI focused
         run: python -m pytest -q tests/etabs/test_oapi_area_contributors.py
+
+      - name: A3 Area provider focused
+        run: python -m pytest -q tests/providers/test_etabs_area_contributor_provider.py
