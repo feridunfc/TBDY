@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from tbdy_engine.analysis_basis.eq713_uncracked_analysis_state import (
+    COLUMN_R1_MATERIAL_CONSTITUTIVE_LIMITATION,
     AreaCategory,
     AreaFormulation,
     AreaGrossBasePropertyEvidence,
@@ -26,6 +27,16 @@ def _material_ok():
         factual_ec_mpa=33000,
         factual_gc_mpa=13200,
         source_refs=("ETABS:MATERIAL:C35_TS500",),
+    )
+
+
+def _live_c35():
+    return build_concrete_uncracked_material_basis(
+        material_name="C35/45",
+        fck_mpa=35,
+        factual_ec_mpa="34000",
+        factual_gc_mpa="14166.66667",
+        source_refs=("ETABS:MATERIAL:C35/45",),
     )
 
 
@@ -55,27 +66,31 @@ def _area(**overrides):
     return AreaGrossBasePropertyEvidence.build(**values)
 
 
-def test_ts500_material_basis_requires_both_ec_and_gc_exactly():
-    ok = _material_ok()
-    assert ok.qualified
-    assert ok.required_ec_mpa == Decimal("33000")
-    assert ok.required_gc_mpa == Decimal("13200.00")
+def test_ts500_exact_material_match_is_retained_as_audit_fact():
+    exact = _material_ok()
+    assert exact.qualified
+    assert exact.column_r1_eligible
+    assert exact.exact_ts500_match
+    assert exact.required_ec_mpa == Decimal("33000")
+    assert exact.required_gc_mpa == Decimal("13200.00")
+    assert exact.audit_limitations == ()
 
-    live_c35 = build_concrete_uncracked_material_basis(
-        material_name="C35/45",
-        fck_mpa=35,
-        factual_ec_mpa="34000",
-        factual_gc_mpa="14166.66667",
-        source_refs=("ETABS:MATERIAL:C35/45",),
-    )
-    assert not live_c35.qualified
+
+def test_live_c35_mismatch_is_held_audit_limitation_not_column_r1_blocker():
+    live_c35 = _live_c35()
+    assert live_c35.qualified
+    assert live_c35.column_r1_eligible
+    assert not live_c35.exact_ts500_match
     assert live_c35.required_ec_mpa == Decimal("33000")
     assert live_c35.required_gc_mpa == Decimal("13200.00")
     assert live_c35.ec_status.value == "MISMATCH"
     assert live_c35.gc_status.value == "MISMATCH"
+    assert live_c35.audit_limitations == (
+        COLUMN_R1_MATERIAL_CONSTITUTIVE_LIMITATION,
+    )
 
 
-def test_exact_live_c30_material_basis_is_also_not_ts500_uncracked_basis():
+def test_exact_live_c30_mismatch_is_also_audit_only_for_column_r1():
     live_c30 = build_concrete_uncracked_material_basis(
         material_name="C30/37",
         fck_mpa=30,
@@ -83,20 +98,30 @@ def test_exact_live_c30_material_basis_is_also_not_ts500_uncracked_basis():
         factual_gc_mpa="13750",
         source_refs=("ETABS:MATERIAL:C30/37",),
     )
-    assert not live_c30.qualified
+    assert live_c30.qualified
+    assert live_c30.column_r1_eligible
+    assert not live_c30.exact_ts500_match
     assert live_c30.required_ec_mpa == Decimal("32000")
     assert live_c30.required_gc_mpa == Decimal("12800.00")
-    assert live_c30.ec_status.value == "MISMATCH"
-    assert live_c30.gc_status.value == "MISMATCH"
+    assert live_c30.audit_limitations == (
+        COLUMN_R1_MATERIAL_CONSTITUTIVE_LIMITATION,
+    )
 
 
 def test_floor_shellthick_targets_only_in_plane_when_plate_and_transverse_shear_excluded():
     result = build_area_eq713_target(_area())
     assert result.qualified
     assert result.target_property_modifiers == (
-        Decimal("1"), Decimal("1"), Decimal("1"),
-        Decimal("0.25"), Decimal("0.25"), Decimal("0.25"),
-        Decimal("1"), Decimal("1"), Decimal("1"), Decimal("1"),
+        Decimal("1"),
+        Decimal("1"),
+        Decimal("1"),
+        Decimal("0.25"),
+        Decimal("0.25"),
+        Decimal("0.25"),
+        Decimal("1"),
+        Decimal("1"),
+        Decimal("1"),
+        Decimal("1"),
     )
     by_mode = {row.mode: row.disposition for row in result.mode_dispositions}
     assert by_mode[AreaStiffnessMode.F11] is ContributorDisposition.TARGETED_UNCRACKED
@@ -107,10 +132,16 @@ def test_floor_shellthick_targets_only_in_plane_when_plate_and_transverse_shear_
     assert result.target_property_modifiers[8:] == (Decimal("1"), Decimal("1"))
 
 
-def test_floor_shellthick_unknown_plate_participation_fails_closed_without_mutation_target():
+def test_floor_shellthick_unknown_plate_participation_blocks_only_those_modes_and_preserves_proven_target():
     result = build_area_eq713_target(_area(plate_participation=None))
     assert not result.qualified
-    assert result.target_property_modifiers is None
+    assert result.target_property_modifiers is not None
+    assert result.target_property_modifiers[:3] == (Decimal("1"),) * 3
+    assert result.target_property_modifiers[3:6] == (Decimal("0.25"),) * 3
+    assert result.target_property_modifiers[8:] == (Decimal("1"), Decimal("1"))
+    by_mode = {row.mode: row.disposition for row in result.mode_dispositions}
+    assert by_mode[AreaStiffnessMode.F11] is ContributorDisposition.TARGETED_UNCRACKED
+    assert by_mode[AreaStiffnessMode.M11] is ContributorDisposition.BLOCKED_UNSUPPORTED
     assert any("plate participation" in reason for reason in result.blocked_reasons)
 
 
@@ -126,8 +157,13 @@ def test_floor_membrane_has_no_plate_or_transverse_shear_target():
     assert result.qualified
     assert result.target_property_modifiers[:3] == (Decimal("1"),) * 3
     assert result.target_property_modifiers[3:] == (
-        Decimal("0.9"), Decimal("0.8"), Decimal("0.7"),
-        Decimal("0.6"), Decimal("0.5"), Decimal("1"), Decimal("1"),
+        Decimal("0.9"),
+        Decimal("0.8"),
+        Decimal("0.7"),
+        Decimal("0.6"),
+        Decimal("0.5"),
+        Decimal("1"),
+        Decimal("1"),
     )
     by_mode = {row.mode: row.disposition for row in result.mode_dispositions}
     assert by_mode[AreaStiffnessMode.M11] is ContributorDisposition.PROVEN_NOT_APPLICABLE
@@ -161,18 +197,25 @@ def test_non_unity_area_object_vector_fails_closed_without_slot_inference():
     assert "non-unity AreaObj" in result.blocked_reasons[0]
 
 
-def test_material_mismatch_fails_before_modifier_target_generation():
+def test_live_material_mismatch_does_not_block_modifier_target_generation():
+    result = build_area_eq713_target(_area(material_basis=_live_c35()))
+    assert result.qualified
+    assert result.target_property_modifiers[:3] == (Decimal("1"),) * 3
+    assert COLUMN_R1_MATERIAL_CONSTITUTIVE_LIMITATION in result.audit_limitations
+
+
+def test_non_physical_preserved_material_basis_still_fails_closed():
     material = build_concrete_uncracked_material_basis(
         material_name="C35/45",
         fck_mpa=35,
-        factual_ec_mpa="34000",
+        factual_ec_mpa="0",
         factual_gc_mpa="14166.66667",
         source_refs=("ETABS:MATERIAL:C35/45",),
     )
     result = build_area_eq713_target(_area(material_basis=material))
     assert not result.qualified
     assert result.target_property_modifiers is None
-    assert any("Ec/Gc" in reason for reason in result.blocked_reasons)
+    assert any("physically qualified" in reason for reason in result.blocked_reasons)
 
 
 def test_wall_pier_targets_f22_and_f12_under_proven_default_axes_only():
@@ -228,7 +271,7 @@ def test_frame_audit_is_mode_specific_and_unknown_modes_block():
             FrameStiffnessMode.FLEXURE_2: True,
             FrameStiffnessMode.FLEXURE_3: True,
         },
-        material_basis=_material_ok(),
+        material_basis=_live_c35(),
         source_refs=("ETABS:FRAME:C1",),
     )
     assert not audit.qualified
@@ -236,6 +279,7 @@ def test_frame_audit_is_mode_specific_and_unknown_modes_block():
     assert by_mode[FrameStiffnessMode.FLEXURE_2] is ContributorDisposition.TARGETED_UNCRACKED
     assert by_mode[FrameStiffnessMode.AXIAL] is ContributorDisposition.PROVEN_NON_PARTICIPATING_MODE
     assert by_mode[FrameStiffnessMode.SHEAR_2] is ContributorDisposition.BLOCKED_UNSUPPORTED
+    assert COLUMN_R1_MATERIAL_CONSTITUTIVE_LIMITATION in audit.audit_limitations
 
 
 def test_population_positive_requires_exact_expected_equals_qualified():
@@ -255,3 +299,14 @@ def test_population_positive_requires_exact_expected_equals_qualified():
     assert population.expected_applicable_contributors == ("AREA:A1",)
     assert population.qualified_contributors == ("AREA:A1",)
     assert population.positive
+
+
+def test_population_surfaces_material_limitation_without_using_it_as_blocker():
+    area = build_area_eq713_target(
+        _area(formulation=AreaFormulation.MEMBRANE, material_basis=_live_c35())
+    )
+    population = Eq713PopulationDisposition(area_rows=(area,), frame_rows=())
+    assert population.positive
+    assert population.audit_limitations == (
+        COLUMN_R1_MATERIAL_CONSTITUTIVE_LIMITATION,
+    )
