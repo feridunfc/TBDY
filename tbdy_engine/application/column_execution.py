@@ -8,16 +8,22 @@ turning fixture truth into production request state.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from tbdy_engine.application.contracts import ColumnExecutionRequest
 from tbdy_engine.design.columns.column_combo_eligibility_projection import ComponentReadinessBinding
 from tbdy_engine.design.columns.column_longitudinal_production_composition import compose_canonical_column_longitudinal_selection
 from tbdy_engine.design.columns.column_longitudinal_selection_policy_factory import build_reviewed_column_longitudinal_selection_policy_input
+from tbdy_engine.integration.etabs_design_lineage import DesignLineageQualification
 from tbdy_engine.integration.live_etabs_acquisition_context import TrustedLiveAcquisitionContext
 from tbdy_engine.regulatory.column_candidate_adequacy_authority import authorize_candidate_adequacy_policy
 from tbdy_engine.regulatory.column_longitudinal_rebar import evaluate_column_longitudinal_layouts
 from tbdy_engine.regulatory.column_pmm_authority import authorize_pmm_numerical_policy
+from tbdy_engine.regulatory.column_transverse_confinement import (
+    ColumnTransverseConfinementInput,
+    ColumnTransverseConfinementResult,
+    evaluate_column_transverse_confinement_bound,
+)
 from tbdy_engine.regulatory.fnd_col_2_program import compile_source_bound_fnd_col_2_program, execute_source_bound_fnd_col_2_with_artifact
 from tbdy_engine.regulatory.sources.fnd_col_1_longitudinal import FND_COL_1_AUTHORITY_CATALOG
 from tbdy_engine.regulatory.sources.fnd_col_4_candidate_adequacy import FND_COL_4_CANDIDATE_ADEQUACY_AUTHORITY_CATALOG
@@ -50,6 +56,7 @@ class ColumnDomainArtifact:
     readiness_binding: ComponentReadinessBinding | None = None
     layout_authority: object | None = None
     longitudinal_selection: object | None = None
+    transverse_confinement: ColumnTransverseConfinementResult | None = None
 
     @property
     def selected_rebar(self):
@@ -111,6 +118,68 @@ def _execute_fnd2(request, *, model_fingerprint, evidence_epoch_id, fnd_col_2_in
         fnd_col_2_program=program,
         fnd_col_2_execution=execution,
         readiness_binding=binding,
+    )
+
+
+def _compose_lane_c_after_qualified_design(
+    column: ColumnDomainArtifact,
+    *,
+    transverse_input: ColumnTransverseConfinementInput,
+    design_lineage: DesignLineageQualification,
+) -> ColumnDomainArtifact:
+    """Join mature Lane-C authority only after longitudinal/B6 causal qualification.
+
+    This does not recreate the reverted early composition seam.  In particular,
+    application does not reinterpret Ash/Asw, HD/LD applicability or P7 shear
+    direction mechanics.  Those remain owned by the canonical bound Lane-C
+    evaluator, which must receive the same model/epoch/component identity and
+    exact qualified design lineage that produced the selected longitudinal cage.
+    """
+    if not isinstance(column, ColumnDomainArtifact):
+        raise TypeError("column must be ColumnDomainArtifact")
+    if not isinstance(transverse_input, ColumnTransverseConfinementInput):
+        raise TypeError("transverse_input must be ColumnTransverseConfinementInput")
+    if not isinstance(design_lineage, DesignLineageQualification):
+        raise TypeError("design_lineage must be DesignLineageQualification")
+    if column.status != STATUS_SELECTED or column.selected_rebar is None:
+        raise ColumnExecutionContractError(
+            "Lane-C composition requires canonical ENGINE_SELECTED_REBAR state"
+        )
+    checks = (
+        (transverse_input.component_id, column.component_id, "component"),
+        (transverse_input.model_fingerprint, column.model_fingerprint, "model"),
+        (transverse_input.evidence_epoch_id, column.evidence_epoch_id, "EvidenceEpoch"),
+    )
+    for actual, expected, label in checks:
+        if actual != expected:
+            raise ColumnExecutionContractError(f"Lane-C {label} identity mismatch")
+
+    transverse = evaluate_column_transverse_confinement_bound(
+        transverse_input,
+        selected_rebar=column.selected_rebar,
+        design_lineage=design_lineage,
+    )
+    if not isinstance(transverse, ColumnTransverseConfinementResult):
+        raise ColumnExecutionContractError(
+            "Lane-C evaluator did not return ColumnTransverseConfinementResult"
+        )
+    if transverse.component_id != column.component_id:
+        raise ColumnExecutionContractError("Lane-C result component identity mismatch")
+
+    blockers = tuple(
+        dict.fromkeys(
+            (
+                *column.blockers,
+                *(f"TRANSVERSE_CONFINEMENT:{item}" for item in transverse.blockers),
+            )
+        )
+    )
+    status = STATUS_APPLICATION_BLOCKED if blockers else column.status
+    return replace(
+        column,
+        status=status,
+        blockers=blockers,
+        transverse_confinement=transverse,
     )
 
 
