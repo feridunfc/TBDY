@@ -2,13 +2,13 @@
 
 B5 must prove that the exact causal analysis state it received still exists
 immediately before destructive execution-state changes, immediately before
-``RunAnalysis`` and after analysis.  A5-I0 extended B4B from the legacy
+``RunAnalysis`` and after analysis. A5-I0 extended B4B from the legacy
 frame-only modifier plan to the V2 mixed Frame/Area section-modifier plan, so
 this revalidator accepts both contracts without weakening the legacy path.
 
 Revalidation is factual only: it rereads the exact requested target population,
 rebuilds the existing B4A derived-state comparison and requires the same
-``AnalysisStateIdentity``.  It performs no mutation and cannot establish a new
+``AnalysisStateIdentity``. It performs no mutation and cannot establish a new
 requested state.
 
 The complete original ``AnalysisStateIdentity.state_basis_refs`` population is
@@ -27,7 +27,8 @@ from tbdy_engine.integration.etabs_analysis_state_mutation import (
     FRAME_MODIFIER_PLAN_CONTRACT,
     SECTION_MODIFIER_PLAN_CONTRACT,
     AnalysisStateMutationResult,
-    SectionModifierTargetRequest,
+    AreaModifierTargetRequest,
+    FrameModifierTargetRequest,
     _get_section_modifier_fact,
     _parse_requested_section_targets,
     _parse_requested_targets,
@@ -290,30 +291,23 @@ def _revalidate(
     )
 
 
-def revalidate_frame_modifier_analysis_state(
+def _revalidate_legacy_frame_plan(
     *,
     context: TrustedLiveAcquisitionContext,
     owned_scratch: OwnedScratchContext,
     established_state: AnalysisStateMutationResult,
-    timeout_seconds: float = 30.0,
+    timeout_seconds: float,
 ) -> AnalysisStateRevalidationResult:
-    """Legacy V1 frame-only revalidation, retained for frozen callers/tests."""
-    timeout = float(timeout_seconds)
-    if timeout <= 0:
-        raise ValueError("timeout_seconds must be greater than zero")
-    if _requested_plan_contract(established_state) != FRAME_MODIFIER_PLAN_CONTRACT:
-        raise AnalysisStateRevalidationError(
-            "frame-only revalidation received a non-V1 B4B plan",
-            stage="request_contract",
-        )
     targets = _parse_requested_targets(established_state.requested_manifest)
 
     def reader(target: object) -> object:
+        if not isinstance(target, FrameModifierTargetRequest):
+            raise TypeError("frame plan contains a non-frame target")
         return get_frame_modifiers_from_session(
             context.verified_session,
             surface=target.surface,
             target_name=target.target_name,
-            timeout_seconds=timeout,
+            timeout_seconds=timeout_seconds,
         )
 
     return _revalidate(
@@ -323,7 +317,7 @@ def revalidate_frame_modifier_analysis_state(
         plan_contract=FRAME_MODIFIER_PLAN_CONTRACT,
         targets=targets,
         factual_reader=reader,
-        timeout_seconds=timeout,
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -346,10 +340,7 @@ def revalidate_section_modifier_analysis_state(
     targets = _parse_requested_section_targets(established_state.requested_manifest)
 
     def reader(target: object) -> object:
-        if not isinstance(target, tuple(getattr(__import__(
-            "tbdy_engine.integration.etabs_analysis_state_mutation",
-            fromlist=["FrameModifierTargetRequest", "AreaModifierTargetRequest"],
-        ), name) for name in ("FrameModifierTargetRequest", "AreaModifierTargetRequest"))):
+        if not isinstance(target, (FrameModifierTargetRequest, AreaModifierTargetRequest)):
             raise TypeError("unsupported section-modifier target")
         return _get_section_modifier_fact(
             context,
@@ -376,24 +367,48 @@ def revalidate_analysis_state(
     timeout_seconds: float = 30.0,
 ) -> AnalysisStateRevalidationResult:
     """Dispatch to the exact B4B contract; never downgrade V2 to frame-only."""
+    timeout = float(timeout_seconds)
+    if timeout <= 0:
+        raise ValueError("timeout_seconds must be greater than zero")
     contract = _requested_plan_contract(established_state)
     if contract == FRAME_MODIFIER_PLAN_CONTRACT:
-        return revalidate_frame_modifier_analysis_state(
+        return _revalidate_legacy_frame_plan(
             context=context,
             owned_scratch=owned_scratch,
             established_state=established_state,
-            timeout_seconds=timeout_seconds,
+            timeout_seconds=timeout,
         )
     if contract == SECTION_MODIFIER_PLAN_CONTRACT:
         return revalidate_section_modifier_analysis_state(
             context=context,
             owned_scratch=owned_scratch,
             established_state=established_state,
-            timeout_seconds=timeout_seconds,
+            timeout_seconds=timeout,
         )
     raise AnalysisStateRevalidationError(
         "unsupported B4B plan contract",
         stage="request_contract",
+    )
+
+
+def revalidate_frame_modifier_analysis_state(
+    *,
+    context: TrustedLiveAcquisitionContext,
+    owned_scratch: OwnedScratchContext,
+    established_state: AnalysisStateMutationResult,
+    timeout_seconds: float = 30.0,
+) -> AnalysisStateRevalidationResult:
+    """B5 compatibility entrypoint, now exact for both B4B V1 and V2.
+
+    B5 historically imports this name. Keeping the symbol while dispatching on
+    the requested B4B contract lets existing B5 call sites gain mixed-state
+    fail-closed revalidation without a second execution path.
+    """
+    return revalidate_analysis_state(
+        context=context,
+        owned_scratch=owned_scratch,
+        established_state=established_state,
+        timeout_seconds=timeout_seconds,
     )
 
 
