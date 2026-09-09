@@ -1,10 +1,11 @@
 """Bounded column application composition for PRODUCT-SPINE-COL-1.
 
-Public LIVE execution is fail-closed before FND-COL-2X because current main has
-no accepted builder from ``TrustedLiveAcquisitionContext`` to complete
-``RegulatoryCompileInputs``. Private underscore seams exist only to prove that,
-once an upstream lineage is qualified, current authorities compose without
-turning fixture truth into production request state.
+Public LIVE execution enters the accepted COLUMN-R1 PUBLIC-A5 composer.  That
+composer owns no engineering semantics: it binds the trusted factual generation
+to the existing Eq7.13, B4B, B5 and FND-COL-2 authorities and fails closed when
+one of those existing authorities cannot establish the required causal state.
+Private underscore seams remain test-only compatibility paths for later column
+product stages and never substitute for the public A5 proof.
 """
 from __future__ import annotations
 
@@ -68,17 +69,20 @@ def execute_column_domain(
     *,
     acquisition_context: TrustedLiveAcquisitionContext,
 ) -> ColumnDomainArtifact:
-    """Legal public LIVE A1 boundary: trusted factual generation, then stop."""
+    """Execute the public LIVE COLUMN-R1 chain through the existing FND-COL-2."""
     if not isinstance(request, ColumnExecutionRequest):
         raise TypeError("request must be ColumnExecutionRequest")
     if not isinstance(acquisition_context, TrustedLiveAcquisitionContext):
         raise TypeError("acquisition_context must be TrustedLiveAcquisitionContext")
-    return ColumnDomainArtifact(
-        component_id=request.component_id,
-        model_fingerprint=acquisition_context.model_fingerprint,
-        evidence_epoch_id=acquisition_context.evidence_epoch_id,
-        status=STATUS_FACTUAL_ACQUISITION_BLOCKED,
-        blockers=(BLOCKER_LIVE_FND2_INPUT_LINEAGE,),
+
+    # Lazy import keeps this canonical application entry point free of a module
+    # cycle while the bounded PUBLIC-A5 composer reuses _execute_fnd2 below.
+    from tbdy_engine.application.column_public_a5 import execute_public_a5_column
+
+    return execute_public_a5_column(
+        request,
+        acquisition_context=acquisition_context,
+        execute_fnd2=_execute_fnd2,
     )
 
 
