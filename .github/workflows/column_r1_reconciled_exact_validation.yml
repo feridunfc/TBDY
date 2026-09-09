@@ -1,0 +1,82 @@
+name: COLUMN-R1 Reconciled Exact Validation
+
+on:
+  push:
+    branches:
+      - sprint/column-r1-reconciled-closure
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-ec3dac:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout accepted reconciled candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ec3dac987cf2ed35fca1bde4a64522f74f06d37a
+
+      - name: Verify exact checkout
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "ec3dac987cf2ed35fca1bde4a64522f74f06d37a"
+          test "$(git rev-parse HEAD^{tree})" = "b2b204d3c7a523536775abe079826a62efddab03"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install offline test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml jsonschema openpyxl et_xmlfile
+
+      - name: Compile and import
+        run: |
+          python -m compileall -q tbdy_engine tests
+          python -c "import tbdy_engine; import tbdy_engine.application.project_execution; import tbdy_engine.application.column_execution; import tbdy_engine.analysis_basis.eq713_uncracked_analysis_state"
+
+      - name: A3 authority and Area provider
+        run: |
+          python -m pytest -q \
+            tests/analysis_basis/test_eq713_uncracked_analysis_state.py \
+            tests/etabs/test_oapi_area_contributors.py \
+            tests/providers/test_etabs_area_contributor_provider.py
+
+      - name: Frame OAPI and factual providers
+        run: |
+          python -m pytest -q \
+            tests/etabs/test_oapi_frame_releases.py \
+            tests/etabs/test_oapi_material_properties.py \
+            tests/providers
+
+      - name: B4B and B5 focused
+        run: |
+          python -m pytest -q \
+            tests/integration/test_b4b_analysis_state_mutation.py \
+            tests/integration/test_b4b_analysis_state_revalidation.py \
+            tests/integration/test_b5_analysis_execution.py \
+            tests/integration/test_b5_analysis_lineage_issuer.py \
+            tests/providers/test_b5_column_force_result_population_provider.py
+
+      - name: B6 focused
+        run: |
+          python -m pytest -q \
+            tests/etabs/test_oapi_concrete_design.py \
+            tests/etabs/test_oapi_concrete_design_start.py \
+            tests/integration/test_b6_controlled_design_execution.py \
+            tests/integration/test_b6_p0_design_preflight.py \
+            tests/architecture/test_b6_p0_design_preflight_architecture.py
+
+      - name: C focused
+        run: |
+          python -m pytest -q \
+            tests/regulatory/test_column_transverse_confinement.py \
+            tests/application/test_column_r1_lane_c_bound_join.py
+
+      - name: Architecture negative reachability
+        run: python -m pytest -q tests/architecture
