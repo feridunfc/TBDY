@@ -29,6 +29,15 @@ jobs:
       - name: Apply bounded PUBLIC-A5 supervisor patch
         shell: bash
         run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('.github/column_r1_public_a5_p1_patch.py')
+          text = path.read_text(encoding='utf-8')
+          exact = '(ROOT / ".github/workflows/column_r1_reconciled_exact_validation.yml").write_text(final_workflow, encoding="utf-8")\n'
+          if exact not in text:
+              raise SystemExit('workflow-write suppression anchor missing')
+          path.write_text(text.replace(exact, ''), encoding='utf-8')
+          PY
           python .github/column_r1_public_a5_p1_patch.py
           git config user.name "COLUMN-R1 automation"
           git config user.email "actions@users.noreply.github.com"
