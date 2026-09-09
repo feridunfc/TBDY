@@ -1,28 +1,90 @@
-name: COLUMN-R1 PUBLIC-A5 P1 Test Harness Fix
+name: COLUMN-R1 Reconciled Exact Validation
 
 on:
   push:
     branches:
       - sprint/column-r1-reconciled-closure
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/packages/etabs_gateway/src
 
 jobs:
-  apply-test-harness-fix:
+  validate-reconciled-head:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout exact reconciled branch commit
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.sha }}
-      - name: Apply bounded test harness fix
+
+      - name: Verify exact checkout
         shell: bash
         run: |
-          python .github/column_r1_public_a5_p1_test_fix.py
-          git config user.name "COLUMN-R1 automation"
-          git config user.email "actions@users.noreply.github.com"
-          git add -A
-          git diff --cached --check
-          git commit -m "COLUMN-R1: bind public A5 test context type"
-          git push origin HEAD:sprint/column-r1-reconciled-closure
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "HEAD=$(git rev-parse HEAD)"
+          echo "TREE=$(git rev-parse HEAD^{tree})"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install offline test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml jsonschema openpyxl et_xmlfile
+
+      - name: Compile and import
+        run: |
+          python -m compileall -q tbdy_engine tests packages/etabs_gateway/src
+          python -c "import etabs_gateway; import tbdy_engine; import tbdy_engine.application.project_execution; import tbdy_engine.application.column_execution; import tbdy_engine.application.column_public_a5; import tbdy_engine.analysis_basis.eq713_uncracked_analysis_state; import tbdy_engine.analysis_basis.eq713_frame_mechanics"
+
+      - name: A3 authority and Area provider
+        run: |
+          python -m pytest -q \
+            tests/analysis_basis/test_eq713_uncracked_analysis_state.py \
+            tests/analysis_basis/test_eq713_frame_mechanics.py \
+            tests/etabs/test_oapi_area_contributors.py \
+            tests/providers/test_etabs_area_contributor_provider.py
+
+      - name: Frame OAPI and factual providers
+        run: |
+          python -m pytest -q \
+            tests/etabs/test_oapi_frame_releases.py \
+            tests/etabs/test_oapi_material_properties.py \
+            tests/providers
+
+      - name: B4B and B5 focused
+        run: |
+          python -m pytest -q \
+            tests/integration/test_b4b_analysis_state_mutation.py \
+            tests/integration/test_b4b_analysis_state_revalidation.py \
+            tests/integration/test_b5_analysis_execution.py \
+            tests/integration/test_b5_analysis_lineage_issuer.py \
+            tests/providers/test_b5_column_force_result_population_provider.py
+
+      - name: PUBLIC A5 execute_project product path
+        run: python -m pytest -q tests/application/test_column_public_a5_product_path.py
+
+      - name: B6 focused regression
+        run: |
+          python -m pytest -q \
+            tests/etabs/test_oapi_concrete_design.py \
+            tests/etabs/test_oapi_concrete_design_start.py \
+            tests/integration/test_b6_controlled_design_execution.py \
+            tests/integration/test_b6_p0_design_preflight.py \
+            tests/architecture/test_b6_p0_design_preflight_architecture.py
+
+      - name: C focused regression
+        run: |
+          python -m pytest -q \
+            tests/regulatory/test_column_transverse_confinement.py \
+            tests/application/test_column_r1_lane_c_bound_join.py
+
+      - name: Architecture negative reachability
+        run: python -m pytest -q tests/architecture
