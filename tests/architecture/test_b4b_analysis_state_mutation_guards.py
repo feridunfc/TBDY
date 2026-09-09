@@ -54,7 +54,10 @@ def test_raw_frame_modifier_setters_exist_only_in_typed_oapi_module():
             if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
                 if node.func.attr == "SetModifiers":
                     call_sites.append(path.relative_to(ROOT).as_posix())
-    assert set(call_sites) <= {"tbdy_engine/etabs/oapi/frame_modifiers.py"}
+    assert set(call_sites) <= {
+        "tbdy_engine/etabs/oapi/frame_modifiers.py",
+        "tbdy_engine/etabs/oapi/area_modifiers.py",
+    }
 
 
 def test_b4b_private_positive_establishment_token_is_not_publicly_reexported():
