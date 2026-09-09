@@ -9,7 +9,9 @@ GATEWAY = ROOT / "packages" / "etabs_gateway" / "src" / "etabs_gateway"
 
 OAPI_FILE = ROOT / "tbdy_engine" / "etabs" / "oapi" / "file_lifecycle.py"
 B4B_OAPI_FILE = ROOT / "tbdy_engine" / "etabs" / "oapi" / "frame_modifiers.py"
+AREA_OAPI_FILE = ROOT / "tbdy_engine" / "etabs" / "oapi" / "area_modifiers.py"
 B5_OAPI_FILE = ROOT / "tbdy_engine" / "etabs" / "oapi" / "analysis_execution.py"
+B6_OAPI_FILE = ROOT / "tbdy_engine" / "etabs" / "oapi" / "concrete_design.py"
 SCRATCH_FILE = ROOT / "tbdy_engine" / "integration" / "etabs_scratch_lifecycle.py"
 
 B4T_MODULE = "etabs_gateway.mutation_transport"
@@ -21,7 +23,9 @@ B4T_PRIVATE = {
 B4T_TYPED_OAPI_ALLOWLIST = {
     OAPI_FILE,
     B4B_OAPI_FILE,
+    AREA_OAPI_FILE,
     B5_OAPI_FILE,
+    B6_OAPI_FILE,
 }
 B4S_PRIVATE_ISSUANCE = {
     "_OWNED_SCRATCH_ISSUANCE_KEY",
