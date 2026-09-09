@@ -1,14 +1,24 @@
-"""Exact read-only CSI concrete-design ABI for current/live consumers.
+"""Exact CSI concrete-design ABI for current/live consumers.
 
-OAPI owns method invocation, positional tuple decoding, return-code validation,
-and aligned-array validation. Semantic component binding, unit conversion,
-EvidenceEpoch/provenance, and engineering meaning remain above this module.
-Session-bound reads execute only through the verified gateway STA boundary.
+OAPI owns method invocation, positional tuple decoding, return-code validation
+where the CSI method actually returns one, and aligned-array validation.
+Semantic component binding, unit conversion, EvidenceEpoch/provenance,
+freshness, causal design qualification and engineering meaning remain above
+this module. Session-bound reads execute only through the verified safety
+bridge. The single concrete-design execution primitive uses the same approved
+B4T bounded mutation transport as B5; it issues no design lineage itself.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import hashlib
+import json
 from typing import Any, Sequence
+
+from etabs_gateway.mutation_transport import (
+    _B4T_MUTATION_TRANSPORT_KEY,
+    _execute_bounded_model_mutation,
+)
 
 from tbdy_engine.etabs.safety import (
     EtabsUnitSnapshot,
@@ -33,6 +43,30 @@ SUMMARY_RESULT_ARRAY_NAMES = (
     "ErrorSummary",
     "WarningSummary",
 )
+CONCRETE_DESIGN_RESULTS_AVAILABLE_API = "DesignConcrete.GetResultsAvailable"
+CONCRETE_DESIGN_START_FACT_CONTRACT = "ETABS_CONCRETE_DESIGN_START_FACT_V1"
+CONCRETE_DESIGN_EXECUTION_EVIDENCE_PREFIX = "etabs-concrete-design-execution:sha256:"
+
+
+def _digest(payload: object) -> str:
+    encoded = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("utf-8")
+    return CONCRETE_DESIGN_EXECUTION_EVIDENCE_PREFIX + hashlib.sha256(encoded).hexdigest()
+
+
+def _return_code(value: object, *, method: str) -> int:
+    if type(value) is int:
+        return int(value)
+    if isinstance(value, (tuple, list)):
+        candidates = tuple(int(item) for item in value if type(item) is int)
+        if len(candidates) == 1:
+            return candidates[0]
+    raise EtabsOAPIError(f"{method} returned unsupported return-code ABI shape: {value!r}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +74,53 @@ class ConcreteDesignSectionFact:
     frame_name: str
     design_section: str
     raw_response: object
+
+
+@dataclass(frozen=True, slots=True)
+class ConcreteDesignResultsAvailabilityFact:
+    """Direct Boolean fact from ``DesignConcrete.GetResultsAvailable``."""
+
+    results_available: bool
+    raw_response: object
+    source_api: str = CONCRETE_DESIGN_RESULTS_AVAILABLE_API
+
+    def __post_init__(self) -> None:
+        if type(self.results_available) is not bool:
+            raise EtabsOAPIError(
+                "DesignConcrete.GetResultsAvailable factual value must be boolean"
+            )
+        if type(self.raw_response) is not bool or self.raw_response is not self.results_available:
+            raise EtabsOAPIError(
+                "DesignConcrete.GetResultsAvailable raw response must preserve the exact Boolean fact"
+            )
+        if self.source_api != CONCRETE_DESIGN_RESULTS_AVAILABLE_API:
+            raise EtabsOAPIError(
+                "concrete design-results availability source API mismatch"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ConcreteDesignStartFact:
+    """Exact factual return from the one low-level StartDesign invocation."""
+
+    return_code: int
+    evidence_ref: str = field(init=False)
+    contract: str = CONCRETE_DESIGN_START_FACT_CONTRACT
+
+    def __post_init__(self) -> None:
+        if type(self.return_code) is not int:
+            raise EtabsOAPIError("StartDesign return_code must be exact int")
+        if self.contract != CONCRETE_DESIGN_START_FACT_CONTRACT:
+            raise EtabsOAPIError("concrete StartDesign fact contract mismatch")
+        object.__setattr__(
+            self,
+            "evidence_ref",
+            _digest({"contract": self.contract, "return_code": self.return_code}),
+        )
+
+    @property
+    def success(self) -> bool:
+        return self.return_code == 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +168,39 @@ def _canonical_names(values: Sequence[str], label: str) -> tuple[str, ...]:
     if not names or len(names) != len(set(names)):
         raise EtabsOAPIError(f"{label} must be a nonempty unique sequence")
     return names
+
+
+def decode_results_available_response(
+    raw: object,
+) -> ConcreteDesignResultsAvailabilityFact:
+    """Decode the documented direct-Boolean CSI return shape exactly."""
+
+    if type(raw) is not bool:
+        raise EtabsOAPIError(
+            "DesignConcrete.GetResultsAvailable returned unsupported Python COM "
+            f"shape {raw!r}; CSI contract is a direct Boolean return with no "
+            "separate integer return code"
+        )
+    return ConcreteDesignResultsAvailabilityFact(
+        results_available=raw,
+        raw_response=raw,
+    )
+
+
+def read_results_available(
+    design_concrete: Any,
+) -> ConcreteDesignResultsAvailabilityFact:
+    getter = getattr(design_concrete, "GetResultsAvailable", None)
+    if not callable(getter):
+        raise EtabsOAPIError("DesignConcrete.GetResultsAvailable is unavailable")
+    try:
+        raw = getter()
+    except Exception as exc:
+        raise EtabsOAPIError(
+            "DesignConcrete.GetResultsAvailable raised "
+            f"{type(exc).__name__}: {exc}"
+        ) from exc
+    return decode_results_available_response(raw)
 
 
 def decode_design_section_response(raw: object, *, frame_name: str) -> ConcreteDesignSectionFact:
@@ -205,6 +319,49 @@ def read_summary_results_column(
     return decode_summary_results_column_response(raw, requested_frame_name=requested)
 
 
+def read_results_available_from_session(
+    session: EtabsVerifiedSession,
+    *,
+    timeout_seconds: float = 30.0,
+) -> ConcreteDesignResultsAvailabilityFact:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: read_results_available(sap.DesignConcrete),
+        operation="oapi_design_concrete_get_results_available",
+        timeout_seconds=timeout_seconds,
+    )
+
+
+def start_concrete_design_from_session(
+    session: EtabsVerifiedSession,
+    *,
+    timeout_seconds: float = 300.0,
+) -> ConcreteDesignStartFact:
+    """Invoke exactly one factual ``DesignConcrete.StartDesign`` operation."""
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+    timeout = float(timeout_seconds)
+    if timeout <= 0:
+        raise ValueError("timeout_seconds must be greater than zero")
+
+    def execute(model_api: Any) -> ConcreteDesignStartFact:
+        starter = getattr(model_api.DesignConcrete, "StartDesign", None)
+        if not callable(starter):
+            raise EtabsOAPIError("DesignConcrete.StartDesign is unavailable")
+        raw = starter()
+        return ConcreteDesignStartFact(
+            return_code=_return_code(raw, method="DesignConcrete.StartDesign")
+        )
+
+    return _execute_bounded_model_mutation(
+        session._gateway_session,  # noqa: SLF001 - trusted OAPI -> B4T boundary
+        execute,
+        operation="oapi_design_concrete_start_design",
+        timeout_seconds=timeout,
+        _transport_key=_B4T_MUTATION_TRANSPORT_KEY,
+    )
+
+
 def read_design_section_from_session(
     session: EtabsVerifiedSession,
     frame_name: str,
@@ -231,11 +388,14 @@ def read_design_sections_from_session(
 def read_summary_results_column_from_session(
     session: EtabsVerifiedSession,
     frame_name: str,
+    *,
+    timeout_seconds: float = 30.0,
 ) -> ConcreteColumnSummaryFact:
     return _execute_verified_read(
         session,
         lambda _app, sap: read_summary_results_column(sap.DesignConcrete, frame_name),
         operation="oapi_design_concrete_get_summary_results_column",
+        timeout_seconds=timeout_seconds,
     )
 
 
@@ -260,17 +420,26 @@ def read_summary_results_columns_with_units_from_session(
 
 
 __all__ = [
+    "CONCRETE_DESIGN_EXECUTION_EVIDENCE_PREFIX",
+    "CONCRETE_DESIGN_RESULTS_AVAILABLE_API",
+    "CONCRETE_DESIGN_START_FACT_CONTRACT",
     "SUMMARY_RESULT_ARRAY_NAMES",
     "ConcreteColumnSummaryBatchFact",
     "ConcreteColumnSummaryFact",
     "ConcreteColumnSummaryRowFact",
+    "ConcreteDesignResultsAvailabilityFact",
     "ConcreteDesignSectionFact",
+    "ConcreteDesignStartFact",
     "decode_design_section_response",
+    "decode_results_available_response",
     "decode_summary_results_column_response",
     "read_design_section",
     "read_design_section_from_session",
     "read_design_sections_from_session",
+    "read_results_available",
+    "read_results_available_from_session",
     "read_summary_results_column",
     "read_summary_results_column_from_session",
     "read_summary_results_columns_with_units_from_session",
+    "start_concrete_design_from_session",
 ]
