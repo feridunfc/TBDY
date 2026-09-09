@@ -277,8 +277,13 @@ def test_supported_product_has_zero_uncontrolled_mutation_calls() -> None:
     violations: list[str] = []
     for module in closure(*SUPPORTED_ROOTS):
         path = index.get(module)
-        if path:
-            violations.extend(f"{module}|{name}" for name in call_names(path) if name.rsplit(".", 1)[-1] in MUTATION)
+        if not path:
+            continue
+        rel = path.relative_to(ROOT).as_posix()
+        for name in call_names(path):
+            final = name.rsplit(".", 1)[-1]
+            if final in MUTATION and (rel, final) not in CANONICAL_MUTATION_CALLS:
+                violations.append(f"{module}|{name}")
     assert violations == []
 
 

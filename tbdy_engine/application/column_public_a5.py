@@ -16,11 +16,15 @@ from tbdy_engine.analysis_basis.eq713_uncracked_analysis_state import (
     AreaFormulation,
     AreaGrossBasePropertyEvidence,
     Eq713PopulationDisposition,
-    FrameStiffnessMode,
     WallRole,
     audit_frame_eq713_modes,
     build_area_eq713_target,
     build_concrete_uncracked_material_basis,
+)
+from tbdy_engine.analysis_basis.eq713_frame_mechanics import (
+    FrameMechanicsEvidence,
+    build_frame_eq713_modifier_target,
+    classify_frame_eq713_participation,
 )
 from tbdy_engine.analysis_basis.frame_gross_flexural_basis import (
     capture_frame_flexural_base_continuity_evidence,
@@ -145,11 +149,11 @@ def _target_column(topology: StrictColumnTopologyBundle, component_id: str) -> C
     return matches[0]
 
 
-def _frame_mechanics_ref(
+def _frame_mechanics_evidence(
     row: FrameEq713FactualFact,
     topology: StrictColumnTopologyBundle,
-) -> str:
-    """Prove the supported 3D RC Frame mechanism slice independently of releases."""
+) -> FrameMechanicsEvidence:
+    """Bind factual topology/axis/end-condition mechanics for Eq713 authority."""
     if row.member_role == "COLUMN":
         matches = tuple(item for item in topology.columns if item.unique_name == row.frame_name)
         if len(matches) != 1:
@@ -168,9 +172,22 @@ def _frame_mechanics_ref(
                 BLOCKER_A3_EQ713_POPULATION,
                 f"COLUMN Frame {row.frame_name!r} has non-positive strict geometry",
             )
-        return (
+        vector = tuple(
+            float(item.top_coord_m[index] - item.bottom_coord_m[index])
+            for index in range(3)
+        )
+        mechanics_ref = (
             f"{_FRAME_MECHANICS_REF_PREFIX}:COLUMN:{row.frame_name}:"
             f"LOCAL_AXIS_EXPLICIT={item.local_axis_explicit}:ANGLE={item.local_axis_angle_deg}"
+        )
+        return FrameMechanicsEvidence(
+            component_uid=row.frame_name,
+            member_role=row.member_role,
+            member_axis_vector=vector,
+            supported_end_condition=row.supported_end_condition,
+            local_axis_explicit=bool(item.local_axis_explicit),
+            local_axis_angle_degrees=item.local_axis_angle_deg,
+            source_refs=(*row.source_refs, mechanics_ref),
         )
 
     beams = {}
@@ -194,7 +211,16 @@ def _frame_mechanics_ref(
             BLOCKER_A3_EQ713_POPULATION,
             f"BEAM Frame {row.frame_name!r} has unresolved/non-positive strict geometry",
         )
-    return f"{_FRAME_MECHANICS_REF_PREFIX}:BEAM:{row.frame_name}:CONNECTED_3D_FRAME"
+    mechanics_ref = f"{_FRAME_MECHANICS_REF_PREFIX}:BEAM:{row.frame_name}:CONNECTED_3D_FRAME"
+    return FrameMechanicsEvidence(
+        component_uid=row.frame_name,
+        member_role=row.member_role,
+        member_axis_vector=tuple(float(value) for value in beam.vector_from_joint_m),
+        supported_end_condition=row.supported_end_condition,
+        local_axis_explicit=False,
+        local_axis_angle_degrees=None,
+        source_refs=(*row.source_refs, mechanics_ref),
+    )
 
 
 def _material_bases(frame_population: FrameEq713FactualPopulation):
@@ -294,11 +320,11 @@ def _area_evidence(
         }.get(fact.wall_assignment_role, WallRole.OTHER)
 
     # The accepted Area provider carries exact simple-property thickness and no
-    # separate object-thickness authority.  COLUMN-R1 therefore retains that
-    # reviewed simple-property slice; no new thickness-composition rule is made
-    # here.  Out-of-plane plate/transverse response is positively excluded from
-    # the accepted in-plane Eq7.13 Delta_i response scope and is still disposed
-    # by the existing Eq713 authority.
+    # separate object-thickness authority.  COLUMN-R1 retains that factual slice.
+    # Application scope intent is not mechanical exclusion evidence: plate and
+    # transverse-shear participation stay unresolved here.  The existing Eq713
+    # authority alone may prove them not applicable (for example MEMBRANE) or
+    # fail closed when a SHELL_THICK mechanism is not independently classified.
     return AreaGrossBasePropertyEvidence.build(
         area_name=fact.area_name,
         property_name=fact.property_name,
@@ -324,8 +350,8 @@ def _area_evidence(
             if category is AreaCategory.WALL
             else None
         ),
-        plate_participation=False,
-        transverse_shear_participation=False,
+        plate_participation=None,
+        transverse_shear_participation=None,
         source_refs=(*fact.source_refs, _AREA_RESPONSE_SCOPE_REF),
     )
 
@@ -339,26 +365,17 @@ def _qualify_a3(
     material_bases = _material_bases(frame_population)
     frame_rows = []
     for fact in frame_population.rows:
-        if not fact.supported_end_condition:
-            raise PublicA5CompositionError(
-                BLOCKER_A3_EQ713_POPULATION,
-                f"Frame {fact.frame_name!r} is outside supported no-release/no-partial-fixity end-condition slice",
-            )
-        mechanics_ref = _frame_mechanics_ref(fact, topology)
+        mechanics = _frame_mechanics_evidence(fact, topology)
+        classification = classify_frame_eq713_participation(mechanics)
         basis = material_bases[fact.base_fact.material_name]
-        # Participation is not inferred from the release state.  Strict member
-        # role/connectivity/geometry establish the supported active 3D Frame
-        # mechanism input; the existing Eq713 authority owns the six resulting
-        # mode dispositions.
-        participation = {mode: True for mode in FrameStiffnessMode}
         frame_rows.append(
             audit_frame_eq713_modes(
                 component_uid=fact.frame_name,
                 property_modifiers=fact.property_modifiers.modifiers.as_tuple(),
                 object_modifiers=fact.object_modifiers.modifiers.as_tuple(),
-                participation=participation,
+                participation=classification.as_mapping(),
                 material_basis=basis,
-                source_refs=(*fact.source_refs, mechanics_ref),
+                source_refs=(*fact.source_refs, *classification.source_refs),
             )
         )
 
@@ -384,29 +401,46 @@ def _qualify_a3(
     return whole, area_evidence
 
 
-def _frame_target(current: FrameModifierVector) -> FrameModifierVector:
-    return FrameModifierVector.from_sequence(
-        (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, current.mass, current.weight)
-    )
-
-
-def _b4b_targets(frame_population, area_population, area_rows):
+def _b4b_targets(frame_population, area_population, frame_rows, area_rows):
     targets = []
+    frame_dispositions = {row.component_uid: row for row in frame_rows}
+    if len(frame_dispositions) != len(tuple(frame_rows)):
+        raise PublicA5CompositionError(BLOCKER_A4_B4B, "duplicate Frame Eq713 disposition identity")
+
     property_targets: dict[str, FrameModifierVector] = {}
     for fact in frame_population.rows:
-        section_target = _frame_target(fact.property_modifiers.modifiers)
+        disposition = frame_dispositions.get(fact.frame_name)
+        if disposition is None:
+            raise PublicA5CompositionError(
+                BLOCKER_A4_B4B,
+                f"Frame {fact.frame_name!r} has no accepted Eq713 mode disposition",
+            )
+        section_projection = build_frame_eq713_modifier_target(
+            current_modifiers=fact.property_modifiers.modifiers.as_tuple(),
+            disposition=disposition,
+        )
+        section_target = FrameModifierVector.from_sequence(
+            tuple(float(value) for value in section_projection.target_modifiers)
+        )
         previous = property_targets.get(fact.base_fact.assigned_section_name)
         if previous is not None and previous.as_tuple() != section_target.as_tuple():
             raise PublicA5CompositionError(
                 BLOCKER_A4_B4B,
-                f"shared Frame section {fact.base_fact.assigned_section_name!r} has contradictory gross target",
+                f"shared Frame section {fact.base_fact.assigned_section_name!r} has contradictory Eq713 target",
             )
         property_targets[fact.base_fact.assigned_section_name] = section_target
+
+        object_projection = build_frame_eq713_modifier_target(
+            current_modifiers=fact.object_modifiers.modifiers.as_tuple(),
+            disposition=disposition,
+        )
         targets.append(
             FrameModifierTargetRequest(
                 surface=FrameModifierSurface.FRAME_OBJECT,
                 target_name=fact.frame_name,
-                modifiers=_frame_target(fact.object_modifiers.modifiers),
+                modifiers=FrameModifierVector.from_sequence(
+                    tuple(float(value) for value in object_projection.target_modifiers)
+                ),
             )
         )
     for section, vector in property_targets.items():
@@ -847,7 +881,7 @@ def execute_public_a5_column(
 
     try:
         selection, definitions, flattened_combos, requested_cases = _combo_scope(context)
-        targets = _b4b_targets(frame_pre, area_pre, a3.area_rows)
+        targets = _b4b_targets(frame_pre, area_pre, a3.frame_rows, a3.area_rows)
         basis_refs = tuple(
             dict.fromkeys(
                 (
