@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 import tbdy_engine.application.column_public_a5 as a5
+import tbdy_engine.application.column_execution as column_execution
 import tbdy_engine.application.project_execution as project_execution
 import tbdy_engine.analysis_basis.frame_gross_flexural_basis as continuity
 import tbdy_engine.integration.etabs_analysis_execution as b5
@@ -281,6 +282,7 @@ def product_harness(monkeypatch):
     # Public root + trusted context boundary.
     monkeypatch.setattr(project_execution, "EtabsVerifiedSession", _FakeSession)
     monkeypatch.setattr(project_execution, "create_trusted_live_acquisition_context", lambda verified_session: context)
+    monkeypatch.setattr(column_execution, "TrustedLiveAcquisitionContext", _FakeContext)
     monkeypatch.setattr(a5, "TrustedLiveAcquisitionContext", _FakeContext)
     monkeypatch.setattr(a5, "create_owned_scratch_context", lambda _context: owned)
     monkeypatch.setattr(a5, "capture_etabs_strict_column_topology_from_session", lambda _session: topology)
