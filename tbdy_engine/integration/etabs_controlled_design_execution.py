@@ -183,6 +183,7 @@ def _revalidate_active_scratch(
     context: TrustedLiveAcquisitionContext,
     owned_scratch: OwnedScratchContext,
     timeout_seconds: float,
+    failure_stage: str = "active_scratch_revalidation",
 ) -> str:
     identity = reread_verified_session_identity(
         context.verified_session,
@@ -191,7 +192,7 @@ def _revalidate_active_scratch(
     if _path(identity.model_full_path) != _path(owned_scratch.scratch_path):
         raise ControlledDesignExecutionError(
             "active ETABS model is not the exact OwnedScratchContext",
-            stage="active_scratch_revalidation",
+            stage=failure_stage,
         )
     return _text(identity.model_full_path, "active model path")
 
@@ -309,6 +310,7 @@ def execute_controlled_concrete_design(
         context=context,
         owned_scratch=owned_scratch,
         timeout_seconds=min(timeout, 30.0),
+        failure_stage="design_state_revalidation",
     )
     if _path(active_path_after) != _path(active_path_before):
         raise ControlledDesignExecutionError(
