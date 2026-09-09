@@ -1,4 +1,4 @@
-name: COLUMN-R1 Reconciled Exact Validation
+name: COLUMN-R1 PUBLIC-A5 P1 One-Shot Patch
 
 on:
   push:
@@ -7,80 +7,32 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-
-env:
-  PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/packages/etabs_gateway/src
+  contents: write
 
 jobs:
-  validate-reconciled-head:
+  apply-supervisor-p1:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout exact reconciled branch commit
+      - name: Checkout exact branch candidate
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.sha }}
 
-      - name: Verify exact checkout
+      - name: Verify patch parent
         shell: bash
         run: |
           test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          echo "HEAD=$(git rev-parse HEAD)"
-          echo "TREE=$(git rev-parse HEAD^{tree})"
+          echo "PATCH_PARENT=$(git rev-parse HEAD)"
+          echo "PATCH_PARENT_TREE=$(git rev-parse HEAD^{tree})"
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install offline test dependencies
+      - name: Apply bounded PUBLIC-A5 supervisor patch
+        shell: bash
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install pytest pyyaml jsonschema openpyxl et_xmlfile
-
-      - name: Compile and import
-        run: |
-          python -m compileall -q tbdy_engine tests packages/etabs_gateway/src
-          python -c "import etabs_gateway; import tbdy_engine; import tbdy_engine.application.project_execution; import tbdy_engine.application.column_execution; import tbdy_engine.analysis_basis.eq713_uncracked_analysis_state"
-
-      - name: A3 authority and Area provider
-        run: |
-          python -m pytest -q \
-            tests/analysis_basis/test_eq713_uncracked_analysis_state.py \
-            tests/etabs/test_oapi_area_contributors.py \
-            tests/providers/test_etabs_area_contributor_provider.py
-
-      - name: Frame OAPI and factual providers
-        run: |
-          python -m pytest -q \
-            tests/etabs/test_oapi_frame_releases.py \
-            tests/etabs/test_oapi_material_properties.py \
-            tests/providers
-
-      - name: B4B and B5 focused
-        run: |
-          python -m pytest -q \
-            tests/integration/test_b4b_analysis_state_mutation.py \
-            tests/integration/test_b4b_analysis_state_revalidation.py \
-            tests/integration/test_b5_analysis_execution.py \
-            tests/integration/test_b5_analysis_lineage_issuer.py \
-            tests/providers/test_b5_column_force_result_population_provider.py
-
-      - name: B6 focused
-        run: |
-          python -m pytest -q \
-            tests/etabs/test_oapi_concrete_design.py \
-            tests/etabs/test_oapi_concrete_design_start.py \
-            tests/integration/test_b6_controlled_design_execution.py \
-            tests/integration/test_b6_p0_design_preflight.py \
-            tests/architecture/test_b6_p0_design_preflight_architecture.py
-
-      - name: C focused
-        run: |
-          python -m pytest -q \
-            tests/regulatory/test_column_transverse_confinement.py \
-            tests/application/test_column_r1_lane_c_bound_join.py
-
-      - name: Architecture negative reachability
-        run: python -m pytest -q tests/architecture
+          python .github/column_r1_public_a5_p1_patch.py
+          git config user.name "COLUMN-R1 automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "COLUMN-R1: correct PUBLIC-A5 Eq713 participation and targets"
+          git push origin HEAD:sprint/column-r1-reconciled-closure
