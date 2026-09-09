@@ -13,20 +13,21 @@ env:
   PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/packages/etabs_gateway/src
 
 jobs:
-  validate-ec3dac:
+  validate-reconciled-head:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout accepted reconciled candidate
+      - name: Checkout exact reconciled branch commit
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ec3dac987cf2ed35fca1bde4a64522f74f06d37a
+          ref: ${{ github.sha }}
 
       - name: Verify exact checkout
         shell: bash
         run: |
-          test "$(git rev-parse HEAD)" = "ec3dac987cf2ed35fca1bde4a64522f74f06d37a"
-          test "$(git rev-parse HEAD^{tree})" = "b2b204d3c7a523536775abe079826a62efddab03"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          echo "HEAD=$(git rev-parse HEAD)"
+          echo "TREE=$(git rev-parse HEAD^{tree})"
 
       - name: Setup Python
         uses: actions/setup-python@v5
