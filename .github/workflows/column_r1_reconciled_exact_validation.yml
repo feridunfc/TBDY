@@ -9,6 +9,9 @@ on:
 permissions:
   contents: read
 
+env:
+  PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/packages/etabs_gateway/src
+
 jobs:
   validate-ec3dac:
     runs-on: ubuntu-latest
@@ -37,8 +40,8 @@ jobs:
 
       - name: Compile and import
         run: |
-          python -m compileall -q tbdy_engine tests
-          python -c "import tbdy_engine; import tbdy_engine.application.project_execution; import tbdy_engine.application.column_execution; import tbdy_engine.analysis_basis.eq713_uncracked_analysis_state"
+          python -m compileall -q tbdy_engine tests packages/etabs_gateway/src
+          python -c "import etabs_gateway; import tbdy_engine; import tbdy_engine.application.project_execution; import tbdy_engine.application.column_execution; import tbdy_engine.analysis_basis.eq713_uncracked_analysis_state"
 
       - name: A3 authority and Area provider
         run: |
