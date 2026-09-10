@@ -1,8 +1,8 @@
 """COLUMN-R1 PUBLIC-A5 production composer.
 
-This module owns composition only.  Engineering semantics stay in the existing
+This module owns composition only. Engineering semantics stay in the existing
 Eq7.13 and FND-COL-2 authorities; ETABS mutation and RunAnalysis stay in the
-existing B4B/B5 owners.  The composer binds one trusted acquisition generation
+existing B4B/B5 owners. The composer binds one trusted acquisition generation
 to those authorities and fails closed at an exact causal edge.
 """
 from __future__ import annotations
@@ -15,7 +15,10 @@ from tbdy_engine.analysis_basis.eq713_uncracked_analysis_state import (
     AreaCategory,
     AreaFormulation,
     AreaGrossBasePropertyEvidence,
+    AreaStiffnessMode,
+    ContributorDisposition,
     Eq713PopulationDisposition,
+    FrameStiffnessMode,
     WallRole,
     audit_frame_eq713_modes,
     build_area_eq713_target,
@@ -25,6 +28,10 @@ from tbdy_engine.analysis_basis.eq713_frame_mechanics import (
     FrameMechanicsEvidence,
     build_frame_eq713_modifier_target,
     classify_frame_eq713_participation,
+)
+from tbdy_engine.analysis_basis.eq713_response_mechanics import (
+    classify_frame_response_participation,
+    resolve_area_response_modes,
 )
 from tbdy_engine.analysis_basis.frame_gross_flexural_basis import (
     capture_frame_flexural_base_continuity_evidence,
@@ -67,6 +74,11 @@ from tbdy_engine.providers.etabs_combo_definition_provider import (
 from tbdy_engine.providers.etabs_concrete_design_combo_selection_probe import (
     acquire_actual_concrete_design_combo_selection_from_session,
 )
+from tbdy_engine.providers.etabs_eq713_response_provider import (
+    Eq713ResponsePopulationFact,
+    capture_eq713_response_population_from_session,
+    probe_eq713_response_population_capability,
+)
 from tbdy_engine.providers.etabs_frame_eq713_population_provider import (
     FrameEq713FactualFact,
     FrameEq713FactualPopulation,
@@ -106,16 +118,39 @@ from tbdy_engine.regulatory.units import UNIT_DIMENSIONLESS, UNIT_MM
 
 BLOCKER_A3_FACTUAL_ACQUISITION = "LIVE_A3_FACTUAL_ACQUISITION_NOT_QUALIFIED"
 BLOCKER_A3_EQ713_POPULATION = "LIVE_A3_EQ713_POPULATION_NOT_QUALIFIED"
+BLOCKER_A3_MEMBER_RESPONSE = "CURRENT_A3_MEMBER_LEVEL_RESPONSE_KINEMATIC_BASIS_NOT_BOUND"
 BLOCKER_A4_B4B = "LIVE_A4_B4B_STATE_NOT_QUALIFIED"
 BLOCKER_A4_B5 = "LIVE_A4_B5_RESULT_NOT_QUALIFIED"
 BLOCKER_A4_POST_CONTINUITY = "LIVE_A4_POST_CONTINUITY_NOT_QUALIFIED"
 BLOCKER_A5_INPUT_MATERIALIZATION = "LIVE_A5_FND2_INPUT_MATERIALIZATION_NOT_QUALIFIED"
 
-# The accepted COLUMN-R1 Area slice is the in-plane displacement-response slice.
-# These values are inputs to the existing Eq713 authority, which remains the
-# sole owner of the resulting mode dispositions.
 _AREA_RESPONSE_SCOPE_REF = "COLUMN_R1_EQ713_IN_PLANE_DISPLACEMENT_RESPONSE_SCOPE"
 _FRAME_MECHANICS_REF_PREFIX = "COLUMN_R1_STRICT_FRAME_MECHANICS"
+_RESPONSE_AREA_MODES = {
+    AreaStiffnessMode.M11,
+    AreaStiffnessMode.M22,
+    AreaStiffnessMode.M12,
+    AreaStiffnessMode.V13,
+    AreaStiffnessMode.V23,
+}
+_FRAME_SLOT = {
+    FrameStiffnessMode.AXIAL: 0,
+    FrameStiffnessMode.SHEAR_2: 1,
+    FrameStiffnessMode.SHEAR_3: 2,
+    FrameStiffnessMode.TORSION: 3,
+    FrameStiffnessMode.FLEXURE_2: 4,
+    FrameStiffnessMode.FLEXURE_3: 5,
+}
+_AREA_SLOT = {
+    AreaStiffnessMode.F11: 0,
+    AreaStiffnessMode.F22: 1,
+    AreaStiffnessMode.F12: 2,
+    AreaStiffnessMode.M11: 3,
+    AreaStiffnessMode.M22: 4,
+    AreaStiffnessMode.M12: 5,
+    AreaStiffnessMode.V13: 6,
+    AreaStiffnessMode.V23: 7,
+}
 
 
 class PublicA5CompositionError(RuntimeError):
@@ -319,12 +354,6 @@ def _area_evidence(
             "SPANDREL": WallRole.SPANDREL,
         }.get(fact.wall_assignment_role, WallRole.OTHER)
 
-    # The accepted Area provider carries exact simple-property thickness and no
-    # separate object-thickness authority.  COLUMN-R1 retains that factual slice.
-    # Application scope intent is not mechanical exclusion evidence: plate and
-    # transverse-shear participation stay unresolved here.  The existing Eq713
-    # authority alone may prove them not applicable (for example MEMBRANE) or
-    # fail closed when a SHELL_THICK mechanism is not independently classified.
     return AreaGrossBasePropertyEvidence.build(
         area_name=fact.area_name,
         property_name=fact.property_name,
@@ -356,17 +385,100 @@ def _area_evidence(
     )
 
 
-def _qualify_a3(
+def _response_refs(populations: Sequence[Eq713ResponsePopulationFact]) -> tuple[str, ...]:
+    return tuple(
+        dict.fromkeys(
+            ref
+            for population in populations
+            for ref in (*population.source_refs, population.evidence_ref)
+        )
+    )
+
+
+def _frame_response_values(
+    populations: Sequence[Eq713ResponsePopulationFact],
+    frame_name: str,
+):
+    results = tuple(
+        result
+        for population in populations
+        for result in population.frame_results
+        if result.frame_name == frame_name
+    )
+    rows = tuple(row for result in results for row in result.rows)
+    return {
+        FrameStiffnessMode.AXIAL: tuple(row.p for row in rows),
+        FrameStiffnessMode.SHEAR_2: tuple(row.v2 for row in rows),
+        FrameStiffnessMode.SHEAR_3: tuple(row.v3 for row in rows),
+        FrameStiffnessMode.TORSION: tuple(row.t for row in rows),
+        FrameStiffnessMode.FLEXURE_2: tuple(row.m2 for row in rows),
+        FrameStiffnessMode.FLEXURE_3: tuple(row.m3 for row in rows),
+    }
+
+
+def _frame_effective_modifiers(fact: FrameEq713FactualFact):
+    prop = fact.property_modifiers.modifiers.as_tuple()
+    obj = fact.object_modifiers.modifiers.as_tuple()
+    return {
+        mode: Decimal(str(prop[index])) * Decimal(str(obj[index]))
+        for mode, index in _FRAME_SLOT.items()
+    }
+
+
+def _area_response_values(
+    populations: Sequence[Eq713ResponsePopulationFact],
+    area_name: str,
+):
+    results = tuple(
+        result
+        for population in populations
+        for result in population.area_results
+        if result.area_name == area_name
+    )
+    rows = tuple(row for result in results for row in result.rows)
+    return {
+        AreaStiffnessMode.F11: tuple(row.f11 for row in rows),
+        AreaStiffnessMode.F22: tuple(row.f22 for row in rows),
+        AreaStiffnessMode.F12: tuple(row.f12 for row in rows),
+        AreaStiffnessMode.M11: tuple(row.m11 for row in rows),
+        AreaStiffnessMode.M22: tuple(row.m22 for row in rows),
+        AreaStiffnessMode.M12: tuple(row.m12 for row in rows),
+        AreaStiffnessMode.V13: tuple(row.v13 for row in rows),
+        AreaStiffnessMode.V23: tuple(row.v23 for row in rows),
+    }
+
+
+def _area_effective_modifiers(fact: AreaContributorFact):
+    if fact.property_state is None:
+        return {}
+    prop = fact.property_state.property_modifiers.modifiers.as_tuple()
+    obj = fact.object_modifiers.modifiers.as_tuple()
+    return {
+        mode: Decimal(str(prop[index])) * Decimal(str(obj[index]))
+        for mode, index in _AREA_SLOT.items()
+    }
+
+
+def _build_a3(
     *,
     frame_population: FrameEq713FactualPopulation,
     area_population: AreaContributorPopulation,
     topology: StrictColumnTopologyBundle,
+    response_populations: Sequence[Eq713ResponsePopulationFact] = (),
 ):
     material_bases = _material_bases(frame_population)
+    response_refs = _response_refs(response_populations) if response_populations else ()
     frame_rows = []
     for fact in frame_population.rows:
         mechanics = _frame_mechanics_evidence(fact, topology)
         classification = classify_frame_eq713_participation(mechanics)
+        if response_populations and fact.member_role == "BEAM":
+            classification = classify_frame_response_participation(
+                base=classification,
+                values_by_mode=_frame_response_values(response_populations, fact.frame_name),
+                effective_modifiers=_frame_effective_modifiers(fact),
+                source_refs=response_refs,
+            )
         basis = material_bases[fact.base_fact.material_name]
         frame_rows.append(
             audit_frame_eq713_modes(
@@ -383,22 +495,67 @@ def _qualify_a3(
         _area_evidence(fact, material_bases)
         for fact in area_population.rows
     )
-    area_rows = tuple(build_area_eq713_target(fact) for fact in area_evidence)
-    whole = Eq713PopulationDisposition(
-        area_rows=area_rows,
+    area_by_name = {fact.area_name: fact for fact in area_population.rows}
+    area_rows = []
+    for evidence in area_evidence:
+        row = build_area_eq713_target(evidence)
+        if response_populations and evidence.formulation is AreaFormulation.SHELL_THICK:
+            factual = area_by_name[evidence.area_name]
+            row = resolve_area_response_modes(
+                base=row,
+                values_by_mode=_area_response_values(response_populations, evidence.area_name),
+                effective_modifiers=_area_effective_modifiers(factual),
+                source_refs=response_refs,
+            )
+        area_rows.append(row)
+    return Eq713PopulationDisposition(
+        area_rows=tuple(area_rows),
         frame_rows=tuple(frame_rows),
+    ), area_evidence
+
+
+def _raise_unqualified_a3(whole: Eq713PopulationDisposition, blocker: str = BLOCKER_A3_EQ713_POPULATION):
+    blocked = tuple(
+        reason
+        for row in (*whole.area_rows, *whole.frame_rows)
+        for reason in row.blocked_reasons
     )
-    if not whole.positive:
-        blocked = tuple(
-            reason
-            for row in (*whole.area_rows, *whole.frame_rows)
-            for reason in row.blocked_reasons
-        )
-        raise PublicA5CompositionError(
-            BLOCKER_A3_EQ713_POPULATION,
-            "Eq713 whole-system population did not qualify: " + "; ".join(dict.fromkeys(blocked)),
-        )
-    return whole, area_evidence
+    raise PublicA5CompositionError(
+        blocker,
+        "Eq713 whole-system population did not qualify: " + "; ".join(dict.fromkeys(blocked)),
+    )
+
+
+def _response_probe_scope(
+    whole: Eq713PopulationDisposition,
+    frame_population: FrameEq713FactualPopulation,
+    area_evidence: Sequence[AreaGrossBasePropertyEvidence],
+):
+    roles = {fact.frame_name: fact.member_role for fact in frame_population.rows}
+    area_by_name = {fact.area_name: fact for fact in area_evidence}
+    frame_names = set()
+    area_names = set()
+    unresolved_count = 0
+    for row in whole.frame_rows:
+        for mode in row.mode_dispositions:
+            if mode.disposition is not ContributorDisposition.BLOCKED_UNSUPPORTED:
+                continue
+            unresolved_count += 1
+            if roles.get(row.component_uid) != "BEAM" or "participation in Eq7.13 Delta_i is unresolved" not in mode.reason:
+                return None
+            frame_names.add(row.component_uid)
+    for row in whole.area_rows:
+        evidence = area_by_name.get(row.area_name)
+        for mode in row.mode_dispositions:
+            if mode.disposition is not ContributorDisposition.BLOCKED_UNSUPPORTED:
+                continue
+            unresolved_count += 1
+            if evidence is None or evidence.formulation is not AreaFormulation.SHELL_THICK or mode.mode not in _RESPONSE_AREA_MODES:
+                return None
+            area_names.add(row.area_name)
+    if unresolved_count == 0:
+        return None
+    return tuple(sorted(frame_names)), tuple(sorted(area_names)), unresolved_count
 
 
 def _b4b_targets(frame_population, area_population, frame_rows, area_rows):
@@ -478,7 +635,7 @@ def _b4b_targets(frame_population, area_population, frame_rows, area_rows):
             )
         )
     if not targets:
-        raise PublicA5CompositionError(BLOCKER_A4_B4B, "Eq713 positive population produced no B4B target")
+        raise PublicA5CompositionError(BLOCKER_A4_B4B, "Eq713 population produced no B4B target")
     return tuple(targets)
 
 
@@ -544,6 +701,73 @@ def _combo_scope(context: TrustedLiveAcquisitionContext):
     return selection, definitions, flattened, cases
 
 
+def _analysis_basis_refs(context, owned_scratch, frame_pre, area_pre, a3):
+    return tuple(
+        dict.fromkeys(
+            (
+                context.acquisition_context_ref,
+                owned_scratch.ownership_proof_ref,
+                *frame_pre.source_refs,
+                *area_pre.source_refs,
+                *(ref for row in a3.frame_rows for ref in row.source_refs),
+                *(ref for row in a3.area_rows for ref in row.source_refs),
+            )
+        )
+    )
+
+
+def _run_a3_generation(
+    *,
+    context,
+    owned_scratch,
+    frame_pre,
+    area_pre,
+    a3,
+    requested_cases,
+):
+    try:
+        targets = _b4b_targets(frame_pre, area_pre, a3.frame_rows, a3.area_rows)
+        basis_refs = _analysis_basis_refs(context, owned_scratch, frame_pre, area_pre, a3)
+        requested_manifest = build_requested_section_modifier_manifest(
+            source_model_ref=context.source_model_identity.source_model_ref,
+            targets=targets,
+            provenance_refs=basis_refs,
+        )
+        established_state = establish_section_modifier_analysis_state(
+            context=context,
+            owned_scratch=owned_scratch,
+            requested_manifest=requested_manifest,
+            additional_state_basis_refs=basis_refs,
+        )
+    except PublicA5CompositionError:
+        raise
+    except Exception as exc:
+        raise PublicA5CompositionError(BLOCKER_A4_B4B, str(exc)) from exc
+
+    try:
+        execution_result = execute_controlled_analysis(
+            context=context,
+            owned_scratch=owned_scratch,
+            established_state=established_state,
+            requested_case_names=requested_cases,
+        )
+        if (
+            not execution_result.qualification.qualified
+            or execution_result.analysis_result_identity.parent_analysis_state_ref
+            != established_state.analysis_state_identity.identity_ref
+            or execution_result.manifest.run_analysis.return_code != 0
+        ):
+            raise PublicA5CompositionError(
+                BLOCKER_A4_B5,
+                "B5 did not issue exact qualified child AnalysisResultIdentity",
+            )
+    except PublicA5CompositionError:
+        raise
+    except Exception as exc:
+        raise PublicA5CompositionError(BLOCKER_A4_B5, str(exc)) from exc
+    return targets, established_state, execution_result
+
+
 def _area_continuity_key(fact: AreaContributorFact):
     state = fact.property_state
     return (
@@ -577,9 +801,6 @@ def _prove_post_continuity(
     established_state,
     execution_result,
 ):
-    # Existing prior-evidence helper proves PRE/POST base semantics for the
-    # requested column and exact B4B/B5 causal lineage without reusing its old
-    # exact-TS500-Ec gross-basis gate.
     capture_frame_flexural_base_continuity_evidence(
         context=context,
         owned_scratch=owned_scratch,
@@ -869,64 +1090,117 @@ def execute_public_a5_column(
         return _blocked(request, context, BLOCKER_A3_FACTUAL_ACQUISITION)
 
     try:
-        a3, _area_evidence_rows = _qualify_a3(
+        provisional_a3, area_evidence = _build_a3(
             frame_population=frame_pre,
             area_population=area_pre,
             topology=topology_pre,
         )
+        probe_scope = None if provisional_a3.positive else _response_probe_scope(
+            provisional_a3,
+            frame_pre,
+            area_evidence,
+        )
+        if not provisional_a3.positive and probe_scope is None:
+            _raise_unqualified_a3(provisional_a3)
+        if probe_scope is not None:
+            frame_names, area_names, _unresolved_count = probe_scope
+            try:
+                probe_eq713_response_population_capability(
+                    context.verified_session,
+                    require_frame=bool(frame_names),
+                    require_area=bool(area_names),
+                )
+            except TypeError:
+                # Existing offline application fakes are not production verified sessions;
+                # retain the prior fail-closed A3 contract for that unsupported harness.
+                _raise_unqualified_a3(provisional_a3)
+            except Exception as exc:
+                raise PublicA5CompositionError(BLOCKER_A3_MEMBER_RESPONSE, str(exc)) from exc
+        selection, definitions, flattened_combos, requested_cases = _combo_scope(context)
     except PublicA5CompositionError as exc:
         return _blocked(request, context, exc.blocker)
     except Exception:
         return _blocked(request, context, BLOCKER_A3_EQ713_POPULATION)
 
     try:
-        selection, definitions, flattened_combos, requested_cases = _combo_scope(context)
-        targets = _b4b_targets(frame_pre, area_pre, a3.frame_rows, a3.area_rows)
-        basis_refs = tuple(
-            dict.fromkeys(
-                (
-                    context.acquisition_context_ref,
-                    owned_scratch.ownership_proof_ref,
-                    *frame_pre.source_refs,
-                    *area_pre.source_refs,
-                    *(ref for row in a3.frame_rows for ref in row.source_refs),
-                    *(ref for row in a3.area_rows for ref in row.source_refs),
+        if provisional_a3.positive:
+            a3 = provisional_a3
+            _targets, established_state, execution_result = _run_a3_generation(
+                context=context,
+                owned_scratch=owned_scratch,
+                frame_pre=frame_pre,
+                area_pre=area_pre,
+                a3=a3,
+                requested_cases=requested_cases,
+            )
+        else:
+            frame_names, area_names, unresolved_count = probe_scope
+            response_populations = []
+            current_a3 = provisional_a3
+            established_state = None
+            execution_result = None
+            for _generation_index in range(unresolved_count + 1):
+                current_targets, established_state, execution_result = _run_a3_generation(
+                    context=context,
+                    owned_scratch=owned_scratch,
+                    frame_pre=frame_pre,
+                    area_pre=area_pre,
+                    a3=current_a3,
+                    requested_cases=requested_cases,
                 )
-            )
-        )
-        requested_manifest = build_requested_section_modifier_manifest(
-            source_model_ref=context.source_model_identity.source_model_ref,
-            targets=targets,
-            provenance_refs=basis_refs,
-        )
-        established_state = establish_section_modifier_analysis_state(
-            context=context,
-            owned_scratch=owned_scratch,
-            requested_manifest=requested_manifest,
-            additional_state_basis_refs=basis_refs,
-        )
-    except PublicA5CompositionError as exc:
-        return _blocked(request, context, exc.blocker)
-    except Exception:
-        return _blocked(request, context, BLOCKER_A4_B4B)
-
-    try:
-        execution_result = execute_controlled_analysis(
-            context=context,
-            owned_scratch=owned_scratch,
-            established_state=established_state,
-            requested_case_names=requested_cases,
-        )
-        if (
-            not execution_result.qualification.qualified
-            or execution_result.analysis_result_identity.parent_analysis_state_ref
-            != established_state.analysis_state_identity.identity_ref
-            or execution_result.manifest.run_analysis.return_code != 0
-        ):
-            raise PublicA5CompositionError(
-                BLOCKER_A4_B5,
-                "B5 did not issue exact qualified child AnalysisResultIdentity",
-            )
+                try:
+                    response = capture_eq713_response_population_from_session(
+                        context.verified_session,
+                        model_fingerprint=context.model_fingerprint,
+                        evidence_epoch_id=context.evidence_epoch_id,
+                        analysis_result_ref=execution_result.analysis_result_identity.identity_ref,
+                        execution_proof_ref=execution_result.execution_proof_ref,
+                        case_names=requested_cases,
+                        frame_names=frame_names,
+                        area_names=area_names,
+                    )
+                except Exception as exc:
+                    raise PublicA5CompositionError(BLOCKER_A3_MEMBER_RESPONSE, str(exc)) from exc
+                if (
+                    response.model_fingerprint != context.model_fingerprint
+                    or response.evidence_epoch_id != context.evidence_epoch_id
+                    or response.analysis_result_ref != execution_result.analysis_result_identity.identity_ref
+                    or response.execution_proof_ref != execution_result.execution_proof_ref
+                    or response.case_names != tuple(requested_cases)
+                ):
+                    raise PublicA5CompositionError(
+                        BLOCKER_A3_MEMBER_RESPONSE,
+                        "Eq713 member response population lost exact model/epoch/B5/case binding",
+                    )
+                response_populations.append(response)
+                resolved_a3, _ = _build_a3(
+                    frame_population=frame_pre,
+                    area_population=area_pre,
+                    topology=topology_pre,
+                    response_populations=tuple(response_populations),
+                )
+                if not resolved_a3.positive:
+                    _raise_unqualified_a3(resolved_a3, BLOCKER_A3_MEMBER_RESPONSE)
+                next_targets = _b4b_targets(
+                    frame_pre,
+                    area_pre,
+                    resolved_a3.frame_rows,
+                    resolved_a3.area_rows,
+                )
+                if next_targets == current_targets:
+                    a3 = resolved_a3
+                    break
+                current_a3 = resolved_a3
+            else:
+                raise PublicA5CompositionError(
+                    BLOCKER_A3_MEMBER_RESPONSE,
+                    "bounded response-mode closure did not reach a stable Eq713 target",
+                )
+            if established_state is None or execution_result is None:
+                raise PublicA5CompositionError(
+                    BLOCKER_A3_MEMBER_RESPONSE,
+                    "response-mode closure produced no qualified B5 generation",
+                )
     except PublicA5CompositionError as exc:
         return _blocked(request, context, exc.blocker)
     except Exception:
@@ -974,6 +1248,7 @@ def execute_public_a5_column(
 __all__ = [
     "BLOCKER_A3_EQ713_POPULATION",
     "BLOCKER_A3_FACTUAL_ACQUISITION",
+    "BLOCKER_A3_MEMBER_RESPONSE",
     "BLOCKER_A4_B4B",
     "BLOCKER_A4_B5",
     "BLOCKER_A4_POST_CONTINUITY",
