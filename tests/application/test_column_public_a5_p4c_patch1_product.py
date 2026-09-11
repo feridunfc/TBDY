@@ -287,7 +287,6 @@ def test_execute_project_public_mixed_whole_system_reaches_fnd2_with_only_final_
 
     monkeypatch.setattr(b4b, "get_area_modifiers_from_session", get_area)
     monkeypatch.setattr(b4b, "set_area_modifiers_from_session", set_area)
-    monkeypatch.setattr(revalidation, "get_area_modifiers_from_session", get_area)
     monkeypatch.setattr(
         a5,
         "probe_eq713_response_population_capability",
