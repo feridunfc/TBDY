@@ -644,7 +644,9 @@ def _b4b_targets(frame_population, area_population, frame_rows, area_rows):
         factual = area_by_name[disposition.area_name]
         if factual.property_state is None:
             raise PublicA5CompositionError(BLOCKER_A4_B4B, "Area target lost factual property identity")
-        vector = AreaModifierVector.from_sequence(disposition.target_property_modifiers)
+        vector = AreaModifierVector.from_sequence(
+    tuple(float(value) for value in disposition.target_property_modifiers)
+)
         property_name = factual.property_name
         previous = area_property_targets.get(property_name)
         if previous is not None and previous.as_tuple() != vector.as_tuple():
