@@ -93,10 +93,10 @@ def _response_truth(
     if not observed:
         return None, "exact response population is empty"
     if effective <= 0:
-        return None, "effective stiffness modifier is non-positive; zero response cannot prove non-participation"
+        return None, "effective stiffness modifier is non-positive; response evidence cannot prove participation"
     if any(value != 0.0 for value in observed):
         return True, "exact local generalized-result population contains nonzero response with positive effective stiffness"
-    return False, "exact local generalized-result population is identically zero with positive effective stiffness"
+    return None, "exact local generalized-result population is identically zero; response evidence cannot prove non-participation"
 
 
 @dataclass(frozen=True, slots=True)
