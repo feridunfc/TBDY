@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Mapping, Sequence
+from typing import Sequence
 
 from tbdy_engine.etabs.oapi.frame_modifiers import (
     FrameModifierReadFact,
@@ -19,6 +19,10 @@ from tbdy_engine.etabs.oapi.frame_modifiers import (
 from tbdy_engine.etabs.oapi.frame_releases import (
     FrameReleaseFact,
     get_frame_releases_from_session,
+)
+from tbdy_engine.etabs.oapi.frame_section_mechanics import (
+    FrameSectionMechanicsFact,
+    get_frame_section_mechanics_from_session,
 )
 from tbdy_engine.etabs.oapi.material_properties import (
     IsotropicMaterialPropertiesFact,
@@ -94,6 +98,7 @@ class FrameEq713FactualFact:
     frame_name: str
     member_role: str
     base_fact: FrameFlexuralBaseFact
+    section_mechanics: FrameSectionMechanicsFact
     property_modifiers: FrameModifierReadFact
     object_modifiers: FrameModifierReadFact
     releases: FrameReleaseFact
@@ -111,6 +116,13 @@ class FrameEq713FactualFact:
             raise TypeError("base_fact must be FrameFlexuralBaseFact")
         if self.base_fact.component_unique_name != name:
             raise EtabsFrameEq713PopulationError("Frame base fact identity mismatch")
+        if not isinstance(self.section_mechanics, FrameSectionMechanicsFact):
+            raise TypeError("section_mechanics must be FrameSectionMechanicsFact")
+        if (
+            self.section_mechanics.section_name != self.base_fact.assigned_section_name
+            or not self.section_mechanics.success
+        ):
+            raise EtabsFrameEq713PopulationError("Frame section mechanics fact is not exact/successful")
         if not isinstance(self.property_modifiers, FrameModifierReadFact):
             raise TypeError("property_modifiers must be FrameModifierReadFact")
         if (
@@ -181,7 +193,7 @@ def capture_frame_eq713_factual_population(
     owned_scratch: OwnedScratchContext,
     topology: StrictColumnTopologyBundle,
 ) -> FrameEq713FactualPopulation:
-    """Capture every exact supported RC Frame with independent end/material facts."""
+    """Capture every exact supported RC Frame with independent section/end/material facts."""
     if not isinstance(context, TrustedLiveAcquisitionContext):
         raise TypeError("context must be TrustedLiveAcquisitionContext")
     if not isinstance(owned_scratch, OwnedScratchContext):
@@ -202,6 +214,7 @@ def capture_frame_eq713_factual_population(
 
     material_cache: dict[str, IsotropicMaterialPropertiesFact] = {}
     property_modifier_cache: dict[str, FrameModifierReadFact] = {}
+    section_mechanics_cache: dict[str, FrameSectionMechanicsFact] = {}
     rows: list[FrameEq713FactualFact] = []
     population_refs: list[str] = [
         f"CSI:FrameObj.GetNameList:COUNT:{len(expected)}",
@@ -216,6 +229,17 @@ def capture_frame_eq713_factual_population(
             component_unique_name=name,
         )
         section = base.assigned_section_name
+        section_mechanics = section_mechanics_cache.get(section)
+        if section_mechanics is None:
+            section_mechanics = get_frame_section_mechanics_from_session(
+                context.verified_session,
+                section_name=section,
+            )
+            section_mechanics_cache[section] = section_mechanics
+        if not section_mechanics.success or section_mechanics.section_name != section:
+            raise EtabsFrameEq713PopulationError(
+                f"PropFrame.GetSectProps failed or lost section identity for {section!r}"
+            )
         prop = property_modifier_cache.get(section)
         if prop is None:
             prop = get_frame_modifiers_from_session(
@@ -259,6 +283,7 @@ def capture_frame_eq713_factual_population(
         refs = (
             *base.source_refs,
             base.evidence_ref,
+            section_mechanics.evidence_ref,
             prop.evidence_ref,
             obj.evidence_ref,
             releases.evidence_ref,
@@ -268,6 +293,7 @@ def capture_frame_eq713_factual_population(
             frame_name=name,
             member_role=roles[name],
             base_fact=base,
+            section_mechanics=section_mechanics,
             property_modifiers=prop,
             object_modifiers=obj,
             releases=releases,
