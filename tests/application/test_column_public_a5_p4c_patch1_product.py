@@ -372,7 +372,13 @@ def test_execute_project_public_mixed_whole_system_reaches_fnd2_with_only_final_
         verified_session=base._FakeSession(),
     )
 
-    assert result.column.fnd_col_2_execution is not None
+    assert result.column.fnd_col_2_execution is not None, (
+        result.column.blockers,
+        proof.harness.runtime["run_calls"],
+        tuple(proof.generation_refs),
+        tuple(proof.fnd2_result_refs),
+        tuple(response_calls),
+    )
     assert proof.harness.runtime["run_calls"] == 2
     assert len(response_calls) == 2
     assert [row[4] for row in response_calls] == proof.generation_refs
