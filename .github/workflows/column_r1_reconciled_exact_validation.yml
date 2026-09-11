@@ -62,6 +62,9 @@ jobs:
             tests/analysis_basis/test_eq713_shell_thick_response_p4b.py \
             tests/providers/test_etabs_eq713_response_provider_p4b.py
 
+      - name: P4C whole-system A3 composition
+        run: python -m pytest -q tests/application/test_column_public_a5_p4c_whole_system.py
+
       - name: A3 authority and Area provider
         run: |
           python -m pytest -q \
