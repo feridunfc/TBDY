@@ -26,6 +26,7 @@ from tbdy_engine.analysis_basis.eq713_uncracked_analysis_state import (
 )
 from tbdy_engine.analysis_basis.eq713_frame_mechanics import (
     FrameMechanicsEvidence,
+    FrameModeParticipationClassification,
     build_frame_eq713_modifier_target,
     classify_frame_eq713_participation,
 )
@@ -44,11 +45,15 @@ from tbdy_engine.design.columns.rebar_selection import (
 )
 from tbdy_engine.etabs.oapi.area_contributors import AreaDesignOrientation
 from tbdy_engine.etabs.oapi.area_modifiers import AreaModifierSurface, AreaModifierVector
+from tbdy_engine.etabs.oapi.eq713_response_cases import (
+    qualify_eq713_horizontal_case_scope_from_session,
+)
 from tbdy_engine.etabs.oapi.frame_modifiers import FrameModifierSurface, FrameModifierVector
 from tbdy_engine.features.column_shear_topology import ColumnTopologyEvidence, StrictColumnTopologyBundle
 from tbdy_engine.integration.etabs_analysis_execution import execute_controlled_analysis
 from tbdy_engine.integration.etabs_analysis_state_mutation import (
     AreaModifierTargetRequest,
+    FrameModifierMutationFact,
     FrameModifierTargetRequest,
     build_requested_section_modifier_manifest,
     establish_section_modifier_analysis_state,
@@ -63,6 +68,12 @@ from tbdy_engine.providers.etabs_area_contributor_provider import (
     AreaContributorPopulation,
     AreaPropertyFamily,
     capture_area_contributor_population_from_session,
+)
+from tbdy_engine.providers.etabs_auto_seismic_direction_provider import (
+    DIRECTION_AUTHORITY,
+    TABLE_AUTO_SEISMIC_TSC2018,
+    capture_etabs_auto_seismic_direction_evidence_from_session,
+    tsc2018_horizontal_pattern_directions,
 )
 from tbdy_engine.providers.etabs_column_endpoint_restraint_provider import (
     capture_etabs_column_endpoint_restraints_from_session,
@@ -132,14 +143,6 @@ _RESPONSE_AREA_MODES = {
     AreaStiffnessMode.M12,
     AreaStiffnessMode.V13,
     AreaStiffnessMode.V23,
-}
-_FRAME_SLOT = {
-    FrameStiffnessMode.AXIAL: 0,
-    FrameStiffnessMode.SHEAR_2: 1,
-    FrameStiffnessMode.SHEAR_3: 2,
-    FrameStiffnessMode.TORSION: 3,
-    FrameStiffnessMode.FLEXURE_2: 4,
-    FrameStiffnessMode.FLEXURE_3: 5,
 }
 _AREA_SLOT = {
     AreaStiffnessMode.F11: 0,
@@ -416,15 +419,6 @@ def _frame_response_values(
     }
 
 
-def _frame_effective_modifiers(fact: FrameEq713FactualFact):
-    prop = fact.property_modifiers.modifiers.as_tuple()
-    obj = fact.object_modifiers.modifiers.as_tuple()
-    return {
-        mode: Decimal(str(prop[index])) * Decimal(str(obj[index]))
-        for mode, index in _FRAME_SLOT.items()
-    }
-
-
 def _area_response_values(
     populations: Sequence[Eq713ResponsePopulationFact],
     area_name: str,
@@ -464,20 +458,22 @@ def _build_a3(
     frame_population: FrameEq713FactualPopulation,
     area_population: AreaContributorPopulation,
     topology: StrictColumnTopologyBundle,
+    frame_classifications: Mapping[str, FrameModeParticipationClassification] | None = None,
     response_populations: Sequence[Eq713ResponsePopulationFact] = (),
 ):
     material_bases = _material_bases(frame_population)
     response_refs = _response_refs(response_populations) if response_populations else ()
+    supplied = dict(frame_classifications or {})
     frame_rows = []
     for fact in frame_population.rows:
         mechanics = _frame_mechanics_evidence(fact, topology)
-        classification = classify_frame_eq713_participation(mechanics)
-        if response_populations and fact.member_role == "BEAM":
-            classification = classify_frame_response_participation(
-                base=classification,
-                values_by_mode=_frame_response_values(response_populations, fact.frame_name),
-                effective_modifiers=_frame_effective_modifiers(fact),
-                source_refs=response_refs,
+        classification = supplied.get(fact.frame_name)
+        if classification is None:
+            classification = classify_frame_eq713_participation(mechanics)
+        elif classification.component_uid != fact.frame_name:
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                f"Frame response classification identity mismatch for {fact.frame_name!r}",
             )
         basis = material_bases[fact.base_fact.material_name]
         frame_rows.append(
@@ -701,6 +697,55 @@ def _combo_scope(context: TrustedLiveAcquisitionContext):
     return selection, definitions, flattened, cases
 
 
+def _rank_xy(vectors: Sequence[tuple[float, float]]) -> int:
+    if not vectors:
+        return 0
+    for index, left in enumerate(vectors):
+        for right in vectors[index + 1 :]:
+            if abs(left[0] * right[1] - left[1] * right[0]) > 1.0e-10:
+                return 2
+    return 1
+
+
+def _qualified_linear_static_response_scope(
+    context: TrustedLiveAcquisitionContext,
+    candidate_case_names: Sequence[str],
+) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    auto = capture_etabs_auto_seismic_direction_evidence_from_session(context.verified_session)
+    direction_map = tsc2018_horizontal_pattern_directions(auto)
+    table_ref = f"ETABS:{TABLE_AUTO_SEISMIC_TSC2018}:FULL"
+    broad = qualify_eq713_horizontal_case_scope_from_session(
+        context.verified_session,
+        candidate_case_names=candidate_case_names,
+        tsc2018_pattern_directions=direction_map,
+        direction_source_refs=(context.session_provenance_ref, DIRECTION_AUTHORITY, table_ref),
+    )
+    static = tuple(fact for fact in broad.cases if fact.case_type == "LINEAR_STATIC")
+    if not static:
+        raise PublicA5CompositionError(
+            BLOCKER_A3_MEMBER_RESPONSE,
+            "qualified Eq713 response scope contains no LINEAR_STATIC horizontal earthquake case",
+        )
+    vectors = tuple(vector for fact in static for vector in fact.direction_vectors_xy)
+    if _rank_xy(vectors) != 2:
+        raise PublicA5CompositionError(
+            BLOCKER_A3_MEMBER_RESPONSE,
+            "qualified LINEAR_STATIC Eq713 response scope does not span independent global X/Y directions",
+        )
+    names = tuple(fact.case_name for fact in static)
+    refs = tuple(
+        dict.fromkeys(
+            (
+                context.session_provenance_ref,
+                DIRECTION_AUTHORITY,
+                table_ref,
+                *(ref for fact in static for ref in fact.source_refs),
+            )
+        )
+    )
+    return names, refs
+
+
 def _analysis_basis_refs(context, owned_scratch, frame_pre, area_pre, a3):
     return tuple(
         dict.fromkeys(
@@ -768,6 +813,86 @@ def _run_a3_generation(
     return targets, established_state, execution_result
 
 
+def _initial_beam_classifications(frame_population, topology, frame_names):
+    wanted = set(frame_names)
+    return {
+        fact.frame_name: classify_frame_eq713_participation(_frame_mechanics_evidence(fact, topology))
+        for fact in frame_population.rows
+        if fact.member_role == "BEAM" and fact.frame_name in wanted
+    }
+
+
+def _response_true_count(classifications: Mapping[str, FrameModeParticipationClassification]) -> int:
+    return sum(
+        row.participates is True
+        for classification in classifications.values()
+        for row in classification.mode_evidence
+    )
+
+
+def _classify_beam_generation(
+    *,
+    frame_population: FrameEq713FactualPopulation,
+    topology: StrictColumnTopologyBundle,
+    response: Eq713ResponsePopulationFact,
+    established_state,
+    previous: Mapping[str, FrameModeParticipationClassification],
+) -> dict[str, FrameModeParticipationClassification]:
+    mutations = {
+        (item.surface, item.target_name): item
+        for item in established_state.mutation_manifest.mutations
+        if isinstance(item, FrameModifierMutationFact)
+    }
+    by_name = {fact.frame_name: fact for fact in frame_population.rows}
+    result = dict(previous)
+    for frame_name in response.frame_names:
+        fact = by_name.get(frame_name)
+        if fact is None or fact.member_role != "BEAM":
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                f"response Frame {frame_name!r} is not an exact BEAM factual-population member",
+            )
+        if fact.section_mechanics.section_name != fact.base_fact.assigned_section_name:
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                f"BEAM {frame_name!r} section mechanics identity mismatch",
+            )
+        if fact.isotropic_material.material_name != fact.base_fact.material_name:
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                f"BEAM {frame_name!r} material identity mismatch",
+            )
+        section_mutation = mutations.get(
+            (FrameModifierSurface.FRAME_SECTION_PROPERTY, fact.base_fact.assigned_section_name)
+        )
+        object_mutation = mutations.get((FrameModifierSurface.FRAME_OBJECT, frame_name))
+        if section_mutation is None or object_mutation is None:
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                f"BEAM {frame_name!r} lacks exact B4B generation modifier readback",
+            )
+        base = result.get(frame_name)
+        if base is None:
+            base = classify_frame_eq713_participation(_frame_mechanics_evidence(fact, topology))
+        result[frame_name] = classify_frame_response_participation(
+            base=base,
+            values_by_mode=_frame_response_values((response,), frame_name),
+            member_role="BEAM",
+            section_mechanics=fact.section_mechanics,
+            material_properties=fact.isotropic_material,
+            property_modifiers=section_mutation.after,
+            object_modifiers=object_mutation.after,
+            source_refs=(
+                *response.source_refs,
+                response.evidence_ref,
+                established_state.analysis_state_identity.identity_ref,
+                section_mutation.mutation_ref,
+                object_mutation.mutation_ref,
+            ),
+        )
+    return result
+
+
 def _area_continuity_key(fact: AreaContributorFact):
     state = fact.property_state
     return (
@@ -825,6 +950,7 @@ def _prove_post_continuity(
         pre = pre_by_name[post.frame_name]
         if (
             post.base_fact.semantic_state_ref != pre.base_fact.semantic_state_ref
+            or post.section_mechanics.evidence_ref != pre.section_mechanics.evidence_ref
             or post.releases.evidence_ref != pre.releases.evidence_ref
             or post.isotropic_material.evidence_ref != pre.isotropic_material.evidence_ref
         ):
@@ -1058,6 +1184,72 @@ def _materialize_fnd2_inputs(
     )
 
 
+def _legacy_area_response_closure(
+    *,
+    context,
+    owned_scratch,
+    frame_pre,
+    area_pre,
+    topology_pre,
+    provisional_a3,
+    frame_names,
+    area_names,
+    unresolved_count,
+    requested_cases,
+):
+    response_populations = []
+    current_a3 = provisional_a3
+    established_state = None
+    execution_result = None
+    for _generation_index in range(unresolved_count + 1):
+        current_targets, established_state, execution_result = _run_a3_generation(
+            context=context,
+            owned_scratch=owned_scratch,
+            frame_pre=frame_pre,
+            area_pre=area_pre,
+            a3=current_a3,
+            requested_cases=requested_cases,
+        )
+        response = capture_eq713_response_population_from_session(
+            context.verified_session,
+            model_fingerprint=context.model_fingerprint,
+            evidence_epoch_id=context.evidence_epoch_id,
+            analysis_result_ref=execution_result.analysis_result_identity.identity_ref,
+            execution_proof_ref=execution_result.execution_proof_ref,
+            case_names=requested_cases,
+            frame_names=frame_names,
+            area_names=area_names,
+        )
+        if (
+            response.model_fingerprint != context.model_fingerprint
+            or response.evidence_epoch_id != context.evidence_epoch_id
+            or response.analysis_result_ref != execution_result.analysis_result_identity.identity_ref
+            or response.execution_proof_ref != execution_result.execution_proof_ref
+            or response.case_names != tuple(requested_cases)
+        ):
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                "Eq713 member response population lost exact model/epoch/B5/case binding",
+            )
+        response_populations.append(response)
+        resolved_a3, _ = _build_a3(
+            frame_population=frame_pre,
+            area_population=area_pre,
+            topology=topology_pre,
+            response_populations=tuple(response_populations),
+        )
+        if not resolved_a3.positive:
+            _raise_unqualified_a3(resolved_a3, BLOCKER_A3_MEMBER_RESPONSE)
+        next_targets = _b4b_targets(frame_pre, area_pre, resolved_a3.frame_rows, resolved_a3.area_rows)
+        if next_targets == current_targets:
+            return resolved_a3, established_state, execution_result
+        current_a3 = resolved_a3
+    raise PublicA5CompositionError(
+        BLOCKER_A3_MEMBER_RESPONSE,
+        "bounded response-mode closure did not reach a stable Eq713 target",
+    )
+
+
 def execute_public_a5_column(
     request: ColumnExecutionRequest,
     *,
@@ -1111,12 +1303,17 @@ def execute_public_a5_column(
                     require_area=bool(area_names),
                 )
             except TypeError:
-                # Existing offline application fakes are not production verified sessions;
-                # retain the prior fail-closed A3 contract for that unsupported harness.
                 _raise_unqualified_a3(provisional_a3)
             except Exception as exc:
                 raise PublicA5CompositionError(BLOCKER_A3_MEMBER_RESPONSE, str(exc)) from exc
         selection, definitions, flattened_combos, requested_cases = _combo_scope(context)
+        qualified_static_cases = ()
+        qualified_static_refs = ()
+        if probe_scope is not None and probe_scope[0] and not probe_scope[1]:
+            qualified_static_cases, qualified_static_refs = _qualified_linear_static_response_scope(
+                context,
+                requested_cases,
+            )
     except PublicA5CompositionError as exc:
         return _blocked(request, context, exc.blocker)
     except Exception:
@@ -1135,72 +1332,100 @@ def execute_public_a5_column(
             )
         else:
             frame_names, area_names, unresolved_count = probe_scope
-            response_populations = []
-            current_a3 = provisional_a3
-            established_state = None
-            execution_result = None
-            for _generation_index in range(unresolved_count + 1):
-                current_targets, established_state, execution_result = _run_a3_generation(
+            if area_names:
+                a3, established_state, execution_result = _legacy_area_response_closure(
                     context=context,
                     owned_scratch=owned_scratch,
                     frame_pre=frame_pre,
                     area_pre=area_pre,
-                    a3=current_a3,
+                    topology_pre=topology_pre,
+                    provisional_a3=provisional_a3,
+                    frame_names=frame_names,
+                    area_names=area_names,
+                    unresolved_count=unresolved_count,
                     requested_cases=requested_cases,
                 )
-                try:
-                    response = capture_eq713_response_population_from_session(
-                        context.verified_session,
-                        model_fingerprint=context.model_fingerprint,
-                        evidence_epoch_id=context.evidence_epoch_id,
-                        analysis_result_ref=execution_result.analysis_result_identity.identity_ref,
-                        execution_proof_ref=execution_result.execution_proof_ref,
-                        case_names=requested_cases,
-                        frame_names=frame_names,
-                        area_names=area_names,
+            else:
+                current_a3 = provisional_a3
+                classifications = _initial_beam_classifications(frame_pre, topology_pre, frame_names)
+                established_state = None
+                execution_result = None
+                for _generation_index in range(unresolved_count + 1):
+                    current_targets, established_state, execution_result = _run_a3_generation(
+                        context=context,
+                        owned_scratch=owned_scratch,
+                        frame_pre=frame_pre,
+                        area_pre=area_pre,
+                        a3=current_a3,
+                        requested_cases=requested_cases,
                     )
-                except Exception as exc:
-                    raise PublicA5CompositionError(BLOCKER_A3_MEMBER_RESPONSE, str(exc)) from exc
-                if (
-                    response.model_fingerprint != context.model_fingerprint
-                    or response.evidence_epoch_id != context.evidence_epoch_id
-                    or response.analysis_result_ref != execution_result.analysis_result_identity.identity_ref
-                    or response.execution_proof_ref != execution_result.execution_proof_ref
-                    or response.case_names != tuple(requested_cases)
-                ):
+                    try:
+                        response = capture_eq713_response_population_from_session(
+                            context.verified_session,
+                            model_fingerprint=context.model_fingerprint,
+                            evidence_epoch_id=context.evidence_epoch_id,
+                            analysis_result_ref=execution_result.analysis_result_identity.identity_ref,
+                            execution_proof_ref=execution_result.execution_proof_ref,
+                            case_names=qualified_static_cases,
+                            frame_names=frame_names,
+                            area_names=(),
+                            case_scope_refs=qualified_static_refs,
+                        )
+                    except Exception as exc:
+                        raise PublicA5CompositionError(BLOCKER_A3_MEMBER_RESPONSE, str(exc)) from exc
+                    if (
+                        response.model_fingerprint != context.model_fingerprint
+                        or response.evidence_epoch_id != context.evidence_epoch_id
+                        or response.analysis_result_ref != execution_result.analysis_result_identity.identity_ref
+                        or response.execution_proof_ref != execution_result.execution_proof_ref
+                        or response.case_names != tuple(qualified_static_cases)
+                    ):
+                        raise PublicA5CompositionError(
+                            BLOCKER_A3_MEMBER_RESPONSE,
+                            "Eq713 Frame response population lost exact model/epoch/B5/qualified-static binding",
+                        )
+                    before_true = _response_true_count(classifications)
+                    classifications = _classify_beam_generation(
+                        frame_population=frame_pre,
+                        topology=topology_pre,
+                        response=response,
+                        established_state=established_state,
+                        previous=classifications,
+                    )
+                    after_true = _response_true_count(classifications)
+                    resolved_a3, _ = _build_a3(
+                        frame_population=frame_pre,
+                        area_population=area_pre,
+                        topology=topology_pre,
+                        frame_classifications=classifications,
+                    )
+                    next_targets = _b4b_targets(
+                        frame_pre,
+                        area_pre,
+                        resolved_a3.frame_rows,
+                        resolved_a3.area_rows,
+                    )
+                    if next_targets == current_targets:
+                        if not resolved_a3.positive:
+                            _raise_unqualified_a3(resolved_a3, BLOCKER_A3_MEMBER_RESPONSE)
+                        a3 = resolved_a3
+                        break
+                    if after_true <= before_true:
+                        raise PublicA5CompositionError(
+                            BLOCKER_A3_MEMBER_RESPONSE,
+                            "A3 Frame target changed without learning a new positive response participation mode",
+                        )
+                    current_a3 = resolved_a3
+                else:
                     raise PublicA5CompositionError(
                         BLOCKER_A3_MEMBER_RESPONSE,
-                        "Eq713 member response population lost exact model/epoch/B5/case binding",
+                        "bounded Frame response-mode closure did not reach a stable Eq713 target",
                     )
-                response_populations.append(response)
-                resolved_a3, _ = _build_a3(
-                    frame_population=frame_pre,
-                    area_population=area_pre,
-                    topology=topology_pre,
-                    response_populations=tuple(response_populations),
-                )
-                if not resolved_a3.positive:
-                    _raise_unqualified_a3(resolved_a3, BLOCKER_A3_MEMBER_RESPONSE)
-                next_targets = _b4b_targets(
-                    frame_pre,
-                    area_pre,
-                    resolved_a3.frame_rows,
-                    resolved_a3.area_rows,
-                )
-                if next_targets == current_targets:
-                    a3 = resolved_a3
-                    break
-                current_a3 = resolved_a3
-            else:
-                raise PublicA5CompositionError(
-                    BLOCKER_A3_MEMBER_RESPONSE,
-                    "bounded response-mode closure did not reach a stable Eq713 target",
-                )
-            if established_state is None or execution_result is None:
-                raise PublicA5CompositionError(
-                    BLOCKER_A3_MEMBER_RESPONSE,
-                    "response-mode closure produced no qualified B5 generation",
-                )
+                if established_state is None or execution_result is None:
+                    raise PublicA5CompositionError(
+                        BLOCKER_A3_MEMBER_RESPONSE,
+                        "Frame response-mode closure produced no qualified final B5 generation",
+                    )
     except PublicA5CompositionError as exc:
         return _blocked(request, context, exc.blocker)
     except Exception:
