@@ -12,7 +12,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import math
-from typing import Any, Sequence
+from typing import Any, Mapping, Sequence
 
 from tbdy_engine.etabs.safety import EtabsVerifiedSession, _execute_verified_read
 
@@ -21,6 +21,8 @@ from .contracts import EtabsOAPIError
 _LINEAR_STATIC = 1
 _RESPONSE_SPECTRUM = 4
 _QUAKE = 5
+_AUTO_SEISMIC_DIRECTION_AUTHORITY = "ETABS_AUTO_SEISMIC_TSC2018_DIRECTION_FLAGS"
+_AUTO_SEISMIC_TABLE = "Load Pattern Definitions - Auto Seismic - TSC 2018"
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,7 +129,31 @@ def _response_spectrum_vectors(raw: object, case_name: str) -> tuple[tuple[float
     return tuple(vectors)
 
 
-def _static_linear_vectors(raw: object, case_name: str) -> tuple[tuple[float, float], ...]:
+def _pattern_direction_map(
+    value: Mapping[str, Sequence[bool]] | None,
+) -> dict[str, tuple[bool, bool]]:
+    if value is None:
+        return {}
+    if not isinstance(value, Mapping):
+        raise EtabsOAPIError("tsc2018_pattern_directions must be a mapping")
+    result: dict[str, tuple[bool, bool]] = {}
+    for raw_name, raw_flags in value.items():
+        name = _text(raw_name, "tsc2018_pattern_name")
+        if isinstance(raw_flags, (str, bytes)) or not isinstance(raw_flags, Sequence):
+            raise EtabsOAPIError("TSC-2018 direction flags must be a two-item bool sequence")
+        flags = tuple(raw_flags)
+        if len(flags) != 2 or any(type(flag) is not bool for flag in flags):
+            raise EtabsOAPIError("TSC-2018 direction flags must be exactly (x_selected, y_selected)")
+        result[name] = (flags[0], flags[1])
+    return result
+
+
+def _static_linear_vectors(
+    raw: object,
+    case_name: str,
+    *,
+    pattern_directions: Mapping[str, tuple[bool, bool]],
+) -> tuple[tuple[tuple[float, float], ...], tuple[str, ...]]:
     if not isinstance(raw, (tuple, list)) or len(raw) != 5:
         raise EtabsOAPIError(f"StaticLinear.GetLoads({case_name!r}) returned unexpected ABI shape: {raw!r}")
     count = _int(raw[0], "StaticLinear.NumberLoads")
@@ -138,22 +164,57 @@ def _static_linear_vectors(raw: object, case_name: str) -> tuple[tuple[float, fl
     scale_factors = _seq(raw[3], "StaticLinear.SF", count)
     _ret(raw[4], "LoadCases.StaticLinear.GetLoads")
 
-    vectors: list[tuple[float, float]] = []
+    nonzero: list[tuple[str, str, float]] = []
     for index in range(count):
         load_type = _text(load_types[index], "StaticLinear.LoadType")
         load_name = _text(load_names[index], "StaticLinear.LoadName")
         sf = _finite(scale_factors[index], "StaticLinear.SF")
-        if load_type != "Accel" or load_name not in {"UX", "UY"}:
+        if sf != 0.0:
+            nonzero.append((load_type, load_name, sf))
+    if not nonzero:
+        raise EtabsOAPIError(f"static-linear earthquake case {case_name!r} has no nonzero horizontal action")
+
+    families = {row[0] for row in nonzero}
+    if len(families) != 1:
+        raise EtabsOAPIError(
+            f"earthquake static-linear case {case_name!r} mixes unsupported load families"
+        )
+    load_type = next(iter(families))
+    vectors: list[tuple[float, float]] = []
+    refs: list[str] = []
+    if load_type == "Accel":
+        for _kind, load_name, _sf in nonzero:
+            if load_name not in {"UX", "UY"}:
+                raise EtabsOAPIError(
+                    f"earthquake static-linear case {case_name!r} is not clean horizontal acceleration-only; "
+                    f"load_type={load_type!r}, load_name={load_name!r}"
+                )
+            vectors.append((1.0, 0.0) if load_name == "UX" else (0.0, 1.0))
+            refs.append(f"CSI:StaticLinear.LoadName={load_name}")
+    elif load_type == "Load":
+        for _kind, pattern_name, _sf in nonzero:
+            flags = pattern_directions.get(pattern_name)
+            if flags is None:
+                raise EtabsOAPIError(
+                    f"earthquake static-linear case {case_name!r} load pattern {pattern_name!r} has no exact TSC-2018 direction fact"
+                )
+            x_selected, y_selected = flags
+            if x_selected == y_selected:
+                raise EtabsOAPIError(
+                    f"earthquake static-linear case {case_name!r} load pattern {pattern_name!r} has ambiguous/non-horizontal TSC-2018 direction flags"
+                )
+            vectors.append((1.0, 0.0) if x_selected else (0.0, 1.0))
+            refs.append(f"ETABS:{_AUTO_SEISMIC_TABLE}:{pattern_name}")
+        if _rank_xy(vectors) != 1:
             raise EtabsOAPIError(
-                f"earthquake static-linear case {case_name!r} is not clean horizontal acceleration-only; "
-                f"load_type={load_type!r}, load_name={load_name!r}"
+                f"earthquake static-linear case {case_name!r} mixes X/Y load-pattern actions; clean single-axis action required"
             )
-        if sf == 0.0:
-            continue
-        vectors.append((1.0, 0.0) if load_name == "UX" else (0.0, 1.0))
-    if not vectors:
-        raise EtabsOAPIError(f"static-linear earthquake case {case_name!r} has no nonzero horizontal acceleration")
-    return tuple(vectors)
+        refs.append(_AUTO_SEISMIC_DIRECTION_AUTHORITY)
+    else:
+        raise EtabsOAPIError(
+            f"earthquake static-linear case {case_name!r} uses unsupported LoadType={load_type!r}"
+        )
+    return tuple(vectors), tuple(dict.fromkeys(refs))
 
 
 def _rank_xy(vectors: Sequence[tuple[float, float]]) -> int:
@@ -170,11 +231,17 @@ def qualify_eq713_horizontal_case_scope_from_session(
     session: EtabsVerifiedSession,
     *,
     candidate_case_names: Sequence[str],
+    tsc2018_pattern_directions: Mapping[str, Sequence[bool]] | None = None,
+    direction_source_refs: Sequence[str] = (),
     timeout_seconds: float = 30.0,
 ) -> Eq713HorizontalCaseScope:
     candidates = tuple(_text(value, "candidate_case_name") for value in candidate_case_names)
     if not candidates or len(candidates) != len(set(candidates)):
         raise EtabsOAPIError("candidate_case_names must be a nonempty duplicate-free sequence")
+    pattern_directions = _pattern_direction_map(tsc2018_pattern_directions)
+    supplied_direction_refs = tuple(
+        dict.fromkeys(_text(value, "direction_source_ref") for value in direction_source_refs)
+    )
 
     def acquire(_etabs_object: object, sap_model: Any) -> Eq713HorizontalCaseScope:
         load_cases = getattr(sap_model, "LoadCases", None)
@@ -184,7 +251,7 @@ def qualify_eq713_horizontal_case_scope_from_session(
         static_linear = getattr(load_cases, "StaticLinear", None)
         facts: list[Eq713HorizontalCaseFact] = []
         all_vectors: list[tuple[float, float]] = []
-        refs: list[str] = []
+        refs: list[str] = list(supplied_direction_refs)
 
         for case_name in candidates:
             case_type, design_type = _case_type(load_cases.GetTypeOAPI_1(case_name), case_name)
@@ -200,20 +267,29 @@ def qualify_eq713_horizontal_case_scope_from_session(
                     raise EtabsOAPIError("LoadCases.ResponseSpectrum.GetLoads is unavailable")
                 vectors = _response_spectrum_vectors(method(case_name), case_name)
                 case_type_name = "RESPONSE_SPECTRUM"
-                method_ref = f"ETABS:LoadCases.ResponseSpectrum.GetLoads:{case_name}:HORIZONTAL_INERTIAL_ONLY"
+                method_refs = (
+                    f"ETABS:LoadCases.ResponseSpectrum.GetLoads:{case_name}:HORIZONTAL_INERTIAL_ONLY",
+                )
             elif case_type == _LINEAR_STATIC:
                 method = getattr(static_linear, "GetLoads", None)
                 if not callable(method):
                     raise EtabsOAPIError("LoadCases.StaticLinear.GetLoads is unavailable")
-                vectors = _static_linear_vectors(method(case_name), case_name)
+                vectors, load_refs = _static_linear_vectors(
+                    method(case_name),
+                    case_name,
+                    pattern_directions=pattern_directions,
+                )
                 case_type_name = "LINEAR_STATIC"
-                method_ref = f"ETABS:LoadCases.StaticLinear.GetLoads:{case_name}:HORIZONTAL_ACCEL_ONLY"
+                method_refs = (
+                    f"ETABS:LoadCases.StaticLinear.GetLoads:{case_name}:HORIZONTAL_INERTIAL_ONLY",
+                    *load_refs,
+                )
             else:
                 raise EtabsOAPIError(
                     f"earthquake-design candidate case {case_name!r} has unsupported case type {case_type}; "
                     "horizontal response provenance is not qualified"
                 )
-            source_refs = (type_ref, method_ref)
+            source_refs = tuple(dict.fromkeys((type_ref, *method_refs)))
             facts.append(
                 Eq713HorizontalCaseFact(
                     case_name=case_name,
@@ -223,7 +299,7 @@ def qualify_eq713_horizontal_case_scope_from_session(
                     source_refs=source_refs,
                 )
             )
-            refs.append(method_ref)
+            refs.extend(method_refs)
             all_vectors.extend(vectors)
 
         if not facts:
