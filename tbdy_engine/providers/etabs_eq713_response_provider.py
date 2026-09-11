@@ -47,6 +47,15 @@ def _names(values: Sequence[str], label: str, *, allow_empty: bool = False) -> t
     return result
 
 
+def _refs(values: Sequence[str], label: str, *, allow_empty: bool = False) -> tuple[str, ...]:
+    result = tuple(dict.fromkeys(values))
+    if not allow_empty and not result:
+        raise ValueError(f"{label} must not be empty")
+    if any(not isinstance(value, str) or not value.strip() or value != value.strip() for value in result):
+        raise ValueError(f"{label} must contain canonical strings")
+    return result
+
+
 def _text(value: str, label: str) -> str:
     if not isinstance(value, str) or not value.strip() or value != value.strip():
         raise ValueError(f"{label} must be a nonblank canonical string")
@@ -87,6 +96,7 @@ def capture_eq713_response_population_from_session(
     case_names: Sequence[str],
     frame_names: Sequence[str] = (),
     area_names: Sequence[str] = (),
+    case_scope_refs: Sequence[str] = (),
 ) -> Eq713ResponsePopulationFact:
     if not isinstance(session, EtabsVerifiedSession):
         raise TypeError("session must be EtabsVerifiedSession")
@@ -97,6 +107,7 @@ def capture_eq713_response_population_from_session(
     cases = _names(case_names, "case_names")
     frames = _names(frame_names, "frame_names", allow_empty=True)
     areas = _names(area_names, "area_names", allow_empty=True)
+    scope_refs = _refs(case_scope_refs, "case_scope_refs", allow_empty=True)
     if not frames and not areas:
         raise ValueError("at least one Frame or Area response target is required")
 
@@ -125,6 +136,7 @@ def capture_eq713_response_population_from_session(
             (
                 result_ref,
                 execution_ref,
+                *scope_refs,
                 *(row.evidence_ref for row in frame_results),
                 *(row.evidence_ref for row in area_results),
             )
@@ -137,6 +149,7 @@ def capture_eq713_response_population_from_session(
             "analysis_result_ref": result_ref,
             "execution_proof_ref": execution_ref,
             "case_names": cases,
+            "case_scope_refs": scope_refs,
             "frame_names": frames,
             "area_names": areas,
             "frame_result_refs": [row.evidence_ref for row in frame_results],
