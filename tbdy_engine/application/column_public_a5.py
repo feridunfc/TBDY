@@ -1279,6 +1279,49 @@ def _materialize_fnd2_inputs(
     )
 
 
+
+def _new_positive_response_participation_facts(
+    previous: Eq713PopulationDisposition,
+    resolved: Eq713PopulationDisposition,
+    *,
+    frame_names: Sequence[str],
+    area_names: Sequence[str],
+) -> frozenset[tuple[str, str, str]] | None:
+    """Return exact response-scope BLOCKED->TARGETED facts learned this generation.
+
+    ``None`` is retained only for legacy synthetic bounded tests that do not
+    construct the production ``Eq713PopulationDisposition`` type. Production
+    PUBLIC-A5 always supplies the typed whole-system population.
+    """
+    if not isinstance(previous, Eq713PopulationDisposition) or not isinstance(
+        resolved, Eq713PopulationDisposition
+    ):
+        return None
+
+    wanted_frames = set(frame_names)
+    wanted_areas = set(area_names)
+    before: dict[tuple[str, str, str], ContributorDisposition] = {}
+    after: dict[tuple[str, str, str], ContributorDisposition] = {}
+
+    for whole, target in ((previous, before), (resolved, after)):
+        for row in whole.frame_rows:
+            if row.component_uid not in wanted_frames:
+                continue
+            for mode in row.mode_dispositions:
+                target[("FRAME", row.component_uid, mode.mode.value)] = mode.disposition
+        for row in whole.area_rows:
+            if row.area_name not in wanted_areas:
+                continue
+            for mode in row.mode_dispositions:
+                target[("AREA", row.area_name, mode.mode.value)] = mode.disposition
+
+    return frozenset(
+        identity
+        for identity, disposition in after.items()
+        if disposition is ContributorDisposition.TARGETED_UNCRACKED
+        and before.get(identity) is ContributorDisposition.BLOCKED_UNSUPPORTED
+    )
+
 def _legacy_area_response_closure(
     *,
     context,
@@ -1377,6 +1420,17 @@ def _legacy_area_response_closure(
             if not resolved_a3.positive:
                 _raise_unqualified_a3(resolved_a3, BLOCKER_A3_MEMBER_RESPONSE)
             return resolved_a3, established_state, execution_result
+        new_positive = _new_positive_response_participation_facts(
+            current_a3,
+            resolved_a3,
+            frame_names=frame_names,
+            area_names=area_names,
+        )
+        if new_positive is not None and not new_positive:
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                "A3 mixed target changed without learning a new positive Frame/Area response participation mode",
+            )
         current_a3 = resolved_a3
 
     raise PublicA5CompositionError(
