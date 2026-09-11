@@ -1,9 +1,9 @@
 """Typed CSI result ABI used only as factual evidence for TS500 Eq.7.13 mode participation.
 
-This module owns exact Results.FrameForce / Results.AreaForceShell invocation,
-Python COM tuple decoding, exact object/case binding, and reversible Results.Setup
-selection.  It does not decide TS500 applicability, participation, modifier targets,
-or PASS/FAIL.
+This module owns exact Results.FrameForce / Results.AreaForceShell /
+Results.AreaStrainShell invocation, Python COM tuple decoding, exact object/case
+binding, and reversible Results.Setup selection. It does not decide TS500
+applicability, participation, modifier targets, or PASS/FAIL.
 """
 from __future__ import annotations
 
@@ -81,6 +81,47 @@ class AreaForceShellResponseFact:
     @property
     def evidence_ref(self) -> str:
         return f"ETABS:Results.AreaForceShell:{self.area_name}:{self.case_name}:rows={len(self.rows)}"
+
+
+@dataclass(frozen=True, slots=True)
+class AreaStrainShellResponseRow:
+    object_name: str
+    element_name: str
+    point_element_name: str
+    load_case: str
+    step_type: str
+    step_number: float
+    e11_top: float
+    e22_top: float
+    g12_top: float
+    emax_top: float
+    emin_top: float
+    eangle_top: float
+    evm_top: float
+    e11_bottom: float
+    e22_bottom: float
+    g12_bottom: float
+    emax_bottom: float
+    emin_bottom: float
+    eangle_bottom: float
+    evm_bottom: float
+    g13_avg: float
+    g23_avg: float
+    gmax_avg: float
+    gangle_avg: float
+
+
+@dataclass(frozen=True, slots=True)
+class AreaStrainShellResponseFact:
+    area_name: str
+    case_name: str
+    rows: tuple[AreaStrainShellResponseRow, ...]
+    return_code: int
+    source_api: str = "Results.AreaStrainShell"
+
+    @property
+    def evidence_ref(self) -> str:
+        return f"ETABS:Results.AreaStrainShell:{self.area_name}:{self.case_name}:rows={len(self.rows)}"
 
 
 def _text(value: object, label: str) -> str:
@@ -195,6 +236,56 @@ def decode_area_force_shell_response(raw: object, *, area_name: str, case_name: 
     return AreaForceShellResponseFact(area, case, tuple(rows), ret)
 
 
+def decode_area_strain_shell_response(raw: object, *, area_name: str, case_name: str) -> AreaStrainShellResponseFact:
+    """Decode only the documented AreaStrainShell ABI; no shell mechanics are inferred here."""
+    area = _text(area_name, "area_name")
+    case = _text(case_name, "case_name")
+    if not isinstance(raw, (tuple, list)) or len(raw) != 26:
+        raise EtabsOAPIError(f"Results.AreaStrainShell returned unexpected ABI shape: {raw!r}")
+    count = _count(raw[0], "AreaStrainShell.NumberResults")
+    arrays = tuple(_seq(raw[index], f"AreaStrainShell[{index}]", count) for index in range(1, 25))
+    ret = _ret(raw[25], "Results.AreaStrainShell")
+    rows: list[AreaStrainShellResponseRow] = []
+    for index in range(count):
+        obj = _text(arrays[0][index], "AreaStrainShell.Obj")
+        load_case = _text(arrays[3][index], "AreaStrainShell.LoadCase")
+        if obj != area or load_case != case:
+            raise EtabsOAPIError(
+                f"Results.AreaStrainShell binding mismatch at row {index}: object={obj!r}, case={load_case!r}"
+            )
+        rows.append(
+            AreaStrainShellResponseRow(
+                object_name=obj,
+                element_name=_text(arrays[1][index], "AreaStrainShell.Elm"),
+                point_element_name=_text(arrays[2][index], "AreaStrainShell.PointElm"),
+                load_case=load_case,
+                step_type=str(arrays[4][index] or ""),
+                step_number=_finite(arrays[5][index], "AreaStrainShell.StepNum"),
+                e11_top=_finite(arrays[6][index], "AreaStrainShell.e11top"),
+                e22_top=_finite(arrays[7][index], "AreaStrainShell.e22top"),
+                g12_top=_finite(arrays[8][index], "AreaStrainShell.g12top"),
+                emax_top=_finite(arrays[9][index], "AreaStrainShell.emaxtop"),
+                emin_top=_finite(arrays[10][index], "AreaStrainShell.emintop"),
+                eangle_top=_finite(arrays[11][index], "AreaStrainShell.eangletop"),
+                evm_top=_finite(arrays[12][index], "AreaStrainShell.evmtop"),
+                e11_bottom=_finite(arrays[13][index], "AreaStrainShell.e11bot"),
+                e22_bottom=_finite(arrays[14][index], "AreaStrainShell.e22bot"),
+                g12_bottom=_finite(arrays[15][index], "AreaStrainShell.g12bot"),
+                emax_bottom=_finite(arrays[16][index], "AreaStrainShell.emaxbot"),
+                emin_bottom=_finite(arrays[17][index], "AreaStrainShell.eminbot"),
+                eangle_bottom=_finite(arrays[18][index], "AreaStrainShell.eanglebot"),
+                evm_bottom=_finite(arrays[19][index], "AreaStrainShell.evmbot"),
+                g13_avg=_finite(arrays[20][index], "AreaStrainShell.g13avg"),
+                g23_avg=_finite(arrays[21][index], "AreaStrainShell.g23avg"),
+                gmax_avg=_finite(arrays[22][index], "AreaStrainShell.gmaxavg"),
+                gangle_avg=_finite(arrays[23][index], "AreaStrainShell.gangleavg"),
+            )
+        )
+    if not rows:
+        raise EtabsOAPIError(f"Results.AreaStrainShell returned no rows for {area!r}/{case!r}")
+    return AreaStrainShellResponseFact(area, case, tuple(rows), ret)
+
+
 def probe_eq713_response_results_capability_from_session(
     session: EtabsVerifiedSession,
     *,
@@ -211,7 +302,7 @@ def probe_eq713_response_results_capability_from_session(
         if require_frame:
             required.append("FrameForce")
         if require_area:
-            required.append("AreaForceShell")
+            required.append("AreaStrainShell")
         for name in required:
             if not callable(getattr(results, name, None)):
                 raise EtabsOAPIError(f"Results.{name} is unavailable")
@@ -283,14 +374,46 @@ def read_area_force_shell_response_from_session(
     )
 
 
+def read_area_strain_shell_response_from_session(
+    session: EtabsVerifiedSession,
+    *,
+    area_name: str,
+    case_name: str,
+    timeout_seconds: float = 30.0,
+) -> AreaStrainShellResponseFact:
+    area = _text(area_name, "area_name")
+    case = _text(case_name, "case_name")
+
+    def acquire(_etabs_object: object, sap_model: Any) -> AreaStrainShellResponseFact:
+        results = getattr(sap_model, "Results", None)
+        method = getattr(results, "AreaStrainShell", None)
+        if not callable(method):
+            raise EtabsOAPIError("Results.AreaStrainShell is unavailable")
+        with ResultsSetupReadTransaction(sap_model) as transaction:
+            transaction.select_case(case)
+            raw = method(area, _OBJECT_ELM)
+        return decode_area_strain_shell_response(raw, area_name=area, case_name=case)
+
+    return _execute_verified_read(
+        session,
+        acquire,
+        operation=f"eq713_area_strain_shell_response:{area}:{case}",
+        timeout_seconds=timeout_seconds,
+    )
+
+
 __all__ = [
     "AreaForceShellResponseFact",
     "AreaForceShellResponseRow",
+    "AreaStrainShellResponseFact",
+    "AreaStrainShellResponseRow",
     "FrameForceResponseFact",
     "FrameForceResponseRow",
     "decode_area_force_shell_response",
+    "decode_area_strain_shell_response",
     "decode_frame_force_response",
     "probe_eq713_response_results_capability_from_session",
     "read_area_force_shell_response_from_session",
+    "read_area_strain_shell_response_from_session",
     "read_frame_force_response_from_session",
 ]
