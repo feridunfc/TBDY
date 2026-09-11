@@ -308,7 +308,7 @@ def _area_associated_stiffness(
     thickness = _positive_finite_product((shell_thickness,))
     if thickness is None:
         return None, "simple shell thickness must be positive finite"
-    modifier = property_modifiers.modifiers.property_slot(_AREA_SLOT[mode])
+    modifier = property_modifiers.modifiers.as_tuple()[_AREA_SLOT[mode]]
     if mode in _AREA_E_MODES:
         modulus = gross_evidence.material_basis.factual_ec_mpa
     elif mode in _AREA_G_MODES:
