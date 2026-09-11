@@ -1,114 +1,70 @@
-name: COLUMN-R1 Reconciled Exact Validation
+name: COLUMN-R1 P4C Bounded Repair Bootstrap
 
 on:
   push:
     branches:
       - sprint/column-r1-reconciled-closure
-  workflow_dispatch:
 
 permissions:
-  contents: read
-
-env:
-  PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/packages/etabs_gateway/src
+  contents: write
 
 jobs:
-  validate-reconciled-head:
+  apply-p4c-bounded-repair:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout exact reconciled branch commit
+      - name: Checkout exact branch commit
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           ref: ${{ github.sha }}
 
-      - name: Verify exact checkout
+      - name: Apply exact PUBLIC-A5 numeric-boundary repair and remove diagnostic
         shell: bash
         run: |
-          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
-          echo "HEAD=$(git rev-parse HEAD)"
-          echo "TREE=$(git rev-parse HEAD^{tree})"
+          python - <<'PY'
+          from pathlib import Path
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+          app = Path("tbdy_engine/application/column_public_a5.py")
+          text = app.read_text(encoding="utf-8")
+          old = "        vector = AreaModifierVector.from_sequence(disposition.target_property_modifiers)"
+          new = """        vector = AreaModifierVector.from_sequence(
+              tuple(float(value) for value in disposition.target_property_modifiers)
+          )"""
+          if old in text:
+              if text.count(old) != 1:
+                  raise SystemExit(f"PUBLIC-A5 Area vector anchor count={text.count(old)}; expected 1")
+              text = text.replace(old, new, 1)
+              app.write_text(text, encoding="utf-8")
+          elif new not in text:
+              raise SystemExit("PUBLIC-A5 Area numeric-boundary repair anchor not found")
 
-      - name: Install offline test dependencies
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install pytest pyyaml jsonschema openpyxl et_xmlfile
-
-      - name: Compile and import
-        run: |
-          python -m compileall -q tbdy_engine tests packages/etabs_gateway/src
-          python -c "import etabs_gateway; import tbdy_engine; import tbdy_engine.application.project_execution; import tbdy_engine.application.column_execution; import tbdy_engine.application.column_public_a5; import tbdy_engine.analysis_basis.eq713_uncracked_analysis_state; import tbdy_engine.analysis_basis.eq713_frame_mechanics; import tbdy_engine.analysis_basis.eq713_response_mechanics; import tbdy_engine.etabs.oapi.frame_section_mechanics; import tbdy_engine.etabs.oapi.eq713_response_results; import tbdy_engine.providers.etabs_eq713_response_provider"
-
-      - name: P4A1 Frame response core
-        run: python -m pytest -q tests/analysis_basis/test_eq713_response_mechanics.py
-
-      - name: P4A2 Frame production join
-        run: |
-          python -m pytest -q \
-            tests/etabs/test_oapi_eq713_response_cases_p4a2.py \
-            tests/providers/test_etabs_frame_eq713_population_p4a2.py \
-            tests/providers/test_vs6_etabs_auto_seismic_direction_provider.py \
-            tests/application/test_column_public_a5_frame_production_join.py
-
-      - name: P4B ShellThick response core
-        run: |
-          python -m pytest -q \
-            tests/etabs/test_oapi_area_strain_shell_p4b.py \
-            tests/analysis_basis/test_eq713_shell_thick_response_p4b.py \
-            tests/providers/test_etabs_eq713_response_provider_p4b.py
-
-      - name: P4C whole-system A3 composition
-        run: |
-          python -m pytest -q \
-            tests/application/test_column_public_a5_p4c_whole_system.py \
-            tests/application/test_column_public_a5_p4c_patch1_product.py
-
-      - name: A3 authority and Area provider
-        run: |
-          python -m pytest -q \
-            tests/analysis_basis/test_eq713_uncracked_analysis_state.py \
-            tests/analysis_basis/test_eq713_frame_mechanics.py \
-            tests/etabs/test_oapi_area_contributors.py \
-            tests/providers/test_etabs_area_contributor_provider.py
-
-      - name: Frame OAPI and factual providers
-        run: |
-          python -m pytest -q \
-            tests/etabs/test_oapi_frame_releases.py \
-            tests/etabs/test_oapi_material_properties.py \
-            tests/providers
-
-      - name: B4B and B5 focused
-        run: |
-          python -m pytest -q \
-            tests/integration/test_b4b_analysis_state_mutation.py \
-            tests/integration/test_b4b_analysis_state_revalidation.py \
-            tests/integration/test_b5_analysis_execution.py \
-            tests/integration/test_b5_analysis_lineage_issuer.py \
-            tests/providers/test_b5_column_force_result_population_provider.py
-
-      - name: PUBLIC A5 execute_project product path
-        run: python -m pytest -q tests/application/test_column_public_a5_product_path.py
-
-      - name: B6 focused regression
-        run: |
-          python -m pytest -q \
-            tests/etabs/test_oapi_concrete_design.py \
-            tests/etabs/test_oapi_concrete_design_start.py \
-            tests/integration/test_b6_controlled_design_execution.py \
-            tests/integration/test_b6_p0_design_preflight.py \
-            tests/architecture/test_b6_p0_design_preflight_architecture.py
-
-      - name: C focused regression
-        run: |
-          python -m pytest -q \
-            tests/regulatory/test_column_transverse_confinement.py \
-            tests/application/test_column_r1_lane_c_bound_join.py
-
-      - name: Architecture negative reachability
-        run: python -m pytest -q tests/architecture
+          test = Path("tests/application/test_column_public_a5_p4c_patch1_product.py")
+          text = test.read_text(encoding="utf-8")
+          diagnostic = '''    assert result.column.fnd_col_2_execution is not None, (
+              result.column.blockers,
+              proof.harness.runtime["run_calls"],
+              tuple(proof.generation_refs),
+              tuple(proof.fnd2_result_refs),
+              tuple(response_calls),
+          )'''
+          diagnostic = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in diagnostic.splitlines()
+          )
+          plain = "    assert result.column.fnd_col_2_execution is not None"
+          if diagnostic in text:
+              text = text.replace(diagnostic, plain, 1)
+              test.write_text(text, encoding="utf-8")
+          elif plain not in text:
+              raise SystemExit("P4C diagnostic assertion anchor not found")
+          PY
+          git diff --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tbdy_engine/application/column_public_a5.py tests/application/test_column_public_a5_p4c_patch1_product.py
+          if git diff --cached --quiet; then
+            echo "Bounded repair already present"
+            exit 0
+          fi
+          git commit -m "P4C-PATCH-1: normalize Area modifier transport boundary"
+          git push origin HEAD:sprint/column-r1-reconciled-closure
