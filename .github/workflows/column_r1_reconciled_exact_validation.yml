@@ -73,7 +73,6 @@ jobs:
                   and before.get(identity) is ContributorDisposition.BLOCKED_UNSUPPORTED
               )
           '''
-          helper = '\n'.join(line[10:] if line.startswith('          ') else line for line in helper.splitlines()) + '\n'
           marker = "\ndef _legacy_area_response_closure("
           if marker not in text:
               raise SystemExit("P4C helper insertion anchor not found")
@@ -85,7 +84,6 @@ jobs:
                       return resolved_a3, established_state, execution_result
                   current_a3 = resolved_a3
           """
-          old = '\n'.join(line[10:] if line.startswith('          ') else line for line in old.splitlines()) + '\n'
           new = """        if next_targets == current_targets:
                       if not resolved_a3.positive:
                           _raise_unqualified_a3(resolved_a3, BLOCKER_A3_MEMBER_RESPONSE)
@@ -103,7 +101,6 @@ jobs:
                       )
                   current_a3 = resolved_a3
           """
-          new = '\n'.join(line[10:] if line.startswith('          ') else line for line in new.splitlines()) + '\n'
           if text.count(old) != 1:
               raise SystemExit(f"P4C mixed-loop anchor count={text.count(old)}; expected 1")
           text = text.replace(old, new, 1)
