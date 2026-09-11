@@ -42,7 +42,10 @@ jobs:
       - name: Compile and import
         run: |
           python -m compileall -q tbdy_engine tests packages/etabs_gateway/src
-          python -c "import etabs_gateway; import tbdy_engine; import tbdy_engine.application.project_execution; import tbdy_engine.application.column_execution; import tbdy_engine.application.column_public_a5; import tbdy_engine.analysis_basis.eq713_uncracked_analysis_state; import tbdy_engine.analysis_basis.eq713_frame_mechanics"
+          python -c "import etabs_gateway; import tbdy_engine; import tbdy_engine.application.project_execution; import tbdy_engine.application.column_execution; import tbdy_engine.application.column_public_a5; import tbdy_engine.analysis_basis.eq713_uncracked_analysis_state; import tbdy_engine.analysis_basis.eq713_frame_mechanics; import tbdy_engine.analysis_basis.eq713_response_mechanics; import tbdy_engine.etabs.oapi.frame_section_mechanics"
+
+      - name: P4A1 Frame response core
+        run: python -m pytest -q tests/analysis_basis/test_eq713_response_mechanics.py
 
       - name: A3 authority and Area provider
         run: |
