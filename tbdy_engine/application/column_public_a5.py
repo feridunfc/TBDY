@@ -31,6 +31,7 @@ from tbdy_engine.analysis_basis.eq713_frame_mechanics import (
     classify_frame_eq713_participation,
 )
 from tbdy_engine.analysis_basis.eq713_response_mechanics import (
+    AreaShellThickResponseGeneration,
     classify_frame_response_participation,
     resolve_area_response_modes,
 )
@@ -52,6 +53,7 @@ from tbdy_engine.etabs.oapi.frame_modifiers import FrameModifierSurface, FrameMo
 from tbdy_engine.features.column_shear_topology import ColumnTopologyEvidence, StrictColumnTopologyBundle
 from tbdy_engine.integration.etabs_analysis_execution import execute_controlled_analysis
 from tbdy_engine.integration.etabs_analysis_state_mutation import (
+    AreaModifierMutationFact,
     AreaModifierTargetRequest,
     FrameModifierMutationFact,
     FrameModifierTargetRequest,
@@ -460,9 +462,16 @@ def _build_a3(
     topology: StrictColumnTopologyBundle,
     frame_classifications: Mapping[str, FrameModeParticipationClassification] | None = None,
     response_populations: Sequence[Eq713ResponsePopulationFact] = (),
+    area_response_generations: Mapping[
+        str, Sequence[AreaShellThickResponseGeneration]
+    ] | None = None,
 ):
     material_bases = _material_bases(frame_population)
     response_refs = _response_refs(response_populations) if response_populations else ()
+    area_generation_map = {
+        name: tuple(generations)
+        for name, generations in (area_response_generations or {}).items()
+    }
     supplied = dict(frame_classifications or {})
     frame_rows = []
     for fact in frame_population.rows:
@@ -487,15 +496,32 @@ def _build_a3(
             )
         )
 
-    area_evidence = tuple(
-        _area_evidence(fact, material_bases)
-        for fact in area_population.rows
-    )
+    area_evidence = tuple(_area_evidence(fact, material_bases) for fact in area_population.rows)
     area_by_name = {fact.area_name: fact for fact in area_population.rows}
     area_rows = []
     for evidence in area_evidence:
         row = build_area_eq713_target(evidence)
-        if response_populations and evidence.formulation is AreaFormulation.SHELL_THICK:
+        generations = area_generation_map.get(evidence.area_name, ())
+        if generations:
+            factual = area_by_name[evidence.area_name]
+            if factual.property_state is None or factual.property_state.thickness is None:
+                raise PublicA5CompositionError(
+                    BLOCKER_A3_MEMBER_RESPONSE,
+                    f"Area {evidence.area_name!r} lost simple ShellThick thickness identity",
+                )
+            generation_refs = tuple(
+                dict.fromkeys(ref for generation in generations for ref in generation.source_refs)
+            )
+            row = resolve_area_response_modes(
+                base=row,
+                gross_evidence=evidence,
+                shell_thickness=factual.property_state.thickness,
+                response_generations=generations,
+                source_refs=(*response_refs, *generation_refs),
+            )
+        elif response_populations and evidence.formulation is AreaFormulation.SHELL_THICK:
+            # Compatibility seam for prior bounded tests. P4B production never
+            # derives participation from AreaForceShell.
             factual = area_by_name[evidence.area_name]
             row = resolve_area_response_modes(
                 base=row,
@@ -546,7 +572,12 @@ def _response_probe_scope(
             if mode.disposition is not ContributorDisposition.BLOCKED_UNSUPPORTED:
                 continue
             unresolved_count += 1
-            if evidence is None or evidence.formulation is not AreaFormulation.SHELL_THICK or mode.mode not in _RESPONSE_AREA_MODES:
+            if (
+                evidence is None
+                or evidence.formulation is not AreaFormulation.SHELL_THICK
+                or not evidence.homogeneous_simple_property
+                or mode.mode not in _RESPONSE_AREA_MODES
+            ):
                 return None
             area_names.add(row.area_name)
     if unresolved_count == 0:
@@ -592,7 +623,7 @@ def _b4b_targets(frame_population, area_population, frame_rows, area_rows):
                 surface=FrameModifierSurface.FRAME_OBJECT,
                 target_name=fact.frame_name,
                 modifiers=FrameModifierVector.from_sequence(
-                    tuple(float(value) for value in object_projection.target_modifiers)
+                    tuple(float(value) for value in object_projection.target_modifiers
                 ),
             )
         )
@@ -686,10 +717,7 @@ def _combo_scope(context: TrustedLiveAcquisitionContext):
             BLOCKER_A5_INPUT_MATERIALIZATION,
             "selected design-combo population contains duplicate combo names across factual rows",
         )
-    definitions = capture_etabs_combo_definitions_from_session(
-        context.verified_session,
-        names,
-    )
+    definitions = capture_etabs_combo_definitions_from_session(context.verified_session, names)
     flattened = tuple(_flatten_combo(item) for item in definitions)
     cases = tuple(sorted({name for _combo, leaves in flattened for name, _scale in leaves}))
     if not cases:
@@ -888,6 +916,73 @@ def _classify_beam_generation(
                 established_state.analysis_state_identity.identity_ref,
                 section_mutation.mutation_ref,
                 object_mutation.mutation_ref,
+            ),
+        )
+    return result
+
+
+def _area_shell_thick_generations_from_response(
+    *,
+    area_population: AreaContributorPopulation,
+    response: Eq713ResponsePopulationFact,
+    established_state,
+) -> dict[str, AreaShellThickResponseGeneration]:
+    mutations = {
+        (item.surface, item.target_name): item
+        for item in established_state.mutation_manifest.mutations
+        if isinstance(item, AreaModifierMutationFact)
+    }
+    by_name = {fact.area_name: fact for fact in area_population.rows}
+    result: dict[str, AreaShellThickResponseGeneration] = {}
+    for area_name in response.area_names:
+        fact = by_name.get(area_name)
+        if fact is None or fact.property_state is None:
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                f"response Area {area_name!r} lost exact factual property identity",
+            )
+        state = fact.property_state
+        if (
+            state.family not in {AreaPropertyFamily.WALL, AreaPropertyFamily.SLAB}
+            or state.shell_type_code != 2
+            or state.thickness is None
+            or float(state.thickness) <= 0.0
+        ):
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                f"response Area {area_name!r} is outside homogeneous simple SHELL_THICK slice",
+            )
+        mutation = mutations.get((AreaModifierSurface.AREA_PROPERTY, fact.property_name))
+        if mutation is None:
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                f"Area {area_name!r} lacks exact same-generation B4B property modifier readback",
+            )
+        facts = tuple(
+            item for item in response.area_strain_results if item.area_name == area_name
+        )
+        expected = {(area_name, case_name) for case_name in response.case_names}
+        actual = {(item.area_name, item.case_name) for item in facts}
+        if actual != expected:
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                f"Area {area_name!r} strain population lost exact qualified case binding",
+            )
+        rows = tuple(row for item in facts for row in item.rows)
+        if not rows:
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                f"Area {area_name!r} AreaStrainShell population is empty",
+            )
+        result[area_name] = AreaShellThickResponseGeneration(
+            strain_rows=rows,
+            property_modifiers=mutation.after,
+            source_refs=(
+                *response.source_refs,
+                response.evidence_ref,
+                established_state.analysis_state_identity.identity_ref,
+                mutation.mutation_ref,
+                mutation.after.evidence_ref,
             ),
         )
     return result
@@ -1196,11 +1291,19 @@ def _legacy_area_response_closure(
     area_names,
     unresolved_count,
     requested_cases,
+    qualified_static_cases,
+    qualified_static_refs,
 ):
-    response_populations = []
+    """Existing bounded A3 fixed point extended to ShellThick AreaStrainShell facts."""
     current_a3 = provisional_a3
+    classifications = _initial_beam_classifications(frame_pre, topology_pre, frame_names)
+    area_history: dict[str, list[AreaShellThickResponseGeneration]] = {
+        area_name: [] for area_name in area_names
+    }
+    response_populations: list[Eq713ResponsePopulationFact] = []
     established_state = None
     execution_result = None
+
     for _generation_index in range(unresolved_count + 1):
         current_targets, established_state, execution_result = _run_a3_generation(
             context=context,
@@ -1210,43 +1313,75 @@ def _legacy_area_response_closure(
             a3=current_a3,
             requested_cases=requested_cases,
         )
-        response = capture_eq713_response_population_from_session(
-            context.verified_session,
-            model_fingerprint=context.model_fingerprint,
-            evidence_epoch_id=context.evidence_epoch_id,
-            analysis_result_ref=execution_result.analysis_result_identity.identity_ref,
-            execution_proof_ref=execution_result.execution_proof_ref,
-            case_names=requested_cases,
-            frame_names=frame_names,
-            area_names=area_names,
-        )
+        try:
+            response = capture_eq713_response_population_from_session(
+                context.verified_session,
+                model_fingerprint=context.model_fingerprint,
+                evidence_epoch_id=context.evidence_epoch_id,
+                analysis_result_ref=execution_result.analysis_result_identity.identity_ref,
+                execution_proof_ref=execution_result.execution_proof_ref,
+                case_names=qualified_static_cases,
+                frame_names=frame_names,
+                area_names=area_names,
+                case_scope_refs=qualified_static_refs,
+            )
+        except Exception as exc:
+            raise PublicA5CompositionError(BLOCKER_A3_MEMBER_RESPONSE, str(exc)) from exc
         if (
             response.model_fingerprint != context.model_fingerprint
             or response.evidence_epoch_id != context.evidence_epoch_id
             or response.analysis_result_ref != execution_result.analysis_result_identity.identity_ref
             or response.execution_proof_ref != execution_result.execution_proof_ref
-            or response.case_names != tuple(requested_cases)
+            or response.case_names != tuple(qualified_static_cases)
+            or response.frame_names != tuple(frame_names)
+            or response.area_names != tuple(area_names)
         ):
             raise PublicA5CompositionError(
                 BLOCKER_A3_MEMBER_RESPONSE,
-                "Eq713 member response population lost exact model/epoch/B5/case binding",
+                "Eq713 Shell/Frame response population lost exact model/epoch/B5/qualified-static binding",
             )
         response_populations.append(response)
+
+        if frame_names:
+            classifications = _classify_beam_generation(
+                frame_population=frame_pre,
+                topology=topology_pre,
+                response=response,
+                established_state=established_state,
+                previous=classifications,
+            )
+        if area_names:
+            generation_facts = _area_shell_thick_generations_from_response(
+                area_population=area_pre,
+                response=response,
+                established_state=established_state,
+            )
+            for area_name, generation in generation_facts.items():
+                area_history[area_name].append(generation)
+
         resolved_a3, _ = _build_a3(
             frame_population=frame_pre,
             area_population=area_pre,
             topology=topology_pre,
+            frame_classifications=classifications,
             response_populations=tuple(response_populations),
+            area_response_generations=area_history,
         )
-        if not resolved_a3.positive:
-            _raise_unqualified_a3(resolved_a3, BLOCKER_A3_MEMBER_RESPONSE)
-        next_targets = _b4b_targets(frame_pre, area_pre, resolved_a3.frame_rows, resolved_a3.area_rows)
+        next_targets = _b4b_targets(
+            frame_pre,
+            area_pre,
+            resolved_a3.frame_rows,
+            resolved_a3.area_rows,
+        )
         if next_targets == current_targets:
+            if not resolved_a3.positive:
+                _raise_unqualified_a3(resolved_a3, BLOCKER_A3_MEMBER_RESPONSE)
             return resolved_a3, established_state, execution_result
         current_a3 = resolved_a3
+
     raise PublicA5CompositionError(
         BLOCKER_A3_MEMBER_RESPONSE,
-        "bounded response-mode closure did not reach a stable Eq713 target",
+        "bounded ShellThick response-mode closure did not reach a stable Eq713 target",
     )
 
 
@@ -1309,7 +1444,7 @@ def execute_public_a5_column(
         selection, definitions, flattened_combos, requested_cases = _combo_scope(context)
         qualified_static_cases = ()
         qualified_static_refs = ()
-        if probe_scope is not None and probe_scope[0] and not probe_scope[1]:
+        if probe_scope is not None:
             qualified_static_cases, qualified_static_refs = _qualified_linear_static_response_scope(
                 context,
                 requested_cases,
@@ -1344,6 +1479,8 @@ def execute_public_a5_column(
                     area_names=area_names,
                     unresolved_count=unresolved_count,
                     requested_cases=requested_cases,
+                    qualified_static_cases=qualified_static_cases,
+                    qualified_static_refs=qualified_static_refs,
                 )
             else:
                 current_a3 = provisional_a3
