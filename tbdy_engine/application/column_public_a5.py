@@ -623,7 +623,7 @@ def _b4b_targets(frame_population, area_population, frame_rows, area_rows):
                 surface=FrameModifierSurface.FRAME_OBJECT,
                 target_name=fact.frame_name,
                 modifiers=FrameModifierVector.from_sequence(
-                    tuple(float(value) for value in object_projection.target_modifiers
+                    tuple(float(value) for value in object_projection.target_modifiers)
                 ),
             )
         )
