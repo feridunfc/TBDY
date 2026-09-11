@@ -1,7 +1,8 @@
 """Factual Eq.7.13 member-response population bound to one qualified B5 generation.
 
-The provider aggregates typed CSI local generalized-force result facts.  It does
-not decide TS500 applicability or whether a stiffness mode participates.
+The provider aggregates typed CSI local generalized-force and shell-strain result
+facts. It does not decide TS500 applicability or whether a stiffness mode
+participates.
 """
 from __future__ import annotations
 
@@ -12,9 +13,10 @@ from typing import Sequence
 
 from tbdy_engine.etabs.oapi.eq713_response_results import (
     AreaForceShellResponseFact,
+    AreaStrainShellResponseFact,
     FrameForceResponseFact,
     probe_eq713_response_results_capability_from_session,
-    read_area_force_shell_response_from_session,
+    read_area_strain_shell_response_from_session,
     read_frame_force_response_from_session,
 )
 from tbdy_engine.etabs.safety import EtabsVerifiedSession
@@ -31,6 +33,7 @@ class Eq713ResponsePopulationFact:
     area_names: tuple[str, ...]
     frame_results: tuple[FrameForceResponseFact, ...]
     area_results: tuple[AreaForceShellResponseFact, ...]
+    area_strain_results: tuple[AreaStrainShellResponseFact, ...]
     source_refs: tuple[str, ...]
     evidence_ref: str
 
@@ -116,20 +119,23 @@ def capture_eq713_response_population_from_session(
         for frame in frames
         for case in cases
     )
-    area_results = tuple(
-        read_area_force_shell_response_from_session(session, area_name=area, case_name=case)
+    area_strain_results = tuple(
+        read_area_strain_shell_response_from_session(session, area_name=area, case_name=case)
         for area in areas
         for case in cases
     )
+    # Retained only as a compatibility field for older callers. P4B production
+    # authority consumes AreaStrainShell, never AreaForceShell.
+    area_results: tuple[AreaForceShellResponseFact, ...] = ()
 
     if {(row.frame_name, row.case_name) for row in frame_results} != {
         (frame, case) for frame in frames for case in cases
     }:
         raise ValueError("Frame Eq713 response population is incomplete")
-    if {(row.area_name, row.case_name) for row in area_results} != {
+    if {(row.area_name, row.case_name) for row in area_strain_results} != {
         (area, case) for area in areas for case in cases
     }:
-        raise ValueError("Area Eq713 response population is incomplete")
+        raise ValueError("Area Eq713 strain response population is incomplete")
 
     refs = tuple(
         dict.fromkeys(
@@ -138,7 +144,7 @@ def capture_eq713_response_population_from_session(
                 execution_ref,
                 *scope_refs,
                 *(row.evidence_ref for row in frame_results),
-                *(row.evidence_ref for row in area_results),
+                *(row.evidence_ref for row in area_strain_results),
             )
         )
     )
@@ -153,7 +159,7 @@ def capture_eq713_response_population_from_session(
             "frame_names": frames,
             "area_names": areas,
             "frame_result_refs": [row.evidence_ref for row in frame_results],
-            "area_result_refs": [row.evidence_ref for row in area_results],
+            "area_strain_result_refs": [row.evidence_ref for row in area_strain_results],
         }
     )
     return Eq713ResponsePopulationFact(
@@ -166,6 +172,7 @@ def capture_eq713_response_population_from_session(
         area_names=areas,
         frame_results=frame_results,
         area_results=area_results,
+        area_strain_results=area_strain_results,
         source_refs=refs,
         evidence_ref=evidence_ref,
     )
