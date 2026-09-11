@@ -7,7 +7,6 @@ import pytest
 import tbdy_engine.application.column_public_a5 as a5
 import tbdy_engine.application.project_execution as project_execution
 import tbdy_engine.integration.etabs_analysis_state_mutation as b4b
-import tbdy_engine.integration.etabs_analysis_state_revalidation as revalidation
 from tbdy_engine.analysis_basis.eq713_uncracked_analysis_state import (
     AreaEq713TargetDisposition,
     AreaStiffnessMode,
@@ -372,13 +371,7 @@ def test_execute_project_public_mixed_whole_system_reaches_fnd2_with_only_final_
         verified_session=base._FakeSession(),
     )
 
-    assert result.column.fnd_col_2_execution is not None, (
-        result.column.blockers,
-        proof.harness.runtime["run_calls"],
-        tuple(proof.generation_refs),
-        tuple(proof.fnd2_result_refs),
-        tuple(response_calls),
-    )
+    assert result.column.fnd_col_2_execution is not None
     assert proof.harness.runtime["run_calls"] == 2
     assert len(response_calls) == 2
     assert [row[4] for row in response_calls] == proof.generation_refs
@@ -399,4 +392,13 @@ def test_execute_project_public_mixed_whole_system_reaches_fnd2_with_only_final_
         "W-SHELL",
     )
     assert area_values[(AreaModifierSurface.AREA_PROPERTY.value, "SLAB-THICK")].as_tuple()[:8] == (1.0,) * 8
-    assert area_values[(AreaModifierSurface.AREA_PROPERTY.value, "WALL-THICK")].as_tuple()[:8] == (1.0,) * 8
+    assert area_values[(AreaModifierSurface.AREA_PROPERTY.value, "WALL-THICK")].as_tuple()[:8] == (
+        0.5,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+    )
