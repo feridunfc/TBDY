@@ -11,6 +11,7 @@ calculate a stability index, classify sway, or run analysis/design.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from types import MappingProxyType
 from typing import Any, Mapping
 
@@ -18,7 +19,11 @@ from tbdy_engine.design.columns.stability_action_basis import (
     StabilityActionSource,
     TS500_ACTION_E,
 )
-from tbdy_engine.etabs.safety import RuntimeCaptureStatus
+from tbdy_engine.etabs.safety import (
+    EtabsVerifiedSession,
+    RuntimeCaptureStatus,
+    _execute_verified_read,
+)
 from tbdy_engine.providers.etabs_display_table_fetcher import fetch_display_table
 
 
@@ -210,6 +215,46 @@ def capture_etabs_auto_seismic_direction_evidence(
     )
 
 
+def capture_etabs_auto_seismic_direction_evidence_from_session(
+    session: EtabsVerifiedSession,
+    *,
+    timeout_seconds: float = 30.0,
+) -> EtabsAutoSeismicDirectionEvidence:
+    """Capture the existing TSC-2018 table through the verified read boundary."""
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+    timeout = float(timeout_seconds)
+    if not math.isfinite(timeout) or timeout <= 0.0:
+        raise ValueError("timeout_seconds must be finite and greater than zero")
+
+    def acquire(_application: object, model_api: Any) -> EtabsAutoSeismicDirectionEvidence:
+        database_tables = getattr(model_api, "DatabaseTables", None)
+        if database_tables is None:
+            raise EtabsAutoSeismicDirectionProviderError("SapModel.DatabaseTables is unavailable")
+        return capture_etabs_auto_seismic_direction_evidence(database_tables)
+
+    return _execute_verified_read(
+        session,
+        acquire,
+        operation="provider_etabs_auto_seismic_direction_evidence",
+        timeout_seconds=timeout,
+    )
+
+
+def tsc2018_horizontal_pattern_directions(
+    evidence: EtabsAutoSeismicDirectionEvidence,
+) -> Mapping[str, tuple[bool, bool]]:
+    """Project exact pattern identities to the factual X/Y flags used by P4A2."""
+    if not isinstance(evidence, EtabsAutoSeismicDirectionEvidence):
+        raise TypeError("evidence must be EtabsAutoSeismicDirectionEvidence")
+    return MappingProxyType(
+        {
+            row.pattern_name: (row.x_selected, row.y_selected)
+            for row in evidence.rows
+        }
+    )
+
+
 def bind_etabs_seismic_action_directions(
     action_sources: tuple[StabilityActionSource, ...],
     evidence: EtabsAutoSeismicDirectionEvidence,
@@ -280,4 +325,6 @@ __all__ = [
     "TABLE_AUTO_SEISMIC_TSC2018",
     "bind_etabs_seismic_action_directions",
     "capture_etabs_auto_seismic_direction_evidence",
+    "capture_etabs_auto_seismic_direction_evidence_from_session",
+    "tsc2018_horizontal_pattern_directions",
 ]
