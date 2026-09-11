@@ -256,6 +256,7 @@ def product_harness(monkeypatch):
         frame_name="1",
         member_role="COLUMN",
         base_fact=base,
+        section_mechanics=SimpleNamespace(evidence_ref="section-mechanics:C50x80"),
         property_modifiers=property_fact,
         object_modifiers=object_fact,
         releases=SimpleNamespace(evidence_ref="release:1"),
@@ -263,7 +264,7 @@ def product_harness(monkeypatch):
         factual_ec_mpa=Decimal("33000"),
         factual_gc_mpa=Decimal("13200"),
         source_refs=(
-            "frame-fact:1", base.evidence_ref, property_fact.evidence_ref,
+            "frame-fact:1", base.evidence_ref, "section-mechanics:C50x80", property_fact.evidence_ref,
             object_fact.evidence_ref, "release:1", "isotropic:C35",
         ),
         supported_end_condition=True,
@@ -279,7 +280,6 @@ def product_harness(monkeypatch):
         source_refs=("area-population:empty",),
     )
 
-    # Public root + trusted context boundary.
     monkeypatch.setattr(project_execution, "EtabsVerifiedSession", _FakeSession)
     monkeypatch.setattr(project_execution, "create_trusted_live_acquisition_context", lambda verified_session: context)
     monkeypatch.setattr(column_execution, "TrustedLiveAcquisitionContext", _FakeContext)
@@ -318,7 +318,6 @@ def product_harness(monkeypatch):
     monkeypatch.setattr(a5, "build_factual_slenderness_evidence_from_topology", lambda *_args, **_kwargs: _slenderness())
     monkeypatch.setattr(a5, "build_assigned_rc_frame_bending_modifier_evidence", lambda *_args, **_kwargs: ())
 
-    # B4B exact mixed mutation with mocked OAPI boundary.
     for module in (b4b, revalidation, b5):
         monkeypatch.setattr(module, "TrustedLiveAcquisitionContext", _FakeContext)
         monkeypatch.setattr(module, "OwnedScratchContext", _FakeOwnedScratch)
@@ -347,7 +346,6 @@ def product_harness(monkeypatch):
     monkeypatch.setattr(b4b, "get_frame_modifiers_from_session", get_frame)
     monkeypatch.setattr(b4b, "set_frame_modifiers_from_session", set_frame)
 
-    # B5 canonical execution: one case, one exact RunAnalysis call.
     runtime = {
         "run_flags": {"EX": False},
         "statuses": {"EX": 4},
@@ -438,7 +436,6 @@ def product_harness(monkeypatch):
         ),
     )
 
-    # Existing POST continuity runs with the real helper against mocked factual recapture.
     monkeypatch.setattr(continuity, "TrustedLiveAcquisitionContext", _FakeContext)
     monkeypatch.setattr(continuity, "OwnedScratchContext", _FakeOwnedScratch)
     monkeypatch.setattr(continuity, "FrameFlexuralBaseFact", _BaseFact)
