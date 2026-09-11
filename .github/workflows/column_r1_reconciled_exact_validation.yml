@@ -47,6 +47,14 @@ jobs:
       - name: P4A1 Frame response core
         run: python -m pytest -q tests/analysis_basis/test_eq713_response_mechanics.py
 
+      - name: P4A2 Frame production join
+        run: |
+          python -m pytest -q \
+            tests/etabs/test_oapi_eq713_response_cases_p4a2.py \
+            tests/providers/test_etabs_frame_eq713_population_p4a2.py \
+            tests/providers/test_vs6_etabs_auto_seismic_direction_provider.py \
+            tests/application/test_column_public_a5_frame_production_join.py
+
       - name: A3 authority and Area provider
         run: |
           python -m pytest -q \
