@@ -443,10 +443,11 @@ def resolve_area_response_modes(
             raise TypeError("gross_evidence is required for ShellThick strain response closure")
         if gross_evidence.area_name != base.area_name:
             raise ValueError("Area response gross-evidence identity mismatch")
-        if gross_evidence.formulation is not AreaFormulation.SHELL_THICK:
-            raise ValueError("Area strain response closure is bounded to SHELL_THICK")
-        if not gross_evidence.homogeneous_simple_property:
-            raise ValueError("Area strain response closure is bounded to homogeneous simple properties")
+        if (
+            gross_evidence.formulation is not AreaFormulation.SHELL_THICK
+            or not gross_evidence.homogeneous_simple_property
+        ):
+            return base
 
     for row in base.mode_dispositions:
         if (
