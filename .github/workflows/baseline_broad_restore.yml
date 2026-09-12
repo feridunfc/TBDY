@@ -1,0 +1,121 @@
+name: BASELINE-BROAD-RESTORE Exact Validation
+
+on:
+  push:
+    branches:
+      - repair/baseline-broad-restore
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/packages/etabs_gateway/src
+  FROZEN_BASE_SHA: e8b1c88a0a28f696e4a1b0b0f0e9a61acaaab677
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Verify candidate identity
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git merge-base HEAD "$FROZEN_BASE_SHA")" = "$FROZEN_BASE_SHA"
+          echo "CANDIDATE_SHA=$(git rev-parse HEAD)"
+          echo "CANDIDATE_TREE=$(git rev-parse HEAD^{tree})"
+          echo "BASE_SHA=$FROZEN_BASE_SHA"
+          echo "BASE_TREE=$(git rev-parse "$FROZEN_BASE_SHA^{tree}")"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install offline dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml jsonschema openpyxl et_xmlfile
+
+      - name: Compile and import candidate
+        run: |
+          python -m compileall -q tbdy_engine tests packages/etabs_gateway/src
+          python -c "import tbdy_engine; import tbdy_engine.application.project_execution; import tbdy_engine.application.column_execution"
+
+      - name: Exact frozen-base broad census
+        shell: bash
+        run: |
+          set -u
+          BASE_DIR="$RUNNER_TEMP/baseline-broad-base"
+          BASE_LOG="$RUNNER_TEMP/base_broad.log"
+          rm -rf "$BASE_DIR"
+          git worktree add --detach "$BASE_DIR" "$FROZEN_BASE_SHA"
+          set +e
+          (
+            cd "$BASE_DIR"
+            PYTHONPATH="$BASE_DIR:$BASE_DIR/packages/etabs_gateway/src" python -m pytest -q
+          ) >"$BASE_LOG" 2>&1
+          base_exit=$?
+          set -e
+          git worktree remove --force "$BASE_DIR"
+          echo "BASE_BROAD_EXIT=$base_exit" >> "$GITHUB_ENV"
+          echo "BASE_BROAD_EXIT=$base_exit"
+          echo "--- EXACT FROZEN BASE BROAD LOG ---"
+          cat "$BASE_LOG"
+
+      - name: Candidate full broad
+        shell: bash
+        run: |
+          set +e
+          python -m pytest -q >"$RUNNER_TEMP/candidate_broad.log" 2>&1
+          candidate_exit=$?
+          set -e
+          echo "CANDIDATE_BROAD_EXIT=$candidate_exit" >> "$GITHUB_ENV"
+          echo "CANDIDATE_BROAD_EXIT=$candidate_exit"
+          cat "$RUNNER_TEMP/candidate_broad.log"
+
+      - name: Candidate-vs-base failure delta
+        shell: bash
+        run: |
+          BASE_LOG="$RUNNER_TEMP/base_broad.log"
+          CANDIDATE_LOG="$RUNNER_TEMP/candidate_broad.log"
+          grep -E '^(FAILED|ERROR) ' "$BASE_LOG" | sed 's/[[:space:]]*$//' | sort -u > "$RUNNER_TEMP/base_failures.txt" || true
+          grep -E '^(FAILED|ERROR) ' "$CANDIDATE_LOG" | sed 's/[[:space:]]*$//' | sort -u > "$RUNNER_TEMP/candidate_failures.txt" || true
+          comm -23 "$RUNNER_TEMP/candidate_failures.txt" "$RUNNER_TEMP/base_failures.txt" > "$RUNNER_TEMP/new_failures.txt" || true
+          delta=$(wc -l < "$RUNNER_TEMP/new_failures.txt" | tr -d ' ')
+          echo "NEW_FAILURE_DELTA=$delta" >> "$GITHUB_ENV"
+          echo "NEW_FAILURE_DELTA=$delta"
+          echo "NEW_FAILURE_SIGNATURES"
+          cat "$RUNNER_TEMP/new_failures.txt"
+
+      - name: Architecture negative reachability
+        run: python -m pytest -q tests/architecture
+
+      - name: Repository hygiene
+        shell: bash
+        run: |
+          find . -type d -name __pycache__ -prune -exec rm -rf {} +
+          rm -rf .pytest_cache
+          find . -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
+          git diff --check
+          status="$(git status --porcelain --untracked-files=all)"
+          if [ -n "$status" ]; then
+            echo "$status"
+            exit 1
+          fi
+
+      - name: Broad restore closure gate
+        shell: bash
+        run: |
+          echo "BASE_BROAD_EXIT=${BASE_BROAD_EXIT:-MISSING}"
+          echo "CANDIDATE_BROAD_EXIT=${CANDIDATE_BROAD_EXIT:-MISSING}"
+          echo "NEW_FAILURE_DELTA=${NEW_FAILURE_DELTA:-MISSING}"
+          test "${BASE_BROAD_EXIT:-MISSING}" = "0"
+          test "${CANDIDATE_BROAD_EXIT:-MISSING}" = "0"
+          test "${NEW_FAILURE_DELTA:-MISSING}" = "0"
