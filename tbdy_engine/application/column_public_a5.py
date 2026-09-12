@@ -1446,6 +1446,7 @@ def execute_public_a5_column(
     *,
     acquisition_context: TrustedLiveAcquisitionContext,
     execute_fnd2: Callable[..., object],
+    complete_after_fnd2: Callable[..., object] | None = None,
 ):
     """Compose the supported production path through REAL existing FND-COL-2."""
     if not isinstance(request, ColumnExecutionRequest):
@@ -1454,6 +1455,8 @@ def execute_public_a5_column(
         raise TypeError("acquisition_context must be TrustedLiveAcquisitionContext")
     if not callable(execute_fnd2):
         raise TypeError("execute_fnd2 must be callable")
+    if complete_after_fnd2 is not None and not callable(complete_after_fnd2):
+        raise TypeError("complete_after_fnd2 must be callable when provided")
     context = acquisition_context
 
     try:
@@ -1651,7 +1654,7 @@ def execute_public_a5_column(
             definitions=definitions,
             execution_result=execution_result,
         )
-        return execute_fnd2(
+        column = execute_fnd2(
             request,
             model_fingerprint=context.model_fingerprint,
             evidence_epoch_id=context.evidence_epoch_id,
@@ -1661,6 +1664,19 @@ def execute_public_a5_column(
         return _blocked(request, context, exc.blocker)
     except Exception:
         return _blocked(request, context, BLOCKER_A5_INPUT_MATERIALIZATION)
+
+    if complete_after_fnd2 is None or getattr(column, "status", None) != "READY":
+        return column
+    return complete_after_fnd2(
+        column,
+        acquisition_context=context,
+        owned_scratch=owned_scratch,
+        analysis_execution=execution_result,
+        topology=topology_post,
+        selected_combo_population=selection,
+        combo_definitions=definitions,
+        flattened_combos=flattened_combos,
+    )
 
 
 __all__ = [
