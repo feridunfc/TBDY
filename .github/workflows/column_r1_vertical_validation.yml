@@ -1,0 +1,44 @@
+name: COLUMN-R1 Vertical Closure Validation
+
+on:
+  push:
+    branches:
+      - sprint/column-r1-vertical-closure
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONPATH: ${{ github.workspace }}:${{ github.workspace }}/packages/etabs_gateway/src
+
+jobs:
+  procedure-and-vertical:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact branch commit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.sha }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install offline dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pyyaml jsonschema openpyxl et_xmlfile
+
+      - name: Compile and import
+        run: |
+          python -m compileall -q tbdy_engine tests packages/etabs_gateway/src
+          python -c "import tbdy_engine; import tbdy_engine.etabs.oapi.frame_design_procedure; import tbdy_engine.providers.etabs_column_design_procedure_provider"
+
+      - name: Exact new design-procedure tests
+        run: |
+          python -m pytest -q \
+            tests/etabs/test_oapi_frame_design_procedure_column_r1.py \
+            tests/providers/test_etabs_column_design_procedure_provider.py
