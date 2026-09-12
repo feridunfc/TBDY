@@ -2,17 +2,17 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tbdy_engine.contracts.export_schema import export_all_schemas
+from tbdy_engine.contracts.export_schema import CANONICAL_SCHEMA_DIR, export_all_schemas
 
 
-ROOT = Path(__file__).resolve().parents[1]
-COMMITTED_SCHEMA_DIR = ROOT / "tbdy_engine" / "contracts" / "generated" / "schema"
-
-
-def test_generated_schemas_match_pydantic_models(tmp_path):
+def test_generated_schemas_match_current_canonical_schema_artifacts(tmp_path):
     exported_paths = export_all_schemas(tmp_path)
+    assert exported_paths
+
+    canonical_names = {path.name for path in CANONICAL_SCHEMA_DIR.glob("*.schema.json")}
+    assert {path.name for path in exported_paths} == canonical_names
 
     for exported_path in exported_paths:
-        committed_path = COMMITTED_SCHEMA_DIR / exported_path.name
-        assert committed_path.exists(), f"Missing committed schema: {committed_path}"
-        assert exported_path.read_text(encoding="utf-8") == committed_path.read_text(encoding="utf-8")
+        canonical_path = CANONICAL_SCHEMA_DIR / exported_path.name
+        assert canonical_path.exists(), f"Missing canonical schema: {canonical_path}"
+        assert exported_path.read_text(encoding="utf-8") == canonical_path.read_text(encoding="utf-8")

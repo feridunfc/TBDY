@@ -1,259 +1,102 @@
 from __future__ import annotations
 
-from pathlib import Path
+import pytest
 
 from tbdy_engine.adapters.check_adapter import CheckAdapter
-from tbdy_engine.contracts.loader import EngineContractLoader
 
 
-ROOT = Path(__file__).resolve().parents[1]
-DISABLED_KNOWN_MISSING_OUTPUT_CHECKS = {
-    "column_design_full",
-    "beam_design_full",
-}
-
-
-def _catalog():
-    return EngineContractLoader.from_project_root(ROOT).build_runtime_catalog()
-
-
-def _adapter():
-    return CheckAdapter(_catalog())
-
-
-def _by_check_id(rows):
-    return {row.check_id: row for row in rows}
-
-
-def _check_payload(status="OK", ratio=0.5, message="ok"):
+def _check(check_type: str, *, status: str = "OK", ratio: float | None = 0.5, messages=()):
     return {
+        "check_type": check_type,
         "status": status,
+        "demand": ratio,
+        "capacity": 1.0 if ratio is not None else None,
         "ratio": ratio,
-        "value": ratio,
-        "limit": 1.0,
         "unit": "ratio",
-        "message": message,
-        "action": "",
-        "evaluation_level": "DESIGN_LEVEL",
-        "source": "synthetic_fixture",
+        "code_ref": "TBDY:TEST",
+        "messages": tuple(messages),
     }
 
 
-def _column_eval_results():
+def _package(component: str, story: str, *checks, evidence=None, messages=()):
     return {
-        "results": {
-            "COLUMN_DESIGN": {
-                "outputs": [
-                    {
-                        "label": "C1",
-                        "story": "S1",
-                        "checks": {
-                            "geometry": _check_payload(message="column geometry ok"),
-                            "axial": _check_payload(message="column axial ok"),
-                            "pmm": _check_payload(message="column pmm ok"),
-                            "shear": _check_payload(message="column shear ok"),
-                            "confinement": _check_payload(message="column confinement ok"),
-                            "rebar_minimum": _check_payload(message="column rebar minimum ok"),
-                        },
-                    }
-                ]
-            }
-        },
-        "errors": {},
-        "skipped": {},
-        "execution_order": ["COLUMN_DESIGN"],
-        "cache_stats": {},
+        "component": component,
+        "story": story,
+        "section": "SYNTHETIC",
+        "evidence": evidence or {"source": "synthetic_fixture"},
+        "messages": tuple(messages),
+        "checks": list(checks),
     }
 
 
-def _beam_eval_results():
-    return {
-        "results": {
-            "BEAM_DESIGN": {
-                "outputs": [
-                    {
-                        "label": "B1",
-                        "story": "S1",
-                        "checks": {
-                            "geometry": _check_payload(message="beam geometry ok"),
-                            "flexure": _check_payload(message="beam flexure ok"),
-                            "shear": _check_payload(message="beam shear ok"),
-                            "ductility": _check_payload(message="beam ductility ok"),
-                        },
-                    }
-                ]
-            }
-        },
-        "errors": {},
-        "skipped": {},
-        "execution_order": ["BEAM_DESIGN"],
-        "cache_stats": {},
-    }
+def _by_id(rows):
+    return {row.id: row for row in rows}
 
 
-def test_column_traceable_fields_normalize_from_outputs_checks():
-    rows = _by_check_id(_adapter().adapt_all(_column_eval_results()))
-
-    for check_id in [
-        "column_geometry",
-        "column_axial",
-        "column_pmm",
-        "column_shear",
-        "column_confinement",
-        "column_rebar_minimum",
-    ]:
-        row = rows[check_id]
+def test_column_traceable_fields_normalize_from_current_package_contract():
+    rows = _by_id(
+        CheckAdapter().adapt_all(
+            {"packages": [_package("C1", "S1", _check("geometry"), _check("axial"), _check("pmm"), _check("shear"), _check("confinement"), _check("rebar_minimum"))]}
+        )
+    )
+    for check_type in ("geometry", "axial", "pmm", "shear", "confinement", "rebar_minimum"):
+        row = rows[f"C1:S1:{check_type}"]
         assert row.status == "OK"
-        assert row.evaluation == "COLUMN_DESIGN"
-        assert row.element_label == "C1"
+        assert row.component == "C1"
         assert row.story == "S1"
-        assert row.source == "synthetic_fixture"
-        assert row.evaluation_level == "DESIGN_LEVEL"
+        assert row.section == "SYNTHETIC"
+        assert row.evidence == {"source": "synthetic_fixture"}
 
 
-def test_column_rebar_minimum_is_emitted_when_enabled_and_output_exists():
-    rows = _by_check_id(_adapter().adapt_all(_column_eval_results()))
-
-    assert "column_rebar_minimum" in rows
-    assert rows["column_rebar_minimum"].check_name == "rebar_minimum"
-    assert rows["column_rebar_minimum"].status == "OK"
-    assert "column_design_full" not in rows
+def test_column_rebar_minimum_is_emitted_only_when_package_contains_it():
+    rows = CheckAdapter().adapt(_package("C1", "S1", _check("geometry"), _check("rebar_minimum")))
+    assert {row.check_type for row in rows} == {"geometry", "rebar_minimum"}
+    assert {row.id for row in rows} == {"C1:S1:geometry", "C1:S1:rebar_minimum"}
 
 
-def test_beam_traceable_fields_normalize_from_outputs_checks():
-    rows = _by_check_id(_adapter().adapt_all(_beam_eval_results()))
-
-    for check_id in [
-        "beam_geometry",
-        "beam_flexure",
-        "beam_shear",
-        "beam_ductility",
-    ]:
-        row = rows[check_id]
-        assert row.status == "OK"
-        assert row.evaluation == "BEAM_DESIGN"
-        assert row.element_label == "B1"
-        assert row.story == "S1"
-        assert row.source == "synthetic_fixture"
-        assert row.evaluation_level == "DESIGN_LEVEL"
+def test_beam_traceable_fields_normalize_from_current_package_contract():
+    rows = CheckAdapter().adapt(_package("B1", "S1", _check("geometry"), _check("flexure"), _check("shear"), _check("ductility")))
+    assert [row.check_type for row in rows] == ["geometry", "flexure", "shear", "ductility"]
+    assert all(row.component == "B1" and row.story == "S1" for row in rows)
 
 
-def test_beam_known_missing_output_check_is_not_emitted_when_disabled():
-    rows = _by_check_id(_adapter().adapt_all(_beam_eval_results()))
-
-    assert "beam_design_full" not in rows
-
-
-def test_known_missing_output_checks_are_not_emitted_by_contract_first_catalog():
-    rows = []
-    rows.extend(_adapter().adapt_all(_column_eval_results()))
-    rows.extend(_adapter().adapt_all(_beam_eval_results()))
-    emitted = {row.check_id for row in rows}
-
-    assert not (DISABLED_KNOWN_MISSING_OUTPUT_CHECKS & emitted)
-    assert "column_rebar_minimum" in emitted
+def test_adapter_does_not_synthesize_missing_checks():
+    rows = CheckAdapter().adapt(_package("B1", "S1", _check("geometry")))
+    assert len(rows) == 1
+    assert rows[0].id == "B1:S1:geometry"
 
 
-def test_scwb_direct_extraction_normalizes_capacity_hierarchy_checks():
-    eval_results = {
-        "results": {
-            "SCWB_CHECK": {
-                "column_capacity_hierarchy": [
-                    {
-                        **_check_payload(message="column capacity hierarchy ok"),
-                        "element_label": "J1",
-                        "story": "S1",
-                    }
-                ],
-                "beam_capacity_hierarchy": [
-                    {
-                        **_check_payload(message="beam capacity hierarchy ok"),
-                        "element_label": "J1",
-                        "story": "S1",
-                    }
-                ],
+def test_adapt_all_mapping_values_are_current_packages():
+    rows = CheckAdapter().adapt_all(
+        {
+            "results": {
+                "COLUMN": _package("C1", "S1", _check("axial")),
+                "BEAM": _package("B1", "S1", _check("shear")),
             }
-        },
-        "errors": {},
-        "skipped": {},
-        "execution_order": ["SCWB_CHECK"],
-        "cache_stats": {},
-    }
-
-    rows = _by_check_id(_adapter().adapt_all(eval_results))
-
-    assert rows["column_capacity_hierarchy"].status == "OK"
-    assert rows["column_capacity_hierarchy"].evaluation == "SCWB_CHECK"
-    assert rows["column_capacity_hierarchy"].element_label == "J1"
-    assert rows["beam_capacity_hierarchy"].status == "OK"
-    assert rows["beam_capacity_hierarchy"].evaluation == "SCWB_CHECK"
-    assert rows["beam_capacity_hierarchy"].element_label == "J1"
+        }
+    )
+    assert {row.id for row in rows} == {"C1:S1:axial", "B1:S1:shear"}
 
 
-def test_evaluation_error_creates_error_row_for_each_enabled_column_check():
-    eval_results = {
-        "results": {},
-        "errors": {"COLUMN_DESIGN": "boom"},
-        "skipped": {},
-        "execution_order": ["COLUMN_DESIGN"],
-        "cache_stats": {},
-    }
-
-    rows = [row for row in _adapter().adapt_all(eval_results) if row.evaluation == "COLUMN_DESIGN"]
-
-    assert {row.check_id for row in rows} == {
-        "column_geometry",
-        "column_axial",
-        "column_pmm",
-        "column_shear",
-        "column_confinement",
-        "column_rebar_minimum",
-    }
-    assert all(row.status == "ERROR" for row in rows)
-    assert all(row.evaluation_level == "ERROR" for row in rows)
-    assert all(row.message == "boom" for row in rows)
+def test_package_and_check_messages_are_preserved_in_order():
+    row = CheckAdapter().adapt(
+        _package("C1", "S1", _check("axial", messages=("check-message",)), messages=("package-message",))
+    )[0]
+    assert row.messages == ("package-message", "check-message")
 
 
-def test_disabled_wall_checks_are_not_normalized_even_when_wall_output_exists():
-    eval_results = {
-        "results": {
-            "WALL_DESIGN": {
-                "outputs": [
-                    {
-                        "label": "W1",
-                        "story": "S1",
-                        "checks": {
-                            "geometry": _check_payload(message="wall geometry ok"),
-                            "axial_flexure": _check_payload(message="wall axial flexure ok"),
-                            "shear": _check_payload(message="wall shear ok"),
-                            "boundary_zone": _check_payload(message="wall boundary zone ok"),
-                            "web_reinforcement": _check_payload(message="wall web reinforcement ok"),
-                            "full": _check_payload(message="wall full ok"),
-                        },
-                    }
-                ]
-            }
-        },
-        "errors": {},
-        "skipped": {},
-        "execution_order": ["WALL_DESIGN"],
-        "cache_stats": {},
-    }
-
-    rows = _adapter().adapt_all(eval_results)
-
-    assert all(not row.check_id.startswith("wall_") for row in rows)
-    assert rows == []
+def test_evidence_mapping_is_preserved_without_inference():
+    evidence = {"source_refs": ("fact:1",), "case": "S_E_1"}
+    row = CheckAdapter().adapt(_package("C1", "S1", _check("axial"), evidence=evidence))[0]
+    assert row.evidence == evidence
 
 
-def test_enabled_implemented_column_and_beam_fixture_rows_do_not_normalize_as_no_data():
-    column_rows = _adapter().adapt_all(_column_eval_results())
-    beam_rows = _adapter().adapt_all(_beam_eval_results())
-    implemented_rows = [
-        row
-        for row in [*column_rows, *beam_rows]
-        if row.check_id not in DISABLED_KNOWN_MISSING_OUTPUT_CHECKS
-    ]
+def test_missing_checks_fails_closed_instead_of_synthesizing_results():
+    with pytest.raises(ValueError, match="package.checks is required"):
+        CheckAdapter().adapt({"component": "C1", "story": "S1"})
 
-    assert implemented_rows
-    assert all(row.status != "NO_DATA" for row in implemented_rows)
+
+def test_boolean_numeric_values_are_rejected():
+    package = _package("C1", "S1", {"check_type": "axial", "status": "OK", "demand": True})
+    with pytest.raises(ValueError, match="boolean values"):
+        CheckAdapter().adapt(package)

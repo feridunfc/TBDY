@@ -1,56 +1,30 @@
-
 from __future__ import annotations
 
-import asyncio
-import sys
-from pathlib import Path
+import importlib.util
 
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-
-from tbdy_engine.runner import _build_context_async, run_all_checks
-from tbdy_engine.checks.registry import registry
+from tbdy_engine.application.column_execution import execute_column_domain
+from tbdy_engine.application.project_execution import execute_project
 
 
-async def main() -> None:
-    ctx = await _build_context_async()
-
-    registry.load_from_matrix()
-    result = run_all_checks(ctx)
-
-    print("\n" + "=" * 80)
-    print("SPRINT 3 RUNNER FULL TEST")
-    print("=" * 80)
-
-    print("SUMMARY:", result.get("summary", {}))
-
-    for check_id, data in result.get("checks", {}).items():
-        print(
-            f"{check_id}: status={data.get('status')} "
-            f"total={data.get('total_checked')} "
-            f"OK={data.get('pass_count')} "
-            f"FAIL={data.get('fail_count')} "
-            f"WARN={data.get('warning_count')} "
-            f"ND={data.get('no_data_count')}"
-        )
-
-    missing = [
-        x for x in [
-            "beam_geometry", "beam_flexure", "beam_shear",
-            "beam_ductility", "beam_capacity_hierarchy", "beam_design_full",
-        ]
-        if x not in result.get("checks", {})
-    ]
-
-    if missing:
-        raise SystemExit(f"Missing beam checks: {missing}")
-
-    if result.get("summary", {}).get("error", 0) != 0:
-        raise SystemExit("Runner has ERROR checks")
-
-    print("\nDONE")
+def test_retired_legacy_runner_remains_absent_after_contract_first_cutover():
+    assert importlib.util.find_spec("tbdy_engine.runner") is None
+    assert importlib.util.find_spec("tbdy_engine.runner_v2") is None
 
 
-if __name__ == "__main__":
-    asyncio.run(main())
+def test_current_project_execution_is_the_public_product_root():
+    assert callable(execute_project)
+    assert execute_project.__module__ == "tbdy_engine.application.project_execution"
+
+
+def test_current_column_execution_is_the_column_application_composer():
+    assert callable(execute_column_domain)
+    assert execute_column_domain.__module__ == "tbdy_engine.application.column_execution"
+
+
+def test_legacy_runner_is_not_restored_as_a_compatibility_shim():
+    for module_name in (
+        "tbdy_engine.runner",
+        "tbdy_engine.runner_v2",
+        "tbdy_engine.runtime.runner",
+    ):
+        assert importlib.util.find_spec(module_name) is None
