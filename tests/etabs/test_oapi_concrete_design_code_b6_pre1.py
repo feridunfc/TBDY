@@ -70,6 +70,11 @@ def test_get_code_unavailable_method_fails_closed() -> None:
         subject.read_design_code(SimpleNamespace())
 
 
+def test_session_bound_get_code_requires_verified_session() -> None:
+    with pytest.raises(TypeError, match="session must be EtabsVerifiedSession"):
+        subject.read_design_code_from_session(object())
+
+
 def test_session_bound_get_code_uses_verified_read_boundary(monkeypatch) -> None:
     session = object()
     calls = []
