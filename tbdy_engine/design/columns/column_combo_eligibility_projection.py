@@ -44,6 +44,8 @@ from tbdy_engine.design.columns.design_demand_states import (
 )
 
 AUTHORITY = "P8A_COLUMN_COMBO_ELIGIBILITY_PROJECTION"
+EXACT_COMBO_ANALYSIS_BASIS_BINDING_CONTRACT = "P8A_EXACT_COMBO_ANALYSIS_BASIS_BINDING_V1"
+EXACT_COMBO_ANALYSIS_BASIS_BINDING_REF_PREFIX = "combo-analysis-basis-binding:sha256:"
 
 BLOCKER_COMPONENT_NOT_READY = "COMPONENT_READINESS_NOT_READY"
 BLOCKER_COMPONENT_ANALYSIS_BASIS = "COMPONENT_ANALYSIS_BASIS_NOT_MATCH"
@@ -110,6 +112,33 @@ def _unique(values: Sequence[str]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(values))
 
 
+def _binding_ref_payload(binding: "ComboAnalysisBasisBinding") -> dict[str, object]:
+    design_combo_type, combo_name = binding.design_combo_identity
+    return {
+        "contract": EXACT_COMBO_ANALYSIS_BASIS_BINDING_CONTRACT,
+        "design_combo_type": design_combo_type,
+        "combo_name": combo_name,
+        "normalized_definition_fingerprint": binding.normalized_definition_fingerprint,
+        "model_fingerprint": binding.model_fingerprint,
+        "evidence_epoch_id": binding.evidence_epoch_id,
+        "analysis_basis_status": binding.evidence.status_value,
+        "compatibility_ref": binding.evidence.compatibility_ref,
+        "analysis_basis_provenance_refs": sorted(binding.evidence.provenance_refs),
+        "binding_provenance_refs": sorted(binding.provenance_refs),
+    }
+
+
+def _exact_binding_ref(binding: "ComboAnalysisBasisBinding") -> str:
+    encoded = json.dumps(
+        _binding_ref_payload(binding),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("utf-8")
+    return EXACT_COMBO_ANALYSIS_BASIS_BINDING_REF_PREFIX + hashlib.sha256(encoded).hexdigest()
+
+
 @dataclass(frozen=True, slots=True)
 class ComponentReadinessBinding:
     """Same-context binding for one component-scoped FND-COL-2 readiness result."""
@@ -168,6 +197,16 @@ class ComboAnalysisBasisBinding:
         object.__setattr__(self, "model_fingerprint", _text(self.model_fingerprint, "model_fingerprint"))
         object.__setattr__(self, "evidence_epoch_id", _text(self.evidence_epoch_id, "evidence_epoch_id"))
         object.__setattr__(self, "provenance_refs", _refs(self.provenance_refs, "analysis_basis.provenance_ref"))
+
+    @property
+    def binding_ref(self) -> str:
+        """Deterministic exact combo-grain ref for B2 opaque state binding.
+
+        This ref does not resolve analysis-basis semantics. It only identifies
+        this already-qualified W7/P8A binding and changes whenever an
+        authority-bearing constituent changes.
+        """
+        return _exact_binding_ref(self)
 
 
 @dataclass(frozen=True, slots=True)
@@ -520,6 +559,8 @@ def project_column_combo_eligibility(
 
 __all__ = [
     "AUTHORITY",
+    "EXACT_COMBO_ANALYSIS_BASIS_BINDING_CONTRACT",
+    "EXACT_COMBO_ANALYSIS_BASIS_BINDING_REF_PREFIX",
     "BLOCKER_AMBIGUOUS_NAME",
     "BLOCKER_ANALYSIS_BASIS_DEFINITION",
     "BLOCKER_ANALYSIS_BASIS_NOT_MATCH",
