@@ -84,6 +84,15 @@ def test_each_authority_bearing_constituent_changes_exact_binding_ref() -> None:
     assert all(item.binding_ref != original.binding_ref for item in changed)
 
 
+def test_non_match_binding_has_deterministic_identity_without_b2_authorization() -> None:
+    blocked = _binding(evidence=_evidence(status="REANALYSIS_REQUIRED"))
+    same_blocked = _binding(evidence=_evidence(status="REANALYSIS_REQUIRED"))
+
+    assert blocked.binding_ref == same_blocked.binding_ref
+    assert blocked.binding_ref.startswith(EXACT_COMBO_ANALYSIS_BASIS_BINDING_REF_PREFIX)
+    assert blocked.evidence.acceptable is False
+
+
 def test_exact_binding_ref_does_not_promote_component_level_readiness_or_basis() -> None:
     binding = _binding()
     payload_fields = set(binding.__dataclass_fields__)
