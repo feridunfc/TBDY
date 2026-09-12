@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 from decimal import Decimal
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
+import sys
 from types import SimpleNamespace
 
 import tbdy_engine.application.column_public_a5 as a5
@@ -13,7 +16,22 @@ from tbdy_engine.etabs.oapi.frame_modifiers import (
 )
 from tbdy_engine.etabs.oapi.frame_section_mechanics import FrameSectionMechanicsFact
 from tbdy_engine.etabs.oapi.material_properties import IsotropicMaterialPropertiesFact
-from tests.application import test_column_public_a5_product_path as base
+
+
+def _load_test_module(name: str, path: Path):
+    spec = spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_APP_TEST_DIR = Path(__file__).resolve().parent
+base = _load_test_module(
+    "_column_public_a5_product_path_base",
+    _APP_TEST_DIR / "test_column_public_a5_product_path.py",
+)
 
 
 def _configure(monkeypatch, *, zero_v2: bool):

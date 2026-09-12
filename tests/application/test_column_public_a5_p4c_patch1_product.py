@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from importlib.util import module_from_spec, spec_from_file_location
+from pathlib import Path
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -25,8 +28,26 @@ from tbdy_engine.etabs.oapi.area_modifiers import (
 )
 from tbdy_engine.etabs.oapi.eq713_response_results import AreaStrainShellResponseRow
 from tbdy_engine.providers.etabs_area_contributor_provider import AreaPropertyFamily
-from tests.application import test_column_public_a5_frame_production_join as frame_join
-from tests.application import test_column_public_a5_product_path as base
+
+
+def _load_test_module(name: str, path: Path):
+    spec = spec_from_file_location(name, path)
+    assert spec is not None and spec.loader is not None
+    module = module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+_APP_TEST_DIR = Path(__file__).resolve().parent
+base = _load_test_module(
+    "_column_public_a5_product_path_base_for_p4c",
+    _APP_TEST_DIR / "test_column_public_a5_product_path.py",
+)
+frame_join = _load_test_module(
+    "_column_public_a5_frame_join_for_p4c",
+    _APP_TEST_DIR / "test_column_public_a5_frame_production_join.py",
+)
 
 
 def _mode(mode, disposition, reason="p4c-patch-1"):

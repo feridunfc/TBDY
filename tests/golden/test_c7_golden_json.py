@@ -1,13 +1,20 @@
 import ast
 import json
 from collections import Counter
+from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+import sys
 
 from jsonschema import Draft202012Validator
 
-from tests.golden.c7_golden_builder import build_golden_documents
-
 GOLDEN_DIR = Path(__file__).parent
+_builder_spec = spec_from_file_location("_c7_golden_builder", GOLDEN_DIR / "c7_golden_builder.py")
+assert _builder_spec is not None and _builder_spec.loader is not None
+_builder = module_from_spec(_builder_spec)
+sys.modules["_c7_golden_builder"] = _builder
+_builder_spec.loader.exec_module(_builder)
+build_golden_documents = _builder.build_golden_documents
+
 CHECK_RESULTS_PATH = GOLDEN_DIR / "c7_minimal_check_results.golden.json"
 COVERAGE_PATH = GOLDEN_DIR / "c7_minimal_coverage_matrix.golden.json"
 SNAPSHOT_PATH = GOLDEN_DIR / "c7_minimal_feature_snapshot.golden.json"
