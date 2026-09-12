@@ -327,6 +327,12 @@ def decode_summary_results_column_response(
     if number_items < 0:
         raise EtabsOAPIError("GetSummaryResultsColumn NumberItems must be >= 0")
 
+    ret = raw[13]
+    if isinstance(ret, bool) or not isinstance(ret, int) or ret != 0:
+        raise EtabsOAPIError(
+            f"DesignConcrete.GetSummaryResultsColumn returned nonzero/invalid code {ret!r}"
+        )
+
     arrays = tuple(raw[1:13])
     if len(arrays) != len(SUMMARY_RESULT_ARRAY_NAMES) or any(
         not isinstance(values, (tuple, list)) for values in arrays
