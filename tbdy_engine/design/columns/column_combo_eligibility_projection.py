@@ -200,11 +200,13 @@ class ComboAnalysisBasisBinding:
 
     @property
     def binding_ref(self) -> str:
-        """Deterministic exact combo-grain ref for B2 opaque state binding.
+        """Deterministic identity of this exact combo-analysis-basis binding.
 
-        This ref does not resolve analysis-basis semantics. It only identifies
-        this already-qualified W7/P8A binding and changes whenever an
-        authority-bearing constituent changes.
+        The ref exists independently of whether ``evidence.acceptable`` is true.
+        It identifies this binding and changes whenever an authority-bearing
+        constituent changes; it does not itself prove B2 authorization or
+        analysis-basis qualification. Later materialization must separately
+        enforce acceptable evidence and exact population closure.
         """
         return _exact_binding_ref(self)
 
