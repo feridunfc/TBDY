@@ -5,6 +5,7 @@ on:
     branches:
       - sprint/column-r1-reconciled-closure
       - sprint/b6-pre1-design-state-authority-closure
+      - sprint/column-r1-vertical-closure
   workflow_dispatch:
 
 permissions:
