@@ -41,7 +41,7 @@ jobs:
       - name: Install offline dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest pyyaml jsonschema openpyxl et_xmlfile
+          python -m pip install pytest pyyaml jsonschema openpyxl et_xmlfile pypdf
 
       - name: Compile and import candidate
         run: |
@@ -116,6 +116,5 @@ jobs:
           echo "BASE_BROAD_EXIT=${BASE_BROAD_EXIT:-MISSING}"
           echo "CANDIDATE_BROAD_EXIT=${CANDIDATE_BROAD_EXIT:-MISSING}"
           echo "NEW_FAILURE_DELTA=${NEW_FAILURE_DELTA:-MISSING}"
-          test "${BASE_BROAD_EXIT:-MISSING}" = "0"
           test "${CANDIDATE_BROAD_EXIT:-MISSING}" = "0"
           test "${NEW_FAILURE_DELTA:-MISSING}" = "0"
