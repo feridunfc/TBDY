@@ -43,6 +43,9 @@ SUMMARY_RESULT_ARRAY_NAMES = (
     "ErrorSummary",
     "WarningSummary",
 )
+CONCRETE_DESIGN_CODE_API = "DesignConcrete.GetCode"
+CONCRETE_DESIGN_CODE_FACT_CONTRACT = "ETABS_CONCRETE_DESIGN_CODE_FACT_V1"
+CONCRETE_DESIGN_CODE_REF_PREFIX = "etabs-concrete-design-code:sha256:"
 CONCRETE_DESIGN_RESULTS_AVAILABLE_API = "DesignConcrete.GetResultsAvailable"
 CONCRETE_DESIGN_START_FACT_CONTRACT = "ETABS_CONCRETE_DESIGN_START_FACT_V1"
 CONCRETE_DESIGN_EXECUTION_EVIDENCE_PREFIX = "etabs-concrete-design-execution:sha256:"
@@ -74,6 +77,43 @@ class ConcreteDesignSectionFact:
     frame_name: str
     design_section: str
     raw_response: object
+
+
+@dataclass(frozen=True, slots=True)
+class ConcreteDesignCodeFact:
+    """Exact factual current concrete-design code returned by CSI ``GetCode``."""
+
+    code_name: str
+    raw_response: tuple[object, object]
+    design_code_ref: str = field(init=False)
+    source_api: str = CONCRETE_DESIGN_CODE_API
+    contract: str = CONCRETE_DESIGN_CODE_FACT_CONTRACT
+
+    def __post_init__(self) -> None:
+        code_name = _canonical_text(self.code_name, "concrete design code name")
+        if self.source_api != CONCRETE_DESIGN_CODE_API:
+            raise EtabsOAPIError("concrete design code source API mismatch")
+        if self.contract != CONCRETE_DESIGN_CODE_FACT_CONTRACT:
+            raise EtabsOAPIError("concrete design code fact contract mismatch")
+        if not isinstance(self.raw_response, tuple) or len(self.raw_response) != 2:
+            raise EtabsOAPIError("DesignConcrete.GetCode raw response must preserve the exact 2-tuple")
+        object.__setattr__(self, "code_name", code_name)
+        payload = json.dumps(
+            {
+                "contract": self.contract,
+                "source_api": self.source_api,
+                "code_name": code_name,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        ).encode("utf-8")
+        object.__setattr__(
+            self,
+            "design_code_ref",
+            CONCRETE_DESIGN_CODE_REF_PREFIX + hashlib.sha256(payload).hexdigest(),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -170,6 +210,41 @@ def _canonical_names(values: Sequence[str], label: str) -> tuple[str, ...]:
     return names
 
 
+def decode_design_code_response(raw: object) -> ConcreteDesignCodeFact:
+    """Decode CSI ``cDesignConcrete.GetCode(ref string CodeName) -> int`` exactly.
+
+    The supported Python COM ABI is the exact two-member tuple
+    ``(CodeName, return_code)``. Only integer return code zero authorizes a fact.
+    """
+    if not isinstance(raw, tuple) or len(raw) != 2:
+        raise EtabsOAPIError(
+            "DesignConcrete.GetCode returned unsupported Python COM shape; expected exact (CodeName, return_code) tuple"
+        )
+    code_raw, ret = raw
+    if isinstance(ret, bool) or not isinstance(ret, int) or ret != 0:
+        raise EtabsOAPIError(
+            f"DesignConcrete.GetCode returned nonzero/invalid code {ret!r}"
+        )
+    code_name = _canonical_text(code_raw, "concrete design code name")
+    return ConcreteDesignCodeFact(
+        code_name=code_name,
+        raw_response=raw,
+    )
+
+
+def read_design_code(design_concrete: Any) -> ConcreteDesignCodeFact:
+    getter = getattr(design_concrete, "GetCode", None)
+    if not callable(getter):
+        raise EtabsOAPIError("DesignConcrete.GetCode is unavailable")
+    try:
+        raw = getter()
+    except Exception as exc:
+        raise EtabsOAPIError(
+            f"DesignConcrete.GetCode raised {type(exc).__name__}: {exc}"
+        ) from exc
+    return decode_design_code_response(raw)
+
+
 def decode_results_available_response(
     raw: object,
 ) -> ConcreteDesignResultsAvailabilityFact:
@@ -252,12 +327,6 @@ def decode_summary_results_column_response(
     if number_items < 0:
         raise EtabsOAPIError("GetSummaryResultsColumn NumberItems must be >= 0")
 
-    ret = raw[13]
-    if isinstance(ret, bool) or not isinstance(ret, int) or ret != 0:
-        raise EtabsOAPIError(
-            f"DesignConcrete.GetSummaryResultsColumn returned nonzero/invalid code {ret!r}"
-        )
-
     arrays = tuple(raw[1:13])
     if len(arrays) != len(SUMMARY_RESULT_ARRAY_NAMES) or any(
         not isinstance(values, (tuple, list)) for values in arrays
@@ -317,6 +386,20 @@ def read_summary_results_column(
             f"DesignConcrete.GetSummaryResultsColumn({requested!r}) raised {type(exc).__name__}: {exc}"
         ) from exc
     return decode_summary_results_column_response(raw, requested_frame_name=requested)
+
+
+def read_design_code_from_session(
+    session: EtabsVerifiedSession,
+    *,
+    timeout_seconds: float = 30.0,
+) -> ConcreteDesignCodeFact:
+    """Read the current concrete design code through the verified safety boundary."""
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: read_design_code(sap.DesignConcrete),
+        operation="oapi_design_concrete_get_code",
+        timeout_seconds=timeout_seconds,
+    )
 
 
 def read_results_available_from_session(
@@ -420,6 +503,9 @@ def read_summary_results_columns_with_units_from_session(
 
 
 __all__ = [
+    "CONCRETE_DESIGN_CODE_API",
+    "CONCRETE_DESIGN_CODE_FACT_CONTRACT",
+    "CONCRETE_DESIGN_CODE_REF_PREFIX",
     "CONCRETE_DESIGN_EXECUTION_EVIDENCE_PREFIX",
     "CONCRETE_DESIGN_RESULTS_AVAILABLE_API",
     "CONCRETE_DESIGN_START_FACT_CONTRACT",
@@ -427,12 +513,16 @@ __all__ = [
     "ConcreteColumnSummaryBatchFact",
     "ConcreteColumnSummaryFact",
     "ConcreteColumnSummaryRowFact",
+    "ConcreteDesignCodeFact",
     "ConcreteDesignResultsAvailabilityFact",
     "ConcreteDesignSectionFact",
     "ConcreteDesignStartFact",
+    "decode_design_code_response",
     "decode_design_section_response",
     "decode_results_available_response",
     "decode_summary_results_column_response",
+    "read_design_code",
+    "read_design_code_from_session",
     "read_design_section",
     "read_design_section_from_session",
     "read_design_sections_from_session",
