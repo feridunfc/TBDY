@@ -41,7 +41,7 @@ jobs:
       - name: Install offline dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install pytest pyyaml jsonschema openpyxl et_xmlfile pypdf
+          python -m pip install pytest pyyaml jsonschema openpyxl et_xmlfile pypdf pypdfium2
 
       - name: Compile and import candidate
         run: |
