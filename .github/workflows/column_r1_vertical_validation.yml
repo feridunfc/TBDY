@@ -45,4 +45,6 @@ jobs:
 
       - name: Public FND2 DesignState B6 join
         run: |
-          python -m pytest -q tests/application/test_column_public_b6_join.py
+          python -m pytest -q \
+            tests/application/test_column_public_b6_join.py \
+            tests/application/test_column_public_b6_project_root.py
