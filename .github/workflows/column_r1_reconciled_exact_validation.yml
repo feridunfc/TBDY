@@ -42,7 +42,7 @@ jobs:
       - name: Compile and import
         run: |
           python -m compileall -q tbdy_engine tests packages/etabs_gateway/src
-          python -c "import etabs_gateway; import tbdy_engine; import tbdy_engine.application.project_execution; import tbdy_engine.application.column_execution; import tbdy_engine.application.column_public_a5; import tbdy_engine.analysis_basis.eq713_uncracked_analysis_state; import tbdy_engine.analysis_basis.eq713_frame_mechanics; import tbdy_engine.analysis_basis.eq713_response_mechanics; import tbdy_engine.etabs.oapi.frame_section_mechanics; import tbdy_engine.etabs.oapi.eq713_response_results; import tbdy_engine.providers.etabs_eq713_response_provider"
+          python -c "import etabs_gateway; import tbdy_engine; import tbdy_engine.application.project_execution; import tbdy_engine.application.column_execution; import tbdy_engine.application.column_public_a5; import tbdy_engine.analysis_basis.eq713_uncracked_analysis_state; import tbdy_engine.analysis_basis.eq713_frame_mechanics; import tbdy_engine.analysis_basis.eq713_response_mechanics; import tbdy_engine.etabs.oapi.frame_section_mechanics; import tbdy_engine.etabs.oapi.eq713_response_results; import tbdy_engine.etabs.oapi.concrete_design; import tbdy_engine.design.columns.column_combo_eligibility_projection; import tbdy_engine.integration.etabs_design_lineage; import tbdy_engine.integration.etabs_controlled_design_execution; import tbdy_engine.providers.etabs_eq713_response_provider"
 
       - name: P4A1 Frame response core
         run: python -m pytest -q tests/analysis_basis/test_eq713_response_mechanics.py
@@ -94,6 +94,20 @@ jobs:
 
       - name: PUBLIC A5 execute_project product path
         run: python -m pytest -q tests/application/test_column_public_a5_product_path.py
+
+      - name: B6-PRE1 exact authority validation
+        run: |
+          python -m pytest -q \
+            tests/etabs/test_oapi_concrete_design_code_b6_pre1.py \
+            tests/design/columns/test_b6_pre1_exact_combo_binding_ref.py \
+            tests/etabs/test_oapi_concrete_design.py \
+            tests/integration/test_etabs_design_lineage.py \
+            tests/integration/test_b6_controlled_design_execution.py \
+            tests/integration/test_b6_p0_design_preflight.py \
+            tests/integration/test_f0_5_analysis_basis_contracts.py \
+            tests/design/columns/test_p8a_column_combo_eligibility_projection.py \
+            tests/features/test_vs6_p8a_f0_column_design_evidence_authority.py \
+            tests/features/test_p8a_column_design_rebar_evidence.py
 
       - name: B6 focused regression
         run: |
