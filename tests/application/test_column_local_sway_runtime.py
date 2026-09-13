@@ -69,7 +69,8 @@ def test_a17_resolves_unfavorable_load_bases_then_binds_global_xy_to_local_m2_m3
     )
 
     assert result.status == runtime.STATUS_READY
-    assert result.ready_for_fnd2
+    assert result.local_sway_resolved
+    assert not hasattr(result, "ready_for_fnd2")
     assert result.global_x.governing_load_basis == TS500_LOAD_GQW
     assert result.global_y.governing_load_basis == TS500_LOAD_GQW
     assert result.local_binding.m2.status == LOCAL_SWAY_PREVENTED
@@ -96,7 +97,8 @@ def test_a17_does_not_promote_failed_eq713_route_to_sway_permitted(monkeypatch):
     )
 
     assert result.status == runtime.STATUS_UNRESOLVED
-    assert not result.ready_for_fnd2
+    assert not result.local_sway_resolved
+    assert not hasattr(result, "ready_for_fnd2")
     assert result.global_x.status == "NOT_PROVEN_SWAY_PREVENTED_BY_TS500_STABILITY_INDEX"
     assert result.local_binding.m2.sway_classification is None
     assert result.local_binding.m3.sway_classification is None
