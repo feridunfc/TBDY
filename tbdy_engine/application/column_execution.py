@@ -1,15 +1,22 @@
-"""Bounded column application composition for PRODUCT-SPINE-COL-1.
+"""Canonical Column application composition for COLUMN-R1.
 
-Public LIVE execution enters the accepted COLUMN-R1 PUBLIC-A5 composer. That
-composer owns no engineering semantics: it binds one trusted factual generation
-to the existing Eq7.13, B4B, B5, FND-COL-2, B2 and B6 authorities. Private
-underscore seams remain test-only compatibility paths for later column product
-stages and never substitute for the public production proof.
+Public LIVE execution enters the accepted PUBLIC-A5 path, preserving the sole
+B4B/B5/FND2/B6 lifecycle. Once FND2 and controlled B6 are qualified, optional
+reviewed production dependencies may continue the same causal generation into
+the existing longitudinal/PMM/ENGINE_SELECTED_REBAR authorities. Application
+owns sequencing and identity joins only; no engineering equation is duplicated
+here.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from functools import partial
 
+from tbdy_engine.application.column_design_basis import ReviewedColumnDesignBasis
+from tbdy_engine.application.column_longitudinal_runtime import (
+    ColumnLongitudinalRuntimeComposition,
+    compose_column_longitudinal_runtime,
+)
 from tbdy_engine.application.contracts import ColumnExecutionRequest
 from tbdy_engine.design.columns.column_combo_eligibility_projection import (
     ComboAnalysisBasisBinding,
@@ -28,6 +35,7 @@ from tbdy_engine.design.columns.column_longitudinal_selection_policy_factory imp
 from tbdy_engine.etabs.oapi.concrete_design import read_design_code_from_session
 from tbdy_engine.features.column_concrete_design_evidence import (
     ColumnTopologyEvidenceEnvelope,
+    ExpectedConcreteDesignComboPolicy,
 )
 from tbdy_engine.integration.etabs_analysis_execution import AnalysisExecutionResult
 from tbdy_engine.integration.etabs_controlled_design_execution import (
@@ -84,6 +92,7 @@ STATUS_REANALYSIS_REQUIRED = "REANALYSIS_REQUIRED"
 STATUS_UNRESOLVED = "UNRESOLVED"
 BLOCKER_LIVE_FND2_INPUT_LINEAGE = "LIVE_FND2_INPUT_LINEAGE_NOT_QUALIFIED"
 BLOCKER_LIVE_DESIGN_LINEAGE = "LIVE_DESIGN_RESULT_LINEAGE_NOT_QUALIFIED"
+BLOCKER_LONGITUDINAL_PRODUCTION = "LONGITUDINAL_PRODUCTION_NOT_CLOSED"
 
 _COLUMN_CONCRETE_DESIGN_DOMAIN_REF = "design-domain:concrete-column"
 _SELECTED_COMBO_POPULATION_REF_PREFIX = "selected-design-combo-population:sha256:"
@@ -109,6 +118,7 @@ class ColumnDomainArtifact:
     controlled_design_result: ControlledConcreteDesignResult | None = None
     layout_authority: object | None = None
     longitudinal_selection: object | None = None
+    longitudinal_runtime: ColumnLongitudinalRuntimeComposition | None = None
     transverse_confinement: ColumnTransverseConfinementResult | None = None
 
     @property
@@ -144,22 +154,34 @@ def execute_column_domain(
     request: ColumnExecutionRequest,
     *,
     acquisition_context: TrustedLiveAcquisitionContext,
+    column_design_basis: ReviewedColumnDesignBasis | None = None,
+    expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
 ) -> ColumnDomainArtifact:
-    """Execute the canonical LIVE Column path through qualified FND2 and controlled B6."""
+    """Execute the canonical LIVE Column path without bypassing FND2/B6 gates."""
     if not isinstance(request, ColumnExecutionRequest):
         raise TypeError("request must be ColumnExecutionRequest")
     if not isinstance(acquisition_context, TrustedLiveAcquisitionContext):
         raise TypeError("acquisition_context must be TrustedLiveAcquisitionContext")
+    if column_design_basis is not None and not isinstance(column_design_basis, ReviewedColumnDesignBasis):
+        raise TypeError("column_design_basis must be ReviewedColumnDesignBasis or None")
+    if expected_combo_policy is not None and not isinstance(expected_combo_policy, ExpectedConcreteDesignComboPolicy):
+        raise TypeError("expected_combo_policy must be ExpectedConcreteDesignComboPolicy or None")
 
-    # Lazy import keeps this canonical application entry point free of a module
-    # cycle while PUBLIC-A5 reuses the bounded callbacks below.
     from tbdy_engine.application.column_public_a5 import execute_public_a5_column
+
+    completion = _complete_public_b6_after_fnd2
+    if column_design_basis is not None or expected_combo_policy is not None:
+        completion = partial(
+            _complete_public_b6_after_fnd2,
+            column_design_basis=column_design_basis,
+            expected_combo_policy=expected_combo_policy,
+        )
 
     return execute_public_a5_column(
         request,
         acquisition_context=acquisition_context,
         execute_fnd2=_execute_fnd2,
-        complete_after_fnd2=_complete_public_b6_after_fnd2,
+        complete_after_fnd2=completion,
     )
 
 
@@ -320,8 +342,10 @@ def _complete_public_b6_after_fnd2(
     selected_combo_population,
     combo_definitions,
     flattened_combos,
+    column_design_basis: ReviewedColumnDesignBasis | None = None,
+    expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
 ) -> ColumnDomainArtifact:
-    """Materialize existing DesignState and invoke the sole controlled B6 owner."""
+    """Run sole B6 owner, then optionally continue into existing longitudinal authorities."""
     if not isinstance(column, ColumnDomainArtifact):
         raise TypeError("column must be ColumnDomainArtifact")
     if column.status != STATUS_READY:
@@ -447,7 +471,7 @@ def _complete_public_b6_after_fnd2(
             raise ColumnExecutionContractError(
                 "DesignResultIdentity is not causally derived from the executed DesignStateIdentity"
             )
-        return replace(
+        completed_b6 = replace(
             column,
             design_code=design_code,
             design_procedure=design_procedure,
@@ -463,6 +487,75 @@ def _complete_public_b6_after_fnd2(
             ),
         )
 
+    # Backward-compatible B6-only execution remains a truthful READY artifact.
+    # Full product callers pass both reviewed dependencies explicitly; they are
+    # not stored in ColumnExecutionRequest/ProjectExecutionRequest.
+    if column_design_basis is None and expected_combo_policy is None:
+        return completed_b6
+    if column_design_basis is None or expected_combo_policy is None:
+        return replace(
+            completed_b6,
+            status=STATUS_APPLICATION_BLOCKED,
+            blockers=tuple(
+                dict.fromkeys(
+                    (*completed_b6.blockers, f"{BLOCKER_LONGITUDINAL_PRODUCTION}:MISSING_REVIEWED_DEPENDENCY")
+                )
+            ),
+        )
+
+    try:
+        runtime = compose_column_longitudinal_runtime(
+            component_id=completed_b6.component_id,
+            column_model_fingerprint=completed_b6.model_fingerprint,
+            column_evidence_epoch_id=completed_b6.evidence_epoch_id,
+            readiness_binding=completed_b6.readiness_binding,
+            acquisition_context=acquisition_context,
+            analysis_execution=analysis_execution,
+            topology=topology,
+            selected_combo_population=selected_combo_population,
+            combo_definitions=combo_definitions,
+            flattened_combos=flattened_combos,
+            combo_analysis_basis_bindings=combo_bindings,
+            controlled_design_result=controlled,
+            reviewed_design_basis=column_design_basis,
+            expected_combo_policy=expected_combo_policy,
+        )
+    except Exception as exc:
+        return replace(
+            completed_b6,
+            status=STATUS_APPLICATION_BLOCKED,
+            blockers=tuple(
+                dict.fromkeys(
+                    (
+                        *completed_b6.blockers,
+                        f"{BLOCKER_LONGITUDINAL_PRODUCTION}:{type(exc).__name__}:{exc}",
+                    )
+                )
+            ),
+        )
+
+    if runtime.selection.selected:
+        status = STATUS_SELECTED
+        blockers: tuple[str, ...] = ()
+    else:
+        status = STATUS_APPLICATION_BLOCKED
+        blockers = tuple(
+            dict.fromkeys(
+                (
+                    *completed_b6.blockers,
+                    *(runtime.selection.blockers or (runtime.selection.status,)),
+                )
+            )
+        )
+    return replace(
+        completed_b6,
+        status=status,
+        blockers=blockers,
+        layout_authority=runtime.layout_authority,
+        longitudinal_selection=runtime.selection,
+        longitudinal_runtime=runtime,
+    )
+
 
 def _compose_lane_c_after_qualified_design(
     column: ColumnDomainArtifact,
@@ -470,14 +563,7 @@ def _compose_lane_c_after_qualified_design(
     transverse_input: ColumnTransverseConfinementInput,
     design_lineage: DesignLineageQualification,
 ) -> ColumnDomainArtifact:
-    """Join mature Lane-C authority only after longitudinal/B6 causal qualification.
-
-    This does not recreate the reverted early composition seam. In particular,
-    application does not reinterpret Ash/Asw, HD/LD applicability or P7 shear
-    direction mechanics. Those remain owned by the canonical bound Lane-C
-    evaluator, which must receive the same model/epoch/component identity and
-    exact qualified design lineage that produced the selected longitudinal cage.
-    """
+    """Join mature Lane-C authority only after longitudinal/B6 causal qualification."""
     if not isinstance(column, ColumnDomainArtifact):
         raise TypeError("column must be ColumnDomainArtifact")
     if not isinstance(transverse_input, ColumnTransverseConfinementInput):
@@ -657,6 +743,7 @@ def _execute_column_domain_with_ready_fixture_for_test(
 __all__ = [
     "BLOCKER_LIVE_DESIGN_LINEAGE",
     "BLOCKER_LIVE_FND2_INPUT_LINEAGE",
+    "BLOCKER_LONGITUDINAL_PRODUCTION",
     "ColumnDomainArtifact",
     "ColumnExecutionContractError",
     "STATUS_APPLICATION_BLOCKED",
