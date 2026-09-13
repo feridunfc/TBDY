@@ -11,7 +11,6 @@ from __future__ import annotations
 from types import MappingProxyType
 from typing import Mapping, Sequence
 
-from tbdy_engine.checks.column_axial_selection import ReviewedVs5ColumnAxialContext  # type: ignore[attr-defined]
 from tbdy_engine.features.etabs_column_axial_evidence import (
     ColumnForceEvidenceBundle,
     ColumnGeometryEvidence,
@@ -123,6 +122,7 @@ def capture_b5_bound_column_axial_evidence(
 
     # Import here to avoid creating a provider -> regulatory package initialization cycle.
     from tbdy_engine.regulatory.vs5_column_axial_program import ReviewedVs5ColumnAxialContext
+
     if not isinstance(reviewed, ReviewedVs5ColumnAxialContext):
         raise TypeError("reviewed must be ReviewedVs5ColumnAxialContext")
 
@@ -142,10 +142,14 @@ def capture_b5_bound_column_axial_evidence(
     )
     if not set(correction_cases).issubset(exact_scope):
         raise ColumnAxialB5EvidenceError("reviewed Q/S axial correction case lies outside qualified B5 scope")
-    static_rows = _b5_population_rows(
-        analysis_execution,
-        required_case_names=correction_cases,
-    ) if correction_cases else ()
+    static_rows = (
+        _b5_population_rows(
+            analysis_execution,
+            required_case_names=correction_cases,
+        )
+        if correction_cases
+        else ()
+    )
 
     expectation = ColumnForcePopulationExpectation(
         expected_unique_names=tuple(item.unique_name for item in topology.columns),
