@@ -1,9 +1,15 @@
 """Factual ETABS result acquisition for TS500 story-stability composition.
 
-The provider reads one already-existing ETABS output case/combo after the sole
-B5 analysis generation.  It captures global story shear, StoryDrifts and the
-full column-force population and binds those facts to the exact B5 result
+The provider reads one already-existing ETABS output combination after the sole
+B5 analysis generation. It captures global story shear, raw StoryDrifts rows and
+the full column-force population and binds those facts to the exact B5 result
 identity/proof supplied by the application composer.
+
+It deliberately does *not* promote CSI ``StoryDrifts.Drift`` to TS500 Eq.7.13
+``Delta_i``. The CSI API contract documents drift rows, but the current approved
+sources do not prove the aggregation/units required to equate a maximum point
+Drift row with the TS500 relative-storey displacement. That mapping therefore
+stays explicit and fail-closed until a separate source-bound resolver proves it.
 
 No TS500 load-basis matching, sway classification, effective-length math or
 moment magnification is performed here.
@@ -15,7 +21,10 @@ import math
 from typing import Any, Mapping, Sequence
 
 from tbdy_engine.etabs.oapi import fetch_display_table_for_output_from_session
-from tbdy_engine.etabs.oapi.story_drift_results import read_story_drifts_from_session
+from tbdy_engine.etabs.oapi.story_drift_results import (
+    StoryDriftResultRow,
+    read_story_drifts_from_session,
+)
 from tbdy_engine.etabs.safety import EtabsVerifiedSession, RuntimeCaptureStatus
 from tbdy_engine.features.column_shear_topology import (
     ColumnTopologyEvidence,
@@ -29,6 +38,7 @@ from tbdy_engine.providers.etabs_column_force_result_population_provider import 
 
 TABLE_STORY_FORCES = "Story Forces"
 STORY_STABILITY_FACT_AUTHORITY = "ETABS_B5_STORY_STABILITY_FACTS"
+TS500_DELTA_D_MAPPING_NOT_PROVEN = "NOT_PROVEN_CSI_STORYDRIFTS_TO_TS500_DELTA_I"
 
 
 class StoryStabilityResultProviderError(RuntimeError):
@@ -155,8 +165,8 @@ def _sum_story_axial_compression_n(
     for column in columns:
         row = _bottom_station_row(column, force_rows)
         # Existing Column demand normalization contract is factual ETABS
-        # negative-compression P.  Preserve signed summation so a tensile
-        # column reduces the story compression rather than being clipped.
+        # negative-compression P. Preserve signed summation so a tensile
+        # column reduces the storey compression rather than being clipped.
         p_kn = _finite(row.get("P"), f"{column.unique_name}.P")
         total_n += -p_kn * 1000.0
         refs.append(
@@ -182,8 +192,11 @@ def _story_shear_row(
         output = row.get("OutputCase", row.get("Output Case"))
         if output != output_name:
             continue
+        # TS500 V_fi is the storey total shear at the storey cut. Do not accept
+        # a different table location or silently use a row whose location is
+        # absent/unresolved.
         location = str(row.get("Location", "")).strip().casefold()
-        if location and location != "bottom":
+        if location != "bottom":
             continue
         exact.append(row)
     if len(exact) != 1:
@@ -193,33 +206,30 @@ def _story_shear_row(
     return exact[0]
 
 
-def _direction_from_story_shear(row: Mapping[str, Any]) -> tuple[str, float, float]:
-    vx = _finite(_field(row, ("VX", "Vx"), "Story Forces"), "Story Forces.VX")
-    vy = _finite(_field(row, ("VY", "Vy"), "Story Forces"), "Story Forces.VY")
-    ax = abs(vx)
-    ay = abs(vy)
-    major = max(ax, ay)
-    if major <= 1e-12:
-        raise StoryStabilityResultProviderError("story shear vector is zero")
-    minor = min(ax, ay)
-    if minor > max(1e-9, 1e-6 * major):
+def _story_shear_for_direction_n(row: Mapping[str, Any], direction: str) -> float:
+    direction_name = _text(direction, "global_direction")
+    if direction_name not in {"X", "Y"}:
+        raise StoryStabilityResultProviderError("global_direction must be X or Y")
+    field = ("VX", "Vx") if direction_name == "X" else ("VY", "Vy")
+    value_kn = _finite(_field(row, field, "Story Forces"), f"Story Forces.V{direction_name}")
+    if abs(value_kn) <= 1e-12:
         raise StoryStabilityResultProviderError(
-            f"story shear does not prove a single global X/Y direction: VX={vx}, VY={vy}"
+            f"story shear in required global {direction_name} direction is zero"
         )
-    return ("X", vx, vy) if ax > ay else ("Y", vx, vy)
+    return abs(value_kn) * 1000.0
 
 
 @dataclass(frozen=True, slots=True)
 class EtabsStoryStabilityComboFact:
     output_name: str
+    output_kind: str
     story: str
     global_direction: str
     story_height_mm: float
-    drift_ratio_abs: float
-    relative_story_displacement_mm: float
+    story_drift_rows: tuple[StoryDriftResultRow, ...]
+    ts500_delta_d_mapping_status: str
     story_shear_n: float
     sum_column_axial_design_force_n: float
-    governing_drift_point_label: str
     analysis_result_ref: str
     execution_proof_ref: str
     source_refs: tuple[str, ...]
@@ -231,17 +241,32 @@ def capture_story_stability_combo_fact_from_session(
     *,
     output_name: str,
     story: str,
+    global_direction: str,
+    direction_source_refs: Sequence[str],
     topology: StrictColumnTopologyBundle,
     analysis_result_ref: str,
     execution_proof_ref: str,
     reviewed_force_unit: str,
     timeout_seconds: float = 30.0,
 ) -> EtabsStoryStabilityComboFact:
-    """Capture one existing combo's exact post-B5 story stability facts."""
+    """Capture one existing combo's exact post-B5 story-stability factual operands.
+
+    ``global_direction`` must already be proven by the existing load-definition /
+    direction-binding path. Story response magnitudes are not allowed to create
+    direction authority here.
+    """
     if not isinstance(session, EtabsVerifiedSession):
         raise TypeError("session must be EtabsVerifiedSession")
     name = _text(output_name, "output_name")
     story_name = _text(story, "story")
+    direction = _text(global_direction, "global_direction")
+    if direction not in {"X", "Y"}:
+        raise StoryStabilityResultProviderError("global_direction must be X or Y")
+    direction_refs = tuple(_text(ref, "direction_source_ref") for ref in direction_source_refs)
+    if not direction_refs or len(set(direction_refs)) != len(direction_refs):
+        raise StoryStabilityResultProviderError(
+            "direction_source_refs must be nonempty and unique"
+        )
     analysis_ref = _text(analysis_result_ref, "analysis_result_ref")
     proof_ref = _text(execution_proof_ref, "execution_proof_ref")
     if not isinstance(topology, StrictColumnTopologyBundle):
@@ -262,8 +287,7 @@ def capture_story_stability_combo_fact_from_session(
             f"{TABLE_STORY_FORCES}@{name} output-selection restoration did not verify"
         )
     shear_row = _story_shear_row(force_rows, output_name=name, story=story_name)
-    direction, vx_kn, vy_kn = _direction_from_story_shear(shear_row)
-    shear_kn = abs(vx_kn if direction == "X" else vy_kn)
+    shear_n = _story_shear_for_direction_n(shear_row, direction)
 
     drift_fact = read_story_drifts_from_session(
         session,
@@ -279,10 +303,6 @@ def capture_story_stability_combo_fact_from_session(
         raise StoryStabilityResultProviderError(
             f"Results.StoryDrifts@{name}/{story_name}/{direction} returned no exact rows"
         )
-    governing_drift = max(drift_rows, key=lambda row: (abs(row.drift), row.point_label))
-    drift_ratio_abs = abs(governing_drift.drift)
-    if not math.isfinite(drift_ratio_abs) or drift_ratio_abs < 0.0:
-        raise StoryStabilityResultProviderError("governing StoryDrifts value is invalid")
 
     expectation = ColumnForcePopulationExpectation(
         expected_unique_names=tuple(item.unique_name for item in topology.columns),
@@ -302,35 +322,32 @@ def capture_story_stability_combo_fact_from_session(
         force_unit=reviewed_force_unit,
     )
 
-    # CSI Results.StoryDrifts is the factual story-drift output.  The provider
-    # carries its dimensionless drift value explicitly as a ratio and derives
-    # Delta_d with the source-bound exact story height; no TS500 decision is
-    # made here.
-    delta_mm = drift_ratio_abs * height_mm
     refs = tuple(
         dict.fromkeys(
             (
                 analysis_ref,
                 proof_ref,
+                *direction_refs,
                 *height_refs,
-                f"ETABS:{TABLE_STORY_FORCES}:{name}:{story_name}:Bottom",
+                f"ETABS:{TABLE_STORY_FORCES}:{name}:{story_name}:Bottom:V{direction}",
                 drift_fact.evidence_ref,
-                f"ETABS:Results.StoryDrifts:{name}:{story_name}:{direction}:{governing_drift.point_label}",
+                *(f"ETABS:Results.StoryDrifts:{name}:{story_name}:{direction}:{row.point_label}" for row in drift_rows),
                 column_forces.evidence_ref,
                 *axial_refs,
+                TS500_DELTA_D_MAPPING_NOT_PROVEN,
             )
         )
     )
     return EtabsStoryStabilityComboFact(
         output_name=name,
+        output_kind="combo",
         story=story_name,
         global_direction=direction,
         story_height_mm=height_mm,
-        drift_ratio_abs=drift_ratio_abs,
-        relative_story_displacement_mm=delta_mm,
-        story_shear_n=shear_kn * 1000.0,
+        story_drift_rows=drift_rows,
+        ts500_delta_d_mapping_status=TS500_DELTA_D_MAPPING_NOT_PROVEN,
+        story_shear_n=shear_n,
         sum_column_axial_design_force_n=sum_nd_n,
-        governing_drift_point_label=governing_drift.point_label,
         analysis_result_ref=analysis_ref,
         execution_proof_ref=proof_ref,
         source_refs=refs,
@@ -342,5 +359,6 @@ __all__ = [
     "STORY_STABILITY_FACT_AUTHORITY",
     "StoryStabilityResultProviderError",
     "TABLE_STORY_FORCES",
+    "TS500_DELTA_D_MAPPING_NOT_PROVEN",
     "capture_story_stability_combo_fact_from_session",
 ]
