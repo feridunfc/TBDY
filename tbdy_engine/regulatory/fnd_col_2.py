@@ -18,8 +18,12 @@ from tbdy_engine.design.columns.column_design_readiness import (
     resolve_column_design_demand_readiness,
 )
 from tbdy_engine.design.columns.combo_pattern_engine import ComboPatternConstituent
+from tbdy_engine.design.columns.moment_magnification import ColumnMomentMagnificationAxisBasis
 from tbdy_engine.design.columns.rebar_selection import ColumnDemandState
-from tbdy_engine.design.columns.slenderness_basis import ColumnSlendernessAxisEvidence, ColumnSlendernessEvidence
+from tbdy_engine.design.columns.slenderness_basis import (
+    ColumnSlendernessAxisEvidence,
+    ColumnSlendernessEvidence,
+)
 from tbdy_engine.design.columns.stability_stiffness_basis import (
     AssignedFrameBendingModifierEvidence,
     assess_ts500_eq713_stiffness_basis,
@@ -91,7 +95,6 @@ _TYPED_READINESS_CAPTURE: ContextVar[_TypedReadinessCapture | None] = ContextVar
 
 @contextmanager
 def _capture_typed_readiness_execution() -> Iterator[_TypedReadinessCapture]:
-    """Capture exact typed readiness objects only inside one source-bound execution."""
     captured: _TypedReadinessCapture = []
     token = _TYPED_READINESS_CAPTURE.set(captured)
     try:
@@ -130,6 +133,14 @@ def _number(value: object, label: str) -> float:
 
 def _optional_number(value: object, label: str) -> float | None:
     return None if value is None else _number(value, label)
+
+
+def _optional_bool(value: object, label: str, *, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if type(value) is not bool:
+        raise TypeError(f"{label} must be bool")
+    return value
 
 
 def _decode_combo_definitions(value: object) -> tuple[ColumnComboDefinition, ...]:
@@ -219,8 +230,53 @@ def _decode_slenderness(value: object, *, component_id: str) -> ColumnSlendernes
         component_id=encoded_component,
         m2=_decode_axis(row.get("m2"), "M2"),
         m3=_decode_axis(row.get("m3"), "M3"),
-        source_refs=tuple(_text(item, "slenderness.source_ref") for item in _sequence(row.get("source_refs"), "slenderness.source_refs")),
+        source_refs=tuple(
+            _text(item, "slenderness.source_ref")
+            for item in _sequence(row.get("source_refs"), "slenderness.source_refs")
+        ),
     )
+
+
+def _decode_moment_magnification_bases(value: object) -> tuple[ColumnMomentMagnificationAxisBasis, ...]:
+    if value is None:
+        return ()
+    root = _mapping(value, "slenderness evidence")
+    raw_bases = root.get("moment_magnification_bases")
+    if raw_bases is None:
+        return ()
+    bases: list[ColumnMomentMagnificationAxisBasis] = []
+    for index, raw in enumerate(_sequence(raw_bases, "moment_magnification_bases")):
+        row = _mapping(raw, f"moment_magnification_bases[{index}]")
+        bases.append(
+            ColumnMomentMagnificationAxisBasis(
+                demand_state_id=_text(row.get("demand_state_id"), "demand_state_id"),
+                axis=_text(row.get("axis"), "axis"),
+                sway_classification=_text(row.get("sway_classification"), "sway_classification"),
+                nd_compression_n=_number(row.get("nd_compression_n"), "nd_compression_n"),
+                m1_over_m2=_number(row.get("m1_over_m2"), "m1_over_m2"),
+                effective_length_lk_mm=_number(row.get("effective_length_lk_mm"), "effective_length_lk_mm"),
+                radius_i_mm=_number(row.get("radius_i_mm"), "radius_i_mm"),
+                ec_mpa=_number(row.get("ec_mpa"), "ec_mpa"),
+                ic_mm4=_number(row.get("ic_mm4"), "ic_mm4"),
+                creep_ratio_rm=_number(row.get("creep_ratio_rm"), "creep_ratio_rm"),
+                stiffness_method=_text(row.get("stiffness_method"), "stiffness_method"),
+                source_refs=tuple(
+                    _text(ref, "moment_magnification.source_ref")
+                    for ref in _sequence(row.get("source_refs"), "moment_magnification.source_refs")
+                ),
+                es_mpa=_optional_number(row.get("es_mpa"), "es_mpa"),
+                is_mm4=_optional_number(row.get("is_mm4"), "is_mm4"),
+                horizontal_load_between_ends=_optional_bool(
+                    row.get("horizontal_load_between_ends"),
+                    "horizontal_load_between_ends",
+                ),
+                story_sum_nd_n=_optional_number(row.get("story_sum_nd_n"), "story_sum_nd_n"),
+                story_sum_nk_n=_optional_number(row.get("story_sum_nk_n"), "story_sum_nk_n"),
+                fck_mpa=_optional_number(row.get("fck_mpa"), "fck_mpa"),
+                concrete_area_mm2=_optional_number(row.get("concrete_area_mm2"), "concrete_area_mm2"),
+            )
+        )
+    return tuple(bases)
 
 
 def _decode_stiffness_evidence(value: object) -> tuple[AssignedFrameBendingModifierEvidence, ...]:
@@ -235,7 +291,10 @@ def _decode_stiffness_evidence(value: object) -> tuple[AssignedFrameBendingModif
                 member_kind=_text(row.get("member_kind"), "member_kind"),
                 i2_modifier=_number(row.get("i2_modifier"), "i2_modifier"),
                 i3_modifier=_number(row.get("i3_modifier"), "i3_modifier"),
-                source_refs=tuple(_text(ref, "stiffness.source_ref") for ref in _sequence(row.get("source_refs"), "stiffness.source_refs")),
+                source_refs=tuple(
+                    _text(ref, "stiffness.source_ref")
+                    for ref in _sequence(row.get("source_refs"), "stiffness.source_refs")
+                ),
             )
         )
     return tuple(evidence)
@@ -258,6 +317,24 @@ def _state_payload(state: ColumnDemandState) -> dict[str, object]:
     }
 
 
+def _magnification_payload(result) -> dict[str, object]:
+    return {
+        "demand_state_id": result.demand_state_id,
+        "axis": result.axis,
+        "status": result.status,
+        "effective_ei_nmm2": result.effective_ei_nmm2,
+        "critical_load_nk_n": result.critical_load_nk_n,
+        "cm": result.cm,
+        "beta_individual": result.beta_individual,
+        "beta_story": result.beta_story,
+        "final_magnification_factor": result.final_magnification_factor,
+        "slenderness_lk_over_i": result.slenderness_lk_over_i,
+        "eq729_product_required": result.eq729_product_required,
+        "blockers": result.blockers,
+        "authority": result.authority,
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class ColumnDesignReadinessExecutionInput:
     envelope: RuleExecutionEnvelope
@@ -267,6 +344,7 @@ class ColumnDesignReadinessExecutionInput:
     case_demands: tuple[ColumnDemandState, ...]
     slenderness_evidence: ColumnSlendernessEvidence | None
     stiffness_evidence: tuple[AssignedFrameBendingModifierEvidence, ...]
+    moment_magnification_bases: tuple[ColumnMomentMagnificationAxisBasis, ...]
     evidence_refs: tuple[str, ...]
 
     @classmethod
@@ -288,14 +366,16 @@ class ColumnDesignReadinessExecutionInput:
         if len(by_key) != len(deps) or set(by_key) != expected:
             raise ValueError("FND-COL-2 received unexpected dependency keys")
         component = envelope.instance_id.scope_ref
+        slenderness_payload = by_key[SLENDERNESS_EVIDENCE_KEY].value
         return cls(
             envelope=envelope,
             width_mm=_number(by_key[WIDTH_MM_KEY].value, "width_mm"),
             depth_mm=_number(by_key[DEPTH_MM_KEY].value, "depth_mm"),
             combo_definitions=_decode_combo_definitions(by_key[COMBO_DEFINITIONS_KEY].value),
             case_demands=_decode_demand_states(by_key[CASE_DEMANDS_KEY].value, component_id=component),
-            slenderness_evidence=_decode_slenderness(by_key[SLENDERNESS_EVIDENCE_KEY].value, component_id=component),
+            slenderness_evidence=_decode_slenderness(slenderness_payload, component_id=component),
             stiffness_evidence=_decode_stiffness_evidence(by_key[STIFFNESS_EVIDENCE_KEY].value),
+            moment_magnification_bases=_decode_moment_magnification_bases(slenderness_payload),
             evidence_refs=tuple(dict.fromkeys(ref for item in deps for ref in item.evidence_refs)),
         )
 
@@ -315,6 +395,9 @@ def _regulatory_quantity_from_readiness(
         "slenderness_basis_status": result.slenderness_basis.status,
         "slenderness_status": result.slenderness.status,
         "blocked_items": result.blocked_items,
+        "moment_magnification_results": tuple(
+            _magnification_payload(item) for item in result.moment_magnification_results
+        ),
         "demand_states": tuple(_state_payload(state) for state in result.demand_states),
     }
     return RegulatoryQuantity(
@@ -330,7 +413,14 @@ def _regulatory_quantity_from_readiness(
         availability=AvailabilityState.RESOLVED,
         rule_version=RULE_VERSION,
         code_refs=CODE_REFS,
-        dependency_refs=(WIDTH_MM_KEY, DEPTH_MM_KEY, COMBO_DEFINITIONS_KEY, CASE_DEMANDS_KEY, SLENDERNESS_EVIDENCE_KEY, STIFFNESS_EVIDENCE_KEY),
+        dependency_refs=(
+            WIDTH_MM_KEY,
+            DEPTH_MM_KEY,
+            COMBO_DEFINITIONS_KEY,
+            CASE_DEMANDS_KEY,
+            SLENDERNESS_EVIDENCE_KEY,
+            STIFFNESS_EVIDENCE_KEY,
+        ),
         evidence_refs=inp.evidence_refs,
         provenance=("FND-COL-2 canonical readiness authority", result.authority, *result.source_refs),
         derivation_trace=(
@@ -338,6 +428,7 @@ def _regulatory_quantity_from_readiness(
             "TS500 minimum eccentricity demand transformation",
             "TS500 slenderness basis resolution",
             "TS500 slenderness/second-order classification",
+            "conditional axis-specific TS500 moment magnification",
             "analysis-basis/reanalysis classification",
         ),
         governing_trace=result.blocked_items,
@@ -357,6 +448,7 @@ def evaluate_column_design_readiness(inp: ColumnDesignReadinessExecutionInput) -
         depth_mm=inp.depth_mm,
         slenderness_evidence=inp.slenderness_evidence,
         stability_stiffness_basis=stiffness,
+        moment_magnification_bases=inp.moment_magnification_bases,
     )
     quantity = _regulatory_quantity_from_readiness(inp, result)
     captured = _TYPED_READINESS_CAPTURE.get()
@@ -434,5 +526,6 @@ __all__ = [
     "SPEC",
     "STIFFNESS_EVIDENCE_KEY",
     "WIDTH_MM_KEY",
+    "_capture_typed_readiness_execution",
     "evaluate_column_design_readiness",
 ]
