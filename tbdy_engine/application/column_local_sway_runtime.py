@@ -7,7 +7,7 @@ M2/M3 mapping remains in ``local_axis_sway_binding``.
 No sway-permitted state is manufactured by this seam.  If Eq.7.13 does not
 positively prove sway prevention for every global direction contributing to a
 local bending axis, the local classification remains unresolved for downstream
-FND-COL-2 composition.
+second-order composition.
 """
 from __future__ import annotations
 
@@ -94,7 +94,12 @@ class ColumnLocalAxisSwayRuntime:
     source_refs: tuple[str, ...]
 
     @property
-    def ready_for_fnd2(self) -> bool:
+    def local_sway_resolved(self) -> bool:
+        """Whether A17 produced positive local-axis sway-prevented classifications.
+
+        This property is intentionally scoped to A17 only.  A17 is not, by
+        itself, FND-COL-2 readiness; A18-A23 still have to close.
+        """
         return self.status == STATUS_READY
 
 
