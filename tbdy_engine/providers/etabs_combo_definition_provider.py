@@ -15,6 +15,7 @@ from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError, ResponseComboFact
 from tbdy_engine.etabs.oapi.response_combinations import (
     read_response_combo,
     read_response_combo_from_session,
+    read_response_combo_names_from_session,
 )
 from tbdy_engine.etabs.safety import EtabsVerifiedSession
 
@@ -191,12 +192,39 @@ def capture_etabs_combo_definitions_from_session(
     return tuple(capture_etabs_combo_definition_from_session(session, name) for name in requested)
 
 
+def capture_all_etabs_combo_definitions_from_session(
+    session: EtabsVerifiedSession,
+) -> tuple[EtabsComboDefinitionEvidence, ...]:
+    """Capture the complete factual ETABS response-combination population.
+
+    This is discovery only: the provider does not decide which combinations are
+    design/stability/axial candidates.  Regulatory/application owners may filter
+    the returned factual population after exact definitions are available.
+    """
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+    try:
+        names, _raw = read_response_combo_names_from_session(session)
+    except EtabsOAPIError as exc:
+        raise EtabsComboDefinitionProviderError(str(exc)) from exc
+    if not names:
+        raise EtabsComboDefinitionProviderError(
+            "complete response-combination population must not be empty"
+        )
+    if len(names) != len(set(names)):
+        raise EtabsComboDefinitionProviderError(
+            "complete response-combination population contains duplicate names"
+        )
+    return capture_etabs_combo_definitions_from_session(session, names)
+
+
 __all__ = [
     "CNAME_TYPE_BY_CODE",
     "COMBO_TYPE_BY_CODE",
     "EtabsComboConstituentEvidence",
     "EtabsComboDefinitionEvidence",
     "EtabsComboDefinitionProviderError",
+    "capture_all_etabs_combo_definitions_from_session",
     "capture_etabs_combo_definition",
     "capture_etabs_combo_definition_from_session",
     "capture_etabs_combo_definitions",
