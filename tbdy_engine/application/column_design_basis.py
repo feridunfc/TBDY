@@ -4,8 +4,8 @@ This is a production dependency, not a request-DTO engineering-truth surface.
 It binds reviewed design strengths and aggregate size to exact factual ETABS
 material identities before existing longitudinal/PMM owners consume them.
 
-Factual ``fck`` remains owned by ``UsedRcMaterialPopulation``.  Reviewed
-``fcd``/``fyd`` are never derived here.  Material-name applicability is exact;
+Factual ``fck`` remains owned by ``UsedRcMaterialPopulation``. Reviewed
+``fcd``/``fyd`` are never derived here. Material-name applicability is exact;
 a reviewed value for a different concrete or reinforcement material fails
 closed.
 """
@@ -17,16 +17,14 @@ import json
 import math
 from typing import Sequence
 
-from tbdy_engine.design.columns.column_pmm_assessment import (
-    ColumnPmmMaterialContextBinding,
-)
+from tbdy_engine.design.columns.column_pmm_assessment import ColumnPmmMaterialContextBinding
 from tbdy_engine.design.columns.section_capacity import ColumnSectionMaterial
 from tbdy_engine.features.used_rc_material_population import (
     MaterialUsageReference,
     UsedMaterialDefinition,
 )
 from tbdy_engine.providers.etabs_column_rebar_intent_provider import (
-    ColumnRebarIntentFact,
+    EtabsColumnRebarIntentEvidence,
 )
 
 
@@ -166,7 +164,7 @@ def bind_reviewed_column_design_basis(
     section_id: str,
     factual_concrete_usage: MaterialUsageReference,
     factual_concrete_definition: UsedMaterialDefinition,
-    factual_rebar_intent: ColumnRebarIntentFact,
+    factual_rebar_intent: EtabsColumnRebarIntentEvidence,
     model_fingerprint: str,
     evidence_epoch_id: str,
 ) -> BoundColumnDesignBasis:
@@ -177,8 +175,8 @@ def bind_reviewed_column_design_basis(
         raise TypeError("factual_concrete_usage must be MaterialUsageReference")
     if not isinstance(factual_concrete_definition, UsedMaterialDefinition):
         raise TypeError("factual_concrete_definition must be UsedMaterialDefinition")
-    if not isinstance(factual_rebar_intent, ColumnRebarIntentFact):
-        raise TypeError("factual_rebar_intent must be ColumnRebarIntentFact")
+    if not isinstance(factual_rebar_intent, EtabsColumnRebarIntentEvidence):
+        raise TypeError("factual_rebar_intent must be EtabsColumnRebarIntentEvidence")
 
     component = _text(component_id, "component_id")
     section = _text(section_id, "section_id")
@@ -198,7 +196,7 @@ def bind_reviewed_column_design_basis(
     if fck is None:
         raise ColumnDesignBasisError("factual concrete fck is unresolved")
     fck_mpa = _positive(fck, "factual_concrete_fck_mpa")
-    if factual_rebar_intent.section != section:
+    if factual_rebar_intent.section_name != section:
         raise ColumnDesignBasisError("rebar intent section differs from target Column section")
     long_name = _text(factual_rebar_intent.mat_prop_long, "rebar_intent.mat_prop_long")
 
