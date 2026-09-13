@@ -13,7 +13,11 @@ from types import MappingProxyType
 from typing import Any, Mapping
 
 from tbdy_engine.design.columns.rebar_catalog import RebarCatalog, build_rebar_catalog_from_rows
-from tbdy_engine.etabs.safety import RuntimeCaptureStatus
+from tbdy_engine.etabs.safety import (
+    EtabsVerifiedSession,
+    RuntimeCaptureStatus,
+    _execute_verified_read,
+)
 from tbdy_engine.providers.etabs_display_table_fetcher import fetch_display_table
 
 
@@ -98,6 +102,29 @@ def capture_etabs_rebar_catalog_evidence(
     )
 
 
+def capture_etabs_rebar_catalog_evidence_from_session(
+    session: EtabsVerifiedSession,
+    *,
+    timeout_seconds: float = 30.0,
+) -> EtabsRebarCatalogEvidence:
+    """Supported production read through the verified ETABS safety boundary."""
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+
+    def acquire(_etabs_object: object, sap_model: Any) -> EtabsRebarCatalogEvidence:
+        database_tables = getattr(sap_model, "DatabaseTables", None)
+        if database_tables is None:
+            raise EtabsRebarCatalogProviderError("SapModel.DatabaseTables is unavailable")
+        return capture_etabs_rebar_catalog_evidence(database_tables)
+
+    return _execute_verified_read(
+        session,
+        acquire,
+        operation="rebar_catalog:Reinforcing Bar Sizes",
+        timeout_seconds=timeout_seconds,
+    )
+
+
 def promote_etabs_rebar_catalog(
     evidence: EtabsRebarCatalogEvidence,
     *,
@@ -133,7 +160,7 @@ def promote_live_proven_etabs_rebar_catalog(
     """Promote the live-proven ETABS ``Name``/``Diameter`` schema fail-closed.
 
     The field semantics are no longer caller-selectable in the production path:
-    they were verified on the accepted ETABS 23.2.0 live table.  The numerical
+    they were verified on the accepted ETABS 23.2.0 live table. The numerical
     unit is still a reviewed session/database contract and must be supplied
     explicitly. Future ETABS schema drift therefore blocks instead of guessing.
     """
@@ -164,6 +191,7 @@ __all__ = [
     "EtabsRebarCatalogEvidence",
     "EtabsRebarCatalogProviderError",
     "capture_etabs_rebar_catalog_evidence",
+    "capture_etabs_rebar_catalog_evidence_from_session",
     "promote_etabs_rebar_catalog",
     "promote_live_proven_etabs_rebar_catalog",
 ]
