@@ -1,14 +1,16 @@
-"""First supported project application root for PRODUCT-SPINE-COL-1.
+"""Sole public project application root for the supported Column vertical.
 
-``execute_project`` owns lifecycle/composition only.  Runtime capability is a
-keyword dependency, not user/project intent.  A1 does not run ETABS analysis or
-design and, because current-main lacks a qualified LIVE FND-COL-2 input builder,
-truthfully stops before FND-COL-2X.
+``execute_project`` owns lifecycle/composition only. Runtime capability and
+reviewed engineering-basis objects are keyword dependencies, not project/request
+truth. The request DTO therefore remains application intent while the same
+public lifecycle may continue from qualified FND2/B6 into existing downstream
+Column authorities.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from tbdy_engine.application.column_design_basis import ReviewedColumnDesignBasis
 from tbdy_engine.application.column_execution import ColumnDomainArtifact, execute_column_domain
 from tbdy_engine.application.contracts import ProjectExecutionRequest
 from tbdy_engine.coverage.project_reconciliation import (
@@ -21,6 +23,7 @@ from tbdy_engine.coverage.project_reconciliation import (
     canonical_quantity_report_source_ref,
 )
 from tbdy_engine.etabs.safety import EtabsVerifiedSession
+from tbdy_engine.features.column_concrete_design_evidence import ExpectedConcreteDesignComboPolicy
 from tbdy_engine.integration.live_etabs_acquisition_context import (
     TrustedLiveAcquisitionContext,
     create_trusted_live_acquisition_context,
@@ -44,8 +47,6 @@ class ProjectExecutionContractError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class ProjectExecutionArtifact:
-    """Bounded application result; absence of FCR/report means no rule execution occurred."""
-
     project_id: str
     report_id: str
     status: str
@@ -80,7 +81,7 @@ def _report_contribution(column: ColumnDomainArtifact) -> SliceReportContributio
             role="STATUS",
         )
     ]
-    evidence_refs: tuple[str, ...] = ()
+    evidence_refs: list[str] = []
     if readiness is not None:
         fields.extend(
             (
@@ -98,16 +99,60 @@ def _report_contribution(column: ColumnDomainArtifact) -> SliceReportContributio
                 ),
             )
         )
-        evidence_refs = tuple(readiness.source_refs)
+        evidence_refs.extend(readiness.source_refs)
+
+    if column.design_result_identity is not None:
+        fields.append(
+            ReportField(
+                key="design_result_identity",
+                label="Controlled B6 design result",
+                value=column.design_result_identity.identity_ref,
+                role="EVIDENCE",
+            )
+        )
+        evidence_refs.append(column.design_result_identity.identity_ref)
+    if column.longitudinal_selection is not None:
+        fields.append(
+            ReportField(
+                key="longitudinal_selection_status",
+                label="Canonical longitudinal selection",
+                value=column.longitudinal_selection.status,
+                role="STATUS",
+            )
+        )
+        if column.selected_rebar is not None:
+            fields.append(
+                ReportField(
+                    key="selected_rebar_ref",
+                    label="ENGINE_SELECTED_REBAR",
+                    value=column.selected_rebar.selected_rebar_ref,
+                    role="EVIDENCE",
+                )
+            )
+            evidence_refs.append(column.selected_rebar.selected_rebar_ref)
+            material_context_ref = getattr(column.selected_rebar, "material_context_ref", None)
+            if material_context_ref:
+                evidence_refs.append(material_context_ref)
+    if column.transverse_confinement is not None:
+        fields.append(
+            ReportField(
+                key="transverse_confinement_complete",
+                label="Column transverse/confinement accounting",
+                value=column.transverse_confinement.complete,
+                role="STATUS",
+            )
+        )
+        evidence_refs.extend(column.transverse_confinement.source_refs)
+
     return SliceReportContribution(
         slice_id=f"product-spine-col-1:readiness:{column.component_id}",
-        title="Column design readiness",
+        title="Column product vertical",
         contribution_kind="REGULATORY",
         status=_report_status(column),
         component_type="COLUMN",
         component_id=column.component_id,
         summary_fields=tuple(fields),
-        evidence_refs=evidence_refs,
+        evidence_refs=tuple(dict.fromkeys(evidence_refs)),
         warnings=tuple(column.blockers),
     )
 
@@ -258,17 +303,27 @@ def execute_project(
     request: ProjectExecutionRequest,
     *,
     verified_session: EtabsVerifiedSession,
+    column_design_basis: ReviewedColumnDesignBasis | None = None,
+    expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
 ) -> ProjectExecutionArtifact:
-    """Execute the legal LIVE A1 product boundary with one trusted acquisition generation."""
+    """Execute the sole LIVE project lifecycle; downstream success remains FND2-gated."""
     if not isinstance(request, ProjectExecutionRequest):
         raise TypeError("request must be ProjectExecutionRequest")
     if not isinstance(verified_session, EtabsVerifiedSession):
         raise TypeError("verified_session must be EtabsVerifiedSession")
-    context: TrustedLiveAcquisitionContext = create_trusted_live_acquisition_context(verified_session)
-    column = execute_column_domain(request.column, acquisition_context=context)
+    if column_design_basis is not None and not isinstance(column_design_basis, ReviewedColumnDesignBasis):
+        raise TypeError("column_design_basis must be ReviewedColumnDesignBasis or None")
+    if expected_combo_policy is not None and not isinstance(expected_combo_policy, ExpectedConcreteDesignComboPolicy):
+        raise TypeError("expected_combo_policy must be ExpectedConcreteDesignComboPolicy or None")
 
-    # A1 current-main has no legally-qualified FND-COL-2 compile-input builder.
-    # Therefore no Assessment/FCR/report claim is created from this application blocker.
+    context: TrustedLiveAcquisitionContext = create_trusted_live_acquisition_context(verified_session)
+    column = execute_column_domain(
+        request.column,
+        acquisition_context=context,
+        column_design_basis=column_design_basis,
+        expected_combo_policy=expected_combo_policy,
+    )
+
     if column.fnd_col_2_execution is None:
         return ProjectExecutionArtifact(
             project_id=request.project_id,
