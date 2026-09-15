@@ -38,6 +38,10 @@ from tbdy_engine.analysis_basis.eq713_response_mechanics import (
 from tbdy_engine.analysis_basis.frame_gross_flexural_basis import (
     capture_frame_flexural_base_continuity_evidence,
 )
+from tbdy_engine.application.column_a18_end_restraint import (
+    A18_READY,
+    materialize_ts500_column_end_restraint_ratios,
+)
 from tbdy_engine.application.contracts import ColumnExecutionRequest
 from tbdy_engine.design.columns.free_length_basis import resolve_ts500_column_free_length
 from tbdy_engine.design.columns.rebar_selection import (
@@ -1122,6 +1126,7 @@ def _materialize_fnd2_inputs(
     context,
     target_column,
     topology_post,
+    frame_population,
     flattened_combos,
     selection,
     definitions,
@@ -1159,6 +1164,41 @@ def _materialize_fnd2_inputs(
             ),
         }
         for combo_name, leaves in flattened_combos
+    )
+
+    a18 = materialize_ts500_column_end_restraint_ratios(
+        target_column=target_column,
+        topology=topology_post,
+        frame_population=frame_population,
+    )
+    expected_a18_keys = (
+        ("BOTTOM", "M2"),
+        ("BOTTOM", "M3"),
+        ("TOP", "M2"),
+        ("TOP", "M3"),
+    )
+    actual_a18_keys = tuple(
+        (item.end_tag, item.local_bending_axis)
+        for item in a18
+    )
+    if actual_a18_keys != expected_a18_keys:
+        raise PublicA5CompositionError(
+            BLOCKER_A5_INPUT_MATERIALIZATION,
+            f"A18 materialization returned unexpected end/axis population {actual_a18_keys!r}",
+        )
+    unresolved_a18 = tuple(item for item in a18 if item.disposition != A18_READY)
+    if unresolved_a18:
+        detail = "; ".join(
+            f"{item.end_tag}/{item.local_bending_axis}:"
+            f"{','.join(item.unresolved_reasons) or item.disposition}"
+            for item in unresolved_a18
+        )
+        raise PublicA5CompositionError(
+            BLOCKER_A5_INPUT_MATERIALIZATION,
+            f"A18 end-restraint materialization unresolved: {detail}",
+        )
+    a18_refs = tuple(
+        dict.fromkeys(ref for item in a18 for ref in item.source_refs)
     )
 
     restraints = capture_etabs_column_endpoint_restraints_from_session(
@@ -1253,7 +1293,7 @@ def _materialize_fnd2_inputs(
             dimension=PhysicalDimension.DIMENSIONLESS,
             unit=UNIT_DIMENSIONLESS,
             value=_slenderness_payload(slenderness),
-            refs=(*common_refs, *slenderness.source_refs),
+            refs=(*common_refs, *slenderness.source_refs, *a18_refs),
         ),
         _authority(
             request=request,
@@ -1628,7 +1668,7 @@ def execute_public_a5_column(
         return _blocked(request, context, BLOCKER_A4_B5)
 
     try:
-        topology_post, target_post, _frame_post, _area_post = _prove_post_continuity(
+        topology_post, target_post, frame_post, _area_post = _prove_post_continuity(
             context=context,
             owned_scratch=owned_scratch,
             topology_pre=topology_pre,
@@ -1649,6 +1689,7 @@ def execute_public_a5_column(
             context=context,
             target_column=target_post,
             topology_post=topology_post,
+            frame_population=frame_post,
             flattened_combos=flattened_combos,
             selection=selection,
             definitions=definitions,
