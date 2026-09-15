@@ -51,6 +51,7 @@ from tbdy_engine.design.columns.rebar_selection import (
     ETABS_AXIAL_SIGN_NEGATIVE_COMPRESSION,
     normalize_etabs_column_end_demands,
 )
+from tbdy_engine.design.columns.story_relative_translation import ReviewedStoryTranslationTolerance
 from tbdy_engine.etabs.oapi.area_contributors import AreaDesignOrientation
 from tbdy_engine.etabs.oapi.area_modifiers import AreaModifierSurface, AreaModifierVector
 from tbdy_engine.etabs.oapi.eq713_response_cases import (
@@ -1116,6 +1117,7 @@ def _materialize_fnd2_inputs(
     selection,
     definitions,
     execution_result,
+    reviewed_story_translation_tolerance,
 ):
     demand_states = []
     demand_refs = []
@@ -1196,6 +1198,7 @@ def _materialize_fnd2_inputs(
         a18_rows=a18,
         free_length=free_length,
         analysis_execution=execution_result,
+        reviewed_story_translation_tolerance=reviewed_story_translation_tolerance,
     )
 
     stiffness = build_assigned_rc_frame_bending_modifier_evidence(topology_post)
@@ -1469,6 +1472,7 @@ def execute_public_a5_column(
     *,
     acquisition_context: TrustedLiveAcquisitionContext,
     execute_fnd2: Callable[..., object],
+    reviewed_story_translation_tolerance: ReviewedStoryTranslationTolerance | None = None,
     complete_after_fnd2: Callable[..., object] | None = None,
 ):
     """Compose the supported production path through REAL existing FND-COL-2."""
@@ -1478,6 +1482,12 @@ def execute_public_a5_column(
         raise TypeError("acquisition_context must be TrustedLiveAcquisitionContext")
     if not callable(execute_fnd2):
         raise TypeError("execute_fnd2 must be callable")
+    if reviewed_story_translation_tolerance is not None and not isinstance(
+        reviewed_story_translation_tolerance, ReviewedStoryTranslationTolerance
+    ):
+        raise TypeError(
+            "reviewed_story_translation_tolerance must be ReviewedStoryTranslationTolerance or None"
+        )
     if complete_after_fnd2 is not None and not callable(complete_after_fnd2):
         raise TypeError("complete_after_fnd2 must be callable when provided")
     context = acquisition_context
@@ -1677,6 +1687,7 @@ def execute_public_a5_column(
             selection=selection,
             definitions=definitions,
             execution_result=execution_result,
+            reviewed_story_translation_tolerance=reviewed_story_translation_tolerance,
         )
         column = execute_fnd2(
             request,
