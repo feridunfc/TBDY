@@ -15,11 +15,13 @@ from typing import Iterator, Mapping, Sequence
 from tbdy_engine.design.columns.column_design_demand_engine import ColumnComboDefinition
 from tbdy_engine.design.columns.column_design_readiness import (
     ColumnDesignDemandReadiness,
+    ColumnStateSlendernessBasis,
     resolve_column_design_demand_readiness,
 )
 from tbdy_engine.design.columns.combo_pattern_engine import ComboPatternConstituent
 from tbdy_engine.design.columns.moment_magnification import ColumnMomentMagnificationAxisBasis
 from tbdy_engine.design.columns.rebar_selection import ColumnDemandState
+from tbdy_engine.design.columns.slenderness import ColumnSlendernessAxisBasis, ColumnSlendernessBasis
 from tbdy_engine.design.columns.slenderness_basis import (
     ColumnSlendernessAxisEvidence,
     ColumnSlendernessEvidence,
@@ -84,12 +86,9 @@ def _applicability(value: ColumnDesignReadinessApplicabilityInput) -> Applicabil
     return ApplicabilityState.APPLIES if value.reinforced_concrete_column else ApplicabilityState.PROVEN_NOT_APPLICABLE
 
 
-_TypedReadinessCapture = list[
-    tuple[RuleExecutionEnvelope, ColumnDesignDemandReadiness, tuple[str, ...]]
-]
+_TypedReadinessCapture = list[tuple[RuleExecutionEnvelope, ColumnDesignDemandReadiness, tuple[str, ...]]]
 _TYPED_READINESS_CAPTURE: ContextVar[_TypedReadinessCapture | None] = ContextVar(
-    "fnd_col_2_typed_readiness_capture",
-    default=None,
+    "fnd_col_2_typed_readiness_capture", default=None
 )
 
 
@@ -143,6 +142,15 @@ def _optional_bool(value: object, label: str, *, default: bool = False) -> bool:
     return value
 
 
+def _required_bool(row: Mapping[str, object], key: str) -> bool:
+    if key not in row:
+        raise TypeError(f"{key} must be explicitly source-bound; missing values cannot default")
+    value = row[key]
+    if type(value) is not bool:
+        raise TypeError(f"{key} must be bool")
+    return value
+
+
 def _decode_combo_definitions(value: object) -> tuple[ColumnComboDefinition, ...]:
     definitions: list[ColumnComboDefinition] = []
     for index, raw in enumerate(_sequence(value, "combo definitions")):
@@ -168,10 +176,10 @@ def _decode_combo_definitions(value: object) -> tuple[ColumnComboDefinition, ...
     return tuple(definitions)
 
 
-def _decode_demand_states(value: object, *, component_id: str) -> tuple[ColumnDemandState, ...]:
+def _decode_demand_states(value: object, *, component_id: str, label: str = "case demand population") -> tuple[ColumnDemandState, ...]:
     states: list[ColumnDemandState] = []
-    for index, raw in enumerate(_sequence(value, "case demand population")):
-        row = _mapping(raw, f"case_demand[{index}]")
+    for index, raw in enumerate(_sequence(value, label)):
+        row = _mapping(raw, f"{label}[{index}]")
         state = ColumnDemandState(
             state_id=_text(row.get("state_id"), "state_id"),
             component_id=_text(row.get("component_id"), "component_id"),
@@ -187,7 +195,7 @@ def _decode_demand_states(value: object, *, component_id: str) -> tuple[ColumnDe
             source_identity=_text(row.get("source_identity"), "source_identity"),
         )
         if state.component_id != component_id:
-            raise ValueError("case demand component_id differs from F0 scope_ref")
+            raise ValueError(f"{label} component_id differs from F0 scope_ref")
         states.append(state)
     return tuple(states)
 
@@ -219,6 +227,14 @@ def _decode_axis(value: object, expected_axis: str) -> ColumnSlendernessAxisEvid
     )
 
 
+def _canonical_second_order_root(value: object) -> Mapping[str, object] | None:
+    if value is None:
+        return None
+    root = _mapping(value, "slenderness evidence")
+    raw = root.get("canonical_second_order")
+    return None if raw is None else _mapping(raw, "canonical_second_order")
+
+
 def _decode_slenderness(value: object, *, component_id: str) -> ColumnSlendernessEvidence | None:
     if value is None:
         return None
@@ -226,6 +242,8 @@ def _decode_slenderness(value: object, *, component_id: str) -> ColumnSlendernes
     encoded_component = _text(row.get("component_id"), "slenderness.component_id")
     if encoded_component != component_id:
         raise ValueError("slenderness evidence component_id differs from F0 scope_ref")
+    if row.get("canonical_second_order") is not None:
+        return None
     return ColumnSlendernessEvidence(
         component_id=encoded_component,
         m2=_decode_axis(row.get("m2"), "M2"),
@@ -237,11 +255,73 @@ def _decode_slenderness(value: object, *, component_id: str) -> ColumnSlendernes
     )
 
 
+def _decode_axis_basis(value: object, expected_axis: str) -> ColumnSlendernessAxisBasis:
+    row = _mapping(value, f"state_slenderness.{expected_axis}")
+    axis = _text(row.get("axis"), "state_slenderness.axis")
+    if axis != expected_axis:
+        raise ValueError(f"expected state slenderness axis {expected_axis}")
+    return ColumnSlendernessAxisBasis(
+        axis=axis,
+        section_dimension_mm=_number(row.get("section_dimension_mm"), "section_dimension_mm"),
+        free_length_ln_mm=_number(row.get("free_length_ln_mm"), "free_length_ln_mm"),
+        effective_length_factor_k=_number(row.get("effective_length_factor_k"), "effective_length_factor_k"),
+        sway_classification=_text(row.get("sway_classification"), "sway_classification"),
+        moment_ratio_m1_over_m2=_optional_number(row.get("moment_ratio_m1_over_m2"), "moment_ratio_m1_over_m2"),
+        source_refs=tuple(
+            _text(item, "state_slenderness.axis.source_ref")
+            for item in _sequence(row.get("source_refs"), "state_slenderness.axis.source_refs")
+        ),
+        free_length_authority=_text(row.get("free_length_authority", "TS500_REGULATORY_FREE_LENGTH"), "free_length_authority"),
+        effective_length_authority=_text(row.get("effective_length_authority", "TS500_EFFECTIVE_LENGTH_FACTOR"), "effective_length_authority"),
+        sway_authority=_text(row.get("sway_authority", "TS500_SWAY_CLASSIFICATION"), "sway_authority"),
+        moment_ratio_authority=_text(row.get("moment_ratio_authority", "TS500_END_MOMENT_RATIO"), "moment_ratio_authority"),
+    )
+
+
+def _decode_state_slenderness_bases(value: object, *, component_id: str) -> tuple[ColumnStateSlendernessBasis, ...]:
+    root = _canonical_second_order_root(value)
+    if root is None:
+        return ()
+    raw_rows = root.get("state_slenderness_bases")
+    if raw_rows is None:
+        return ()
+    result: list[ColumnStateSlendernessBasis] = []
+    for index, raw in enumerate(_sequence(raw_rows, "state_slenderness_bases")):
+        row = _mapping(raw, f"state_slenderness_bases[{index}]")
+        encoded_component = _text(row.get("component_id"), "state_slenderness.component_id")
+        if encoded_component != component_id:
+            raise ValueError("state slenderness component_id differs from F0 scope_ref")
+        basis = ColumnSlendernessBasis(
+            component_id=encoded_component,
+            m2=_decode_axis_basis(row.get("m2"), "M2"),
+            m3=_decode_axis_basis(row.get("m3"), "M3"),
+            source_refs=tuple(
+                _text(item, "state_slenderness.source_ref")
+                for item in _sequence(row.get("source_refs"), "state_slenderness.source_refs")
+            ),
+        )
+        result.append(
+            ColumnStateSlendernessBasis(
+                output_case=_text(row.get("output_case"), "state_slenderness.output_case"),
+                basis=basis,
+                source_refs=tuple(
+                    _text(item, "state_slenderness.materialization_source_ref")
+                    for item in _sequence(
+                        row.get("materialization_source_refs", row.get("source_refs")),
+                        "state_slenderness.materialization_source_refs",
+                    )
+                ),
+            )
+        )
+    return tuple(result)
+
+
 def _decode_moment_magnification_bases(value: object) -> tuple[ColumnMomentMagnificationAxisBasis, ...]:
     if value is None:
         return ()
     root = _mapping(value, "slenderness evidence")
-    raw_bases = root.get("moment_magnification_bases")
+    canonical = _canonical_second_order_root(value)
+    raw_bases = (canonical if canonical is not None else root).get("moment_magnification_bases")
     if raw_bases is None:
         return ()
     bases: list[ColumnMomentMagnificationAxisBasis] = []
@@ -266,10 +346,7 @@ def _decode_moment_magnification_bases(value: object) -> tuple[ColumnMomentMagni
                 ),
                 es_mpa=_optional_number(row.get("es_mpa"), "es_mpa"),
                 is_mm4=_optional_number(row.get("is_mm4"), "is_mm4"),
-                horizontal_load_between_ends=_optional_bool(
-                    row.get("horizontal_load_between_ends"),
-                    "horizontal_load_between_ends",
-                ),
+                horizontal_load_between_ends=_required_bool(row, "horizontal_load_between_ends"),
                 story_sum_nd_n=_optional_number(row.get("story_sum_nd_n"), "story_sum_nd_n"),
                 story_sum_nk_n=_optional_number(row.get("story_sum_nk_n"), "story_sum_nk_n"),
                 fck_mpa=_optional_number(row.get("fck_mpa"), "fck_mpa"),
@@ -277,6 +354,24 @@ def _decode_moment_magnification_bases(value: object) -> tuple[ColumnMomentMagni
             )
         )
     return tuple(bases)
+
+
+def _decode_canonical_items(value: object, key: str) -> tuple[str, ...]:
+    root = _canonical_second_order_root(value)
+    if root is None:
+        return ()
+    raw = root.get(key, ())
+    return tuple(_text(item, key) for item in _sequence(raw, key))
+
+
+def _decode_expected_final_states(value: object, *, component_id: str) -> tuple[ColumnDemandState, ...]:
+    root = _canonical_second_order_root(value)
+    if root is None:
+        return ()
+    raw = root.get("expected_final_states")
+    if raw is None:
+        return ()
+    return _decode_demand_states(raw, component_id=component_id, label="expected_final_states")
 
 
 def _decode_stiffness_evidence(value: object) -> tuple[AssignedFrameBendingModifierEvidence, ...]:
@@ -335,6 +430,16 @@ def _magnification_payload(result) -> dict[str, object]:
     }
 
 
+def _state_slenderness_payload(item) -> dict[str, object]:
+    return {
+        "output_case": item.output_case,
+        "status": item.result.status,
+        "m2_status": item.result.m2.status,
+        "m3_status": item.result.m3.status,
+        "source_refs": item.source_refs,
+    }
+
+
 @dataclass(frozen=True, slots=True)
 class ColumnDesignReadinessExecutionInput:
     envelope: RuleExecutionEnvelope
@@ -345,6 +450,10 @@ class ColumnDesignReadinessExecutionInput:
     slenderness_evidence: ColumnSlendernessEvidence | None
     stiffness_evidence: tuple[AssignedFrameBendingModifierEvidence, ...]
     moment_magnification_bases: tuple[ColumnMomentMagnificationAxisBasis, ...]
+    state_slenderness_bases: tuple[ColumnStateSlendernessBasis, ...]
+    canonical_second_order_blockers: tuple[str, ...]
+    canonical_second_order_reanalysis_items: tuple[str, ...]
+    expected_final_states: tuple[ColumnDemandState, ...]
     evidence_refs: tuple[str, ...]
 
     @classmethod
@@ -376,6 +485,10 @@ class ColumnDesignReadinessExecutionInput:
             slenderness_evidence=_decode_slenderness(slenderness_payload, component_id=component),
             stiffness_evidence=_decode_stiffness_evidence(by_key[STIFFNESS_EVIDENCE_KEY].value),
             moment_magnification_bases=_decode_moment_magnification_bases(slenderness_payload),
+            state_slenderness_bases=_decode_state_slenderness_bases(slenderness_payload, component_id=component),
+            canonical_second_order_blockers=_decode_canonical_items(slenderness_payload, "blockers"),
+            canonical_second_order_reanalysis_items=_decode_canonical_items(slenderness_payload, "reanalysis_items"),
+            expected_final_states=_decode_expected_final_states(slenderness_payload, component_id=component),
             evidence_refs=tuple(dict.fromkeys(ref for item in deps for ref in item.evidence_refs)),
         )
 
@@ -392,8 +505,9 @@ def _regulatory_quantity_from_readiness(
         "second_order_treatment": result.second_order_treatment,
         "stability_sway_status": result.stability_sway_status,
         "minimum_eccentricity_status": result.minimum_eccentricity.status,
-        "slenderness_basis_status": result.slenderness_basis.status,
-        "slenderness_status": result.slenderness.status,
+        "slenderness_basis_status": None if result.slenderness_basis is None else result.slenderness_basis.status,
+        "slenderness_status": None if result.slenderness is None else result.slenderness.status,
+        "state_slenderness": tuple(_state_slenderness_payload(item) for item in result.state_slenderness),
         "blocked_items": result.blocked_items,
         "moment_magnification_results": tuple(
             _magnification_payload(item) for item in result.moment_magnification_results
@@ -449,6 +563,10 @@ def evaluate_column_design_readiness(inp: ColumnDesignReadinessExecutionInput) -
         slenderness_evidence=inp.slenderness_evidence,
         stability_stiffness_basis=stiffness,
         moment_magnification_bases=inp.moment_magnification_bases,
+        state_slenderness_bases=inp.state_slenderness_bases,
+        canonical_second_order_blockers=inp.canonical_second_order_blockers,
+        canonical_second_order_reanalysis_items=inp.canonical_second_order_reanalysis_items,
+        expected_final_states=inp.expected_final_states,
     )
     quantity = _regulatory_quantity_from_readiness(inp, result)
     captured = _TYPED_READINESS_CAPTURE.get()

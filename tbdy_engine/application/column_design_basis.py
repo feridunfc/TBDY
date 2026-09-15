@@ -1,13 +1,16 @@
 """Explicit reviewed project/material design basis for the Column product path.
 
 This is a production dependency, not a request-DTO engineering-truth surface.
-It binds reviewed design strengths and aggregate size to exact factual ETABS
-material identities before existing longitudinal/PMM owners consume them.
+It binds reviewed design strengths, aggregate size, and optional source-bound
+numerical review policy to exact product composition before existing authorities
+consume them.
 
 Factual ``fck`` remains owned by ``UsedRcMaterialPopulation``. Reviewed
 ``fcd``/``fyd`` are never derived here. Material-name applicability is exact;
 a reviewed value for a different concrete or reinforcement material fails
-closed.
+closed.  Story-translation tolerance is an optional reviewed numerical equality
+basis only; absence remains unresolved upstream of A17 and no numeric default is
+manufactured here.
 """
 from __future__ import annotations
 
@@ -19,6 +22,7 @@ from typing import Sequence
 
 from tbdy_engine.design.columns.column_pmm_assessment import ColumnPmmMaterialContextBinding
 from tbdy_engine.design.columns.section_capacity import ColumnSectionMaterial
+from tbdy_engine.design.columns.story_relative_translation import ReviewedStoryTranslationTolerance
 from tbdy_engine.features.used_rc_material_population import (
     MaterialUsageReference,
     UsedMaterialDefinition,
@@ -30,6 +34,7 @@ from tbdy_engine.providers.etabs_column_rebar_intent_provider import (
 
 COLUMN_DESIGN_BASIS_AUTHORITY = "REVIEWED_PROJECT_COLUMN_DESIGN_BASIS"
 COLUMN_DESIGN_BASIS_BINDING_AUTHORITY = "COLUMN_DESIGN_BASIS_FACTUAL_MATERIAL_BINDING"
+COLUMN_STORY_TRANSLATION_TOLERANCE_BASIS_VERSION = "COLUMN_STORY_TRANSLATION_TOLERANCE_V1"
 
 
 class ColumnDesignBasisError(ValueError):
@@ -103,6 +108,7 @@ class ReviewedColumnDesignBasis:
     longitudinal_steel_strengths: tuple[ReviewedLongitudinalSteelDesignStrength, ...]
     aggregate: ReviewedAggregateBasis
     basis_refs: tuple[str, ...]
+    story_translation_tolerance: ReviewedStoryTranslationTolerance | None = None
     authority: str = COLUMN_DESIGN_BASIS_AUTHORITY
 
     def __post_init__(self) -> None:
@@ -118,6 +124,12 @@ class ReviewedColumnDesignBasis:
             raise ColumnDesignBasisError("reviewed longitudinal steel material applicability must be unique")
         if not isinstance(self.aggregate, ReviewedAggregateBasis):
             raise TypeError("aggregate must be ReviewedAggregateBasis")
+        if self.story_translation_tolerance is not None and not isinstance(
+            self.story_translation_tolerance, ReviewedStoryTranslationTolerance
+        ):
+            raise TypeError(
+                "story_translation_tolerance must be ReviewedStoryTranslationTolerance or None"
+            )
         if self.authority != COLUMN_DESIGN_BASIS_AUTHORITY:
             raise ColumnDesignBasisError("unsupported Column design-basis authority")
         object.__setattr__(self, "concrete_strengths", tuple(sorted(concrete, key=lambda item: item.material_name)))
@@ -296,6 +308,7 @@ __all__ = [
     "BoundColumnDesignBasis",
     "COLUMN_DESIGN_BASIS_AUTHORITY",
     "COLUMN_DESIGN_BASIS_BINDING_AUTHORITY",
+    "COLUMN_STORY_TRANSLATION_TOLERANCE_BASIS_VERSION",
     "ColumnDesignBasisError",
     "ReviewedAggregateBasis",
     "ReviewedColumnDesignBasis",

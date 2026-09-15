@@ -38,12 +38,20 @@ from tbdy_engine.analysis_basis.eq713_response_mechanics import (
 from tbdy_engine.analysis_basis.frame_gross_flexural_basis import (
     capture_frame_flexural_base_continuity_evidence,
 )
+from tbdy_engine.application.column_a18_end_restraint import (
+    A18_READY,
+    materialize_ts500_column_end_restraint_ratios,
+)
+from tbdy_engine.application.column_public_a5_second_order import (
+    build_public_a5_canonical_second_order_payload,
+)
 from tbdy_engine.application.contracts import ColumnExecutionRequest
 from tbdy_engine.design.columns.free_length_basis import resolve_ts500_column_free_length
 from tbdy_engine.design.columns.rebar_selection import (
     ETABS_AXIAL_SIGN_NEGATIVE_COMPRESSION,
     normalize_etabs_column_end_demands,
 )
+from tbdy_engine.design.columns.story_relative_translation import ReviewedStoryTranslationTolerance
 from tbdy_engine.etabs.oapi.area_contributors import AreaDesignOrientation
 from tbdy_engine.etabs.oapi.area_modifiers import AreaModifierSurface, AreaModifierVector
 from tbdy_engine.etabs.oapi.eq713_response_cases import (
@@ -62,9 +70,6 @@ from tbdy_engine.integration.etabs_analysis_state_mutation import (
 )
 from tbdy_engine.integration.etabs_scratch_lifecycle import create_owned_scratch_context
 from tbdy_engine.integration.live_etabs_acquisition_context import TrustedLiveAcquisitionContext
-from tbdy_engine.providers.column_slenderness_evidence_provider import (
-    build_factual_slenderness_evidence_from_topology,
-)
 from tbdy_engine.providers.etabs_area_contributor_provider import (
     AreaContributorFact,
     AreaContributorPopulation,
@@ -520,8 +525,6 @@ def _build_a3(
                 source_refs=(*response_refs, *generation_refs),
             )
         elif response_populations and evidence.formulation is AreaFormulation.SHELL_THICK:
-            # Compatibility seam for prior bounded tests. P4B production never
-            # derives participation from AreaForceShell.
             factual = area_by_name[evidence.area_name]
             row = resolve_area_response_modes(
                 base=row,
@@ -645,8 +648,8 @@ def _b4b_targets(frame_population, area_population, frame_rows, area_rows):
         if factual.property_state is None:
             raise PublicA5CompositionError(BLOCKER_A4_B4B, "Area target lost factual property identity")
         vector = AreaModifierVector.from_sequence(
-    tuple(float(value) for value in disposition.target_property_modifiers)
-)
+            tuple(float(value) for value in disposition.target_property_modifiers)
+        )
         property_name = factual.property_name
         previous = area_property_targets.get(property_name)
         if previous is not None and previous.as_tuple() != vector.as_tuple():
@@ -1074,19 +1077,6 @@ def _prove_post_continuity(
     return topology_post, target_post, frame_post, area_post
 
 
-def _axis_payload(axis) -> dict[str, object]:
-    return asdict(axis)
-
-
-def _slenderness_payload(evidence) -> dict[str, object]:
-    return {
-        "component_id": evidence.component_id,
-        "m2": _axis_payload(evidence.m2),
-        "m3": _axis_payload(evidence.m3),
-        "source_refs": tuple(evidence.source_refs),
-    }
-
-
 def _authority(
     *,
     request,
@@ -1122,10 +1112,12 @@ def _materialize_fnd2_inputs(
     context,
     target_column,
     topology_post,
+    frame_population,
     flattened_combos,
     selection,
     definitions,
     execution_result,
+    reviewed_story_translation_tolerance,
 ):
     demand_states = []
     demand_refs = []
@@ -1161,11 +1153,30 @@ def _materialize_fnd2_inputs(
         for combo_name, leaves in flattened_combos
     )
 
-    restraints = capture_etabs_column_endpoint_restraints_from_session(
-        context.verified_session,
-        target_column,
+    a18 = materialize_ts500_column_end_restraint_ratios(
+        target_column=target_column,
+        topology=topology_post,
+        frame_population=frame_population,
     )
+    expected_a18_keys = (
+        ("BOTTOM", "M2"),
+        ("BOTTOM", "M3"),
+        ("TOP", "M2"),
+        ("TOP", "M3"),
+    )
+    actual_a18_keys = tuple((item.end_tag, item.local_bending_axis) for item in a18)
+    if actual_a18_keys != expected_a18_keys:
+        raise PublicA5CompositionError(
+            BLOCKER_A5_INPUT_MATERIALIZATION,
+            f"A18 materialization returned unexpected end/axis population {actual_a18_keys!r}",
+        )
+    a18_refs = tuple(dict.fromkeys(ref for item in a18 for ref in item.source_refs))
+
     try:
+        restraints = capture_etabs_column_endpoint_restraints_from_session(
+            context.verified_session,
+            target_column,
+        )
         free_length = resolve_ts500_column_free_length(
             target_column,
             bottom_restraint_dofs=restraints.bottom.dofs,
@@ -1175,10 +1186,21 @@ def _materialize_fnd2_inputs(
         )
     except Exception:
         free_length = None
-    slenderness = build_factual_slenderness_evidence_from_topology(
-        target_column,
-        free_length_resolution=free_length,
+
+    canonical_second_order = build_public_a5_canonical_second_order_payload(
+        component_id=request.component_id,
+        session=context.verified_session,
+        topology=topology_post,
+        target_column=target_column,
+        frame_population=frame_population,
+        flattened_combos=flattened_combos,
+        constituent_case_demands=tuple(demand_states),
+        a18_rows=a18,
+        free_length=free_length,
+        analysis_execution=execution_result,
+        reviewed_story_translation_tolerance=reviewed_story_translation_tolerance,
     )
+
     stiffness = build_assigned_rc_frame_bending_modifier_evidence(topology_post)
     stiffness_payload = tuple(
         {
@@ -1252,8 +1274,12 @@ def _materialize_fnd2_inputs(
             semantic_type=SemanticType.CHECK_EVIDENCE_TRACE,
             dimension=PhysicalDimension.DIMENSIONLESS,
             unit=UNIT_DIMENSIONLESS,
-            value=_slenderness_payload(slenderness),
-            refs=(*common_refs, *slenderness.source_refs),
+            value=canonical_second_order,
+            refs=(
+                *common_refs,
+                *tuple(canonical_second_order.get("source_refs", ())),
+                *a18_refs,
+            ),
         ),
         _authority(
             request=request,
@@ -1279,7 +1305,6 @@ def _materialize_fnd2_inputs(
         ),
         external_authorities=authorities,
     )
-
 
 
 def _new_positive_response_participation_facts(
@@ -1323,6 +1348,7 @@ def _new_positive_response_participation_facts(
         if disposition is ContributorDisposition.TARGETED_UNCRACKED
         and before.get(identity) is ContributorDisposition.BLOCKED_UNSUPPORTED
     )
+
 
 def _legacy_area_response_closure(
     *,
@@ -1446,6 +1472,7 @@ def execute_public_a5_column(
     *,
     acquisition_context: TrustedLiveAcquisitionContext,
     execute_fnd2: Callable[..., object],
+    reviewed_story_translation_tolerance: ReviewedStoryTranslationTolerance | None = None,
     complete_after_fnd2: Callable[..., object] | None = None,
 ):
     """Compose the supported production path through REAL existing FND-COL-2."""
@@ -1455,6 +1482,12 @@ def execute_public_a5_column(
         raise TypeError("acquisition_context must be TrustedLiveAcquisitionContext")
     if not callable(execute_fnd2):
         raise TypeError("execute_fnd2 must be callable")
+    if reviewed_story_translation_tolerance is not None and not isinstance(
+        reviewed_story_translation_tolerance, ReviewedStoryTranslationTolerance
+    ):
+        raise TypeError(
+            "reviewed_story_translation_tolerance must be ReviewedStoryTranslationTolerance or None"
+        )
     if complete_after_fnd2 is not None and not callable(complete_after_fnd2):
         raise TypeError("complete_after_fnd2 must be callable when provided")
     context = acquisition_context
@@ -1628,7 +1661,7 @@ def execute_public_a5_column(
         return _blocked(request, context, BLOCKER_A4_B5)
 
     try:
-        topology_post, target_post, _frame_post, _area_post = _prove_post_continuity(
+        topology_post, target_post, frame_post, _area_post = _prove_post_continuity(
             context=context,
             owned_scratch=owned_scratch,
             topology_pre=topology_pre,
@@ -1649,10 +1682,12 @@ def execute_public_a5_column(
             context=context,
             target_column=target_post,
             topology_post=topology_post,
+            frame_population=frame_post,
             flattened_combos=flattened_combos,
             selection=selection,
             definitions=definitions,
             execution_result=execution_result,
+            reviewed_story_translation_tolerance=reviewed_story_translation_tolerance,
         )
         column = execute_fnd2(
             request,
