@@ -30,6 +30,7 @@ class A21StateSlendernessMaterialization:
     component_id: str
     output_case: str
     disposition: str
+    basis: ColumnSlendernessBasis | None
     result: ColumnSlendernessResult | None
     source_refs: tuple[str, ...]
     unresolved_reasons: tuple[str, ...] = ()
@@ -130,6 +131,7 @@ def materialize_ts500_slenderness_decisions(
                     component_id=component_id,
                     output_case=output_case,
                     disposition=A21_EXPLICIT_UNRESOLVED,
+                    basis=None,
                     result=None,
                     source_refs=(A21_AUTHORITY,),
                     unresolved_reasons=(f"SLENDERNESS_COMPOSITION_FAILED:{exc}",),
@@ -142,6 +144,7 @@ def materialize_ts500_slenderness_decisions(
                 component_id=component_id,
                 output_case=output_case,
                 disposition=A21_READY,
+                basis=basis,
                 result=result,
                 source_refs=_refs((*common, *result.source_refs, result.authority)),
             )
