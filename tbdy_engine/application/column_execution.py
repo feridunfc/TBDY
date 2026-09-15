@@ -181,6 +181,11 @@ def execute_column_domain(
         request,
         acquisition_context=acquisition_context,
         execute_fnd2=_execute_fnd2,
+        reviewed_story_translation_tolerance=(
+            None
+            if column_design_basis is None
+            else column_design_basis.story_translation_tolerance
+        ),
         complete_after_fnd2=completion,
     )
 
