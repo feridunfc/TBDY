@@ -99,9 +99,12 @@ class BeamJointConnection:
     depth_t3_m: float | None
     vector_from_joint_m: tuple[float, float, float]
     horizontal_azimuth_deg: float | None
+    local_axis_angle_deg: float | None
+    local_axis_explicit: bool
     connectivity_row: Mapping[str, Any]
     assignment_row: Mapping[str, Any]
     section_row: Mapping[str, Any] | None
+    local_axis_row: Mapping[str, Any] | None
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -118,10 +121,13 @@ class BeamJointConnection:
             "depth_t3_m": self.depth_t3_m,
             "vector_from_joint_m": list(self.vector_from_joint_m),
             "horizontal_azimuth_deg": self.horizontal_azimuth_deg,
+            "local_axis_angle_deg": self.local_axis_angle_deg,
+            "local_axis_explicit": self.local_axis_explicit,
             "source_rows": {
                 "connectivity": dict(self.connectivity_row),
                 "section_assignment": dict(self.assignment_row),
                 "section_definition": None if self.section_row is None else dict(self.section_row),
+                "local_axis": None if self.local_axis_row is None else dict(self.local_axis_row),
             },
         }
 
@@ -280,12 +286,21 @@ def _beam_connection(
     shape: str,
     is_supported_rc_beam: bool,
     section_row: Mapping[str, Any] | None,
+    local_axis_row: Mapping[str, Any] | None,
 ) -> BeamJointConnection:
     dx = other.x_m - joint.x_m
     dy = other.y_m - joint.y_m
     dz = other.z_m - joint.z_m
     horizontal = math.hypot(dx, dy)
     azimuth = None if horizontal <= 1e-12 else (math.degrees(math.atan2(dy, dx)) % 360.0)
+    local_axis_angle = (
+        None
+        if local_axis_row is None
+        else _float(
+            local_axis_row.get("Angle"),
+            f"beam {row.get('UniqueName')}.local_axis.Angle",
+        )
+    )
     return BeamJointConnection(
         beam_unique_name=_text(row.get("UniqueName"), "beam.UniqueName"),
         beam_label=_text(row.get("BeamBay"), "beam.BeamBay"),
@@ -300,9 +315,12 @@ def _beam_connection(
         depth_t3_m=(None if section_row is None else _float(section_row.get("t3"), "beam.section.t3")),
         vector_from_joint_m=(dx, dy, dz),
         horizontal_azimuth_deg=azimuth,
+        local_axis_angle_deg=local_axis_angle,
+        local_axis_explicit=local_axis_row is not None,
         connectivity_row=_freeze(row),
         assignment_row=_freeze(assignment),
         section_row=None if section_row is None else _freeze(section_row),
+        local_axis_row=None if local_axis_row is None else _freeze(local_axis_row),
     )
 
 
@@ -407,6 +425,7 @@ def build_strict_column_topology(
         )
         shape = _text(assignment.get("Shape"), f"beam {uid}.Shape")
         section = _text(assignment.get("SectProp"), f"beam {uid}.SectProp")
+        local_axis_row = local_axis_by_uid.get(uid)
 
         section_row: Mapping[str, Any] | None = None
         is_supported_rc_beam = False
@@ -436,6 +455,7 @@ def build_strict_column_topology(
                 shape=shape,
                 is_supported_rc_beam=is_supported_rc_beam,
                 section_row=section_row,
+                local_axis_row=local_axis_row,
             )
         )
         beam_connections_by_joint.setdefault(point_j_uid, []).append(
@@ -449,6 +469,7 @@ def build_strict_column_topology(
                 shape=shape,
                 is_supported_rc_beam=is_supported_rc_beam,
                 section_row=section_row,
+                local_axis_row=local_axis_row,
             )
         )
 
