@@ -47,6 +47,13 @@ from tbdy_engine.regulatory.column_pmm_authority import (
 )
 
 
+# Backward-compatible application type name.  The canonical production
+# composition returns the existing FND-COL-4 canonical selection result; this
+# alias prevents the application runtime from inventing or depending on a
+# second composition/result type.
+CanonicalColumnLongitudinalSelectionComposition = ColumnLongitudinalCanonicalSelectionResult
+
+
 def compose_canonical_column_longitudinal_selection(
     *,
     component_id: str,
@@ -100,5 +107,6 @@ def compose_canonical_column_longitudinal_selection(
 
 
 __all__ = [
+    "CanonicalColumnLongitudinalSelectionComposition",
     "compose_canonical_column_longitudinal_selection",
 ]
