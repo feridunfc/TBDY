@@ -18,6 +18,9 @@ from tbdy_engine.design.columns.column_concrete_design_evidence_authority import
     AnalysisBasisEligibilityEvidence,
     ConcreteDesignComboReconciliation,
 )
+from tbdy_engine.design.columns.column_longitudinal_causal_provenance import (
+    ColumnLongitudinalCausalProvenanceError,
+)
 from tbdy_engine.design.columns.column_longitudinal_production_composition import (
     compose_canonical_column_longitudinal_selection,
 )
@@ -59,6 +62,9 @@ FIX = _load_module(
     "_p8ab_fnd_col_4_fixture",
     Path(__file__).with_name("test_fnd_col_4_pmm_assessment.py"),
 )
+
+DESIGN_RESULT_REF = "design-result:sha256:" + "a" * 64
+DESIGN_LINEAGE_REF = "design-lineage-qualification:sha256:" + "b" * 64
 
 
 def _adequacy_policy():
@@ -184,7 +190,11 @@ def _composition_fixture():
                 source_refs=("source:p8ab:row:1",),
             ),
         ),
-        source_refs=("capture:p8ab",),
+        source_refs=(
+            "capture:p8ab",
+            DESIGN_RESULT_REF,
+            DESIGN_LINEAGE_REF,
+        ),
     )
 
     return {
@@ -220,9 +230,13 @@ def test_factual_rows_to_exact_combo_to_canonical_selected_rebar(monkeypatch):
     assert selected.rank == 1
     assert selected.required_area_decision_ids
     assert selected.pmm_decision_ids
+    assert DESIGN_RESULT_REF in selected.provenance_refs
+    assert DESIGN_LINEAGE_REF in selected.provenance_refs
     assert result.adequacy_population is not None
     assert result.ranking_policy is not None
     assert result.selection_contract is not None
+    assert DESIGN_RESULT_REF in result.selection_contract.provenance_refs
+    assert DESIGN_LINEAGE_REF in result.selection_contract.provenance_refs
     expected_area_rows = (
         len(values["layout_authority"].eligible_candidates)
         * len(result.adequacy_population.requirement_ids)
@@ -242,6 +256,26 @@ def test_factual_rows_to_exact_combo_to_canonical_selected_rebar(monkeypatch):
     assert selected.numerical_policy_fingerprint == result.adequacy_population.numerical_policy_fingerprint
     assert result.selection_contract.etabs_requirement_ids == selected.requirement_ids
     assert result.selection_contract.combo_projection_ids
+
+
+@pytest.mark.parametrize(
+    "source_refs",
+    (
+        ("capture:p8ab", DESIGN_RESULT_REF),
+        ("capture:p8ab", DESIGN_LINEAGE_REF),
+        ("capture:p8ab",),
+    ),
+)
+def test_qualified_b6_identity_refs_are_required_before_selection(source_refs):
+    values = _composition_fixture()
+    factual = values["factual_design_results"]
+    values["factual_design_results"] = replace(
+        factual,
+        source_refs=source_refs,
+    )
+
+    with pytest.raises(ColumnLongitudinalCausalProvenanceError):
+        _run(values)
 
 
 def test_non_ready_component_cannot_produce_selected_rebar(monkeypatch):
