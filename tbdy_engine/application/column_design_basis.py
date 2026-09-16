@@ -1,15 +1,16 @@
 """Explicit reviewed project/material design basis for the Column product path.
 
 This is a production dependency, not a request-DTO engineering-truth surface.
-It binds reviewed design strengths, aggregate size, and optional source-bound
-numerical review policy to exact product composition before existing authorities
-consume them.
+It binds reviewed design strengths, aggregate size, optional transverse-steel /
+ductility applicability, and optional source-bound numerical review policy to
+exact product composition before existing authorities consume them.
 
-Factual ``fck`` remains owned by ``UsedRcMaterialPopulation``. Reviewed
-``fcd``/``fyd`` are never derived here. Material-name applicability is exact;
-a reviewed value for a different concrete or reinforcement material fails
-closed.  Story-translation tolerance is an optional reviewed numerical equality
-basis only; absence remains unresolved upstream of A17 and no numeric default is
+Factual ``fck`` and reinforcement material names remain source-owned. Reviewed
+``fcd``/``fyd``/``fywk``/``fywd`` are never derived here. Material-name
+applicability is exact; absent transverse review facts remain explicit blockers
+for A36 without invalidating the already-qualified longitudinal path. Story-
+translation tolerance is an optional reviewed numerical equality basis only;
+absence remains unresolved upstream of A17 and no numeric default is
 manufactured here.
 """
 from __future__ import annotations
@@ -63,6 +64,12 @@ def _refs(values: Sequence[str], label: str) -> tuple[str, ...]:
     return refs
 
 
+def _optional_refs(values: Sequence[str], label: str) -> tuple[str, ...]:
+    if isinstance(values, (str, bytes)) or not isinstance(values, Sequence):
+        raise TypeError(f"{label} must be a sequence")
+    return tuple(sorted({_text(value, label) for value in values}))
+
+
 def _stable_ref(prefix: str, payload: object) -> str:
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
     return prefix + hashlib.sha256(encoded).hexdigest()
@@ -93,6 +100,26 @@ class ReviewedLongitudinalSteelDesignStrength:
 
 
 @dataclass(frozen=True, slots=True)
+class ReviewedTransverseSteelDesignStrength:
+    """Reviewed A36 steel basis bound later to factual ``MatPropConfine`` identity."""
+
+    material_name: str
+    fywk_mpa: float
+    fywd_mpa: float
+    review_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "material_name", _text(self.material_name, "transverse_steel.material_name"))
+        object.__setattr__(self, "fywk_mpa", _positive(self.fywk_mpa, "transverse_steel.fywk_mpa"))
+        object.__setattr__(self, "fywd_mpa", _positive(self.fywd_mpa, "transverse_steel.fywd_mpa"))
+        object.__setattr__(
+            self,
+            "review_refs",
+            _refs(self.review_refs, "transverse_steel.review_ref"),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ReviewedAggregateBasis:
     aggregate_max_mm: float
     review_refs: tuple[str, ...]
@@ -110,18 +137,29 @@ class ReviewedColumnDesignBasis:
     basis_refs: tuple[str, ...]
     story_translation_tolerance: ReviewedStoryTranslationTolerance | None = None
     authority: str = COLUMN_DESIGN_BASIS_AUTHORITY
+    transverse_steel_strengths: tuple[ReviewedTransverseSteelDesignStrength, ...] = ()
+    high_ductility_applies: bool | None = None
+    limited_ductility_applies: bool | None = None
+    transverse_policy_refs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         concrete = tuple(self.concrete_strengths)
         steel = tuple(self.longitudinal_steel_strengths)
+        transverse = tuple(self.transverse_steel_strengths)
         if not concrete or not all(isinstance(item, ReviewedConcreteDesignStrength) for item in concrete):
             raise ColumnDesignBasisError("concrete_strengths must contain reviewed concrete basis entries")
         if not steel or not all(isinstance(item, ReviewedLongitudinalSteelDesignStrength) for item in steel):
             raise ColumnDesignBasisError("longitudinal_steel_strengths must contain reviewed steel basis entries")
+        if not all(isinstance(item, ReviewedTransverseSteelDesignStrength) for item in transverse):
+            raise ColumnDesignBasisError(
+                "transverse_steel_strengths must contain reviewed transverse steel basis entries"
+            )
         if len({item.material_name for item in concrete}) != len(concrete):
             raise ColumnDesignBasisError("reviewed concrete material applicability must be unique")
         if len({item.material_name for item in steel}) != len(steel):
             raise ColumnDesignBasisError("reviewed longitudinal steel material applicability must be unique")
+        if len({item.material_name for item in transverse}) != len(transverse):
+            raise ColumnDesignBasisError("reviewed transverse steel material applicability must be unique")
         if not isinstance(self.aggregate, ReviewedAggregateBasis):
             raise TypeError("aggregate must be ReviewedAggregateBasis")
         if self.story_translation_tolerance is not None and not isinstance(
@@ -130,10 +168,26 @@ class ReviewedColumnDesignBasis:
             raise TypeError(
                 "story_translation_tolerance must be ReviewedStoryTranslationTolerance or None"
             )
+        for name in ("high_ductility_applies", "limited_ductility_applies"):
+            value = getattr(self, name)
+            if value is not None and type(value) is not bool:
+                raise TypeError(f"{name} must be bool or None")
+        if self.high_ductility_applies is True and self.limited_ductility_applies is True:
+            raise ColumnDesignBasisError("HIGH and LIMITED ductility cannot both apply")
+        policy_refs = _optional_refs(self.transverse_policy_refs, "transverse_policy_ref")
+        if (
+            self.high_ductility_applies is not None
+            or self.limited_ductility_applies is not None
+        ) and not policy_refs:
+            raise ColumnDesignBasisError(
+                "reviewed ductility/applicability facts require transverse_policy_refs"
+            )
         if self.authority != COLUMN_DESIGN_BASIS_AUTHORITY:
             raise ColumnDesignBasisError("unsupported Column design-basis authority")
         object.__setattr__(self, "concrete_strengths", tuple(sorted(concrete, key=lambda item: item.material_name)))
         object.__setattr__(self, "longitudinal_steel_strengths", tuple(sorted(steel, key=lambda item: item.material_name)))
+        object.__setattr__(self, "transverse_steel_strengths", tuple(sorted(transverse, key=lambda item: item.material_name)))
+        object.__setattr__(self, "transverse_policy_refs", policy_refs)
         object.__setattr__(self, "basis_refs", _refs(self.basis_refs, "basis_ref"))
 
     def concrete_for(self, material_name: str) -> ReviewedConcreteDesignStrength:
@@ -167,6 +221,13 @@ class BoundColumnDesignBasis:
     binding_ref: str
     source_refs: tuple[str, ...]
     authority: str = COLUMN_DESIGN_BASIS_BINDING_AUTHORITY
+    transverse_material_name: str | None = None
+    transverse_fywk_mpa: float | None = None
+    transverse_fywd_mpa: float | None = None
+    high_ductility_applies: bool | None = None
+    limited_ductility_applies: bool | None = None
+    transverse_basis_refs: tuple[str, ...] = ()
+    transverse_basis_blockers: tuple[str, ...] = ()
 
 
 def bind_reviewed_column_design_basis(
@@ -211,6 +272,10 @@ def bind_reviewed_column_design_basis(
     if factual_rebar_intent.section_name != section:
         raise ColumnDesignBasisError("rebar intent section differs from target Column section")
     long_name = _text(factual_rebar_intent.mat_prop_long, "rebar_intent.mat_prop_long")
+    transverse_name = _text(
+        factual_rebar_intent.mat_prop_confine,
+        "rebar_intent.mat_prop_confine",
+    )
 
     reviewed_concrete = basis.concrete_for(concrete_name)
     reviewed_steel = basis.steel_for(long_name)
@@ -220,6 +285,34 @@ def bind_reviewed_column_design_basis(
         f"{factual_concrete_definition.material_id}:{concrete_name}:fck={fck_mpa:.12g}MPa"
     )
     steel_fact_ref = f"ETABS:PropFrame.GetRebarColumn:{section}:MatPropLong={long_name}"
+    transverse_fact_ref = (
+        f"ETABS:PropFrame.GetRebarColumn:{section}:MatPropConfine={transverse_name}"
+    )
+
+    transverse_matches = tuple(
+        item
+        for item in basis.transverse_steel_strengths
+        if item.material_name == transverse_name
+    )
+    transverse_blockers: list[str] = []
+    transverse_review_refs: tuple[str, ...] = ()
+    transverse_fywk_mpa = None
+    transverse_fywd_mpa = None
+    if len(transverse_matches) == 1:
+        reviewed_transverse = transverse_matches[0]
+        transverse_fywk_mpa = reviewed_transverse.fywk_mpa
+        transverse_fywd_mpa = reviewed_transverse.fywd_mpa
+        transverse_review_refs = tuple(reviewed_transverse.review_refs)
+    elif not basis.transverse_steel_strengths:
+        transverse_blockers.append("TRANSVERSE_STEEL_DESIGN_BASIS_NOT_REVIEWED")
+    else:
+        transverse_blockers.append(
+            f"TRANSVERSE_STEEL_MATERIAL_APPLICABILITY_MISMATCH:{transverse_name}"
+        )
+
+    if basis.high_ductility_applies is None and basis.limited_ductility_applies is None:
+        transverse_blockers.append("COLUMN_DUCTILITY_APPLICABILITY_NOT_REVIEWED")
+
     section_binding_ref = _stable_ref(
         "column-section-material-binding:sha256:",
         {
@@ -229,10 +322,12 @@ def bind_reviewed_column_design_basis(
             "material_id": factual_concrete_definition.material_id,
             "concrete_material_name": concrete_name,
             "longitudinal_material_name": long_name,
+            "transverse_material_name": transverse_name,
             "model_fingerprint": model,
             "evidence_epoch_id": epoch,
             "concrete_fact_ref": concrete_fact_ref,
             "steel_fact_ref": steel_fact_ref,
+            "transverse_fact_ref": transverse_fact_ref,
         },
     )
     material = ColumnSectionMaterial(
@@ -264,6 +359,16 @@ def bind_reviewed_column_design_basis(
             "basis_refs": list(basis.basis_refs),
         },
     )
+    transverse_basis_refs = tuple(
+        dict.fromkeys(
+            (
+                *basis.basis_refs,
+                *transverse_review_refs,
+                *basis.transverse_policy_refs,
+                transverse_fact_ref,
+            )
+        )
+    )
     refs = tuple(
         dict.fromkeys(
             (
@@ -273,6 +378,9 @@ def bind_reviewed_column_design_basis(
                 *basis.aggregate.review_refs,
                 concrete_fact_ref,
                 steel_fact_ref,
+                transverse_fact_ref,
+                *transverse_review_refs,
+                *basis.transverse_policy_refs,
                 section_binding_ref,
                 context.binding_ref,
                 aggregate_ref,
@@ -286,6 +394,12 @@ def bind_reviewed_column_design_basis(
             "section_id": section,
             "concrete_material_name": concrete_name,
             "longitudinal_material_name": long_name,
+            "transverse_material_name": transverse_name,
+            "transverse_fywk_mpa": transverse_fywk_mpa,
+            "transverse_fywd_mpa": transverse_fywd_mpa,
+            "high_ductility_applies": basis.high_ductility_applies,
+            "limited_ductility_applies": basis.limited_ductility_applies,
+            "transverse_basis_blockers": tuple(transverse_blockers),
             "material_context_ref": context.binding_ref,
             "aggregate_source_ref": aggregate_ref,
             "source_refs": list(refs),
@@ -301,6 +415,13 @@ def bind_reviewed_column_design_basis(
         aggregate_source_ref=aggregate_ref,
         binding_ref=binding_ref,
         source_refs=refs,
+        transverse_material_name=transverse_name,
+        transverse_fywk_mpa=transverse_fywk_mpa,
+        transverse_fywd_mpa=transverse_fywd_mpa,
+        high_ductility_applies=basis.high_ductility_applies,
+        limited_ductility_applies=basis.limited_ductility_applies,
+        transverse_basis_refs=transverse_basis_refs,
+        transverse_basis_blockers=tuple(transverse_blockers),
     )
 
 
@@ -314,5 +435,6 @@ __all__ = [
     "ReviewedColumnDesignBasis",
     "ReviewedConcreteDesignStrength",
     "ReviewedLongitudinalSteelDesignStrength",
+    "ReviewedTransverseSteelDesignStrength",
     "bind_reviewed_column_design_basis",
 ]
