@@ -22,6 +22,11 @@ from tbdy_engine.design.columns.column_concrete_design_evidence_authority import
 from tbdy_engine.design.columns.column_design_rebar_promotion import (
     promote_etabs_required_rebar,
 )
+from tbdy_engine.design.columns.column_longitudinal_causal_provenance import (
+    require_engine_selected_rebar_design_refs,
+    require_etabs_required_rebar_design_refs,
+    resolve_qualified_b6_design_refs,
+)
 from tbdy_engine.design.columns.column_longitudinal_selection import (
     ColumnLongitudinalCanonicalSelectionResult,
     select_canonical_column_longitudinal_rebar,
@@ -75,8 +80,12 @@ def compose_canonical_column_longitudinal_selection(
     Existing authorities retain all engineering and fail-closed decisions:
     exact combo eligibility is projected first, factual ETABS required rebar is
     promoted row-by-row second, and the existing canonical selector receives
-    the resulting ``ColumnLongitudinalSelectionInputs`` unchanged.
+    the resulting ``ColumnLongitudinalSelectionInputs`` unchanged.  The
+    application-level causal guards only prove that the exact qualified B6
+    generation survives those existing authority transitions.
     """
+
+    b6 = resolve_qualified_b6_design_refs(factual_design_results)
 
     projections = project_column_combo_eligibility(
         readiness_binding=readiness_binding,
@@ -88,6 +97,10 @@ def compose_canonical_column_longitudinal_selection(
         factual_design_results,
         combo_eligibility_projections=projections,
     )
+    require_etabs_required_rebar_design_refs(
+        etabs_required_rebar,
+        b6=b6,
+    )
 
     inputs = ColumnLongitudinalSelectionInputs(
         component_id=component_id,
@@ -98,12 +111,17 @@ def compose_canonical_column_longitudinal_selection(
         policy=selection_policy,
     )
 
-    return select_canonical_column_longitudinal_rebar(
+    selection = select_canonical_column_longitudinal_rebar(
         inputs=inputs,
         numerical_policy=numerical_policy,
         material_context=material_context,
         adequacy_policy=adequacy_policy,
     )
+    require_engine_selected_rebar_design_refs(
+        selection,
+        b6=b6,
+    )
+    return selection
 
 
 __all__ = [
