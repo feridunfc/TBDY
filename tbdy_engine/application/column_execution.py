@@ -18,6 +18,7 @@ from tbdy_engine.application.column_longitudinal_runtime import (
     compose_column_longitudinal_runtime,
 )
 from tbdy_engine.application.contracts import ColumnExecutionRequest
+from tbdy_engine.checks.column_axial_selection import ColumnDemandAvailability
 from tbdy_engine.design.columns.column_combo_eligibility_projection import (
     ComboAnalysisBasisBinding,
     ComponentReadinessBinding,
@@ -53,6 +54,9 @@ from tbdy_engine.integration.etabs_scratch_lifecycle import OwnedScratchContext
 from tbdy_engine.integration.live_etabs_acquisition_context import (
     TrustedLiveAcquisitionContext,
 )
+from tbdy_engine.providers.etabs_column_axial_b5_provider import (
+    capture_b5_bound_column_axial_evidence,
+)
 from tbdy_engine.providers.etabs_column_design_procedure_provider import (
     ColumnDesignProcedurePopulation,
     capture_column_design_procedure_population_from_session,
@@ -67,11 +71,16 @@ from tbdy_engine.regulatory.column_pmm_authority import authorize_pmm_numerical_
 from tbdy_engine.regulatory.column_transverse_confinement import (
     ColumnTransverseConfinementInput,
     ColumnTransverseConfinementResult,
+    TransverseDirectionFacts,
     evaluate_column_transverse_confinement_bound,
 )
 from tbdy_engine.regulatory.fnd_col_2_program import (
     compile_source_bound_fnd_col_2_program,
     execute_source_bound_fnd_col_2_with_artifact,
+)
+from tbdy_engine.regulatory.vs5_column_axial_program import (
+    ReviewedVs5ColumnAxialContext,
+    run_vs5_column_axial,
 )
 from tbdy_engine.regulatory.sources.fnd_col_1_longitudinal import (
     FND_COL_1_AUTHORITY_CATALOG,
@@ -93,6 +102,7 @@ STATUS_UNRESOLVED = "UNRESOLVED"
 BLOCKER_LIVE_FND2_INPUT_LINEAGE = "LIVE_FND2_INPUT_LINEAGE_NOT_QUALIFIED"
 BLOCKER_LIVE_DESIGN_LINEAGE = "LIVE_DESIGN_RESULT_LINEAGE_NOT_QUALIFIED"
 BLOCKER_LONGITUDINAL_PRODUCTION = "LONGITUDINAL_PRODUCTION_NOT_CLOSED"
+BLOCKER_TRANSVERSE_PRODUCTION = "TRANSVERSE_CONFINEMENT_PRODUCTION_NOT_CLOSED"
 
 _COLUMN_CONCRETE_DESIGN_DOMAIN_REF = "design-domain:concrete-column"
 _SELECTED_COMBO_POPULATION_REF_PREFIX = "selected-design-combo-population:sha256:"
@@ -156,6 +166,7 @@ def execute_column_domain(
     acquisition_context: TrustedLiveAcquisitionContext,
     column_design_basis: ReviewedColumnDesignBasis | None = None,
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
+    reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
 ) -> ColumnDomainArtifact:
     """Execute the canonical LIVE Column path without bypassing FND2/B6 gates."""
     if not isinstance(request, ColumnExecutionRequest):
@@ -166,15 +177,31 @@ def execute_column_domain(
         raise TypeError("column_design_basis must be ReviewedColumnDesignBasis or None")
     if expected_combo_policy is not None and not isinstance(expected_combo_policy, ExpectedConcreteDesignComboPolicy):
         raise TypeError("expected_combo_policy must be ExpectedConcreteDesignComboPolicy or None")
+    if (
+        reviewed_vs5_column_axial_context is not None
+        and not isinstance(
+            reviewed_vs5_column_axial_context,
+            ReviewedVs5ColumnAxialContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_vs5_column_axial_context must be "
+            "ReviewedVs5ColumnAxialContext or None"
+        )
 
     from tbdy_engine.application.column_public_a5 import execute_public_a5_column
 
     completion = _complete_public_b6_after_fnd2
-    if column_design_basis is not None or expected_combo_policy is not None:
+    if (
+        column_design_basis is not None
+        or expected_combo_policy is not None
+        or reviewed_vs5_column_axial_context is not None
+    ):
         completion = partial(
             _complete_public_b6_after_fnd2,
             column_design_basis=column_design_basis,
             expected_combo_policy=expected_combo_policy,
+            reviewed_vs5_column_axial_context=reviewed_vs5_column_axial_context,
         )
 
     return execute_public_a5_column(
@@ -337,6 +364,347 @@ def _build_exact_combo_basis_bindings(
     )
 
 
+def _compose_a36_transverse_input(
+    *,
+    column: ColumnDomainArtifact,
+    runtime: ColumnLongitudinalRuntimeComposition,
+    acquisition_context: TrustedLiveAcquisitionContext,
+    analysis_execution: AnalysisExecutionResult,
+    topology,
+    flattened_combos,
+    controlled_design_result: ControlledConcreteDesignResult,
+    reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext,
+) -> ColumnTransverseConfinementInput:
+    """Materialize source-bound A36 facts; regulatory evaluation stays elsewhere."""
+
+    if not isinstance(
+        reviewed_vs5_column_axial_context,
+        ReviewedVs5ColumnAxialContext,
+    ):
+        raise TypeError(
+            "reviewed_vs5_column_axial_context must be ReviewedVs5ColumnAxialContext"
+        )
+
+    if runtime.component_id != column.component_id:
+        raise ColumnExecutionContractError(
+            "A36 longitudinal runtime component identity mismatch"
+        )
+
+    target = runtime.target_topology
+    intent = runtime.rebar_intent
+    basis = runtime.bound_design_basis
+
+    if target.component_id != column.component_id:
+        raise ColumnExecutionContractError(
+            "A36 strict-topology component identity mismatch"
+        )
+    if basis.component_id != column.component_id:
+        raise ColumnExecutionContractError(
+            "A36 bound design-basis component identity mismatch"
+        )
+
+    if basis.transverse_basis_blockers:
+        raise ColumnExecutionContractError(
+            "A36 transverse design basis is blocked: "
+            + "|".join(basis.transverse_basis_blockers)
+        )
+    if basis.transverse_fywk_mpa is None:
+        raise ColumnExecutionContractError(
+            "A36 reviewed transverse fywk is unavailable"
+        )
+
+    if runtime.tie_diameter_mm is None or runtime.tie_catalog_ref is None:
+        raise ColumnExecutionContractError(
+            "A36 factual TieSize catalog diameter is unavailable"
+        )
+
+    # Supported materializer is rectangular Pattern=1 only.
+    if intent.pattern != 1:
+        raise ColumnExecutionContractError(
+            f"A36 rectangular rebar pattern required; got Pattern={intent.pattern}"
+        )
+
+    width_mm = float(target.width_t2_m) * 1000.0
+    depth_mm = float(target.depth_t3_m) * 1000.0
+    clear_height_mm = (
+        float(target.analysis_clear_length_candidate_m) * 1000.0
+    )
+    cover_mm = float(intent.cover_mm)
+    phi_t_mm = float(runtime.tie_diameter_mm)
+
+    if min(
+        width_mm,
+        depth_mm,
+        clear_height_mm,
+        cover_mm,
+        phi_t_mm,
+    ) <= 0.0:
+        raise ColumnExecutionContractError(
+            "A36 factual section/cover/tie geometry must be positive"
+        )
+
+    # CSI Cover = clear cover to outside of confinement steel.
+    # TBDY Ack = outside-to-outside confined core.
+    core_outer_dir2_mm = width_mm - 2.0 * cover_mm
+    core_outer_dir3_mm = depth_mm - 2.0 * cover_mm
+
+    # TBDY bk = axes of outermost transverse reinforcement.
+    bk_dir2_mm = core_outer_dir2_mm - phi_t_mm
+    bk_dir3_mm = core_outer_dir3_mm - phi_t_mm
+
+    if min(
+        core_outer_dir2_mm,
+        core_outer_dir3_mm,
+        bk_dir2_mm,
+        bk_dir3_mm,
+    ) <= 0.0:
+        raise ColumnExecutionContractError(
+            "A36 cover/tie geometry produces non-positive confined core"
+        )
+
+    ac_mm2 = width_mm * depth_mm
+    ack_mm2 = core_outer_dir2_mm * core_outer_dir3_mm
+
+    if ack_mm2 >= ac_mm2:
+        raise ColumnExecutionContractError(
+            "A36 confined core Ack must be smaller than gross Ac"
+        )
+
+    evidence = capture_b5_bound_column_axial_evidence(
+        session=acquisition_context.verified_session,
+        analysis_execution=analysis_execution,
+        topology=topology,
+        target=target,
+        material_context=basis.material_context,
+        model_fingerprint=column.model_fingerprint,
+        evidence_epoch_id=column.evidence_epoch_id,
+        reviewed=reviewed_vs5_column_axial_context,
+        flattened_combos=flattened_combos,
+    )
+
+    if evidence.model_fingerprint != column.model_fingerprint:
+        raise ColumnExecutionContractError(
+            "A36 VS5 factual bundle model identity mismatch"
+        )
+    if evidence.evidence_epoch_id != column.evidence_epoch_id:
+        raise ColumnExecutionContractError(
+            "A36 VS5 factual bundle EvidenceEpoch mismatch"
+        )
+
+    vs5 = run_vs5_column_axial(
+        evidence=evidence,
+        reviewed=reviewed_vs5_column_axial_context,
+        unique_name=target.unique_name,
+    )
+
+    nd = vs5.ts500_demand
+    if (
+        nd.availability is not ColumnDemandAvailability.RESOLVED
+        or nd.demand_kn is None
+    ):
+        raise ColumnExecutionContractError(
+            "A36 requires source-bound RESOLVED VS5 TS500 Nd"
+        )
+
+    reviewed_high = (
+        reviewed_vs5_column_axial_context
+        .tbdy_7312_high_ductility_applies
+    )
+    if (
+        reviewed_high is not None
+        and basis.high_ductility_applies is not None
+        and reviewed_high != basis.high_ductility_applies
+    ):
+        raise ColumnExecutionContractError(
+            "A36 VS5/design-basis high-ductility applicability mismatch"
+        )
+
+    # CSI GetRebarColumn proves directional tie-leg design intent, but the
+    # canonical provider explicitly does NOT promote that evidence to
+    # final/provided reinforcement authority. Therefore those counts must not
+    # be materialized as provided Ash here. Ack/bk geometry remains valid and
+    # provided Ash stays explicitly unresolved until a qualified final-cage
+    # owner exists.
+
+    cover_ref = (
+        f"ETABS:PropFrame.GetRebarColumn:{target.section}:"
+        f"Cover={cover_mm:.12g}mm"
+    )
+    tie_ref = (
+        f"ETABS:PropFrame.GetRebarColumn:{target.section}:"
+        f"TieSize={intent.tie_size_name}|{runtime.tie_catalog_ref}"
+    )
+    topology_ref = (
+        f"{acquisition_context.session_provenance_ref}:"
+        f"strict-column-topology:{target.unique_name}:{target.section}"
+    )
+    nd_ref = (
+        f"VS5:TS500_ND:{target.unique_name}:"
+        f"{float(nd.demand_kn):.12g}kN"
+    )
+
+    directions = (
+        TransverseDirectionFacts(
+            direction="DIR2",
+            confined_core_width_bk_mm=bk_dir2_mm,
+            provided_ash_mm2=None,
+            horizontal_leg_spacing_mm=None,
+            source_refs=(cover_ref, tie_ref),
+        ),
+        TransverseDirectionFacts(
+            direction="DIR3",
+            confined_core_width_bk_mm=bk_dir3_mm,
+            provided_ash_mm2=None,
+            horizontal_leg_spacing_mm=None,
+            source_refs=(cover_ref, tie_ref),
+        ),
+    )
+
+    fck_mpa = float(basis.material_context.material.fck_mpa)
+
+    selected_rebar = runtime.selection.selected_rebar
+    if selected_rebar is None:
+        raise ColumnExecutionContractError(
+            "A36 requires canonical ENGINE_SELECTED_REBAR"
+        )
+
+    source_refs = tuple(
+        dict.fromkeys(
+            (
+                topology_ref,
+                cover_ref,
+                tie_ref,
+                nd_ref,
+                controlled_design_result
+                .design_result_identity
+                .identity_ref,
+                selected_rebar.selected_rebar_ref,
+                *basis.source_refs,
+                *basis.transverse_basis_refs,
+                *tuple(nd.provenance),
+            )
+        )
+    )
+
+    return ColumnTransverseConfinementInput(
+        component_id=column.component_id,
+        story=target.story,
+        section=target.section,
+        high_ductility_applies=basis.high_ductility_applies,
+        limited_ductility_applies=basis.limited_ductility_applies,
+
+        # No proven production owner yet. Do not default False.
+        cantilever_column=None,
+
+        clear_height_mm=clear_height_mm,
+        width_mm=width_mm,
+        depth_mm=depth_mm,
+        gross_area_ac_mm2=ac_mm2,
+        confined_core_area_ack_mm2=ack_mm2,
+        fck_mpa=fck_mpa,
+        fywk_mpa=float(basis.transverse_fywk_mpa),
+
+        # Historical DTO field name; exact semantic value is TS500 Nd.
+        # This value governs the TBDY confinement 2/3 quantity branch.
+        axial_design_force_nd_n=float(nd.demand_kn) * 1000.0,
+
+        # GetRebarColumn TieSize is factual section design intent and may
+        # support deterministic Ack/bk geometry materialization, but the
+        # canonical provider explicitly does not grant final/provided-rebar
+        # authority. Do not promote it into provided transverse cage truth.
+        transverse_diameter_mm=None,
+
+        # TieSpacingLongit alone is not silently reinterpreted into every
+        # seismic region/detailing field.
+        confinement_spacing_mm=None,
+        middle_spacing_mm=None,
+        provided_confinement_region_length_mm=None,
+
+        directions=directions,
+        arrangement=None,
+        source_refs=source_refs,
+
+        fywd_mpa=basis.transverse_fywd_mpa,
+        restrained_longitudinal_bar_spacing_mm=None,
+        shear_spacing_mm=None,
+
+        model_fingerprint=column.model_fingerprint,
+        evidence_epoch_id=column.evidence_epoch_id,
+        design_result_ref=(
+            controlled_design_result
+            .design_result_identity
+            .identity_ref
+        ),
+    )
+
+
+def _continue_selected_column_into_a36(
+    column: ColumnDomainArtifact,
+    *,
+    runtime: ColumnLongitudinalRuntimeComposition,
+    acquisition_context: TrustedLiveAcquisitionContext,
+    analysis_execution: AnalysisExecutionResult,
+    topology,
+    flattened_combos,
+    controlled_design_result: ControlledConcreteDesignResult,
+    reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None,
+) -> ColumnDomainArtifact:
+    """Continue selected A35 state into the existing Lane-C owner."""
+
+    # Absence remains explicit. Never invent reviewed VS5 policy and
+    # never silently omit the A36 denominator leaf.
+    if reviewed_vs5_column_axial_context is None:
+        return replace(
+            column,
+            status=STATUS_APPLICATION_BLOCKED,
+            blockers=tuple(
+                dict.fromkeys(
+                    (
+                        *column.blockers,
+                        f"{BLOCKER_TRANSVERSE_PRODUCTION}:"
+                        "REVIEWED_VS5_COLUMN_AXIAL_CONTEXT_NOT_AVAILABLE",
+                    )
+                )
+            ),
+        )
+
+    try:
+        transverse_input = _compose_a36_transverse_input(
+            column=column,
+            runtime=runtime,
+            acquisition_context=acquisition_context,
+            analysis_execution=analysis_execution,
+            topology=topology,
+            flattened_combos=flattened_combos,
+            controlled_design_result=controlled_design_result,
+            reviewed_vs5_column_axial_context=(
+                reviewed_vs5_column_axial_context
+            ),
+        )
+
+        return _compose_lane_c_after_qualified_design(
+            column,
+            transverse_input=transverse_input,
+            design_lineage=controlled_design_result.design_lineage,
+        )
+
+    except Exception as exc:
+        return replace(
+            column,
+            status=STATUS_APPLICATION_BLOCKED,
+            blockers=tuple(
+                dict.fromkeys(
+                    (
+                        *column.blockers,
+                        f"{BLOCKER_TRANSVERSE_PRODUCTION}:"
+                        f"{type(exc).__name__}:{exc}",
+                    )
+                )
+            ),
+        )
+
+
+
 def _complete_public_b6_after_fnd2(
     column: ColumnDomainArtifact,
     *,
@@ -349,6 +717,7 @@ def _complete_public_b6_after_fnd2(
     flattened_combos,
     column_design_basis: ReviewedColumnDesignBasis | None = None,
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
+    reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
 ) -> ColumnDomainArtifact:
     """Run sole B6 owner, then optionally continue into existing longitudinal authorities."""
     if not isinstance(column, ColumnDomainArtifact):
@@ -552,13 +921,29 @@ def _complete_public_b6_after_fnd2(
                 )
             )
         )
-    return replace(
+    selected_column = replace(
         completed_b6,
         status=status,
         blockers=blockers,
         layout_authority=runtime.layout_authority,
         longitudinal_selection=runtime.selection,
         longitudinal_runtime=runtime,
+    )
+
+    if not runtime.selection.selected:
+        return selected_column
+
+    return _continue_selected_column_into_a36(
+        selected_column,
+        runtime=runtime,
+        acquisition_context=acquisition_context,
+        analysis_execution=analysis_execution,
+        topology=topology,
+        flattened_combos=flattened_combos,
+        controlled_design_result=controlled,
+        reviewed_vs5_column_axial_context=(
+            reviewed_vs5_column_axial_context
+        ),
     )
 
 

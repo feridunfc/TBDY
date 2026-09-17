@@ -39,6 +39,7 @@ from tbdy_engine.product_reports.unified_building_report import (
 )
 from tbdy_engine.regulatory.fnd_col_2 import READINESS_KEY
 from tbdy_engine.regulatory.kernel import AnalysisBasisStatus, StructuralAssessment
+from tbdy_engine.regulatory.vs5_column_axial_program import ReviewedVs5ColumnAxialContext
 
 
 class ProjectExecutionContractError(ValueError):
@@ -305,6 +306,7 @@ def execute_project(
     verified_session: EtabsVerifiedSession,
     column_design_basis: ReviewedColumnDesignBasis | None = None,
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
+    reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
 ) -> ProjectExecutionArtifact:
     """Execute the sole LIVE project lifecycle; downstream success remains FND2-gated."""
     if not isinstance(request, ProjectExecutionRequest):
@@ -315,13 +317,33 @@ def execute_project(
         raise TypeError("column_design_basis must be ReviewedColumnDesignBasis or None")
     if expected_combo_policy is not None and not isinstance(expected_combo_policy, ExpectedConcreteDesignComboPolicy):
         raise TypeError("expected_combo_policy must be ExpectedConcreteDesignComboPolicy or None")
+    if (
+        reviewed_vs5_column_axial_context is not None
+        and not isinstance(
+            reviewed_vs5_column_axial_context,
+            ReviewedVs5ColumnAxialContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_vs5_column_axial_context must be "
+            "ReviewedVs5ColumnAxialContext or None"
+        )
 
     context: TrustedLiveAcquisitionContext = create_trusted_live_acquisition_context(verified_session)
+
+    column_kwargs = {
+        "acquisition_context": context,
+        "column_design_basis": column_design_basis,
+        "expected_combo_policy": expected_combo_policy,
+    }
+    if reviewed_vs5_column_axial_context is not None:
+        column_kwargs["reviewed_vs5_column_axial_context"] = (
+            reviewed_vs5_column_axial_context
+        )
+
     column = execute_column_domain(
         request.column,
-        acquisition_context=context,
-        column_design_basis=column_design_basis,
-        expected_combo_policy=expected_combo_policy,
+        **column_kwargs,
     )
 
     if column.fnd_col_2_execution is None:

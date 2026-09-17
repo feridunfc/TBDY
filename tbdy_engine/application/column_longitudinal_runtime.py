@@ -94,6 +94,8 @@ class ColumnLongitudinalRuntimeComposition:
     layout_authority: ColumnLongitudinalLayoutAuthorityResult
     selection: CanonicalColumnLongitudinalSelectionComposition
     detailing: ColumnLongitudinalDetailingResolution | None
+    tie_diameter_mm: float | None = None
+    tie_catalog_ref: str | None = None
 
     @property
     def selected(self) -> bool:
@@ -352,6 +354,8 @@ def compose_column_longitudinal_runtime(
         layout_authority=layout,
         selection=selection,
         detailing=detailing,
+        tie_diameter_mm=tie_diameter_mm,
+        tie_catalog_ref=tie_catalog_ref,
     )
 
 
