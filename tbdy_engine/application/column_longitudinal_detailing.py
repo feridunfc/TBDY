@@ -3,7 +3,7 @@
 This module owns no detailing formula and creates no second regulatory authority.
 It binds the canonical ``ENGINE_SELECTED_REBAR`` artifact to the already reviewed
 FND-COL-1 source authority and reports, separately, which detailing facts are
-still missing.  Unsupported shortcuts are never manufactured: until exact
+still missing. Unsupported shortcuts are never manufactured: until exact
 source-bound lap-location, lap-section population, anchorage, transition,
 splice-applicability and continuity/corner evidence exists, the truthful product
 outcome is ``FINAL_DETAILING_REQUIRED``.
@@ -11,11 +11,16 @@ outcome is ``FINAL_DETAILING_REQUIRED``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Sequence
 
 from tbdy_engine.design.columns.column_longitudinal_selection import (
     CanonicalEngineSelectedRebar,
     ENGINE_SELECTED_REBAR_AUTHORITY,
+)
+from tbdy_engine.integration.etabs_design_lineage import (
+    DESIGN_LINEAGE_REF_PREFIX,
+    DESIGN_RESULT_REF_PREFIX,
 )
 from tbdy_engine.regulatory.authority import (
     RegulatoryAuthorityCatalog,
@@ -67,6 +72,20 @@ def _refs(values: Sequence[str]) -> tuple[str, ...]:
     return refs
 
 
+def _single_provenance_ref(
+    values: Sequence[str],
+    *,
+    prefix: str,
+    label: str,
+) -> str:
+    matches = tuple(sorted({value for value in values if value.startswith(prefix)}))
+    if len(matches) != 1:
+        raise ColumnLongitudinalDetailingError(
+            f"A35 {label} requires exactly one {prefix}<sha256> ref; got {len(matches)}"
+        )
+    return matches[0]
+
+
 @dataclass(frozen=True, slots=True)
 class ColumnLongitudinalDetailingOutcome:
     item: str
@@ -96,6 +115,7 @@ class ColumnLongitudinalDetailingResolution:
     selected_rebar_ref: str
     model_fingerprint: str
     evidence_epoch_id: str
+    engine_selected_rebar: CanonicalEngineSelectedRebar
     status: str
     outcomes: tuple[ColumnLongitudinalDetailingOutcome, ...]
     source_refs: tuple[str, ...]
@@ -109,6 +129,44 @@ class ColumnLongitudinalDetailingResolution:
             "evidence_epoch_id",
         ):
             object.__setattr__(self, name, _text(getattr(self, name), name))
+
+        selected = self.engine_selected_rebar
+        if not isinstance(selected, CanonicalEngineSelectedRebar):
+            raise ColumnLongitudinalDetailingError(
+                "A35 engine_selected_rebar must be CanonicalEngineSelectedRebar"
+            )
+        if selected.authority != ENGINE_SELECTED_REBAR_AUTHORITY:
+            raise ColumnLongitudinalDetailingError(
+                "A35 requires canonical ENGINE_SELECTED_REBAR authority"
+            )
+        if selected.selected_rebar_ref != self.selected_rebar_ref:
+            raise ColumnLongitudinalDetailingError(
+                "A35 selected-rebar reference does not match ENGINE_SELECTED_REBAR"
+            )
+        if selected.component_id != self.component_id:
+            raise ColumnLongitudinalDetailingError(
+                "A35 component identity does not match ENGINE_SELECTED_REBAR"
+            )
+        if selected.model_fingerprint != self.model_fingerprint:
+            raise ColumnLongitudinalDetailingError(
+                "A35 model fingerprint does not match ENGINE_SELECTED_REBAR"
+            )
+        if selected.evidence_epoch_id != self.evidence_epoch_id:
+            raise ColumnLongitudinalDetailingError(
+                "A35 EvidenceEpoch does not match ENGINE_SELECTED_REBAR"
+            )
+
+        design_result_ref = _single_provenance_ref(
+            selected.provenance_refs,
+            prefix=DESIGN_RESULT_REF_PREFIX,
+            label="DesignResultIdentity parentage",
+        )
+        design_lineage_ref = _single_provenance_ref(
+            selected.provenance_refs,
+            prefix=DESIGN_LINEAGE_REF_PREFIX,
+            label="DesignLineageQualification",
+        )
+
         status = _text(self.status, "status")
         if status not in {FINAL_DETAILING_REQUIRED, DETAILING_PROVEN}:
             raise ColumnLongitudinalDetailingError(
@@ -137,7 +195,19 @@ class ColumnLongitudinalDetailingResolution:
                 "FINAL_DETAILING_REQUIRED cannot contain an entirely proven outcome population"
             )
         object.__setattr__(self, "outcomes", outcomes)
-        object.__setattr__(self, "source_refs", _refs(self.source_refs))
+
+        refs = _refs(self.source_refs)
+        required_refs = {
+            selected.selected_rebar_ref,
+            selected.candidate_adequacy_ref,
+            design_result_ref,
+            design_lineage_ref,
+        }
+        if not required_refs.issubset(set(refs)):
+            raise ColumnLongitudinalDetailingError(
+                "A35 source refs lost selection/adequacy/design-result lineage provenance"
+            )
+        object.__setattr__(self, "source_refs", refs)
 
     @property
     def complete(self) -> bool:
@@ -146,6 +216,46 @@ class ColumnLongitudinalDetailingResolution:
     @property
     def unresolved_items(self) -> tuple[str, ...]:
         return tuple(item.item for item in self.outcomes if not item.resolved)
+
+    @property
+    def selected_candidate_identity(self) -> str:
+        return self.engine_selected_rebar.candidate_id
+
+    @property
+    def selected_candidate(self):
+        return self.engine_selected_rebar.selected_candidate
+
+    @property
+    def selected_bar_diameter_mm(self) -> float:
+        return self.engine_selected_rebar.selected_candidate.bar_diameter_mm
+
+    @property
+    def selected_bar_count(self) -> int:
+        return self.engine_selected_rebar.selected_candidate.bar_count
+
+    @property
+    def selected_total_area_mm2(self) -> Decimal:
+        return self.engine_selected_rebar.as_total_mm2
+
+    @property
+    def candidate_adequacy_ref(self) -> str:
+        return self.engine_selected_rebar.candidate_adequacy_ref
+
+    @property
+    def design_result_parent_ref(self) -> str:
+        return _single_provenance_ref(
+            self.engine_selected_rebar.provenance_refs,
+            prefix=DESIGN_RESULT_REF_PREFIX,
+            label="DesignResultIdentity parentage",
+        )
+
+    @property
+    def design_lineage_qualification_ref(self) -> str:
+        return _single_provenance_ref(
+            self.engine_selected_rebar.provenance_refs,
+            prefix=DESIGN_LINEAGE_REF_PREFIX,
+            label="DesignLineageQualification",
+        )
 
 
 def materialize_selected_column_longitudinal_detailing(
@@ -158,8 +268,8 @@ def materialize_selected_column_longitudinal_detailing(
     The current canonical product has no source-bound lap-location population,
     lap-section total reinforcement population, anchorage layout, transition
     layout, mechanical/weld splice applicability evidence or continuity/corner
-    detailing population.  Therefore this materializer must not infer any of
-    them from the selected cage.  The reviewed lap-section rho claim is retained
+    detailing population. Therefore this materializer must not infer any of
+    them from the selected cage. The reviewed lap-section rho claim is retained
     as source authority for the later exact evaluation once factual lap-section
     evidence is introduced.
     """
@@ -190,6 +300,10 @@ def materialize_selected_column_longitudinal_detailing(
     selected_refs = _refs(
         (
             selected_rebar.selected_rebar_ref,
+            selected_rebar.candidate_adequacy_ref,
+            *selected_rebar.required_area_decision_ids,
+            *selected_rebar.pmm_decision_ids,
+            selected_rebar.material_context_ref,
             *selected_rebar.provenance_refs,
             validated.binding_ref,
             validated.fingerprint_ref,
@@ -240,6 +354,7 @@ def materialize_selected_column_longitudinal_detailing(
         selected_rebar_ref=selected_rebar.selected_rebar_ref,
         model_fingerprint=selected_rebar.model_fingerprint,
         evidence_epoch_id=selected_rebar.evidence_epoch_id,
+        engine_selected_rebar=selected_rebar,
         status=FINAL_DETAILING_REQUIRED,
         outcomes=outcomes,
         source_refs=_refs(
