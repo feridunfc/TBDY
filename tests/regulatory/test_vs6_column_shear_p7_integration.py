@@ -625,3 +625,133 @@ def test_capacity_state_output_case_must_match_exact_tbdy_shear(monkeypatch):
             ts500_rc_applies=True,
             material_source_refs=("MAT:FCK", "MAT:FCD"),
         )
+
+
+def test_current_a23_demand_states_enter_p7_without_legacy_column_design(
+    monkeypatch,
+):
+    """Current Column-R1 A23 states must not require a dummy legacy design object."""
+    _patch_capacity(monkeypatch)
+    _patch_depth(monkeypatch)
+
+    bundle = _bundle()
+    states = _states()
+
+    run = run_vs6_p7_from_production_evidence(
+        demand_states=states,
+        rebar_inputs=_rebar_inputs(),
+        selected_rebar=_canonical_selected_rebar(),
+        topology=_topology(),
+        free_length=_free_length(),
+        shear_evidence=bundle,
+        tbdy_vd_selection=_demand_selection(bundle, "V2"),
+        ts500_vd_selection=_demand_selection(bundle, "V2"),
+        capacity_state_selection=_capacity_selection(
+            direction="V2",
+            states=states,
+        ),
+        d_amplified_authority=_d_authority("V2"),
+        tbdy_high_ductility_applies=True,
+        ts500_rc_applies=True,
+        material_source_refs=(
+            "MATERIAL:ETABS:FCK",
+            "MATERIAL:TS500:FCD",
+        ),
+    )
+
+    assert run.component_id == COMPONENT
+    assert run.direction == "V2"
+    assert run.ve_kn == pytest.approx(80.0)
+    assert run.bottom_capacity.status == CAPACITY_PROVEN
+    assert run.top_capacity.status == CAPACITY_PROVEN
+
+
+def test_p7_rejects_legacy_and_current_demand_sources_together(
+    monkeypatch,
+):
+    bundle = _bundle()
+    states = _states()
+
+    with pytest.raises(TypeError, match="exactly one"):
+        run_vs6_p7_from_production_evidence(
+            column_design=_design(states=states),
+            demand_states=states,
+            rebar_inputs=_rebar_inputs(),
+            selected_rebar=_canonical_selected_rebar(),
+            topology=_topology(),
+            free_length=_free_length(),
+            shear_evidence=bundle,
+            tbdy_vd_selection=_demand_selection(bundle, "V2"),
+            ts500_vd_selection=_demand_selection(bundle, "V2"),
+            capacity_state_selection=_capacity_selection(
+                direction="V2",
+                states=states,
+            ),
+            d_amplified_authority=_d_authority("V2"),
+            tbdy_high_ductility_applies=True,
+            ts500_rc_applies=True,
+            material_source_refs=("MAT:FCK", "MAT:FCD"),
+        )
+
+
+def test_current_a23_p7_accepts_bound_section_material_without_legacy_rebar_inputs(
+    monkeypatch,
+):
+    _patch_capacity(monkeypatch)
+    _patch_depth(monkeypatch)
+
+    bundle = _bundle()
+    states = _states()
+
+    run = run_vs6_p7_from_production_evidence(
+        demand_states=states,
+        section_material=_rebar_inputs().material,
+        selected_rebar=_canonical_selected_rebar(),
+        topology=_topology(),
+        free_length=_free_length(),
+        shear_evidence=bundle,
+        tbdy_vd_selection=_demand_selection(bundle, "V2"),
+        ts500_vd_selection=_demand_selection(bundle, "V2"),
+        capacity_state_selection=_capacity_selection(
+            direction="V2",
+            states=states,
+        ),
+        d_amplified_authority=_d_authority("V2"),
+        tbdy_high_ductility_applies=True,
+        ts500_rc_applies=True,
+        material_source_refs=(
+            "MATERIAL:ETABS:FCK",
+            "MATERIAL:REVIEWED:FCD",
+        ),
+    )
+
+    assert run.component_id == COMPONENT
+    assert run.direction == "V2"
+    assert run.ve_kn == pytest.approx(80.0)
+
+
+def test_p7_rejects_legacy_rebar_inputs_and_section_material_together():
+    bundle = _bundle()
+    states = _states()
+    legacy = _rebar_inputs()
+
+    with pytest.raises(TypeError, match="exactly one of rebar_inputs"):
+        run_vs6_p7_from_production_evidence(
+            demand_states=states,
+            rebar_inputs=legacy,
+            section_material=legacy.material,
+            selected_rebar=_canonical_selected_rebar(),
+            topology=_topology(),
+            free_length=_free_length(),
+            shear_evidence=bundle,
+            tbdy_vd_selection=_demand_selection(bundle, "V2"),
+            ts500_vd_selection=_demand_selection(bundle, "V2"),
+            capacity_state_selection=_capacity_selection(
+                direction="V2",
+                states=states,
+            ),
+            d_amplified_authority=_d_authority("V2"),
+            tbdy_high_ductility_applies=True,
+            ts500_rc_applies=True,
+            material_source_refs=("MAT:FCK", "MAT:FCD"),
+        )

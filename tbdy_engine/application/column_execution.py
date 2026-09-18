@@ -9,13 +9,26 @@ here.
 """
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from functools import partial
 
 from tbdy_engine.application.column_design_basis import ReviewedColumnDesignBasis
+from tbdy_engine.application.column_final_cage import (
+    ReviewedColumnFinalCageContext,
+    apply_reviewed_final_cage_to_transverse_input,
+)
 from tbdy_engine.application.column_longitudinal_runtime import (
     ColumnLongitudinalRuntimeComposition,
     compose_column_longitudinal_runtime,
+)
+from tbdy_engine.application.column_p7_runtime import (
+    ReviewedColumnP7RuntimeContext,
+    compose_column_p7_runtime,
+)
+from tbdy_engine.application.column_vc_runtime import (
+    ReviewedColumnVcRuntimeContext,
+    apply_reviewed_vc_to_transverse_input,
 )
 from tbdy_engine.application.contracts import ColumnExecutionRequest
 from tbdy_engine.checks.column_axial_selection import ColumnDemandAvailability
@@ -33,6 +46,8 @@ from tbdy_engine.design.columns.column_longitudinal_production_composition impor
 from tbdy_engine.design.columns.column_longitudinal_selection_policy_factory import (
     build_reviewed_column_longitudinal_selection_policy_input,
 )
+from tbdy_engine.design.columns.free_length_basis import ColumnFreeLengthResolution
+from tbdy_engine.design.columns.rebar_selection import ColumnDemandState
 from tbdy_engine.etabs.oapi.concrete_design import read_design_code_from_session
 from tbdy_engine.features.column_concrete_design_evidence import (
     ColumnTopologyEvidenceEnvelope,
@@ -82,6 +97,12 @@ from tbdy_engine.regulatory.vs5_column_axial_program import (
     ReviewedVs5ColumnAxialContext,
     run_vs5_column_axial,
 )
+from tbdy_engine.features.column_shear_demand_evidence import (
+    ColumnShearDemandEvidenceBundle,
+)
+from tbdy_engine.regulatory.vs6_column_shear_p7_program import (
+    VS6P7ColumnShearRun,
+)
 from tbdy_engine.regulatory.sources.fnd_col_1_longitudinal import (
     FND_COL_1_AUTHORITY_CATALOG,
 )
@@ -103,6 +124,7 @@ BLOCKER_LIVE_FND2_INPUT_LINEAGE = "LIVE_FND2_INPUT_LINEAGE_NOT_QUALIFIED"
 BLOCKER_LIVE_DESIGN_LINEAGE = "LIVE_DESIGN_RESULT_LINEAGE_NOT_QUALIFIED"
 BLOCKER_LONGITUDINAL_PRODUCTION = "LONGITUDINAL_PRODUCTION_NOT_CLOSED"
 BLOCKER_TRANSVERSE_PRODUCTION = "TRANSVERSE_CONFINEMENT_PRODUCTION_NOT_CLOSED"
+BLOCKER_P7_PRODUCTION = "P7_PRODUCTION_NOT_CLOSED"
 
 _COLUMN_CONCRETE_DESIGN_DOMAIN_REF = "design-domain:concrete-column"
 _SELECTED_COMBO_POPULATION_REF_PREFIX = "selected-design-combo-population:sha256:"
@@ -130,6 +152,11 @@ class ColumnDomainArtifact:
     longitudinal_selection: object | None = None
     longitudinal_runtime: ColumnLongitudinalRuntimeComposition | None = None
     transverse_confinement: ColumnTransverseConfinementResult | None = None
+    column_shear_p7: VS6P7ColumnShearRun | None = None
+    column_shear_evidence: ColumnShearDemandEvidenceBundle | None = None
+    final_transverse_cage: ReviewedColumnFinalCageContext | None = None
+    free_length: ColumnFreeLengthResolution | None = None
+    a23_demand_states: tuple[ColumnDemandState, ...] = ()
 
     @property
     def design_result_identity(self) -> DesignResultIdentity | None:
@@ -167,6 +194,9 @@ def execute_column_domain(
     column_design_basis: ReviewedColumnDesignBasis | None = None,
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
+    reviewed_column_p7_context: ReviewedColumnP7RuntimeContext | None = None,
+    reviewed_column_final_cage_context: ReviewedColumnFinalCageContext | None = None,
+    reviewed_column_vc_context: ReviewedColumnVcRuntimeContext | None = None,
 ) -> ColumnDomainArtifact:
     """Execute the canonical LIVE Column path without bypassing FND2/B6 gates."""
     if not isinstance(request, ColumnExecutionRequest):
@@ -189,6 +219,41 @@ def execute_column_domain(
             "ReviewedVs5ColumnAxialContext or None"
         )
 
+    if (
+        reviewed_column_p7_context is not None
+        and not isinstance(
+            reviewed_column_p7_context,
+            ReviewedColumnP7RuntimeContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_p7_context must be "
+            "ReviewedColumnP7RuntimeContext or None"
+        )
+    if (
+        reviewed_column_final_cage_context is not None
+        and not isinstance(
+            reviewed_column_final_cage_context,
+            ReviewedColumnFinalCageContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_final_cage_context must be "
+            "ReviewedColumnFinalCageContext or None"
+        )
+
+    if (
+        reviewed_column_vc_context is not None
+        and not isinstance(
+            reviewed_column_vc_context,
+            ReviewedColumnVcRuntimeContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_vc_context must be "
+            "ReviewedColumnVcRuntimeContext or None"
+        )
+
     from tbdy_engine.application.column_public_a5 import execute_public_a5_column
 
     completion = _complete_public_b6_after_fnd2
@@ -196,12 +261,20 @@ def execute_column_domain(
         column_design_basis is not None
         or expected_combo_policy is not None
         or reviewed_vs5_column_axial_context is not None
+        or reviewed_column_p7_context is not None
+        or reviewed_column_final_cage_context is not None
+        or reviewed_column_vc_context is not None
     ):
         completion = partial(
             _complete_public_b6_after_fnd2,
             column_design_basis=column_design_basis,
             expected_combo_policy=expected_combo_policy,
             reviewed_vs5_column_axial_context=reviewed_vs5_column_axial_context,
+            reviewed_column_p7_context=reviewed_column_p7_context,
+            reviewed_column_final_cage_context=(
+                reviewed_column_final_cage_context
+            ),
+            reviewed_column_vc_context=reviewed_column_vc_context,
         )
 
     return execute_public_a5_column(
@@ -264,6 +337,67 @@ def _execute_fnd2(request, *, model_fingerprint, evidence_epoch_id, fnd_col_2_in
         fnd_col_2_execution=execution,
         readiness_binding=binding,
     )
+
+
+def _decode_canonical_a23_demand_states(
+    canonical_second_order: Mapping[str, object],
+    *,
+    component_id: str,
+) -> tuple[ColumnDemandState, ...]:
+    # Restore canonical A23 final states without recalculation or selection.
+    if not isinstance(canonical_second_order, Mapping):
+        raise TypeError("canonical_second_order must be a mapping")
+
+    payload = canonical_second_order.get("canonical_second_order")
+    if not isinstance(payload, Mapping):
+        raise ColumnExecutionContractError(
+            "canonical second-order payload is missing"
+        )
+
+    blockers = tuple(payload.get("blockers", ()) or ())
+    reanalysis = tuple(payload.get("reanalysis_items", ()) or ())
+    if blockers:
+        raise ColumnExecutionContractError(
+            "canonical A23 demand population is blocked: "
+            + "|".join(str(item) for item in blockers)
+        )
+    if reanalysis:
+        raise ColumnExecutionContractError(
+            "canonical A23 demand population requires reanalysis: "
+            + "|".join(str(item) for item in reanalysis)
+        )
+
+    raw_states = payload.get("expected_final_states")
+    if not isinstance(raw_states, (tuple, list)) or not raw_states:
+        raise ColumnExecutionContractError(
+            "canonical A23 final demand-state population is empty"
+        )
+
+    states: list[ColumnDemandState] = []
+    for raw in raw_states:
+        if not isinstance(raw, Mapping):
+            raise ColumnExecutionContractError(
+                "canonical A23 final state must be a mapping"
+            )
+        try:
+            state = ColumnDemandState(**dict(raw))
+        except (TypeError, ValueError) as exc:
+            raise ColumnExecutionContractError(
+                f"canonical A23 final state cannot be restored: {exc}"
+            ) from exc
+        if state.component_id != component_id:
+            raise ColumnExecutionContractError(
+                "canonical A23 state component identity mismatch"
+            )
+        states.append(state)
+
+    state_ids = tuple(item.state_id for item in states)
+    if len(set(state_ids)) != len(state_ids):
+        raise ColumnExecutionContractError(
+            "canonical A23 final demand-state population contains duplicate state_id"
+        )
+
+    return tuple(states)
 
 
 def _selected_combo_population_ref(selection) -> str:
@@ -374,6 +508,8 @@ def _compose_a36_transverse_input(
     flattened_combos,
     controlled_design_result: ControlledConcreteDesignResult,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext,
+    reviewed_column_final_cage_context: ReviewedColumnFinalCageContext | None = None,
+    reviewed_column_vc_context: ReviewedColumnVcRuntimeContext | None = None,
 ) -> ColumnTransverseConfinementInput:
     """Materialize source-bound A36 facts; regulatory evaluation stays elsewhere."""
 
@@ -586,7 +722,7 @@ def _compose_a36_transverse_input(
         )
     )
 
-    return ColumnTransverseConfinementInput(
+    transverse_input = ColumnTransverseConfinementInput(
         component_id=column.component_id,
         story=target.story,
         section=target.section,
@@ -637,6 +773,51 @@ def _compose_a36_transverse_input(
         ),
     )
 
+    if reviewed_column_final_cage_context is not None:
+        if runtime.rebar_catalog is None:
+            raise ColumnExecutionContractError(
+                "A37 final cage requires retained factual RebarCatalog"
+            )
+        transverse_input = apply_reviewed_final_cage_to_transverse_input(
+            transverse_input,
+            reviewed=reviewed_column_final_cage_context,
+            rebar_catalog=runtime.rebar_catalog,
+            p7_run=column.column_shear_p7,
+        )
+
+    if reviewed_column_vc_context is not None:
+        if (
+            column.column_shear_p7 is None
+            or column.column_shear_evidence is None
+            or not column.a23_demand_states
+        ):
+            raise ColumnExecutionContractError(
+                "A37 Vc requires P7, retained B5 shear evidence, "
+                "and canonical A23 states"
+            )
+        material_context = runtime.bound_design_basis.material_context
+        transverse_input = apply_reviewed_vc_to_transverse_input(
+            transverse_input,
+            reviewed=reviewed_column_vc_context,
+            a23_states=column.a23_demand_states,
+            shear_evidence=column.column_shear_evidence,
+            p7_run=column.column_shear_p7,
+            fcd_mpa=material_context.material.fcd_mpa,
+            target_unique_name=runtime.target_topology.unique_name,
+            material_source_refs=tuple(
+                dict.fromkeys(
+                    (
+                        material_context.section_material_binding_ref,
+                        material_context.binding_ref,
+                        *material_context.concrete_strength_source_refs,
+                        *material_context.concrete_design_strength_review_refs,
+                    )
+                )
+            ),
+        )
+
+    return transverse_input
+
 
 def _continue_selected_column_into_a36(
     column: ColumnDomainArtifact,
@@ -648,6 +829,8 @@ def _continue_selected_column_into_a36(
     flattened_combos,
     controlled_design_result: ControlledConcreteDesignResult,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None,
+    reviewed_column_final_cage_context: ReviewedColumnFinalCageContext | None = None,
+    reviewed_column_vc_context: ReviewedColumnVcRuntimeContext | None = None,
 ) -> ColumnDomainArtifact:
     """Continue selected A35 state into the existing Lane-C owner."""
 
@@ -680,6 +863,10 @@ def _continue_selected_column_into_a36(
             reviewed_vs5_column_axial_context=(
                 reviewed_vs5_column_axial_context
             ),
+            reviewed_column_final_cage_context=(
+                reviewed_column_final_cage_context
+            ),
+            reviewed_column_vc_context=reviewed_column_vc_context,
         )
 
         return _compose_lane_c_after_qualified_design(
@@ -715,9 +902,14 @@ def _complete_public_b6_after_fnd2(
     selected_combo_population,
     combo_definitions,
     flattened_combos,
+    free_length: ColumnFreeLengthResolution | None = None,
+    canonical_second_order: Mapping[str, object] | None = None,
     column_design_basis: ReviewedColumnDesignBasis | None = None,
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
+    reviewed_column_p7_context: ReviewedColumnP7RuntimeContext | None = None,
+    reviewed_column_final_cage_context: ReviewedColumnFinalCageContext | None = None,
+    reviewed_column_vc_context: ReviewedColumnVcRuntimeContext | None = None,
 ) -> ColumnDomainArtifact:
     """Run sole B6 owner, then optionally continue into existing longitudinal authorities."""
     if not isinstance(column, ColumnDomainArtifact):
@@ -728,6 +920,51 @@ def _complete_public_b6_after_fnd2(
         raise ColumnExecutionContractError(
             "qualified FND2 must retain its ComponentReadinessBinding before B6"
         )
+    if free_length is not None and not isinstance(
+        free_length,
+        ColumnFreeLengthResolution,
+    ):
+        raise TypeError(
+            "free_length must be ColumnFreeLengthResolution or None"
+        )
+    if canonical_second_order is not None and not isinstance(
+        canonical_second_order,
+        Mapping,
+    ):
+        raise TypeError(
+            "canonical_second_order must be a mapping or None"
+        )
+
+    a23_demand_states: tuple[ColumnDemandState, ...] = ()
+
+    # PUBLIC-A5 still supports a bounded legacy FND2 slenderness mapping for
+    # compatibility tests / B6-only execution. Only the canonical A17-A23
+    # payload owns typed final A23 demand states. Absence of that canonical
+    # envelope is not an A37 engineering fact and must not retroactively block
+    # an otherwise-qualified B6-only execution.
+    if (
+        canonical_second_order is not None
+        and "canonical_second_order" in canonical_second_order
+    ):
+        try:
+            a23_demand_states = _decode_canonical_a23_demand_states(
+                canonical_second_order,
+                component_id=column.component_id,
+            )
+        except Exception as exc:
+            return replace(
+                column,
+                status=STATUS_APPLICATION_BLOCKED,
+                blockers=tuple(
+                    dict.fromkeys(
+                        (
+                            *column.blockers,
+                            f"{BLOCKER_LIVE_FND2_INPUT_LINEAGE}:"
+                            f"A23_RUNTIME_RETENTION:{type(exc).__name__}:{exc}",
+                        )
+                    )
+                ),
+            )
 
     try:
         analysis_lineage = analysis_execution.qualification
@@ -851,6 +1088,8 @@ def _complete_public_b6_after_fnd2(
             design_procedure=design_procedure,
             design_state=design_state,
             controlled_design_result=controlled,
+            free_length=free_length,
+            a23_demand_states=a23_demand_states,
         )
     except Exception:
         return replace(
@@ -933,8 +1172,53 @@ def _complete_public_b6_after_fnd2(
     if not runtime.selection.selected:
         return selected_column
 
+    p7_column = selected_column
+    if reviewed_column_p7_context is not None:
+        try:
+            if selected_column.free_length is None or not selected_column.a23_demand_states:
+                raise ColumnExecutionContractError(
+                    "A37 requires retained canonical free-length and A23 states"
+                )
+            p7_runtime = compose_column_p7_runtime(
+                component_id=selected_column.component_id,
+                model_fingerprint=selected_column.model_fingerprint,
+                acquisition_context=acquisition_context,
+                analysis_execution=analysis_execution,
+                free_length=selected_column.free_length,
+                demand_states=selected_column.a23_demand_states,
+                longitudinal_runtime=runtime,
+                reviewed_context=reviewed_column_p7_context,
+            )
+            p7_column = replace(
+                selected_column,
+                column_shear_p7=p7_runtime.p7_run,
+                column_shear_evidence=p7_runtime.shear_evidence,
+            )
+        except Exception as exc:
+            p7_column = replace(
+                selected_column,
+                status=STATUS_APPLICATION_BLOCKED,
+                blockers=tuple(
+                    dict.fromkeys(
+                        (
+                            *selected_column.blockers,
+                            f"{BLOCKER_P7_PRODUCTION}:{type(exc).__name__}:{exc}",
+                        )
+                    )
+                ),
+            )
+
+    cage_column = (
+        p7_column
+        if reviewed_column_final_cage_context is None
+        else replace(
+            p7_column,
+            final_transverse_cage=reviewed_column_final_cage_context,
+        )
+    )
+
     return _continue_selected_column_into_a36(
-        selected_column,
+        cage_column,
         runtime=runtime,
         acquisition_context=acquisition_context,
         analysis_execution=analysis_execution,
@@ -944,6 +1228,10 @@ def _complete_public_b6_after_fnd2(
         reviewed_vs5_column_axial_context=(
             reviewed_vs5_column_axial_context
         ),
+        reviewed_column_final_cage_context=(
+            reviewed_column_final_cage_context
+        ),
+        reviewed_column_vc_context=reviewed_column_vc_context,
     )
 
 

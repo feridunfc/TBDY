@@ -1293,7 +1293,7 @@ def _materialize_fnd2_inputs(
             refs=(*common_refs, *(ref for item in stiffness for ref in item.source_refs)),
         ),
     )
-    return RegulatoryCompileInputs(
+    inputs = RegulatoryCompileInputs(
         rule_targets=(
             RuleScopeTarget(
                 rule_id=RULE_ID,
@@ -1305,6 +1305,7 @@ def _materialize_fnd2_inputs(
         ),
         external_authorities=authorities,
     )
+    return inputs, free_length, canonical_second_order
 
 
 def _new_positive_response_participation_facts(
@@ -1677,7 +1678,7 @@ def execute_public_a5_column(
         return _blocked(request, context, BLOCKER_A4_POST_CONTINUITY)
 
     try:
-        inputs = _materialize_fnd2_inputs(
+        inputs, free_length, canonical_second_order = _materialize_fnd2_inputs(
             request=request,
             context=context,
             target_column=target_post,
@@ -1711,6 +1712,8 @@ def execute_public_a5_column(
         selected_combo_population=selection,
         combo_definitions=definitions,
         flattened_combos=flattened_combos,
+        free_length=free_length,
+        canonical_second_order=canonical_second_order,
     )
 
 

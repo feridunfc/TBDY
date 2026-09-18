@@ -23,6 +23,7 @@ from tbdy_engine.design.columns.column_longitudinal_selection import (
     ENGINE_SELECTED_REBAR_AUTHORITY,
 )
 from tbdy_engine.design.columns.column_rebar_design_engine import ColumnRebarDesignInputs
+from tbdy_engine.design.columns.section_capacity import ColumnSectionMaterial
 from tbdy_engine.design.columns.column_shear_demand import (
     CAPACITY_BLOCKED,
     CAPACITY_PROVEN,
@@ -242,10 +243,18 @@ def _physical_end_tags(topology: ColumnTopologyEvidence) -> tuple[str, str]:
     raise VS6P7IntegrationError("strict topology bottom/top joints do not reconcile to exact I/J connectivity")
 
 
-def _state_by_id(design: ColumnDesignEngineResult, state_id: str) -> ColumnDemandState:
-    matches = tuple(item for item in design.design_demands.promoted_states if item.state_id == state_id)
+def _state_by_id(
+    states: Sequence[ColumnDemandState],
+    state_id: str,
+) -> ColumnDemandState:
+    matches = tuple(
+        item for item in states
+        if item.state_id == state_id
+    )
     if len(matches) != 1:
-        raise VS6P7IntegrationError(f"exact column demand state_id must resolve once: {state_id}")
+        raise VS6P7IntegrationError(
+            f"exact column demand state_id must resolve once: {state_id}"
+        )
     return matches[0]
 
 
@@ -288,7 +297,7 @@ def _resolve_end_capacity(
     width_mm: float,
     depth_mm: float,
     selected_candidate: ColumnRebarGeometryCandidate | None,
-    rebar_inputs: ColumnRebarDesignInputs,
+    material: ColumnSectionMaterial,
     review_refs: Sequence[str],
 ) -> ColumnEndMomentCapacityBasis:
     refs = tuple(
@@ -326,7 +335,7 @@ def _resolve_end_capacity(
             width_mm=width_mm,
             depth_mm=depth_mm,
             bars=selected_candidate.bars,
-            material=rebar_inputs.material,
+            material=material,
             source_refs=refs,
         )
 
@@ -339,7 +348,7 @@ def _resolve_end_capacity(
         width_mm=width_mm,
         depth_mm=depth_mm,
         bars=selected_candidate.bars,
-        material=rebar_inputs.material,
+        material=material,
         source_refs=refs,
     )
     minus = resolve_exact_column_end_moment_capacity(
@@ -351,7 +360,7 @@ def _resolve_end_capacity(
         width_mm=width_mm,
         depth_mm=depth_mm,
         bars=selected_candidate.bars,
-        material=rebar_inputs.material,
+        material=material,
         source_refs=refs,
     )
     if not (plus.resolved and minus.resolved):
@@ -493,8 +502,10 @@ def _resolve_conservative_effective_depth(
 
 def run_vs6_p7_from_production_evidence(
     *,
-    column_design: ColumnDesignEngineResult,
-    rebar_inputs: ColumnRebarDesignInputs,
+    column_design: ColumnDesignEngineResult | None = None,
+    demand_states: Sequence[ColumnDemandState] | None = None,
+    rebar_inputs: ColumnRebarDesignInputs | None = None,
+    section_material: ColumnSectionMaterial | None = None,
     selected_rebar: CanonicalEngineSelectedRebar | None,
     topology: ColumnTopologyEvidence,
     free_length: ColumnFreeLengthResolution,
@@ -508,10 +519,61 @@ def run_vs6_p7_from_production_evidence(
     material_source_refs: Sequence[str],
 ) -> VS6P7DirectionRun:
     """Close one P7 direction from typed production evidence into canonical F0."""
-    if not isinstance(column_design, ColumnDesignEngineResult):
-        raise TypeError("column_design must be ColumnDesignEngineResult")
-    if not isinstance(rebar_inputs, ColumnRebarDesignInputs):
-        raise TypeError("rebar_inputs must be ColumnRebarDesignInputs")
+    if (column_design is None) == (demand_states is None):
+        raise TypeError(
+            "exactly one of column_design or demand_states must be provided"
+        )
+
+    if column_design is not None:
+        if not isinstance(column_design, ColumnDesignEngineResult):
+            raise TypeError(
+                "column_design must be ColumnDesignEngineResult"
+            )
+        current_demand_states = tuple(
+            column_design.design_demands.promoted_states
+        )
+        design_component_id = column_design.component_id
+    else:
+        current_demand_states = tuple(demand_states or ())
+        if not current_demand_states:
+            raise VS6P7IntegrationError(
+                "current P7 demand-state population must be nonempty"
+            )
+        if any(
+            not isinstance(item, ColumnDemandState)
+            for item in current_demand_states
+        ):
+            raise TypeError(
+                "demand_states must contain ColumnDemandState"
+            )
+        component_ids = {
+            item.component_id
+            for item in current_demand_states
+        }
+        if len(component_ids) != 1:
+            raise VS6P7IntegrationError(
+                "current P7 demand-state population contains "
+                "multiple component identities"
+            )
+        design_component_id = next(iter(component_ids))
+
+    if (rebar_inputs is None) == (section_material is None):
+        raise TypeError(
+            "exactly one of rebar_inputs or section_material must be provided"
+        )
+    if rebar_inputs is not None:
+        if not isinstance(rebar_inputs, ColumnRebarDesignInputs):
+            raise TypeError(
+                "rebar_inputs must be ColumnRebarDesignInputs"
+            )
+        current_material = rebar_inputs.material
+    else:
+        if not isinstance(section_material, ColumnSectionMaterial):
+            raise TypeError(
+                "section_material must be ColumnSectionMaterial"
+            )
+        current_material = section_material
+
     if not isinstance(topology, ColumnTopologyEvidence):
         raise TypeError("topology must be ColumnTopologyEvidence")
     if not isinstance(free_length, ColumnFreeLengthResolution):
@@ -522,8 +584,7 @@ def run_vs6_p7_from_production_evidence(
     component_id = topology.component_id
     direction = capacity_state_selection.direction
     identities = (
-        column_design.component_id,
-        rebar_inputs.component_id,
+        design_component_id,
         free_length.component_id,
         tbdy_vd_selection.component_id,
         ts500_vd_selection.component_id,
@@ -546,10 +607,29 @@ def run_vs6_p7_from_production_evidence(
 
     width_mm = float(topology.width_t2_m) * 1000.0
     depth_mm = float(topology.depth_t3_m) * 1000.0
-    if not math.isclose(width_mm, float(rebar_inputs.width_mm), rel_tol=0.0, abs_tol=1e-6):
-        raise VS6P7IntegrationError("topology t2 and selected-rebar width do not reconcile")
-    if not math.isclose(depth_mm, float(rebar_inputs.depth_mm), rel_tol=0.0, abs_tol=1e-6):
-        raise VS6P7IntegrationError("topology t3 and selected-rebar depth do not reconcile")
+    if rebar_inputs is not None:
+        if rebar_inputs.component_id != component_id:
+            raise VS6P7IntegrationError(
+                "legacy P7 rebar-input component identity mismatch"
+            )
+        if not math.isclose(
+            width_mm,
+            float(rebar_inputs.width_mm),
+            rel_tol=0.0,
+            abs_tol=1e-6,
+        ):
+            raise VS6P7IntegrationError(
+                "topology t2 and legacy rebar-input width do not reconcile"
+            )
+        if not math.isclose(
+            depth_mm,
+            float(rebar_inputs.depth_mm),
+            rel_tol=0.0,
+            abs_tol=1e-6,
+        ):
+            raise VS6P7IntegrationError(
+                "topology t3 and legacy rebar-input depth do not reconcile"
+            )
     if not math.isclose(
         float(free_length.factual_candidate_mm),
         float(topology.analysis_clear_length_candidate_m) * 1000.0,
@@ -568,8 +648,8 @@ def run_vs6_p7_from_production_evidence(
     )
 
     bottom_end_tag, top_end_tag = _physical_end_tags(topology)
-    bottom_state = _state_by_id(column_design, capacity_state_selection.bottom_state_id)
-    top_state = _state_by_id(column_design, capacity_state_selection.top_state_id)
+    bottom_state = _state_by_id(current_demand_states, capacity_state_selection.bottom_state_id)
+    top_state = _state_by_id(current_demand_states, capacity_state_selection.top_state_id)
     if bottom_state.component_id != component_id or top_state.component_id != component_id:
         raise VS6P7IntegrationError("selected capacity states contain a different component")
     if bottom_state.end_tag != bottom_end_tag or top_state.end_tag != top_end_tag:
@@ -610,7 +690,7 @@ def run_vs6_p7_from_production_evidence(
         width_mm=width_mm,
         depth_mm=depth_mm,
         selected_candidate=selected_candidate,
-        rebar_inputs=rebar_inputs,
+        material=current_material,
         review_refs=selection_refs,
     )
     top_capacity = _resolve_end_capacity(
@@ -620,7 +700,7 @@ def run_vs6_p7_from_production_evidence(
         width_mm=width_mm,
         depth_mm=depth_mm,
         selected_candidate=selected_candidate,
-        rebar_inputs=rebar_inputs,
+        material=current_material,
         review_refs=selection_refs,
     )
 
@@ -679,8 +759,8 @@ def run_vs6_p7_from_production_evidence(
         width_mm=width_mm,
         depth_mm=depth_mm,
         geometry_source_ref=f"STRICT_TOPOLOGY:{component_id}",
-        fck_mpa=float(rebar_inputs.material.fck_mpa),
-        fcd_mpa=float(rebar_inputs.material.fcd_mpa),
+        fck_mpa=float(current_material.fck_mpa),
+        fcd_mpa=float(current_material.fcd_mpa),
         material_source_refs=material_refs,
         effective_depth=effective_depth,
     )

@@ -11,6 +11,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from tbdy_engine.application.column_design_basis import ReviewedColumnDesignBasis
+from tbdy_engine.application.column_final_cage import ReviewedColumnFinalCageContext
+from tbdy_engine.application.column_p7_runtime import ReviewedColumnP7RuntimeContext
+from tbdy_engine.application.column_vc_runtime import ReviewedColumnVcRuntimeContext
 from tbdy_engine.application.column_execution import ColumnDomainArtifact, execute_column_domain
 from tbdy_engine.application.contracts import ProjectExecutionRequest
 from tbdy_engine.coverage.project_reconciliation import (
@@ -108,7 +111,7 @@ def _report_contribution(column: ColumnDomainArtifact) -> SliceReportContributio
                 key="design_result_identity",
                 label="Controlled B6 design result",
                 value=column.design_result_identity.identity_ref,
-                role="EVIDENCE",
+                role="IDENTITY",
             )
         )
         evidence_refs.append(column.design_result_identity.identity_ref)
@@ -127,7 +130,7 @@ def _report_contribution(column: ColumnDomainArtifact) -> SliceReportContributio
                     key="selected_rebar_ref",
                     label="ENGINE_SELECTED_REBAR",
                     value=column.selected_rebar.selected_rebar_ref,
-                    role="EVIDENCE",
+                    role="IDENTITY",
                 )
             )
             evidence_refs.append(column.selected_rebar.selected_rebar_ref)
@@ -307,6 +310,9 @@ def execute_project(
     column_design_basis: ReviewedColumnDesignBasis | None = None,
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
+    reviewed_column_p7_context: ReviewedColumnP7RuntimeContext | None = None,
+    reviewed_column_final_cage_context: ReviewedColumnFinalCageContext | None = None,
+    reviewed_column_vc_context: ReviewedColumnVcRuntimeContext | None = None,
 ) -> ProjectExecutionArtifact:
     """Execute the sole LIVE project lifecycle; downstream success remains FND2-gated."""
     if not isinstance(request, ProjectExecutionRequest):
@@ -329,6 +335,41 @@ def execute_project(
             "ReviewedVs5ColumnAxialContext or None"
         )
 
+    if (
+        reviewed_column_p7_context is not None
+        and not isinstance(
+            reviewed_column_p7_context,
+            ReviewedColumnP7RuntimeContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_p7_context must be "
+            "ReviewedColumnP7RuntimeContext or None"
+        )
+    if (
+        reviewed_column_final_cage_context is not None
+        and not isinstance(
+            reviewed_column_final_cage_context,
+            ReviewedColumnFinalCageContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_final_cage_context must be "
+            "ReviewedColumnFinalCageContext or None"
+        )
+
+    if (
+        reviewed_column_vc_context is not None
+        and not isinstance(
+            reviewed_column_vc_context,
+            ReviewedColumnVcRuntimeContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_vc_context must be "
+            "ReviewedColumnVcRuntimeContext or None"
+        )
+
     context: TrustedLiveAcquisitionContext = create_trusted_live_acquisition_context(verified_session)
 
     column_kwargs = {
@@ -339,6 +380,16 @@ def execute_project(
     if reviewed_vs5_column_axial_context is not None:
         column_kwargs["reviewed_vs5_column_axial_context"] = (
             reviewed_vs5_column_axial_context
+        )
+    if reviewed_column_p7_context is not None:
+        column_kwargs["reviewed_column_p7_context"] = reviewed_column_p7_context
+    if reviewed_column_final_cage_context is not None:
+        column_kwargs["reviewed_column_final_cage_context"] = (
+            reviewed_column_final_cage_context
+        )
+    if reviewed_column_vc_context is not None:
+        column_kwargs["reviewed_column_vc_context"] = (
+            reviewed_column_vc_context
         )
 
     column = execute_column_domain(

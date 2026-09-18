@@ -51,6 +51,7 @@ from tbdy_engine.providers.etabs_column_rebar_intent_provider import (
     EtabsColumnRebarIntentEvidence,
     capture_etabs_column_rebar_intent_from_session,
 )
+from tbdy_engine.design.columns.rebar_catalog import RebarCatalog
 from tbdy_engine.providers.etabs_rebar_catalog_provider import (
     EtabsRebarCatalogEvidence,
     capture_etabs_rebar_catalog_evidence_from_session,
@@ -96,6 +97,7 @@ class ColumnLongitudinalRuntimeComposition:
     detailing: ColumnLongitudinalDetailingResolution | None
     tie_diameter_mm: float | None = None
     tie_catalog_ref: str | None = None
+    rebar_catalog: RebarCatalog | None = None
 
     @property
     def selected(self) -> bool:
