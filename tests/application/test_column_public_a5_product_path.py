@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -315,7 +315,15 @@ def product_harness(monkeypatch):
         ),
     )
     monkeypatch.setattr(a5, "resolve_ts500_column_free_length", lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("bounded test uses reviewed slenderness evidence")))
-    monkeypatch.setattr(a5, "build_factual_slenderness_evidence_from_topology", lambda *_args, **_kwargs: _slenderness())
+    # This bounded harness predates the canonical A17-A23 composer.
+    # Preserve its original reviewed-slenderness fixture intent through
+    # the current public seam. FND-COL-2 still explicitly supports the
+    # legacy source-bound slenderness mapping decoder.
+    monkeypatch.setattr(
+        a5,
+        "build_public_a5_canonical_second_order_payload",
+        lambda *_args, **_kwargs: asdict(_slenderness()),
+    )
     monkeypatch.setattr(a5, "build_assigned_rc_frame_bending_modifier_evidence", lambda *_args, **_kwargs: ())
 
     for module in (b4b, revalidation, b5):

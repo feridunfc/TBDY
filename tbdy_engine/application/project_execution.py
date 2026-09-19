@@ -11,8 +11,23 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from tbdy_engine.application.column_design_basis import ReviewedColumnDesignBasis
+from tbdy_engine.application.column_final_cage import ReviewedColumnFinalCageContext
+from tbdy_engine.application.column_p7_runtime import (
+    ReviewedColumnP7RuntimeContext,
+    ReviewedColumnShortColumnContext,
+)
+from tbdy_engine.application.column_limited_shear_runtime import (
+    ReviewedLimitedColumnShearRuntimeContext,
+)
+from tbdy_engine.application.column_vc_runtime import ReviewedColumnVcRuntimeContext
 from tbdy_engine.application.column_execution import ColumnDomainArtifact, execute_column_domain
 from tbdy_engine.application.contracts import ProjectExecutionRequest
+from tbdy_engine.coverage.column_denominator import (
+    ColumnLeafOutcomeStatus,
+    SupportedColumnDenominator,
+    canonical_column_leaf_source_ref,
+    compose_supported_column_denominator,
+)
 from tbdy_engine.coverage.project_reconciliation import (
     AnalysisBasisRef,
     ProjectCoverageReconciliation,
@@ -39,6 +54,7 @@ from tbdy_engine.product_reports.unified_building_report import (
 )
 from tbdy_engine.regulatory.fnd_col_2 import READINESS_KEY
 from tbdy_engine.regulatory.kernel import AnalysisBasisStatus, StructuralAssessment
+from tbdy_engine.regulatory.vs5_column_axial_program import ReviewedVs5ColumnAxialContext
 
 
 class ProjectExecutionContractError(ValueError):
@@ -52,6 +68,7 @@ class ProjectExecutionArtifact:
     status: str
     acquisition_context_ref: str
     column: ColumnDomainArtifact
+    column_denominator: SupportedColumnDenominator | None = None
     structural_assessment: StructuralAssessment | None = None
     reconciliation: ProjectCoverageReconciliation | None = None
     building_report_model: BuildingReportModel | None = None
@@ -107,7 +124,7 @@ def _report_contribution(column: ColumnDomainArtifact) -> SliceReportContributio
                 key="design_result_identity",
                 label="Controlled B6 design result",
                 value=column.design_result_identity.identity_ref,
-                role="EVIDENCE",
+                role="IDENTITY",
             )
         )
         evidence_refs.append(column.design_result_identity.identity_ref)
@@ -121,18 +138,244 @@ def _report_contribution(column: ColumnDomainArtifact) -> SliceReportContributio
             )
         )
         if column.selected_rebar is not None:
-            fields.append(
-                ReportField(
-                    key="selected_rebar_ref",
-                    label="ENGINE_SELECTED_REBAR",
-                    value=column.selected_rebar.selected_rebar_ref,
-                    role="EVIDENCE",
+            selected_rebar = column.selected_rebar
+            selected_candidate = getattr(
+                selected_rebar,
+                "selected_candidate",
+                None,
+            )
+            fields.extend(
+                (
+                    ReportField(
+                        key="selected_rebar_ref",
+                        label="ENGINE_SELECTED_REBAR",
+                        value=selected_rebar.selected_rebar_ref,
+                        role="IDENTITY",
+                    ),
+                    ReportField(
+                        key="selected_rebar_candidate_id",
+                        label="Selected longitudinal candidate",
+                        value=getattr(selected_rebar, "candidate_id", None),
+                        role="IDENTITY",
+                    ),
+                    ReportField(
+                        key="selected_rebar_geometry_fingerprint",
+                        label="Selected rebar geometry fingerprint",
+                        value=getattr(
+                            selected_rebar,
+                            "candidate_geometry_fingerprint",
+                            None,
+                        ),
+                        role="IDENTITY",
+                    ),
+                    ReportField(
+                        key="selected_rebar_as_total_mm2",
+                        label="Selected longitudinal As total (mm2)",
+                        value=(
+                            None
+                            if getattr(selected_rebar, "as_total_mm2", None)
+                            is None
+                            else str(selected_rebar.as_total_mm2)
+                        ),
+                        role="RESULT",
+                    ),
+                    ReportField(
+                        key="selected_rebar_rank",
+                        label="Selected reinforcement rank",
+                        value=getattr(selected_rebar, "rank", None),
+                        role="RESULT",
+                    ),
+                    ReportField(
+                        key="selected_rebar_bar_diameter_mm",
+                        label="Selected longitudinal bar diameter (mm)",
+                        value=(
+                            None
+                            if selected_candidate is None
+                            else getattr(
+                                selected_candidate,
+                                "bar_diameter_mm",
+                                None,
+                            )
+                        ),
+                        role="RESULT",
+                    ),
+                    ReportField(
+                        key="selected_rebar_n_bars_dir2",
+                        label="Selected longitudinal face bars dir2",
+                        value=(
+                            None
+                            if selected_candidate is None
+                            else getattr(
+                                selected_candidate,
+                                "n_bars_dir2",
+                                None,
+                            )
+                        ),
+                        role="RESULT",
+                    ),
+                    ReportField(
+                        key="selected_rebar_n_bars_dir3",
+                        label="Selected longitudinal face bars dir3",
+                        value=(
+                            None
+                            if selected_candidate is None
+                            else getattr(
+                                selected_candidate,
+                                "n_bars_dir3",
+                                None,
+                            )
+                        ),
+                        role="RESULT",
+                    ),
+                    ReportField(
+                        key="selected_rebar_rho",
+                        label="Selected longitudinal reinforcement ratio",
+                        value=(
+                            None
+                            if selected_candidate is None
+                            else getattr(selected_candidate, "rho", None)
+                        ),
+                        role="RESULT",
+                    ),
                 )
             )
-            evidence_refs.append(column.selected_rebar.selected_rebar_ref)
-            material_context_ref = getattr(column.selected_rebar, "material_context_ref", None)
+            evidence_refs.append(selected_rebar.selected_rebar_ref)
+            material_context_ref = getattr(
+                selected_rebar,
+                "material_context_ref",
+                None,
+            )
             if material_context_ref:
                 evidence_refs.append(material_context_ref)
+            for ref_name in (
+                "provenance_refs",
+                "required_area_decision_ids",
+                "pmm_decision_ids",
+                "requirement_ids",
+                "demand_state_ids",
+            ):
+                evidence_refs.extend(
+                    tuple(getattr(selected_rebar, ref_name, ()) or ())
+                )
+
+    if column.final_transverse_cage is not None:
+        final_cage = column.final_transverse_cage
+        fields.extend(
+            (
+                ReportField(
+                    key="final_transverse_cage_authority",
+                    label="Final transverse cage authority",
+                    value=getattr(final_cage, "authority", None),
+                    role="AUTHORITY",
+                ),
+                ReportField(
+                    key="final_transverse_cage_semantic_role",
+                    label="Final transverse cage semantic role",
+                    value=getattr(final_cage, "semantic_role", None),
+                    role="AUTHORITY",
+                ),
+                ReportField(
+                    key="final_transverse_tie_size_name",
+                    label="Final transverse tie size",
+                    value=getattr(final_cage, "tie_size_name", None),
+                    role="RESULT",
+                ),
+                ReportField(
+                    key="final_transverse_number_2_dir_tie_bars",
+                    label="Final transverse tie legs dir2",
+                    value=getattr(
+                        final_cage,
+                        "number_2_dir_tie_bars",
+                        None,
+                    ),
+                    role="RESULT",
+                ),
+                ReportField(
+                    key="final_transverse_number_3_dir_tie_bars",
+                    label="Final transverse tie legs dir3",
+                    value=getattr(
+                        final_cage,
+                        "number_3_dir_tie_bars",
+                        None,
+                    ),
+                    role="RESULT",
+                ),
+                ReportField(
+                    key="final_transverse_confinement_spacing_mm",
+                    label="Final confinement spacing (mm)",
+                    value=getattr(
+                        final_cage,
+                        "confinement_spacing_mm",
+                        None,
+                    ),
+                    role="RESULT",
+                ),
+                ReportField(
+                    key="final_transverse_middle_spacing_mm",
+                    label="Final middle-region spacing (mm)",
+                    value=getattr(
+                        final_cage,
+                        "middle_spacing_mm",
+                        None,
+                    ),
+                    role="RESULT",
+                ),
+                ReportField(
+                    key="final_transverse_shear_spacing_mm",
+                    label="Final shear spacing (mm)",
+                    value=getattr(
+                        final_cage,
+                        "shear_spacing_mm",
+                        None,
+                    ),
+                    role="RESULT",
+                ),
+                ReportField(
+                    key="final_transverse_confinement_region_length_mm",
+                    label="Final confinement-region length (mm)",
+                    value=getattr(
+                        final_cage,
+                        "provided_confinement_region_length_mm",
+                        None,
+                    ),
+                    role="RESULT",
+                ),
+                ReportField(
+                    key="final_transverse_horizontal_leg_spacing_dir2_mm",
+                    label="Final horizontal leg spacing dir2 (mm)",
+                    value=getattr(
+                        final_cage,
+                        "horizontal_leg_spacing_dir2_mm",
+                        None,
+                    ),
+                    role="RESULT",
+                ),
+                ReportField(
+                    key="final_transverse_horizontal_leg_spacing_dir3_mm",
+                    label="Final horizontal leg spacing dir3 (mm)",
+                    value=getattr(
+                        final_cage,
+                        "horizontal_leg_spacing_dir3_mm",
+                        None,
+                    ),
+                    role="RESULT",
+                ),
+                ReportField(
+                    key="final_transverse_restrained_longitudinal_bar_spacing_mm",
+                    label="Final restrained longitudinal-bar spacing (mm)",
+                    value=getattr(
+                        final_cage,
+                        "restrained_longitudinal_bar_spacing_mm",
+                        None,
+                    ),
+                    role="RESULT",
+                ),
+            )
+        )
+        evidence_refs.extend(
+            tuple(getattr(final_cage, "review_refs", ()) or ())
+        )
+
     if column.transverse_confinement is not None:
         fields.append(
             ReportField(
@@ -176,6 +419,192 @@ def _report_binding(
     return ReportBindingRef(source_ref, ReportContributionRef.from_contribution(contribution))
 
 
+_COLUMN_LEAF_REPORT_STATUS = {
+    ColumnLeafOutcomeStatus.EXECUTED_PASS: "PASS",
+    ColumnLeafOutcomeStatus.EXECUTED_FAIL: "FAIL",
+    ColumnLeafOutcomeStatus.PROVEN_NOT_APPLICABLE: "OUT_OF_SCOPE",
+    ColumnLeafOutcomeStatus.BLOCKED: "BLOCKED",
+    ColumnLeafOutcomeStatus.NO_DATA: "NO_DATA",
+    ColumnLeafOutcomeStatus.EXPLICIT_UNRESOLVED: "NOT_EVALUATED",
+    ColumnLeafOutcomeStatus.REANALYSIS_REQUIRED: "REANALYSIS_REQUIRED",
+}
+
+
+def _column_leaf_report_population(
+    column_denominator: SupportedColumnDenominator,
+) -> tuple[
+    tuple[SliceReportContribution, ...],
+    tuple[ReportBindingRef, ...],
+]:
+    """Project A38 truth into passive report contributions/bindings only."""
+    if not isinstance(column_denominator, SupportedColumnDenominator):
+        raise TypeError("column_denominator must be SupportedColumnDenominator")
+
+    expected_by_id = {
+        item.identity.value: item
+        for item in column_denominator.expected_leaves
+    }
+    if len(expected_by_id) != len(column_denominator.expected_leaves):
+        raise ProjectExecutionContractError(
+            "A40 expected Column report denominator contains duplicate identity"
+        )
+
+    contributions: list[SliceReportContribution] = []
+    bindings: list[ReportBindingRef] = []
+    seen_source_refs: set[str] = set()
+
+    for outcome in column_denominator.outcomes:
+        expected = expected_by_id.get(outcome.identity.value)
+        if expected is None:
+            raise ProjectExecutionContractError(
+                "A40 Column report outcome is outside expected denominator"
+            )
+
+        canonical_source_ref = canonical_column_leaf_source_ref(outcome.identity)
+        if outcome.source_ref != canonical_source_ref:
+            raise ProjectExecutionContractError(
+                "A40 Column leaf source identity is not canonical"
+            )
+        if canonical_source_ref in seen_source_refs:
+            raise ProjectExecutionContractError(
+                "A40 duplicate Column report source identity"
+            )
+        seen_source_refs.add(canonical_source_ref)
+
+        try:
+            report_status = _COLUMN_LEAF_REPORT_STATUS[outcome.status]
+        except KeyError as exc:
+            raise ProjectExecutionContractError(
+                f"A40 unsupported Column leaf outcome: {outcome.status!r}"
+            ) from exc
+
+        identity = outcome.identity
+        fields = (
+            ReportField(
+                key="column_leaf_identity",
+                label="Column denominator leaf identity",
+                value=identity.value,
+                role="IDENTITY",
+            ),
+            ReportField(
+                key="column_leaf_key",
+                label="Column leaf",
+                value=identity.leaf_key,
+                role="IDENTITY",
+            ),
+            ReportField(
+                key="column_leaf_family",
+                label="Column leaf family",
+                value=expected.family,
+                role="AUTHORITY",
+            ),
+            ReportField(
+                key="column_leaf_applicability",
+                label="Column leaf applicability",
+                value=expected.applicability.value,
+                role="STATUS",
+            ),
+            ReportField(
+                key="column_leaf_runtime_outcome",
+                label="Canonical Column leaf outcome",
+                value=outcome.status.value,
+                role="STATUS",
+            ),
+            ReportField(
+                key="column_leaf_source_ref",
+                label="Canonical Column leaf source",
+                value=canonical_source_ref,
+                role="IDENTITY",
+            ),
+            ReportField(
+                key="direction",
+                label="Direction",
+                value=identity.direction,
+                role="IDENTITY",
+            ),
+            ReportField(
+                key="scope_ref",
+                label="Scope",
+                value=identity.scope_ref,
+                role="IDENTITY",
+            ),
+            ReportField(
+                key="model_fingerprint",
+                label="Model fingerprint",
+                value=identity.model_fingerprint,
+                role="IDENTITY",
+            ),
+            ReportField(
+                key="evidence_epoch_id",
+                label="EvidenceEpoch",
+                value=identity.evidence_epoch_id,
+                role="IDENTITY",
+            ),
+            ReportField(
+                key="generation_ref",
+                label="Analysis/design generation",
+                value=identity.generation_ref,
+                role="IDENTITY",
+            ),
+            ReportField(
+                key="canonical_artifact_ref",
+                label="Canonical upstream artifact",
+                value=outcome.canonical_artifact_ref,
+                role="IDENTITY",
+            ),
+            ReportField(
+                key="analysis_basis_ref",
+                label="Analysis-basis state",
+                value=outcome.analysis_basis_ref,
+                role="STATUS",
+            ),
+            ReportField(
+                key="deferred_cross_domain",
+                label="Deferred cross-domain",
+                value=outcome.deferred_owner is not None,
+                role="STATUS",
+            ),
+            ReportField(
+                key="deferred_owner",
+                label="Deferred authority owner",
+                value=outcome.deferred_owner,
+                role="AUTHORITY",
+            ),
+        )
+
+        warnings = list(outcome.blocker_refs)
+        if outcome.deferred_owner is not None:
+            warnings.append(f"DEFERRED_CROSS_DOMAIN:{outcome.deferred_owner}")
+
+        contribution = SliceReportContribution(
+            slice_id=f"column-r1:leaf:{identity.value}",
+            title=f"Column leaf {identity.leaf_key}",
+            contribution_kind="COMPOSITE",
+            status=report_status,
+            component_type="COLUMN",
+            component_id=identity.component_id,
+            summary_fields=fields,
+            authority_refs=outcome.dependency_refs,
+            evidence_refs=outcome.evidence_refs,
+            warnings=tuple(dict.fromkeys(warnings)),
+            render_views=("ENGINEERING", "AUDIT"),
+        )
+        contributions.append(contribution)
+        bindings.append(
+            ReportBindingRef(
+                canonical_source_ref,
+                ReportContributionRef.from_contribution(contribution),
+            )
+        )
+
+    if len(contributions) != len(column_denominator.expected_leaves):
+        raise ProjectExecutionContractError(
+            "A40 Column report population does not exactly cover denominator"
+        )
+
+    return tuple(contributions), tuple(bindings)
+
+
 def _analysis_basis_refs(column: ColumnDomainArtifact) -> tuple[AnalysisBasisRef, ...]:
     if column.fnd_col_2_execution is None or column.fnd_col_2_execution.readiness is None:
         return ()
@@ -202,6 +631,7 @@ def _build_closure_and_report(
     request: ProjectExecutionRequest,
     column: ColumnDomainArtifact,
     *,
+    column_denominator: SupportedColumnDenominator,
     source_id: str,
     source_kind: ReportSourceKind,
     source_title: str,
@@ -213,13 +643,22 @@ def _build_closure_and_report(
         raise ProjectExecutionContractError("canonical closure requires FND-COL-2 program/execution")
     contribution = _report_contribution(column)
     binding = _report_binding(column, contribution)
+    leaf_contributions, leaf_bindings = _column_leaf_report_population(
+        column_denominator
+    )
+    report_contributions = (contribution, *leaf_contributions)
+    report_bindings = (binding, *leaf_bindings)
+    required_report_source_refs = tuple(
+        item.source_ref for item in report_bindings
+    )
     reconciliation = ProjectCoverageReconciler.reconcile(
         compiled_program=column.fnd_col_2_program,
         store_snapshot=column.fnd_col_2_execution.snapshot,
-        report_contributions=(contribution,),
-        required_report_source_refs=(binding.source_ref,),
-        report_bindings=(binding,),
+        report_contributions=report_contributions,
+        required_report_source_refs=required_report_source_refs,
+        report_bindings=report_bindings,
         analysis_basis_refs=_analysis_basis_refs(column),
+        column_denominator=column_denominator,
     )
     basis = ProjectBasisLedger(
         (
@@ -261,8 +700,8 @@ def _build_closure_and_report(
         reconciliation=reconciliation,
         project_basis=basis,
         source_manifest=manifest,
-        contributions=(contribution,),
-        report_bindings=(binding,),
+        contributions=report_contributions,
+        report_bindings=report_bindings,
     )
     return reconciliation.structural_assessment, reconciliation, model
 
@@ -271,6 +710,7 @@ def _complete_project_from_canonical_column(
     request: ProjectExecutionRequest,
     column: ColumnDomainArtifact,
     *,
+    column_denominator: SupportedColumnDenominator,
     acquisition_context_ref: str,
     source_id: str,
     source_kind: ReportSourceKind,
@@ -281,6 +721,7 @@ def _complete_project_from_canonical_column(
     assessment, reconciliation, report = _build_closure_and_report(
         request,
         column,
+        column_denominator=column_denominator,
         source_id=source_id,
         source_kind=source_kind,
         source_title=source_title,
@@ -293,6 +734,7 @@ def _complete_project_from_canonical_column(
         status=column.status,
         acquisition_context_ref=acquisition_context_ref,
         column=column,
+        column_denominator=column_denominator,
         structural_assessment=assessment,
         reconciliation=reconciliation,
         building_report_model=report,
@@ -305,6 +747,12 @@ def execute_project(
     verified_session: EtabsVerifiedSession,
     column_design_basis: ReviewedColumnDesignBasis | None = None,
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
+    reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
+    reviewed_column_p7_context: ReviewedColumnP7RuntimeContext | None = None,
+    reviewed_column_short_column_context: ReviewedColumnShortColumnContext | None = None,
+    reviewed_column_limited_shear_context: ReviewedLimitedColumnShearRuntimeContext | None = None,
+    reviewed_column_final_cage_context: ReviewedColumnFinalCageContext | None = None,
+    reviewed_column_vc_context: ReviewedColumnVcRuntimeContext | None = None,
 ) -> ProjectExecutionArtifact:
     """Execute the sole LIVE project lifecycle; downstream success remains FND2-gated."""
     if not isinstance(request, ProjectExecutionRequest):
@@ -315,13 +763,117 @@ def execute_project(
         raise TypeError("column_design_basis must be ReviewedColumnDesignBasis or None")
     if expected_combo_policy is not None and not isinstance(expected_combo_policy, ExpectedConcreteDesignComboPolicy):
         raise TypeError("expected_combo_policy must be ExpectedConcreteDesignComboPolicy or None")
+    if (
+        reviewed_vs5_column_axial_context is not None
+        and not isinstance(
+            reviewed_vs5_column_axial_context,
+            ReviewedVs5ColumnAxialContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_vs5_column_axial_context must be "
+            "ReviewedVs5ColumnAxialContext or None"
+        )
+
+    if (
+        reviewed_column_p7_context is not None
+        and not isinstance(
+            reviewed_column_p7_context,
+            ReviewedColumnP7RuntimeContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_p7_context must be "
+            "ReviewedColumnP7RuntimeContext or None"
+        )
+    if (
+        reviewed_column_short_column_context is not None
+        and not isinstance(
+            reviewed_column_short_column_context,
+            ReviewedColumnShortColumnContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_short_column_context must be "
+            "ReviewedColumnShortColumnContext or None"
+        )
+    if (
+        reviewed_column_limited_shear_context is not None
+        and not isinstance(
+            reviewed_column_limited_shear_context,
+            ReviewedLimitedColumnShearRuntimeContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_limited_shear_context must be "
+            "ReviewedLimitedColumnShearRuntimeContext or None"
+        )
+    if (
+        reviewed_column_final_cage_context is not None
+        and not isinstance(
+            reviewed_column_final_cage_context,
+            ReviewedColumnFinalCageContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_final_cage_context must be "
+            "ReviewedColumnFinalCageContext or None"
+        )
+
+    if (
+        reviewed_column_vc_context is not None
+        and not isinstance(
+            reviewed_column_vc_context,
+            ReviewedColumnVcRuntimeContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_vc_context must be "
+            "ReviewedColumnVcRuntimeContext or None"
+        )
 
     context: TrustedLiveAcquisitionContext = create_trusted_live_acquisition_context(verified_session)
+
+    column_kwargs = {
+        "acquisition_context": context,
+        "column_design_basis": column_design_basis,
+        "expected_combo_policy": expected_combo_policy,
+    }
+    if reviewed_vs5_column_axial_context is not None:
+        column_kwargs["reviewed_vs5_column_axial_context"] = (
+            reviewed_vs5_column_axial_context
+        )
+    if reviewed_column_p7_context is not None:
+        column_kwargs["reviewed_column_p7_context"] = reviewed_column_p7_context
+    if reviewed_column_short_column_context is not None:
+        column_kwargs["reviewed_column_short_column_context"] = (
+            reviewed_column_short_column_context
+        )
+    if reviewed_column_limited_shear_context is not None:
+        column_kwargs["reviewed_column_limited_shear_context"] = (
+            reviewed_column_limited_shear_context
+        )
+    if reviewed_column_final_cage_context is not None:
+        column_kwargs["reviewed_column_final_cage_context"] = (
+            reviewed_column_final_cage_context
+        )
+    if reviewed_column_vc_context is not None:
+        column_kwargs["reviewed_column_vc_context"] = (
+            reviewed_column_vc_context
+        )
+
     column = execute_column_domain(
         request.column,
-        acquisition_context=context,
-        column_design_basis=column_design_basis,
-        expected_combo_policy=expected_combo_policy,
+        **column_kwargs,
+    )
+
+    column_denominator = compose_supported_column_denominator(
+        (column,),
+        short_column_contexts=(
+            ()
+            if reviewed_column_short_column_context is None
+            else (reviewed_column_short_column_context,)
+        ),
     )
 
     if column.fnd_col_2_execution is None:
@@ -331,11 +883,13 @@ def execute_project(
             status=column.status,
             acquisition_context_ref=context.acquisition_context_ref,
             column=column,
+            column_denominator=column_denominator,
         )
 
     return _complete_project_from_canonical_column(
         request,
         column,
+        column_denominator=column_denominator,
         acquisition_context_ref=context.acquisition_context_ref,
         source_id=context.source_model_identity.source_model_ref,
         source_kind=ReportSourceKind.ETABS_MODEL,

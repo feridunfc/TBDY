@@ -14,6 +14,10 @@ from tbdy_engine.application.column_design_basis import (
     ReviewedColumnDesignBasis,
     bind_reviewed_column_design_basis,
 )
+from tbdy_engine.application.column_longitudinal_detailing import (
+    ColumnLongitudinalDetailingResolution,
+    materialize_selected_column_longitudinal_detailing,
+)
 from tbdy_engine.design.columns.column_concrete_design_evidence_authority import (
     ConcreteDesignComboReconciliation,
     build_actual_selected_combo_population,
@@ -47,6 +51,7 @@ from tbdy_engine.providers.etabs_column_rebar_intent_provider import (
     EtabsColumnRebarIntentEvidence,
     capture_etabs_column_rebar_intent_from_session,
 )
+from tbdy_engine.design.columns.rebar_catalog import RebarCatalog
 from tbdy_engine.providers.etabs_rebar_catalog_provider import (
     EtabsRebarCatalogEvidence,
     capture_etabs_rebar_catalog_evidence_from_session,
@@ -89,6 +94,10 @@ class ColumnLongitudinalRuntimeComposition:
     combo_reconciliation: ConcreteDesignComboReconciliation
     layout_authority: ColumnLongitudinalLayoutAuthorityResult
     selection: CanonicalColumnLongitudinalSelectionComposition
+    detailing: ColumnLongitudinalDetailingResolution | None
+    tie_diameter_mm: float | None = None
+    tie_catalog_ref: str | None = None
+    rebar_catalog: RebarCatalog | None = None
 
     @property
     def selected(self) -> bool:
@@ -324,6 +333,16 @@ def compose_column_longitudinal_runtime(
             authority_catalog=FND_COL_4_CANDIDATE_ADEQUACY_AUTHORITY_CATALOG
         ),
     )
+    detailing = None
+    if selection.selected:
+        if selection.selected_rebar is None:
+            raise ColumnLongitudinalRuntimeError(
+                "selected longitudinal result lost ENGINE_SELECTED_REBAR artifact"
+            )
+        detailing = materialize_selected_column_longitudinal_detailing(
+            selection.selected_rebar,
+            authority_catalog=FND_COL_1_AUTHORITY_CATALOG,
+        )
 
     return ColumnLongitudinalRuntimeComposition(
         component_id=component_id,
@@ -336,6 +355,9 @@ def compose_column_longitudinal_runtime(
         combo_reconciliation=reconciliation,
         layout_authority=layout,
         selection=selection,
+        detailing=detailing,
+        tie_diameter_mm=tie_diameter_mm,
+        tie_catalog_ref=tie_catalog_ref,
     )
 
 

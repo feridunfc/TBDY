@@ -30,6 +30,13 @@ TS500_SWAY_PERMITTED_NEGLECT_LIMIT = 22.0
 TS500_SWAY_PREVENTED_LIMIT_CAP = 40.0
 TS500_APPROX_METHOD_MAX_SLENDERNESS = 100.0
 
+# Canonical axis-result dispositions consumed by the existing A22
+# moment-magnification composer. These values already existed below as
+# string literals; exposing them as constants repairs the broken import
+# without changing engineering semantics.
+GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED = "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED"
+MOMENT_MAGNIFICATION_REQUIRED = "MOMENT_MAGNIFICATION_REQUIRED"
+
 
 def _text(value: str, label: str) -> str:
     if not isinstance(value, str) or not value.strip() or value != value.strip():
@@ -209,11 +216,11 @@ def _evaluate_axis(basis: ColumnSlendernessAxisBasis) -> ColumnSlendernessAxisRe
         limit = TS500_SWAY_PERMITTED_NEGLECT_LIMIT
 
     if slenderness > TS500_APPROX_METHOD_MAX_SLENDERNESS + 1e-12:
-        status = "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED"
+        status = GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED
     elif slenderness <= limit + 1e-12:
         status = "SLENDERNESS_EFFECTS_NEGLIGIBLE"
     else:
-        status = "MOMENT_MAGNIFICATION_REQUIRED"
+        status = MOMENT_MAGNIFICATION_REQUIRED
 
     return ColumnSlendernessAxisResult(
         axis=basis.axis,
@@ -259,8 +266,8 @@ def evaluate_ts500_column_slenderness(
     statuses = {m2.status, m3.status}
     if statuses == {"SLENDERNESS_EFFECTS_NEGLIGIBLE"}:
         status = "PROVEN_SLENDERNESS_EFFECTS_NEGLIGIBLE"
-    elif "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED" in statuses:
-        status = "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED"
+    elif GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED in statuses:
+        status = GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED
     else:
         status = "REQUIRES_MOMENT_MAGNIFICATION"
 
@@ -280,6 +287,8 @@ __all__ = [
     "ColumnSlendernessBasis",
     "ColumnSlendernessError",
     "ColumnSlendernessResult",
+    "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED",
+    "MOMENT_MAGNIFICATION_REQUIRED",
     "SWAY_PERMITTED",
     "SWAY_PREVENTED",
     "TS500_APPROX_METHOD_MAX_SLENDERNESS",

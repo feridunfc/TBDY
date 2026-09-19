@@ -60,11 +60,15 @@ def test_execute_column_domain_wires_public_a5_to_b6_completion(monkeypatch) -> 
         *,
         acquisition_context,
         execute_fnd2,
+        reviewed_story_translation_tolerance=None,
         complete_after_fnd2=None,
     ):
         captured["request"] = request
         captured["context"] = acquisition_context
         captured["execute_fnd2"] = execute_fnd2
+        captured["reviewed_story_translation_tolerance"] = (
+            reviewed_story_translation_tolerance
+        )
         captured["complete_after_fnd2"] = complete_after_fnd2
         return sentinel
 
@@ -77,6 +81,7 @@ def test_execute_column_domain_wires_public_a5_to_b6_completion(monkeypatch) -> 
     assert captured["request"] is request
     assert captured["context"] is context
     assert captured["execute_fnd2"] is subject._execute_fnd2
+    assert captured["reviewed_story_translation_tolerance"] is None
     assert captured["complete_after_fnd2"] is subject._complete_public_b6_after_fnd2
 
 

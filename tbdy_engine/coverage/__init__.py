@@ -17,6 +17,17 @@ from tbdy_engine.coverage.models import (
     CoverageStatus,
     ExpectedSourceKind,
 )
+from tbdy_engine.coverage.column_denominator import (
+    ColumnDenominatorError,
+    ColumnDenominatorLeafIdentity,
+    ColumnExpectedLeaf,
+    ColumnLeafApplicability,
+    ColumnLeafOutcome,
+    ColumnLeafOutcomeStatus,
+    SupportedColumnDenominator,
+    canonical_column_leaf_source_ref,
+    compose_supported_column_denominator,
+)
 from tbdy_engine.coverage.project_reconciliation import (
     ActionBindingRef,
     AnalysisBasisRef,
@@ -32,6 +43,15 @@ from tbdy_engine.coverage.project_reconciliation import (
 
 __all__ = [
     "ActionBindingRef",
+    "ColumnDenominatorError",
+    "ColumnDenominatorLeafIdentity",
+    "ColumnExpectedLeaf",
+    "ColumnLeafApplicability",
+    "ColumnLeafOutcome",
+    "ColumnLeafOutcomeStatus",
+    "SupportedColumnDenominator",
+    "canonical_column_leaf_source_ref",
+    "compose_supported_column_denominator",
     "AnalysisBasisRef",
     "CoverageBuilder",
     "CoverageDiagnostic",

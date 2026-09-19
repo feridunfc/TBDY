@@ -47,10 +47,12 @@ from tbdy_engine.regulatory.units import (
 )
 
 VE_RULE_ID = RuleId("TBDY_7_3_7_COLUMN_SHEAR_VE")
+SHORT_VE_RULE_ID = RuleId("TBDY_7_3_8_SHORT_COLUMN_SHEAR_VE")
 TBDY_BRITTLE_RULE_ID = RuleId("TBDY_7_3_7_5_COLUMN_SHEAR_BRITTLE_BOUND")
 TS500_WEB_RULE_ID = RuleId("TS500_8_1_5_B_COLUMN_SHEAR_WEB_COMPRESSION")
 
 VE_RULE_VERSION = "vs6-p7-ve-v1"
+SHORT_VE_RULE_VERSION = "vs6-p7-short-ve-v1"
 TBDY_BRITTLE_RULE_VERSION = "vs6-p7-tbdy-brittle-v1"
 TS500_WEB_RULE_VERSION = "vs6-p7-ts500-web-v1"
 
@@ -60,6 +62,10 @@ VE_CODE_REFS = (
     "TBDY 2018 7.3.7.4",
     "TBDY 2018 7.3.7.5",
 )
+SHORT_VE_CODE_REFS = (
+    "TBDY 2018 7.3.8 / Eq. (7.5)",
+    "TBDY 2018 7.7.6",
+)
 TBDY_BRITTLE_CODE_REF = "TBDY 2018 7.3.7.5 Eq. (7.7)"
 TS500_WEB_CODE_REF = "TS 500 8.1.5(b) Eq. (8.7)"
 
@@ -67,6 +73,7 @@ BOTTOM_CAPACITY_KNM_KEY = DependencyKey("column_shear_bottom_end_capacity_knm")
 TOP_CAPACITY_KNM_KEY = DependencyKey("column_shear_top_end_capacity_knm")
 FREE_LENGTH_MM_KEY = DependencyKey("column_free_length_ln_mm")
 D_AMPLIFIED_KN_KEY = DependencyKey("column_shear_d_amplified_candidate_kn")
+SHORT_COLUMN_APPLIES_KEY = DependencyKey("column_short_column_applies")
 TBDY_VD_KN_KEY = DependencyKey("column_shear_tbdy_vd_kn")
 VE_KN_KEY = DependencyKey("column_shear_ve_kn")
 
@@ -110,6 +117,7 @@ class ColumnShearP7ApplicabilityInput:
     component_type: str
     reinforced_concrete: bool | None
     tbdy_737_high_ductility_applies: bool | None
+    tbdy_738_short_column_applies: bool | None = False
 
     def __post_init__(self) -> None:
         _text(self.component_type, "component_type")
@@ -120,6 +128,11 @@ class ColumnShearP7ApplicabilityInput:
             and type(self.tbdy_737_high_ductility_applies) is not bool
         ):
             raise TypeError("tbdy_737_high_ductility_applies must be bool or None")
+        if (
+            self.tbdy_738_short_column_applies is not None
+            and type(self.tbdy_738_short_column_applies) is not bool
+        ):
+            raise TypeError("tbdy_738_short_column_applies must be bool or None")
 
 
 def _rc_column_common(value: ColumnShearP7ApplicabilityInput) -> ApplicabilityState | None:
@@ -134,10 +147,16 @@ def _rc_column_common(value: ColumnShearP7ApplicabilityInput) -> ApplicabilitySt
     return None
 
 
-def tbdy_737_applicability(value: ColumnShearP7ApplicabilityInput) -> ApplicabilityState:
+def tbdy_737_applicability(
+    value: ColumnShearP7ApplicabilityInput,
+) -> ApplicabilityState:
     common = _rc_column_common(value)
     if common is not None:
         return common
+    if value.tbdy_738_short_column_applies is True:
+        return ApplicabilityState.APPLIES
+    if value.tbdy_738_short_column_applies is None:
+        return ApplicabilityState.UNRESOLVED
     if value.tbdy_737_high_ductility_applies is None:
         return ApplicabilityState.UNRESOLVED
     return (
@@ -145,6 +164,22 @@ def tbdy_737_applicability(value: ColumnShearP7ApplicabilityInput) -> Applicabil
         if value.tbdy_737_high_ductility_applies
         else ApplicabilityState.PROVEN_NOT_APPLICABLE
     )
+
+
+def tbdy_738_applicability(
+    value: ColumnShearP7ApplicabilityInput,
+) -> ApplicabilityState:
+    common = _rc_column_common(value)
+    if common is not None:
+        return common
+    if value.tbdy_738_short_column_applies is None:
+        return ApplicabilityState.UNRESOLVED
+    return (
+        ApplicabilityState.APPLIES
+        if value.tbdy_738_short_column_applies
+        else ApplicabilityState.PROVEN_NOT_APPLICABLE
+    )
+
 
 
 def ts500_815_applicability(value: ColumnShearP7ApplicabilityInput) -> ApplicabilityState:
@@ -179,6 +214,9 @@ class ColumnShearP7ExecutionInput:
     def value(self, key: DependencyKey) -> object:
         return self.one(key).value
 
+    def has(self, key: DependencyKey) -> bool:
+        return any(item.key == key for item in self.dependencies)
+
     @property
     def evidence_refs(self) -> tuple[str, ...]:
         return tuple(
@@ -194,23 +232,81 @@ class ColumnShearP7ExecutionInput:
         return tuple(item.key for item in self.dependencies)
 
 
-def derive_tbdy_column_shear_ve(inp: ColumnShearP7ExecutionInput) -> RegulatoryQuantity:
-    bottom_knm = _positive(inp.value(BOTTOM_CAPACITY_KNM_KEY), "bottom_capacity_knm")
-    top_knm = _positive(inp.value(TOP_CAPACITY_KNM_KEY), "top_capacity_knm")
-    ln_mm = _positive(inp.value(FREE_LENGTH_MM_KEY), "free_length_ln_mm")
-    d_candidate_kn = _nonnegative(inp.value(D_AMPLIFIED_KN_KEY), "d_amplified_candidate_kn")
-    vd_kn = _nonnegative(inp.value(TBDY_VD_KN_KEY), "tbdy_vd_kn")
+def derive_tbdy_column_shear_ve(
+    inp: ColumnShearP7ExecutionInput,
+) -> RegulatoryQuantity:
+    bottom_knm = _positive(
+        inp.value(BOTTOM_CAPACITY_KNM_KEY),
+        "bottom_capacity_knm",
+    )
+    top_knm = _positive(
+        inp.value(TOP_CAPACITY_KNM_KEY),
+        "top_capacity_knm",
+    )
+    ln_mm = _positive(
+        inp.value(FREE_LENGTH_MM_KEY),
+        "free_length_ln_mm",
+    )
 
-    # kN*m * 1000 mm/m / mm = kN.
-    ve_capacity_kn = (bottom_knm + top_knm) * 1000.0 / ln_mm
-    pre_floor_kn = min(ve_capacity_kn, d_candidate_kn)
-    ve_kn = max(pre_floor_kn, vd_kn)
-    if vd_kn > pre_floor_kn:
-        governing = "TBDY_7_3_7_5_VD_FLOOR"
-    elif ve_capacity_kn <= d_candidate_kn:
-        governing = "TBDY_7_3_7_1_EQ7_5"
+    short_column = (
+        bool(inp.value(SHORT_COLUMN_APPLIES_KEY))
+        if inp.has(SHORT_COLUMN_APPLIES_KEY)
+        else False
+    )
+
+    if short_column:
+        bottom_design_knm = 1.4 * bottom_knm
+        top_design_knm = 1.4 * top_knm
+        ve_capacity_kn = (
+            (bottom_design_knm + top_design_knm)
+            * 1000.0
+            / ln_mm
+        )
+        ve_kn = ve_capacity_kn
+        rule_version = SHORT_VE_RULE_VERSION
+        code_refs = SHORT_VE_CODE_REFS
+        governing = "TBDY_7_3_8_EQ7_5_1_4_MR_SHORT_LN"
+        derivation_trace = (
+            ("bottom_mr_knm", bottom_knm),
+            ("top_mr_knm", top_knm),
+            ("short_column_moment_factor", 1.4),
+            ("short_column_ln_mm", ln_mm),
+            ("ve_capacity_eq75_kn", ve_capacity_kn),
+            ("final_ve_kn", ve_kn),
+        )
     else:
-        governing = "TBDY_7_3_7_1_D_AMPLIFIED_CANDIDATE"
+        d_candidate_kn = _nonnegative(
+            inp.value(D_AMPLIFIED_KN_KEY),
+            "d_amplified_candidate_kn",
+        )
+        vd_kn = _nonnegative(
+            inp.value(TBDY_VD_KN_KEY),
+            "tbdy_vd_kn",
+        )
+        ve_capacity_kn = (
+            (bottom_knm + top_knm)
+            * 1000.0
+            / ln_mm
+        )
+        pre_floor_kn = min(
+            ve_capacity_kn,
+            d_candidate_kn,
+        )
+        ve_kn = max(pre_floor_kn, vd_kn)
+        if vd_kn > pre_floor_kn:
+            governing = "TBDY_7_3_7_5_VD_FLOOR"
+        elif ve_capacity_kn <= d_candidate_kn:
+            governing = "TBDY_7_3_7_1_EQ7_5"
+        else:
+            governing = "TBDY_7_3_7_1_D_AMPLIFIED_CANDIDATE"
+        rule_version = VE_RULE_VERSION
+        code_refs = VE_CODE_REFS
+        derivation_trace = (
+            ("ve_capacity_eq75_kn", ve_capacity_kn),
+            ("d_amplified_candidate_kn", d_candidate_kn),
+            ("vd_floor_kn", vd_kn),
+            ("final_ve_kn", ve_kn),
+        )
 
     return RegulatoryQuantity(
         quantity_key=VE_KN_KEY,
@@ -223,19 +319,15 @@ def derive_tbdy_column_shear_ve(inp: ColumnShearP7ExecutionInput) -> RegulatoryQ
         value=ve_kn,
         unit=UNIT_KN,
         availability=AvailabilityState.RESOLVED,
-        rule_version=VE_RULE_VERSION,
-        code_refs=VE_CODE_REFS,
+        rule_version=rule_version,
+        code_refs=code_refs,
         dependency_refs=inp.dependency_refs,
         evidence_refs=inp.evidence_refs,
         provenance=("VS6-P7:F0.9:SOURCE_BOUND",),
-        derivation_trace=(
-            ("ve_capacity_eq75_kn", ve_capacity_kn),
-            ("d_amplified_candidate_kn", d_candidate_kn),
-            ("vd_floor_kn", vd_kn),
-            ("final_ve_kn", ve_kn),
-        ),
+        derivation_trace=derivation_trace,
         governing_trace=(governing,),
     )
+
 
 
 def evaluate_tbdy_column_shear_brittle_bound(
@@ -462,6 +554,12 @@ FREE_LENGTH_DEP = _dep(
 D_AMPLIFIED_DEP = _direction_selected(
     D_AMPLIFIED_KN_KEY, PhysicalDimension.FORCE, UNIT_KN
 )
+SHORT_COLUMN_APPLIES_DEP = _component_context(
+    SHORT_COLUMN_APPLIES_KEY,
+    SemanticType.CHECK_EVIDENCE_TRACE,
+    PhysicalDimension.ENUM_STATE,
+    UNIT_ENUM_STATE,
+)
 TBDY_VD_DEP = _direction_selected(
     TBDY_VD_KN_KEY, PhysicalDimension.FORCE, UNIT_KN
 )
@@ -488,6 +586,11 @@ TBDY_APPLICABILITY = ApplicabilityBinding(
     "vs6-p7:tbdy-737:applicability",
     ColumnShearP7ApplicabilityInput,
     tbdy_737_applicability,
+)
+SHORT_TBDY_APPLICABILITY = ApplicabilityBinding(
+    "vs6-p7:tbdy-738:applicability",
+    ColumnShearP7ApplicabilityInput,
+    tbdy_738_applicability,
 )
 TS500_APPLICABILITY = ApplicabilityBinding(
     "vs6-p7:ts500-815:applicability",
@@ -521,6 +624,33 @@ VE_DERIVATION_SPEC = RegulatoryDerivationSpec(
         derive_tbdy_column_shear_ve,
     ),
 )
+
+SHORT_VE_DERIVATION_SPEC = RegulatoryDerivationSpec(
+    rule_id=SHORT_VE_RULE_ID,
+    code_refs=SHORT_VE_CODE_REFS,
+    rule_version=SHORT_VE_RULE_VERSION,
+    output_contract=RegulatoryOutputContract(
+        VE_KN_KEY,
+        SemanticType.CHECK_EVIDENCE_TRACE,
+        PhysicalDimension.FORCE,
+        Grain.COMPONENT_DIRECTION,
+        UNIT_KN,
+    ),
+    dependencies=(
+        BOTTOM_CAPACITY_DEP,
+        TOP_CAPACITY_DEP,
+        FREE_LENGTH_DEP,
+        SHORT_COLUMN_APPLIES_DEP,
+        EVIDENCE_DEP,
+    ),
+    applicability=SHORT_TBDY_APPLICABILITY,
+    evaluator=DerivationEvaluatorBinding(
+        "vs6-p7:tbdy-738:ve",
+        ColumnShearP7ExecutionInput,
+        derive_tbdy_column_shear_ve,
+    ),
+)
+
 
 TBDY_BRITTLE_CHECK_SPEC = CheckSpec(
     rule_id=TBDY_BRITTLE_RULE_ID,
@@ -572,20 +702,29 @@ VS6_COLUMN_SHEAR_P7_REGISTRY = RegulatoryRegistry(
     checks=(TBDY_BRITTLE_CHECK_SPEC, TS500_WEB_CHECK_SPEC),
 )
 
+VS6_SHORT_COLUMN_SHEAR_P7_REGISTRY = RegulatoryRegistry(
+    derivations=(SHORT_VE_DERIVATION_SPEC,),
+    checks=(TBDY_BRITTLE_CHECK_SPEC, TS500_WEB_CHECK_SPEC),
+)
+
 __all__ = [
     "VE_RULE_ID",
+    "SHORT_VE_RULE_ID",
     "TBDY_BRITTLE_RULE_ID",
     "TS500_WEB_RULE_ID",
     "VE_RULE_VERSION",
+    "SHORT_VE_RULE_VERSION",
     "TBDY_BRITTLE_RULE_VERSION",
     "TS500_WEB_RULE_VERSION",
     "VE_CODE_REFS",
+    "SHORT_VE_CODE_REFS",
     "TBDY_BRITTLE_CODE_REF",
     "TS500_WEB_CODE_REF",
     "BOTTOM_CAPACITY_KNM_KEY",
     "TOP_CAPACITY_KNM_KEY",
     "FREE_LENGTH_MM_KEY",
     "D_AMPLIFIED_KN_KEY",
+    "SHORT_COLUMN_APPLIES_KEY",
     "TBDY_VD_KN_KEY",
     "VE_KN_KEY",
     "COLUMN_WIDTH_MM_KEY",
@@ -600,12 +739,15 @@ __all__ = [
     "ColumnShearP7ApplicabilityInput",
     "ColumnShearP7ExecutionInput",
     "tbdy_737_applicability",
+    "tbdy_738_applicability",
     "ts500_815_applicability",
     "derive_tbdy_column_shear_ve",
     "evaluate_tbdy_column_shear_brittle_bound",
     "evaluate_ts500_column_shear_web_bound",
     "VE_DERIVATION_SPEC",
+    "SHORT_VE_DERIVATION_SPEC",
     "TBDY_BRITTLE_CHECK_SPEC",
     "TS500_WEB_CHECK_SPEC",
     "VS6_COLUMN_SHEAR_P7_REGISTRY",
+    "VS6_SHORT_COLUMN_SHEAR_P7_REGISTRY",
 ]
