@@ -9,8 +9,9 @@ here.
 """
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
+from enum import StrEnum
 from functools import partial
 
 from tbdy_engine.application.column_design_basis import ReviewedColumnDesignBasis
@@ -136,6 +137,13 @@ BLOCKER_LONGITUDINAL_PRODUCTION = "LONGITUDINAL_PRODUCTION_NOT_CLOSED"
 BLOCKER_TRANSVERSE_PRODUCTION = "TRANSVERSE_CONFINEMENT_PRODUCTION_NOT_CLOSED"
 BLOCKER_P7_PRODUCTION = "P7_PRODUCTION_NOT_CLOSED"
 BLOCKER_LIMITED_SHEAR_PRODUCTION = "LIMITED_SHEAR_PRODUCTION_NOT_CLOSED"
+BLOCKER_B6_POPULATION_READINESS = "B6_FULL_COLUMN_POPULATION_NOT_FND2_READY"
+BLOCKER_B6_POPULATION_SCOPE = "B6_FULL_COLUMN_POPULATION_SCOPE_NOT_EXACT"
+
+
+class ColumnPopulationState(StrEnum):
+    UNKNOWN = "POPULATION_UNKNOWN"
+    KNOWN = "POPULATION_KNOWN"
 
 _COLUMN_CONCRETE_DESIGN_DOMAIN_REF = "design-domain:concrete-column"
 _SELECTED_COMBO_POPULATION_REF_PREFIX = "selected-design-combo-population:sha256:"
@@ -199,6 +207,69 @@ class ColumnDomainArtifact:
     def selected_rebar(self):
         return None if self.longitudinal_selection is None else self.longitudinal_selection.selected_rebar
 
+
+
+@dataclass(frozen=True, slots=True)
+class ColumnPopulationExecution:
+    """Application-level exact factual Column population; not caller authority."""
+
+    population_state: ColumnPopulationState
+    expected_component_ids: tuple[str, ...]
+    columns: tuple[ColumnDomainArtifact, ...]
+    focus_component_id: str
+    focus_present: bool
+    focus_column: ColumnDomainArtifact
+    blockers: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.population_state, ColumnPopulationState):
+            raise ColumnExecutionContractError("unknown Column population state")
+        if not isinstance(self.focus_column, ColumnDomainArtifact):
+            raise TypeError("focus_column must be ColumnDomainArtifact")
+        if self.focus_column.component_id != self.focus_component_id:
+            raise ColumnExecutionContractError(
+                "focus Column identity differs from requested component"
+            )
+        if self.population_state is ColumnPopulationState.UNKNOWN:
+            if self.expected_component_ids or self.columns or self.focus_present:
+                raise ColumnExecutionContractError(
+                    "POPULATION_UNKNOWN cannot carry inferred factual component artifacts"
+                )
+            return
+
+        expected = tuple(sorted(self.expected_component_ids))
+        if not expected or len(expected) != len(set(expected)):
+            raise ColumnExecutionContractError(
+                "known Column population must be nonempty and unique"
+            )
+        actual = tuple(sorted(item.component_id for item in self.columns))
+        if len(actual) != len(set(actual)) or actual != expected:
+            raise ColumnExecutionContractError(
+                "known Column artifacts must reconcile exactly to factual topology before A38"
+            )
+        if self.focus_present is not (self.focus_component_id in expected):
+            raise ColumnExecutionContractError(
+                "focus presence differs from factual Column population"
+            )
+        if self.focus_present:
+            matches = tuple(
+                item
+                for item in self.columns
+                if item.component_id == self.focus_component_id
+            )
+            if len(matches) != 1 or matches[0] is not self.focus_column:
+                raise ColumnExecutionContractError(
+                    "focus Column must be the exact factual population artifact"
+                )
+
+
+@dataclass(frozen=True, slots=True)
+class _PublicB6Generation:
+    design_code: object
+    design_procedure: ColumnDesignProcedurePopulation
+    design_state: DesignStateIdentity
+    controlled_design_result: ControlledConcreteDesignResult
+    combo_analysis_basis_bindings: tuple[ComboAnalysisBasisBinding, ...]
 
 
 A37_SHEAR_ROUTE_NONE = "NONE"
@@ -288,12 +359,15 @@ def execute_column_domain(
     reviewed_column_limited_shear_context: ReviewedLimitedColumnShearRuntimeContext | None = None,
     reviewed_column_final_cage_context: ReviewedColumnFinalCageContext | None = None,
     reviewed_column_vc_context: ReviewedColumnVcRuntimeContext | None = None,
-) -> ColumnDomainArtifact:
+    _population_mode: bool = False,
+) -> ColumnDomainArtifact | ColumnPopulationExecution:
     """Execute the canonical LIVE Column path without bypassing FND2/B6 gates."""
     if not isinstance(request, ColumnExecutionRequest):
         raise TypeError("request must be ColumnExecutionRequest")
     if not isinstance(acquisition_context, TrustedLiveAcquisitionContext):
         raise TypeError("acquisition_context must be TrustedLiveAcquisitionContext")
+    if type(_population_mode) is not bool:
+        raise TypeError("_population_mode must be bool")
     if column_design_basis is not None and not isinstance(column_design_basis, ReviewedColumnDesignBasis):
         raise TypeError("column_design_basis must be ReviewedColumnDesignBasis or None")
     if expected_combo_policy is not None and not isinstance(expected_combo_policy, ExpectedConcreteDesignComboPolicy):
@@ -367,6 +441,24 @@ def execute_column_domain(
             "ReviewedColumnVcRuntimeContext or None"
         )
 
+    if _population_mode:
+        return _execute_column_population(
+            request,
+            acquisition_context=acquisition_context,
+            column_design_basis=column_design_basis,
+            expected_combo_policy=expected_combo_policy,
+            reviewed_vs5_column_axial_context=reviewed_vs5_column_axial_context,
+            reviewed_column_p7_context=reviewed_column_p7_context,
+            reviewed_column_short_column_context=reviewed_column_short_column_context,
+            reviewed_column_limited_shear_context=(
+                reviewed_column_limited_shear_context
+            ),
+            reviewed_column_final_cage_context=(
+                reviewed_column_final_cage_context
+            ),
+            reviewed_column_vc_context=reviewed_column_vc_context,
+        )
+
     from tbdy_engine.application.column_public_a5 import execute_public_a5_column
 
     completion = _complete_public_b6_after_fnd2
@@ -404,6 +496,262 @@ def execute_column_domain(
             else column_design_basis.story_translation_tolerance
         ),
         complete_after_fnd2=completion,
+    )
+
+
+def _focus_blocked_artifact(
+    request: ColumnExecutionRequest,
+    acquisition_context: TrustedLiveAcquisitionContext,
+    blocker: str,
+) -> ColumnDomainArtifact:
+    return ColumnDomainArtifact(
+        component_id=request.component_id,
+        model_fingerprint=acquisition_context.model_fingerprint,
+        evidence_epoch_id=acquisition_context.evidence_epoch_id,
+        status=STATUS_FACTUAL_ACQUISITION_BLOCKED,
+        blockers=(blocker,),
+    )
+
+
+def _component_scoped_dependency(
+    value,
+    *,
+    component_id: str,
+):
+    if value is None:
+        return None
+    scoped = getattr(value, "component_id", None)
+    if scoped is None:
+        raise ColumnExecutionContractError(
+            "component-scoped reviewed dependency must expose component_id"
+        )
+    return value if scoped == component_id else None
+
+
+def _execute_column_population(
+    request: ColumnExecutionRequest,
+    *,
+    acquisition_context: TrustedLiveAcquisitionContext,
+    column_design_basis: ReviewedColumnDesignBasis | None = None,
+    expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
+    reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
+    reviewed_column_p7_context: ReviewedColumnP7RuntimeContext | None = None,
+    reviewed_column_short_column_context: ReviewedColumnShortColumnContext | None = None,
+    reviewed_column_limited_shear_context: ReviewedLimitedColumnShearRuntimeContext | None = None,
+    reviewed_column_final_cage_context: ReviewedColumnFinalCageContext | None = None,
+    reviewed_column_vc_context: ReviewedColumnVcRuntimeContext | None = None,
+) -> ColumnPopulationExecution:
+    """Internal factual-population composer; public root remains execute_project()."""
+    from tbdy_engine.application.column_public_a5 import (
+        BLOCKER_A5_POPULATION_UNKNOWN,
+        PublicA5PopulationExecution,
+        execute_public_a5_column,
+    )
+
+    a5_population = execute_public_a5_column(
+        request,
+        acquisition_context=acquisition_context,
+        execute_fnd2=_execute_fnd2,
+        reviewed_story_translation_tolerance=(
+            None
+            if column_design_basis is None
+            else column_design_basis.story_translation_tolerance
+        ),
+        complete_after_fnd2=None,
+        materialize_full_population=True,
+    )
+    if not isinstance(a5_population, PublicA5PopulationExecution):
+        focus = _focus_blocked_artifact(
+            request,
+            acquisition_context,
+            BLOCKER_A5_POPULATION_UNKNOWN,
+        )
+        return ColumnPopulationExecution(
+            population_state=ColumnPopulationState.UNKNOWN,
+            expected_component_ids=(),
+            columns=(),
+            focus_component_id=request.component_id,
+            focus_present=False,
+            focus_column=focus,
+            blockers=(BLOCKER_A5_POPULATION_UNKNOWN,),
+        )
+    if a5_population.population_state is not ColumnPopulationState.KNOWN:
+        blocker = (
+            a5_population.blockers[0]
+            if a5_population.blockers
+            else BLOCKER_A5_POPULATION_UNKNOWN
+        )
+        focus = _focus_blocked_artifact(
+            request,
+            acquisition_context,
+            blocker,
+        )
+        return ColumnPopulationExecution(
+            population_state=ColumnPopulationState.UNKNOWN,
+            expected_component_ids=(),
+            columns=(),
+            focus_component_id=request.component_id,
+            focus_present=False,
+            focus_column=focus,
+            blockers=tuple(a5_population.blockers) or (blocker,),
+        )
+
+    expected_component_ids = tuple(
+        sorted(item.component_id for item in a5_population.topology.columns)
+    )
+    base_columns = tuple(item.column for item in a5_population.columns)
+    if not a5_population.focus_present:
+        blocker = (
+            a5_population.blockers[0]
+            if a5_population.blockers
+            else "REQUESTED_FOCUS_NOT_IN_FACTUAL_COLUMN_POPULATION"
+        )
+        focus = _focus_blocked_artifact(
+            request,
+            acquisition_context,
+            blocker,
+        )
+        return ColumnPopulationExecution(
+            population_state=ColumnPopulationState.KNOWN,
+            expected_component_ids=expected_component_ids,
+            columns=base_columns,
+            focus_component_id=request.component_id,
+            focus_present=False,
+            focus_column=focus,
+            blockers=tuple(a5_population.blockers) or (blocker,),
+        )
+
+    if any(item.status != STATUS_READY for item in base_columns):
+        population_columns = tuple(
+            item
+            if item.status != STATUS_READY
+            else replace(
+                item,
+                status=STATUS_APPLICATION_BLOCKED,
+                blockers=tuple(
+                    dict.fromkeys(
+                        (*item.blockers, BLOCKER_B6_POPULATION_READINESS)
+                    )
+                ),
+            )
+            for item in base_columns
+        )
+        focus = next(
+            item
+            for item in population_columns
+            if item.component_id == request.component_id
+        )
+        return ColumnPopulationExecution(
+            population_state=ColumnPopulationState.KNOWN,
+            expected_component_ids=expected_component_ids,
+            columns=population_columns,
+            focus_component_id=request.component_id,
+            focus_present=True,
+            focus_column=focus,
+            blockers=(BLOCKER_B6_POPULATION_READINESS,),
+        )
+
+    try:
+        shared_b6 = _establish_public_b6_generation(
+            base_columns,
+            acquisition_context=a5_population.acquisition_context,
+            owned_scratch=a5_population.owned_scratch,
+            analysis_execution=a5_population.analysis_execution,
+            topology=a5_population.topology,
+            selected_combo_population=a5_population.selected_combo_population,
+            combo_definitions=a5_population.combo_definitions,
+            flattened_combos=a5_population.flattened_combos,
+            require_full_population=True,
+        )
+    except Exception as exc:
+        blocker = (
+            f"{BLOCKER_LIVE_DESIGN_LINEAGE}:"
+            f"{type(exc).__name__}:{exc}"
+        )
+        population_columns = tuple(
+            replace(
+                item,
+                status=STATUS_APPLICATION_BLOCKED,
+                blockers=tuple(
+                    dict.fromkeys((*item.blockers, blocker))
+                ),
+            )
+            for item in base_columns
+        )
+        focus = next(
+            item
+            for item in population_columns
+            if item.component_id == request.component_id
+        )
+        return ColumnPopulationExecution(
+            population_state=ColumnPopulationState.KNOWN,
+            expected_component_ids=expected_component_ids,
+            columns=population_columns,
+            focus_component_id=request.component_id,
+            focus_present=True,
+            focus_column=focus,
+            blockers=(blocker,),
+        )
+
+    completed: list[ColumnDomainArtifact] = []
+    for materialized in a5_population.columns:
+        component_id = materialized.column.component_id
+        completed.append(
+            _complete_public_b6_after_fnd2(
+                materialized.column,
+                acquisition_context=a5_population.acquisition_context,
+                owned_scratch=a5_population.owned_scratch,
+                analysis_execution=a5_population.analysis_execution,
+                topology=a5_population.topology,
+                selected_combo_population=a5_population.selected_combo_population,
+                combo_definitions=a5_population.combo_definitions,
+                flattened_combos=a5_population.flattened_combos,
+                free_length=materialized.free_length,
+                canonical_second_order=materialized.canonical_second_order,
+                column_design_basis=column_design_basis,
+                expected_combo_policy=expected_combo_policy,
+                # ReviewedVs5ColumnAxialContext is population-wide.
+                # Existing VS5 resolves each factual target by unique_name.
+                reviewed_vs5_column_axial_context=(
+                    reviewed_vs5_column_axial_context
+                ),
+                reviewed_column_p7_context=_component_scoped_dependency(
+                    reviewed_column_p7_context,
+                    component_id=component_id,
+                ),
+                reviewed_column_short_column_context=_component_scoped_dependency(
+                    reviewed_column_short_column_context,
+                    component_id=component_id,
+                ),
+                reviewed_column_limited_shear_context=_component_scoped_dependency(
+                    reviewed_column_limited_shear_context,
+                    component_id=component_id,
+                ),
+                reviewed_column_final_cage_context=_component_scoped_dependency(
+                    reviewed_column_final_cage_context,
+                    component_id=component_id,
+                ),
+                reviewed_column_vc_context=_component_scoped_dependency(
+                    reviewed_column_vc_context,
+                    component_id=component_id,
+                ),
+                _shared_b6=shared_b6,
+            )
+        )
+
+    population_columns = tuple(completed)
+    focus = next(
+        item
+        for item in population_columns
+        if item.component_id == request.component_id
+    )
+    return ColumnPopulationExecution(
+        population_state=ColumnPopulationState.KNOWN,
+        expected_component_ids=expected_component_ids,
+        columns=population_columns,
+        focus_component_id=request.component_id,
+        focus_present=True,
+        focus_column=focus,
     )
 
 
@@ -1095,6 +1443,221 @@ def _continue_selected_column_into_a36(
 
 
 
+def _establish_public_b6_generation(
+    columns: Sequence[ColumnDomainArtifact],
+    *,
+    acquisition_context: TrustedLiveAcquisitionContext,
+    owned_scratch: OwnedScratchContext,
+    analysis_execution: AnalysisExecutionResult,
+    topology,
+    selected_combo_population,
+    combo_definitions,
+    flattened_combos,
+    require_full_population: bool,
+) -> _PublicB6Generation:
+    """Establish the one B6 generation for the exact factual Column population."""
+    frozen = tuple(columns)
+    if not frozen:
+        raise ColumnExecutionContractError("B6 Column population must be nonempty")
+    if any(not isinstance(item, ColumnDomainArtifact) for item in frozen):
+        raise TypeError("columns must contain ColumnDomainArtifact")
+    if any(item.status != STATUS_READY for item in frozen):
+        raise ColumnExecutionContractError(
+            "B6 full-population generation requires every supplied Column FND2 READY"
+        )
+    if any(item.readiness_binding is None for item in frozen):
+        raise ColumnExecutionContractError(
+            "B6 full-population generation requires every readiness binding"
+        )
+
+    model = frozen[0].model_fingerprint
+    epoch = frozen[0].evidence_epoch_id
+    if any(
+        item.model_fingerprint != model
+        or item.evidence_epoch_id != epoch
+        for item in frozen
+    ):
+        raise ColumnExecutionContractError(
+            "B6 Column population must retain one model/EvidenceEpoch"
+        )
+
+    topology_component_ids = tuple(
+        sorted(item.component_id for item in topology.columns)
+    )
+    if not topology_component_ids or len(topology_component_ids) != len(
+        set(topology_component_ids)
+    ):
+        raise ColumnExecutionContractError(
+            "B6 strict-topology Column population is empty or duplicate"
+        )
+    supplied_component_ids = tuple(sorted(item.component_id for item in frozen))
+    if len(supplied_component_ids) != len(set(supplied_component_ids)):
+        raise ColumnExecutionContractError(
+            "B6 supplied Column population contains duplicate component identity"
+        )
+    if require_full_population and supplied_component_ids != topology_component_ids:
+        raise ColumnExecutionContractError(
+            f"{BLOCKER_B6_POPULATION_SCOPE}: supplied component set differs from strict topology"
+        )
+
+    analysis_lineage = analysis_execution.qualification
+    if not analysis_lineage.qualified:
+        raise ColumnExecutionContractError(
+            "B6 requires qualified parent analysis lineage"
+        )
+    parent_result = analysis_lineage.require_qualified_result()
+    if parent_result.identity_ref != analysis_execution.analysis_result_identity.identity_ref:
+        raise ColumnExecutionContractError(
+            "B6 parent AnalysisResultIdentity differs from qualified B5 result"
+        )
+
+    topology_envelope = ColumnTopologyEvidenceEnvelope(
+        topology=topology,
+        model_fingerprint=model,
+        evidence_epoch_id=epoch,
+        source_refs=tuple(
+            dict.fromkeys(
+                (
+                    acquisition_context.session_provenance_ref,
+                    owned_scratch.ownership_proof_ref,
+                    analysis_lineage.qualification_ref,
+                    parent_result.identity_ref,
+                    analysis_execution.execution_proof_ref,
+                )
+            )
+        ),
+    )
+    component_population_refs = tuple(
+        sorted(
+            design_component_scope_ref(component_id)
+            for component_id in topology_component_ids
+        )
+    )
+
+    design_code = read_design_code_from_session(
+        acquisition_context.verified_session
+    )
+    design_procedure = capture_column_design_procedure_population_from_session(
+        acquisition_context.verified_session,
+        topology=topology_envelope,
+    )
+    if not design_procedure.capture_complete:
+        raise ColumnExecutionContractError(
+            "Column design-procedure factual population is incomplete"
+        )
+
+    selected_population_ref = _selected_combo_population_ref(
+        selected_combo_population
+    )
+    combo_bindings, combo_definition_refs = _build_exact_combo_basis_bindings(
+        column=frozen[0],
+        analysis_execution=analysis_execution,
+        selected_combo_population=selected_combo_population,
+        combo_definitions=combo_definitions,
+        flattened_combos=flattened_combos,
+    )
+    combo_binding_refs = tuple(item.binding_ref for item in combo_bindings)
+    readiness_refs = tuple(
+        sorted(
+            item.readiness_binding.readiness_ref
+            for item in frozen
+            if item.readiness_binding is not None
+        )
+    )
+    state_basis_refs = tuple(
+        dict.fromkeys(
+            (
+                *readiness_refs,
+                parent_result.identity_ref,
+                analysis_lineage.qualification_ref,
+                owned_scratch.ownership_proof_ref,
+                design_code.design_code_ref,
+                design_procedure.design_procedure_ref,
+                selected_population_ref,
+                *combo_definition_refs,
+                *combo_binding_refs,
+            )
+        )
+    )
+    provenance_refs = tuple(
+        dict.fromkeys(
+            (
+                acquisition_context.acquisition_context_ref,
+                acquisition_context.session_provenance_ref,
+                analysis_execution.execution_proof_ref,
+                *selected_combo_population.source_refs,
+                *design_procedure.source_refs,
+                *topology_envelope.source_refs,
+            )
+        )
+    )
+    design_state = build_design_state_identity(
+        analysis_lineage=analysis_lineage,
+        model_fingerprint=model,
+        evidence_epoch_id=epoch,
+        design_code_ref=design_code.design_code_ref,
+        design_domain_ref=_COLUMN_CONCRETE_DESIGN_DOMAIN_REF,
+        design_procedure_ref=design_procedure.design_procedure_ref,
+        selected_design_combo_population_ref=selected_population_ref,
+        combo_definition_population_refs=combo_definition_refs,
+        combo_grain_binding_refs=combo_binding_refs,
+        design_component_population_refs=component_population_refs,
+        state_basis_refs=state_basis_refs,
+        provenance_refs=provenance_refs,
+    )
+
+    controlled = execute_controlled_concrete_design(
+        context=acquisition_context,
+        owned_scratch=owned_scratch,
+        analysis_lineage=analysis_lineage,
+        topology=topology_envelope,
+        design_state=design_state,
+    )
+    if controlled.design_state.identity_ref != design_state.identity_ref:
+        raise ColumnExecutionContractError(
+            "controlled B6 result lost exact shared DesignStateIdentity"
+        )
+    if (
+        controlled.design_result_identity.parent_design_state_ref
+        != design_state.identity_ref
+    ):
+        raise ColumnExecutionContractError(
+            "DesignResultIdentity is not causally derived from shared DesignStateIdentity"
+        )
+    factual_expected = getattr(
+        controlled.factual_design_results,
+        "expected_component_ids",
+        None,
+    )
+    if (
+        factual_expected is not None
+        and tuple(factual_expected) != topology_component_ids
+    ):
+        raise ColumnExecutionContractError(
+            f"{BLOCKER_B6_POPULATION_SCOPE}: factual design-result population differs from strict topology"
+        )
+    result_scope_refs = getattr(
+        controlled.design_result_identity,
+        "result_scope_refs",
+        None,
+    )
+    if (
+        result_scope_refs is not None
+        and tuple(result_scope_refs) != component_population_refs
+    ):
+        raise ColumnExecutionContractError(
+            f"{BLOCKER_B6_POPULATION_SCOPE}: DesignResultIdentity scope differs from strict topology"
+        )
+
+    return _PublicB6Generation(
+        design_code=design_code,
+        design_procedure=design_procedure,
+        design_state=design_state,
+        controlled_design_result=controlled,
+        combo_analysis_basis_bindings=combo_bindings,
+    )
+
+
 def _complete_public_b6_after_fnd2(
     column: ColumnDomainArtifact,
     *,
@@ -1115,6 +1678,7 @@ def _complete_public_b6_after_fnd2(
     reviewed_column_limited_shear_context: ReviewedLimitedColumnShearRuntimeContext | None = None,
     reviewed_column_final_cage_context: ReviewedColumnFinalCageContext | None = None,
     reviewed_column_vc_context: ReviewedColumnVcRuntimeContext | None = None,
+    _shared_b6: _PublicB6Generation | None = None,
 ) -> ColumnDomainArtifact:
     """Run sole B6 owner, then optionally continue into existing longitudinal authorities."""
     if not isinstance(column, ColumnDomainArtifact):
@@ -1172,120 +1736,50 @@ def _complete_public_b6_after_fnd2(
             )
 
     try:
-        analysis_lineage = analysis_execution.qualification
-        if not analysis_lineage.qualified:
-            raise ColumnExecutionContractError(
-                "B6 requires qualified parent analysis lineage"
-            )
-        parent_result = analysis_lineage.require_qualified_result()
-        if parent_result.identity_ref != analysis_execution.analysis_result_identity.identity_ref:
-            raise ColumnExecutionContractError(
-                "B6 parent AnalysisResultIdentity differs from the qualified B5 result"
-            )
-
-        topology_envelope = ColumnTopologyEvidenceEnvelope(
-            topology=topology,
-            model_fingerprint=column.model_fingerprint,
-            evidence_epoch_id=column.evidence_epoch_id,
-            source_refs=tuple(
-                dict.fromkeys(
-                    (
-                        acquisition_context.session_provenance_ref,
-                        owned_scratch.ownership_proof_ref,
-                        analysis_lineage.qualification_ref,
-                        parent_result.identity_ref,
-                        analysis_execution.execution_proof_ref,
-                    )
-                )
-            ),
-        )
-        design_code = read_design_code_from_session(
-            acquisition_context.verified_session
-        )
-        design_procedure = capture_column_design_procedure_population_from_session(
-            acquisition_context.verified_session,
-            topology=topology_envelope,
-        )
-        if not design_procedure.capture_complete:
-            raise ColumnExecutionContractError(
-                "Column design-procedure factual population is incomplete"
-            )
-
-        selected_population_ref = _selected_combo_population_ref(
-            selected_combo_population
-        )
-        combo_bindings, combo_definition_refs = _build_exact_combo_basis_bindings(
-            column=column,
-            analysis_execution=analysis_execution,
-            selected_combo_population=selected_combo_population,
-            combo_definitions=combo_definitions,
-            flattened_combos=flattened_combos,
-        )
-        combo_binding_refs = tuple(item.binding_ref for item in combo_bindings)
-        component_population_refs = tuple(
-            sorted(
-                design_component_scope_ref(item.component_id)
-                for item in topology_envelope.topology.columns
+        shared_b6 = (
+            _shared_b6
+            if _shared_b6 is not None
+            else _establish_public_b6_generation(
+                (column,),
+                acquisition_context=acquisition_context,
+                owned_scratch=owned_scratch,
+                analysis_execution=analysis_execution,
+                topology=topology,
+                selected_combo_population=selected_combo_population,
+                combo_definitions=combo_definitions,
+                flattened_combos=flattened_combos,
+                require_full_population=False,
             )
         )
-        state_basis_refs = tuple(
-            dict.fromkeys(
-                (
-                    column.readiness_binding.readiness_ref,
-                    parent_result.identity_ref,
-                    analysis_lineage.qualification_ref,
-                    owned_scratch.ownership_proof_ref,
-                    design_code.design_code_ref,
-                    design_procedure.design_procedure_ref,
-                    selected_population_ref,
-                    *combo_definition_refs,
-                    *combo_binding_refs,
-                )
-            )
+        design_code = shared_b6.design_code
+        design_procedure = shared_b6.design_procedure
+        design_state = shared_b6.design_state
+        controlled = shared_b6.controlled_design_result
+        combo_bindings = shared_b6.combo_analysis_basis_bindings
+        component_scope = design_component_scope_ref(column.component_id)
+        design_component_population_refs = getattr(
+            design_state,
+            "design_component_population_refs",
+            None,
         )
-        provenance_refs = tuple(
-            dict.fromkeys(
-                (
-                    acquisition_context.acquisition_context_ref,
-                    acquisition_context.session_provenance_ref,
-                    analysis_execution.execution_proof_ref,
-                    *selected_combo_population.source_refs,
-                    *design_procedure.source_refs,
-                    *topology_envelope.source_refs,
-                )
-            )
-        )
-        design_state = build_design_state_identity(
-            analysis_lineage=analysis_lineage,
-            model_fingerprint=column.model_fingerprint,
-            evidence_epoch_id=column.evidence_epoch_id,
-            design_code_ref=design_code.design_code_ref,
-            design_domain_ref=_COLUMN_CONCRETE_DESIGN_DOMAIN_REF,
-            design_procedure_ref=design_procedure.design_procedure_ref,
-            selected_design_combo_population_ref=selected_population_ref,
-            combo_definition_population_refs=combo_definition_refs,
-            combo_grain_binding_refs=combo_binding_refs,
-            design_component_population_refs=component_population_refs,
-            state_basis_refs=state_basis_refs,
-            provenance_refs=provenance_refs,
-        )
-        controlled = execute_controlled_concrete_design(
-            context=acquisition_context,
-            owned_scratch=owned_scratch,
-            analysis_lineage=analysis_lineage,
-            topology=topology_envelope,
-            design_state=design_state,
-        )
-        if controlled.design_state.identity_ref != design_state.identity_ref:
-            raise ColumnExecutionContractError(
-                "controlled B6 result does not retain the exact executed DesignStateIdentity"
-            )
         if (
-            controlled.design_result_identity.parent_design_state_ref
-            != design_state.identity_ref
+            design_component_population_refs is not None
+            and component_scope not in design_component_population_refs
         ):
             raise ColumnExecutionContractError(
-                "DesignResultIdentity is not causally derived from the executed DesignStateIdentity"
+                "shared B6 DesignStateIdentity does not contain this Column component"
+            )
+        result_scope_refs = getattr(
+            controlled.design_result_identity,
+            "result_scope_refs",
+            None,
+        )
+        if (
+            result_scope_refs is not None
+            and component_scope not in result_scope_refs
+        ):
+            raise ColumnExecutionContractError(
+                "shared B6 DesignResultIdentity does not contain this Column component"
             )
         completed_b6 = replace(
             column,
@@ -1743,8 +2237,10 @@ __all__ = [
     "BLOCKER_LIVE_DESIGN_LINEAGE",
     "BLOCKER_LIVE_FND2_INPUT_LINEAGE",
     "BLOCKER_LONGITUDINAL_PRODUCTION",
+    "ColumnPopulationExecution",
     "ColumnDomainArtifact",
     "ColumnExecutionContractError",
+    "ColumnPopulationState",
     "STATUS_APPLICATION_BLOCKED",
     "STATUS_FACTUAL_ACQUISITION_BLOCKED",
     "STATUS_REANALYSIS_REQUIRED",

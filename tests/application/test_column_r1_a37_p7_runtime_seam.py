@@ -97,11 +97,27 @@ def test_a37_a23_decoder_fails_closed_on_component_mismatch():
 
 
 def test_public_a5_forwards_same_generation_a23_and_free_length_to_completion():
-    source = inspect.getsource(public_a5.execute_public_a5_column)
+    materializer_source = inspect.getsource(
+        public_a5._materialize_public_a5_column
+    )
+    public_source = inspect.getsource(
+        public_a5.execute_public_a5_column
+    )
 
     assert (
         "inputs, free_length, canonical_second_order = "
         "_materialize_fnd2_inputs("
-    ) in source
-    assert "free_length=free_length" in source
-    assert "canonical_second_order=canonical_second_order" in source
+    ) in materializer_source
+    assert "fnd_col_2_inputs=inputs" in materializer_source
+    assert "free_length=free_length" in materializer_source
+    assert (
+        "canonical_second_order=canonical_second_order"
+        in materializer_source
+    )
+
+    assert "_materialize_public_a5_column(" in public_source
+    assert "free_length=materialized.free_length" in public_source
+    assert (
+        "canonical_second_order=materialized.canonical_second_order"
+        in public_source
+    )

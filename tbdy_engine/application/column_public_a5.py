@@ -7,7 +7,7 @@ to those authorities and fails closed at an exact causal edge.
 """
 from __future__ import annotations
 
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 from decimal import Decimal
 from typing import Callable, Mapping, Sequence
 
@@ -46,6 +46,7 @@ from tbdy_engine.application.column_public_a5_second_order import (
     build_public_a5_canonical_second_order_payload,
 )
 from tbdy_engine.application.contracts import ColumnExecutionRequest
+from tbdy_engine.application.column_execution import ColumnPopulationState
 from tbdy_engine.design.columns.free_length_basis import resolve_ts500_column_free_length
 from tbdy_engine.design.columns.rebar_selection import (
     ETABS_AXIAL_SIGN_NEGATIVE_COMPRESSION,
@@ -141,6 +142,10 @@ BLOCKER_A4_B4B = "LIVE_A4_B4B_STATE_NOT_QUALIFIED"
 BLOCKER_A4_B5 = "LIVE_A4_B5_RESULT_NOT_QUALIFIED"
 BLOCKER_A4_POST_CONTINUITY = "LIVE_A4_POST_CONTINUITY_NOT_QUALIFIED"
 BLOCKER_A5_INPUT_MATERIALIZATION = "LIVE_A5_FND2_INPUT_MATERIALIZATION_NOT_QUALIFIED"
+BLOCKER_A5_POPULATION_UNKNOWN = "LIVE_A5_COLUMN_POPULATION_NOT_PROVEN"
+BLOCKER_A5_DUPLICATE_COMPONENT = "LIVE_A5_DUPLICATE_FACTUAL_COLUMN_COMPONENT_IDENTITY"
+BLOCKER_A5_REQUESTED_FOCUS_ABSENT = "LIVE_A5_REQUESTED_COLUMN_NOT_IN_FACTUAL_POPULATION"
+
 
 _AREA_RESPONSE_SCOPE_REF = "COLUMN_R1_EQ713_IN_PLANE_DISPLACEMENT_RESPONSE_SCOPE"
 _FRAME_MECHANICS_REF_PREFIX = "COLUMN_R1_STRICT_FRAME_MECHANICS"
@@ -169,18 +174,185 @@ class PublicA5CompositionError(RuntimeError):
         self.blocker = blocker
 
 
-def _blocked(request: ColumnExecutionRequest, context: TrustedLiveAcquisitionContext, blocker: str):
+@dataclass(frozen=True, slots=True)
+class PublicA5ColumnMaterialization:
+    request: ColumnExecutionRequest
+    column: object
+    free_length: object | None
+    canonical_second_order: Mapping[str, object] | None
+
+
+@dataclass(frozen=True, slots=True)
+class PublicA5PopulationExecution:
+    """Exact factual Column population after one shared PUBLIC-A5 generation."""
+
+    population_state: ColumnPopulationState
+    acquisition_context: TrustedLiveAcquisitionContext
+    focus_component_id: str
+    focus_present: bool
+    topology: object | None
+    owned_scratch: object | None
+    analysis_execution: object | None
+    selected_combo_population: object | None
+    combo_definitions: tuple[object, ...]
+    flattened_combos: tuple[object, ...]
+    columns: tuple[PublicA5ColumnMaterialization, ...]
+    blockers: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.population_state, ColumnPopulationState):
+            raise PublicA5CompositionError(
+                BLOCKER_A5_POPULATION_UNKNOWN,
+                "unsupported PUBLIC-A5 population state",
+            )
+        if self.population_state is ColumnPopulationState.UNKNOWN:
+            if self.topology is not None or self.columns or self.focus_present:
+                raise PublicA5CompositionError(
+                    BLOCKER_A5_POPULATION_UNKNOWN,
+                    "POPULATION_UNKNOWN cannot expose inferred factual components",
+                )
+            return
+
+        if self.topology is None:
+            raise PublicA5CompositionError(
+                BLOCKER_A5_POPULATION_UNKNOWN,
+                "POPULATION_KNOWN requires strict factual topology",
+            )
+        expected = tuple(item.component_id for item in self.topology.columns)
+        if not expected:
+            raise PublicA5CompositionError(
+                BLOCKER_A5_POPULATION_UNKNOWN,
+                "strict factual topology contains no Columns",
+            )
+        if len(expected) != len(set(expected)):
+            raise PublicA5CompositionError(
+                BLOCKER_A5_DUPLICATE_COMPONENT,
+                "strict factual topology contains duplicate Column component identity",
+            )
+        observed = tuple(item.request.component_id for item in self.columns)
+        if observed != expected or len(observed) != len(set(observed)):
+            raise PublicA5CompositionError(
+                BLOCKER_A5_INPUT_MATERIALIZATION,
+                "PUBLIC-A5 materialized Column population is not exact",
+            )
+        if self.focus_present is not (self.focus_component_id in expected):
+            raise PublicA5CompositionError(
+                BLOCKER_A5_INPUT_MATERIALIZATION,
+                "PUBLIC-A5 focus-presence flag differs from strict topology",
+            )
+
+
+def _blocked_component(
+    component_id: str,
+    context: TrustedLiveAcquisitionContext,
+    blocker: str,
+):
     from tbdy_engine.application.column_execution import (
         ColumnDomainArtifact,
         STATUS_FACTUAL_ACQUISITION_BLOCKED,
     )
 
     return ColumnDomainArtifact(
-        component_id=request.component_id,
+        component_id=component_id,
         model_fingerprint=context.model_fingerprint,
         evidence_epoch_id=context.evidence_epoch_id,
         status=STATUS_FACTUAL_ACQUISITION_BLOCKED,
         blockers=(blocker,),
+    )
+
+
+def _blocked(request: ColumnExecutionRequest, context: TrustedLiveAcquisitionContext, blocker: str):
+    return _blocked_component(
+        request.component_id,
+        context,
+        blocker,
+    )
+
+
+def _unknown_population(
+    request: ColumnExecutionRequest,
+    context: TrustedLiveAcquisitionContext,
+    blocker: str,
+) -> PublicA5PopulationExecution:
+    return PublicA5PopulationExecution(
+        population_state=ColumnPopulationState.UNKNOWN,
+        acquisition_context=context,
+        focus_component_id=request.component_id,
+        focus_present=False,
+        topology=None,
+        owned_scratch=None,
+        analysis_execution=None,
+        selected_combo_population=None,
+        combo_definitions=(),
+        flattened_combos=(),
+        columns=(),
+        blockers=(blocker,),
+    )
+
+
+def _known_blocked_population(
+    request: ColumnExecutionRequest,
+    context: TrustedLiveAcquisitionContext,
+    topology,
+    blocker: str,
+    *,
+    owned_scratch=None,
+) -> PublicA5PopulationExecution:
+    targets = tuple(topology.columns)
+    component_ids = tuple(item.component_id for item in targets)
+    if not component_ids:
+        return _unknown_population(
+            request,
+            context,
+            BLOCKER_A5_POPULATION_UNKNOWN,
+        )
+    if len(component_ids) != len(set(component_ids)):
+        return _unknown_population(
+            request,
+            context,
+            BLOCKER_A5_DUPLICATE_COMPONENT,
+        )
+    materializations = tuple(
+        PublicA5ColumnMaterialization(
+            request=ColumnExecutionRequest(target.component_id),
+            column=_blocked_component(target.component_id, context, blocker),
+            free_length=None,
+            canonical_second_order=None,
+        )
+        for target in targets
+    )
+    return PublicA5PopulationExecution(
+        population_state=ColumnPopulationState.KNOWN,
+        acquisition_context=context,
+        focus_component_id=request.component_id,
+        focus_present=request.component_id in component_ids,
+        topology=topology,
+        owned_scratch=owned_scratch,
+        analysis_execution=None,
+        selected_combo_population=None,
+        combo_definitions=(),
+        flattened_combos=(),
+        columns=materializations,
+        blockers=(blocker,),
+    )
+
+
+def _population_failure(
+    request: ColumnExecutionRequest,
+    context: TrustedLiveAcquisitionContext,
+    topology,
+    blocker: str,
+    *,
+    owned_scratch=None,
+) -> PublicA5PopulationExecution:
+    if topology is None:
+        return _unknown_population(request, context, blocker)
+    return _known_blocked_population(
+        request,
+        context,
+        topology,
+        blocker,
+        owned_scratch=owned_scratch,
     )
 
 
@@ -1025,18 +1197,70 @@ def _prove_post_continuity(
     area_pre,
     established_state,
     execution_result,
+    verify_full_population: bool = False,
 ):
-    capture_frame_flexural_base_continuity_evidence(
-        context=context,
-        owned_scratch=owned_scratch,
-        pre_fact=next(row.base_fact for row in frame_pre.rows if row.frame_name == target_column.unique_name),
-        established_state=established_state,
-        execution_result=execution_result,
-    )
+    if verify_full_population:
+        pre_columns = tuple(topology_pre.columns)
+        pre_by_component = {item.component_id: item for item in pre_columns}
+        if not pre_columns or len(pre_by_component) != len(pre_columns):
+            raise PublicA5CompositionError(
+                BLOCKER_A4_POST_CONTINUITY,
+                "pre-B5 strict Column population is empty or duplicate",
+            )
+        frame_by_name = {row.frame_name: row for row in frame_pre.rows}
+        for pre_column in pre_columns:
+            frame = frame_by_name.get(pre_column.unique_name)
+            if frame is None:
+                raise PublicA5CompositionError(
+                    BLOCKER_A4_POST_CONTINUITY,
+                    f"Column {pre_column.component_id!r} is absent from factual Frame population",
+                )
+            capture_frame_flexural_base_continuity_evidence(
+                context=context,
+                owned_scratch=owned_scratch,
+                pre_fact=frame.base_fact,
+                established_state=established_state,
+                execution_result=execution_result,
+            )
+    else:
+        capture_frame_flexural_base_continuity_evidence(
+            context=context,
+            owned_scratch=owned_scratch,
+            pre_fact=next(
+                row.base_fact
+                for row in frame_pre.rows
+                if row.frame_name == target_column.unique_name
+            ),
+            established_state=established_state,
+            execution_result=execution_result,
+        )
 
     topology_post = capture_etabs_strict_column_topology_from_session(context.verified_session)
     target_post = _target_column(topology_post, target_column.component_id)
-    if target_post.as_dict() != target_column.as_dict():
+    if verify_full_population:
+        pre_columns = tuple(topology_pre.columns)
+        post_columns = tuple(topology_post.columns)
+        pre_by_component = {item.component_id: item for item in pre_columns}
+        post_by_component = {item.component_id: item for item in post_columns}
+        if (
+            len(pre_by_component) != len(pre_columns)
+            or len(post_by_component) != len(post_columns)
+            or tuple(sorted(pre_by_component)) != tuple(sorted(post_by_component))
+        ):
+            raise PublicA5CompositionError(
+                BLOCKER_A4_POST_CONTINUITY,
+                "strict Column population identity changed across A3/B4B/B5 generation",
+            )
+        for component_id in sorted(pre_by_component):
+            if (
+                pre_by_component[component_id].as_dict()
+                != post_by_component[component_id].as_dict()
+            ):
+                raise PublicA5CompositionError(
+                    BLOCKER_A4_POST_CONTINUITY,
+                    f"Column {component_id!r} strict topology changed across A3/B4B/B5 generation",
+                )
+    elif target_post.as_dict() != target_column.as_dict():
         raise PublicA5CompositionError(
             BLOCKER_A4_POST_CONTINUITY,
             "target column strict topology changed across A3/B4B/B5 generation",
@@ -1468,6 +1692,46 @@ def _legacy_area_response_closure(
     )
 
 
+def _materialize_public_a5_column(
+    *,
+    request: ColumnExecutionRequest,
+    context: TrustedLiveAcquisitionContext,
+    target_column,
+    topology_post,
+    frame_post,
+    flattened_combos,
+    selection,
+    definitions,
+    execution_result,
+    execute_fnd2: Callable[..., object],
+    reviewed_story_translation_tolerance: ReviewedStoryTranslationTolerance | None,
+) -> PublicA5ColumnMaterialization:
+    inputs, free_length, canonical_second_order = _materialize_fnd2_inputs(
+        request=request,
+        context=context,
+        target_column=target_column,
+        topology_post=topology_post,
+        frame_population=frame_post,
+        flattened_combos=flattened_combos,
+        selection=selection,
+        definitions=definitions,
+        execution_result=execution_result,
+        reviewed_story_translation_tolerance=reviewed_story_translation_tolerance,
+    )
+    column = execute_fnd2(
+        request,
+        model_fingerprint=context.model_fingerprint,
+        evidence_epoch_id=context.evidence_epoch_id,
+        fnd_col_2_inputs=inputs,
+    )
+    return PublicA5ColumnMaterialization(
+        request=request,
+        column=column,
+        free_length=free_length,
+        canonical_second_order=canonical_second_order,
+    )
+
+
 def execute_public_a5_column(
     request: ColumnExecutionRequest,
     *,
@@ -1475,6 +1739,7 @@ def execute_public_a5_column(
     execute_fnd2: Callable[..., object],
     reviewed_story_translation_tolerance: ReviewedStoryTranslationTolerance | None = None,
     complete_after_fnd2: Callable[..., object] | None = None,
+    materialize_full_population: bool = False,
 ):
     """Compose the supported production path through REAL existing FND-COL-2."""
     if not isinstance(request, ColumnExecutionRequest):
@@ -1491,11 +1756,43 @@ def execute_public_a5_column(
         )
     if complete_after_fnd2 is not None and not callable(complete_after_fnd2):
         raise TypeError("complete_after_fnd2 must be callable when provided")
+    if type(materialize_full_population) is not bool:
+        raise TypeError("materialize_full_population must be bool")
+    if materialize_full_population and complete_after_fnd2 is not None:
+        raise TypeError(
+            "full-population PUBLIC-A5 must defer B6 to the population composer"
+        )
     context = acquisition_context
 
+    owned_scratch = None
+    topology_pre = None
     try:
         owned_scratch = create_owned_scratch_context(context)
         topology_pre = capture_etabs_strict_column_topology_from_session(context.verified_session)
+        if materialize_full_population:
+            factual_component_ids = tuple(
+                item.component_id for item in topology_pre.columns
+            )
+            if not factual_component_ids:
+                return _unknown_population(
+                    request,
+                    context,
+                    BLOCKER_A5_POPULATION_UNKNOWN,
+                )
+            if len(factual_component_ids) != len(set(factual_component_ids)):
+                return _unknown_population(
+                    request,
+                    context,
+                    BLOCKER_A5_DUPLICATE_COMPONENT,
+                )
+            if request.component_id not in factual_component_ids:
+                return _known_blocked_population(
+                    request,
+                    context,
+                    topology_pre,
+                    BLOCKER_A5_REQUESTED_FOCUS_ABSENT,
+                    owned_scratch=owned_scratch,
+                )
         target_column = _target_column(topology_pre, request.component_id)
         frame_pre = capture_frame_eq713_factual_population(context, owned_scratch, topology_pre)
         area_pre = capture_area_contributor_population_from_session(
@@ -1505,8 +1802,24 @@ def execute_public_a5_column(
             session_provenance_ref=context.session_provenance_ref,
         )
     except PublicA5CompositionError as exc:
+        if materialize_full_population:
+            return _population_failure(
+                request,
+                context,
+                topology_pre,
+                exc.blocker,
+                owned_scratch=owned_scratch,
+            )
         return _blocked(request, context, exc.blocker)
     except Exception:
+        if materialize_full_population:
+            return _population_failure(
+                request,
+                context,
+                topology_pre,
+                BLOCKER_A3_FACTUAL_ACQUISITION,
+                owned_scratch=owned_scratch,
+            )
         return _blocked(request, context, BLOCKER_A3_FACTUAL_ACQUISITION)
 
     try:
@@ -1543,8 +1856,24 @@ def execute_public_a5_column(
                 requested_cases,
             )
     except PublicA5CompositionError as exc:
+        if materialize_full_population:
+            return _known_blocked_population(
+                request,
+                context,
+                topology_pre,
+                exc.blocker,
+                owned_scratch=owned_scratch,
+            )
         return _blocked(request, context, exc.blocker)
     except Exception:
+        if materialize_full_population:
+            return _known_blocked_population(
+                request,
+                context,
+                topology_pre,
+                BLOCKER_A3_EQ713_POPULATION,
+                owned_scratch=owned_scratch,
+            )
         return _blocked(request, context, BLOCKER_A3_EQ713_POPULATION)
 
     try:
@@ -1657,8 +1986,24 @@ def execute_public_a5_column(
                         "Frame response-mode closure produced no qualified final B5 generation",
                     )
     except PublicA5CompositionError as exc:
+        if materialize_full_population:
+            return _known_blocked_population(
+                request,
+                context,
+                topology_pre,
+                exc.blocker,
+                owned_scratch=owned_scratch,
+            )
         return _blocked(request, context, exc.blocker)
     except Exception:
+        if materialize_full_population:
+            return _known_blocked_population(
+                request,
+                context,
+                topology_pre,
+                BLOCKER_A4_B5,
+                owned_scratch=owned_scratch,
+            )
         return _blocked(request, context, BLOCKER_A4_B5)
 
     try:
@@ -1671,31 +2016,104 @@ def execute_public_a5_column(
             area_pre=area_pre,
             established_state=established_state,
             execution_result=execution_result,
+            verify_full_population=materialize_full_population,
         )
     except PublicA5CompositionError as exc:
+        if materialize_full_population:
+            return _known_blocked_population(
+                request,
+                context,
+                topology_pre,
+                exc.blocker,
+                owned_scratch=owned_scratch,
+            )
         return _blocked(request, context, exc.blocker)
     except Exception:
+        if materialize_full_population:
+            return _known_blocked_population(
+                request,
+                context,
+                topology_pre,
+                BLOCKER_A4_POST_CONTINUITY,
+                owned_scratch=owned_scratch,
+            )
         return _blocked(request, context, BLOCKER_A4_POST_CONTINUITY)
 
+    if materialize_full_population:
+        materializations: list[PublicA5ColumnMaterialization] = []
+        for target in tuple(topology_post.columns):
+            component_request = (
+                request
+                if target.component_id == request.component_id
+                else ColumnExecutionRequest(target.component_id)
+            )
+            try:
+                materialized = _materialize_public_a5_column(
+                    request=component_request,
+                    context=context,
+                    target_column=target,
+                    topology_post=topology_post,
+                    frame_post=frame_post,
+                    flattened_combos=flattened_combos,
+                    selection=selection,
+                    definitions=definitions,
+                    execution_result=execution_result,
+                    execute_fnd2=execute_fnd2,
+                    reviewed_story_translation_tolerance=reviewed_story_translation_tolerance,
+                )
+            except PublicA5CompositionError as exc:
+                materialized = PublicA5ColumnMaterialization(
+                    request=component_request,
+                    column=_blocked_component(
+                        target.component_id,
+                        context,
+                        exc.blocker,
+                    ),
+                    free_length=None,
+                    canonical_second_order=None,
+                )
+            except Exception:
+                materialized = PublicA5ColumnMaterialization(
+                    request=component_request,
+                    column=_blocked_component(
+                        target.component_id,
+                        context,
+                        BLOCKER_A5_INPUT_MATERIALIZATION,
+                    ),
+                    free_length=None,
+                    canonical_second_order=None,
+                )
+            materializations.append(materialized)
+
+        return PublicA5PopulationExecution(
+            population_state=ColumnPopulationState.KNOWN,
+            acquisition_context=context,
+            focus_component_id=request.component_id,
+            focus_present=True,
+            topology=topology_post,
+            owned_scratch=owned_scratch,
+            analysis_execution=execution_result,
+            selected_combo_population=selection,
+            combo_definitions=tuple(definitions),
+            flattened_combos=tuple(flattened_combos),
+            columns=tuple(materializations),
+        )
+
     try:
-        inputs, free_length, canonical_second_order = _materialize_fnd2_inputs(
+        materialized = _materialize_public_a5_column(
             request=request,
             context=context,
             target_column=target_post,
             topology_post=topology_post,
-            frame_population=frame_post,
+            frame_post=frame_post,
             flattened_combos=flattened_combos,
             selection=selection,
             definitions=definitions,
             execution_result=execution_result,
+            execute_fnd2=execute_fnd2,
             reviewed_story_translation_tolerance=reviewed_story_translation_tolerance,
         )
-        column = execute_fnd2(
-            request,
-            model_fingerprint=context.model_fingerprint,
-            evidence_epoch_id=context.evidence_epoch_id,
-            fnd_col_2_inputs=inputs,
-        )
+        column = materialized.column
     except PublicA5CompositionError as exc:
         return _blocked(request, context, exc.blocker)
     except Exception:
@@ -1712,8 +2130,8 @@ def execute_public_a5_column(
         selected_combo_population=selection,
         combo_definitions=definitions,
         flattened_combos=flattened_combos,
-        free_length=free_length,
-        canonical_second_order=canonical_second_order,
+        free_length=materialized.free_length,
+        canonical_second_order=materialized.canonical_second_order,
     )
 
 
@@ -1725,6 +2143,11 @@ __all__ = [
     "BLOCKER_A4_B5",
     "BLOCKER_A4_POST_CONTINUITY",
     "BLOCKER_A5_INPUT_MATERIALIZATION",
+    "BLOCKER_A5_POPULATION_UNKNOWN",
+    "BLOCKER_A5_DUPLICATE_COMPONENT",
+    "BLOCKER_A5_REQUESTED_FOCUS_ABSENT",
+    "PublicA5ColumnMaterialization",
+    "PublicA5PopulationExecution",
     "PublicA5CompositionError",
     "execute_public_a5_column",
 ]

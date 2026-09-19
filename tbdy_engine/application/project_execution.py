@@ -8,6 +8,7 @@ Column authorities.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from tbdy_engine.application.column_design_basis import ReviewedColumnDesignBasis
@@ -20,7 +21,12 @@ from tbdy_engine.application.column_limited_shear_runtime import (
     ReviewedLimitedColumnShearRuntimeContext,
 )
 from tbdy_engine.application.column_vc_runtime import ReviewedColumnVcRuntimeContext
-from tbdy_engine.application.column_execution import ColumnDomainArtifact, execute_column_domain
+from tbdy_engine.application.column_execution import (
+    ColumnDomainArtifact,
+    ColumnPopulationExecution,
+    ColumnPopulationState,
+    execute_column_domain,
+)
 from tbdy_engine.application.contracts import ProjectExecutionRequest
 from tbdy_engine.coverage.column_denominator import (
     ColumnLeafOutcomeStatus,
@@ -65,9 +71,13 @@ class ProjectExecutionContractError(ValueError):
 class ProjectExecutionArtifact:
     project_id: str
     report_id: str
+    # Compatibility field: requested PRIMARY Column status only.
     status: str
     acquisition_context_ref: str
     column: ColumnDomainArtifact
+    columns: tuple[ColumnDomainArtifact, ...] = ()
+    population_state: ColumnPopulationState = ColumnPopulationState.UNKNOWN
+    population_blockers: tuple[str, ...] = ()
     column_denominator: SupportedColumnDenominator | None = None
     structural_assessment: StructuralAssessment | None = None
     reconciliation: ProjectCoverageReconciliation | None = None
@@ -92,8 +102,14 @@ def _report_contribution(column: ColumnDomainArtifact) -> SliceReportContributio
     readiness = column.fnd_col_2_execution.readiness
     fields = [
         ReportField(
+            key="summary_scope",
+            label="Summary scope",
+            value="PRIMARY_REQUESTED_COLUMN",
+            role="AUTHORITY",
+        ),
+        ReportField(
             key="application_status",
-            label="Column application status",
+            label="Primary requested Column application status",
             value=column.status,
             role="STATUS",
         )
@@ -389,7 +405,7 @@ def _report_contribution(column: ColumnDomainArtifact) -> SliceReportContributio
 
     return SliceReportContribution(
         slice_id=f"product-spine-col-1:readiness:{column.component_id}",
-        title="Column product vertical",
+        title="Primary requested Column summary",
         contribution_kind="REGULATORY",
         status=_report_status(column),
         component_type="COLUMN",
@@ -419,6 +435,63 @@ def _report_binding(
     return ReportBindingRef(source_ref, ReportContributionRef.from_contribution(contribution))
 
 
+_DESIGN_RESULT_REPORT_KEYS = (
+    "design_result_identity",
+)
+_ENGINE_SELECTED_REBAR_REPORT_KEYS = (
+    "selected_rebar_ref",
+    "selected_rebar_candidate_id",
+    "selected_rebar_geometry_fingerprint",
+    "selected_rebar_as_total_mm2",
+    "selected_rebar_rank",
+    "selected_rebar_bar_diameter_mm",
+    "selected_rebar_n_bars_dir2",
+    "selected_rebar_n_bars_dir3",
+    "selected_rebar_rho",
+)
+_TRANSVERSE_CONFINEMENT_REPORT_KEYS = (
+    "final_transverse_cage_authority",
+    "final_transverse_cage_semantic_role",
+    "final_transverse_tie_size_name",
+    "final_transverse_number_2_dir_tie_bars",
+    "final_transverse_number_3_dir_tie_bars",
+    "final_transverse_confinement_spacing_mm",
+    "final_transverse_middle_spacing_mm",
+    "final_transverse_shear_spacing_mm",
+    "final_transverse_confinement_region_length_mm",
+    "final_transverse_horizontal_leg_spacing_dir2_mm",
+    "final_transverse_horizontal_leg_spacing_dir3_mm",
+    "final_transverse_restrained_longitudinal_bar_spacing_mm",
+    "transverse_confinement_complete",
+)
+
+
+def _column_leaf_component_projection(
+    column: ColumnDomainArtifact | None,
+    leaf_key: str,
+) -> tuple[tuple[ReportField, ...], tuple[str, ...]]:
+    """Reuse the one existing A40 component projection; never redefine fields."""
+    if column is None or column.fnd_col_2_execution is None:
+        return (), ()
+    key_sets = {
+        "DESIGN_RESULT_IDENTITY_LINEAGE": _DESIGN_RESULT_REPORT_KEYS,
+        "ENGINE_SELECTED_REBAR": _ENGINE_SELECTED_REBAR_REPORT_KEYS,
+        "TRANSVERSE_CONFINEMENT": _TRANSVERSE_CONFINEMENT_REPORT_KEYS,
+    }
+    selected_keys = key_sets.get(leaf_key)
+    if selected_keys is None:
+        return (), ()
+
+    # `_report_contribution` remains the sole ReportField/evidence projection
+    # owner. The leaf view selects its already-projected canonical facts.
+    summary = _report_contribution(column)
+    by_key = {item.key: item for item in summary.summary_fields}
+    return (
+        tuple(by_key[key] for key in selected_keys if key in by_key),
+        tuple(summary.evidence_refs),
+    )
+
+
 _COLUMN_LEAF_REPORT_STATUS = {
     ColumnLeafOutcomeStatus.EXECUTED_PASS: "PASS",
     ColumnLeafOutcomeStatus.EXECUTED_FAIL: "FAIL",
@@ -432,6 +505,8 @@ _COLUMN_LEAF_REPORT_STATUS = {
 
 def _column_leaf_report_population(
     column_denominator: SupportedColumnDenominator,
+    *,
+    columns: Sequence[ColumnDomainArtifact] = (),
 ) -> tuple[
     tuple[SliceReportContribution, ...],
     tuple[ReportBindingRef, ...],
@@ -439,6 +514,25 @@ def _column_leaf_report_population(
     """Project A38 truth into passive report contributions/bindings only."""
     if not isinstance(column_denominator, SupportedColumnDenominator):
         raise TypeError("column_denominator must be SupportedColumnDenominator")
+    frozen_columns = tuple(columns)
+    if any(not isinstance(item, ColumnDomainArtifact) for item in frozen_columns):
+        raise TypeError("columns must contain ColumnDomainArtifact")
+    column_by_component = {
+        item.component_id: item
+        for item in frozen_columns
+    }
+    if len(column_by_component) != len(frozen_columns):
+        raise ProjectExecutionContractError(
+            "A40 rich Column population contains duplicate component identity"
+        )
+    if (
+        frozen_columns
+        and tuple(sorted(column_by_component))
+        != column_denominator.expected_component_ids
+    ):
+        raise ProjectExecutionContractError(
+            "A40 rich Column population does not exactly match A38 denominator"
+        )
 
     expected_by_id = {
         item.identity.value: item
@@ -479,7 +573,7 @@ def _column_leaf_report_population(
             ) from exc
 
         identity = outcome.identity
-        fields = (
+        base_fields = (
             ReportField(
                 key="column_leaf_identity",
                 label="Column denominator leaf identity",
@@ -571,6 +665,11 @@ def _column_leaf_report_population(
                 role="AUTHORITY",
             ),
         )
+        rich_fields, rich_evidence_refs = _column_leaf_component_projection(
+            column_by_component.get(identity.component_id),
+            identity.leaf_key,
+        )
+        fields = (*base_fields, *rich_fields)
 
         warnings = list(outcome.blocker_refs)
         if outcome.deferred_owner is not None:
@@ -585,7 +684,11 @@ def _column_leaf_report_population(
             component_id=identity.component_id,
             summary_fields=fields,
             authority_refs=outcome.dependency_refs,
-            evidence_refs=outcome.evidence_refs,
+            evidence_refs=tuple(
+                dict.fromkeys(
+                    (*outcome.evidence_refs, *rich_evidence_refs)
+                )
+            ),
             warnings=tuple(dict.fromkeys(warnings)),
             render_views=("ENGINEERING", "AUDIT"),
         )
@@ -632,6 +735,7 @@ def _build_closure_and_report(
     column: ColumnDomainArtifact,
     *,
     column_denominator: SupportedColumnDenominator,
+    columns: Sequence[ColumnDomainArtifact] | None = None,
     source_id: str,
     source_kind: ReportSourceKind,
     source_title: str,
@@ -644,7 +748,8 @@ def _build_closure_and_report(
     contribution = _report_contribution(column)
     binding = _report_binding(column, contribution)
     leaf_contributions, leaf_bindings = _column_leaf_report_population(
-        column_denominator
+        column_denominator,
+        columns=((column,) if columns is None else columns),
     )
     report_contributions = (contribution, *leaf_contributions)
     report_bindings = (binding, *leaf_bindings)
@@ -711,6 +816,7 @@ def _complete_project_from_canonical_column(
     column: ColumnDomainArtifact,
     *,
     column_denominator: SupportedColumnDenominator,
+    columns: Sequence[ColumnDomainArtifact] | None = None,
     acquisition_context_ref: str,
     source_id: str,
     source_kind: ReportSourceKind,
@@ -718,9 +824,11 @@ def _complete_project_from_canonical_column(
     source_locator: str | None,
     execution_mode_label: str,
 ) -> ProjectExecutionArtifact:
+    report_columns = (column,) if columns is None else tuple(columns)
     assessment, reconciliation, report = _build_closure_and_report(
         request,
         column,
+        columns=report_columns,
         column_denominator=column_denominator,
         source_id=source_id,
         source_kind=source_kind,
@@ -734,6 +842,8 @@ def _complete_project_from_canonical_column(
         status=column.status,
         acquisition_context_ref=acquisition_context_ref,
         column=column,
+        columns=report_columns,
+        population_state=ColumnPopulationState.KNOWN,
         column_denominator=column_denominator,
         structural_assessment=assessment,
         reconciliation=reconciliation,
@@ -862,13 +972,34 @@ def execute_project(
             reviewed_column_vc_context
         )
 
-    column = execute_column_domain(
+    population = execute_column_domain(
         request.column,
         **column_kwargs,
+        _population_mode=True,
     )
+    if not isinstance(population, ColumnPopulationExecution):
+        raise ProjectExecutionContractError(
+            "population-mode execute_column_domain returned unexpected artifact"
+        )
+    column = population.focus_column
+
+    if (
+        population.population_state is not ColumnPopulationState.KNOWN
+        or not population.focus_present
+    ):
+        return ProjectExecutionArtifact(
+            project_id=request.project_id,
+            report_id=request.report_id,
+            status=column.status,
+            acquisition_context_ref=context.acquisition_context_ref,
+            column=column,
+            columns=population.columns,
+            population_state=population.population_state,
+            population_blockers=population.blockers,
+        )
 
     column_denominator = compose_supported_column_denominator(
-        (column,),
+        population.columns,
         short_column_contexts=(
             ()
             if reviewed_column_short_column_context is None
@@ -883,12 +1014,16 @@ def execute_project(
             status=column.status,
             acquisition_context_ref=context.acquisition_context_ref,
             column=column,
+            columns=population.columns,
+            population_state=population.population_state,
+            population_blockers=population.blockers,
             column_denominator=column_denominator,
         )
 
     return _complete_project_from_canonical_column(
         request,
         column,
+        columns=population.columns,
         column_denominator=column_denominator,
         acquisition_context_ref=context.acquisition_context_ref,
         source_id=context.source_model_identity.source_model_ref,
