@@ -6,6 +6,9 @@ from types import SimpleNamespace
 
 import pytest
 
+from tbdy_engine.analysis_basis.eq713_uncracked_analysis_state import (
+    ContributorDisposition,
+)
 import tbdy_engine.application.column_public_a5 as a5
 import tbdy_engine.application.column_execution as column_execution
 import tbdy_engine.application.project_execution as project_execution
@@ -48,6 +51,13 @@ from tbdy_engine.providers.etabs_area_contributor_provider import AreaPropertyFa
 from tbdy_engine.providers.etabs_column_force_result_population_provider import (
     ColumnForcePopulationExpectation,
     ColumnForceResultPopulationFact,
+)
+from tbdy_engine.providers.etabs_frame_eq713_population_provider import (
+    FrameEq713ScopeFact,
+    FrameEq713ScopeStatus,
+)
+from tbdy_engine.providers.etabs_strict_column_topology_provider import (
+    EtabsStrictColumnTopologyEvidence,
 )
 
 
@@ -272,6 +282,7 @@ def product_harness(monkeypatch):
     frame_population = SimpleNamespace(
         expected_frame_names=("1",),
         rows=(frame_fact,),
+        out_of_slice_rows=(),
         source_refs=("frame-population:1", base.evidence_ref),
     )
     area_population = SimpleNamespace(
@@ -285,7 +296,14 @@ def product_harness(monkeypatch):
     monkeypatch.setattr(column_execution, "TrustedLiveAcquisitionContext", _FakeContext)
     monkeypatch.setattr(a5, "TrustedLiveAcquisitionContext", _FakeContext)
     monkeypatch.setattr(a5, "create_owned_scratch_context", lambda _context: owned)
-    monkeypatch.setattr(a5, "capture_etabs_strict_column_topology_from_session", lambda _session: topology)
+    monkeypatch.setattr(
+        a5,
+        "capture_etabs_strict_column_topology_from_session",
+        lambda _session, *, reviewed_length_unit: EtabsStrictColumnTopologyEvidence(
+            topology=topology,
+            table_row_counts=(),
+        ),
+    )
     monkeypatch.setattr(a5, "capture_frame_eq713_factual_population", lambda *_args, **_kwargs: frame_population)
     monkeypatch.setattr(a5, "capture_area_contributor_population_from_session", lambda *_args, **_kwargs: area_population)
 
@@ -483,10 +501,131 @@ def test_execute_project_reaches_real_fnd2_and_preserves_non_target_frame_slots(
     assert obj == (0.31, 1.0, 1.0, 0.64, 1.0, 1.0, 0.9, 0.8)
 
 
+def test_public_a5_strict_topology_calls_use_reviewed_m_unit(product_harness, monkeypatch):
+    reviewed_units = []
+    provider_evidence = []
+    target_topologies = []
+    frame_topologies = []
+    original_target_column = a5._target_column
+    original_frame_capture = a5.capture_frame_eq713_factual_population
+
+    def capture_topology(_session, *, reviewed_length_unit):
+        reviewed_units.append(reviewed_length_unit)
+        evidence = EtabsStrictColumnTopologyEvidence(
+            topology=product_harness.topology,
+            table_row_counts=(),
+        )
+        provider_evidence.append(evidence)
+        return evidence
+
+    def target_column_probe(topology, component_id):
+        target_topologies.append(topology)
+        return original_target_column(topology, component_id)
+
+    def frame_capture_probe(*args, **kwargs):
+        frame_topologies.append(args[2])
+        return original_frame_capture(*args, **kwargs)
+
+    monkeypatch.setattr(
+        a5,
+        "capture_etabs_strict_column_topology_from_session",
+        capture_topology,
+    )
+    monkeypatch.setattr(a5, "_target_column", target_column_probe)
+    monkeypatch.setattr(
+        a5,
+        "capture_frame_eq713_factual_population",
+        frame_capture_probe,
+    )
+
+    result = project_execution.execute_project(
+        product_harness.request,
+        verified_session=_FakeSession(),
+    )
+
+    assert result.column.fnd_col_2_execution is not None
+    assert reviewed_units == ["m", "m"]
+    assert len(provider_evidence) == 2
+    assert all(
+        isinstance(item, EtabsStrictColumnTopologyEvidence)
+        for item in provider_evidence
+    )
+    assert all(item.topology is product_harness.topology for item in provider_evidence)
+    assert all(not hasattr(item, "columns") for item in provider_evidence)
+    assert target_topologies == [product_harness.topology, product_harness.topology]
+    assert frame_topologies == [product_harness.topology, product_harness.topology]
+
+
+def test_out_of_slice_frame_becomes_exact_blocked_unsupported_a3_disposition(
+    product_harness,
+    monkeypatch,
+):
+    reason = (
+        "Frame 'STEEL1' assigned section 'HE160A' shape='Steel I/Wide Flange' "
+        "material='S355' is outside the supported prismatic rectangular RC factual slice"
+    )
+    scope = FrameEq713ScopeFact(
+        frame_name="STEEL1",
+        assigned_section_name="HE160A",
+        shape="Steel I/Wide Flange",
+        material_name="S355",
+        member_role="BEAM",
+        scope_status=FrameEq713ScopeStatus.OUT_OF_SLICE_UNSUPPORTED_SECTION_OR_MATERIAL,
+        reason=reason,
+        source_refs=("frame-scope:STEEL1",),
+    )
+    frame_population = SimpleNamespace(
+        expected_frame_names=("1", "STEEL1"),
+        rows=product_harness.frame_population.rows,
+        out_of_slice_rows=(scope,),
+        source_refs=(*product_harness.frame_population.source_refs, *scope.source_refs),
+    )
+
+    whole, _ = a5._build_a3(
+        frame_population=frame_population,
+        area_population=product_harness.area_population,
+        topology=product_harness.topology,
+    )
+    steel = next(
+        row for row in whole.frame_rows if row.component_uid == "STEEL1"
+    )
+    assert steel.blocked_reasons == (reason,)
+    assert all(
+        item.disposition is ContributorDisposition.BLOCKED_UNSUPPORTED
+        and item.reason == reason
+        for item in steel.mode_dispositions
+    )
+    with pytest.raises(
+        a5.PublicA5CompositionError,
+        match="STEEL1.*outside the supported prismatic rectangular RC factual slice",
+    ) as caught:
+        a5._raise_unqualified_a3(whole)
+    assert caught.value.blocker == a5.BLOCKER_A3_EQ713_POPULATION
+
+    monkeypatch.setattr(
+        a5,
+        "capture_frame_eq713_factual_population",
+        lambda *_args, **_kwargs: frame_population,
+    )
+    result = project_execution.execute_project(
+        product_harness.request,
+        verified_session=_FakeSession(),
+    )
+    assert result.column.blockers == (a5.BLOCKER_A3_EQ713_POPULATION,)
+    assert product_harness.runtime["run_calls"] == 0
+
+
 def test_unresolved_required_frame_mode_fails_closed_before_b4b(product_harness, monkeypatch):
     bad_column = _Column(top_coord_m=(1.0, 0.0, 3.0), coordinate_length_m=(10.0 ** 0.5))
     bad_topology = _Topology(bad_column)
-    monkeypatch.setattr(a5, "capture_etabs_strict_column_topology_from_session", lambda _session: bad_topology)
+    monkeypatch.setattr(
+        a5,
+        "capture_etabs_strict_column_topology_from_session",
+        lambda _session, *, reviewed_length_unit: EtabsStrictColumnTopologyEvidence(
+            topology=bad_topology,
+            table_row_counts=(),
+        ),
+    )
 
     result = project_execution.execute_project(product_harness.request, verified_session=_FakeSession())
 

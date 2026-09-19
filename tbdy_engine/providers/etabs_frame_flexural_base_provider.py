@@ -17,6 +17,7 @@ from decimal import Decimal, InvalidOperation
 import hashlib
 import json
 import ntpath
+from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 import uuid
 
@@ -48,6 +49,7 @@ FRAME_FLEXURAL_BASE_CAPTURE_EVENT_PREFIX = (
 SUPPORTED_FRAME_SECTION_SEMANTICS = "PRISMATIC_RECTANGULAR_RC_FRAME"
 
 _FRAME_FLEXURAL_BASE_FACT_ISSUANCE_TOKEN = object()
+_FRAME_FLEXURAL_BASE_SNAPSHOT_ISSUANCE_TOKEN = object()
 
 # CSI ETABS v1 eForce/eLength documented integer values. Present units are the
 # units used for data transmitted through the API; no unit setter is used here.
@@ -235,6 +237,151 @@ def _one(
 
 def _capture_event_ref() -> str:
     return FRAME_FLEXURAL_BASE_CAPTURE_EVENT_PREFIX + uuid.uuid4().hex
+
+
+def _freeze_rows(
+    rows: Sequence[Mapping[str, Any]],
+) -> tuple[Mapping[str, Any], ...]:
+    return tuple(MappingProxyType(dict(row)) for row in rows)
+
+
+def _index_unique_rows(
+    rows: Sequence[Mapping[str, Any]],
+    aliases: Sequence[str],
+    label: str,
+) -> Mapping[str, Mapping[str, Any]]:
+    index: dict[str, Mapping[str, Any]] = {}
+    for row in rows:
+        value = _pick(row, aliases, label, required=False)
+        if value in (None, ""):
+            raise FrameFlexuralBaseFactError(f"missing {label}")
+        key = _text(str(value).strip(), label)
+        if key in index:
+            raise FrameFlexuralBaseFactError(
+                f"duplicate {label} identity {key!r}"
+            )
+        index[key] = row
+    return MappingProxyType(index)
+
+
+@dataclass(frozen=True, slots=True, init=False)
+class FrameFlexuralBaseCaptureSnapshot:
+    """Provider-issued immutable five-table factual capture for Frame base facts."""
+
+    source_model_ref: str
+    ownership_proof_ref: str
+    acquisition_context_ref: str
+    session_provenance_ref: str
+    scratch_path: str
+    present_force_unit: int
+    present_length_unit: int
+    assignment_rows: tuple[Mapping[str, Any], ...]
+    rectangular_rows: tuple[Mapping[str, Any], ...]
+    section_summary_rows: tuple[Mapping[str, Any], ...]
+    basic_material_rows: tuple[Mapping[str, Any], ...]
+    concrete_rows: tuple[Mapping[str, Any], ...]
+    assignment_by_frame: Mapping[str, Mapping[str, Any]]
+    rectangular_by_section: Mapping[str, Mapping[str, Any]]
+    section_summary_by_section: Mapping[str, Mapping[str, Any]]
+    basic_material_by_name: Mapping[str, Mapping[str, Any]]
+    concrete_material_by_name: Mapping[str, Mapping[str, Any]]
+
+    def __init__(
+        self,
+        *,
+        _issuance_token: object = None,
+        source_model_ref: str,
+        ownership_proof_ref: str,
+        acquisition_context_ref: str,
+        session_provenance_ref: str,
+        scratch_path: str,
+        present_force_unit: int,
+        present_length_unit: int,
+        assignment_rows: Sequence[Mapping[str, Any]],
+        rectangular_rows: Sequence[Mapping[str, Any]],
+        section_summary_rows: Sequence[Mapping[str, Any]],
+        basic_material_rows: Sequence[Mapping[str, Any]],
+        concrete_rows: Sequence[Mapping[str, Any]],
+    ) -> None:
+        if _issuance_token is not _FRAME_FLEXURAL_BASE_SNAPSHOT_ISSUANCE_TOKEN:
+            raise TypeError(
+                "FrameFlexuralBaseCaptureSnapshot is provider-issued only; "
+                "use capture_frame_flexural_base_snapshot"
+            )
+        for name, value in (
+            ("source_model_ref", source_model_ref),
+            ("ownership_proof_ref", ownership_proof_ref),
+            ("acquisition_context_ref", acquisition_context_ref),
+            ("session_provenance_ref", session_provenance_ref),
+            ("scratch_path", scratch_path),
+        ):
+            object.__setattr__(self, name, _text(value, name))
+        if type(present_force_unit) is not int:
+            raise FrameFlexuralBaseFactError(
+                "present_force_unit must be an integer enum value"
+            )
+        if type(present_length_unit) is not int:
+            raise FrameFlexuralBaseFactError(
+                "present_length_unit must be an integer enum value"
+            )
+        object.__setattr__(self, "present_force_unit", present_force_unit)
+        object.__setattr__(self, "present_length_unit", present_length_unit)
+
+        frozen = {
+            "assignment_rows": _freeze_rows(assignment_rows),
+            "rectangular_rows": _freeze_rows(rectangular_rows),
+            "section_summary_rows": _freeze_rows(section_summary_rows),
+            "basic_material_rows": _freeze_rows(basic_material_rows),
+            "concrete_rows": _freeze_rows(concrete_rows),
+        }
+        for name, value in frozen.items():
+            object.__setattr__(self, name, value)
+
+        object.__setattr__(
+            self,
+            "assignment_by_frame",
+            _index_unique_rows(
+                frozen["assignment_rows"],
+                ("UniqueName", "Unique Name"),
+                "frame UniqueName",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "rectangular_by_section",
+            _index_unique_rows(
+                frozen["rectangular_rows"],
+                ("Name", "SectionName", "Section Name", "Property"),
+                "rectangular section",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "section_summary_by_section",
+            _index_unique_rows(
+                frozen["section_summary_rows"],
+                ("Name", "Section Name", "Property"),
+                "section summary",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "basic_material_by_name",
+            _index_unique_rows(
+                frozen["basic_material_rows"],
+                ("Material", "Name"),
+                "basic material",
+            ),
+        )
+        object.__setattr__(
+            self,
+            "concrete_material_by_name",
+            _index_unique_rows(
+                frozen["concrete_rows"],
+                ("Material", "Name"),
+                "concrete material",
+            ),
+        )
 
 
 @dataclass(frozen=True, slots=True, init=False)
@@ -470,18 +617,16 @@ def _issue_frame_flexural_base_fact(
     )
 
 
-def capture_frame_flexural_base_fact(
+def capture_frame_flexural_base_snapshot(
     *,
     context: TrustedLiveAcquisitionContext,
     owned_scratch: OwnedScratchContext,
-    component_unique_name: str,
-) -> FrameFlexuralBaseFact:
-    """Read one frame's immutable base-model flexural facts from the owned scratch."""
+) -> FrameFlexuralBaseCaptureSnapshot:
+    """Capture the five exact factual tables once for one verified owned scratch."""
     if not isinstance(context, TrustedLiveAcquisitionContext):
         raise TypeError("context must be TrustedLiveAcquisitionContext")
     if not isinstance(owned_scratch, OwnedScratchContext):
         raise TypeError("owned_scratch must be OwnedScratchContext")
-    component = _text(component_unique_name, "component_unique_name")
     if context.source_model_identity != owned_scratch.source_model_identity:
         raise FrameFlexuralBaseFactError(
             "owned scratch/context source-model binding mismatch"
@@ -506,17 +651,59 @@ def capture_frame_flexural_base_fact(
         )
 
     assignment_rows = _rows(context, TABLE_FRAME_ASSIGNMENTS)
-    rectangle_rows = _rows(context, TABLE_RECTANGULAR)
-    section_rows = _rows(context, TABLE_FRAME_SECTION_SUMMARY)
+    rectangular_rows = _rows(context, TABLE_RECTANGULAR)
+    section_summary_rows = _rows(context, TABLE_FRAME_SECTION_SUMMARY)
     basic_material_rows = _rows(context, TABLE_BASIC_MATERIAL)
     concrete_rows = _rows(context, TABLE_CONCRETE)
 
-    assignment = _one(
-        assignment_rows,
-        ("UniqueName", "Unique Name"),
-        component,
-        "frame UniqueName",
+    units_after = read_verified_unit_snapshot(context.verified_session)
+    identity_after = reread_verified_session_identity(
+        context.verified_session
     )
+    if units_after != units_before:
+        raise FrameFlexuralBaseFactError(
+            "ETABS API unit state changed during factual capture"
+        )
+    if _canonical_path(identity_after.model_full_path) != _canonical_path(
+        owned_scratch.scratch_path
+    ):
+        raise FrameFlexuralBaseFactError(
+            "active ETABS model changed during factual capture"
+        )
+
+    return FrameFlexuralBaseCaptureSnapshot(
+        _issuance_token=_FRAME_FLEXURAL_BASE_SNAPSHOT_ISSUANCE_TOKEN,
+        source_model_ref=context.source_model_identity.source_model_ref,
+        ownership_proof_ref=owned_scratch.ownership_proof_ref,
+        acquisition_context_ref=context.acquisition_context_ref,
+        session_provenance_ref=context.session_provenance_ref,
+        scratch_path=owned_scratch.scratch_path,
+        present_force_unit=pf,
+        present_length_unit=pl,
+        assignment_rows=assignment_rows,
+        rectangular_rows=rectangular_rows,
+        section_summary_rows=section_summary_rows,
+        basic_material_rows=basic_material_rows,
+        concrete_rows=concrete_rows,
+    )
+
+
+def bind_frame_flexural_base_fact_from_snapshot(
+    snapshot: FrameFlexuralBaseCaptureSnapshot,
+    component_unique_name: str,
+) -> FrameFlexuralBaseFact:
+    """Bind one existing FrameFlexuralBaseFact from one immutable provider snapshot."""
+    if not isinstance(snapshot, FrameFlexuralBaseCaptureSnapshot):
+        raise TypeError(
+            "snapshot must be FrameFlexuralBaseCaptureSnapshot"
+        )
+    component = _text(component_unique_name, "component_unique_name")
+
+    assignment = snapshot.assignment_by_frame.get(component)
+    if assignment is None:
+        raise FrameFlexuralBaseFactError(
+            f"expected exactly one frame UniqueName={component!r}; got 0"
+        )
     section = _text(
         str(
             _pick(
@@ -527,18 +714,16 @@ def capture_frame_flexural_base_fact(
         ).strip(),
         "assigned_section_name",
     )
-    rectangle = _one(
-        rectangle_rows,
-        ("Name", "SectionName", "Section Name", "Property"),
-        section,
-        "rectangular section",
-    )
-    section_summary = _one(
-        section_rows,
-        ("Name", "Section Name", "Property"),
-        section,
-        "section summary",
-    )
+    rectangle = snapshot.rectangular_by_section.get(section)
+    if rectangle is None:
+        raise FrameFlexuralBaseFactError(
+            f"expected exactly one rectangular section={section!r}; got 0"
+        )
+    section_summary = snapshot.section_summary_by_section.get(section)
+    if section_summary is None:
+        raise FrameFlexuralBaseFactError(
+            f"expected exactly one section summary={section!r}; got 0"
+        )
     shape = str(
         _pick(section_summary, ("Shape",), "section shape")
     ).strip().casefold()
@@ -577,26 +762,25 @@ def capture_frame_flexural_base_fact(
             "section summary material"
         )
 
-    basic = _one(
-        basic_material_rows,
-        ("Material", "Name"),
-        material,
-        "basic material",
-    )
-    concrete = _one(
-        concrete_rows,
-        ("Material", "Name"),
-        material,
-        "concrete material",
-    )
+    basic = snapshot.basic_material_by_name.get(material)
+    if basic is None:
+        raise FrameFlexuralBaseFactError(
+            f"expected exactly one basic material={material!r}; got 0"
+        )
+    concrete = snapshot.concrete_material_by_name.get(material)
+    if concrete is None:
+        raise FrameFlexuralBaseFactError(
+            f"expected exactly one concrete material={material!r}; got 0"
+        )
+
     t2_mm = _length_to_mm(
         _pick(rectangle, ("t2", "T2", "Width"), "t2"),
-        pl,
+        snapshot.present_length_unit,
         "t2",
     )
     t3_mm = _length_to_mm(
         _pick(rectangle, ("t3", "T3", "Depth"), "t3"),
-        pl,
+        snapshot.present_length_unit,
         "t3",
     )
     ec_mpa = _stress_to_mpa(
@@ -605,8 +789,8 @@ def capture_frame_flexural_base_fact(
             ("E1", "Elastic Modulus", "Modulus of Elasticity", "E"),
             "E1",
         ),
-        pf,
-        pl,
+        snapshot.present_force_unit,
+        snapshot.present_length_unit,
         "E1",
     )
     fck_mpa = _stress_to_mpa(
@@ -615,25 +799,10 @@ def capture_frame_flexural_base_fact(
             ("Fc", "fck", "Concrete Strength"),
             "Fc",
         ),
-        pf,
-        pl,
+        snapshot.present_force_unit,
+        snapshot.present_length_unit,
         "Fc",
     )
-
-    units_after = read_verified_unit_snapshot(context.verified_session)
-    identity_after = reread_verified_session_identity(
-        context.verified_session
-    )
-    if units_after != units_before:
-        raise FrameFlexuralBaseFactError(
-            "ETABS API unit state changed during factual capture"
-        )
-    if _canonical_path(identity_after.model_full_path) != _canonical_path(
-        owned_scratch.scratch_path
-    ):
-        raise FrameFlexuralBaseFactError(
-            "active ETABS model changed during factual capture"
-        )
 
     source_rows = (
         (TABLE_FRAME_ASSIGNMENTS, assignment),
@@ -650,13 +819,13 @@ def capture_frame_flexural_base_fact(
         t3_mm=t3_mm,
         concrete_fck_mpa=fck_mpa,
         etabs_ec_mpa=ec_mpa,
-        source_model_ref=context.source_model_identity.source_model_ref,
-        ownership_proof_ref=owned_scratch.ownership_proof_ref,
-        acquisition_context_ref=context.acquisition_context_ref,
-        session_provenance_ref=context.session_provenance_ref,
+        source_model_ref=snapshot.source_model_ref,
+        ownership_proof_ref=snapshot.ownership_proof_ref,
+        acquisition_context_ref=snapshot.acquisition_context_ref,
+        session_provenance_ref=snapshot.session_provenance_ref,
         capture_event_ref=_capture_event_ref(),
-        present_force_unit=pf,
-        present_length_unit=pl,
+        present_force_unit=snapshot.present_force_unit,
+        present_length_unit=snapshot.present_length_unit,
         source_rows=source_rows,
         source_refs=tuple(
             _row_ref(table, row)
@@ -665,10 +834,30 @@ def capture_frame_flexural_base_fact(
     )
 
 
+def capture_frame_flexural_base_fact(
+    *,
+    context: TrustedLiveAcquisitionContext,
+    owned_scratch: OwnedScratchContext,
+    component_unique_name: str,
+) -> FrameFlexuralBaseFact:
+    """Canonical single-item API: capture one snapshot, then bind one fact."""
+    snapshot = capture_frame_flexural_base_snapshot(
+        context=context,
+        owned_scratch=owned_scratch,
+    )
+    return bind_frame_flexural_base_fact_from_snapshot(
+        snapshot,
+        component_unique_name,
+    )
+
+
 __all__ = [
     "FRAME_FLEXURAL_BASE_FACT_CONTRACT",
     "SUPPORTED_FRAME_SECTION_SEMANTICS",
+    "FrameFlexuralBaseCaptureSnapshot",
     "FrameFlexuralBaseFact",
     "FrameFlexuralBaseFactError",
+    "bind_frame_flexural_base_fact_from_snapshot",
     "capture_frame_flexural_base_fact",
+    "capture_frame_flexural_base_snapshot",
 ]

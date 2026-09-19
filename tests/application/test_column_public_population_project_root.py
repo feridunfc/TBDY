@@ -56,6 +56,9 @@ from tbdy_engine.providers.etabs_column_force_result_population_provider import 
     ColumnForcePopulationExpectation,
     ColumnForceResultPopulationFact,
 )
+from tbdy_engine.providers.etabs_strict_column_topology_provider import (
+    EtabsStrictColumnTopologyEvidence,
+)
 
 
 COMPONENT_1 = "Story1:C1:1"
@@ -168,6 +171,7 @@ def _install_two_column_harness(monkeypatch):
     frame_population = SimpleNamespace(
         expected_frame_names=("1", "2"),
         rows=(frame_1, frame_2),
+        out_of_slice_rows=(),
         source_refs=(
             "frame-population:1-2",
             base_1.evidence_ref,
@@ -185,7 +189,10 @@ def _install_two_column_harness(monkeypatch):
     monkeypatch.setattr(
         a5,
         "capture_etabs_strict_column_topology_from_session",
-        lambda _session: topology,
+        lambda _session, *, reviewed_length_unit: EtabsStrictColumnTopologyEvidence(
+            topology=topology,
+            table_row_counts=(),
+        ),
     )
     monkeypatch.setattr(
         a5,
@@ -794,8 +801,11 @@ def test_duplicate_factual_component_identity_is_population_unknown(
     monkeypatch.setattr(
         a5,
         "capture_etabs_strict_column_topology_from_session",
-        lambda _session: SimpleNamespace(
-            columns=(setup.columns[0], duplicate)
+        lambda _session, *, reviewed_length_unit: EtabsStrictColumnTopologyEvidence(
+            topology=SimpleNamespace(
+                columns=(setup.columns[0], duplicate)
+            ),
+            table_row_counts=(),
         ),
     )
 

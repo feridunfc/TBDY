@@ -18,7 +18,10 @@ from tbdy_engine.analysis_basis.eq713_uncracked_analysis_state import (
     AreaStiffnessMode,
     ContributorDisposition,
     Eq713PopulationDisposition,
+    FrameModeAuditDisposition,
     FrameStiffnessMode,
+    ModeDisposition,
+    TS500_EQ713_SOURCE_REF,
     WallRole,
     audit_frame_eq713_modes,
     build_area_eq713_target,
@@ -101,6 +104,7 @@ from tbdy_engine.providers.etabs_eq713_response_provider import (
 from tbdy_engine.providers.etabs_frame_eq713_population_provider import (
     FrameEq713FactualFact,
     FrameEq713FactualPopulation,
+    FrameEq713ScopeFact,
     capture_frame_eq713_factual_population,
 )
 from tbdy_engine.providers.etabs_strict_column_topology_provider import (
@@ -407,36 +411,33 @@ def _frame_mechanics_evidence(
             source_refs=(*row.source_refs, mechanics_ref),
         )
 
-    beams = {}
-    for column in topology.columns:
-        for beam in (*column.beams_at_bottom, *column.beams_at_top):
-            beams.setdefault(beam.beam_unique_name, beam)
-    beam = beams.get(row.frame_name)
-    if beam is None or not beam.is_supported_rc_beam:
+    beam = row.beam_mechanics
+    if beam is None:
         raise PublicA5CompositionError(
             BLOCKER_A3_EQ713_POPULATION,
-            f"BEAM Frame {row.frame_name!r} lacks supported strict-topology mechanics",
+            f"BEAM Frame {row.frame_name!r} lacks exact full-model factual mechanics",
         )
-    if (
-        beam.width_t2_m is None
-        or beam.depth_t3_m is None
-        or beam.width_t2_m <= 0.0
-        or beam.depth_t3_m <= 0.0
-        or not any(abs(value) > 0.0 for value in beam.vector_from_joint_m)
-    ):
-        raise PublicA5CompositionError(
-            BLOCKER_A3_EQ713_POPULATION,
-            f"BEAM Frame {row.frame_name!r} has unresolved/non-positive strict geometry",
-        )
-    mechanics_ref = f"{_FRAME_MECHANICS_REF_PREFIX}:BEAM:{row.frame_name}:CONNECTED_3D_FRAME"
+    mechanics_ref = (
+        f"{_FRAME_MECHANICS_REF_PREFIX}:BEAM:{row.frame_name}:"
+        f"FULL_MODEL_ENDPOINT_VECTOR:"
+        f"LOCAL_AXIS_EXPLICIT={beam.local_axis_explicit}:"
+        f"ANGLE={beam.local_axis_angle_degrees}"
+    )
     return FrameMechanicsEvidence(
         component_uid=row.frame_name,
         member_role=row.member_role,
-        member_axis_vector=tuple(float(value) for value in beam.vector_from_joint_m),
+        member_axis_vector=tuple(
+            float(value)
+            for value in beam.member_axis_vector
+        ),
         supported_end_condition=row.supported_end_condition,
-        local_axis_explicit=False,
-        local_axis_angle_degrees=None,
-        source_refs=(*row.source_refs, mechanics_ref),
+        local_axis_explicit=beam.local_axis_explicit,
+        local_axis_angle_degrees=beam.local_axis_angle_degrees,
+        source_refs=(
+            *row.source_refs,
+            *beam.source_refs,
+            mechanics_ref,
+        ),
     )
 
 
@@ -462,6 +463,31 @@ def _material_bases(frame_population: FrameEq713FactualPopulation):
             )
         by_material[basis.material_name] = basis
     return by_material
+
+
+def _out_of_slice_frame_disposition(
+    scope: FrameEq713ScopeFact,
+) -> FrameModeAuditDisposition:
+    if not isinstance(scope, FrameEq713ScopeFact):
+        raise TypeError("scope must be FrameEq713ScopeFact")
+    refs = tuple(
+        dict.fromkeys((*scope.source_refs, TS500_EQ713_SOURCE_REF))
+    )
+    rows = tuple(
+        ModeDisposition(
+            mode,
+            ContributorDisposition.BLOCKED_UNSUPPORTED,
+            scope.reason,
+            refs,
+        )
+        for mode in FrameStiffnessMode
+    )
+    return FrameModeAuditDisposition(
+        component_uid=scope.frame_name,
+        mode_dispositions=rows,
+        blocked_reasons=(scope.reason,),
+        source_refs=refs,
+    )
 
 
 def _area_evidence(
@@ -671,6 +697,19 @@ def _build_a3(
                 material_basis=basis,
                 source_refs=(*fact.source_refs, *classification.source_refs),
             )
+        )
+    frame_rows.extend(
+        _out_of_slice_frame_disposition(scope)
+        for scope in frame_population.out_of_slice_rows
+    )
+    observed_frame_scope = tuple(
+        sorted(row.component_uid for row in frame_rows)
+    )
+    if observed_frame_scope != frame_population.expected_frame_names:
+        raise PublicA5CompositionError(
+            BLOCKER_A3_EQ713_POPULATION,
+            "A3 Frame disposition population does not exactly reconcile to "
+            "the factual FrameObj universe",
         )
 
     area_evidence = tuple(_area_evidence(fact, material_bases) for fact in area_population.rows)
@@ -1235,7 +1274,11 @@ def _prove_post_continuity(
             execution_result=execution_result,
         )
 
-    topology_post = capture_etabs_strict_column_topology_from_session(context.verified_session)
+    topology_post_evidence = capture_etabs_strict_column_topology_from_session(
+        context.verified_session,
+        reviewed_length_unit="m",
+    )
+    topology_post = topology_post_evidence.topology
     target_post = _target_column(topology_post, target_column.component_id)
     if verify_full_population:
         pre_columns = tuple(topology_pre.columns)
@@ -1768,7 +1811,11 @@ def execute_public_a5_column(
     topology_pre = None
     try:
         owned_scratch = create_owned_scratch_context(context)
-        topology_pre = capture_etabs_strict_column_topology_from_session(context.verified_session)
+        topology_pre_evidence = capture_etabs_strict_column_topology_from_session(
+            context.verified_session,
+            reviewed_length_unit="m",
+        )
+        topology_pre = topology_pre_evidence.topology
         if materialize_full_population:
             factual_component_ids = tuple(
                 item.component_id for item in topology_pre.columns

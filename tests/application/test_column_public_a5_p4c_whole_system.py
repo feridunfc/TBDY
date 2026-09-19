@@ -81,7 +81,11 @@ def test_build_a3_preserves_every_factual_frame_and_area_identity_once(monkeypat
             ("NULL-1", AreaFormulation.OTHER),
         )
     )
-    frame_population = SimpleNamespace(expected_frame_names=("B1", "C1"), rows=frame_facts)
+    frame_population = SimpleNamespace(
+        expected_frame_names=("B1", "C1"),
+        rows=frame_facts,
+        out_of_slice_rows=(),
+    )
     area_population = SimpleNamespace(
         expected_area_names=("F-MEM", "F-SHELL", "NULL-1", "W-SHELL"),
         rows=area_facts,

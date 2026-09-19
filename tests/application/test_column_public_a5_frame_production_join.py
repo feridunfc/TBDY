@@ -13,6 +13,12 @@ from tbdy_engine.etabs.oapi.frame_modifiers import (
 )
 from tbdy_engine.etabs.oapi.frame_section_mechanics import FrameSectionMechanicsFact
 from tbdy_engine.etabs.oapi.material_properties import IsotropicMaterialPropertiesFact
+from tbdy_engine.providers.etabs_frame_eq713_population_provider import (
+    FrameEq713BeamMechanicsFact,
+)
+from tbdy_engine.providers.etabs_strict_column_topology_provider import (
+    EtabsStrictColumnTopologyEvidence,
+)
 from tests.application import test_column_public_a5_product_path as base
 
 
@@ -29,7 +35,14 @@ def _configure(monkeypatch, *, zero_v2: bool):
     )
     column = replace(harness.column, beams_at_top=(beam_topology,))
     topology = base._Topology(column)
-    monkeypatch.setattr(a5, "capture_etabs_strict_column_topology_from_session", lambda _session: topology)
+    monkeypatch.setattr(
+        a5,
+        "capture_etabs_strict_column_topology_from_session",
+        lambda _session, *, reviewed_length_unit: EtabsStrictColumnTopologyEvidence(
+            topology=topology,
+            table_row_counts=(),
+        ),
+    )
 
     beam_base = replace(
         column_fact.base_fact,
@@ -73,9 +86,24 @@ def _configure(monkeypatch, *, zero_v2: bool):
         modifiers=object_initial,
         return_code=0,
     )
+    beam_mechanics = FrameEq713BeamMechanicsFact(
+        frame_name="B1",
+        member_role="BEAM",
+        story="Story1",
+        label="B1",
+        point_i_unique_name="B1-I",
+        point_j_unique_name="B1-J",
+        point_i_coord_m=(0.0, 0.0, 0.0),
+        point_j_coord_m=(4.0, 0.0, 0.0),
+        member_axis_vector=(4.0, 0.0, 0.0),
+        local_axis_explicit=False,
+        local_axis_angle_degrees=None,
+        source_refs=("beam-mechanics:B1",),
+    )
     beam_fact = SimpleNamespace(
         frame_name="B1",
         member_role="BEAM",
+        beam_mechanics=beam_mechanics,
         base_fact=beam_base,
         section_mechanics=section,
         property_modifiers=property_fact,
@@ -98,6 +126,7 @@ def _configure(monkeypatch, *, zero_v2: bool):
     frame_population = SimpleNamespace(
         expected_frame_names=("1", "B1"),
         rows=(column_fact, beam_fact),
+        out_of_slice_rows=(),
         source_refs=(*harness.frame_population.source_refs, "frame-population:B1"),
     )
     monkeypatch.setattr(a5, "capture_frame_eq713_factual_population", lambda *_args, **_kwargs: frame_population)
