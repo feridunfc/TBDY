@@ -48,6 +48,21 @@ _COVERAGE_LABELS = {
     "mandatory_closure_complete": "Mandatory closure complete",
     "population_reconciled": "Population reconciled",
     "report_reconciled": "Report reconciled",
+    "column_expected_instance_count": "Column expected leaves",
+    "column_accounted_instance_count": "Column accounted leaves",
+    "column_executed_pass_count": "Column executed PASS",
+    "column_executed_fail_count": "Column executed FAIL",
+    "column_proven_not_applicable_count": "Column proven not applicable",
+    "column_blocked_count": "Column blocked",
+    "column_no_data_count": "Column no data",
+    "column_explicit_unresolved_count": "Column explicitly unresolved",
+    "column_reanalysis_required_count": "Column reanalysis required",
+    "column_deferred_cross_domain_count": "Column deferred cross-domain",
+    "column_silent_missing_count": "Column silent missing",
+    "column_duplicate_count": "Column duplicate outcomes",
+    "column_orphan_count": "Column orphan outcomes",
+    "column_partition_complete": "Column denominator partition complete",
+    "column_population_reconciled": "Column population reconciled",
 }
 
 _ATTENTION_STATUSES = frozenset(

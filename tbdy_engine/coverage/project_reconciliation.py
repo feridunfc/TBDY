@@ -26,6 +26,7 @@ from tbdy_engine.coverage.column_denominator import (
     ColumnLeafOutcome,
     ColumnLeafOutcomeStatus,
     SupportedColumnDenominator,
+    canonical_column_leaf_source_ref,
 )
 from tbdy_engine.findings.contracts import Finding
 from tbdy_engine.product_reports.slice_report_contribution import SliceReportContribution
@@ -1114,11 +1115,20 @@ class ProjectCoverageReconciler:
             canonical_closure_report_source_ref(outcome.compiled_record_ref)
             for outcome in assessment.closure_outcomes
         }
+        canonical_column_report_sources = (
+            set()
+            if column_denominator is None
+            else {
+                canonical_column_leaf_source_ref(item.identity)
+                for item in column_denominator.expected_leaves
+            }
+        )
         canonical_report_sources = (
             canonical_formal_result_refs
             | canonical_quantity_refs
             | canonical_closure_refs
             | canonical_finding_ids
+            | canonical_column_report_sources
         )
 
         required_report = _unique_texts(required_report_source_refs, "required_report_source_refs")

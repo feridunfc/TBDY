@@ -17,6 +17,7 @@ import json
 import math
 from typing import Any, Sequence
 
+from tbdy_engine.coverage.column_denominator import canonical_column_leaf_source_ref
 from tbdy_engine.coverage.project_reconciliation import (
     ProjectCoverageReconciliation,
     ReportBindingRef,
@@ -228,6 +229,11 @@ def mandatory_report_source_refs(
             )
         else:
             refs.append(canonical_closure_report_source_ref(instance_id))
+
+    refs.extend(
+        canonical_column_leaf_source_ref(identity)
+        for identity in reconciliation.column_expected_leaf_ids
+    )
 
     if len(refs) != len(set(refs)):
         raise BuildingReportIntegrityError("mandatory canonical report-source identities must be unique")
