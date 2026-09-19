@@ -104,6 +104,7 @@ from tbdy_engine.regulatory.fnd_col_2_program import (
 )
 from tbdy_engine.regulatory.vs5_column_axial_program import (
     ReviewedVs5ColumnAxialContext,
+    VS5ColumnAxialRun,
     run_vs5_column_axial,
 )
 from tbdy_engine.features.column_shear_demand_evidence import (
@@ -162,6 +163,7 @@ class ColumnDomainArtifact:
     longitudinal_selection: object | None = None
     longitudinal_runtime: ColumnLongitudinalRuntimeComposition | None = None
     transverse_confinement: ColumnTransverseConfinementResult | None = None
+    column_axial_vs5: VS5ColumnAxialRun | None = None
     column_shear_p7: VS6P7ColumnShearRun | None = None
     column_shear_limited: LimitedColumnShearRun | None = None
     column_shear_evidence: ColumnShearDemandEvidenceBundle | None = None
@@ -613,6 +615,76 @@ def _build_exact_combo_basis_bindings(
     )
 
 
+def _run_a36_vs5_axial(
+    *,
+    column: ColumnDomainArtifact,
+    runtime: ColumnLongitudinalRuntimeComposition,
+    acquisition_context: TrustedLiveAcquisitionContext,
+    analysis_execution: AnalysisExecutionResult,
+    topology,
+    flattened_combos,
+    reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext,
+) -> VS5ColumnAxialRun:
+    # Execute the existing source-bound VS5 owner once and retain its truth.
+    if not isinstance(
+        reviewed_vs5_column_axial_context,
+        ReviewedVs5ColumnAxialContext,
+    ):
+        raise TypeError(
+            "reviewed_vs5_column_axial_context must be ReviewedVs5ColumnAxialContext"
+        )
+
+    target = runtime.target_topology
+    basis = runtime.bound_design_basis
+    evidence = capture_b5_bound_column_axial_evidence(
+        session=acquisition_context.verified_session,
+        analysis_execution=analysis_execution,
+        topology=topology,
+        target=target,
+        material_context=basis.material_context,
+        model_fingerprint=column.model_fingerprint,
+        evidence_epoch_id=column.evidence_epoch_id,
+        reviewed=reviewed_vs5_column_axial_context,
+        flattened_combos=flattened_combos,
+    )
+    if evidence.model_fingerprint != column.model_fingerprint:
+        raise ColumnExecutionContractError(
+            "A36 VS5 factual bundle model identity mismatch"
+        )
+    if evidence.evidence_epoch_id != column.evidence_epoch_id:
+        raise ColumnExecutionContractError(
+            "A36 VS5 factual bundle EvidenceEpoch mismatch"
+        )
+
+    vs5 = run_vs5_column_axial(
+        evidence=evidence,
+        reviewed=reviewed_vs5_column_axial_context,
+        unique_name=target.unique_name,
+    )
+    nd = vs5.ts500_demand
+    if (
+        nd.availability is not ColumnDemandAvailability.RESOLVED
+        or nd.demand_kn is None
+    ):
+        raise ColumnExecutionContractError(
+            "A36 requires source-bound RESOLVED VS5 TS500 Nd"
+        )
+
+    reviewed_high = (
+        reviewed_vs5_column_axial_context
+        .tbdy_7312_high_ductility_applies
+    )
+    if (
+        reviewed_high is not None
+        and basis.high_ductility_applies is not None
+        and reviewed_high != basis.high_ductility_applies
+    ):
+        raise ColumnExecutionContractError(
+            "A36 VS5/design-basis high-ductility applicability mismatch"
+        )
+    return vs5
+
+
 def _compose_a36_transverse_input(
     *,
     column: ColumnDomainArtifact,
@@ -722,54 +794,27 @@ def _compose_a36_transverse_input(
             "A36 confined core Ack must be smaller than gross Ac"
         )
 
-    evidence = capture_b5_bound_column_axial_evidence(
-        session=acquisition_context.verified_session,
-        analysis_execution=analysis_execution,
-        topology=topology,
-        target=target,
-        material_context=basis.material_context,
-        model_fingerprint=column.model_fingerprint,
-        evidence_epoch_id=column.evidence_epoch_id,
-        reviewed=reviewed_vs5_column_axial_context,
-        flattened_combos=flattened_combos,
-    )
-
-    if evidence.model_fingerprint != column.model_fingerprint:
-        raise ColumnExecutionContractError(
-            "A36 VS5 factual bundle model identity mismatch"
+    vs5 = column.column_axial_vs5
+    if vs5 is None:
+        # Backward-compatible direct materializer seam used by focused A36
+        # tests/tools. Production A38 flow pre-retains this exact run on the
+        # ColumnDomainArtifact, so production still executes VS5 only once.
+        vs5 = _run_a36_vs5_axial(
+            column=column,
+            runtime=runtime,
+            acquisition_context=acquisition_context,
+            analysis_execution=analysis_execution,
+            topology=topology,
+            flattened_combos=flattened_combos,
+            reviewed_vs5_column_axial_context=(
+                reviewed_vs5_column_axial_context
+            ),
         )
-    if evidence.evidence_epoch_id != column.evidence_epoch_id:
+    elif not isinstance(vs5, VS5ColumnAxialRun):
         raise ColumnExecutionContractError(
-            "A36 VS5 factual bundle EvidenceEpoch mismatch"
+            "A36 retained VS5 axial artifact has invalid type"
         )
-
-    vs5 = run_vs5_column_axial(
-        evidence=evidence,
-        reviewed=reviewed_vs5_column_axial_context,
-        unique_name=target.unique_name,
-    )
-
     nd = vs5.ts500_demand
-    if (
-        nd.availability is not ColumnDemandAvailability.RESOLVED
-        or nd.demand_kn is None
-    ):
-        raise ColumnExecutionContractError(
-            "A36 requires source-bound RESOLVED VS5 TS500 Nd"
-        )
-
-    reviewed_high = (
-        reviewed_vs5_column_axial_context
-        .tbdy_7312_high_ductility_applies
-    )
-    if (
-        reviewed_high is not None
-        and basis.high_ductility_applies is not None
-        and reviewed_high != basis.high_ductility_applies
-    ):
-        raise ColumnExecutionContractError(
-            "A36 VS5/design-basis high-ductility applicability mismatch"
-        )
 
     # CSI GetRebarColumn proves directional tie-leg design intent, but the
     # canonical provider explicitly does NOT promote that evidence to
@@ -989,9 +1034,26 @@ def _continue_selected_column_into_a36(
             ),
         )
 
+    axial_column = column
     try:
-        transverse_input = _compose_a36_transverse_input(
+        vs5 = _run_a36_vs5_axial(
             column=column,
+            runtime=runtime,
+            acquisition_context=acquisition_context,
+            analysis_execution=analysis_execution,
+            topology=topology,
+            flattened_combos=flattened_combos,
+            reviewed_vs5_column_axial_context=(
+                reviewed_vs5_column_axial_context
+            ),
+        )
+        axial_column = replace(
+            column,
+            column_axial_vs5=vs5,
+        )
+
+        transverse_input = _compose_a36_transverse_input(
+            column=axial_column,
             runtime=runtime,
             acquisition_context=acquisition_context,
             analysis_execution=analysis_execution,
@@ -1011,14 +1073,14 @@ def _continue_selected_column_into_a36(
         )
 
         return _compose_lane_c_after_qualified_design(
-            column,
+            axial_column,
             transverse_input=transverse_input,
             design_lineage=controlled_design_result.design_lineage,
         )
 
     except Exception as exc:
         return replace(
-            column,
+            axial_column,
             status=STATUS_APPLICATION_BLOCKED,
             blockers=tuple(
                 dict.fromkeys(

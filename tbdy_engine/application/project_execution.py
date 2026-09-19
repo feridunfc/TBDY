@@ -22,6 +22,10 @@ from tbdy_engine.application.column_limited_shear_runtime import (
 from tbdy_engine.application.column_vc_runtime import ReviewedColumnVcRuntimeContext
 from tbdy_engine.application.column_execution import ColumnDomainArtifact, execute_column_domain
 from tbdy_engine.application.contracts import ProjectExecutionRequest
+from tbdy_engine.coverage.column_denominator import (
+    SupportedColumnDenominator,
+    compose_supported_column_denominator,
+)
 from tbdy_engine.coverage.project_reconciliation import (
     AnalysisBasisRef,
     ProjectCoverageReconciliation,
@@ -62,6 +66,7 @@ class ProjectExecutionArtifact:
     status: str
     acquisition_context_ref: str
     column: ColumnDomainArtifact
+    column_denominator: SupportedColumnDenominator | None = None
     structural_assessment: StructuralAssessment | None = None
     reconciliation: ProjectCoverageReconciliation | None = None
     building_report_model: BuildingReportModel | None = None
@@ -281,6 +286,7 @@ def _complete_project_from_canonical_column(
     request: ProjectExecutionRequest,
     column: ColumnDomainArtifact,
     *,
+    column_denominator: SupportedColumnDenominator,
     acquisition_context_ref: str,
     source_id: str,
     source_kind: ReportSourceKind,
@@ -303,6 +309,7 @@ def _complete_project_from_canonical_column(
         status=column.status,
         acquisition_context_ref=acquisition_context_ref,
         column=column,
+        column_denominator=column_denominator,
         structural_assessment=assessment,
         reconciliation=reconciliation,
         building_report_model=report,
@@ -435,6 +442,15 @@ def execute_project(
         **column_kwargs,
     )
 
+    column_denominator = compose_supported_column_denominator(
+        (column,),
+        short_column_contexts=(
+            ()
+            if reviewed_column_short_column_context is None
+            else (reviewed_column_short_column_context,)
+        ),
+    )
+
     if column.fnd_col_2_execution is None:
         return ProjectExecutionArtifact(
             project_id=request.project_id,
@@ -442,11 +458,13 @@ def execute_project(
             status=column.status,
             acquisition_context_ref=context.acquisition_context_ref,
             column=column,
+            column_denominator=column_denominator,
         )
 
     return _complete_project_from_canonical_column(
         request,
         column,
+        column_denominator=column_denominator,
         acquisition_context_ref=context.acquisition_context_ref,
         source_id=context.source_model_identity.source_model_ref,
         source_kind=ReportSourceKind.ETABS_MODEL,
