@@ -211,3 +211,101 @@ def test_final_cage_context_is_not_a_production_request_dto_field():
     assert forbidden.isdisjoint(
         {item.name for item in fields(ProjectExecutionRequest)}
     )
+
+
+
+def test_final_cage_maps_limited_vd_without_populating_p7_ve():
+    from dataclasses import replace
+
+    from tbdy_engine.checks.result import CheckResult, CheckStatus, EvaluationLevel
+    from tbdy_engine.design.columns.column_shear_upper_bounds import (
+        ColumnEffectiveDepthResolution,
+        EFFECTIVE_DEPTH_PROVEN,
+    )
+    from tbdy_engine.regulatory.column_shear_limited_program import (
+        LimitedColumnShearDirectionRun,
+        LimitedColumnShearRun,
+    )
+    from tbdy_engine.regulatory.vs6_column_shear_p7_program import SourceBoundShearDemand
+
+    def check(direction):
+        return CheckResult(
+            check_id=f"TEST:{direction}",
+            component=COMPONENT,
+            component_type="column",
+            story="S1",
+            section="C1",
+            status=CheckStatus.OK,
+            value=100.0,
+            limit=200.0,
+            demand=100.0,
+            capacity=200.0,
+            ratio=0.5,
+            ratio_type="demand_over_capacity",
+            pass_rule="test fixture",
+            unit="kN",
+            evaluation_level=EvaluationLevel.DESIGN_LEVEL,
+            evidence=(f"TEST:{direction}:CHECK",),
+            messages=("OK",),
+            code_ref="TEST",
+            diagnostics=(),
+        )
+
+    def direction(local, bw, d, vd):
+        effective = ColumnEffectiveDepthResolution(
+            component_id=COMPONENT,
+            direction=local,
+            moment_axis="M3" if local == "V2" else "M2",
+            moment_sign=1,
+            effective_depth_d_mm=d,
+            web_width_bw_mm=bw,
+            tension_bar_coordinate_mm=0.0,
+            status=EFFECTIVE_DEPTH_PROVEN,
+            source_refs=(f"LD:{local}:D",),
+        )
+        demand = SourceBoundShearDemand(
+            demand_kn=vd,
+            source_identity=f"LD:{local}:ROW",
+            output_case="LD_D_COMB",
+            case_type="Combination",
+            evidence_epoch_id="epoch:a37",
+            source_refs=(f"LD:{local}:VD",),
+        )
+        return LimitedColumnShearDirectionRun(
+            component_id=COMPONENT,
+            story="S1",
+            section="C1",
+            direction=local,
+            vd=demand,
+            effective_depth=effective,
+            tbdy_brittle_result=check(local),
+            ts500_web_result=check(local),
+            source_refs=(f"LD:{local}",),
+        )
+
+    direction2 = direction("V2", 600.0, 460.0, 120.0)
+    direction3 = direction("V3", 500.0, 540.0, 130.0)
+    run = LimitedColumnShearRun(
+        component_id=COMPONENT,
+        directions=(direction2, direction3),
+    )
+
+    request = replace(
+        _base(),
+        high_ductility_applies=False,
+        limited_ductility_applies=True,
+    )
+    result = subject.apply_reviewed_final_cage_to_transverse_input(
+        request,
+        reviewed=_reviewed(),
+        rebar_catalog=_catalog(),
+        p7_run=None,
+        limited_run=run,
+    )
+    by_direction = {item.direction: item for item in result.directions}
+    assert by_direction["DIR2"].p7_ve_kn is None
+    assert by_direction["DIR3"].p7_ve_kn is None
+    assert by_direction["DIR2"].limited_shear is direction2
+    assert by_direction["DIR3"].limited_shear is direction3
+    assert by_direction["DIR2"].effective_depth_mm == pytest.approx(460.0)
+    assert by_direction["DIR3"].effective_depth_mm == pytest.approx(540.0)

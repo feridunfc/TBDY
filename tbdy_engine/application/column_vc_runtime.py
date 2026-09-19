@@ -15,6 +15,9 @@ from tbdy_engine.features.column_shear_demand_evidence import (
     ColumnShearDemandEvidenceBundle,
     column_shear_source_identity,
 )
+from tbdy_engine.regulatory.column_shear_limited_program import (
+    LimitedColumnShearRun,
+)
 from tbdy_engine.regulatory.column_shear_vc import QualifiedColumnVc, qualify_column_vc
 from tbdy_engine.regulatory.column_transverse_confinement import ColumnTransverseConfinementInput
 from tbdy_engine.regulatory.units import UNIT_KN, conversion_factor
@@ -160,13 +163,35 @@ def _p7_direction(run: VS6P7ColumnShearRun, direction: str):
     return matches[0]
 
 
+
+def _limited_direction(
+    run: LimitedColumnShearRun,
+    direction: str,
+):
+    if not isinstance(run, LimitedColumnShearRun):
+        raise TypeError(
+            "limited_run must be LimitedColumnShearRun"
+        )
+    matches = tuple(
+        item
+        for item in run.directions
+        if item.direction == direction
+    )
+    if len(matches) != 1:
+        raise ColumnVcRuntimeError(
+            f"limited run must expose exactly one {direction}"
+        )
+    return matches[0]
+
+
 def apply_reviewed_vc_to_transverse_input(
     request: ColumnTransverseConfinementInput,
     *,
     reviewed: ReviewedColumnVcRuntimeContext,
     a23_states: Sequence[ColumnDemandState],
     shear_evidence: ColumnShearDemandEvidenceBundle,
-    p7_run: VS6P7ColumnShearRun,
+    p7_run: VS6P7ColumnShearRun | None = None,
+    limited_run: LimitedColumnShearRun | None = None,
     fcd_mpa: float,
     target_unique_name: str,
     material_source_refs: Sequence[str],
@@ -181,8 +206,20 @@ def apply_reviewed_vc_to_transverse_input(
         raise TypeError("shear_evidence must be ColumnShearDemandEvidenceBundle")
     if shear_evidence.model_fingerprint != request.model_fingerprint:
         raise ColumnVcRuntimeError("Vc shear-evidence model mismatch")
-    if p7_run.component_id != request.component_id:
-        raise ColumnVcRuntimeError("Vc/P7 component identity mismatch")
+    if (
+        p7_run is not None
+        and p7_run.component_id != request.component_id
+    ):
+        raise ColumnVcRuntimeError(
+            "Vc/P7 component identity mismatch"
+        )
+    if (
+        limited_run is not None
+        and limited_run.component_id != request.component_id
+    ):
+        raise ColumnVcRuntimeError(
+            "Vc/limited component identity mismatch"
+        )
 
     states = _state_map(a23_states, request.component_id)
     unique_name = _text(target_unique_name, "target_unique_name")
@@ -194,8 +231,15 @@ def apply_reviewed_vc_to_transverse_input(
     qualified: dict[str, QualifiedColumnVc] = {}
 
     if request.high_ductility_applies is True:
-        if request.limited_ductility_applies is True or not reviewed.high_directions:
-            raise ColumnVcRuntimeError("HIGH column requires exclusive reviewed HIGH Vc context")
+        if (
+            request.limited_ductility_applies is True
+            or not reviewed.high_directions
+            or p7_run is None
+            or limited_run is not None
+        ):
+            raise ColumnVcRuntimeError(
+                "HIGH Vc requires P7 and forbids limited shear run"
+            )
         for plan in reviewed.high_directions:
             ts500_state = _require_state(states, plan.ts500_axial_state_id)
             suppression_state = _require_state(states, plan.suppression_axial_state_id)
@@ -236,30 +280,92 @@ def apply_reviewed_vc_to_transverse_input(
                 ))),
             )
     elif request.limited_ductility_applies is True:
+        short_applies = (
+            request.short_column is not None
+            and request.short_column.applies is True
+        )
         if not reviewed.limited_directions:
-            raise ColumnVcRuntimeError("LIMITED column requires reviewed LIMITED Vc context")
+            raise ColumnVcRuntimeError(
+                "LIMITED column requires reviewed LIMITED Vc context"
+            )
+        if short_applies:
+            if p7_run is None or limited_run is not None:
+                raise ColumnVcRuntimeError(
+                    "LIMITED short-column Vc requires short P7 "
+                    "and forbids ordinary §7.7.5 shear run"
+                )
+        elif limited_run is None or p7_run is not None:
+            raise ColumnVcRuntimeError(
+                "LIMITED ordinary Vc requires limited shear run "
+                "and forbids P7"
+            )
+
         for plan in reviewed.limited_directions:
-            population = tuple(_require_state(states, sid) for sid in plan.vertical_plus_earthquake_state_ids)
-            selected = min(population, key=lambda x: (x.nd_compression_n, x.state_id))
-            p7 = _p7_direction(p7_run, plan.direction)
+            population = tuple(
+                _require_state(states, sid)
+                for sid in plan.vertical_plus_earthquake_state_ids
+            )
+            selected = min(
+                population,
+                key=lambda x: (
+                    x.nd_compression_n,
+                    x.state_id,
+                ),
+            )
+            if short_applies:
+                p7 = _p7_direction(
+                    p7_run,
+                    plan.direction,
+                )
+                effective = p7.effective_depth
+                # LIMITED short-column Vc under TBDY 7.7.5.3
+                # depends on the reviewed minimum-Nd population plus
+                # factual bw/d geometry. The short-column P7 shear-demand
+                # row is not an input to Vc and must not be cited as though
+                # it were.
+                shear_refs = tuple(
+                    p7.effective_depth.source_refs
+                )
+            else:
+                limited = _limited_direction(
+                    limited_run,
+                    plan.direction,
+                )
+                effective = limited.effective_depth
+                shear_refs = (
+                    *effective.source_refs,
+                    *limited.source_refs,
+                )
+
             qualified[plan.direction] = qualify_column_vc(
                 component_id=request.component_id,
                 direction=plan.direction,
                 fck_mpa=request.fck_mpa,
                 fcd_mpa=fcd_mpa,
                 gross_area_ac_mm2=request.gross_area_ac_mm2,
-                web_width_bw_mm=p7.effective_depth.web_width_bw_mm,
-                effective_depth_d_mm=p7.effective_depth.effective_depth_d_mm,
-                ts500_axial_nd_signed_compression_n=selected.nd_compression_n,
+                web_width_bw_mm=effective.web_width_bw_mm,
+                effective_depth_d_mm=effective.effective_depth_d_mm,
+                ts500_axial_nd_signed_compression_n=(
+                    selected.nd_compression_n
+                ),
                 high_ductility_applies=False,
                 limited_ductility_applies=True,
-                source_refs=tuple(dict.fromkeys((
-                    *common_refs,
-                    *plan.review_refs,
-                    *(x.source_identity for x in population),
-                    "TBDY2018_AFAD:7.7.5.3:MINIMUM_ND_WITHIN_REVIEWED_VERTICAL_PLUS_EARTHQUAKE_POPULATION",
-                    *p7.effective_depth.source_refs,
-                ))),
+                source_refs=tuple(
+                    dict.fromkeys(
+                        (
+                            *common_refs,
+                            *plan.review_refs,
+                            *(
+                                x.source_identity
+                                for x in population
+                            ),
+                            "TBDY2018_AFAD:7.7.5.3:"
+                            "MINIMUM_ND_WITHIN_REVIEWED_"
+                            "VERTICAL_PLUS_EARTHQUAKE_POPULATION",
+                            *shear_refs,
+                        )
+                    )
+                ),
             )
     else:
         raise ColumnVcRuntimeError("Vc requires proven HIGH or LIMITED ductility")

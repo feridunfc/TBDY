@@ -18,12 +18,17 @@ from tbdy_engine.application.column_final_cage import (
     ReviewedColumnFinalCageContext,
     apply_reviewed_final_cage_to_transverse_input,
 )
+from tbdy_engine.application.column_limited_shear_runtime import (
+    ReviewedLimitedColumnShearRuntimeContext,
+    compose_column_limited_shear_runtime,
+)
 from tbdy_engine.application.column_longitudinal_runtime import (
     ColumnLongitudinalRuntimeComposition,
     compose_column_longitudinal_runtime,
 )
 from tbdy_engine.application.column_p7_runtime import (
     ReviewedColumnP7RuntimeContext,
+    ReviewedColumnShortColumnContext,
     compose_column_p7_runtime,
 )
 from tbdy_engine.application.column_vc_runtime import (
@@ -83,9 +88,13 @@ from tbdy_engine.regulatory.column_longitudinal_rebar import (
     evaluate_column_longitudinal_layouts,
 )
 from tbdy_engine.regulatory.column_pmm_authority import authorize_pmm_numerical_policy
+from tbdy_engine.regulatory.column_shear_limited_program import (
+    LimitedColumnShearRun,
+)
 from tbdy_engine.regulatory.column_transverse_confinement import (
     ColumnTransverseConfinementInput,
     ColumnTransverseConfinementResult,
+    ShortColumnTransverseFacts,
     TransverseDirectionFacts,
     evaluate_column_transverse_confinement_bound,
 )
@@ -125,6 +134,7 @@ BLOCKER_LIVE_DESIGN_LINEAGE = "LIVE_DESIGN_RESULT_LINEAGE_NOT_QUALIFIED"
 BLOCKER_LONGITUDINAL_PRODUCTION = "LONGITUDINAL_PRODUCTION_NOT_CLOSED"
 BLOCKER_TRANSVERSE_PRODUCTION = "TRANSVERSE_CONFINEMENT_PRODUCTION_NOT_CLOSED"
 BLOCKER_P7_PRODUCTION = "P7_PRODUCTION_NOT_CLOSED"
+BLOCKER_LIMITED_SHEAR_PRODUCTION = "LIMITED_SHEAR_PRODUCTION_NOT_CLOSED"
 
 _COLUMN_CONCRETE_DESIGN_DOMAIN_REF = "design-domain:concrete-column"
 _SELECTED_COMBO_POPULATION_REF_PREFIX = "selected-design-combo-population:sha256:"
@@ -153,6 +163,7 @@ class ColumnDomainArtifact:
     longitudinal_runtime: ColumnLongitudinalRuntimeComposition | None = None
     transverse_confinement: ColumnTransverseConfinementResult | None = None
     column_shear_p7: VS6P7ColumnShearRun | None = None
+    column_shear_limited: LimitedColumnShearRun | None = None
     column_shear_evidence: ColumnShearDemandEvidenceBundle | None = None
     final_transverse_cage: ReviewedColumnFinalCageContext | None = None
     free_length: ColumnFreeLengthResolution | None = None
@@ -187,6 +198,82 @@ class ColumnDomainArtifact:
         return None if self.longitudinal_selection is None else self.longitudinal_selection.selected_rebar
 
 
+
+A37_SHEAR_ROUTE_NONE = "NONE"
+A37_SHEAR_ROUTE_P7_ORDINARY = "P7_ORDINARY"
+A37_SHEAR_ROUTE_P7_SHORT = "P7_SHORT"
+A37_SHEAR_ROUTE_LIMITED_775 = "LIMITED_775"
+
+
+def _resolve_a37_shear_route(
+    *,
+    high_ductility_applies: bool | None,
+    limited_ductility_applies: bool | None,
+    short_column_context: ReviewedColumnShortColumnContext | None,
+    p7_context_present: bool,
+    limited_context_present: bool,
+    downstream_shear_required: bool,
+) -> str:
+    requested = (
+        p7_context_present
+        or limited_context_present
+        or downstream_shear_required
+    )
+    if not requested:
+        return A37_SHEAR_ROUTE_NONE
+
+    if short_column_context is None:
+        raise ColumnExecutionContractError(
+            "A37 short-column applicability must be explicitly reviewed"
+        )
+
+    high = high_ductility_applies
+    limited = limited_ductility_applies
+    if (high is True) == (limited is True):
+        raise ColumnExecutionContractError(
+            "A37 shear routing requires exactly one proven "
+            "HIGH or LIMITED ductility family"
+        )
+
+    if short_column_context.short_column_applies:
+        if not p7_context_present:
+            raise ColumnExecutionContractError(
+                "TBDY 7.3.8/7.7.6 short-column route requires "
+                "reviewed P7 capacity-state context"
+            )
+        if limited_context_present:
+            raise ColumnExecutionContractError(
+                "short-column route forbids ordinary §7.7.5 "
+                "limited-shear context"
+            )
+        return A37_SHEAR_ROUTE_P7_SHORT
+
+    if high is True:
+        if limited_context_present:
+            raise ColumnExecutionContractError(
+                "HIGH ordinary route forbids LIMITED shear context"
+            )
+        if not p7_context_present:
+            if downstream_shear_required:
+                raise ColumnExecutionContractError(
+                    "HIGH final shear requires reviewed P7 context"
+                )
+            return A37_SHEAR_ROUTE_NONE
+        return A37_SHEAR_ROUTE_P7_ORDINARY
+
+    if p7_context_present:
+        raise ColumnExecutionContractError(
+            "ordinary LIMITED route forbids HIGH P7 context"
+        )
+    if not limited_context_present:
+        if downstream_shear_required:
+            raise ColumnExecutionContractError(
+                "LIMITED final shear requires reviewed §7.7.5 context"
+            )
+        return A37_SHEAR_ROUTE_NONE
+    return A37_SHEAR_ROUTE_LIMITED_775
+
+
 def execute_column_domain(
     request: ColumnExecutionRequest,
     *,
@@ -195,6 +282,8 @@ def execute_column_domain(
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
     reviewed_column_p7_context: ReviewedColumnP7RuntimeContext | None = None,
+    reviewed_column_short_column_context: ReviewedColumnShortColumnContext | None = None,
+    reviewed_column_limited_shear_context: ReviewedLimitedColumnShearRuntimeContext | None = None,
     reviewed_column_final_cage_context: ReviewedColumnFinalCageContext | None = None,
     reviewed_column_vc_context: ReviewedColumnVcRuntimeContext | None = None,
 ) -> ColumnDomainArtifact:
@@ -231,6 +320,28 @@ def execute_column_domain(
             "ReviewedColumnP7RuntimeContext or None"
         )
     if (
+        reviewed_column_short_column_context is not None
+        and not isinstance(
+            reviewed_column_short_column_context,
+            ReviewedColumnShortColumnContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_short_column_context must be "
+            "ReviewedColumnShortColumnContext or None"
+        )
+    if (
+        reviewed_column_limited_shear_context is not None
+        and not isinstance(
+            reviewed_column_limited_shear_context,
+            ReviewedLimitedColumnShearRuntimeContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_limited_shear_context must be "
+            "ReviewedLimitedColumnShearRuntimeContext or None"
+        )
+    if (
         reviewed_column_final_cage_context is not None
         and not isinstance(
             reviewed_column_final_cage_context,
@@ -262,6 +373,8 @@ def execute_column_domain(
         or expected_combo_policy is not None
         or reviewed_vs5_column_axial_context is not None
         or reviewed_column_p7_context is not None
+        or reviewed_column_short_column_context is not None
+        or reviewed_column_limited_shear_context is not None
         or reviewed_column_final_cage_context is not None
         or reviewed_column_vc_context is not None
     ):
@@ -271,6 +384,8 @@ def execute_column_domain(
             expected_combo_policy=expected_combo_policy,
             reviewed_vs5_column_axial_context=reviewed_vs5_column_axial_context,
             reviewed_column_p7_context=reviewed_column_p7_context,
+            reviewed_column_short_column_context=reviewed_column_short_column_context,
+            reviewed_column_limited_shear_context=reviewed_column_limited_shear_context,
             reviewed_column_final_cage_context=(
                 reviewed_column_final_cage_context
             ),
@@ -508,6 +623,7 @@ def _compose_a36_transverse_input(
     flattened_combos,
     controlled_design_result: ControlledConcreteDesignResult,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext,
+    reviewed_column_short_column_context: ReviewedColumnShortColumnContext | None = None,
     reviewed_column_final_cage_context: ReviewedColumnFinalCageContext | None = None,
     reviewed_column_vc_context: ReviewedColumnVcRuntimeContext | None = None,
 ) -> ColumnTransverseConfinementInput:
@@ -722,12 +838,30 @@ def _compose_a36_transverse_input(
         )
     )
 
+    short_transverse_facts = None
+    if reviewed_column_short_column_context is not None:
+        if (
+            reviewed_column_short_column_context.component_id
+            != column.component_id
+        ):
+            raise ColumnExecutionContractError(
+                "A37 short-column context component mismatch"
+            )
+        short_transverse_facts = ShortColumnTransverseFacts(
+            applies=reviewed_column_short_column_context.short_column_applies,
+            actual_short_free_length_mm=reviewed_column_short_column_context.short_free_length_mm,
+            required_full_confinement_length_mm=reviewed_column_short_column_context.required_confinement_length_mm,
+            infill_fully_adjacent=reviewed_column_short_column_context.infill_fully_adjacent,
+            source_refs=reviewed_column_short_column_context.review_refs,
+        )
+
     transverse_input = ColumnTransverseConfinementInput(
         component_id=column.component_id,
         story=target.story,
         section=target.section,
         high_ductility_applies=basis.high_ductility_applies,
         limited_ductility_applies=basis.limited_ductility_applies,
+        short_column=short_transverse_facts,
 
         # No proven production owner yet. Do not default False.
         cantilever_column=None,
@@ -783,17 +917,19 @@ def _compose_a36_transverse_input(
             reviewed=reviewed_column_final_cage_context,
             rebar_catalog=runtime.rebar_catalog,
             p7_run=column.column_shear_p7,
+            limited_run=column.column_shear_limited,
         )
 
     if reviewed_column_vc_context is not None:
         if (
-            column.column_shear_p7 is None
+            (column.column_shear_p7 is None)
+            == (column.column_shear_limited is None)
             or column.column_shear_evidence is None
             or not column.a23_demand_states
         ):
             raise ColumnExecutionContractError(
-                "A37 Vc requires P7, retained B5 shear evidence, "
-                "and canonical A23 states"
+                "A37 Vc requires exactly one ductility-specific "
+                "shear run, retained B5 evidence and canonical A23 states"
             )
         material_context = runtime.bound_design_basis.material_context
         transverse_input = apply_reviewed_vc_to_transverse_input(
@@ -802,6 +938,7 @@ def _compose_a36_transverse_input(
             a23_states=column.a23_demand_states,
             shear_evidence=column.column_shear_evidence,
             p7_run=column.column_shear_p7,
+            limited_run=column.column_shear_limited,
             fcd_mpa=material_context.material.fcd_mpa,
             target_unique_name=runtime.target_topology.unique_name,
             material_source_refs=tuple(
@@ -829,6 +966,7 @@ def _continue_selected_column_into_a36(
     flattened_combos,
     controlled_design_result: ControlledConcreteDesignResult,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None,
+    reviewed_column_short_column_context: ReviewedColumnShortColumnContext | None = None,
     reviewed_column_final_cage_context: ReviewedColumnFinalCageContext | None = None,
     reviewed_column_vc_context: ReviewedColumnVcRuntimeContext | None = None,
 ) -> ColumnDomainArtifact:
@@ -862,6 +1000,9 @@ def _continue_selected_column_into_a36(
             controlled_design_result=controlled_design_result,
             reviewed_vs5_column_axial_context=(
                 reviewed_vs5_column_axial_context
+            ),
+            reviewed_column_short_column_context=(
+                reviewed_column_short_column_context
             ),
             reviewed_column_final_cage_context=(
                 reviewed_column_final_cage_context
@@ -908,6 +1049,8 @@ def _complete_public_b6_after_fnd2(
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
     reviewed_column_p7_context: ReviewedColumnP7RuntimeContext | None = None,
+    reviewed_column_short_column_context: ReviewedColumnShortColumnContext | None = None,
+    reviewed_column_limited_shear_context: ReviewedLimitedColumnShearRuntimeContext | None = None,
     reviewed_column_final_cage_context: ReviewedColumnFinalCageContext | None = None,
     reviewed_column_vc_context: ReviewedColumnVcRuntimeContext | None = None,
 ) -> ColumnDomainArtifact:
@@ -1169,16 +1312,80 @@ def _complete_public_b6_after_fnd2(
         longitudinal_runtime=runtime,
     )
 
+
     if not runtime.selection.selected:
         return selected_column
 
-    p7_column = selected_column
-    if reviewed_column_p7_context is not None:
-        try:
-            if selected_column.free_length is None or not selected_column.a23_demand_states:
-                raise ColumnExecutionContractError(
-                    "A37 requires retained canonical free-length and A23 states"
+    try:
+        if (
+            reviewed_column_short_column_context is not None
+            and reviewed_column_short_column_context.component_id
+            != selected_column.component_id
+        ):
+            raise ColumnExecutionContractError(
+                "A37 short-column context component mismatch"
+            )
+
+        shear_route = _resolve_a37_shear_route(
+            high_ductility_applies=(
+                runtime.bound_design_basis.high_ductility_applies
+            ),
+            limited_ductility_applies=(
+                runtime.bound_design_basis.limited_ductility_applies
+            ),
+            short_column_context=(
+                reviewed_column_short_column_context
+            ),
+            p7_context_present=(
+                reviewed_column_p7_context is not None
+            ),
+            limited_context_present=(
+                reviewed_column_limited_shear_context is not None
+            ),
+            downstream_shear_required=(
+                reviewed_column_final_cage_context is not None
+                or reviewed_column_vc_context is not None
+            ),
+        )
+    except Exception as exc:
+        return replace(
+            selected_column,
+            status=STATUS_APPLICATION_BLOCKED,
+            blockers=tuple(
+                dict.fromkeys(
+                    (
+                        *selected_column.blockers,
+                        f"{BLOCKER_P7_PRODUCTION}:"
+                        f"A37_SHEAR_ROUTE:{type(exc).__name__}:{exc}",
+                    )
                 )
+            ),
+        )
+
+    shear_column = selected_column
+
+    if shear_route in {
+        A37_SHEAR_ROUTE_P7_ORDINARY,
+        A37_SHEAR_ROUTE_P7_SHORT,
+    }:
+        try:
+            if (
+                selected_column.free_length is None
+                or not selected_column.a23_demand_states
+            ):
+                raise ColumnExecutionContractError(
+                    "A37 P7 requires retained canonical "
+                    "free-length and A23 states"
+                )
+            if reviewed_column_p7_context is None:
+                raise ColumnExecutionContractError(
+                    "A37 P7 route lost reviewed P7 context"
+                )
+            if reviewed_column_short_column_context is None:
+                raise ColumnExecutionContractError(
+                    "A37 P7 route lost reviewed short-column context"
+                )
+
             p7_runtime = compose_column_p7_runtime(
                 component_id=selected_column.component_id,
                 model_fingerprint=selected_column.model_fingerprint,
@@ -1188,31 +1395,80 @@ def _complete_public_b6_after_fnd2(
                 demand_states=selected_column.a23_demand_states,
                 longitudinal_runtime=runtime,
                 reviewed_context=reviewed_column_p7_context,
+                short_column_context=(
+                    reviewed_column_short_column_context
+                ),
             )
-            p7_column = replace(
+            shear_column = replace(
                 selected_column,
                 column_shear_p7=p7_runtime.p7_run,
+                column_shear_limited=None,
                 column_shear_evidence=p7_runtime.shear_evidence,
             )
         except Exception as exc:
-            p7_column = replace(
+            shear_column = replace(
                 selected_column,
                 status=STATUS_APPLICATION_BLOCKED,
                 blockers=tuple(
                     dict.fromkeys(
                         (
                             *selected_column.blockers,
-                            f"{BLOCKER_P7_PRODUCTION}:{type(exc).__name__}:{exc}",
+                            f"{BLOCKER_P7_PRODUCTION}:"
+                            f"{type(exc).__name__}:{exc}",
+                        )
+                    )
+                ),
+            )
+
+    elif shear_route == A37_SHEAR_ROUTE_LIMITED_775:
+        try:
+            if reviewed_column_limited_shear_context is None:
+                raise ColumnExecutionContractError(
+                    "A37 LIMITED route lost reviewed §7.7.5 context"
+                )
+            limited_runtime = compose_column_limited_shear_runtime(
+                component_id=selected_column.component_id,
+                model_fingerprint=selected_column.model_fingerprint,
+                acquisition_context=acquisition_context,
+                analysis_execution=analysis_execution,
+                longitudinal_runtime=runtime,
+                reviewed_context=(
+                    reviewed_column_limited_shear_context
+                ),
+                shear_evidence=(
+                    selected_column.column_shear_evidence
+                ),
+            )
+            shear_column = replace(
+                selected_column,
+                column_shear_p7=None,
+                column_shear_limited=(
+                    limited_runtime.limited_run
+                ),
+                column_shear_evidence=(
+                    limited_runtime.shear_evidence
+                ),
+            )
+        except Exception as exc:
+            shear_column = replace(
+                selected_column,
+                status=STATUS_APPLICATION_BLOCKED,
+                blockers=tuple(
+                    dict.fromkeys(
+                        (
+                            *selected_column.blockers,
+                            f"{BLOCKER_LIMITED_SHEAR_PRODUCTION}:"
+                            f"{type(exc).__name__}:{exc}",
                         )
                     )
                 ),
             )
 
     cage_column = (
-        p7_column
+        shear_column
         if reviewed_column_final_cage_context is None
         else replace(
-            p7_column,
+            shear_column,
             final_transverse_cage=reviewed_column_final_cage_context,
         )
     )
@@ -1227,6 +1483,9 @@ def _complete_public_b6_after_fnd2(
         controlled_design_result=controlled,
         reviewed_vs5_column_axial_context=(
             reviewed_vs5_column_axial_context
+        ),
+        reviewed_column_short_column_context=(
+            reviewed_column_short_column_context
         ),
         reviewed_column_final_cage_context=(
             reviewed_column_final_cage_context

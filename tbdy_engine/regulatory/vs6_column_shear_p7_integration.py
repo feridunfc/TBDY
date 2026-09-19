@@ -500,6 +500,58 @@ def _resolve_conservative_effective_depth(
     )
 
 
+
+def resolve_selected_rebar_effective_depth(
+    *,
+    selected_rebar: CanonicalEngineSelectedRebar,
+    topology: ColumnTopologyEvidence,
+    direction: str,
+    review_refs: Sequence[str],
+) -> ColumnEffectiveDepthResolution:
+    """Reuse exact selected-bar d without any regulatory formula."""
+    if not isinstance(
+        selected_rebar,
+        CanonicalEngineSelectedRebar,
+    ):
+        raise TypeError(
+            "selected_rebar must be CanonicalEngineSelectedRebar"
+        )
+    if not isinstance(
+        topology,
+        ColumnTopologyEvidence,
+    ):
+        raise TypeError(
+            "topology must be ColumnTopologyEvidence"
+        )
+    direction = _direction(direction)
+    if selected_rebar.component_id != topology.component_id:
+        raise VS6P7IntegrationError(
+            "selected-rebar/topology component identity mismatch"
+        )
+    candidate = _selected_candidate(
+        selected_rebar,
+        component_id=topology.component_id,
+    )
+    refs = tuple(
+        dict.fromkeys(
+            (
+                *tuple(review_refs),
+                selected_rebar.selected_rebar_ref,
+                f"SECTION:{topology.section}",
+                f"UNIQUE_NAME:{topology.unique_name}",
+            )
+        )
+    )
+    return _resolve_conservative_effective_depth(
+        component_id=topology.component_id,
+        direction=direction,
+        width_mm=float(topology.width_t2_m) * 1000.0,
+        depth_mm=float(topology.depth_t3_m) * 1000.0,
+        selected_candidate=candidate,
+        refs=refs,
+    )
+
+
 def run_vs6_p7_from_production_evidence(
     *,
     column_design: ColumnDesignEngineResult | None = None,
@@ -509,6 +561,9 @@ def run_vs6_p7_from_production_evidence(
     selected_rebar: CanonicalEngineSelectedRebar | None,
     topology: ColumnTopologyEvidence,
     free_length: ColumnFreeLengthResolution,
+    short_column_applies: bool = False,
+    short_free_length_mm: float | None = None,
+    short_basis_refs: Sequence[str] = (),
     shear_evidence: ColumnShearDemandEvidenceBundle,
     tbdy_vd_selection: ColumnShearDemandSelection,
     ts500_vd_selection: ColumnShearDemandSelection,
@@ -578,6 +633,22 @@ def run_vs6_p7_from_production_evidence(
         raise TypeError("topology must be ColumnTopologyEvidence")
     if not isinstance(free_length, ColumnFreeLengthResolution):
         raise TypeError("free_length must be ColumnFreeLengthResolution")
+    if type(short_column_applies) is not bool:
+        raise TypeError("short_column_applies must be bool")
+    short_refs = tuple(short_basis_refs)
+    if short_column_applies:
+        if (
+            short_free_length_mm is None
+            or not math.isfinite(float(short_free_length_mm))
+            or float(short_free_length_mm) <= 0.0
+        ):
+            raise VS6P7IntegrationError(
+                "short-column P7 requires actual positive short free length"
+            )
+        if not short_refs or any(not isinstance(x, str) or not x.strip() for x in short_refs):
+            raise VS6P7IntegrationError("short-column P7 requires reviewed source refs")
+    elif short_free_length_mm is not None or short_refs:
+        raise VS6P7IntegrationError("ordinary P7 cannot carry orphan short-column facts")
     if not isinstance(d_amplified_authority, ReviewedDAmplifiedShearAuthority):
         raise TypeError("d_amplified_authority must be ReviewedDAmplifiedShearAuthority")
 
@@ -630,11 +701,14 @@ def run_vs6_p7_from_production_evidence(
             raise VS6P7IntegrationError(
                 "topology t3 and legacy rebar-input depth do not reconcile"
             )
-    if not math.isclose(
-        float(free_length.factual_candidate_mm),
-        float(topology.analysis_clear_length_candidate_m) * 1000.0,
-        rel_tol=0.0,
-        abs_tol=1e-6,
+    if (
+        not short_column_applies
+        and not math.isclose(
+            float(free_length.factual_candidate_mm),
+            float(topology.analysis_clear_length_candidate_m) * 1000.0,
+            rel_tol=0.0,
+            abs_tol=1e-6,
+        )
     ):
         raise VS6P7IntegrationError("free-length factual candidate differs from strict topology")
 
@@ -722,12 +796,19 @@ def run_vs6_p7_from_production_evidence(
         refs=effective_refs,
     )
 
-    free_length_ln_mm = free_length.free_length_ln_mm if free_length.resolved else None
-    free_length_basis_ref = (
-        _basis_ref(free_length.authority, free_length.source_refs)
-        if free_length.resolved
-        else None
-    )
+    if short_column_applies:
+        free_length_ln_mm = float(short_free_length_mm)
+        free_length_basis_ref = _basis_ref(
+            "TBDY_7_3_8_ACTUAL_SHORT_COLUMN_FREE_LENGTH",
+            short_refs,
+        )
+    else:
+        free_length_ln_mm = free_length.free_length_ln_mm if free_length.resolved else None
+        free_length_basis_ref = (
+            _basis_ref(free_length.authority, free_length.source_refs)
+            if free_length.resolved
+            else None
+        )
     d_candidate_kn = d_amplified_authority.candidate_kn if d_amplified_authority.resolved else None
     d_basis_ref = (
         _basis_ref(
@@ -745,6 +826,7 @@ def run_vs6_p7_from_production_evidence(
         section=topology.section,
         direction=direction,
         tbdy_high_ductility_applies=tbdy_high_ductility_applies,
+        tbdy_short_column_applies=short_column_applies,
         ts500_rc_applies=ts500_rc_applies,
         free_length_ln_mm=free_length_ln_mm,
         free_length_basis_ref=free_length_basis_ref,
@@ -775,5 +857,6 @@ __all__ = [
     "ReviewedDAmplifiedShearAuthority",
     "VS6P7IntegrationError",
     "resolve_exact_source_bound_shear_demand",
+    "resolve_selected_rebar_effective_depth",
     "run_vs6_p7_from_production_evidence",
 ]

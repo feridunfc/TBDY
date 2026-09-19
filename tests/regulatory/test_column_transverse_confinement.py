@@ -232,3 +232,174 @@ def test_bound_production_evaluator_fails_closed_on_model_epoch_or_design_result
             selected_rebar=FakeSelected(),
             design_lineage=FakeLineage(),
         )
+
+
+
+def test_limited_final_shear_uses_775_vd_not_p7_ve(
+    monkeypatch,
+):
+    _patch_selected_phi(monkeypatch)
+
+    class Limited:
+        def __init__(self, direction, vd):
+            self.component_id = "Story1:C1:10"
+            self.direction = direction
+            self.vd_kn = vd
+            self.source_refs = (f"LD:{direction}",)
+
+    monkeypatch.setattr(
+        subject,
+        "LimitedColumnShearDirectionRun",
+        Limited,
+    )
+
+    directions = (
+        replace(
+            _direction(
+                "DIR2",
+                1000.0,
+                asw=200.0,
+                ve=None,
+            ),
+            p7_ve_kn=None,
+            limited_shear=Limited("V2", 200.0),
+        ),
+        replace(
+            _direction(
+                "DIR3",
+                1000.0,
+                asw=200.0,
+                ve=None,
+            ),
+            p7_ve_kn=None,
+            limited_shear=Limited("V3", 210.0),
+        ),
+    )
+    result = subject.evaluate_column_transverse_confinement(
+        _request(
+            high_ductility_applies=False,
+            limited_ductility_applies=True,
+            directions=directions,
+        ),
+        selected_rebar=object(),
+    )
+
+    check = _by_id(
+        result,
+        "COL_FINAL_SHEAR_VR_DIR2",
+    )
+    assert check.status is CheckStatus.OK
+    assert check.value == pytest.approx(200.0)
+    assert "TBDY 7.7.5 limited Vd" in check.pass_rule
+
+def _short_facts(
+    *,
+    required=2400.0,
+    free=900.0,
+    adjacent=False,
+):
+    return subject.ShortColumnTransverseFacts(
+        applies=True,
+        actual_short_free_length_mm=free,
+        required_full_confinement_length_mm=required,
+        infill_fully_adjacent=adjacent,
+        source_refs=("REVIEW:SHORT:7.3.8",),
+    )
+
+
+def test_short_high_uses_full_length_confinement_and_no_middle_region(
+    monkeypatch,
+):
+    _patch_selected_phi(monkeypatch)
+    result = subject.evaluate_column_transverse_confinement(
+        _request(
+            short_column=_short_facts(required=2400.0),
+            provided_confinement_region_length_mm=2400.0,
+            middle_spacing_mm=999.0,
+        ),
+        selected_rebar=object(),
+    )
+    assert result.ductility is subject.ColumnDuctility.HIGH
+    assert (
+        result.required_confinement_region_length_mm
+        == pytest.approx(2400.0)
+    )
+    assert result.middle_spacing_limit_mm is None
+    assert (
+        _by_id(
+            result,
+            "COL_SHORT_COLUMN_FULL_LENGTH_CONFINEMENT",
+        ).status
+        is CheckStatus.OK
+    )
+    assert not any(
+        item.check_id == "COL_HD_MIDDLE_SPACING"
+        for item in result.checks
+    )
+
+
+def test_limited_short_inherits_7341_spacing_and_uses_short_p7_ve(
+    monkeypatch,
+):
+    _patch_selected_phi(monkeypatch)
+    result = subject.evaluate_column_transverse_confinement(
+        _request(
+            high_ductility_applies=False,
+            limited_ductility_applies=True,
+            short_column=_short_facts(required=2500.0),
+            provided_confinement_region_length_mm=2500.0,
+            confinement_spacing_mm=140.0,
+            directions=(
+                _direction("DIR2", 5000.0, ve=200.0),
+                _direction("DIR3", 5000.0, ve=210.0),
+            ),
+        ),
+        selected_rebar=object(),
+    )
+    assert result.ductility is subject.ColumnDuctility.LIMITED
+    assert (
+        _by_id(
+            result,
+            "COL_SHORT_COLUMN_776_INHERITANCE",
+        ).status
+        is CheckStatus.OK
+    )
+    assert (
+        _by_id(
+            result,
+            "COL_HD_CONFINEMENT_SPACING",
+        ).status
+        is CheckStatus.FAIL
+    )
+    assert (
+        _by_id(
+            result,
+            "COL_FINAL_SHEAR_VR_DIR2",
+        ).status
+        in {CheckStatus.OK, CheckStatus.FAIL}
+    )
+    assert not any(
+        "MIXED_HIGH_AND_LIMITED_SHEAR_AUTHORITY"
+        in item
+        for item in result.blockers
+    )
+
+
+def test_short_full_length_confinement_fails_when_provided_length_is_short(
+    monkeypatch,
+):
+    _patch_selected_phi(monkeypatch)
+    result = subject.evaluate_column_transverse_confinement(
+        _request(
+            short_column=_short_facts(required=2800.0),
+            provided_confinement_region_length_mm=2000.0,
+        ),
+        selected_rebar=object(),
+    )
+    assert (
+        _by_id(
+            result,
+            "COL_SHORT_COLUMN_FULL_LENGTH_CONFINEMENT",
+        ).status
+        is CheckStatus.FAIL
+    )

@@ -12,7 +12,13 @@ from dataclasses import dataclass
 
 from tbdy_engine.application.column_design_basis import ReviewedColumnDesignBasis
 from tbdy_engine.application.column_final_cage import ReviewedColumnFinalCageContext
-from tbdy_engine.application.column_p7_runtime import ReviewedColumnP7RuntimeContext
+from tbdy_engine.application.column_p7_runtime import (
+    ReviewedColumnP7RuntimeContext,
+    ReviewedColumnShortColumnContext,
+)
+from tbdy_engine.application.column_limited_shear_runtime import (
+    ReviewedLimitedColumnShearRuntimeContext,
+)
 from tbdy_engine.application.column_vc_runtime import ReviewedColumnVcRuntimeContext
 from tbdy_engine.application.column_execution import ColumnDomainArtifact, execute_column_domain
 from tbdy_engine.application.contracts import ProjectExecutionRequest
@@ -311,6 +317,8 @@ def execute_project(
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
     reviewed_column_p7_context: ReviewedColumnP7RuntimeContext | None = None,
+    reviewed_column_short_column_context: ReviewedColumnShortColumnContext | None = None,
+    reviewed_column_limited_shear_context: ReviewedLimitedColumnShearRuntimeContext | None = None,
     reviewed_column_final_cage_context: ReviewedColumnFinalCageContext | None = None,
     reviewed_column_vc_context: ReviewedColumnVcRuntimeContext | None = None,
 ) -> ProjectExecutionArtifact:
@@ -345,6 +353,28 @@ def execute_project(
         raise TypeError(
             "reviewed_column_p7_context must be "
             "ReviewedColumnP7RuntimeContext or None"
+        )
+    if (
+        reviewed_column_short_column_context is not None
+        and not isinstance(
+            reviewed_column_short_column_context,
+            ReviewedColumnShortColumnContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_short_column_context must be "
+            "ReviewedColumnShortColumnContext or None"
+        )
+    if (
+        reviewed_column_limited_shear_context is not None
+        and not isinstance(
+            reviewed_column_limited_shear_context,
+            ReviewedLimitedColumnShearRuntimeContext,
+        )
+    ):
+        raise TypeError(
+            "reviewed_column_limited_shear_context must be "
+            "ReviewedLimitedColumnShearRuntimeContext or None"
         )
     if (
         reviewed_column_final_cage_context is not None
@@ -383,6 +413,14 @@ def execute_project(
         )
     if reviewed_column_p7_context is not None:
         column_kwargs["reviewed_column_p7_context"] = reviewed_column_p7_context
+    if reviewed_column_short_column_context is not None:
+        column_kwargs["reviewed_column_short_column_context"] = (
+            reviewed_column_short_column_context
+        )
+    if reviewed_column_limited_shear_context is not None:
+        column_kwargs["reviewed_column_limited_shear_context"] = (
+            reviewed_column_limited_shear_context
+        )
     if reviewed_column_final_cage_context is not None:
         column_kwargs["reviewed_column_final_cage_context"] = (
             reviewed_column_final_cage_context

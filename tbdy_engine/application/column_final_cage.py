@@ -15,6 +15,9 @@ import math
 from typing import Sequence
 
 from tbdy_engine.design.columns.rebar_catalog import RebarCatalog
+from tbdy_engine.regulatory.column_shear_limited_program import (
+    LimitedColumnShearRun,
+)
 from tbdy_engine.regulatory.column_transverse_confinement import (
     ColumnTransverseConfinementInput,
     SpecialTieDetailingFacts,
@@ -203,6 +206,29 @@ def _p7_direction(
     return matches[0]
 
 
+
+def _limited_direction(
+    run: LimitedColumnShearRun | None,
+    direction: str,
+):
+    if run is None:
+        return None
+    if not isinstance(run, LimitedColumnShearRun):
+        raise TypeError(
+            "limited_run must be LimitedColumnShearRun or None"
+        )
+    matches = tuple(
+        item
+        for item in run.directions
+        if item.direction == direction
+    )
+    if len(matches) != 1:
+        raise ColumnFinalCageError(
+            f"limited run must expose exactly one {direction} direction"
+        )
+    return matches[0]
+
+
 def _direction_fact(
     *,
     base: TransverseDirectionFacts,
@@ -210,6 +236,7 @@ def _direction_fact(
     asw_mm2: float,
     horizontal_leg_spacing_mm: float,
     p7_direction,
+    limited_direction,
     common_refs: tuple[str, ...],
 ) -> TransverseDirectionFacts:
     if local_direction not in {"V2", "V3"}:
@@ -221,6 +248,15 @@ def _direction_fact(
     p7_ve_kn = None
     mapping_proven = None
     p7_refs: tuple[str, ...] = ()
+    limited_shear = None
+
+    if (
+        p7_direction is not None
+        and limited_direction is not None
+    ):
+        raise ColumnFinalCageError(
+            "high P7 and limited shear authority are mutually exclusive"
+        )
 
     if p7_direction is not None:
         effective = p7_direction.effective_depth
@@ -243,6 +279,26 @@ def _direction_fact(
             )
         )
 
+    if limited_direction is not None:
+        effective = limited_direction.effective_depth
+        if (
+            effective.resolved
+            and effective.effective_depth_d_mm is not None
+        ):
+            effective_depth_mm = float(
+                effective.effective_depth_d_mm
+            )
+            mapping_proven = True
+        limited_shear = limited_direction
+        p7_refs = tuple(
+            dict.fromkeys(
+                (
+                    *limited_direction.source_refs,
+                    *effective.source_refs,
+                )
+            )
+        )
+
     return replace(
         base,
         provided_asw_mm2=asw_mm2,
@@ -250,6 +306,7 @@ def _direction_fact(
         shear_mapping_proven=mapping_proven,
         qualified_vc_kn=None,
         p7_ve_kn=p7_ve_kn,
+        limited_shear=limited_shear,
         horizontal_leg_spacing_mm=horizontal_leg_spacing_mm,
         source_refs=tuple(
             dict.fromkeys(
@@ -271,6 +328,7 @@ def apply_reviewed_final_cage_to_transverse_input(
     reviewed: ReviewedColumnFinalCageContext,
     rebar_catalog: RebarCatalog,
     p7_run: VS6P7ColumnShearRun | None,
+    limited_run: LimitedColumnShearRun | None = None,
 ) -> ColumnTransverseConfinementInput:
     if not isinstance(
         request,
@@ -287,6 +345,13 @@ def apply_reviewed_final_cage_to_transverse_input(
             "reviewed must be ReviewedColumnFinalCageContext"
         )
     if (
+        p7_run is not None
+        and limited_run is not None
+    ):
+        raise ColumnFinalCageError(
+            "high P7 and limited shear run cannot both be supplied"
+        )
+    if (
         reviewed.component_id != request.component_id
         or reviewed.section != request.section
     ):
@@ -299,6 +364,13 @@ def apply_reviewed_final_cage_to_transverse_input(
     ):
         raise ColumnFinalCageError(
             "final cage/P7 component identity mismatch"
+        )
+    if (
+        limited_run is not None
+        and limited_run.component_id != request.component_id
+    ):
+        raise ColumnFinalCageError(
+            "final cage/limited component identity mismatch"
         )
 
     entry = _catalog_entry(
@@ -347,6 +419,7 @@ def apply_reviewed_final_cage_to_transverse_input(
             reviewed.horizontal_leg_spacing_dir2_mm
         ),
         p7_direction=_p7_direction(p7_run, "V2"),
+        limited_direction=_limited_direction(limited_run, "V2"),
         common_refs=refs,
     )
     dir3 = _direction_fact(
@@ -357,6 +430,7 @@ def apply_reviewed_final_cage_to_transverse_input(
             reviewed.horizontal_leg_spacing_dir3_mm
         ),
         p7_direction=_p7_direction(p7_run, "V3"),
+        limited_direction=_limited_direction(limited_run, "V3"),
         common_refs=refs,
     )
 

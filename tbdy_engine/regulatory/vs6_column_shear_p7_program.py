@@ -23,6 +23,7 @@ from tbdy_engine.regulatory.column_shear_p7 import (
     COLUMN_WIDTH_MM_KEY,
     CONCRETE_FCK_MPA_KEY,
     D_AMPLIFIED_KN_KEY,
+    SHORT_COLUMN_APPLIES_KEY,
     EFFECTIVE_DEPTH_MM_KEY,
     EVIDENCE_TRACE_KEY,
     FREE_LENGTH_MM_KEY,
@@ -35,9 +36,11 @@ from tbdy_engine.regulatory.column_shear_p7 import (
     TS500_VD_KN_KEY,
     TS500_WEB_RULE_ID,
     VE_KN_KEY,
+    SHORT_VE_RULE_ID,
     VE_RULE_ID,
     ColumnShearP7ApplicabilityInput,
     VS6_COLUMN_SHEAR_P7_REGISTRY,
+    VS6_SHORT_COLUMN_SHEAR_P7_REGISTRY,
 )
 from tbdy_engine.regulatory.contracts import (
     AvailabilityState,
@@ -196,6 +199,7 @@ def run_vs6_p7_direction(
     section: str,
     direction: str,
     tbdy_high_ductility_applies: bool | None,
+    tbdy_short_column_applies: bool = False,
     ts500_rc_applies: bool | None,
     free_length_ln_mm: float | None,
     free_length_basis_ref: str | None,
@@ -220,6 +224,8 @@ def run_vs6_p7_direction(
         raise VS6P7ProgramError("direction must be V2 or V3")
     if tbdy_high_ductility_applies is not None and type(tbdy_high_ductility_applies) is not bool:
         raise VS6P7ProgramError("tbdy_high_ductility_applies must be bool or None")
+    if type(tbdy_short_column_applies) is not bool:
+        raise VS6P7ProgramError("tbdy_short_column_applies must be bool")
     if ts500_rc_applies is not None and type(ts500_rc_applies) is not bool:
         raise VS6P7ProgramError("ts500_rc_applies must be bool or None")
     if type(response_spectrum_concurrency_required) is not bool or type(response_spectrum_concurrency_proven) is not bool:
@@ -260,6 +266,13 @@ def run_vs6_p7_direction(
         component_type="column",
         reinforced_concrete=ts500_rc_applies,
         tbdy_737_high_ductility_applies=tbdy_high_ductility_applies,
+        tbdy_738_short_column_applies=tbdy_short_column_applies,
+    )
+    ve_rule_id = SHORT_VE_RULE_ID if tbdy_short_column_applies else VE_RULE_ID
+    selected_registry = (
+        VS6_SHORT_COLUMN_SHEAR_P7_REGISTRY
+        if tbdy_short_column_applies
+        else VS6_COLUMN_SHEAR_P7_REGISTRY
     )
     targets = tuple(
         RuleScopeTarget(
@@ -270,7 +283,7 @@ def run_vs6_p7_direction(
             mandatory=True,
             applicability_input=common_app,
         )
-        for rule_id in (VE_RULE_ID, TBDY_BRITTLE_RULE_ID, TS500_WEB_RULE_ID)
+        for rule_id in (ve_rule_id, TBDY_BRITTLE_RULE_ID, TS500_WEB_RULE_ID)
     )
 
     bottom_ok = bottom_capacity.resolved
@@ -335,6 +348,24 @@ def run_vs6_p7_direction(
             availability=_availability(ln_ok),
             value=float(free_length_ln_mm) if ln_ok else None,
             provenance_refs=((free_length_basis_ref or "BLOCKED_FREE_LENGTH_BASIS"),),
+        ),
+        _ext(
+            authority_id=f"P7:{component_id}:SHORT_COLUMN_APPLIES",
+            key=SHORT_COLUMN_APPLIES_KEY,
+            source_kind=DependencySourceKind.CONTEXT,
+            semantic_type=SemanticType.CHECK_EVIDENCE_TRACE,
+            dimension=PhysicalDimension.ENUM_STATE,
+            grain=Grain.COMPONENT,
+            scope_ref=component_id,
+            direction=None,
+            unit=UNIT_ENUM_STATE,
+            availability=AvailabilityState.RESOLVED,
+            value=tbdy_short_column_applies,
+            provenance_refs=(
+                "TBDY_7_3_8_SHORT_COLUMN_APPLIES"
+                if tbdy_short_column_applies
+                else "TBDY_7_3_8_SHORT_COLUMN_PROVEN_FALSE",
+            ),
         ),
         _ext(
             authority_id=f"P7:{component_id}:{direction}:D_AMPLIFIED",
@@ -497,7 +528,7 @@ def run_vs6_p7_direction(
     )
 
     compiled = RegulatoryCompiler.compile(
-        VS6_COLUMN_SHEAR_P7_REGISTRY,
+        selected_registry,
         RegulatoryCompileInputs(
             rule_targets=targets,
             external_authorities=authorities,

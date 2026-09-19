@@ -6,6 +6,7 @@ second result-table read, or transverse-cage inference is owned here.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import math
 from typing import Sequence
 
 from tbdy_engine.application.column_longitudinal_runtime import (
@@ -117,6 +118,77 @@ class ReviewedColumnP7RuntimeContext:
 
 
 @dataclass(frozen=True, slots=True)
+class ReviewedColumnShortColumnContext:
+    component_id: str
+    short_column_applies: bool
+    short_free_length_mm: float | None
+    infill_fully_adjacent: bool | None
+    story_height_mm: float | None
+    review_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        component = _text(self.component_id, "component_id")
+        object.__setattr__(self, "component_id", component)
+        if type(self.short_column_applies) is not bool:
+            raise TypeError("short_column_applies must be bool")
+        object.__setattr__(
+            self,
+            "review_refs",
+            _refs(self.review_refs, "review_ref"),
+        )
+
+        if self.short_column_applies:
+            if (
+                self.short_free_length_mm is None
+                or not math.isfinite(float(self.short_free_length_mm))
+                or float(self.short_free_length_mm) <= 0.0
+            ):
+                raise ColumnP7RuntimeError(
+                    "short column requires actual positive free length"
+                )
+            if type(self.infill_fully_adjacent) is not bool:
+                raise ColumnP7RuntimeError(
+                    "short column requires reviewed infill adjacency fact"
+                )
+            if self.infill_fully_adjacent:
+                if (
+                    self.story_height_mm is None
+                    or not math.isfinite(float(self.story_height_mm))
+                    or float(self.story_height_mm) <= 0.0
+                ):
+                    raise ColumnP7RuntimeError(
+                        "fully-adjacent infill short column requires "
+                        "reviewed positive story height"
+                    )
+            elif self.story_height_mm is not None:
+                if (
+                    not math.isfinite(float(self.story_height_mm))
+                    or float(self.story_height_mm) <= 0.0
+                ):
+                    raise ColumnP7RuntimeError(
+                        "story_height_mm must be positive when supplied"
+                    )
+        else:
+            if (
+                self.short_free_length_mm is not None
+                or self.infill_fully_adjacent is not None
+                or self.story_height_mm is not None
+            ):
+                raise ColumnP7RuntimeError(
+                    "proven non-short column cannot carry short-column facts"
+                )
+
+    @property
+    def required_confinement_length_mm(self) -> float | None:
+        if not self.short_column_applies:
+            return None
+        if self.infill_fully_adjacent:
+            return float(self.story_height_mm)
+        return float(self.short_free_length_mm)
+
+
+
+@dataclass(frozen=True, slots=True)
 class ColumnP7RuntimeComposition:
     component_id: str
     shear_evidence: ColumnShearDemandEvidenceBundle
@@ -185,12 +257,17 @@ def compose_column_p7_runtime(
     demand_states: Sequence[ColumnDemandState],
     longitudinal_runtime: ColumnLongitudinalRuntimeComposition,
     reviewed_context: ReviewedColumnP7RuntimeContext,
+    short_column_context: ReviewedColumnShortColumnContext,
 ) -> ColumnP7RuntimeComposition:
     component = _text(component_id, "component_id")
     if not isinstance(reviewed_context, ReviewedColumnP7RuntimeContext):
         raise TypeError("reviewed_context must be ReviewedColumnP7RuntimeContext")
     if reviewed_context.component_id != component:
         raise ColumnP7RuntimeError("P7 reviewed context component identity mismatch")
+    if not isinstance(short_column_context, ReviewedColumnShortColumnContext):
+        raise TypeError("short_column_context must be ReviewedColumnShortColumnContext")
+    if short_column_context.component_id != component:
+        raise ColumnP7RuntimeError("short-column reviewed context component identity mismatch")
     if not isinstance(free_length, ColumnFreeLengthResolution):
         raise TypeError("free_length must be ColumnFreeLengthResolution")
     if free_length.component_id != component:
@@ -207,6 +284,19 @@ def compose_column_p7_runtime(
         raise ColumnP7RuntimeError("P7 longitudinal runtime component identity mismatch")
     if not longitudinal_runtime.selection.selected or longitudinal_runtime.selection.selected_rebar is None:
         raise ColumnP7RuntimeError("P7 requires canonical ENGINE_SELECTED_REBAR")
+
+    design_basis = longitudinal_runtime.bound_design_basis
+    if short_column_context.short_column_applies:
+        high = design_basis.high_ductility_applies
+        limited = design_basis.limited_ductility_applies
+        if (high is True) == (limited is True):
+            raise ColumnP7RuntimeError(
+                "short-column P7 requires exactly one proven HIGH or LIMITED ductility family"
+            )
+    elif design_basis.high_ductility_applies is not True:
+        raise ColumnP7RuntimeError(
+            "ordinary P7 §7.3.7 applies only to proven HIGH columns"
+        )
 
     target = longitudinal_runtime.target_topology
     if target.component_id != component:
@@ -267,6 +357,9 @@ def compose_column_p7_runtime(
                 selected_rebar=longitudinal_runtime.selection.selected_rebar,
                 topology=target,
                 free_length=free_length,
+                short_column_applies=(short_column_context.short_column_applies),
+                short_free_length_mm=(short_column_context.short_free_length_mm),
+                short_basis_refs=short_column_context.review_refs,
                 shear_evidence=bundle,
                 tbdy_vd_selection=tbdy_selection,
                 ts500_vd_selection=ts500_selection,
@@ -296,6 +389,7 @@ __all__ = [
     "ColumnP7RuntimeError",
     "ReviewedColumnP7DirectionPlan",
     "ReviewedColumnP7RuntimeContext",
+    "ReviewedColumnShortColumnContext",
     "build_b5_bound_column_shear_evidence",
     "compose_column_p7_runtime",
 ]

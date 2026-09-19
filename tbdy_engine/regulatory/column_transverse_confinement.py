@@ -30,6 +30,9 @@ from tbdy_engine.design.columns.column_longitudinal_selection import (
     ENGINE_SELECTED_REBAR_AUTHORITY,
 )
 from tbdy_engine.integration.etabs_design_lineage import DesignLineageQualification
+from tbdy_engine.regulatory.column_shear_limited_program import (
+    LimitedColumnShearDirectionRun,
+)
 from tbdy_engine.regulatory.sources.fnd_col_1_longitudinal import (
     SOURCE_DATA,
     TBDY_SOURCE_ID,
@@ -59,6 +62,11 @@ _CLAIM_DATA = {
         TBDY_SOURCE_ID,
         "7.3.4.1 / Eq.7.1",
         "High-ductility rectangular-column confinement uses the documented diameter, spacing, tie-leg and directional Ash requirements, including the 2/3 low-axial-force branch.",
+    ),
+    "COL_SHORT_COLUMN_FULL_LENGTH_CONFINEMENT": (
+        TBDY_SOURCE_ID,
+        "7.3.8 / 7.7.6",
+        "Short columns use the 7.3.8 shear basis and the entire short-column length is detailed with the 7.3.4.1 confinement-region minimum transverse reinforcement and placement conditions; limited-ductility short columns inherit these conditions through 7.7.6.",
     ),
     "COL_MIDDLE_REINFORCEMENT": (
         TBDY_SOURCE_ID,
@@ -166,6 +174,46 @@ class SpecialTieDetailingFacts:
         object.__setattr__(self, "source_refs", _refs(self.source_refs))
 
 
+
+@dataclass(frozen=True, slots=True)
+class ShortColumnTransverseFacts:
+    applies: bool
+    actual_short_free_length_mm: float | None
+    required_full_confinement_length_mm: float | None
+    infill_fully_adjacent: bool | None
+    source_refs: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if type(self.applies) is not bool:
+            raise TypeError("short-column applies must be bool")
+        object.__setattr__(
+            self,
+            "source_refs",
+            _refs(self.source_refs),
+        )
+        if self.applies:
+            _positive(
+                self.actual_short_free_length_mm,
+                "actual_short_free_length_mm",
+            )
+            _positive(
+                self.required_full_confinement_length_mm,
+                "required_full_confinement_length_mm",
+            )
+            if type(self.infill_fully_adjacent) is not bool:
+                raise TypeError(
+                    "short-column infill_fully_adjacent must be bool"
+                )
+        elif (
+            self.actual_short_free_length_mm is not None
+            or self.required_full_confinement_length_mm is not None
+            or self.infill_fully_adjacent is not None
+        ):
+            raise ColumnTransverseConfinementError(
+                "proven non-short column cannot carry short-column geometry"
+            )
+
+
 @dataclass(frozen=True, slots=True)
 class TransverseDirectionFacts:
     """Direction-specific physical transverse facts.
@@ -184,6 +232,7 @@ class TransverseDirectionFacts:
     shear_mapping_proven: bool | None = None
     qualified_vc_kn: float | None = None
     p7_ve_kn: float | None = None
+    limited_shear: LimitedColumnShearDirectionRun | None = None
 
     def __post_init__(self) -> None:
         _text(self.direction, "direction")
@@ -201,6 +250,17 @@ class TransverseDirectionFacts:
             _nonnegative(self.qualified_vc_kn, "qualified_vc_kn")
         if self.p7_ve_kn is not None:
             _nonnegative(self.p7_ve_kn, "p7_ve_kn")
+        if (
+            self.limited_shear is not None
+            and not isinstance(
+                self.limited_shear,
+                LimitedColumnShearDirectionRun,
+            )
+        ):
+            raise TypeError(
+                "limited_shear must be "
+                "LimitedColumnShearDirectionRun or None"
+            )
         object.__setattr__(self, "source_refs", _refs(self.source_refs))
 
 
@@ -234,6 +294,7 @@ class ColumnTransverseConfinementInput:
     model_fingerprint: str | None = None
     evidence_epoch_id: str | None = None
     design_result_ref: str | None = None
+    short_column: ShortColumnTransverseFacts | None = None
 
     def __post_init__(self) -> None:
         _text(self.component_id, "component_id")
@@ -270,6 +331,16 @@ class ColumnTransverseConfinementInput:
             raise TypeError("directions must contain TransverseDirectionFacts")
         if self.arrangement is not None and not isinstance(self.arrangement, SpecialTieDetailingFacts):
             raise TypeError("arrangement must be SpecialTieDetailingFacts or None")
+        if (
+            self.short_column is not None
+            and not isinstance(
+                self.short_column,
+                ShortColumnTransverseFacts,
+            )
+        ):
+            raise TypeError(
+                "short_column must be ShortColumnTransverseFacts or None"
+            )
         object.__setattr__(self, "source_refs", _refs(self.source_refs))
 
 
@@ -609,6 +680,7 @@ def _high_ductility_checks(
     phi_l: float | None,
     checks: list[CheckResult],
     blockers: list[str],
+    include_middle_region: bool = True,
 ) -> tuple[float | None, float | None, float | None]:
     region = _confinement_region(
         request,
@@ -647,16 +719,79 @@ def _high_ductility_checks(
     _ash_checks(request, quantity_factor=(2.0 / 3.0 if low_axial else 1.0), claim_id="COL_HD_CONFINEMENT_REINFORCEMENT", check_prefix="COL_HD_CONFINEMENT", checks=checks, blockers=blockers)
     _tie_leg_checks(request, claim_id="COL_HD_CONFINEMENT_REINFORCEMENT", check_prefix="COL_HD", checks=checks, blockers=blockers)
 
-    middle_limit = min(min_dim / 2.0, 200.0)
-    if request.middle_spacing_mm is None:
-        blocker = "MIDDLE_SPACING_NOT_AVAILABLE"
-        blockers.append(blocker)
-        checks.append(_check(request, check_id="COL_HD_MIDDLE_SPACING", status=CheckStatus.BLOCKED, limit=middle_limit, unit="mm", message=blocker, claim_id="COL_MIDDLE_REINFORCEMENT"))
-    else:
-        actual = request.middle_spacing_mm
-        ok = actual <= middle_limit + 1e-9
-        checks.append(_check(request, check_id="COL_HD_MIDDLE_SPACING", status=CheckStatus.OK if ok else CheckStatus.FAIL, value=actual, limit=middle_limit, ratio=actual / middle_limit, ratio_type="value_over_maximum", pass_rule="value <= maximum", unit="mm", message="Middle-region spacing satisfies TBDY." if ok else "Middle-region spacing exceeds TBDY maximum.", claim_id="COL_MIDDLE_REINFORCEMENT"))
+    middle_limit = None
+    if include_middle_region:
+        middle_limit = min(min_dim / 2.0, 200.0)
+        if request.middle_spacing_mm is None:
+            blocker = "MIDDLE_SPACING_NOT_AVAILABLE"
+            blockers.append(blocker)
+            checks.append(_check(request, check_id="COL_HD_MIDDLE_SPACING", status=CheckStatus.BLOCKED, limit=middle_limit, unit="mm", message=blocker, claim_id="COL_MIDDLE_REINFORCEMENT"))
+        else:
+            actual = request.middle_spacing_mm
+            ok = actual <= middle_limit + 1e-9
+            checks.append(_check(request, check_id="COL_HD_MIDDLE_SPACING", status=CheckStatus.OK if ok else CheckStatus.FAIL, value=actual, limit=middle_limit, ratio=actual / middle_limit, ratio_type="value_over_maximum", pass_rule="value <= maximum", unit="mm", message="Middle-region spacing satisfies TBDY." if ok else "Middle-region spacing exceeds TBDY maximum.", claim_id="COL_MIDDLE_REINFORCEMENT"))
     return region, spacing_limit, middle_limit
+
+
+
+def _short_column_full_length_check(
+    request: ColumnTransverseConfinementInput,
+    *,
+    base_region_mm: float | None,
+    checks: list[CheckResult],
+    blockers: list[str],
+) -> float | None:
+    facts = request.short_column
+    if facts is None or facts.applies is not True:
+        return base_region_mm
+
+    required = _positive(
+        facts.required_full_confinement_length_mm,
+        "required_full_confinement_length_mm",
+    )
+    actual = request.provided_confinement_region_length_mm
+    check_id = "COL_SHORT_COLUMN_FULL_LENGTH_CONFINEMENT"
+
+    if actual is None:
+        blocker = "SHORT_COLUMN_FULL_LENGTH_CONFINEMENT_NOT_AVAILABLE"
+        blockers.append(blocker)
+        checks.append(
+            _check(
+                request,
+                check_id=check_id,
+                status=CheckStatus.BLOCKED,
+                limit=required,
+                unit="mm",
+                message=blocker,
+                claim_id="COL_SHORT_COLUMN_FULL_LENGTH_CONFINEMENT",
+                extra_refs=facts.source_refs,
+            )
+        )
+        return max(base_region_mm or 0.0, required)
+
+    ok = float(actual) + 1e-9 >= required
+    checks.append(
+        _check(
+            request,
+            check_id=check_id,
+            status=CheckStatus.OK if ok else CheckStatus.FAIL,
+            value=float(actual),
+            limit=required,
+            ratio=float(actual) / required,
+            ratio_type="actual_over_required",
+            pass_rule="provided full-length confinement >= required short-column length",
+            unit="mm",
+            message=(
+                "Short-column confinement covers the entire required length."
+                if ok
+                else
+                "Short-column confinement does not cover the entire required length."
+            ),
+            claim_id="COL_SHORT_COLUMN_FULL_LENGTH_CONFINEMENT",
+            extra_refs=facts.source_refs,
+        )
+    )
+    return max(base_region_mm or 0.0, required)
 
 
 def _limited_ductility_checks(
@@ -765,63 +900,216 @@ def _ts500_general_checks(
         checks.append(_check(request, check_id="COL_TS500_RESTRAINED_BAR_SPACING", status=CheckStatus.OK if ok else CheckStatus.FAIL, value=restrained, limit=300.0, ratio=restrained / 300.0, ratio_type="value_over_maximum", pass_rule="value <= 300 mm", unit="mm", message="TS500 restrained longitudinal-bar spacing is satisfied." if ok else "TS500 restrained longitudinal-bar spacing exceeds 300 mm.", claim_id=claim_id))
 
 
+
 def _final_shear_checks(
     request: ColumnTransverseConfinementInput,
     *,
     checks: list[CheckResult],
     blockers: list[str],
 ) -> tuple[tuple[str, float], ...]:
-    """Use P7 Ve; calculate only cage Vw/Vr after explicit mapping proof."""
     outputs: list[tuple[str, float]] = []
     claim_id = "COL_TS500_SHEAR_CAGE"
+    short_applies = (
+        request.short_column is not None
+        and request.short_column.applies is True
+    )
+
     for direction in request.directions:
         check_id = f"COL_FINAL_SHEAR_VR_{direction.direction}"
         if direction.shear_mapping_proven is not True:
-            blocker = f"TS500_COLUMN_BW_D_ASW_DIRECTION_MAPPING_NOT_PROVEN:{direction.direction}"
+            blocker = (
+                "TS500_COLUMN_BW_D_ASW_DIRECTION_MAPPING_NOT_PROVEN:"
+                f"{direction.direction}"
+            )
             blockers.append(blocker)
-            checks.append(_check(request, check_id=check_id, status=CheckStatus.BLOCKED, message=blocker, claim_id=claim_id, extra_refs=direction.source_refs))
+            checks.append(
+                _check(
+                    request,
+                    check_id=check_id,
+                    status=CheckStatus.BLOCKED,
+                    message=blocker,
+                    claim_id=claim_id,
+                    extra_refs=direction.source_refs,
+                )
+            )
             continue
+
+        demand_kn = None
+        demand_label = None
+        demand_ref = None
+
+        if request.high_ductility_applies is True:
+            if direction.limited_shear is not None:
+                blocker = (
+                    "MIXED_HIGH_AND_LIMITED_SHEAR_AUTHORITY:"
+                    f"{direction.direction}"
+                )
+                blockers.append(blocker)
+                checks.append(
+                    _check(
+                        request,
+                        check_id=check_id,
+                        status=CheckStatus.BLOCKED,
+                        message=blocker,
+                        claim_id=claim_id,
+                        extra_refs=direction.source_refs,
+                    )
+                )
+                continue
+            demand_kn = direction.p7_ve_kn
+            demand_label = (
+                "TBDY 7.3.8 short-column Ve"
+                if short_applies
+                else "P7 Ve"
+            )
+            demand_ref = (
+                "SHORT_COLUMN_P7_VE"
+                if short_applies
+                else "HIGH_P7_VE"
+            )
+
+        elif request.limited_ductility_applies is True:
+            if short_applies:
+                if direction.limited_shear is not None:
+                    blocker = (
+                        "MIXED_SHORT_P7_AND_LIMITED_775_AUTHORITY:"
+                        f"{direction.direction}"
+                    )
+                    blockers.append(blocker)
+                    checks.append(
+                        _check(
+                            request,
+                            check_id=check_id,
+                            status=CheckStatus.BLOCKED,
+                            message=blocker,
+                            claim_id=claim_id,
+                            extra_refs=direction.source_refs,
+                        )
+                    )
+                    continue
+                demand_kn = direction.p7_ve_kn
+                demand_label = "TBDY 7.7.6 / 7.3.8 short-column Ve"
+                demand_ref = "LIMITED_SHORT_COLUMN_P7_VE"
+            else:
+                if direction.p7_ve_kn is not None:
+                    blocker = (
+                        "MIXED_HIGH_AND_LIMITED_SHEAR_AUTHORITY:"
+                        f"{direction.direction}"
+                    )
+                    blockers.append(blocker)
+                    checks.append(
+                        _check(
+                            request,
+                            check_id=check_id,
+                            status=CheckStatus.BLOCKED,
+                            message=blocker,
+                            claim_id=claim_id,
+                            extra_refs=direction.source_refs,
+                        )
+                    )
+                    continue
+                if direction.limited_shear is not None:
+                    demand_kn = direction.limited_shear.vd_kn
+                    demand_label = "TBDY 7.7.5 limited Vd"
+                    demand_ref = "LIMITED_VD"
+        else:
+            blocker = (
+                "FINAL_SHEAR_DUCTILITY_BRANCH_NOT_PROVEN:"
+                f"{direction.direction}"
+            )
+            blockers.append(blocker)
+            checks.append(
+                _check(
+                    request,
+                    check_id=check_id,
+                    status=CheckStatus.BLOCKED,
+                    message=blocker,
+                    claim_id=claim_id,
+                    extra_refs=direction.source_refs,
+                )
+            )
+            continue
+
         missing = []
         for name, value in (
             ("provided_asw_mm2", direction.provided_asw_mm2),
             ("effective_depth_mm", direction.effective_depth_mm),
             ("qualified_vc_kn", direction.qualified_vc_kn),
-            ("p7_ve_kn", direction.p7_ve_kn),
+            ("ductility_specific_shear_demand", demand_kn),
             ("fywd_mpa", request.fywd_mpa),
             ("shear_spacing_mm", request.shear_spacing_mm),
         ):
             if value is None:
                 missing.append(name)
+
         if missing:
-            blocker = f"FINAL_SHEAR_CAGE_FACTS_INCOMPLETE:{direction.direction}:" + ",".join(missing)
+            blocker = (
+                "FINAL_SHEAR_CAGE_FACTS_INCOMPLETE:"
+                f"{direction.direction}:"
+                + ",".join(missing)
+            )
             blockers.append(blocker)
-            checks.append(_check(request, check_id=check_id, status=CheckStatus.BLOCKED, message=blocker, claim_id=claim_id, extra_refs=direction.source_refs))
+            checks.append(
+                _check(
+                    request,
+                    check_id=check_id,
+                    status=CheckStatus.BLOCKED,
+                    message=blocker,
+                    claim_id=claim_id,
+                    extra_refs=direction.source_refs,
+                )
+            )
             continue
+
         asw = float(direction.provided_asw_mm2)
         d_mm = float(direction.effective_depth_mm)
         vc_kn = float(direction.qualified_vc_kn)
-        ve_kn = float(direction.p7_ve_kn)
+        design_shear_kn = float(demand_kn)
         fywd = float(request.fywd_mpa)
         s_mm = float(request.shear_spacing_mm)
+
         vw_kn = asw / s_mm * fywd * d_mm / 1000.0
         vr_kn = vc_kn + vw_kn
         outputs.append((direction.direction, vr_kn))
-        ok = ve_kn <= vr_kn + 1e-9
-        checks.append(_check(
-            request,
-            check_id=check_id,
-            status=CheckStatus.OK if ok else CheckStatus.FAIL,
-            value=ve_kn,
-            limit=vr_kn,
-            ratio=ve_kn / vr_kn if vr_kn > 0 else None,
-            ratio_type="demand_over_capacity" if vr_kn > 0 else None,
-            pass_rule="P7 Ve <= TS500 Vr = qualified Vc + Asw/s*fywd*d",
-            unit="kN",
-            message="Final cage shear resistance satisfies Ve <= Vr." if ok else "Final cage shear resistance does not satisfy Ve <= Vr.",
-            claim_id=claim_id,
-            extra_refs=direction.source_refs,
-        ))
+        ok = design_shear_kn <= vr_kn + 1e-9
+        checks.append(
+            _check(
+                request,
+                check_id=check_id,
+                status=CheckStatus.OK if ok else CheckStatus.FAIL,
+                value=design_shear_kn,
+                limit=vr_kn,
+                ratio=(
+                    design_shear_kn / vr_kn
+                    if vr_kn > 0
+                    else None
+                ),
+                ratio_type=(
+                    "demand_over_capacity"
+                    if vr_kn > 0
+                    else None
+                ),
+                pass_rule=(
+                    f"{demand_label} <= TS500 Vr = "
+                    "qualified Vc + Asw/s*fywd*d"
+                ),
+                unit="kN",
+                message=(
+                    "Final cage shear resistance satisfies "
+                    f"{demand_ref} <= Vr."
+                    if ok
+                    else
+                    "Final cage shear resistance does not satisfy "
+                    f"{demand_ref} <= Vr."
+                ),
+                claim_id=claim_id,
+                extra_refs=direction.source_refs,
+            )
+        )
+
     return tuple(outputs)
+
+
 
 
 def evaluate_column_transverse_confinement(
@@ -829,63 +1117,227 @@ def evaluate_column_transverse_confinement(
     *,
     selected_rebar: CanonicalEngineSelectedRebar | None,
 ) -> ColumnTransverseConfinementResult:
-    """Evaluate the complete supported Column transverse universe fail-closed."""
     if not isinstance(request, ColumnTransverseConfinementInput):
         raise TypeError("request must be ColumnTransverseConfinementInput")
-    phi_l = _selected_longitudinal_diameter(selected_rebar, request.component_id)
+    phi_l = _selected_longitudinal_diameter(
+        selected_rebar,
+        request.component_id,
+    )
     checks: list[CheckResult] = []
     blockers: list[str] = []
 
     ductility: ColumnDuctility | None = None
     region = spacing_limit = middle_limit = None
-    if request.high_ductility_applies is True:
-        ductility = ColumnDuctility.HIGH
-        checks.append(_check(request, check_id="COL_LD_CONFINEMENT_APPLICABILITY", status=CheckStatus.OUT_OF_SCOPE, value=False, limit=True, ratio_type="boolean", pass_rule="HIGH branch selected", message="Limited-ductility branch is not applicable because HIGH ductility is proven.", claim_id="COL_LD_CONFINEMENT"))
-        region, spacing_limit, middle_limit = _high_ductility_checks(request, phi_l=phi_l, checks=checks, blockers=blockers)
-    elif request.high_ductility_applies is False:
-        checks.append(_check(request, check_id="COL_HD_CONFINEMENT_APPLICABILITY", status=CheckStatus.OUT_OF_SCOPE, value=False, limit=True, ratio_type="boolean", pass_rule="HIGH applicability proven false", message="High-ductility confinement branch is proven not applicable.", claim_id="COL_HD_CONFINEMENT_REGION"))
-        if request.limited_ductility_applies is True:
-            ductility = ColumnDuctility.LIMITED
-            region, spacing_limit, middle_limit = _limited_ductility_checks(request, phi_l=phi_l, checks=checks, blockers=blockers)
-        elif request.limited_ductility_applies is False:
-            checks.append(_check(request, check_id="COL_LD_CONFINEMENT_APPLICABILITY", status=CheckStatus.OUT_OF_SCOPE, value=False, limit=True, ratio_type="boolean", pass_rule="LIMITED applicability proven false", message="Limited-ductility confinement branch is proven not applicable.", claim_id="COL_LD_CONFINEMENT"))
-        else:
-            blocker = "LIMITED_DUCTILITY_APPLICABILITY_NOT_PROVEN"
-            blockers.append(blocker)
-            checks.append(_check(request, check_id="COL_LD_CONFINEMENT_APPLICABILITY", status=CheckStatus.BLOCKED, message=blocker, claim_id="COL_LD_CONFINEMENT"))
-    else:
-        blocker = "HIGH_DUCTILITY_APPLICABILITY_NOT_PROVEN"
-        blockers.append(blocker)
-        checks.append(_check(request, check_id="COL_HD_CONFINEMENT_APPLICABILITY", status=CheckStatus.BLOCKED, message=blocker, claim_id="COL_HD_CONFINEMENT_REGION"))
-        if request.limited_ductility_applies is True:
-            ductility = ColumnDuctility.LIMITED
-            region, spacing_limit, middle_limit = _limited_ductility_checks(request, phi_l=phi_l, checks=checks, blockers=blockers)
-        elif request.limited_ductility_applies is None:
-            blocker = "LIMITED_DUCTILITY_APPLICABILITY_NOT_PROVEN"
-            blockers.append(blocker)
-            checks.append(_check(request, check_id="COL_LD_CONFINEMENT_APPLICABILITY", status=CheckStatus.BLOCKED, message=blocker, claim_id="COL_LD_CONFINEMENT"))
+    short = request.short_column
 
-    # 7.2.8 and TS500 general column requirements are independent of whether the
-    # high-ductility family applies; do not collapse them into HD applicability.
-    _special_tie_check(request, checks=checks, blockers=blockers)
-    _ts500_general_checks(request, phi_l=phi_l, checks=checks, blockers=blockers)
-    shear_vr = _final_shear_checks(request, checks=checks, blockers=blockers)
+    if short is not None and short.applies is True:
+        if (
+            request.high_ductility_applies is True
+            and request.limited_ductility_applies is not True
+        ):
+            ductility = ColumnDuctility.HIGH
+        elif (
+            request.high_ductility_applies is False
+            and request.limited_ductility_applies is True
+        ):
+            ductility = ColumnDuctility.LIMITED
+            checks.append(
+                _check(
+                    request,
+                    check_id="COL_SHORT_COLUMN_776_INHERITANCE",
+                    status=CheckStatus.OK,
+                    value=True,
+                    limit=True,
+                    ratio_type="boolean",
+                    pass_rule="TBDY 7.7.6 inherits 7.3.8 short-column conditions",
+                    message=(
+                        "LIMITED short column inherits TBDY 7.3.8 "
+                        "and 7.3.4.1 confinement conditions."
+                    ),
+                    claim_id="COL_SHORT_COLUMN_FULL_LENGTH_CONFINEMENT",
+                    extra_refs=short.source_refs,
+                )
+            )
+        else:
+            blocker = "SHORT_COLUMN_DUCTILITY_FAMILY_NOT_PROVEN"
+            blockers.append(blocker)
+            checks.append(
+                _check(
+                    request,
+                    check_id="COL_SHORT_COLUMN_DUCTILITY_APPLICABILITY",
+                    status=CheckStatus.BLOCKED,
+                    message=blocker,
+                    claim_id="COL_SHORT_COLUMN_FULL_LENGTH_CONFINEMENT",
+                    extra_refs=short.source_refs,
+                )
+            )
+
+        if ductility is not None:
+            region, spacing_limit, middle_limit = _high_ductility_checks(
+                request,
+                phi_l=phi_l,
+                checks=checks,
+                blockers=blockers,
+                include_middle_region=False,
+            )
+            region = _short_column_full_length_check(
+                request,
+                base_region_mm=region,
+                checks=checks,
+                blockers=blockers,
+            )
+    else:
+        if request.high_ductility_applies is True:
+            ductility = ColumnDuctility.HIGH
+            checks.append(
+                _check(
+                    request,
+                    check_id="COL_LD_CONFINEMENT_APPLICABILITY",
+                    status=CheckStatus.OUT_OF_SCOPE,
+                    value=False,
+                    limit=True,
+                    ratio_type="boolean",
+                    pass_rule="HIGH branch selected",
+                    message=(
+                        "Limited-ductility branch is not applicable "
+                        "because HIGH ductility is proven."
+                    ),
+                    claim_id="COL_LD_CONFINEMENT",
+                )
+            )
+            region, spacing_limit, middle_limit = _high_ductility_checks(
+                request,
+                phi_l=phi_l,
+                checks=checks,
+                blockers=blockers,
+            )
+        elif request.high_ductility_applies is False:
+            checks.append(
+                _check(
+                    request,
+                    check_id="COL_HD_CONFINEMENT_APPLICABILITY",
+                    status=CheckStatus.OUT_OF_SCOPE,
+                    value=False,
+                    limit=True,
+                    ratio_type="boolean",
+                    pass_rule="HIGH applicability proven false",
+                    message=(
+                        "High-ductility confinement branch is proven "
+                        "not applicable."
+                    ),
+                    claim_id="COL_HD_CONFINEMENT_REGION",
+                )
+            )
+            if request.limited_ductility_applies is True:
+                ductility = ColumnDuctility.LIMITED
+                region, spacing_limit, middle_limit = _limited_ductility_checks(
+                    request,
+                    phi_l=phi_l,
+                    checks=checks,
+                    blockers=blockers,
+                )
+            elif request.limited_ductility_applies is False:
+                checks.append(
+                    _check(
+                        request,
+                        check_id="COL_LD_CONFINEMENT_APPLICABILITY",
+                        status=CheckStatus.OUT_OF_SCOPE,
+                        value=False,
+                        limit=True,
+                        ratio_type="boolean",
+                        pass_rule="LIMITED applicability proven false",
+                        message=(
+                            "Limited-ductility confinement branch is "
+                            "proven not applicable."
+                        ),
+                        claim_id="COL_LD_CONFINEMENT",
+                    )
+                )
+            else:
+                blocker = "LIMITED_DUCTILITY_APPLICABILITY_NOT_PROVEN"
+                blockers.append(blocker)
+                checks.append(
+                    _check(
+                        request,
+                        check_id="COL_LD_CONFINEMENT_APPLICABILITY",
+                        status=CheckStatus.BLOCKED,
+                        message=blocker,
+                        claim_id="COL_LD_CONFINEMENT",
+                    )
+                )
+        else:
+            blocker = "HIGH_DUCTILITY_APPLICABILITY_NOT_PROVEN"
+            blockers.append(blocker)
+            checks.append(
+                _check(
+                    request,
+                    check_id="COL_HD_CONFINEMENT_APPLICABILITY",
+                    status=CheckStatus.BLOCKED,
+                    message=blocker,
+                    claim_id="COL_HD_CONFINEMENT_REGION",
+                )
+            )
+            if request.limited_ductility_applies is True:
+                ductility = ColumnDuctility.LIMITED
+                region, spacing_limit, middle_limit = _limited_ductility_checks(
+                    request,
+                    phi_l=phi_l,
+                    checks=checks,
+                    blockers=blockers,
+                )
+            elif request.limited_ductility_applies is None:
+                blocker = "LIMITED_DUCTILITY_APPLICABILITY_NOT_PROVEN"
+                blockers.append(blocker)
+                checks.append(
+                    _check(
+                        request,
+                        check_id="COL_LD_CONFINEMENT_APPLICABILITY",
+                        status=CheckStatus.BLOCKED,
+                        message=blocker,
+                        claim_id="COL_LD_CONFINEMENT",
+                    )
+                )
+
+    _special_tie_check(
+        request,
+        checks=checks,
+        blockers=blockers,
+    )
+    _ts500_general_checks(
+        request,
+        phi_l=phi_l,
+        checks=checks,
+        blockers=blockers,
+    )
+    shear_vr = _final_shear_checks(
+        request,
+        checks=checks,
+        blockers=blockers,
+    )
 
     applicable: bool | None
     if ductility is not None or request.ts500_general_applies is True:
         applicable = True
     elif request.ts500_general_applies is None or (
-        request.high_ductility_applies is None and request.limited_ductility_applies is None
+        request.high_ductility_applies is None
+        and request.limited_ductility_applies is None
     ):
         applicable = None
     else:
         applicable = False
 
-    source_refs = tuple(dict.fromkeys((
-        *request.source_refs,
-        *(_source_evidence(claim_id)[0] for claim_id in CLAIM_REFS),
-        *CLAIM_REFS.values(),
-    )))
+    source_refs = tuple(
+        dict.fromkeys(
+            (
+                *request.source_refs,
+                *(
+                    _source_evidence(claim_id)[0]
+                    for claim_id in CLAIM_REFS
+                ),
+                *CLAIM_REFS.values(),
+            )
+        )
+    )
     return ColumnTransverseConfinementResult(
         component_id=request.component_id,
         applicable=applicable,
@@ -899,6 +1351,7 @@ def evaluate_column_transverse_confinement(
         ductility=ductility,
         shear_vr_by_direction_kn=shear_vr,
     )
+
 
 
 def evaluate_column_transverse_confinement_bound(
@@ -943,6 +1396,7 @@ __all__ = [
     "ColumnTransverseConfinementInput",
     "ColumnTransverseConfinementResult",
     "SpecialTieDetailingFacts",
+    "ShortColumnTransverseFacts",
     "TransverseDirectionFacts",
     "evaluate_column_transverse_confinement",
     "evaluate_column_transverse_confinement_bound",

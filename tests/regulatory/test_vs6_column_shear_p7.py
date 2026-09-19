@@ -22,8 +22,10 @@ from tbdy_engine.regulatory.column_shear_p7 import (
     TBDY_BRITTLE_RULE_ID,
     TS500_WEB_RULE_ID,
     VE_KN_KEY,
+    SHORT_VE_RULE_ID,
     VE_RULE_ID,
     VS6_COLUMN_SHEAR_P7_REGISTRY,
+    VS6_SHORT_COLUMN_SHEAR_P7_REGISTRY,
 )
 from tbdy_engine.regulatory.contracts import (
     ApplicabilityState,
@@ -101,6 +103,7 @@ def _run(
     tbdy_vd_kn=60.0,
     ts500_vd_kn=50.0,
     tbdy_applies=True,
+    short_applies=False,
     rc_applies=True,
     rs_required=False,
     rs_proven=True,
@@ -111,6 +114,7 @@ def _run(
         section="C400x500",
         direction=direction,
         tbdy_high_ductility_applies=tbdy_applies,
+        tbdy_short_column_applies=short_applies,
         ts500_rc_applies=rc_applies,
         free_length_ln_mm=free_length_ln_mm,
         free_length_basis_ref=None if free_length_ln_mm is None else "LN:STRICT",
@@ -142,19 +146,36 @@ def _outcome(run, rule_id):
     return matches[0]
 
 
-def test_f09_source_catalog_validates_all_three_formal_rules():
+def test_f09_source_catalog_validates_ordinary_and_short_registries():
     catalog = build_vs6_column_shear_p7_authority_catalog()
-    validated = validate_registry_authority(VS6_COLUMN_SHEAR_P7_REGISTRY, catalog)
-    assert len(validated) == 3
-    assert {item.rule_id for item in validated} == {
+
+    ordinary = validate_registry_authority(
+        VS6_COLUMN_SHEAR_P7_REGISTRY,
+        catalog,
+    )
+    short = validate_registry_authority(
+        VS6_SHORT_COLUMN_SHEAR_P7_REGISTRY,
+        catalog,
+    )
+
+    assert len(ordinary) == 3
+    assert len(short) == 3
+
+    validated = {
+        item.rule_id: item.approved_implementation_fingerprint
+        for item in (*ordinary, *short)
+    }
+    assert set(validated) == {
         VE_RULE_ID,
+        SHORT_VE_RULE_ID,
         TBDY_BRITTLE_RULE_ID,
         TS500_WEB_RULE_ID,
     }
     assert {
-        item.rule_id.value: item.approved_implementation_fingerprint
-        for item in validated
+        rule_id.value: fingerprint
+        for rule_id, fingerprint in validated.items()
     } == APPROVED_IMPLEMENTATION_FINGERPRINTS
+
 
 
 def test_f0_executes_ve_and_both_upper_bounds_in_kn_knm_mm():
@@ -260,3 +281,36 @@ def test_report_projects_reanalysis_required_from_canonical_tbdy_failure():
     run = build_vs6_p7_column_shear_run(component_id="C1", directions=(direction,))
     report = build_vs6_p7_column_shear_reports(run)[0]
     assert report.status == "REANALYSIS_REQUIRED"
+
+def test_short_column_reuses_eq75_with_actual_short_ln_and_14mr():
+    run = _run(
+        tbdy_applies=False,
+        short_applies=True,
+        free_length_ln_mm=1000.0,
+        d_candidate_kn=None,
+        tbdy_vd_kn=999.0,
+    )
+    assert run.ve_kn == pytest.approx(280.0)
+    assert run.tbdy_brittle_result is not None
+    assert run.tbdy_brittle_result.status is CheckStatus.OK
+    assert (
+        _outcome(run, SHORT_VE_RULE_ID).execution_status
+        is ClosureExecutionStatus.EXECUTED
+    )
+    assert (
+        _outcome(run, TBDY_BRITTLE_RULE_ID).execution_status
+        is ClosureExecutionStatus.EXECUTED
+    )
+
+
+def test_short_column_does_not_require_ordinary_d_amplified_candidate():
+    run = _run(
+        tbdy_applies=False,
+        short_applies=True,
+        free_length_ln_mm=1200.0,
+        d_candidate_kn=None,
+    )
+    assert run.ve_kn == pytest.approx(
+        (1.4 * 120.0 + 1.4 * 80.0) * 1000.0 / 1200.0
+    )
+    assert run.ts500_web_result is not None

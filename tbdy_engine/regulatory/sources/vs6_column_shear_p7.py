@@ -10,7 +10,10 @@ from tbdy_engine.regulatory.authority import (
     RegulatorySourceDocument,
     SourceAnchor,
 )
-from tbdy_engine.regulatory.column_shear_p7 import VS6_COLUMN_SHEAR_P7_REGISTRY
+from tbdy_engine.regulatory.column_shear_p7 import (
+    VS6_COLUMN_SHEAR_P7_REGISTRY,
+    VS6_SHORT_COLUMN_SHEAR_P7_REGISTRY,
+)
 
 TBDY_SOURCE_ID = "TBDY2018_AFAD"
 TS500_SOURCE_ID = "TS500_2000_TSE"
@@ -37,6 +40,8 @@ ANCHOR_DATA = {
     "TBDY2018_7_3_7_3": (TBDY_SOURCE_ID, "7.3.7.3"),
     "TBDY2018_7_3_7_4": (TBDY_SOURCE_ID, "7.3.7.4"),
     "TBDY2018_7_3_7_5_EQ7_7": (TBDY_SOURCE_ID, "7.3.7.5 / Eq. (7.7)"),
+    "TBDY2018_7_3_8": (TBDY_SOURCE_ID, "7.3.8"),
+    "TBDY2018_7_7_6": (TBDY_SOURCE_ID, "7.7.6"),
     "TS500_8_1_5_B_EQ8_7": (TS500_SOURCE_ID, "8.1.5(b) / Eq. (8.7)"),
 }
 
@@ -51,6 +56,16 @@ CLAIM_DATA = {
         "v1",
         "For high-ductility reinforced-concrete columns in the bounded VS6-P7 slice, column design shear is derived from the end plastic moment capacities as Ve=(Ma+Mü)/ln, the reviewed safe-side 7.3.7.3 relation may govern when smaller, and the final Ve shall not be less than the analysis shear Vd; exact end capacities and the reviewed D-amplified demand basis are required rather than inferred defaults.",
         "sha256:4e0b9ec6edc76ef865015bbef01f4bcfd78c1b342c3f1e3f93f3f6b0eb8793dd",
+    ),
+    "TBDY2018_7_3_8_SHORT_COLUMN_SHEAR_VE": (
+        (
+            "TBDY2018_7_3_7_1_EQ7_5",
+            "TBDY2018_7_3_8",
+            "TBDY2018_7_7_6",
+        ),
+        "v1",
+        'For reinforced-concrete short columns, including limited-ductility columns through TBDY 7.7.6, Eq.(7.5) is evaluated using the actual short-column free length and the safe-side 1.4 times end moment-capacity basis stated in 7.3.8; the resulting Ve remains subject to the Eq.(7.7) upper-bound family and no ordinary-column free-length fallback is permitted.',
+        'sha256:84778b4912236033f8f5ec5c45b182c9d5cd3c83492e13d431495e5e65179ee8',
     ),
     "TBDY2018_7_3_7_5_COLUMN_SHEAR_BRITTLE_BOUND": (
         ("TBDY2018_7_3_7_5_EQ7_7",),
@@ -68,8 +83,10 @@ CLAIM_DATA = {
 
 CLAIMS_FOR_RULE = {
     "TBDY_7_3_7_COLUMN_SHEAR_VE": ("TBDY2018_7_3_7_COLUMN_SHEAR_VE",),
+    "TBDY_7_3_8_SHORT_COLUMN_SHEAR_VE": ("TBDY2018_7_3_8_SHORT_COLUMN_SHEAR_VE",),
     "TBDY_7_3_7_5_COLUMN_SHEAR_BRITTLE_BOUND": (
         "TBDY2018_7_3_7_5_COLUMN_SHEAR_BRITTLE_BOUND",
+        "TBDY2018_7_3_8_SHORT_COLUMN_SHEAR_VE",
     ),
     "TS500_8_1_5_B_COLUMN_SHEAR_WEB_COMPRESSION": (
         "TS500_8_1_5_B_COLUMN_SHEAR_WEB_COMPRESSION",
@@ -79,9 +96,10 @@ CLAIMS_FOR_RULE = {
 IMPLEMENTATION_MODULES = ("tbdy_engine.regulatory.column_shear_p7",)
 
 APPROVED_IMPLEMENTATION_FINGERPRINTS = {
-    "TBDY_7_3_7_COLUMN_SHEAR_VE": "sha256:7303a1863a9923e7b588e8d7edbc6ebe2217ecfcc454e0db07d1db4aa17d5b3b",
-    "TBDY_7_3_7_5_COLUMN_SHEAR_BRITTLE_BOUND": "sha256:e21ae4dc3aa88095e6fc27bf3efff3de14d6e49f99a1033782ad8b5b6d110b38",
-    "TS500_8_1_5_B_COLUMN_SHEAR_WEB_COMPRESSION": "sha256:59ecf3720ea9ac8acc6e59acd050268220508505ab6d6c61218f5900dd227dcc",
+    'TBDY_7_3_7_5_COLUMN_SHEAR_BRITTLE_BOUND': 'sha256:60ea5d891f8937dffe17b892eef89fa7bf0b86ca04379a4307a10190c43f53bf',
+    'TBDY_7_3_7_COLUMN_SHEAR_VE': 'sha256:4f25f978e95e235fe1240634eda16fc9ff13d36db920a5d5b6ee08611c417f54',
+    'TBDY_7_3_8_SHORT_COLUMN_SHEAR_VE': 'sha256:36927ada90af81a87c736e8807633f210bd9b62a73e7cef83de19aca66e0f3d6',
+    'TS500_8_1_5_B_COLUMN_SHEAR_WEB_COMPRESSION': 'sha256:7f0446e8c608e5b6cb344b5afdf208b073c3b68f8f512d07556148466110c5ea',
 }
 
 
@@ -127,9 +145,29 @@ def build_vs6_column_shear_p7_authority_catalog() -> RegulatoryAuthorityCatalog:
         in sorted(CLAIM_DATA.items())
     )
 
+    specs_by_rule = {}
+    for registry in (
+        VS6_COLUMN_SHEAR_P7_REGISTRY,
+        VS6_SHORT_COLUMN_SHEAR_P7_REGISTRY,
+    ):
+        for spec in (*registry.derivations, *registry.checks):
+            rule_name = spec.rule_id.value
+            prior = specs_by_rule.get(rule_name)
+            if prior is not None:
+                if (
+                    prior.rule_version != spec.rule_version
+                    or prior.evaluator.binding_id != spec.evaluator.binding_id
+                ):
+                    raise ValueError(
+                        "conflicting P7 authority spec for "
+                        f"{rule_name}"
+                    )
+                continue
+            specs_by_rule[rule_name] = spec
+
     bindings = []
-    for spec in (*VS6_COLUMN_SHEAR_P7_REGISTRY.derivations, *VS6_COLUMN_SHEAR_P7_REGISTRY.checks):
-        rule_name = spec.rule_id.value
+    for rule_name in sorted(specs_by_rule):
+        spec = specs_by_rule[rule_name]
         claim_refs = CLAIMS_FOR_RULE[rule_name]
         bindings.append(
             ApprovedImplementationBinding(
@@ -143,8 +181,10 @@ def build_vs6_column_shear_p7_authority_catalog() -> RegulatoryAuthorityCatalog:
                 evaluator_binding_id=spec.evaluator.binding_id,
                 rule_version=spec.rule_version,
                 implementation_modules=IMPLEMENTATION_MODULES,
-                approved_implementation_fingerprint=APPROVED_IMPLEMENTATION_FINGERPRINTS[rule_name],
-                binding_version="vs6-p7-column-shear-v1",
+                approved_implementation_fingerprint=(
+                    APPROVED_IMPLEMENTATION_FINGERPRINTS[rule_name]
+                ),
+                binding_version='vs6-p7-column-shear-v2',
             )
         )
 
