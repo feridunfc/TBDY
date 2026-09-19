@@ -19,6 +19,14 @@ from dataclasses import dataclass
 import json
 from typing import Sequence
 
+from tbdy_engine.coverage.column_denominator import (
+    ColumnDenominatorLeafIdentity,
+    ColumnExpectedLeaf,
+    ColumnLeafApplicability,
+    ColumnLeafOutcome,
+    ColumnLeafOutcomeStatus,
+    SupportedColumnDenominator,
+)
 from tbdy_engine.findings.contracts import Finding
 from tbdy_engine.product_reports.slice_report_contribution import SliceReportContribution
 from tbdy_engine.regulatory.contracts import (
@@ -160,13 +168,18 @@ class ActionBindingRef:
 class AnalysisBasisRef:
     """Typed upstream analysis-basis state preserved without reinterpretation."""
 
-    instance_id: RuleInstanceId
+    instance_id: RuleInstanceId | ColumnDenominatorLeafIdentity
     status: AnalysisBasisStatus
     source_ref: str
 
     def __post_init__(self) -> None:
-        if not isinstance(self.instance_id, RuleInstanceId):
-            raise TypeError("instance_id must be RuleInstanceId")
+        if not isinstance(
+            self.instance_id,
+            (RuleInstanceId, ColumnDenominatorLeafIdentity),
+        ):
+            raise TypeError(
+                "instance_id must be RuleInstanceId or ColumnDenominatorLeafIdentity"
+            )
         if not isinstance(self.status, AnalysisBasisStatus):
             raise TypeError("status must be AnalysisBasisStatus")
         object.__setattr__(self, "source_ref", _text(self.source_ref, "source_ref"))
@@ -214,6 +227,25 @@ class ProjectCoverageReconciliation:
     action_reconciled: bool
     regulatory_metadata_clean: bool
 
+    # A39 product-denominator accounting.  These fields extend the existing
+    # FCR artifact; they do not create a second reconciler or reinterpret
+    # engineering truth.
+    column_expected_leaf_ids: tuple[ColumnDenominatorLeafIdentity, ...] = ()
+    column_accounted_leaf_ids: tuple[ColumnDenominatorLeafIdentity, ...] = ()
+    column_executed_pass_leaf_ids: tuple[ColumnDenominatorLeafIdentity, ...] = ()
+    column_executed_fail_leaf_ids: tuple[ColumnDenominatorLeafIdentity, ...] = ()
+    column_proven_not_applicable_leaf_ids: tuple[ColumnDenominatorLeafIdentity, ...] = ()
+    column_blocked_leaf_ids: tuple[ColumnDenominatorLeafIdentity, ...] = ()
+    column_no_data_leaf_ids: tuple[ColumnDenominatorLeafIdentity, ...] = ()
+    column_explicit_unresolved_leaf_ids: tuple[ColumnDenominatorLeafIdentity, ...] = ()
+    column_reanalysis_required_leaf_ids: tuple[ColumnDenominatorLeafIdentity, ...] = ()
+    column_deferred_cross_domain_leaf_ids: tuple[ColumnDenominatorLeafIdentity, ...] = ()
+    column_silent_missing_leaf_ids: tuple[ColumnDenominatorLeafIdentity, ...] = ()
+    column_duplicate_outcome_leaf_ids: tuple[ColumnDenominatorLeafIdentity, ...] = ()
+    column_orphan_outcome_leaf_ids: tuple[ColumnDenominatorLeafIdentity, ...] = ()
+    column_partition_complete: bool = True
+    column_population_reconciled: bool = True
+
     def __post_init__(self) -> None:
         _text(self.plan_identity, "plan_identity")
         if not isinstance(self.structural_assessment, StructuralAssessment):
@@ -222,6 +254,35 @@ class ProjectCoverageReconciliation:
             raise ProjectReconciliationError(
                 "structural_assessment plan identity must match reconciliation plan identity"
             )
+        column_fields = (
+            self.column_expected_leaf_ids,
+            self.column_accounted_leaf_ids,
+            self.column_executed_pass_leaf_ids,
+            self.column_executed_fail_leaf_ids,
+            self.column_proven_not_applicable_leaf_ids,
+            self.column_blocked_leaf_ids,
+            self.column_no_data_leaf_ids,
+            self.column_explicit_unresolved_leaf_ids,
+            self.column_reanalysis_required_leaf_ids,
+            self.column_deferred_cross_domain_leaf_ids,
+            self.column_silent_missing_leaf_ids,
+            self.column_duplicate_outcome_leaf_ids,
+            self.column_orphan_outcome_leaf_ids,
+        )
+        for values in column_fields:
+            if any(
+                not isinstance(item, ColumnDenominatorLeafIdentity)
+                for item in values
+            ):
+                raise TypeError(
+                    "A39 Column reconciliation fields require "
+                    "ColumnDenominatorLeafIdentity values"
+                )
+            ids = tuple(item.value for item in values)
+            if len(ids) != len(set(ids)):
+                raise ProjectReconciliationError(
+                    "A39 Column reconciliation field contains duplicate identities"
+                )
 
     @property
     def mandatory_closure_complete(self) -> bool:
@@ -229,12 +290,66 @@ class ProjectCoverageReconciliation:
         return self.structural_assessment.structural_status is StructuralAssessmentStatus.COMPLETE
 
     @property
-    def reanalysis_required_instance_ids(self) -> tuple[RuleInstanceId, ...]:
+    def reanalysis_required_instance_ids(
+        self,
+    ) -> tuple[RuleInstanceId | ColumnDenominatorLeafIdentity, ...]:
         return tuple(
             item.instance_id
             for item in self.analysis_basis_refs
             if item.status is AnalysisBasisStatus.REANALYSIS_REQUIRED
         )
+
+    @property
+    def column_expected_instance_count(self) -> int:
+        return len(self.column_expected_leaf_ids)
+
+    @property
+    def column_accounted_instance_count(self) -> int:
+        return len(self.column_accounted_leaf_ids)
+
+    @property
+    def column_executed_pass_count(self) -> int:
+        return len(self.column_executed_pass_leaf_ids)
+
+    @property
+    def column_executed_fail_count(self) -> int:
+        return len(self.column_executed_fail_leaf_ids)
+
+    @property
+    def column_proven_not_applicable_count(self) -> int:
+        return len(self.column_proven_not_applicable_leaf_ids)
+
+    @property
+    def column_blocked_count(self) -> int:
+        return len(self.column_blocked_leaf_ids)
+
+    @property
+    def column_no_data_count(self) -> int:
+        return len(self.column_no_data_leaf_ids)
+
+    @property
+    def column_explicit_unresolved_count(self) -> int:
+        return len(self.column_explicit_unresolved_leaf_ids)
+
+    @property
+    def column_reanalysis_required_count(self) -> int:
+        return len(self.column_reanalysis_required_leaf_ids)
+
+    @property
+    def column_deferred_cross_domain_count(self) -> int:
+        return len(self.column_deferred_cross_domain_leaf_ids)
+
+    @property
+    def column_silent_missing_count(self) -> int:
+        return len(self.column_silent_missing_leaf_ids)
+
+    @property
+    def column_duplicate_count(self) -> int:
+        return len(self.column_duplicate_outcome_leaf_ids)
+
+    @property
+    def column_orphan_count(self) -> int:
+        return len(self.column_orphan_outcome_leaf_ids)
 
     @property
     def expected_mandatory_instance_count(self) -> int:
@@ -319,7 +434,7 @@ class ProjectCoverageReconciliation:
             }
             for item in self.analysis_basis_refs
         ]
-        return {
+        payload = {
             "schema_version": "project_coverage_reconciliation.fcr_1a.v2",
             "artifact_type": "PROJECT_COVERAGE_RECONCILIATION",
             "plan_identity": self.plan_identity,
@@ -381,6 +496,122 @@ class ProjectCoverageReconciliation:
                 "regulatory_metadata_clean": self.regulatory_metadata_clean,
             },
         }
+        if self.column_expected_leaf_ids:
+            column_payload = {
+                "expected_leaf_ids": [
+                    item.value for item in self.column_expected_leaf_ids
+                ],
+                "accounted_leaf_ids": [
+                    item.value for item in self.column_accounted_leaf_ids
+                ],
+                "executed_pass_leaf_ids": [
+                    item.value for item in self.column_executed_pass_leaf_ids
+                ],
+                "executed_fail_leaf_ids": [
+                    item.value for item in self.column_executed_fail_leaf_ids
+                ],
+                "proven_not_applicable_leaf_ids": [
+                    item.value
+                    for item in self.column_proven_not_applicable_leaf_ids
+                ],
+                "blocked_leaf_ids": [
+                    item.value for item in self.column_blocked_leaf_ids
+                ],
+                "no_data_leaf_ids": [
+                    item.value for item in self.column_no_data_leaf_ids
+                ],
+                "explicit_unresolved_leaf_ids": [
+                    item.value for item in self.column_explicit_unresolved_leaf_ids
+                ],
+                "reanalysis_required_leaf_ids": [
+                    item.value
+                    for item in self.column_reanalysis_required_leaf_ids
+                ],
+                "deferred_cross_domain_leaf_ids": [
+                    item.value
+                    for item in self.column_deferred_cross_domain_leaf_ids
+                ],
+                "silent_missing_leaf_ids": [
+                    item.value for item in self.column_silent_missing_leaf_ids
+                ],
+                "duplicate_outcome_leaf_ids": [
+                    item.value
+                    for item in self.column_duplicate_outcome_leaf_ids
+                ],
+                "orphan_outcome_leaf_ids": [
+                    item.value for item in self.column_orphan_outcome_leaf_ids
+                ],
+                "summary": {
+                    "expected_instance_count": self.column_expected_instance_count,
+                    "accounted_instance_count": self.column_accounted_instance_count,
+                    "executed_pass_count": self.column_executed_pass_count,
+                    "executed_fail_count": self.column_executed_fail_count,
+                    "proven_not_applicable_count": (
+                        self.column_proven_not_applicable_count
+                    ),
+                    "blocked_count": self.column_blocked_count,
+                    "no_data_count": self.column_no_data_count,
+                    "explicit_unresolved_count": (
+                        self.column_explicit_unresolved_count
+                    ),
+                    "reanalysis_required_count": (
+                        self.column_reanalysis_required_count
+                    ),
+                    "deferred_cross_domain_count": (
+                        self.column_deferred_cross_domain_count
+                    ),
+                    "silent_missing_count": self.column_silent_missing_count,
+                    "duplicate_count": self.column_duplicate_count,
+                    "orphan_count": self.column_orphan_count,
+                    "partition_complete": self.column_partition_complete,
+                    "population_reconciled": (
+                        self.column_population_reconciled
+                    ),
+                },
+            }
+            payload["column_denominator_reconciliation"] = column_payload
+            payload["summary"].update(
+                {
+                    "column_expected_instance_count": (
+                        self.column_expected_instance_count
+                    ),
+                    "column_accounted_instance_count": (
+                        self.column_accounted_instance_count
+                    ),
+                    "column_executed_pass_count": (
+                        self.column_executed_pass_count
+                    ),
+                    "column_executed_fail_count": (
+                        self.column_executed_fail_count
+                    ),
+                    "column_proven_not_applicable_count": (
+                        self.column_proven_not_applicable_count
+                    ),
+                    "column_blocked_count": self.column_blocked_count,
+                    "column_no_data_count": self.column_no_data_count,
+                    "column_explicit_unresolved_count": (
+                        self.column_explicit_unresolved_count
+                    ),
+                    "column_reanalysis_required_count": (
+                        self.column_reanalysis_required_count
+                    ),
+                    "column_deferred_cross_domain_count": (
+                        self.column_deferred_cross_domain_count
+                    ),
+                    "column_silent_missing_count": (
+                        self.column_silent_missing_count
+                    ),
+                    "column_duplicate_count": self.column_duplicate_count,
+                    "column_orphan_count": self.column_orphan_count,
+                    "column_partition_complete": (
+                        self.column_partition_complete
+                    ),
+                    "column_population_reconciled": (
+                        self.column_population_reconciled
+                    ),
+                }
+            )
+        return payload
 
     def to_json(self) -> str:
         return json.dumps(
@@ -389,6 +620,241 @@ class ProjectCoverageReconciliation:
             sort_keys=True,
             separators=(",", ":"),
         ) + "\n"
+
+
+def _sorted_column_ids(
+    values: Sequence[ColumnDenominatorLeafIdentity]
+    | set[ColumnDenominatorLeafIdentity],
+) -> tuple[ColumnDenominatorLeafIdentity, ...]:
+    return tuple(sorted(values, key=lambda item: item.value))
+
+
+@dataclass(frozen=True, slots=True)
+class _ColumnPopulationAccounting:
+    expected: tuple[ColumnDenominatorLeafIdentity, ...]
+    accounted: tuple[ColumnDenominatorLeafIdentity, ...]
+    executed_pass: tuple[ColumnDenominatorLeafIdentity, ...]
+    executed_fail: tuple[ColumnDenominatorLeafIdentity, ...]
+    proven_not_applicable: tuple[ColumnDenominatorLeafIdentity, ...]
+    blocked: tuple[ColumnDenominatorLeafIdentity, ...]
+    no_data: tuple[ColumnDenominatorLeafIdentity, ...]
+    explicit_unresolved: tuple[ColumnDenominatorLeafIdentity, ...]
+    reanalysis_required: tuple[ColumnDenominatorLeafIdentity, ...]
+    deferred_cross_domain: tuple[ColumnDenominatorLeafIdentity, ...]
+    silent_missing: tuple[ColumnDenominatorLeafIdentity, ...]
+    duplicate_outcome: tuple[ColumnDenominatorLeafIdentity, ...]
+    orphan_outcome: tuple[ColumnDenominatorLeafIdentity, ...]
+    analysis_basis_refs: tuple[AnalysisBasisRef, ...]
+    partition_complete: bool
+    population_reconciled: bool
+
+
+def _reconcile_supported_column_denominator(
+    denominator: SupportedColumnDenominator | None,
+) -> _ColumnPopulationAccounting:
+    if denominator is None:
+        return _ColumnPopulationAccounting(
+            expected=(),
+            accounted=(),
+            executed_pass=(),
+            executed_fail=(),
+            proven_not_applicable=(),
+            blocked=(),
+            no_data=(),
+            explicit_unresolved=(),
+            reanalysis_required=(),
+            deferred_cross_domain=(),
+            silent_missing=(),
+            duplicate_outcome=(),
+            orphan_outcome=(),
+            analysis_basis_refs=(),
+            partition_complete=True,
+            population_reconciled=True,
+        )
+    if not isinstance(denominator, SupportedColumnDenominator):
+        raise TypeError(
+            "column_denominator must be SupportedColumnDenominator or None"
+        )
+
+    expected = tuple(denominator.expected_leaves)
+    outcomes = tuple(denominator.outcomes)
+    if any(not isinstance(item, ColumnExpectedLeaf) for item in expected):
+        raise TypeError(
+            "column_denominator.expected_leaves must contain ColumnExpectedLeaf"
+        )
+    if any(not isinstance(item, ColumnLeafOutcome) for item in outcomes):
+        raise TypeError(
+            "column_denominator.outcomes must contain ColumnLeafOutcome"
+        )
+
+    expected_ids = tuple(item.identity for item in expected)
+    expected_values = tuple(item.value for item in expected_ids)
+    if len(expected_values) != len(set(expected_values)):
+        duplicates = tuple(
+            sorted(
+                {
+                    value
+                    for value in expected_values
+                    if expected_values.count(value) > 1
+                }
+            )
+        )
+        raise ProjectReconciliationError(
+            "A38 expected Column denominator contains duplicate leaf identity: "
+            + ", ".join(duplicates)
+        )
+
+    expected_by_value = {
+        item.identity.value: item
+        for item in expected
+    }
+    expected_id_by_value = {
+        item.identity.value: item.identity
+        for item in expected
+    }
+    expected_set = set(expected_by_value)
+
+    observed_by_value: dict[str, list[ColumnLeafOutcome]] = {}
+    for outcome in outcomes:
+        observed_by_value.setdefault(outcome.identity.value, []).append(outcome)
+
+    observed_set = set(observed_by_value)
+    silent_missing_values = expected_set - observed_set
+    orphan_values = observed_set - expected_set
+    duplicate_values = {
+        value
+        for value, rows in observed_by_value.items()
+        if len(rows) > 1
+    }
+    accounted_values = expected_set & observed_set
+
+    status_sets: dict[
+        ColumnLeafOutcomeStatus,
+        set[ColumnDenominatorLeafIdentity],
+    ] = {
+        status: set()
+        for status in ColumnLeafOutcomeStatus
+    }
+    deferred: set[ColumnDenominatorLeafIdentity] = set()
+    column_basis_refs: list[AnalysisBasisRef] = []
+
+    for value in sorted(expected_set):
+        rows = observed_by_value.get(value, ())
+        if len(rows) != 1:
+            continue
+        outcome = rows[0]
+        expected_leaf = expected_by_value[value]
+        if outcome.identity != expected_leaf.identity:
+            raise ProjectReconciliationError(
+                "A39 Column outcome identity metadata differs from expected leaf "
+                f"for {value}"
+            )
+        if (
+            expected_leaf.applicability
+            is ColumnLeafApplicability.PROVEN_NOT_APPLICABLE
+        ) != (
+            outcome.status
+            is ColumnLeafOutcomeStatus.PROVEN_NOT_APPLICABLE
+        ):
+            raise ProjectReconciliationError(
+                "A39 Column applicability/outcome PNA mismatch for " + value
+            )
+        status_sets[outcome.status].add(outcome.identity)
+        if (
+            outcome.status is ColumnLeafOutcomeStatus.EXPLICIT_UNRESOLVED
+            and outcome.deferred_owner is not None
+        ):
+            deferred.add(outcome.identity)
+
+        basis_status: AnalysisBasisStatus | None = None
+        if outcome.analysis_basis_ref is not None:
+            try:
+                basis_status = AnalysisBasisStatus(outcome.analysis_basis_ref)
+            except ValueError:
+                basis_status = None
+        if (
+            outcome.status
+            is ColumnLeafOutcomeStatus.REANALYSIS_REQUIRED
+        ):
+            basis_status = AnalysisBasisStatus.REANALYSIS_REQUIRED
+        if basis_status is not None:
+            column_basis_refs.append(
+                AnalysisBasisRef(
+                    instance_id=outcome.identity,
+                    status=basis_status,
+                    source_ref=outcome.source_ref,
+                )
+            )
+
+    partition_ids: set[ColumnDenominatorLeafIdentity] = set().union(
+        *status_sets.values()
+    )
+    partition_total = sum(len(items) for items in status_sets.values())
+    partition_complete = (
+        {item.value for item in partition_ids} == expected_set
+        and partition_total == len(expected_set)
+        and not silent_missing_values
+        and not duplicate_values
+    )
+
+    orphan_ids: list[ColumnDenominatorLeafIdentity] = []
+    for value in sorted(orphan_values):
+        rows = observed_by_value[value]
+        # The exact unexpected identity is sufficient for orphan accounting;
+        # duplicate unexpected rows remain visible through duplicate accounting.
+        orphan_ids.append(rows[0].identity)
+
+    duplicate_ids: list[ColumnDenominatorLeafIdentity] = []
+    for value in sorted(duplicate_values):
+        duplicate_ids.append(observed_by_value[value][0].identity)
+
+    return _ColumnPopulationAccounting(
+        expected=_sorted_column_ids(expected_ids),
+        accounted=_sorted_column_ids(
+            expected_id_by_value[value]
+            for value in accounted_values
+        ),
+        executed_pass=_sorted_column_ids(
+            status_sets[ColumnLeafOutcomeStatus.EXECUTED_PASS]
+        ),
+        executed_fail=_sorted_column_ids(
+            status_sets[ColumnLeafOutcomeStatus.EXECUTED_FAIL]
+        ),
+        proven_not_applicable=_sorted_column_ids(
+            status_sets[ColumnLeafOutcomeStatus.PROVEN_NOT_APPLICABLE]
+        ),
+        blocked=_sorted_column_ids(
+            status_sets[ColumnLeafOutcomeStatus.BLOCKED]
+        ),
+        no_data=_sorted_column_ids(
+            status_sets[ColumnLeafOutcomeStatus.NO_DATA]
+        ),
+        explicit_unresolved=_sorted_column_ids(
+            status_sets[ColumnLeafOutcomeStatus.EXPLICIT_UNRESOLVED]
+        ),
+        reanalysis_required=_sorted_column_ids(
+            status_sets[ColumnLeafOutcomeStatus.REANALYSIS_REQUIRED]
+        ),
+        deferred_cross_domain=_sorted_column_ids(deferred),
+        silent_missing=_sorted_column_ids(
+            expected_id_by_value[value]
+            for value in silent_missing_values
+        ),
+        duplicate_outcome=_sorted_column_ids(duplicate_ids),
+        orphan_outcome=_sorted_column_ids(orphan_ids),
+        analysis_basis_refs=tuple(
+            sorted(
+                column_basis_refs,
+                key=lambda item: item.instance_id.value,
+            )
+        ),
+        partition_complete=partition_complete,
+        population_reconciled=(
+            partition_complete
+            and not duplicate_values
+            and not orphan_values
+        ),
+    )
 
 
 class ProjectCoverageReconciler:
@@ -407,6 +873,7 @@ class ProjectCoverageReconciler:
         required_action_finding_ids: Sequence[str] = (),
         regulatory_metadata_conflict_refs: Sequence[str] = (),
         analysis_basis_refs: Sequence[AnalysisBasisRef] | None = None,
+        column_denominator: SupportedColumnDenominator | None = None,
     ) -> ProjectCoverageReconciliation:
         if not isinstance(compiled_program, CompiledRegulatoryProgram):
             raise TypeError("compiled_program must be CompiledRegulatoryProgram")
@@ -582,6 +1049,26 @@ class ProjectCoverageReconciler:
             basis_refs = supplied_basis
         basis_refs = tuple(sorted(basis_refs, key=lambda item: item.instance_id.value))
 
+        column_accounting = _reconcile_supported_column_denominator(
+            column_denominator
+        )
+        basis_identity_values = {
+            item.instance_id.value for item in basis_refs
+        }
+        for item in column_accounting.analysis_basis_refs:
+            if item.instance_id.value in basis_identity_values:
+                raise ProjectReconciliationError(
+                    "A39 analysis_basis_refs contain duplicate identity across "
+                    "regulatory and Column denominator populations"
+                )
+            basis_identity_values.add(item.instance_id.value)
+        basis_refs = tuple(
+            sorted(
+                (*basis_refs, *column_accounting.analysis_basis_refs),
+                key=lambda item: item.instance_id.value,
+            )
+        )
+
         contributions = tuple(report_contributions)
         if any(not isinstance(item, SliceReportContribution) for item in contributions):
             raise TypeError("report_contributions must contain SliceReportContribution only")
@@ -748,10 +1235,40 @@ class ProjectCoverageReconciler:
             orphan_action_binding_finding_ids=orphan_actions,
             regulatory_metadata_conflict_refs=conflict_refs,
             closure_partition_complete=closure_partition_complete,
-            population_reconciled=population_reconciled,
+            population_reconciled=(
+                population_reconciled
+                and column_accounting.population_reconciled
+            ),
             report_reconciled=report_reconciled,
             action_reconciled=action_reconciled,
             regulatory_metadata_clean=not conflict_refs,
+            column_expected_leaf_ids=column_accounting.expected,
+            column_accounted_leaf_ids=column_accounting.accounted,
+            column_executed_pass_leaf_ids=column_accounting.executed_pass,
+            column_executed_fail_leaf_ids=column_accounting.executed_fail,
+            column_proven_not_applicable_leaf_ids=(
+                column_accounting.proven_not_applicable
+            ),
+            column_blocked_leaf_ids=column_accounting.blocked,
+            column_no_data_leaf_ids=column_accounting.no_data,
+            column_explicit_unresolved_leaf_ids=(
+                column_accounting.explicit_unresolved
+            ),
+            column_reanalysis_required_leaf_ids=(
+                column_accounting.reanalysis_required
+            ),
+            column_deferred_cross_domain_leaf_ids=(
+                column_accounting.deferred_cross_domain
+            ),
+            column_silent_missing_leaf_ids=column_accounting.silent_missing,
+            column_duplicate_outcome_leaf_ids=(
+                column_accounting.duplicate_outcome
+            ),
+            column_orphan_outcome_leaf_ids=column_accounting.orphan_outcome,
+            column_partition_complete=column_accounting.partition_complete,
+            column_population_reconciled=(
+                column_accounting.population_reconciled
+            ),
         )
 
 

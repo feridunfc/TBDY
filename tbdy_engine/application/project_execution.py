@@ -217,6 +217,7 @@ def _build_closure_and_report(
     request: ProjectExecutionRequest,
     column: ColumnDomainArtifact,
     *,
+    column_denominator: SupportedColumnDenominator,
     source_id: str,
     source_kind: ReportSourceKind,
     source_title: str,
@@ -235,6 +236,7 @@ def _build_closure_and_report(
         required_report_source_refs=(binding.source_ref,),
         report_bindings=(binding,),
         analysis_basis_refs=_analysis_basis_refs(column),
+        column_denominator=column_denominator,
     )
     basis = ProjectBasisLedger(
         (
@@ -297,6 +299,7 @@ def _complete_project_from_canonical_column(
     assessment, reconciliation, report = _build_closure_and_report(
         request,
         column,
+        column_denominator=column_denominator,
         source_id=source_id,
         source_kind=source_kind,
         source_title=source_title,
