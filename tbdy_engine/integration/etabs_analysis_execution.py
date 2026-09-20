@@ -62,6 +62,7 @@ from tbdy_engine.integration.etabs_analysis_lineage import (
 )
 from tbdy_engine.integration.etabs_analysis_state_mutation import (
     AnalysisStateMutationResult,
+    OwnedScratchUnlockTransitionFact,
 )
 from tbdy_engine.integration.etabs_analysis_state_revalidation import (
     AnalysisStateRevalidationResult,
@@ -96,6 +97,8 @@ ANALYSIS_GENERATION_REF_PREFIX = "analysis-generation:"
 ANALYSIS_EXECUTION_MANIFEST_REF_PREFIX = "analysis-execution-manifest:sha256:"
 ANALYSIS_EXECUTION_PROOF_REF_PREFIX = "analysis-execution-proof:sha256:"
 ANALYSIS_RUNTIME_SCOPE_RESOLUTION_REF_PREFIX = "analysis-runtime-scope-resolution:sha256:"
+RUNTIME_CASE_RECREATION_CONTRACT = "TBDY_B5_RUNTIME_CASE_RECREATION_V1"
+RUNTIME_CASE_RECREATION_REF_PREFIX = "analysis-runtime-recreation:sha256:"
 
 # CSI GetCaseStatus documented integer meanings used as factual postconditions.
 CSI_ANALYSIS_STATUS_NOT_RUN = 1
@@ -130,12 +133,14 @@ _DOCUMENTED_AUTO_SLOT_VALUES = frozenset({0, 1})
 _RUNTIME_DEPENDENCY_SLOT_VALUES = frozenset({5})
 _RUNTIME_RETIREMENT_SLOT_VALUES = frozenset({3, 10})
 _RUNTIME_NEUTRAL_UNDOCUMENTED_SLOT_VALUES = frozenset({6, 7})
+_RUNTIME_RECREATION_SLOT_VALUES = frozenset({3, 5, 6, 7, 10})
 
 
 class RunFlagRestorationStatus(StrEnum):
     NOT_REQUIRED = "NOT_REQUIRED"
     RESTORED = "RESTORED"
     RESTORED_WITH_DECLARED_RETIREMENTS = "RESTORED_WITH_DECLARED_RETIREMENTS"
+    RESTORED_WITH_EXACT_RUNTIME_RECREATIONS = "RESTORED_WITH_EXACT_RUNTIME_RECREATIONS"
     FAILED = "FAILED"
     BLOCKED_UNSAFE = "BLOCKED_UNSAFE"
 
@@ -573,6 +578,162 @@ class RuntimeExecutionScopeResolution:
 
 
 @dataclass(frozen=True, slots=True)
+class RuntimeCaseRecreationFact:
+    unlock_transition_ref: str
+    runtime_version: EtabsRuntimeVersionFact
+    recreated_case_names: tuple[str, ...]
+    case_type_facts: tuple[LoadCaseTypeRuntimeFact, ...]
+    post_case_statuses: tuple[tuple[str, int], ...]
+    recreated_run_flags_before: tuple[tuple[str, bool], ...]
+    evidence_ref: str = field(init=False)
+    contract: str = RUNTIME_CASE_RECREATION_CONTRACT
+
+    def __post_init__(self) -> None:
+        if self.contract != RUNTIME_CASE_RECREATION_CONTRACT:
+            raise AnalysisExecutionError(
+                "runtime case recreation contract mismatch",
+                stage="runtime_case_recreation_contract",
+            )
+        object.__setattr__(
+            self,
+            "unlock_transition_ref",
+            _text(self.unlock_transition_ref, "unlock_transition_ref"),
+        )
+        if not isinstance(self.runtime_version, EtabsRuntimeVersionFact):
+            raise TypeError("runtime_version must be EtabsRuntimeVersionFact")
+        if (
+            not self.runtime_version.success
+            or self.runtime_version.program_version
+            != _SUPPORTED_RUNTIME_COMPATIBILITY_VERSION
+            or self.runtime_version.internal_version_number
+            != _SUPPORTED_RUNTIME_COMPATIBILITY_INTERNAL_VERSION
+        ):
+            raise AnalysisExecutionError(
+                "runtime case recreation requires exact live-proven ETABS runtime profile",
+                stage="runtime_case_recreation_contract",
+                details={
+                    "program_version": self.runtime_version.program_version,
+                    "internal_version_number": self.runtime_version.internal_version_number,
+                    "return_code": self.runtime_version.return_code,
+                },
+            )
+
+        names = tuple(
+            sorted(
+                _text(name, "recreated_case_name")
+                for name in self.recreated_case_names
+            )
+        )
+        if not names or len(set(names)) != len(names):
+            raise AnalysisExecutionError(
+                "runtime recreation requires a nonempty unique case population",
+                stage="runtime_case_recreation_contract",
+            )
+
+        facts = tuple(
+            sorted(self.case_type_facts, key=lambda item: item.case_name)
+        )
+        if any(not isinstance(item, LoadCaseTypeRuntimeFact) for item in facts):
+            raise TypeError(
+                "case_type_facts must contain LoadCaseTypeRuntimeFact"
+            )
+        if tuple(item.case_name for item in facts) != names:
+            raise AnalysisExecutionError(
+                "runtime recreation requires one exact case-type fact per recreated case",
+                stage="runtime_case_recreation_contract",
+            )
+        for fact in facts:
+            if (
+                not fact.success
+                or fact.case_type != 1
+                or fact.sub_type != 0
+                or fact.design_type != 8
+                or fact.design_type_option != 0
+                or fact.runtime_auto_slot_value not in _RUNTIME_RECREATION_SLOT_VALUES
+            ):
+                raise AnalysisExecutionError(
+                    "recreated case does not match the exact live-proven ETABS-managed profile",
+                    stage="runtime_case_recreation_contract",
+                    details={
+                        "case_name": fact.case_name,
+                        "return_code": fact.return_code,
+                        "case_type": fact.case_type,
+                        "sub_type": fact.sub_type,
+                        "design_type": fact.design_type,
+                        "design_type_option": fact.design_type_option,
+                        "runtime_auto_slot_value": fact.runtime_auto_slot_value,
+                    },
+                )
+
+        statuses = tuple(
+            sorted(
+                (
+                    _text(name, "recreated_status_case_name"),
+                    status,
+                )
+                for name, status in self.post_case_statuses
+            )
+        )
+        if (
+            tuple(name for name, _ in statuses) != names
+            or any(
+                type(status) is not int
+                or status != CSI_ANALYSIS_STATUS_FINISHED
+                for _, status in statuses
+            )
+        ):
+            raise AnalysisExecutionError(
+                "recreated cases require exact FINISHED post-run status facts",
+                stage="runtime_case_recreation_contract",
+            )
+
+        flags = tuple(
+            sorted(
+                (
+                    _text(name, "recreated_run_flag_case_name"),
+                    run,
+                )
+                for name, run in self.recreated_run_flags_before
+            )
+        )
+        if (
+            tuple(name for name, _ in flags) != names
+            or any(type(run) is not bool for _, run in flags)
+        ):
+            raise AnalysisExecutionError(
+                "recreated cases require exact factual pre-unlock run flags",
+                stage="runtime_case_recreation_contract",
+            )
+
+        object.__setattr__(self, "recreated_case_names", names)
+        object.__setattr__(self, "case_type_facts", facts)
+        object.__setattr__(self, "post_case_statuses", statuses)
+        object.__setattr__(self, "recreated_run_flags_before", flags)
+        object.__setattr__(
+            self,
+            "evidence_ref",
+            _digest(
+                RUNTIME_CASE_RECREATION_REF_PREFIX,
+                {
+                    "contract": self.contract,
+                    "unlock_transition_ref": self.unlock_transition_ref,
+                    "runtime_version_ref": self.runtime_version.evidence_ref,
+                    "recreated_case_names": list(names),
+                    "case_type_fact_refs": [
+                        item.evidence_ref for item in facts
+                    ],
+                    "post_case_statuses": [
+                        [name, status] for name, status in statuses
+                    ],
+                    "recreated_run_flags_before": [
+                        [name, run] for name, run in flags
+                    ],
+                },
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class AnalysisExecutionAttempt:
     attempt_ref: str
     generation_ref: str
@@ -618,6 +779,7 @@ class AnalysisExecutionManifest:
     delete_results: DeleteAnalysisResultsFact
     run_analysis: RunAnalysisFact
     post_case_status: CaseStatusPopulationFact
+    runtime_case_recreation: RuntimeCaseRecreationFact | None
     result_population_expectation: ColumnForcePopulationExpectation
     result_populations: tuple[ColumnForceResultPopulationFact, ...]
     state_revalidation: AnalysisStateRevalidationResult
@@ -691,32 +853,74 @@ class AnalysisExecutionManifest:
         actual_retired = pre_defined - post_defined
         added_cases = post_defined - pre_defined
 
-        if added_cases or actual_retired != declared_retired:
+        if actual_retired != declared_retired:
             raise AnalysisExecutionError(
-                "positive execution manifest requires exact declared case-universe transition",
+                "positive execution manifest requires exact declared runtime retirements",
                 stage="manifest_contract",
                 details={
                     "actual_retired": tuple(sorted(actual_retired)),
                     "declared_retired": tuple(sorted(declared_retired)),
-                    "added_cases": tuple(sorted(added_cases)),
                 },
             )
 
-        expected_restored = tuple(
-            (name, run)
+        recreated = self.runtime_case_recreation
+        if recreated is None:
+            if added_cases:
+                raise AnalysisExecutionError(
+                    "positive execution manifest forbids unqualified post-run case additions",
+                    stage="manifest_contract",
+                    details={"added_cases": tuple(sorted(added_cases))},
+                )
+            recreated_flags: dict[str, bool] = {}
+        else:
+            if not isinstance(recreated, RuntimeCaseRecreationFact):
+                raise TypeError(
+                    "runtime_case_recreation must be RuntimeCaseRecreationFact or None"
+                )
+            if set(recreated.recreated_case_names) != added_cases:
+                raise AnalysisExecutionError(
+                    "positive execution manifest recreation set does not equal post-run additions",
+                    stage="manifest_contract",
+                    details={
+                        "added_cases": tuple(sorted(added_cases)),
+                        "recreated_case_names": recreated.recreated_case_names,
+                    },
+                )
+            if (
+                recreated.runtime_version.evidence_ref
+                != self.runtime_scope_resolution.runtime_version.evidence_ref
+            ):
+                raise AnalysisExecutionError(
+                    "runtime recreation fact is not bound to the B5 runtime version",
+                    stage="manifest_contract",
+                )
+            recreated_flags = dict(recreated.recreated_run_flags_before)
+
+        expected_map = {
+            name: run
             for name, run in self.run_flags_before.case_flags
             if name in post_defined
-        )
+        }
+        expected_map.update(recreated_flags)
+        expected_restored = tuple(sorted(expected_map.items()))
         if self.run_flags_restored.case_flags != expected_restored:
             raise AnalysisExecutionError(
-                "positive execution manifest requires exact surviving run-flag restoration",
+                "positive execution manifest requires exact factual run-flag restoration",
                 stage="manifest_contract",
+                details={
+                    "expected": expected_restored,
+                    "actual": self.run_flags_restored.case_flags,
+                },
             )
 
         expected_restoration_status = (
-            RunFlagRestorationStatus.RESTORED_WITH_DECLARED_RETIREMENTS
-            if declared_retired
-            else RunFlagRestorationStatus.RESTORED
+            RunFlagRestorationStatus.RESTORED_WITH_EXACT_RUNTIME_RECREATIONS
+            if recreated is not None
+            else (
+                RunFlagRestorationStatus.RESTORED_WITH_DECLARED_RETIREMENTS
+                if declared_retired
+                else RunFlagRestorationStatus.RESTORED
+            )
         )
         if self.run_flag_restoration_status is not expected_restoration_status:
             raise AnalysisExecutionError(
@@ -744,6 +948,11 @@ class AnalysisExecutionManifest:
                     ),
                     "runtime_version_ref": (
                         self.runtime_scope_resolution.runtime_version.evidence_ref
+                    ),
+                    "runtime_case_recreation_ref": (
+                        self.runtime_case_recreation.evidence_ref
+                        if self.runtime_case_recreation is not None
+                        else None
                     ),
                     "result_scope_refs": list(self.scope.result_scope_refs),
                     "attempt_ref": self.attempt.attempt_ref,
@@ -799,6 +1008,11 @@ class AnalysisExecutionManifest:
                 ),
                 "runtime_version_ref": (
                     self.runtime_scope_resolution.runtime_version.evidence_ref
+                ),
+                "runtime_case_recreation_ref": (
+                    self.runtime_case_recreation.evidence_ref
+                    if self.runtime_case_recreation is not None
+                    else None
                 ),
                 "result_scope_refs": list(self.scope.result_scope_refs),
                 "result_population_expectation_ref": self.result_population_expectation.evidence_ref,
@@ -865,6 +1079,106 @@ def _require_active_owned_scratch(
     return identity
 
 
+def _build_runtime_case_recreation_fact(
+    *,
+    context: TrustedLiveAcquisitionContext,
+    unlock_transition: OwnedScratchUnlockTransitionFact | None,
+    added_case_names: Sequence[str],
+    post_status: CaseStatusPopulationFact,
+    runtime_version: EtabsRuntimeVersionFact,
+    timeout_seconds: float,
+    attempt: AnalysisExecutionAttempt,
+) -> RuntimeCaseRecreationFact | None:
+    added = tuple(sorted(_text(name, "added_case_name") for name in added_case_names))
+
+    if unlock_transition is None:
+        if added:
+            raise AnalysisExecutionError(
+                "RunAnalysis added cases without a causal B4B unlock transition",
+                stage="post_case_universe_transition",
+                attempt_ref=attempt.attempt_ref,
+                generation_ref=attempt.generation_ref,
+                details={"added_cases": added},
+            )
+        return None
+
+    if not isinstance(unlock_transition, OwnedScratchUnlockTransitionFact):
+        raise TypeError(
+            "unlock_transition must be OwnedScratchUnlockTransitionFact or None"
+        )
+
+    expected = unlock_transition.removed_case_names
+    if added != expected:
+        raise AnalysisExecutionError(
+            "post-run case additions do not exactly recreate the causal unlock-removed population",
+            stage="post_case_universe_transition",
+            attempt_ref=attempt.attempt_ref,
+            generation_ref=attempt.generation_ref,
+            details={
+                "expected_recreated": expected,
+                "actual_added": added,
+                "missing": tuple(sorted(set(expected) - set(added))),
+                "extra": tuple(sorted(set(added) - set(expected))),
+            },
+        )
+    if not added:
+        return None
+
+    facts: list[LoadCaseTypeRuntimeFact] = []
+    for case_name in added:
+        try:
+            fact = get_load_case_type_runtime_fact_from_session(
+                context.verified_session,
+                case_name=case_name,
+                timeout_seconds=timeout_seconds,
+            )
+        except Exception as exc:
+            raise AnalysisExecutionError(
+                "recreated case runtime type fact could not be established",
+                stage="runtime_case_recreation",
+                attempt_ref=attempt.attempt_ref,
+                generation_ref=attempt.generation_ref,
+                details={"case_name": case_name},
+            ) from exc
+        if not fact.success:
+            raise AnalysisExecutionError(
+                "recreated case runtime type getter returned nonzero",
+                stage="runtime_case_recreation",
+                attempt_ref=attempt.attempt_ref,
+                generation_ref=attempt.generation_ref,
+                details={
+                    "case_name": case_name,
+                    "return_code": fact.return_code,
+                },
+            )
+        facts.append(fact)
+
+    post_map = post_status.as_mapping()
+    pre_unlock_flags = unlock_transition.run_flags_before.as_mapping()
+
+    try:
+        return RuntimeCaseRecreationFact(
+            unlock_transition_ref=unlock_transition.evidence_ref,
+            runtime_version=runtime_version,
+            recreated_case_names=added,
+            case_type_facts=tuple(facts),
+            post_case_statuses=tuple(
+                (name, post_map[name]) for name in added
+            ),
+            recreated_run_flags_before=tuple(
+                (name, pre_unlock_flags[name]) for name in added
+            ),
+        )
+    except KeyError as exc:
+        raise AnalysisExecutionError(
+            "recreated case lacks required causal status/run-flag fact",
+            stage="runtime_case_recreation",
+            attempt_ref=attempt.attempt_ref,
+            generation_ref=attempt.generation_ref,
+            details={"case_name": str(exc)},
+        ) from exc
+
+
 def _restore_run_flags(
     *,
     context: TrustedLiveAcquisitionContext,
@@ -873,8 +1187,9 @@ def _restore_run_flags(
     timeout_seconds: float,
     permitted_runtime_retired_case_names: Sequence[str] = (),
     require_exact_retirements: bool = False,
+    runtime_case_recreation: RuntimeCaseRecreationFact | None = None,
 ) -> tuple[RunFlagRestorationStatus, RunCaseFlagSnapshotFact | None]:
-    """Restore the pre-run flags projected onto the surviving case universe."""
+    """Restore exact factual run flags, including qualified runtime recreations."""
     try:
         identity = reread_verified_session_identity(
             context.verified_session,
@@ -891,6 +1206,11 @@ def _restore_run_flags(
 
     if not snapshot.case_names:
         return RunFlagRestorationStatus.FAILED, None
+    if (
+        runtime_case_recreation is not None
+        and not isinstance(runtime_case_recreation, RuntimeCaseRecreationFact)
+    ):
+        return RunFlagRestorationStatus.FAILED, None
 
     try:
         current = get_run_case_flags_from_session(
@@ -902,14 +1222,17 @@ def _restore_run_flags(
 
         before_names = set(snapshot.case_names)
         current_names = set(current.case_names)
-        permitted_retired = set(
-            permitted_runtime_retired_case_names
+        permitted_retired = set(permitted_runtime_retired_case_names)
+        expected_added = (
+            set(runtime_case_recreation.recreated_case_names)
+            if runtime_case_recreation is not None
+            else set()
         )
 
         added = current_names - before_names
         retired = before_names - current_names
 
-        if added:
+        if added != expected_added:
             return RunFlagRestorationStatus.FAILED, current
 
         if require_exact_retirements:
@@ -918,8 +1241,23 @@ def _restore_run_flags(
         elif not retired.issubset(permitted_retired):
             return RunFlagRestorationStatus.FAILED, current
 
-        anchor = current.case_names[0]
+        restore_map = {
+            name: run
+            for name, run in snapshot.case_flags
+            if name in current_names
+        }
+        if runtime_case_recreation is not None:
+            recreated_flags = dict(
+                runtime_case_recreation.recreated_run_flags_before
+            )
+            if set(recreated_flags) != expected_added:
+                return RunFlagRestorationStatus.FAILED, current
+            restore_map.update(recreated_flags)
 
+        if set(restore_map) != current_names:
+            return RunFlagRestorationStatus.FAILED, current
+
+        anchor = current.case_names[0]
         cleared = set_run_case_flag_from_session(
             context.verified_session,
             case_name=anchor,
@@ -930,8 +1268,8 @@ def _restore_run_flags(
         if not cleared.success:
             return RunFlagRestorationStatus.FAILED, None
 
-        for name, run in snapshot.case_flags:
-            if name not in current_names or not run:
+        for name, run in sorted(restore_map.items()):
+            if not run:
                 continue
             fact = set_run_case_flag_from_session(
                 context.verified_session,
@@ -947,16 +1285,15 @@ def _restore_run_flags(
             context.verified_session,
             timeout_seconds=timeout_seconds,
         )
-
-        expected = tuple(
-            (name, run)
-            for name, run in snapshot.case_flags
-            if name in current_names
-        )
-
+        expected = tuple(sorted(restore_map.items()))
         if not restored.success or restored.case_flags != expected:
             return RunFlagRestorationStatus.FAILED, restored
 
+        if runtime_case_recreation is not None:
+            return (
+                RunFlagRestorationStatus.RESTORED_WITH_EXACT_RUNTIME_RECREATIONS,
+                restored,
+            )
         if retired:
             return (
                 RunFlagRestorationStatus.RESTORED_WITH_DECLARED_RETIREMENTS,
@@ -978,6 +1315,7 @@ def _raise_after_run_scope_mutation(
     run_flags_before: RunCaseFlagSnapshotFact,
     timeout_seconds: float,
     permitted_runtime_retired_case_names: Sequence[str] = (),
+    runtime_case_recreation: RuntimeCaseRecreationFact | None = None,
     details: Mapping[str, object] | None = None,
     cause: BaseException | None = None,
 ) -> None:
@@ -990,6 +1328,7 @@ def _raise_after_run_scope_mutation(
             permitted_runtime_retired_case_names
         ),
         require_exact_retirements=False,
+        runtime_case_recreation=runtime_case_recreation,
     )
     error = AnalysisExecutionError(
         message,
@@ -1276,6 +1615,25 @@ def execute_controlled_analysis(
             generation_ref=attempt.generation_ref,
         )
 
+    unlock_transition = getattr(
+        established_state.mutation_manifest,
+        "unlock_transition",
+        None,
+    )
+    if (
+        unlock_transition is not None
+        and not isinstance(
+            unlock_transition,
+            OwnedScratchUnlockTransitionFact,
+        )
+    ):
+        raise AnalysisExecutionError(
+            "B4B unlock transition has unsupported factual type",
+            stage="scratch_binding",
+            attempt_ref=attempt.attempt_ref,
+            generation_ref=attempt.generation_ref,
+        )
+
     identity_before = _require_active_owned_scratch(
         context,
         owned_scratch,
@@ -1361,6 +1719,30 @@ def execute_controlled_analysis(
         attempt=attempt,
     )
 
+    if unlock_transition is not None:
+        if (
+            defined_cases_before.case_names
+            != unlock_transition.defined_cases_after.case_names
+            or run_flags_before.case_flags
+            != unlock_transition.run_flags_after.case_flags
+        ):
+            raise AnalysisExecutionError(
+                "B5 pre-run universe is not the exact post-unlock B4B universe",
+                stage="unlock_transition_binding",
+                attempt_ref=attempt.attempt_ref,
+                generation_ref=attempt.generation_ref,
+                details={
+                    "b5_defined_cases": defined_cases_before.case_names,
+                    "unlock_defined_cases_after": (
+                        unlock_transition.defined_cases_after.case_names
+                    ),
+                    "b5_run_flags": run_flags_before.case_flags,
+                    "unlock_run_flags_after": (
+                        unlock_transition.run_flags_after.case_flags
+                    ),
+                },
+            )
+
     # Caller input is engineering intent. Reconcile that intent against the
     # factual pre-run defined-case universe before deriving any ETABS-managed
     # execution dependency or retirement semantics. This preserves the public
@@ -1413,6 +1795,7 @@ def execute_controlled_analysis(
 
     anchor = run_flags_before.case_names[0]
     run_scope_mutated = False
+    runtime_case_recreation: RuntimeCaseRecreationFact | None = None
     try:
         all_off = set_run_case_flag_from_session(
             context.verified_session,
@@ -1703,9 +2086,9 @@ def execute_controlled_analysis(
             scope.permitted_runtime_retired_case_names
         )
 
-        if added_cases or actual_retired != declared_retired:
+        if actual_retired != declared_retired:
             _raise_after_run_scope_mutation(
-                message="RunAnalysis changed the defined case universe outside the exact predeclared retirement contract",
+                message="RunAnalysis retirement set differs from exact predeclared runtime retirement contract",
                 stage="post_case_universe_transition",
                 attempt=attempt,
                 context=context,
@@ -1722,12 +2105,47 @@ def execute_controlled_analysis(
                 },
             )
 
+        try:
+            runtime_case_recreation = _build_runtime_case_recreation_fact(
+                context=context,
+                unlock_transition=unlock_transition,
+                added_case_names=tuple(sorted(added_cases)),
+                post_status=post_status,
+                runtime_version=runtime_scope_resolution.runtime_version,
+                timeout_seconds=timeout,
+                attempt=attempt,
+            )
+        except AnalysisExecutionError as exc:
+            _raise_after_run_scope_mutation(
+                message=str(exc),
+                stage=exc.stage,
+                attempt=attempt,
+                context=context,
+                owned_scratch=owned_scratch,
+                run_flags_before=run_flags_before,
+                timeout_seconds=timeout,
+                permitted_runtime_retired_case_names=(
+                    scope.permitted_runtime_retired_case_names
+                ),
+                details=exc.details,
+                cause=exc,
+            )
+
         post_map = post_status.as_mapping()
+        recreated_set = (
+            set(runtime_case_recreation.recreated_case_names)
+            if runtime_case_recreation is not None
+            else set()
+        )
         contaminated = tuple(
             sorted(
                 (name, status)
                 for name, status in post_map.items()
-                if name not in execution_set and status != CSI_ANALYSIS_STATUS_NOT_RUN
+                if (
+                    name not in execution_set
+                    and name not in recreated_set
+                    and status != CSI_ANALYSIS_STATUS_NOT_RUN
+                )
             )
         )
         if contaminated:
@@ -1742,6 +2160,7 @@ def execute_controlled_analysis(
                 permitted_runtime_retired_case_names=(
                     scope.permitted_runtime_retired_case_names
                 ),
+                runtime_case_recreation=runtime_case_recreation,
                 details={"contaminated_cases": contaminated},
             )
         for case_name in scope.execution_case_names:
@@ -1822,11 +2241,16 @@ def execute_controlled_analysis(
                 scope.permitted_runtime_retired_case_names
             ),
             require_exact_retirements=True,
+            runtime_case_recreation=runtime_case_recreation,
         )
         expected_restoration_status = (
-            RunFlagRestorationStatus.RESTORED_WITH_DECLARED_RETIREMENTS
-            if scope.permitted_runtime_retired_case_names
-            else RunFlagRestorationStatus.RESTORED
+            RunFlagRestorationStatus.RESTORED_WITH_EXACT_RUNTIME_RECREATIONS
+            if runtime_case_recreation is not None
+            else (
+                RunFlagRestorationStatus.RESTORED_WITH_DECLARED_RETIREMENTS
+                if scope.permitted_runtime_retired_case_names
+                else RunFlagRestorationStatus.RESTORED
+            )
         )
         if (
             restoration_status is not expected_restoration_status
@@ -1882,6 +2306,7 @@ def execute_controlled_analysis(
             delete_results=delete_fact,
             run_analysis=run_fact,
             post_case_status=post_status,
+            runtime_case_recreation=runtime_case_recreation,
             result_population_expectation=population_expectation,
             result_populations=tuple(result_populations),
             state_revalidation=state_revalidation,
@@ -1890,6 +2315,11 @@ def execute_controlled_analysis(
         population_provenance = (
             population_expectation.evidence_ref,
             *manifest.result_population_refs,
+        )
+        runtime_recreation_refs = (
+            (runtime_case_recreation.evidence_ref,)
+            if runtime_case_recreation is not None
+            else ()
         )
         analysis_result = build_analysis_result_identity(
             source_model_ref=context.source_model_identity.source_model_ref,
@@ -1901,6 +2331,7 @@ def execute_controlled_analysis(
                 scope.scope_ref,
                 runtime_scope_resolution.evidence_ref,
                 runtime_scope_resolution.runtime_version.evidence_ref,
+                *runtime_recreation_refs,
                 run_fact.evidence_ref,
                 post_status.evidence_ref,
                 *population_provenance,
@@ -1915,6 +2346,7 @@ def execute_controlled_analysis(
                 scope.scope_ref,
                 runtime_scope_resolution.evidence_ref,
                 runtime_scope_resolution.runtime_version.evidence_ref,
+                *runtime_recreation_refs,
                 run_fact.evidence_ref,
                 post_status.evidence_ref,
                 state_revalidation.comparison.comparison_ref,
@@ -1927,6 +2359,7 @@ def execute_controlled_analysis(
                 scope.scope_ref,
                 runtime_scope_resolution.evidence_ref,
                 runtime_scope_resolution.runtime_version.evidence_ref,
+                *runtime_recreation_refs,
                 *population_provenance,
             ),
             capture_provenance_refs=(
@@ -1956,6 +2389,7 @@ def execute_controlled_analysis(
                 permitted_runtime_retired_case_names=(
                     scope.permitted_runtime_retired_case_names
                 ),
+                runtime_case_recreation=runtime_case_recreation,
                 cause=exc,
             )
         raise AnalysisExecutionError(
@@ -1971,12 +2405,14 @@ __all__ = [
     "ANALYSIS_EXECUTION_RESULT_CONTRACT",
     "ANALYSIS_EXECUTION_SCOPE_CONTRACT",
     "RUNTIME_EXECUTION_SCOPE_RESOLUTION_CONTRACT",
+    "RUNTIME_CASE_RECREATION_CONTRACT",
     "AnalysisExecutionAttempt",
     "AnalysisExecutionError",
     "AnalysisExecutionManifest",
     "AnalysisExecutionResult",
     "AnalysisExecutionScope",
     "RunFlagRestorationStatus",
+    "RuntimeCaseRecreationFact",
     "RuntimeExecutionScopeResolution",
     "execute_controlled_analysis",
 ]

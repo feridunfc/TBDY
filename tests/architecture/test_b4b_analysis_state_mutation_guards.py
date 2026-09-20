@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 OAPI = ROOT / "tbdy_engine" / "etabs" / "oapi" / "frame_modifiers.py"
+MODEL_LOCK_OAPI = ROOT / "tbdy_engine" / "etabs" / "oapi" / "model_lock.py"
 INTEGRATION = ROOT / "tbdy_engine" / "integration" / "etabs_analysis_state_mutation.py"
 
 FORBIDDEN = {
@@ -34,6 +35,39 @@ def test_b4b_production_files_forbid_execution_and_second_com_path():
         source = _text(path)
         for token in FORBIDDEN:
             assert token not in source, f"{token} must not appear in {path}"
+
+
+def _dotted(node: ast.AST) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        parent = _dotted(node.value)
+        return f"{parent}.{node.attr}" if parent else node.attr
+    return ""
+
+
+def test_model_lock_raw_call_is_confined_to_factual_oapi():
+    production = ROOT / "tbdy_engine"
+    call_sites = []
+    for path in production.rglob("*.py"):
+        tree = ast.parse(_text(path), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            dotted = _dotted(node.func)
+            if dotted.rsplit(".", 1)[-1] == "SetModelIsLocked":
+                call_sites.append(
+                    (path.relative_to(ROOT).as_posix(), dotted)
+                )
+
+    assert call_sites == [
+        (
+            "tbdy_engine/etabs/oapi/model_lock.py",
+            "model_api.SetModelIsLocked",
+        )
+    ]
+    assert "SetModelIsLocked" not in _text(INTEGRATION)
+    assert "etabs_gateway.mutation_transport" in _text(MODEL_LOCK_OAPI)
 
 
 def test_b4b_integration_consumes_owned_scratch_and_b4a_identity_chain():

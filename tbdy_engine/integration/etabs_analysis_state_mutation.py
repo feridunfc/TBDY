@@ -41,6 +41,18 @@ from tbdy_engine.etabs.oapi.frame_modifiers import (
     get_frame_modifiers_from_session,
     set_frame_modifiers_from_session,
 )
+from tbdy_engine.etabs.oapi.analysis_execution import (
+    CaseStatusPopulationFact,
+    DefinedAnalysisCasePopulationFact,
+    RunCaseFlagSnapshotFact,
+    get_case_status_population_from_session,
+    get_defined_analysis_cases_from_session,
+    get_run_case_flags_from_session,
+)
+from tbdy_engine.etabs.oapi.model_lock import (
+    ModelLockSetFact,
+    set_model_lock_from_session,
+)
 from tbdy_engine.etabs.safety import reread_verified_session_identity
 from tbdy_engine.integration.etabs_analysis_lineage import AnalysisStateIdentity
 from tbdy_engine.integration.etabs_derived_state import (
@@ -82,6 +94,12 @@ AREA_MUTATION_FACT_REF_PREFIX = "b4b-area-modifier-mutation:sha256:"
 SECTION_MUTATION_MANIFEST_REF_PREFIX = (
     "b4b-section-modifier-mutation:sha256:"
 )
+OWNED_SCRATCH_UNLOCK_TRANSITION_CONTRACT = (
+    "TBDY_B4B_OWNED_SCRATCH_UNLOCK_TRANSITION_V1"
+)
+OWNED_SCRATCH_UNLOCK_TRANSITION_REF_PREFIX = (
+    "b4b-owned-scratch-unlock:sha256:"
+)
 
 
 class AnalysisStateMutationError(RuntimeError):
@@ -104,6 +122,169 @@ class MutationRestorationStatus(StrEnum):
     RESTORED = "RESTORED"
     FAILED = "FAILED"
     BLOCKED_UNSAFE = "BLOCKED_UNSAFE"
+
+
+@dataclass(frozen=True, slots=True)
+class OwnedScratchUnlockTransitionFact:
+    active_model_path_before: str
+    active_model_path_after: str
+    lock_before: bool
+    lock_after: bool
+    setter: ModelLockSetFact
+    defined_cases_before: DefinedAnalysisCasePopulationFact
+    defined_cases_after: DefinedAnalysisCasePopulationFact
+    run_flags_before: RunCaseFlagSnapshotFact
+    run_flags_after: RunCaseFlagSnapshotFact
+    case_status_before: CaseStatusPopulationFact
+    case_status_after: CaseStatusPopulationFact
+    removed_case_names: tuple[str, ...]
+    added_case_names: tuple[str, ...]
+    source_before: PhysicalFileSnapshot
+    source_after: PhysicalFileSnapshot
+    evidence_ref: str = field(init=False)
+    contract: str = OWNED_SCRATCH_UNLOCK_TRANSITION_CONTRACT
+
+    def __post_init__(self) -> None:
+        if self.contract != OWNED_SCRATCH_UNLOCK_TRANSITION_CONTRACT:
+            raise AnalysisStateMutationError(
+                "owned-scratch unlock transition contract mismatch",
+                stage="scratch_unlock_contract",
+                restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            )
+        before_path = _text(
+            self.active_model_path_before,
+            "active_model_path_before",
+        )
+        after_path = _text(
+            self.active_model_path_after,
+            "active_model_path_after",
+        )
+        if _canonical_model_path(before_path) != _canonical_model_path(after_path):
+            raise AnalysisStateMutationError(
+                "unlock transition changed active model path",
+                stage="scratch_unlock_contract",
+                restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            )
+        if self.lock_before is not True or self.lock_after is not False:
+            raise AnalysisStateMutationError(
+                "positive unlock transition requires True -> False lock state",
+                stage="scratch_unlock_contract",
+                restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            )
+        if not isinstance(self.setter, ModelLockSetFact):
+            raise TypeError("setter must be ModelLockSetFact")
+        if self.setter.requested_locked is not False or not self.setter.success:
+            raise AnalysisStateMutationError(
+                "positive unlock transition requires successful model-unlock setter",
+                stage="scratch_unlock_contract",
+                restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            )
+
+        for label, fact in (
+            ("defined_cases_before", self.defined_cases_before),
+            ("defined_cases_after", self.defined_cases_after),
+            ("run_flags_before", self.run_flags_before),
+            ("run_flags_after", self.run_flags_after),
+            ("case_status_before", self.case_status_before),
+            ("case_status_after", self.case_status_after),
+        ):
+            if not getattr(fact, "success", False):
+                raise AnalysisStateMutationError(
+                    f"{label} is not a successful factual population",
+                    stage="scratch_unlock_contract",
+                    restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+                )
+
+        before_defined = set(self.defined_cases_before.case_names)
+        after_defined = set(self.defined_cases_after.case_names)
+        if not before_defined or not after_defined:
+            raise AnalysisStateMutationError(
+                "unlock transition requires nonempty before/after case universes",
+                stage="scratch_unlock_contract",
+                restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            )
+
+        if (
+            set(self.run_flags_before.case_names) != before_defined
+            or set(self.case_status_before.as_mapping()) != before_defined
+            or set(self.run_flags_after.case_names) != after_defined
+            or set(self.case_status_after.as_mapping()) != after_defined
+        ):
+            raise AnalysisStateMutationError(
+                "unlock transition factual case universes do not reconcile exactly",
+                stage="scratch_unlock_contract",
+                restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            )
+
+        removed = tuple(
+            sorted(_text(name, "removed_case_name") for name in self.removed_case_names)
+        )
+        added = tuple(
+            sorted(_text(name, "added_case_name") for name in self.added_case_names)
+        )
+        if len(set(removed)) != len(removed) or len(set(added)) != len(added):
+            raise AnalysisStateMutationError(
+                "unlock transition contains duplicate case names",
+                stage="scratch_unlock_contract",
+                restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            )
+        expected_removed = tuple(sorted(before_defined - after_defined))
+        expected_added = tuple(sorted(after_defined - before_defined))
+        if removed != expected_removed or added != expected_added:
+            raise AnalysisStateMutationError(
+                "unlock transition case-universe delta is not exact",
+                stage="scratch_unlock_contract",
+                restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+                details={
+                    "expected_removed": expected_removed,
+                    "actual_removed": removed,
+                    "expected_added": expected_added,
+                    "actual_added": added,
+                },
+            )
+        if added:
+            raise AnalysisStateMutationError(
+                "unlock transition may not add analysis cases",
+                stage="scratch_unlock_contract",
+                restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+                details={"added_case_names": added},
+            )
+        if not _same_physical_bytes(self.source_before, self.source_after):
+            raise AnalysisStateMutationError(
+                "protected source bytes changed during unlock transition",
+                stage="scratch_unlock_contract",
+                restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            )
+
+        object.__setattr__(self, "active_model_path_before", before_path)
+        object.__setattr__(self, "active_model_path_after", after_path)
+        object.__setattr__(self, "removed_case_names", removed)
+        object.__setattr__(self, "added_case_names", added)
+        object.__setattr__(
+            self,
+            "evidence_ref",
+            _digest(
+                OWNED_SCRATCH_UNLOCK_TRANSITION_REF_PREFIX,
+                {
+                    "contract": self.contract,
+                    "active_model_path_before": before_path,
+                    "active_model_path_after": after_path,
+                    "lock_before": self.lock_before,
+                    "lock_after": self.lock_after,
+                    "setter_ref": self.setter.evidence_ref,
+                    "defined_cases_before_ref": self.defined_cases_before.evidence_ref,
+                    "defined_cases_after_ref": self.defined_cases_after.evidence_ref,
+                    "run_flags_before_ref": self.run_flags_before.evidence_ref,
+                    "run_flags_after_ref": self.run_flags_after.evidence_ref,
+                    "case_status_before_ref": self.case_status_before.evidence_ref,
+                    "case_status_after_ref": self.case_status_after.evidence_ref,
+                    "removed_case_names": list(removed),
+                    "added_case_names": list(added),
+                    "source_before_sha256": self.source_before.sha256_content_digest,
+                    "source_after_sha256": self.source_after.sha256_content_digest,
+                },
+            ),
+        )
 
 
 def _text(value: object, label: str) -> str:
@@ -407,6 +588,7 @@ class SectionModifierMutationManifest:
     source_before: PhysicalFileSnapshot
     source_after: PhysicalFileSnapshot
     mutations: tuple[FrameModifierMutationFact | AreaModifierMutationFact, ...]
+    unlock_transition: OwnedScratchUnlockTransitionFact | None = None
     logically_invalidates_prior_analysis_results: bool = True
     logically_invalidates_prior_design_results: bool = True
     manifest_ref: str = field(init=False)
@@ -443,6 +625,37 @@ class SectionModifierMutationManifest:
                 stage="mutation_manifest_contract",
                 restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
             )
+        if self.unlock_transition is not None:
+            if not isinstance(
+                self.unlock_transition,
+                OwnedScratchUnlockTransitionFact,
+            ):
+                raise TypeError(
+                    "unlock_transition must be OwnedScratchUnlockTransitionFact or None"
+                )
+            if self.model_locked_before is not True:
+                raise AnalysisStateMutationError(
+                    "unlock-bound mixed mutation must enter with locked scratch",
+                    stage="mutation_manifest_contract",
+                    restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+                )
+            if (
+                _canonical_model_path(self.unlock_transition.active_model_path_before)
+                != _canonical_model_path(self.active_model_path_before)
+                or _canonical_model_path(self.unlock_transition.active_model_path_after)
+                != _canonical_model_path(self.active_model_path_after)
+            ):
+                raise AnalysisStateMutationError(
+                    "unlock transition is not bound to the mutation active path",
+                    stage="mutation_manifest_contract",
+                    restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+                )
+        elif self.model_locked_before is not False:
+            raise AnalysisStateMutationError(
+                "mixed mutation without unlock transition must enter unlocked",
+                stage="mutation_manifest_contract",
+                restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            )
         object.__setattr__(
             self,
             "manifest_ref",
@@ -460,6 +673,11 @@ class SectionModifierMutationManifest:
                     "source_before_sha256": self.source_before.sha256_content_digest,
                     "source_after_sha256": self.source_after.sha256_content_digest,
                     "mutations": [item.semantic_dict() for item in self.mutations],
+                    "unlock_transition_ref": (
+                        self.unlock_transition.evidence_ref
+                        if self.unlock_transition is not None
+                        else None
+                    ),
                     "logical_invalidation": {
                         "analysis_results": True,
                         "design_results": True,
@@ -657,6 +875,195 @@ def _require_source_unchanged(current: PhysicalFileSnapshot, baseline: PhysicalF
                 "current_size": current.file_size_bytes,
             },
         )
+
+
+def _capture_unlock_case_universe(
+    context: TrustedLiveAcquisitionContext,
+    *,
+    timeout_seconds: float,
+    stage: str,
+) -> tuple[
+    DefinedAnalysisCasePopulationFact,
+    RunCaseFlagSnapshotFact,
+    CaseStatusPopulationFact,
+]:
+    try:
+        defined = get_defined_analysis_cases_from_session(
+            context.verified_session,
+            timeout_seconds=timeout_seconds,
+        )
+        flags = get_run_case_flags_from_session(
+            context.verified_session,
+            timeout_seconds=timeout_seconds,
+        )
+        statuses = get_case_status_population_from_session(
+            context.verified_session,
+            timeout_seconds=timeout_seconds,
+        )
+    except Exception as exc:
+        raise AnalysisStateMutationError(
+            "owned-scratch unlock case universe could not be captured",
+            stage=stage,
+            restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+        ) from exc
+
+    if (
+        not defined.success
+        or not flags.success
+        or not statuses.success
+        or not defined.case_names
+    ):
+        raise AnalysisStateMutationError(
+            "owned-scratch unlock case universe contains nonpositive factual reads",
+            stage=stage,
+            restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            details={
+                "defined_return_code": defined.return_code,
+                "run_flags_return_code": flags.return_code,
+                "case_status_return_code": statuses.return_code,
+            },
+        )
+
+    universe = set(defined.case_names)
+    if (
+        set(flags.case_names) != universe
+        or set(statuses.as_mapping()) != universe
+    ):
+        raise AnalysisStateMutationError(
+            "owned-scratch unlock case universe does not reconcile exactly",
+            stage=stage,
+            restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            details={
+                "defined_cases": tuple(sorted(universe)),
+                "run_flag_cases": tuple(sorted(flags.case_names)),
+                "case_status_cases": tuple(sorted(statuses.as_mapping())),
+            },
+        )
+    return defined, flags, statuses
+
+
+def _unlock_owned_scratch_for_section_mutation(
+    *,
+    context: TrustedLiveAcquisitionContext,
+    owned_scratch: OwnedScratchContext,
+    identity_before: object,
+    timeout_seconds: float,
+) -> OwnedScratchUnlockTransitionFact | None:
+    if identity_before.model_locked is False:
+        return None
+    if identity_before.model_locked is not True:
+        raise AnalysisStateMutationError(
+            "mixed section-modifier mutation requires a factual boolean lock state",
+            stage="scratch_lock_state",
+            restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            details={"model_locked": identity_before.model_locked},
+        )
+
+    if _canonical_model_path(identity_before.model_full_path) != _canonical_model_path(
+        owned_scratch.scratch_path
+    ):
+        raise AnalysisStateMutationError(
+            "locked model is not the exact owned scratch",
+            stage="scratch_unlock_active_path",
+            restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+        )
+
+    source_before = capture_physical_file_snapshot(
+        owned_scratch.source_pre.canonical_absolute_path
+    )
+    _require_source_unchanged(
+        source_before,
+        owned_scratch.source_post,
+        stage="scratch_unlock_source_pre",
+    )
+
+    defined_before, flags_before, status_before = _capture_unlock_case_universe(
+        context,
+        timeout_seconds=timeout_seconds,
+        stage="scratch_unlock_pre_universe",
+    )
+
+    try:
+        setter = set_model_lock_from_session(
+            context.verified_session,
+            locked=False,
+            timeout_seconds=timeout_seconds,
+        )
+    except Exception as exc:
+        raise AnalysisStateMutationError(
+            "model-unlock setter raised a factual/transport error",
+            stage="scratch_unlock_exception",
+            restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+        ) from exc
+    if not setter.success:
+        raise AnalysisStateMutationError(
+            "model-unlock setter returned nonzero",
+            stage="scratch_unlock_nonzero",
+            restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            details={"return_code": setter.return_code},
+        )
+
+    try:
+        identity_after = _read_identity(context)
+    except Exception as exc:
+        raise AnalysisStateMutationError(
+            "owned scratch identity could not be reread after unlock",
+            stage="scratch_unlock_readback",
+            restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+        ) from exc
+
+    if _canonical_model_path(identity_after.model_full_path) != _canonical_model_path(
+        owned_scratch.scratch_path
+    ):
+        raise AnalysisStateMutationError(
+            "active model changed away from exact owned scratch during unlock",
+            stage="scratch_unlock_active_path",
+            restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            details={"active_model_path": identity_after.model_full_path},
+        )
+    if identity_after.model_locked is not False:
+        raise AnalysisStateMutationError(
+            "model-unlock setter did not produce unlocked readback",
+            stage="scratch_unlock_readback",
+            restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
+            details={"model_locked": identity_after.model_locked},
+        )
+
+    defined_after, flags_after, status_after = _capture_unlock_case_universe(
+        context,
+        timeout_seconds=timeout_seconds,
+        stage="scratch_unlock_post_universe",
+    )
+
+    source_after = capture_physical_file_snapshot(
+        owned_scratch.source_pre.canonical_absolute_path
+    )
+    _require_source_unchanged(
+        source_after,
+        owned_scratch.source_post,
+        stage="scratch_unlock_source_post",
+    )
+
+    before_names = set(defined_before.case_names)
+    after_names = set(defined_after.case_names)
+
+    return OwnedScratchUnlockTransitionFact(
+        active_model_path_before=identity_before.model_full_path,
+        active_model_path_after=identity_after.model_full_path,
+        lock_before=True,
+        lock_after=False,
+        setter=setter,
+        defined_cases_before=defined_before,
+        defined_cases_after=defined_after,
+        run_flags_before=flags_before,
+        run_flags_after=flags_after,
+        case_status_before=status_before,
+        case_status_after=status_after,
+        removed_case_names=tuple(sorted(before_names - after_names)),
+        added_case_names=tuple(sorted(after_names - before_names)),
+        source_before=source_before,
+        source_after=source_after,
+    )
 
 
 def _restoration(
@@ -1292,11 +1699,22 @@ def establish_section_modifier_analysis_state(
         raise ValueError("timeout_seconds must be greater than zero")
     extra_basis_refs = _additional_basis_refs(additional_state_basis_refs)
 
-    identity_before = _require_bindings(context, owned_scratch, requested_manifest)
+    entry_identity = _require_bindings(
+        context,
+        owned_scratch,
+        requested_manifest,
+    )
+    unlock_transition = _unlock_owned_scratch_for_section_mutation(
+        context=context,
+        owned_scratch=owned_scratch,
+        identity_before=entry_identity,
+        timeout_seconds=timeout,
+    )
+    identity_before = _read_identity(context)
     if identity_before.model_locked is not False:
         raise AnalysisStateMutationError(
-            "mixed section-modifier mutation requires an unlocked owned scratch",
-            stage="scratch_locked",
+            "mixed section-modifier mutation did not establish unlocked owned scratch",
+            stage="scratch_unlock_readback",
             restoration_status=MutationRestorationStatus.NOT_REQUIRED.value,
             details={"model_locked": identity_before.model_locked},
         )
@@ -1482,13 +1900,14 @@ def establish_section_modifier_analysis_state(
             source_model_ref=context.source_model_identity.source_model_ref,
             ownership_proof_ref=owned_scratch.ownership_proof_ref,
             requested_manifest_ref=requested_manifest.manifest_ref,
-            active_model_path_before=identity_before.model_full_path,
+            active_model_path_before=entry_identity.model_full_path,
             active_model_path_after=identity_after.model_full_path,
-            model_locked_before=identity_before.model_locked,
+            model_locked_before=entry_identity.model_locked,
             model_locked_after=identity_after.model_locked,
             source_before=source_before,
             source_after=source_after,
             mutations=tuple(mutations),
+            unlock_transition=unlock_transition,
         )
 
         readback_targets = [
@@ -1545,12 +1964,18 @@ def establish_section_modifier_analysis_state(
                 },
             )
 
+        unlock_refs = (
+            (unlock_transition.evidence_ref,)
+            if unlock_transition is not None
+            else ()
+        )
         analysis_state = build_analysis_state_identity_from_derived_state(
             comparison=comparison,
             state_basis_refs=(
                 owned_scratch.ownership_proof_ref,
                 requested_manifest.manifest_ref,
                 mutation_manifest.manifest_ref,
+                *unlock_refs,
                 *extra_basis_refs,
             ),
             provenance_refs=(
@@ -1558,6 +1983,7 @@ def establish_section_modifier_analysis_state(
                 context.session_provenance_ref,
                 owned_scratch.ownership_proof_ref,
                 mutation_manifest.manifest_ref,
+                *unlock_refs,
                 *extra_basis_refs,
             ),
         )
@@ -1607,10 +2033,12 @@ __all__ = [
     "FrameModifierTargetRequest",
     "AreaModifierMutationFact",
     "AreaModifierTargetRequest",
+    "OwnedScratchUnlockTransitionFact",
     "SectionModifierMutationManifest",
     "MutationRestorationStatus",
     "SECTION_MODIFIER_PLAN_CONTRACT",
     "SECTION_MODIFIER_MUTATION_MANIFEST_CONTRACT",
+    "OWNED_SCRATCH_UNLOCK_TRANSITION_CONTRACT",
     "AREA_MODIFIER_MUTATION_FACT_CONTRACT",
     "build_requested_frame_modifier_manifest",
     "build_requested_section_modifier_manifest",

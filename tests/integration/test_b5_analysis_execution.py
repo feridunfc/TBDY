@@ -16,6 +16,10 @@ from tbdy_engine.etabs.oapi.analysis_execution import (
     RunCaseFlagSnapshotFact,
 )
 from tbdy_engine.etabs.safety import AnalysisReadiness
+from tbdy_engine.etabs.oapi.model_lock import ModelLockSetFact
+from tbdy_engine.integration.etabs_analysis_state_mutation import (
+    OwnedScratchUnlockTransitionFact,
+)
 from tbdy_engine.integration.etabs_analysis_lineage import build_analysis_state_identity
 from tbdy_engine.integration.etabs_analysis_state_revalidation import (
     AnalysisStateRevalidationError,
@@ -68,6 +72,7 @@ class _FakeEstablishedState:
         self.mutation_manifest = SimpleNamespace(
             ownership_proof_ref=owned.ownership_proof_ref,
             manifest_ref="mutation-manifest:test",
+            unlock_transition=None,
         )
         self.requested_manifest = SimpleNamespace(manifest_ref="requested-state:test")
 
@@ -128,6 +133,8 @@ def harness(monkeypatch):
         "population_error_cases": set(),
         "population_calls": [],
         "retire_after_run": set(),
+        "recreate_after_run": {},
+        "runtime_case_profiles": {},
         "runtime_auto_codes": {
             "DEAD": 0,
             "MODAL": 0,
@@ -240,17 +247,32 @@ def harness(monkeypatch):
         case_name,
         timeout_seconds=30.0,
     ):
+        profile = state["runtime_case_profiles"].get(case_name)
+        if profile is None:
+            profile = (
+                1,
+                0,
+                1,
+                0,
+                state["runtime_auto_codes"].get(case_name, 0),
+                0,
+            )
+        (
+            case_type,
+            sub_type,
+            design_type,
+            design_type_option,
+            runtime_slot,
+            return_code,
+        ) = profile
         return LoadCaseTypeRuntimeFact(
             case_name=case_name,
-            case_type=1,
-            sub_type=0,
-            design_type=1,
-            design_type_option=0,
-            runtime_auto_slot_value=state["runtime_auto_codes"].get(
-                case_name,
-                0,
-            ),
-            return_code=0,
+            case_type=case_type,
+            sub_type=sub_type,
+            design_type=design_type,
+            design_type_option=design_type_option,
+            runtime_auto_slot_value=runtime_slot,
+            return_code=return_code,
         )
 
     def readiness(_session, case_name, *, timeout_seconds=30.0):
@@ -285,6 +307,16 @@ def harness(monkeypatch):
             for name in tuple(state["retire_after_run"]):
                 state["run_flags"].pop(name, None)
                 state["statuses"].pop(name, None)
+
+            for name, payload in state["recreate_after_run"].items():
+                state["run_flags"][name] = payload.get(
+                    "run_flag_after_run",
+                    False,
+                )
+                state["statuses"][name] = payload.get(
+                    "status",
+                    4,
+                )
 
         return RunAnalysisFact(return_code=ret)
 
@@ -370,6 +402,64 @@ def harness(monkeypatch):
     )
 
 
+def _attach_unlock_transition(
+    harness,
+    *,
+    recreated_flags: dict[str, bool],
+):
+    after_flags = tuple(harness.state["run_flags"].items())
+    after_status = tuple(harness.state["statuses"].items())
+    before_flags = tuple(
+        (*after_flags, *tuple(recreated_flags.items()))
+    )
+    before_status = tuple(
+        (*after_status, *tuple((name, 4) for name in recreated_flags))
+    )
+    before_names = tuple(name for name, _ in before_flags)
+    after_names = tuple(name for name, _ in after_flags)
+
+    transition = OwnedScratchUnlockTransitionFact(
+        active_model_path_before=harness.owned.scratch_path,
+        active_model_path_after=harness.owned.scratch_path,
+        lock_before=True,
+        lock_after=False,
+        setter=ModelLockSetFact(
+            requested_locked=False,
+            return_code=0,
+        ),
+        defined_cases_before=DefinedAnalysisCasePopulationFact(
+            case_names=before_names,
+            return_code=0,
+        ),
+        defined_cases_after=DefinedAnalysisCasePopulationFact(
+            case_names=after_names,
+            return_code=0,
+        ),
+        run_flags_before=RunCaseFlagSnapshotFact(
+            case_flags=before_flags,
+            return_code=0,
+        ),
+        run_flags_after=RunCaseFlagSnapshotFact(
+            case_flags=after_flags,
+            return_code=0,
+        ),
+        case_status_before=CaseStatusPopulationFact(
+            case_statuses=before_status,
+            return_code=0,
+        ),
+        case_status_after=CaseStatusPopulationFact(
+            case_statuses=after_status,
+            return_code=0,
+        ),
+        removed_case_names=tuple(recreated_flags),
+        added_case_names=(),
+        source_before=harness.owned.source_pre,
+        source_after=harness.owned.source_post,
+    )
+    harness.established.mutation_manifest.unlock_transition = transition
+    return transition
+
+
 def test_positive_execution_qualifies_exact_predeclared_scope_and_restores_flags(harness):
     before = dict(harness.state["run_flags"])
 
@@ -406,6 +496,169 @@ def test_positive_execution_qualifies_exact_predeclared_scope_and_restores_flags
     for population_ref in result.manifest.result_population_refs:
         assert population_ref in result.analysis_result_identity.provenance_refs
         assert population_ref in result.qualification.qualification_provenance_refs
+
+
+def test_exact_post_unlock_runtime_recreation_qualifies_without_result_scope_widening(
+    harness,
+):
+    transition = _attach_unlock_transition(
+        harness,
+        recreated_flags={"~AUTO": True},
+    )
+    harness.state["runtime_case_profiles"]["~AUTO"] = (
+        1,
+        0,
+        8,
+        0,
+        5,
+        0,
+    )
+    harness.state["recreate_after_run"]["~AUTO"] = {
+        "run_flag_after_run": False,
+        "status": 4,
+    }
+
+    result = subject.execute_controlled_analysis(
+        context=harness.context,
+        owned_scratch=harness.owned,
+        established_state=harness.established,
+        requested_case_names=("EX",),
+    )
+
+    recreation = result.manifest.runtime_case_recreation
+    assert recreation is not None
+    assert recreation.unlock_transition_ref == transition.evidence_ref
+    assert recreation.recreated_case_names == ("~AUTO",)
+    assert recreation.recreated_run_flags_before == (("~AUTO", True),)
+    assert (
+        result.manifest.run_flag_restoration_status
+        is subject.RunFlagRestorationStatus.RESTORED_WITH_EXACT_RUNTIME_RECREATIONS
+    )
+    assert harness.state["run_flags"]["~AUTO"] is True
+    assert result.manifest.scope.case_names == ("EX",)
+    assert harness.state["population_calls"] == ["EX"]
+    assert recreation.evidence_ref in result.analysis_result_identity.provenance_refs
+    assert recreation.evidence_ref in result.qualification.qualification_provenance_refs
+
+
+def test_added_case_without_unlock_transition_remains_forbidden(harness):
+    harness.state["recreate_after_run"]["~AUTO"] = {
+        "run_flag_after_run": False,
+        "status": 4,
+    }
+
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.execute_controlled_analysis(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            established_state=harness.established,
+            requested_case_names=("EX",),
+        )
+
+    assert exc.value.stage == "post_case_universe_transition"
+
+
+def test_unlock_recreation_requires_exact_same_case_set(harness):
+    _attach_unlock_transition(
+        harness,
+        recreated_flags={"~AUTO": False},
+    )
+
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.execute_controlled_analysis(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            established_state=harness.established,
+            requested_case_names=("EX",),
+        )
+
+    assert exc.value.stage == "post_case_universe_transition"
+    assert exc.value.details["missing"] == ("~AUTO",)
+
+
+def test_unlock_recreation_rejects_extra_case(harness):
+    _attach_unlock_transition(
+        harness,
+        recreated_flags={"~AUTO": False},
+    )
+    harness.state["recreate_after_run"]["~AUTO"] = {
+        "run_flag_after_run": False,
+        "status": 4,
+    }
+    harness.state["recreate_after_run"]["~EXTRA"] = {
+        "run_flag_after_run": False,
+        "status": 4,
+    }
+
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.execute_controlled_analysis(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            established_state=harness.established,
+            requested_case_names=("EX",),
+        )
+
+    assert exc.value.stage == "post_case_universe_transition"
+    assert exc.value.details["extra"] == ("~EXTRA",)
+
+
+def test_recreated_case_requires_exact_runtime_profile(harness):
+    _attach_unlock_transition(
+        harness,
+        recreated_flags={"~AUTO": False},
+    )
+    harness.state["runtime_case_profiles"]["~AUTO"] = (
+        1,
+        0,
+        8,
+        0,
+        9,
+        0,
+    )
+    harness.state["recreate_after_run"]["~AUTO"] = {
+        "run_flag_after_run": False,
+        "status": 4,
+    }
+
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.execute_controlled_analysis(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            established_state=harness.established,
+            requested_case_names=("EX",),
+        )
+
+    assert exc.value.stage == "runtime_case_recreation_contract"
+
+
+def test_recreated_case_requires_exact_runtime_version(harness):
+    _attach_unlock_transition(
+        harness,
+        recreated_flags={"~AUTO": False},
+    )
+    harness.state["runtime_program_version"] = "23.1.0"
+    harness.state["runtime_case_profiles"]["~AUTO"] = (
+        1,
+        0,
+        8,
+        0,
+        5,
+        0,
+    )
+    harness.state["recreate_after_run"]["~AUTO"] = {
+        "run_flag_after_run": False,
+        "status": 4,
+    }
+
+    with pytest.raises(subject.AnalysisExecutionError) as exc:
+        subject.execute_controlled_analysis(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            established_state=harness.established,
+            requested_case_names=("EX",),
+        )
+
+    assert exc.value.stage == "runtime_case_recreation_contract"
 
 
 def test_scope_identity_is_deterministic_and_runtime_generation_is_not_part_of_scope():

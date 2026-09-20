@@ -12,6 +12,12 @@ from tbdy_engine.etabs.oapi.area_modifiers import (
     AreaModifierSurface,
     AreaModifierVector,
 )
+from tbdy_engine.etabs.oapi.analysis_execution import (
+    CaseStatusPopulationFact,
+    DefinedAnalysisCasePopulationFact,
+    RunCaseFlagSnapshotFact,
+)
+from tbdy_engine.etabs.oapi.model_lock import ModelLockSetFact
 from tbdy_engine.etabs.oapi.frame_modifiers import (
     FrameModifierReadFact,
     FrameModifierSetFact,
@@ -501,8 +507,129 @@ def test_source_physical_byte_drift_fails_closed(harness, monkeypatch):
     )
 
 
-def test_locked_scratch_fails_before_any_modifier_call(harness):
+def _install_unlock_facts(
+    harness,
+    monkeypatch,
+    *,
+    setter_return_code=0,
+    drift_path=False,
+):
+    pre_cases = ("EX", "~AUTO")
+    post_cases = ("EX",)
+    pre_flags = (("EX", True), ("~AUTO", False))
+    post_flags = (("EX", True),)
+    pre_status = (("EX", 4), ("~AUTO", 4))
+    post_status = (("EX", 1),)
+
+    def defined(_session, *, timeout_seconds=30.0):
+        names = (
+            pre_cases
+            if harness.identity_state["locked"]
+            else post_cases
+        )
+        return DefinedAnalysisCasePopulationFact(
+            case_names=names,
+            return_code=0,
+        )
+
+    def flags(_session, *, timeout_seconds=30.0):
+        values = (
+            pre_flags
+            if harness.identity_state["locked"]
+            else post_flags
+        )
+        return RunCaseFlagSnapshotFact(
+            case_flags=values,
+            return_code=0,
+        )
+
+    def statuses(_session, *, timeout_seconds=30.0):
+        values = (
+            pre_status
+            if harness.identity_state["locked"]
+            else post_status
+        )
+        return CaseStatusPopulationFact(
+            case_statuses=values,
+            return_code=0,
+        )
+
+    def unlock(
+        _session,
+        *,
+        locked,
+        timeout_seconds=30.0,
+    ):
+        assert locked is False
+        if setter_return_code == 0:
+            harness.identity_state["locked"] = False
+            if drift_path:
+                harness.identity_state["path"] = (
+                    "C:/tmp/unexpected-other-model.edb"
+                )
+        return ModelLockSetFact(
+            requested_locked=False,
+            return_code=setter_return_code,
+        )
+
+    monkeypatch.setattr(
+        subject,
+        "get_defined_analysis_cases_from_session",
+        defined,
+    )
+    monkeypatch.setattr(
+        subject,
+        "get_run_case_flags_from_session",
+        flags,
+    )
+    monkeypatch.setattr(
+        subject,
+        "get_case_status_population_from_session",
+        statuses,
+    )
+    monkeypatch.setattr(
+        subject,
+        "set_model_lock_from_session",
+        unlock,
+    )
+
+
+def test_locked_exact_owned_scratch_unlocks_before_mixed_mutation(
+    harness,
+    monkeypatch,
+):
     harness.identity_state["locked"] = True
+    _install_unlock_facts(harness, monkeypatch)
+    manifest = _mixed_manifest(harness, (_targets()[2],))
+
+    result = subject.establish_section_modifier_analysis_state(
+        context=harness.context,
+        owned_scratch=harness.owned,
+        requested_manifest=manifest,
+    )
+
+    transition = result.mutation_manifest.unlock_transition
+    assert transition is not None
+    assert transition.lock_before is True
+    assert transition.lock_after is False
+    assert transition.removed_case_names == ("~AUTO",)
+    assert transition.added_case_names == ()
+    assert transition.run_flags_before.as_mapping()["~AUTO"] is False
+    assert transition.evidence_ref in result.analysis_state_identity.state_basis_refs
+    assert transition.evidence_ref in result.analysis_state_identity.provenance_refs
+    assert result.comparison.matched is True
+
+
+def test_unlock_nonzero_fails_before_any_modifier_call(
+    harness,
+    monkeypatch,
+):
+    harness.identity_state["locked"] = True
+    _install_unlock_facts(
+        harness,
+        monkeypatch,
+        setter_return_code=9,
+    )
     manifest = _mixed_manifest(harness, (_targets()[2],))
 
     with pytest.raises(subject.AnalysisStateMutationError) as exc:
@@ -512,11 +639,30 @@ def test_locked_scratch_fails_before_any_modifier_call(harness):
             requested_manifest=manifest,
         )
 
-    assert exc.value.stage == "scratch_locked"
-    assert (
-        exc.value.restoration_status
-        == subject.MutationRestorationStatus.NOT_REQUIRED.value
+    assert exc.value.stage == "scratch_unlock_nonzero"
+    assert harness.calls == []
+
+
+def test_unlock_active_path_drift_fails_before_modifier_set(
+    harness,
+    monkeypatch,
+):
+    harness.identity_state["locked"] = True
+    _install_unlock_facts(
+        harness,
+        monkeypatch,
+        drift_path=True,
     )
+    manifest = _mixed_manifest(harness, (_targets()[2],))
+
+    with pytest.raises(subject.AnalysisStateMutationError) as exc:
+        subject.establish_section_modifier_analysis_state(
+            context=harness.context,
+            owned_scratch=harness.owned,
+            requested_manifest=manifest,
+        )
+
+    assert exc.value.stage == "scratch_unlock_active_path"
     assert harness.calls == []
 
 
