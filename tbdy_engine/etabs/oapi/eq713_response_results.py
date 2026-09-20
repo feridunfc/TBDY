@@ -7,7 +7,8 @@ applicability, participation, modifier targets, or PASS/FAIL.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import Enum
 import math
 from typing import Any
 
@@ -83,11 +84,18 @@ class AreaForceShellResponseFact:
         return f"ETABS:Results.AreaForceShell:{self.area_name}:{self.case_name}:rows={len(self.rows)}"
 
 
+class AreaStrainShellRowIdentityProjection(str, Enum):
+    """Availability of ETABS-returned row identity for one AreaStrainShell fact."""
+
+    RETURNED_ROW_IDENTITY_AVAILABLE = "RETURNED_ROW_IDENTITY_AVAILABLE"
+    RETURNED_ROW_IDENTITY_UNAVAILABLE = "RETURNED_ROW_IDENTITY_UNAVAILABLE"
+
+
 @dataclass(frozen=True, slots=True)
 class AreaStrainShellResponseRow:
-    object_name: str
-    element_name: str
-    point_element_name: str
+    object_name: str | None
+    element_name: str | None
+    point_element_name: str | None
     load_case: str
     step_type: str
     step_number: float
@@ -118,10 +126,23 @@ class AreaStrainShellResponseFact:
     rows: tuple[AreaStrainShellResponseRow, ...]
     return_code: int
     source_api: str = "Results.AreaStrainShell"
+    row_identity_projection: AreaStrainShellRowIdentityProjection = field(
+        default=AreaStrainShellRowIdentityProjection.RETURNED_ROW_IDENTITY_AVAILABLE,
+        kw_only=True,
+    )
 
     @property
     def evidence_ref(self) -> str:
-        return f"ETABS:Results.AreaStrainShell:{self.area_name}:{self.case_name}:rows={len(self.rows)}"
+        base = (
+            f"ETABS:Results.AreaStrainShell:{self.area_name}:"
+            f"{self.case_name}:rows={len(self.rows)}"
+        )
+        if (
+            self.row_identity_projection
+            is AreaStrainShellRowIdentityProjection.RETURNED_ROW_IDENTITY_UNAVAILABLE
+        ):
+            return f"{base}:row_identity=UNAVAILABLE"
+        return base
 
 
 def _text(value: object, label: str) -> str:
@@ -237,53 +258,106 @@ def decode_area_force_shell_response(raw: object, *, area_name: str, case_name: 
 
 
 def decode_area_strain_shell_response(raw: object, *, area_name: str, case_name: str) -> AreaStrainShellResponseFact:
-    """Decode only the documented AreaStrainShell ABI; no shell mechanics are inferred here."""
+    """Decode AreaStrainShell while keeping query identity distinct from row identity."""
     area = _text(area_name, "area_name")
     case = _text(case_name, "case_name")
     if not isinstance(raw, (tuple, list)) or len(raw) != 26:
         raise EtabsOAPIError(f"Results.AreaStrainShell returned unexpected ABI shape: {raw!r}")
+
     count = _count(raw[0], "AreaStrainShell.NumberResults")
-    arrays = tuple(_seq(raw[index], f"AreaStrainShell[{index}]", count) for index in range(1, 25))
     ret = _ret(raw[25], "Results.AreaStrainShell")
+
+    identity_values = raw[1:4]
+    if any(not isinstance(value, (tuple, list)) for value in identity_values):
+        raise EtabsOAPIError("Results.AreaStrainShell row identity arrays must be sequences")
+    identity_lengths = tuple(len(value) for value in identity_values)
+
+    identity_arrays: tuple[tuple[object, ...], ...] | None
+    if all(length >= count for length in identity_lengths):
+        identity_arrays = tuple(
+            _seq(raw[index], f"AreaStrainShell[{index}]", count)
+            for index in range(1, 4)
+        )
+        identity_projection = (
+            AreaStrainShellRowIdentityProjection.RETURNED_ROW_IDENTITY_AVAILABLE
+        )
+    elif identity_lengths == (0, 0, 0):
+        identity_arrays = None
+        identity_projection = (
+            AreaStrainShellRowIdentityProjection.RETURNED_ROW_IDENTITY_UNAVAILABLE
+        )
+    else:
+        raise EtabsOAPIError(
+            "Results.AreaStrainShell returned partial/mixed row identity projection: "
+            f"lengths={identity_lengths}, count={count}"
+        )
+
+    arrays = tuple(
+        _seq(raw[index], f"AreaStrainShell[{index}]", count)
+        for index in range(4, 25)
+    )
+
     rows: list[AreaStrainShellResponseRow] = []
     for index in range(count):
-        obj = _text(arrays[0][index], "AreaStrainShell.Obj")
-        load_case = _text(arrays[3][index], "AreaStrainShell.LoadCase")
-        if obj != area or load_case != case:
+        load_case = _text(arrays[0][index], "AreaStrainShell.LoadCase")
+        if load_case != case:
             raise EtabsOAPIError(
-                f"Results.AreaStrainShell binding mismatch at row {index}: object={obj!r}, case={load_case!r}"
+                f"Results.AreaStrainShell binding mismatch at row {index}: "
+                f"case={load_case!r}"
             )
+
+        if identity_arrays is None:
+            obj = None
+            elm = None
+            point_elm = None
+        else:
+            obj = _text(identity_arrays[0][index], "AreaStrainShell.Obj")
+            elm = _text(identity_arrays[1][index], "AreaStrainShell.Elm")
+            point_elm = _text(identity_arrays[2][index], "AreaStrainShell.PointElm")
+            if obj != area:
+                raise EtabsOAPIError(
+                    f"Results.AreaStrainShell binding mismatch at row {index}: "
+                    f"object={obj!r}, case={load_case!r}"
+                )
+
         rows.append(
             AreaStrainShellResponseRow(
                 object_name=obj,
-                element_name=_text(arrays[1][index], "AreaStrainShell.Elm"),
-                point_element_name=_text(arrays[2][index], "AreaStrainShell.PointElm"),
+                element_name=elm,
+                point_element_name=point_elm,
                 load_case=load_case,
-                step_type=str(arrays[4][index] or ""),
-                step_number=_finite(arrays[5][index], "AreaStrainShell.StepNum"),
-                e11_top=_finite(arrays[6][index], "AreaStrainShell.e11top"),
-                e22_top=_finite(arrays[7][index], "AreaStrainShell.e22top"),
-                g12_top=_finite(arrays[8][index], "AreaStrainShell.g12top"),
-                emax_top=_finite(arrays[9][index], "AreaStrainShell.emaxtop"),
-                emin_top=_finite(arrays[10][index], "AreaStrainShell.emintop"),
-                eangle_top=_finite(arrays[11][index], "AreaStrainShell.eangletop"),
-                evm_top=_finite(arrays[12][index], "AreaStrainShell.evmtop"),
-                e11_bottom=_finite(arrays[13][index], "AreaStrainShell.e11bot"),
-                e22_bottom=_finite(arrays[14][index], "AreaStrainShell.e22bot"),
-                g12_bottom=_finite(arrays[15][index], "AreaStrainShell.g12bot"),
-                emax_bottom=_finite(arrays[16][index], "AreaStrainShell.emaxbot"),
-                emin_bottom=_finite(arrays[17][index], "AreaStrainShell.eminbot"),
-                eangle_bottom=_finite(arrays[18][index], "AreaStrainShell.eanglebot"),
-                evm_bottom=_finite(arrays[19][index], "AreaStrainShell.evmbot"),
-                g13_avg=_finite(arrays[20][index], "AreaStrainShell.g13avg"),
-                g23_avg=_finite(arrays[21][index], "AreaStrainShell.g23avg"),
-                gmax_avg=_finite(arrays[22][index], "AreaStrainShell.gmaxavg"),
-                gangle_avg=_finite(arrays[23][index], "AreaStrainShell.gangleavg"),
+                step_type=str(arrays[1][index] or ""),
+                step_number=_finite(arrays[2][index], "AreaStrainShell.StepNum"),
+                e11_top=_finite(arrays[3][index], "AreaStrainShell.e11top"),
+                e22_top=_finite(arrays[4][index], "AreaStrainShell.e22top"),
+                g12_top=_finite(arrays[5][index], "AreaStrainShell.g12top"),
+                emax_top=_finite(arrays[6][index], "AreaStrainShell.emaxtop"),
+                emin_top=_finite(arrays[7][index], "AreaStrainShell.emintop"),
+                eangle_top=_finite(arrays[8][index], "AreaStrainShell.eangletop"),
+                evm_top=_finite(arrays[9][index], "AreaStrainShell.evmtop"),
+                e11_bottom=_finite(arrays[10][index], "AreaStrainShell.e11bot"),
+                e22_bottom=_finite(arrays[11][index], "AreaStrainShell.e22bot"),
+                g12_bottom=_finite(arrays[12][index], "AreaStrainShell.g12bot"),
+                emax_bottom=_finite(arrays[13][index], "AreaStrainShell.emaxbot"),
+                emin_bottom=_finite(arrays[14][index], "AreaStrainShell.eminbot"),
+                eangle_bottom=_finite(arrays[15][index], "AreaStrainShell.eanglebot"),
+                evm_bottom=_finite(arrays[16][index], "AreaStrainShell.evmbot"),
+                g13_avg=_finite(arrays[17][index], "AreaStrainShell.g13avg"),
+                g23_avg=_finite(arrays[18][index], "AreaStrainShell.g23avg"),
+                gmax_avg=_finite(arrays[19][index], "AreaStrainShell.gmaxavg"),
+                gangle_avg=_finite(arrays[20][index], "AreaStrainShell.gangleavg"),
             )
         )
+
     if not rows:
         raise EtabsOAPIError(f"Results.AreaStrainShell returned no rows for {area!r}/{case!r}")
-    return AreaStrainShellResponseFact(area, case, tuple(rows), ret)
+    return AreaStrainShellResponseFact(
+        area,
+        case,
+        tuple(rows),
+        ret,
+        row_identity_projection=identity_projection,
+    )
 
 
 def probe_eq713_response_results_capability_from_session(
@@ -407,6 +481,7 @@ __all__ = [
     "AreaForceShellResponseRow",
     "AreaStrainShellResponseFact",
     "AreaStrainShellResponseRow",
+    "AreaStrainShellRowIdentityProjection",
     "FrameForceResponseFact",
     "FrameForceResponseRow",
     "decode_area_force_shell_response",
