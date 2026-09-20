@@ -476,11 +476,16 @@ def test_whole_system_fixed_point_returns_only_final_stable_b5_identity(monkeypa
     assert final_execution.analysis_result_identity.identity_ref != seen_result_refs[0]
 
 
-def test_stable_but_unresolved_whole_target_fails_closed(monkeypatch):
+def test_stable_response_subset_can_close_while_whole_a3_remains_nonpositive(monkeypatch):
     context = _closure_context()
     execution = _execution("result:G1")
     provisional = SimpleNamespace(marker=0)
-    unresolved = SimpleNamespace(marker=1, frame_rows=(), area_rows=(), positive=False)
+    persistent_only = SimpleNamespace(
+        marker=1,
+        frame_rows=(),
+        area_rows=(),
+        positive=False,
+    )
 
     monkeypatch.setattr(a5, "_initial_beam_classifications", lambda *_args: {})
     monkeypatch.setattr(
@@ -500,29 +505,29 @@ def test_stable_but_unresolved_whole_target_fails_closed(monkeypatch):
         ),
     )
     monkeypatch.setattr(a5, "_classify_beam_generation", lambda **_kwargs: {})
-    monkeypatch.setattr(a5, "_area_shell_thick_generations_from_response", lambda **_kwargs: {"A1": object()})
-    monkeypatch.setattr(a5, "_build_a3", lambda **_kwargs: (unresolved, ()))
-    monkeypatch.setattr(a5, "_b4b_targets", lambda *_args: ("WHOLE",))
     monkeypatch.setattr(
         a5,
-        "_raise_unqualified_a3",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(
-            a5.PublicA5CompositionError(a5.BLOCKER_A3_MEMBER_RESPONSE, "unresolved whole target")
-        ),
+        "_area_shell_thick_generations_from_response",
+        lambda **_kwargs: {"A1": object()},
+    )
+    monkeypatch.setattr(a5, "_build_a3", lambda **_kwargs: (persistent_only, ()))
+    monkeypatch.setattr(a5, "_b4b_targets", lambda *_args: ("WHOLE",))
+
+    result, _state, final_execution = a5._legacy_area_response_closure(
+        context=context,
+        owned_scratch=object(),
+        frame_pre=SimpleNamespace(rows=()),
+        area_pre=SimpleNamespace(rows=()),
+        topology_pre=object(),
+        provisional_a3=provisional,
+        frame_names=("B1",),
+        area_names=("A1",),
+        unresolved_count=1,
+        requested_cases=("EX", "EY"),
+        qualified_static_cases=("EX", "EY"),
+        qualified_static_refs=("qualified:xy",),
     )
 
-    with pytest.raises(a5.PublicA5CompositionError, match="unresolved whole target"):
-        a5._legacy_area_response_closure(
-            context=context,
-            owned_scratch=object(),
-            frame_pre=SimpleNamespace(rows=()),
-            area_pre=SimpleNamespace(rows=()),
-            topology_pre=object(),
-            provisional_a3=provisional,
-            frame_names=("B1",),
-            area_names=("A1",),
-            unresolved_count=1,
-            requested_cases=("EX", "EY"),
-            qualified_static_cases=("EX", "EY"),
-            qualified_static_refs=("qualified:xy",),
-        )
+    assert result is persistent_only
+    assert result.positive is False
+    assert final_execution is execution

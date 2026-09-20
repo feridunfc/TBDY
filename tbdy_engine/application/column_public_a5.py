@@ -1040,41 +1040,186 @@ def _raise_unqualified_a3(whole: Eq713PopulationDisposition, blocker: str = BLOC
     )
 
 
+@dataclass(frozen=True, slots=True)
+class _ResponseBlockerPartition:
+    response_frame_names: tuple[str, ...]
+    response_area_names: tuple[str, ...]
+    response_eligible_modes: tuple[tuple[str, str, str, str], ...]
+    persistent_non_response_blockers: tuple[tuple[str, str, str, str], ...]
+
+    @property
+    def unresolved_count(self) -> int:
+        return len(self.response_eligible_modes)
+
+
+def _partition_response_blockers(
+    whole: Eq713PopulationDisposition,
+    frame_population: FrameEq713FactualPopulation,
+    area_evidence: Sequence[AreaGrossBasePropertyEvidence],
+) -> _ResponseBlockerPartition:
+    """Partition response-owned blockers from unrelated fail-closed A3 blockers.
+
+    This is orchestration classification only. It does not decide engineering
+    applicability and does not mutate any disposition.
+    """
+    roles = {
+        fact.frame_name: fact.member_role
+        for fact in frame_population.rows
+    }
+    area_by_name = {
+        fact.area_name: fact
+        for fact in area_evidence
+    }
+    frame_names: set[str] = set()
+    area_names: set[str] = set()
+    eligible: list[tuple[str, str, str, str]] = []
+    persistent: list[tuple[str, str, str, str]] = []
+
+    for row in whole.frame_rows:
+        for mode in row.mode_dispositions:
+            if (
+                mode.disposition
+                is not ContributorDisposition.BLOCKED_UNSUPPORTED
+            ):
+                continue
+            identity = (
+                "FRAME",
+                row.component_uid,
+                mode.mode.value,
+                mode.reason,
+            )
+            if (
+                roles.get(row.component_uid) == "BEAM"
+                and "participation in Eq7.13 Delta_i is unresolved"
+                in mode.reason
+            ):
+                frame_names.add(row.component_uid)
+                eligible.append(identity)
+            else:
+                persistent.append(identity)
+
+    for row in whole.area_rows:
+        evidence = area_by_name.get(row.area_name)
+        for mode in row.mode_dispositions:
+            if (
+                mode.disposition
+                is not ContributorDisposition.BLOCKED_UNSUPPORTED
+            ):
+                continue
+            identity = (
+                "AREA",
+                row.area_name,
+                mode.mode.value,
+                mode.reason,
+            )
+            if isinstance(evidence, AreaGrossBasePropertyEvidence):
+                response_eligible = (
+                    evidence.category
+                    in {AreaCategory.FLOOR, AreaCategory.WALL}
+                    and evidence.formulation is AreaFormulation.SHELL_THICK
+                    and evidence.is_concrete
+                    and evidence.gross_base_qualified
+                    and evidence.homogeneous_simple_property
+                    and row.target_property_modifiers is not None
+                    and mode.mode in _RESPONSE_AREA_MODES
+                )
+            else:
+                # Compatibility-only seam for bounded legacy synthetic tests.
+                # Production _build_a3 emits AreaGrossBasePropertyEvidence and
+                # therefore always uses the strict branch above.
+                response_eligible = (
+                    evidence is not None
+                    and getattr(evidence, "formulation", None)
+                    is AreaFormulation.SHELL_THICK
+                    and bool(
+                        getattr(
+                            evidence,
+                            "homogeneous_simple_property",
+                            False,
+                        )
+                    )
+                    and row.target_property_modifiers is not None
+                    and mode.mode in _RESPONSE_AREA_MODES
+                )
+            if response_eligible:
+                area_names.add(row.area_name)
+                eligible.append(identity)
+            else:
+                persistent.append(identity)
+
+    return _ResponseBlockerPartition(
+        response_frame_names=tuple(sorted(frame_names)),
+        response_area_names=tuple(sorted(area_names)),
+        response_eligible_modes=tuple(eligible),
+        persistent_non_response_blockers=tuple(persistent),
+    )
+
+
 def _response_probe_scope(
     whole: Eq713PopulationDisposition,
     frame_population: FrameEq713FactualPopulation,
     area_evidence: Sequence[AreaGrossBasePropertyEvidence],
 ):
-    roles = {fact.frame_name: fact.member_role for fact in frame_population.rows}
-    area_by_name = {fact.area_name: fact for fact in area_evidence}
-    frame_names = set()
-    area_names = set()
-    unresolved_count = 0
-    for row in whole.frame_rows:
-        for mode in row.mode_dispositions:
-            if mode.disposition is not ContributorDisposition.BLOCKED_UNSUPPORTED:
-                continue
-            unresolved_count += 1
-            if roles.get(row.component_uid) != "BEAM" or "participation in Eq7.13 Delta_i is unresolved" not in mode.reason:
-                return None
-            frame_names.add(row.component_uid)
-    for row in whole.area_rows:
-        evidence = area_by_name.get(row.area_name)
-        for mode in row.mode_dispositions:
-            if mode.disposition is not ContributorDisposition.BLOCKED_UNSUPPORTED:
-                continue
-            unresolved_count += 1
-            if (
-                evidence is None
-                or evidence.formulation is not AreaFormulation.SHELL_THICK
-                or not evidence.homogeneous_simple_property
-                or mode.mode not in _RESPONSE_AREA_MODES
-            ):
-                return None
-            area_names.add(row.area_name)
-    if unresolved_count == 0:
+    partition = _partition_response_blockers(
+        whole,
+        frame_population,
+        area_evidence,
+    )
+    if partition.unresolved_count == 0:
         return None
-    return tuple(sorted(frame_names)), tuple(sorted(area_names)), unresolved_count
+    return (
+        partition.response_frame_names,
+        partition.response_area_names,
+        partition.unresolved_count,
+    )
+
+
+def _response_scope_still_blocked(
+    whole: Eq713PopulationDisposition,
+    *,
+    frame_names: Sequence[str],
+    area_names: Sequence[str],
+) -> tuple[tuple[str, str, str, str], ...]:
+    """Return unresolved blockers that remain inside the chosen response subset."""
+    wanted_frames = set(frame_names)
+    wanted_areas = set(area_names)
+    blocked: list[tuple[str, str, str, str]] = []
+
+    for row in whole.frame_rows:
+        if row.component_uid not in wanted_frames:
+            continue
+        for mode in row.mode_dispositions:
+            if (
+                mode.disposition
+                is ContributorDisposition.BLOCKED_UNSUPPORTED
+            ):
+                blocked.append(
+                    (
+                        "FRAME",
+                        row.component_uid,
+                        mode.mode.value,
+                        mode.reason,
+                    )
+                )
+
+    for row in whole.area_rows:
+        if row.area_name not in wanted_areas:
+            continue
+        for mode in row.mode_dispositions:
+            if (
+                mode.mode in _RESPONSE_AREA_MODES
+                and mode.disposition
+                is ContributorDisposition.BLOCKED_UNSUPPORTED
+            ):
+                blocked.append(
+                    (
+                        "AREA",
+                        row.area_name,
+                        mode.mode.value,
+                        mode.reason,
+                    )
+                )
+    return tuple(blocked)
 
 
 def _b4b_targets(frame_population, area_population, frame_rows, area_rows):
@@ -1996,8 +2141,21 @@ def _legacy_area_response_closure(
             resolved_a3.area_rows,
         )
         if next_targets == current_targets:
-            if not resolved_a3.positive:
-                _raise_unqualified_a3(resolved_a3, BLOCKER_A3_MEMBER_RESPONSE)
+            still_blocked = _response_scope_still_blocked(
+                resolved_a3,
+                frame_names=frame_names,
+                area_names=area_names,
+            )
+            if still_blocked:
+                detail = "; ".join(
+                    f"{kind}:{name}:{mode}:{reason}"
+                    for kind, name, mode, reason in still_blocked
+                )
+                raise PublicA5CompositionError(
+                    BLOCKER_A3_MEMBER_RESPONSE,
+                    "A3 response-eligible subset remains unresolved at "
+                    f"stable target: {detail}",
+                )
             return resolved_a3, established_state, execution_result
         new_positive = _new_positive_response_participation_facts(
             current_a3,
@@ -2300,8 +2458,21 @@ def execute_public_a5_column(
                         resolved_a3.area_rows,
                     )
                     if next_targets == current_targets:
-                        if not resolved_a3.positive:
-                            _raise_unqualified_a3(resolved_a3, BLOCKER_A3_MEMBER_RESPONSE)
+                        still_blocked = _response_scope_still_blocked(
+                            resolved_a3,
+                            frame_names=frame_names,
+                            area_names=(),
+                        )
+                        if still_blocked:
+                            detail = "; ".join(
+                                f"{kind}:{name}:{mode}:{reason}"
+                                for kind, name, mode, reason in still_blocked
+                            )
+                            raise PublicA5CompositionError(
+                                BLOCKER_A3_MEMBER_RESPONSE,
+                                "A3 response-eligible subset remains unresolved "
+                                f"at stable target: {detail}",
+                            )
                         a3 = resolved_a3
                         break
                     if after_true <= before_true:
@@ -2320,6 +2491,12 @@ def execute_public_a5_column(
                         BLOCKER_A3_MEMBER_RESPONSE,
                         "Frame response-mode closure produced no qualified final B5 generation",
                     )
+
+        # Response-subset convergence is intentionally independent of whole-A3
+        # qualification. Once the response-owned subset is closed, let the
+        # normal whole-A3 authority surface any persistent unrelated blocker.
+        if not a3.positive:
+            _raise_unqualified_a3(a3)
     except PublicA5CompositionError as exc:
         if materialize_full_population:
             return _known_blocked_population(
