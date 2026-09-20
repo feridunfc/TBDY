@@ -223,3 +223,66 @@ def test_non_linstat_population_does_not_invent_absent_step_fields():
             observed_unique_names=expectation.expected_unique_names,
             rows=tuple(rows),
         )
+
+def test_linrespspec_max_population_accepts_absent_step_number_only():
+    expectation = _expectation()
+    rows = [dict(row) for row in _rows(case_name="RSX")]
+    for row in rows:
+        row["CaseType"] = "LinRespSpec"
+        row["StepType"] = "Max"
+        row.pop("StepNumber")
+
+    fact = subject.ColumnForceResultPopulationFact(
+        case_name="RSX",
+        expectation_ref=expectation.evidence_ref,
+        expected_unique_names=expectation.expected_unique_names,
+        observed_unique_names=expectation.expected_unique_names,
+        rows=tuple(rows),
+    )
+
+    assert fact.row_count == 2
+    assert all(row["CaseType"] == "LinRespSpec" for row in fact.rows)
+    assert all(row["StepType"] == "Max" for row in fact.rows)
+    assert all(row["StepNumber"] is None for row in fact.rows)
+
+
+def test_linrespspec_does_not_invent_absent_step_type():
+    expectation = _expectation()
+    rows = [dict(row) for row in _rows(case_name="RSX")]
+    for row in rows:
+        row["CaseType"] = "LinRespSpec"
+        row.pop("StepType")
+        row.pop("StepNumber")
+
+    with pytest.raises(
+        subject.ColumnForceResultPopulationError,
+        match="missing required field",
+    ):
+        subject.ColumnForceResultPopulationFact(
+            case_name="RSX",
+            expectation_ref=expectation.evidence_ref,
+            expected_unique_names=expectation.expected_unique_names,
+            observed_unique_names=expectation.expected_unique_names,
+            rows=tuple(rows),
+        )
+
+
+def test_linrespspec_non_max_does_not_invent_absent_step_number():
+    expectation = _expectation()
+    rows = [dict(row) for row in _rows(case_name="RSX")]
+    for row in rows:
+        row["CaseType"] = "LinRespSpec"
+        row["StepType"] = "Min"
+        row.pop("StepNumber")
+
+    with pytest.raises(
+        subject.ColumnForceResultPopulationError,
+        match="missing required field",
+    ):
+        subject.ColumnForceResultPopulationFact(
+            case_name="RSX",
+            expectation_ref=expectation.evidence_ref,
+            expected_unique_names=expectation.expected_unique_names,
+            observed_unique_names=expectation.expected_unique_names,
+            rows=tuple(rows),
+        )

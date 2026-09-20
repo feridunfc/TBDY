@@ -35,6 +35,7 @@ from tbdy_engine.etabs.oapi.analysis_execution import (
     DefinedAnalysisCasePopulationFact,
     EtabsRuntimeVersionFact,
     LoadCaseTypeRuntimeFact,
+    ResponseSpectrumModalCaseFact,
     DeleteAnalysisResultsFact,
     RunAnalysisFact,
     RunCaseFlagSnapshotFact,
@@ -43,6 +44,7 @@ from tbdy_engine.etabs.oapi.analysis_execution import (
     get_defined_analysis_cases_from_session,
     get_etabs_runtime_version_fact_from_session,
     get_load_case_type_runtime_fact_from_session,
+    get_response_spectrum_modal_case_from_session,
     get_run_case_flags_from_session,
     run_analysis_from_session,
     set_run_case_flag_from_session,
@@ -84,7 +86,7 @@ from tbdy_engine.providers.etabs_column_force_result_population_provider import 
 
 
 ANALYSIS_EXECUTION_SCOPE_CONTRACT = "TBDY_B5_ANALYSIS_EXECUTION_SCOPE_V1"
-RUNTIME_EXECUTION_SCOPE_RESOLUTION_CONTRACT = "TBDY_B5_RUNTIME_EXECUTION_SCOPE_RESOLUTION_V1"
+RUNTIME_EXECUTION_SCOPE_RESOLUTION_CONTRACT = "TBDY_B5_RUNTIME_EXECUTION_SCOPE_RESOLUTION_V2"
 ANALYSIS_EXECUTION_MANIFEST_CONTRACT = "TBDY_B5_ANALYSIS_EXECUTION_MANIFEST_V1"
 ANALYSIS_EXECUTION_RESULT_CONTRACT = "TBDY_B5_ANALYSIS_EXECUTION_RESULT_V1"
 ANALYSIS_SCOPE_REF_PREFIX = "analysis-execution-scope:sha256:"
@@ -108,15 +110,22 @@ CSI_ANALYSIS_STATUS_FINISHED = 4
 #
 # Live-observed ETABS 23.2.0 behavior:
 #   slot 5    -> forced execution dependency
-#   slot 3/10 -> case retirement during RunAnalysis
+#   slot 3/10 -> historical retirement behavior when no factual
+#                ResponseSpectrum result scope is requested
+#   slot 3/10 -> execution dependency when the complete factual defined
+#                ResponseSpectrum population is requested
 #   slot 6/7  -> surviving neutral ETABS-managed cases
 #
-# The compatibility meanings below are usable only for the exact live-proven
-# runtime profile and every consequence is independently verified after
-# RunAnalysis. Other versions or unknown undocumented values fail closed.
+# Complete ResponseSpectrum execution additionally depends on the exact modal
+# case returned by LoadCases.ResponseSpectrum.GetModalCase for every requested
+# ResponseSpectrum case. These compatibility meanings are usable only for the
+# exact live-proven runtime profile and every consequence is independently
+# verified after RunAnalysis. Other versions or unknown undocumented values
+# fail closed.
 _SUPPORTED_RUNTIME_COMPATIBILITY_VERSION = "23.2.0"
 _SUPPORTED_RUNTIME_COMPATIBILITY_INTERNAL_VERSION = 0.0
 
+_CSI_CASE_TYPE_RESPONSE_SPECTRUM = 4
 _DOCUMENTED_AUTO_SLOT_VALUES = frozenset({0, 1})
 _RUNTIME_DEPENDENCY_SLOT_VALUES = frozenset({5})
 _RUNTIME_RETIREMENT_SLOT_VALUES = frozenset({3, 10})
@@ -374,6 +383,7 @@ class RuntimeExecutionScopeResolution:
     runtime_version: EtabsRuntimeVersionFact
     case_type_facts: tuple[LoadCaseTypeRuntimeFact, ...]
     scope: AnalysisExecutionScope
+    response_spectrum_modal_case_facts: tuple[ResponseSpectrumModalCaseFact, ...] = ()
     evidence_ref: str = field(init=False)
     contract: str = RUNTIME_EXECUTION_SCOPE_RESOLUTION_CONTRACT
 
@@ -449,6 +459,66 @@ class RuntimeExecutionScopeResolution:
                 "scope must be AnalysisExecutionScope"
             )
 
+        modal_facts = tuple(
+            sorted(
+                self.response_spectrum_modal_case_facts,
+                key=lambda item: item.response_spectrum_case_name,
+            )
+        )
+        if any(not isinstance(item, ResponseSpectrumModalCaseFact) for item in modal_facts):
+            raise TypeError(
+                "response_spectrum_modal_case_facts must contain ResponseSpectrumModalCaseFact"
+            )
+        if any(not item.success for item in modal_facts):
+            raise AnalysisExecutionError(
+                "runtime scope resolution requires successful ResponseSpectrum modal-case facts",
+                stage="runtime_scope_contract",
+            )
+        modal_rs_names = tuple(item.response_spectrum_case_name for item in modal_facts)
+        if len(set(modal_rs_names)) != len(modal_rs_names):
+            raise AnalysisExecutionError(
+                "runtime scope resolution contains duplicate ResponseSpectrum modal-case facts",
+                stage="runtime_scope_contract",
+            )
+        by_name = {item.case_name: item for item in facts}
+        requested_rs_names = tuple(
+            sorted(
+                name
+                for name in self.scope.case_names
+                if by_name[name].case_type == _CSI_CASE_TYPE_RESPONSE_SPECTRUM
+            )
+        )
+        if modal_rs_names != requested_rs_names:
+            raise AnalysisExecutionError(
+                "runtime scope resolution requires one exact modal-case fact per requested ResponseSpectrum case",
+                stage="runtime_scope_contract",
+                details={
+                    "requested_response_spectrum_cases": requested_rs_names,
+                    "modal_fact_response_spectrum_cases": modal_rs_names,
+                },
+            )
+        defined_set = set(defined)
+        for item in modal_facts:
+            if item.response_spectrum_case_name not in defined_set:
+                raise AnalysisExecutionError(
+                    "ResponseSpectrum modal binding references an undefined ResponseSpectrum case",
+                    stage="runtime_scope_contract",
+                )
+            if item.modal_case_name not in defined_set:
+                raise AnalysisExecutionError(
+                    "ResponseSpectrum modal binding references an undefined modal case",
+                    stage="runtime_scope_contract",
+                    details={
+                        "response_spectrum_case_name": item.response_spectrum_case_name,
+                        "modal_case_name": item.modal_case_name,
+                    },
+                )
+            if by_name[item.response_spectrum_case_name].case_type != _CSI_CASE_TYPE_RESPONSE_SPECTRUM:
+                raise AnalysisExecutionError(
+                    "modal dependency fact is not bound to a factual ResponseSpectrum case",
+                    stage="runtime_scope_contract",
+                )
+
         declared = (
             set(self.scope.case_names)
             | set(self.scope.execution_dependency_case_names)
@@ -471,6 +541,11 @@ class RuntimeExecutionScopeResolution:
             "case_type_facts",
             facts,
         )
+        object.__setattr__(
+            self,
+            "response_spectrum_modal_case_facts",
+            modal_facts,
+        )
 
         object.__setattr__(
             self,
@@ -486,6 +561,10 @@ class RuntimeExecutionScopeResolution:
                     "case_type_fact_refs": [
                         item.evidence_ref
                         for item in facts
+                    ],
+                    "response_spectrum_modal_case_fact_refs": [
+                        item.evidence_ref
+                        for item in modal_facts
                     ],
                     "scope_ref": self.scope.scope_ref,
                 },
@@ -964,22 +1043,14 @@ def _resolve_runtime_execution_scope(
     timeout_seconds: float,
     attempt: AnalysisExecutionAttempt,
 ) -> RuntimeExecutionScopeResolution:
-    """Resolve execution closure from version-bound factual ETABS data."""
-
-    requested = tuple(
-        sorted(
-            _text(name, "case_name")
-            for name in requested_case_names
-        )
-    )
+    """Resolve exact result scope plus factual ETABS runtime dependencies."""
+    requested = tuple(sorted(_text(name, "case_name") for name in requested_case_names))
     requested_set = set(requested)
 
     try:
-        runtime_version = (
-            get_etabs_runtime_version_fact_from_session(
-                context.verified_session,
-                timeout_seconds=timeout_seconds,
-            )
+        runtime_version = get_etabs_runtime_version_fact_from_session(
+            context.verified_session,
+            timeout_seconds=timeout_seconds,
         )
     except Exception as exc:
         raise AnalysisExecutionError(
@@ -988,29 +1059,21 @@ def _resolve_runtime_execution_scope(
             attempt_ref=attempt.attempt_ref,
             generation_ref=attempt.generation_ref,
         ) from exc
-
     if not runtime_version.success:
         raise AnalysisExecutionError(
             "ETABS runtime version getter returned nonzero",
             stage="runtime_scope_resolution",
             attempt_ref=attempt.attempt_ref,
             generation_ref=attempt.generation_ref,
-            details={
-                "return_code": runtime_version.return_code,
-            },
+            details={"return_code": runtime_version.return_code},
         )
 
     supported_profile = (
-        runtime_version.program_version
-        == _SUPPORTED_RUNTIME_COMPATIBILITY_VERSION
-        and runtime_version.internal_version_number
-        == _SUPPORTED_RUNTIME_COMPATIBILITY_INTERNAL_VERSION
+        runtime_version.program_version == _SUPPORTED_RUNTIME_COMPATIBILITY_VERSION
+        and runtime_version.internal_version_number == _SUPPORTED_RUNTIME_COMPATIBILITY_INTERNAL_VERSION
     )
 
-    dependencies: list[str] = []
-    retirements: list[str] = []
     runtime_facts: list[LoadCaseTypeRuntimeFact] = []
-
     for case_name in defined_cases.case_names:
         try:
             fact = get_load_case_type_runtime_fact_from_session(
@@ -1026,26 +1089,89 @@ def _resolve_runtime_execution_scope(
                 generation_ref=attempt.generation_ref,
                 details={"case_name": case_name},
             ) from exc
-
         if not fact.success:
             raise AnalysisExecutionError(
                 "ETABS runtime case-type fact returned nonzero",
                 stage="runtime_scope_resolution",
                 attempt_ref=attempt.attempt_ref,
                 generation_ref=attempt.generation_ref,
-                details={
-                    "case_name": case_name,
-                    "return_code": fact.return_code,
-                },
+                details={"case_name": case_name, "return_code": fact.return_code},
             )
-
         runtime_facts.append(fact)
 
-        slot = fact.runtime_auto_slot_value
+    fact_by_name = {fact.case_name: fact for fact in runtime_facts}
+    defined_rs = tuple(sorted(
+        fact.case_name
+        for fact in runtime_facts
+        if fact.case_type == _CSI_CASE_TYPE_RESPONSE_SPECTRUM
+    ))
+    requested_rs = tuple(sorted(
+        name
+        for name in requested
+        if fact_by_name[name].case_type == _CSI_CASE_TYPE_RESPONSE_SPECTRUM
+    ))
+    complete_rs_execution = bool(requested_rs)
 
+    if complete_rs_execution and requested_rs != defined_rs:
+        raise AnalysisExecutionError(
+            "requested factual ResponseSpectrum population is not the complete defined ResponseSpectrum population",
+            stage="runtime_scope_resolution",
+            attempt_ref=attempt.attempt_ref,
+            generation_ref=attempt.generation_ref,
+            details={
+                "defined_response_spectrum_cases": defined_rs,
+                "requested_response_spectrum_cases": requested_rs,
+            },
+        )
+
+    dependencies: set[str] = set()
+    retirements: set[str] = set()
+    modal_facts: list[ResponseSpectrumModalCaseFact] = []
+
+    if complete_rs_execution:
+        for case_name in requested_rs:
+            try:
+                modal_fact = get_response_spectrum_modal_case_from_session(
+                    context.verified_session,
+                    response_spectrum_case_name=case_name,
+                    timeout_seconds=timeout_seconds,
+                )
+            except Exception as exc:
+                raise AnalysisExecutionError(
+                    "ResponseSpectrum modal dependency could not be established",
+                    stage="runtime_scope_resolution",
+                    attempt_ref=attempt.attempt_ref,
+                    generation_ref=attempt.generation_ref,
+                    details={"case_name": case_name},
+                ) from exc
+            if not modal_fact.success:
+                raise AnalysisExecutionError(
+                    "ResponseSpectrum.GetModalCase returned nonzero",
+                    stage="runtime_scope_resolution",
+                    attempt_ref=attempt.attempt_ref,
+                    generation_ref=attempt.generation_ref,
+                    details={"case_name": case_name, "return_code": modal_fact.return_code},
+                )
+            if modal_fact.modal_case_name not in fact_by_name:
+                raise AnalysisExecutionError(
+                    "ResponseSpectrum modal dependency is absent from the defined ETABS case universe",
+                    stage="runtime_scope_resolution",
+                    attempt_ref=attempt.attempt_ref,
+                    generation_ref=attempt.generation_ref,
+                    details={
+                        "case_name": case_name,
+                        "modal_case_name": modal_fact.modal_case_name,
+                    },
+                )
+            modal_facts.append(modal_fact)
+            if modal_fact.modal_case_name not in requested_set:
+                dependencies.add(modal_fact.modal_case_name)
+
+    for fact in runtime_facts:
+        case_name = fact.case_name
+        slot = fact.runtime_auto_slot_value
         if slot in _DOCUMENTED_AUTO_SLOT_VALUES:
             continue
-
         if not supported_profile:
             raise AnalysisExecutionError(
                 "undocumented GetTypeOAPI_1 runtime slot value is not qualified for this ETABS runtime profile",
@@ -1054,29 +1180,24 @@ def _resolve_runtime_execution_scope(
                 generation_ref=attempt.generation_ref,
                 details={
                     "case_name": case_name,
-                    "program_version": (
-                        runtime_version.program_version
-                    ),
-                    "internal_version_number": (
-                        runtime_version.internal_version_number
-                    ),
+                    "program_version": runtime_version.program_version,
+                    "internal_version_number": runtime_version.internal_version_number,
                     "runtime_auto_slot_value": slot,
                 },
             )
-
         if slot in _RUNTIME_DEPENDENCY_SLOT_VALUES:
             if case_name not in requested_set:
-                dependencies.append(case_name)
+                dependencies.add(case_name)
             continue
-
         if slot in _RUNTIME_RETIREMENT_SLOT_VALUES:
             if case_name not in requested_set:
-                retirements.append(case_name)
+                if complete_rs_execution:
+                    dependencies.add(case_name)
+                else:
+                    retirements.add(case_name)
             continue
-
         if slot in _RUNTIME_NEUTRAL_UNDOCUMENTED_SLOT_VALUES:
             continue
-
         raise AnalysisExecutionError(
             "unclassified undocumented GetTypeOAPI_1 runtime slot value",
             stage="runtime_scope_resolution",
@@ -1084,27 +1205,23 @@ def _resolve_runtime_execution_scope(
             generation_ref=attempt.generation_ref,
             details={
                 "case_name": case_name,
-                "program_version": (
-                    runtime_version.program_version
-                ),
-                "internal_version_number": (
-                    runtime_version.internal_version_number
-                ),
+                "program_version": runtime_version.program_version,
+                "internal_version_number": runtime_version.internal_version_number,
                 "runtime_auto_slot_value": slot,
             },
         )
 
     scope = AnalysisExecutionScope.from_case_names(
         requested,
-        execution_dependency_case_names=tuple(dependencies),
-        permitted_runtime_retired_case_names=tuple(retirements),
+        execution_dependency_case_names=tuple(sorted(dependencies)),
+        permitted_runtime_retired_case_names=tuple(sorted(retirements)),
     )
-
     return RuntimeExecutionScopeResolution(
         defined_case_names=defined_cases.case_names,
         runtime_version=runtime_version,
         case_type_facts=tuple(runtime_facts),
         scope=scope,
+        response_spectrum_modal_case_facts=tuple(modal_facts),
     )
 
 

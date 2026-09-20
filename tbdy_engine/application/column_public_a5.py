@@ -57,6 +57,9 @@ from tbdy_engine.design.columns.rebar_selection import (
     normalize_etabs_column_end_demands,
 )
 from tbdy_engine.design.columns.story_relative_translation import ReviewedStoryTranslationTolerance
+from tbdy_engine.etabs.oapi.analysis_execution import (
+    get_defined_analysis_cases_from_session,
+)
 from tbdy_engine.etabs.oapi.area_contributors import AreaDesignOrientation
 from tbdy_engine.etabs.oapi.area_modifiers import AreaModifierSurface, AreaModifierVector
 from tbdy_engine.etabs.oapi.eq713_response_cases import (
@@ -1413,6 +1416,188 @@ def _qualified_linear_static_response_scope(
     return names, refs
 
 
+@dataclass(frozen=True, slots=True)
+class _QualifiedResponseCaseAvailability:
+    """A3.9B separation of design-demand cases from response-evidence cases."""
+
+    model_case_names: tuple[str, ...]
+    design_required_case_names: tuple[str, ...]
+    qualified_linear_static_case_names: tuple[str, ...]
+    response_evidence_only_case_names: tuple[str, ...]
+    b5_requested_case_names: tuple[str, ...]
+    direction_rank: int
+    source_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "model_case_names",
+            "design_required_case_names",
+            "qualified_linear_static_case_names",
+            "response_evidence_only_case_names",
+            "b5_requested_case_names",
+            "source_refs",
+        ):
+            values = tuple(getattr(self, field_name))
+            if any(
+                not isinstance(value, str)
+                or not value.strip()
+                or value != value.strip()
+                for value in values
+            ):
+                raise PublicA5CompositionError(
+                    BLOCKER_A3_MEMBER_RESPONSE,
+                    f"A3.9B {field_name} contains non-canonical identity",
+                )
+            if len(values) != len(set(values)):
+                raise PublicA5CompositionError(
+                    BLOCKER_A3_MEMBER_RESPONSE,
+                    f"A3.9B {field_name} contains duplicate identity",
+                )
+        if self.direction_rank != 2:
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                "A3.9B qualified LINEAR_STATIC response cases must span global X/Y",
+            )
+        model = set(self.model_case_names)
+        design = set(self.design_required_case_names)
+        response = set(self.qualified_linear_static_case_names)
+        response_only = set(self.response_evidence_only_case_names)
+        b5 = set(self.b5_requested_case_names)
+        if not design or not response:
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                "A3.9B requires nonempty design and response case populations",
+            )
+        if not design.issubset(model) or not response.issubset(model):
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                "A3.9B case population is not contained in the factual model universe",
+            )
+        if response_only != response - design:
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                "A3.9B response-evidence-only population is not exact",
+            )
+        if b5 != design | response:
+            raise PublicA5CompositionError(
+                BLOCKER_A3_MEMBER_RESPONSE,
+                "A3.9B B5 requested case union is not exact",
+            )
+
+
+def _discover_qualified_response_case_availability(
+    context: TrustedLiveAcquisitionContext,
+    design_required_case_names: Sequence[str],
+) -> _QualifiedResponseCaseAvailability:
+    """Discover response evidence independently of design-combo membership."""
+    design = tuple(sorted(tuple(design_required_case_names)))
+    if not design or len(design) != len(set(design)):
+        raise PublicA5CompositionError(
+            BLOCKER_A3_MEMBER_RESPONSE,
+            "A3.9B design-required case population must be nonempty and duplicate-free",
+        )
+    try:
+        defined = get_defined_analysis_cases_from_session(context.verified_session)
+    except Exception as exc:
+        raise PublicA5CompositionError(
+            BLOCKER_A3_MEMBER_RESPONSE,
+            f"A3.9B full factual LoadCases population is unavailable: {exc}",
+        ) from exc
+    if not defined.success or not defined.case_names:
+        raise PublicA5CompositionError(
+            BLOCKER_A3_MEMBER_RESPONSE,
+            "A3.9B full factual LoadCases population is empty or non-successful",
+        )
+    model_cases = tuple(defined.case_names)
+    missing_design = tuple(sorted(set(design) - set(model_cases)))
+    if missing_design:
+        raise PublicA5CompositionError(
+            BLOCKER_A3_MEMBER_RESPONSE,
+            "A3.9B design-required case(s) are absent from the factual model universe: "
+            + ", ".join(missing_design),
+        )
+    qualified, qualification_refs = _qualified_linear_static_response_scope(
+        context,
+        model_cases,
+    )
+    qualified = tuple(qualified)
+    if not qualified or len(qualified) != len(set(qualified)):
+        raise PublicA5CompositionError(
+            BLOCKER_A3_MEMBER_RESPONSE,
+            "A3.9B qualified LINEAR_STATIC response population is empty or duplicate",
+        )
+    missing_qualified = tuple(sorted(set(qualified) - set(model_cases)))
+    if missing_qualified:
+        raise PublicA5CompositionError(
+            BLOCKER_A3_MEMBER_RESPONSE,
+            "A3.9B qualified response case(s) are absent from the factual model universe: "
+            + ", ".join(missing_qualified),
+        )
+    response_only = tuple(sorted(set(qualified) - set(design)))
+    b5_requested = tuple(sorted(set(design) | set(qualified)))
+    refs = tuple(
+        dict.fromkeys(
+            (
+                context.session_provenance_ref,
+                defined.evidence_ref,
+                *qualification_refs,
+            )
+        )
+    )
+    return _QualifiedResponseCaseAvailability(
+        model_case_names=model_cases,
+        design_required_case_names=design,
+        qualified_linear_static_case_names=qualified,
+        response_evidence_only_case_names=response_only,
+        b5_requested_case_names=b5_requested,
+        direction_rank=2,
+        source_refs=refs,
+    )
+
+
+def _design_required_case_names(
+    flattened_combos: Sequence[tuple[str, Sequence[tuple[str, float]]]],
+) -> tuple[str, ...]:
+    names = tuple(
+        sorted(
+            {
+                case_name
+                for _combo_name, leaves in flattened_combos
+                for case_name, _scale in leaves
+            }
+        )
+    )
+    if not names:
+        raise PublicA5CompositionError(
+            BLOCKER_A5_INPUT_MATERIALIZATION,
+            "selected design combos contain no exact LOAD_CASE leaves",
+        )
+    return names
+
+
+def _design_result_populations(execution_result, flattened_combos):
+    """Project B5 union results back to immutable design-demand case scope."""
+    required = _design_required_case_names(flattened_combos)
+    populations = tuple(execution_result.manifest.result_populations)
+    by_name = {}
+    for population in populations:
+        case_name = population.case_name
+        if case_name in by_name:
+            raise PublicA5CompositionError(
+                BLOCKER_A5_INPUT_MATERIALIZATION,
+                f"B5 result population contains duplicate case {case_name!r}",
+            )
+        by_name[case_name] = population
+    missing = tuple(name for name in required if name not in by_name)
+    if missing:
+        raise PublicA5CompositionError(
+            BLOCKER_A5_INPUT_MATERIALIZATION,
+            "B5 union result population is missing design-required case(s): "
+            + ", ".join(missing),
+        )
+    return tuple(by_name[name] for name in required)
+
+
 def _analysis_basis_refs(context, owned_scratch, frame_pre, area_pre, a3):
     return tuple(
         dict.fromkeys(
@@ -1817,7 +2002,11 @@ def _materialize_fnd2_inputs(
     demand_states = []
     demand_refs = []
     target_uid = target_column.unique_name
-    for population in execution_result.manifest.result_populations:
+    design_result_populations = _design_result_populations(
+        execution_result,
+        flattened_combos,
+    )
+    for population in design_result_populations:
         states = normalize_etabs_column_end_demands(
             population.rows,
             unique_name=target_uid,
@@ -2340,14 +2529,19 @@ def execute_public_a5_column(
                 _raise_unqualified_a3(provisional_a3)
             except Exception as exc:
                 raise PublicA5CompositionError(BLOCKER_A3_MEMBER_RESPONSE, str(exc)) from exc
-        selection, definitions, flattened_combos, requested_cases = _combo_scope(context)
+        selection, definitions, flattened_combos, design_requested_cases = _combo_scope(context)
         qualified_static_cases = ()
         qualified_static_refs = ()
+        b5_requested_cases = design_requested_cases
+        response_case_availability = None
         if probe_scope is not None:
-            qualified_static_cases, qualified_static_refs = _qualified_linear_static_response_scope(
+            response_case_availability = _discover_qualified_response_case_availability(
                 context,
-                requested_cases,
+                design_requested_cases,
             )
+            qualified_static_cases = response_case_availability.qualified_linear_static_case_names
+            qualified_static_refs = response_case_availability.source_refs
+            b5_requested_cases = response_case_availability.b5_requested_case_names
     except PublicA5CompositionError as exc:
         if materialize_full_population:
             return _known_blocked_population(
@@ -2378,7 +2572,7 @@ def execute_public_a5_column(
                 frame_pre=frame_pre,
                 area_pre=area_pre,
                 a3=a3,
-                requested_cases=requested_cases,
+                requested_cases=b5_requested_cases,
             )
         else:
             frame_names, area_names, unresolved_count = probe_scope
@@ -2393,7 +2587,7 @@ def execute_public_a5_column(
                     frame_names=frame_names,
                     area_names=area_names,
                     unresolved_count=unresolved_count,
-                    requested_cases=requested_cases,
+                    requested_cases=b5_requested_cases,
                     qualified_static_cases=qualified_static_cases,
                     qualified_static_refs=qualified_static_refs,
                 )
@@ -2409,7 +2603,7 @@ def execute_public_a5_column(
                         frame_pre=frame_pre,
                         area_pre=area_pre,
                         a3=current_a3,
-                        requested_cases=requested_cases,
+                        requested_cases=b5_requested_cases,
                     )
                     try:
                         response = capture_eq713_response_population_from_session(

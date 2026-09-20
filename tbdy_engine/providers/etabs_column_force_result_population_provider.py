@@ -220,18 +220,29 @@ class ColumnForceResultPopulationFact:
         for index, raw in enumerate(self.rows):
             row = dict(raw)
 
-            # Live ETABS v23.2 "Element Forces - Columns" for LinStatic
-            # omits StepType and StepNumber from the table schema entirely.
-            # Preserve that factual not-applicable state as None. Do not
-            # generalize the compatibility to other case types.
+            # Live ETABS v23.2 "Element Forces - Columns" compatibility:
+            #
+            # * LinStatic rows may omit StepType and StepNumber entirely.
+            # * Live-proven LinRespSpec rows for RSX/RSY carry exact
+            #   StepType="Max" while omitting StepNumber from the table
+            #   schema entirely (1090/1090 exact rows per case).
+            #
+            # Preserve only those factual schema absences as None. Do not
+            # invent a missing LinRespSpec StepType and do not generalize
+            # absent StepNumber to other response step semantics/case types.
             case_type_raw = row.get("CaseType")
             if (
                 isinstance(case_type_raw, str)
-                and case_type_raw.strip() == "LinStatic"
                 and case_type_raw == case_type_raw.strip()
             ):
-                row.setdefault("StepType", None)
-                row.setdefault("StepNumber", None)
+                if case_type_raw == "LinStatic":
+                    row.setdefault("StepType", None)
+                    row.setdefault("StepNumber", None)
+                elif (
+                    case_type_raw == "LinRespSpec"
+                    and row.get("StepType") == "Max"
+                ):
+                    row.setdefault("StepNumber", None)
 
             missing_fields = required - set(row)
             if missing_fields:

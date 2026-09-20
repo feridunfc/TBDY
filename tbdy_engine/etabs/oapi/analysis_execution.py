@@ -31,6 +31,7 @@ RUN_CASE_FLAG_SET_FACT_CONTRACT = "ETABS_RUN_CASE_FLAG_SET_FACT_V1"
 CASE_STATUS_POPULATION_CONTRACT = "ETABS_CASE_STATUS_POPULATION_V1"
 DEFINED_ANALYSIS_CASE_POPULATION_CONTRACT = "ETABS_DEFINED_ANALYSIS_CASE_POPULATION_V1"
 LOAD_CASE_TYPE_RUNTIME_FACT_CONTRACT = "ETABS_LOAD_CASE_TYPE_RUNTIME_FACT_V1"
+RESPONSE_SPECTRUM_MODAL_CASE_FACT_CONTRACT = "ETABS_RESPONSE_SPECTRUM_MODAL_CASE_FACT_V1"
 ETABS_RUNTIME_VERSION_FACT_CONTRACT = "ETABS_RUNTIME_VERSION_FACT_V1"
 DELETE_ANALYSIS_RESULTS_FACT_CONTRACT = "ETABS_DELETE_ANALYSIS_RESULTS_FACT_V1"
 RUN_ANALYSIS_FACT_CONTRACT = "ETABS_RUN_ANALYSIS_FACT_V1"
@@ -295,6 +296,47 @@ class LoadCaseTypeRuntimeFact:
                 "design_type": self.design_type,
                 "design_type_option": self.design_type_option,
                 "runtime_auto_slot_value": self.runtime_auto_slot_value,
+                "return_code": self.return_code,
+            }),
+        )
+
+    @property
+    def success(self) -> bool:
+        return self.return_code == 0
+
+
+@dataclass(frozen=True, slots=True)
+class ResponseSpectrumModalCaseFact:
+    """Exact factual ResponseSpectrum.GetModalCase Python projection."""
+
+    response_spectrum_case_name: str
+    modal_case_name: str
+    return_code: int
+    evidence_ref: str = field(init=False)
+    contract: str = RESPONSE_SPECTRUM_MODAL_CASE_FACT_CONTRACT
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "response_spectrum_case_name",
+            _text(self.response_spectrum_case_name, "response_spectrum_case_name"),
+        )
+        object.__setattr__(
+            self,
+            "modal_case_name",
+            _text(self.modal_case_name, "modal_case_name"),
+        )
+        if self.contract != RESPONSE_SPECTRUM_MODAL_CASE_FACT_CONTRACT:
+            raise EtabsOAPIError("response-spectrum modal-case fact contract mismatch")
+        if type(self.return_code) is not int:
+            raise EtabsOAPIError("return_code must be exact int")
+        object.__setattr__(
+            self,
+            "evidence_ref",
+            _digest({
+                "contract": self.contract,
+                "response_spectrum_case_name": self.response_spectrum_case_name,
+                "modal_case_name": self.modal_case_name,
                 "return_code": self.return_code,
             }),
         )
@@ -638,6 +680,61 @@ def get_load_case_type_runtime_fact_from_session(
     )
 
 
+def get_response_spectrum_modal_case_from_session(
+    session: EtabsVerifiedSession,
+    *,
+    response_spectrum_case_name: str,
+    timeout_seconds: float = 30.0,
+) -> ResponseSpectrumModalCaseFact:
+    """Read exact ResponseSpectrum.GetModalCase factual dependency."""
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+    name = _text(response_spectrum_case_name, "response_spectrum_case_name")
+    timeout = float(timeout_seconds)
+    if timeout <= 0:
+        raise ValueError("timeout_seconds must be greater than zero")
+
+    def acquire(_application: object, model_api: Any) -> ResponseSpectrumModalCaseFact:
+        load_cases = getattr(model_api, "LoadCases", None)
+        response_spectrum = getattr(load_cases, "ResponseSpectrum", None)
+        method = getattr(response_spectrum, "GetModalCase", None)
+        if method is None:
+            raise EtabsOAPIError("SapModel.LoadCases.ResponseSpectrum.GetModalCase is unavailable")
+        raw = method(name)
+        if not isinstance(raw, (tuple, list)) or len(raw) != 2:
+            raise EtabsOAPIError(
+                "LoadCases.ResponseSpectrum.GetModalCase returned unsupported "
+                f"Python ABI shape: {raw!r}"
+            )
+        modal_case_name, return_code = raw
+        if (
+            not isinstance(modal_case_name, str)
+            or not modal_case_name.strip()
+            or modal_case_name != modal_case_name.strip()
+        ):
+            raise EtabsOAPIError(
+                "LoadCases.ResponseSpectrum.GetModalCase returned invalid "
+                f"modal-case identity: {raw!r}"
+            )
+        if type(return_code) is not int:
+            raise EtabsOAPIError(
+                "LoadCases.ResponseSpectrum.GetModalCase returned invalid "
+                f"return-code type: {raw!r}"
+            )
+        return ResponseSpectrumModalCaseFact(
+            response_spectrum_case_name=name,
+            modal_case_name=modal_case_name,
+            return_code=return_code,
+        )
+
+    return _execute_verified_read(
+        session,
+        acquire,
+        operation="oapi_load_cases_response_spectrum_get_modal_case",
+        timeout_seconds=timeout,
+    )
+
+
 def get_run_case_flags_from_session(
     session: EtabsVerifiedSession,
     *,
@@ -800,6 +897,7 @@ __all__ = [
     "DELETE_ANALYSIS_RESULTS_FACT_CONTRACT",
     "DEFINED_ANALYSIS_CASE_POPULATION_CONTRACT",
     "LOAD_CASE_TYPE_RUNTIME_FACT_CONTRACT",
+    "RESPONSE_SPECTRUM_MODAL_CASE_FACT_CONTRACT",
     "ETABS_RUNTIME_VERSION_FACT_CONTRACT",
     "RUN_ANALYSIS_FACT_CONTRACT",
     "RUN_CASE_FLAG_SET_FACT_CONTRACT",
@@ -808,6 +906,7 @@ __all__ = [
     "DefinedAnalysisCasePopulationFact",
     "EtabsRuntimeVersionFact",
     "LoadCaseTypeRuntimeFact",
+    "ResponseSpectrumModalCaseFact",
     "DeleteAnalysisResultsFact",
     "RunAnalysisFact",
     "RunCaseFlagSetFact",
@@ -817,6 +916,7 @@ __all__ = [
     "get_defined_analysis_cases_from_session",
     "get_etabs_runtime_version_fact_from_session",
     "get_load_case_type_runtime_fact_from_session",
+    "get_response_spectrum_modal_case_from_session",
     "get_run_case_flags_from_session",
     "run_analysis_from_session",
     "set_run_case_flag_from_session",
