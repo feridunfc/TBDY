@@ -62,6 +62,8 @@ FRAME_EQ713_SCOPE_ROW_REF_PREFIX = "etabs-frame-eq713-scope-row:sha256:"
 FRAME_EQ713_DEFAULT_LOCAL_AXIS_REF_PREFIX = (
     "etabs-frame-eq713-default-local-axis:"
 )
+TABLE_FRAME_ASSIGNMENTS_SUMMARY = "Frame Assignments - Summary"
+FRAME_EQ713_OBJECT_TYPE_ROW_REF_PREFIX = "etabs-frame-eq713-object-type-row:sha256:"
 
 
 class EtabsFrameEq713PopulationError(RuntimeError):
@@ -173,6 +175,226 @@ def _index_unique(
     return result
 
 
+class FrameEq713ObjectTypeResolution(StrEnum):
+    RESOLVED = "RESOLVED"
+    UNRESOLVED = "UNRESOLVED"
+
+
+@dataclass(frozen=True, slots=True)
+class FrameEq713ObjectTypeFact:
+    frame_name: str
+    raw_frame_type: str | None
+    normalized_frame_type: str | None
+    resolution: FrameEq713ObjectTypeResolution
+    source_table: str
+    source_column: str | None
+    source_row: Mapping[str, Any] | None
+    join_identity: str
+    resolution_reason: str
+    source_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        name = _text(self.frame_name, "frame_name")
+        object.__setattr__(self, "frame_name", name)
+        if self.join_identity != name:
+            raise EtabsFrameEq713PopulationError(
+                "Frame object-type join identity must equal FrameObj UniqueName"
+            )
+        if self.source_table != TABLE_FRAME_ASSIGNMENTS_SUMMARY:
+            raise EtabsFrameEq713PopulationError(
+                "Frame object-type fact source table mismatch"
+            )
+        if not isinstance(self.resolution, FrameEq713ObjectTypeResolution):
+            raise TypeError("resolution must be FrameEq713ObjectTypeResolution")
+        if self.raw_frame_type is None:
+            if self.resolution is not FrameEq713ObjectTypeResolution.UNRESOLVED:
+                raise EtabsFrameEq713PopulationError(
+                    "missing raw Frame type must be explicitly UNRESOLVED"
+                )
+            if self.normalized_frame_type is not None:
+                raise EtabsFrameEq713PopulationError(
+                    "unresolved raw Frame type cannot have normalized type"
+                )
+        else:
+            if self.resolution is not FrameEq713ObjectTypeResolution.RESOLVED:
+                raise EtabsFrameEq713PopulationError(
+                    "present raw Frame type must be explicitly RESOLVED"
+                )
+            raw = _text(self.raw_frame_type, "raw_frame_type")
+            normalized = _text(
+                self.normalized_frame_type,
+                "normalized_frame_type",
+            )
+            if normalized != raw.upper():
+                raise EtabsFrameEq713PopulationError(
+                    "normalized Frame type must be the uppercase raw factual type"
+                )
+            object.__setattr__(self, "raw_frame_type", raw)
+            object.__setattr__(self, "normalized_frame_type", normalized)
+        if self.source_column is not None:
+            object.__setattr__(
+                self,
+                "source_column",
+                _text(self.source_column, "source_column"),
+            )
+        if self.source_row is not None:
+            object.__setattr__(self, "source_row", dict(self.source_row))
+        object.__setattr__(
+            self,
+            "resolution_reason",
+            _text(self.resolution_reason, "resolution_reason"),
+        )
+        object.__setattr__(self, "source_refs", _refs(self.source_refs))
+
+
+def _pick_with_source_column(
+    row: Mapping[str, Any],
+    aliases: Sequence[str],
+) -> tuple[str | None, Any]:
+    normalized = {
+        " ".join(str(key).strip().casefold().split()): (str(key), value)
+        for key, value in row.items()
+    }
+    for alias in aliases:
+        key = " ".join(alias.strip().casefold().split())
+        hit = normalized.get(key)
+        if hit is not None and hit[1] not in (None, ""):
+            return hit
+    return None, None
+
+
+def _object_type_row_ref(row: Mapping[str, Any]) -> str:
+    encoded = json.dumps(
+        dict(row),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        default=str,
+    ).encode("utf-8")
+    payload = TABLE_FRAME_ASSIGNMENTS_SUMMARY.encode("utf-8") + b"\x1f" + encoded
+    return (
+        FRAME_EQ713_OBJECT_TYPE_ROW_REF_PREFIX
+        + hashlib.sha256(payload).hexdigest()
+    )
+
+
+def _build_frame_object_type_facts(
+    *,
+    expected_frame_names: Sequence[str],
+    summary_rows: Sequence[Mapping[str, Any]],
+    source_refs: Sequence[str],
+) -> tuple[FrameEq713ObjectTypeFact, ...]:
+    expected = tuple(
+        sorted(_text(name, "expected_frame_name") for name in expected_frame_names)
+    )
+    if len(expected) != len(set(expected)):
+        raise EtabsFrameEq713PopulationError(
+            "duplicate expected Frame identity for object-type denominator"
+        )
+    by_name = _index_unique(
+        summary_rows,
+        ("UniqueName", "Unique Name"),
+        TABLE_FRAME_ASSIGNMENTS_SUMMARY,
+    )
+    orphans = tuple(sorted(set(by_name) - set(expected)))
+    if orphans:
+        raise EtabsFrameEq713PopulationError(
+            "Frame Assignments - Summary contains identities absent from "
+            f"FrameObj.GetNameList: {orphans!r}"
+        )
+    base_refs = _refs(source_refs)
+    result: list[FrameEq713ObjectTypeFact] = []
+    type_aliases = (
+        "FrameType",
+        "Frame Type",
+        "Type",
+        "DesignType",
+        "Design Type",
+        "ObjectType",
+        "Object Type",
+    )
+    for name in expected:
+        row = by_name.get(name)
+        if row is None:
+            result.append(
+                FrameEq713ObjectTypeFact(
+                    frame_name=name,
+                    raw_frame_type=None,
+                    normalized_frame_type=None,
+                    resolution=FrameEq713ObjectTypeResolution.UNRESOLVED,
+                    source_table=TABLE_FRAME_ASSIGNMENTS_SUMMARY,
+                    source_column=None,
+                    source_row=None,
+                    join_identity=name,
+                    resolution_reason=(
+                        "expected FrameObj identity has no exact "
+                        "Frame Assignments - Summary row"
+                    ),
+                    source_refs=(
+                        *base_refs,
+                        f"CSI:FrameObj.GetNameList:FRAME:{name}",
+                    ),
+                )
+            )
+            continue
+        source_column, raw = _pick_with_source_column(row, type_aliases)
+        row_ref = _object_type_row_ref(row)
+        if raw in (None, ""):
+            result.append(
+                FrameEq713ObjectTypeFact(
+                    frame_name=name,
+                    raw_frame_type=None,
+                    normalized_frame_type=None,
+                    resolution=FrameEq713ObjectTypeResolution.UNRESOLVED,
+                    source_table=TABLE_FRAME_ASSIGNMENTS_SUMMARY,
+                    source_column=None,
+                    source_row=row,
+                    join_identity=name,
+                    resolution_reason=(
+                        "exact Frame Assignments - Summary row contains no "
+                        "recognized factual Frame-type field"
+                    ),
+                    source_refs=(*base_refs, row_ref),
+                )
+            )
+            continue
+        raw_text = _text(str(raw).strip(), "raw_frame_type")
+        result.append(
+            FrameEq713ObjectTypeFact(
+                frame_name=name,
+                raw_frame_type=raw_text,
+                normalized_frame_type=raw_text.upper(),
+                resolution=FrameEq713ObjectTypeResolution.RESOLVED,
+                source_table=TABLE_FRAME_ASSIGNMENTS_SUMMARY,
+                source_column=source_column,
+                source_row=row,
+                join_identity=name,
+                resolution_reason="exact Frame-type field resolved by UniqueName join",
+                source_refs=(*base_refs, row_ref),
+            )
+        )
+    facts = tuple(result)
+    if tuple(fact.frame_name for fact in facts) != expected:
+        raise EtabsFrameEq713PopulationError(
+            "Frame object-type facts do not exactly cover expected Frame denominator"
+        )
+    return facts
+
+
+def _capture_frame_object_type_facts(
+    context: TrustedLiveAcquisitionContext,
+    expected_frame_names: Sequence[str],
+) -> tuple[FrameEq713ObjectTypeFact, ...]:
+    return _build_frame_object_type_facts(
+        expected_frame_names=expected_frame_names,
+        summary_rows=_capture_full_rows(
+            context.verified_session,
+            TABLE_FRAME_ASSIGNMENTS_SUMMARY,
+        ),
+        source_refs=(context.session_provenance_ref,),
+    )
+
+
 def _supported_rectangular_shape(shape: str) -> bool:
     normalized = shape.strip().casefold()
     return (
@@ -274,6 +496,96 @@ class FrameEq713BeamMechanicsFact:
         elif self.local_axis_angle_degrees is not None:
             raise EtabsFrameEq713PopulationError(
                 "default BEAM local axis must not manufacture an angle"
+            )
+        object.__setattr__(self, "source_refs", _refs(self.source_refs))
+
+
+@dataclass(frozen=True, slots=True)
+class FrameEq713ResidualStructuralFact:
+    # Generic non-concrete-safe structural facts for an out-of-slice Frame.
+    frame_name: str
+    assigned_section_name: str
+    shape: str
+    material_name: str
+    member_role: str | None
+    section_mechanics: FrameSectionMechanicsFact
+    property_modifiers: FrameModifierReadFact
+    object_modifiers: FrameModifierReadFact
+    releases: FrameReleaseFact
+    isotropic_material: IsotropicMaterialPropertiesFact
+    beam_mechanics: FrameEq713BeamMechanicsFact | None
+    source_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        name = _text(self.frame_name, "frame_name")
+        section = _text(self.assigned_section_name, "assigned_section_name")
+        material = _text(self.material_name, "material_name")
+        object.__setattr__(self, "frame_name", name)
+        object.__setattr__(self, "assigned_section_name", section)
+        object.__setattr__(self, "shape", _text(self.shape, "shape"))
+        object.__setattr__(self, "material_name", material)
+        if self.member_role not in {"COLUMN", "BEAM", None}:
+            raise EtabsFrameEq713PopulationError(
+                "residual member_role must be COLUMN, BEAM, or None"
+            )
+        if not isinstance(self.section_mechanics, FrameSectionMechanicsFact):
+            raise TypeError("section_mechanics must be FrameSectionMechanicsFact")
+        if (
+            not self.section_mechanics.success
+            or self.section_mechanics.section_name != section
+        ):
+            raise EtabsFrameEq713PopulationError(
+                "residual Frame section mechanics fact is not exact/successful"
+            )
+        if not isinstance(self.property_modifiers, FrameModifierReadFact):
+            raise TypeError("property_modifiers must be FrameModifierReadFact")
+        if (
+            not self.property_modifiers.success
+            or self.property_modifiers.surface
+            is not FrameModifierSurface.FRAME_SECTION_PROPERTY
+            or self.property_modifiers.target_name != section
+        ):
+            raise EtabsFrameEq713PopulationError(
+                "residual Frame property modifier fact is not exact/successful"
+            )
+        if not isinstance(self.object_modifiers, FrameModifierReadFact):
+            raise TypeError("object_modifiers must be FrameModifierReadFact")
+        if (
+            not self.object_modifiers.success
+            or self.object_modifiers.surface is not FrameModifierSurface.FRAME_OBJECT
+            or self.object_modifiers.target_name != name
+        ):
+            raise EtabsFrameEq713PopulationError(
+                "residual Frame object modifier fact is not exact/successful"
+            )
+        if not isinstance(self.releases, FrameReleaseFact):
+            raise TypeError("releases must be FrameReleaseFact")
+        if not self.releases.success or self.releases.frame_name != name:
+            raise EtabsFrameEq713PopulationError(
+                "residual Frame release fact is not exact/successful"
+            )
+        if not isinstance(self.isotropic_material, IsotropicMaterialPropertiesFact):
+            raise TypeError(
+                "isotropic_material must be IsotropicMaterialPropertiesFact"
+            )
+        if (
+            not self.isotropic_material.success
+            or self.isotropic_material.material_name != material
+        ):
+            raise EtabsFrameEq713PopulationError(
+                "residual Frame isotropic material fact is not exact/successful"
+            )
+        if self.member_role == "BEAM":
+            if self.beam_mechanics is not None and (
+                not isinstance(self.beam_mechanics, FrameEq713BeamMechanicsFact)
+                or self.beam_mechanics.frame_name != name
+            ):
+                raise EtabsFrameEq713PopulationError(
+                    "residual BEAM mechanics fact identity mismatch"
+                )
+        elif self.beam_mechanics is not None:
+            raise EtabsFrameEq713PopulationError(
+                "non-BEAM residual Frame cannot carry BEAM mechanics"
             )
         object.__setattr__(self, "source_refs", _refs(self.source_refs))
 
@@ -447,6 +759,93 @@ def _capture_supported_beam_mechanics(
             owned_scratch.ownership_proof_ref,
         ),
     )
+
+
+def _capture_residual_structural_facts(
+    context: TrustedLiveAcquisitionContext,
+    out_of_slice_rows: Sequence[FrameEq713ScopeFact],
+    beam_mechanics_by_name: Mapping[str, FrameEq713BeamMechanicsFact],
+) -> tuple[FrameEq713ResidualStructuralFact, ...]:
+    # Capture generic elastic facts without manufacturing concrete authority.
+    section_cache: dict[str, FrameSectionMechanicsFact] = {}
+    property_modifier_cache: dict[str, FrameModifierReadFact] = {}
+    material_cache: dict[str, IsotropicMaterialPropertiesFact] = {}
+    result: list[FrameEq713ResidualStructuralFact] = []
+
+    for scope in sorted(out_of_slice_rows, key=lambda item: item.frame_name):
+        if (
+            scope.assigned_section_name is None
+            or scope.shape is None
+            or scope.material_name is None
+        ):
+            continue
+        section = scope.assigned_section_name
+        material_name = scope.material_name
+
+        section_mechanics = section_cache.get(section)
+        if section_mechanics is None:
+            section_mechanics = get_frame_section_mechanics_from_session(
+                context.verified_session,
+                section_name=section,
+            )
+            section_cache[section] = section_mechanics
+
+        property_modifiers = property_modifier_cache.get(section)
+        if property_modifiers is None:
+            property_modifiers = get_frame_modifiers_from_session(
+                context.verified_session,
+                surface=FrameModifierSurface.FRAME_SECTION_PROPERTY,
+                target_name=section,
+            )
+            property_modifier_cache[section] = property_modifiers
+
+        object_modifiers = get_frame_modifiers_from_session(
+            context.verified_session,
+            surface=FrameModifierSurface.FRAME_OBJECT,
+            target_name=scope.frame_name,
+        )
+        releases = get_frame_releases_from_session(
+            context.verified_session,
+            frame_name=scope.frame_name,
+        )
+        isotropic = material_cache.get(material_name)
+        if isotropic is None:
+            isotropic = get_isotropic_material_properties_from_session(
+                context.verified_session,
+                material_name=material_name,
+            )
+            material_cache[material_name] = isotropic
+
+        beam_mechanics = beam_mechanics_by_name.get(scope.frame_name)
+        fact = FrameEq713ResidualStructuralFact(
+            frame_name=scope.frame_name,
+            assigned_section_name=section,
+            shape=scope.shape,
+            material_name=material_name,
+            member_role=scope.member_role,
+            section_mechanics=section_mechanics,
+            property_modifiers=property_modifiers,
+            object_modifiers=object_modifiers,
+            releases=releases,
+            isotropic_material=isotropic,
+            beam_mechanics=beam_mechanics,
+            source_refs=(
+                *scope.source_refs,
+                section_mechanics.evidence_ref,
+                property_modifiers.evidence_ref,
+                object_modifiers.evidence_ref,
+                releases.evidence_ref,
+                isotropic.evidence_ref,
+                *(
+                    beam_mechanics.source_refs
+                    if beam_mechanics is not None
+                    else ()
+                ),
+            ),
+        )
+        result.append(fact)
+
+    return tuple(result)
 
 
 def _no_release_or_partial_fixity(fact: FrameReleaseFact) -> bool:
@@ -955,9 +1354,17 @@ class FrameEq713FactualPopulation:
     rows: tuple[FrameEq713FactualFact, ...]
     source_refs: tuple[str, ...]
     out_of_slice_rows: tuple[FrameEq713ScopeFact, ...] = ()
+    object_type_facts: tuple[FrameEq713ObjectTypeFact, ...] = ()
+    residual_structural_facts: tuple[FrameEq713ResidualStructuralFact, ...] = ()
+    material_snapshot: FrameFlexuralBaseCaptureSnapshot | None = None
 
     def __post_init__(self) -> None:
-        expected = tuple(sorted(_text(name, "expected_frame_name") for name in self.expected_frame_names))
+        expected = tuple(
+            sorted(
+                _text(name, "expected_frame_name")
+                for name in self.expected_frame_names
+            )
+        )
         if len(expected) != len(set(expected)):
             raise EtabsFrameEq713PopulationError("duplicate expected Frame identity")
         rows = tuple(sorted(self.rows, key=lambda item: item.frame_name))
@@ -987,14 +1394,85 @@ class FrameEq713FactualPopulation:
                 "captured Frame scope does not exactly partition FrameObj.GetNameList; "
                 f"missing={missing!r}; orphan={orphan!r}"
             )
+
+        object_types = tuple(
+            sorted(self.object_type_facts, key=lambda item: item.frame_name)
+        )
+        if object_types:
+            object_type_names = tuple(item.frame_name for item in object_types)
+            if len(object_type_names) != len(set(object_type_names)):
+                raise EtabsFrameEq713PopulationError(
+                    "duplicate Frame object-type factual identity"
+                )
+            if object_type_names != expected:
+                missing = tuple(sorted(set(expected) - set(object_type_names)))
+                orphan = tuple(sorted(set(object_type_names) - set(expected)))
+                raise EtabsFrameEq713PopulationError(
+                    "Frame object-type denominator is not exact; "
+                    f"missing={missing!r}; orphan={orphan!r}"
+                )
+
+        residual = tuple(
+            sorted(
+                self.residual_structural_facts,
+                key=lambda item: item.frame_name,
+            )
+        )
+        residual_names = tuple(item.frame_name for item in residual)
+        if len(residual_names) != len(set(residual_names)):
+            raise EtabsFrameEq713PopulationError(
+                "duplicate residual structural factual identity"
+            )
+        invalid_residual = tuple(
+            sorted(set(residual_names) - set(out_of_slice_names))
+        )
+        if invalid_residual:
+            raise EtabsFrameEq713PopulationError(
+                "residual structural facts must belong to out-of-slice Frames: "
+                f"{invalid_residual!r}"
+            )
+
         object.__setattr__(self, "expected_frame_names", expected)
         object.__setattr__(self, "rows", rows)
         object.__setattr__(self, "out_of_slice_rows", out_of_slice)
+        object.__setattr__(self, "object_type_facts", object_types)
+        material_snapshot = self.material_snapshot
+        if material_snapshot is not None:
+            if not isinstance(
+                material_snapshot,
+                FrameFlexuralBaseCaptureSnapshot,
+            ):
+                raise TypeError(
+                    "material_snapshot must be FrameFlexuralBaseCaptureSnapshot or None"
+                )
+            if (
+                material_snapshot.session_provenance_ref
+                not in tuple(self.source_refs)
+            ):
+                raise EtabsFrameEq713PopulationError(
+                    "material snapshot provenance is not bound to Frame population"
+                )
+
+        object.__setattr__(self, "residual_structural_facts", residual)
+        object.__setattr__(self, "material_snapshot", material_snapshot)
         object.__setattr__(self, "source_refs", _refs(self.source_refs))
 
     @property
     def supported_rows(self) -> tuple[FrameEq713FactualFact, ...]:
         return self.rows
+
+    @property
+    def object_type_by_name(self) -> Mapping[str, FrameEq713ObjectTypeFact]:
+        return {item.frame_name: item for item in self.object_type_facts}
+
+    @property
+    def residual_structural_by_name(
+        self,
+    ) -> Mapping[str, FrameEq713ResidualStructuralFact]:
+        return {
+            item.frame_name: item
+            for item in self.residual_structural_facts
+        }
 
 
 def capture_frame_eq713_factual_population(
@@ -1013,6 +1491,10 @@ def capture_frame_eq713_factual_population(
     names, _raw_names = read_frame_names_from_session(context.verified_session)
     expected = tuple(sorted(names))
     roles = _role_map(topology)
+    object_type_facts = _capture_frame_object_type_facts(
+        context,
+        expected,
+    )
     base_snapshot = capture_frame_flexural_base_snapshot(
         context=context,
         owned_scratch=owned_scratch,
@@ -1023,10 +1505,24 @@ def capture_frame_eq713_factual_population(
         topology,
         expected,
     )
+    residual_beam_names = tuple(
+        scope.frame_name
+        for scope in out_of_slice_rows
+        if (
+            scope.member_role == "BEAM"
+            and scope.assigned_section_name is not None
+            and scope.material_name is not None
+        )
+    )
     beam_mechanics_by_name = _capture_supported_beam_mechanics(
         context,
         owned_scratch,
-        supported_names,
+        tuple(dict.fromkeys((*supported_names, *residual_beam_names))),
+    )
+    residual_structural_facts = _capture_residual_structural_facts(
+        context,
+        out_of_slice_rows,
+        beam_mechanics_by_name,
     )
 
     material_cache: dict[str, IsotropicMaterialPropertiesFact] = {}
@@ -1041,6 +1537,10 @@ def capture_frame_eq713_factual_population(
 
     for scope in out_of_slice_rows:
         population_refs.extend(scope.source_refs)
+    for object_type in object_type_facts:
+        population_refs.extend(object_type.source_refs)
+    for residual in residual_structural_facts:
+        population_refs.extend(residual.source_refs)
 
     for name in supported_names:
         beam_mechanics = beam_mechanics_by_name.get(name)
@@ -1142,6 +1642,16 @@ def capture_frame_eq713_factual_population(
         rows=tuple(rows),
         source_refs=tuple(dict.fromkeys(population_refs)),
         out_of_slice_rows=out_of_slice_rows,
+        object_type_facts=object_type_facts,
+        residual_structural_facts=residual_structural_facts,
+        material_snapshot=(
+            base_snapshot
+            if isinstance(
+                base_snapshot,
+                FrameFlexuralBaseCaptureSnapshot,
+            )
+            else None
+        ),
     )
 
 
@@ -1149,10 +1659,14 @@ __all__ = [
     "EtabsFrameEq713PopulationError",
     "FRAME_END_CONDITION_UNSUPPORTED",
     "FrameEq713BeamMechanicsFact",
+    "FrameEq713ObjectTypeFact",
+    "FrameEq713ObjectTypeResolution",
+    "FrameEq713ResidualStructuralFact",
     "FrameEq713ScopeFact",
     "FrameEq713ScopeStatus",
     "FrameEq713FactualFact",
     "FrameEq713FactualPopulation",
     "NO_RELEASE_OR_PARTIAL_FIXITY_EFFECT",
+    "TABLE_FRAME_ASSIGNMENTS_SUMMARY",
     "capture_frame_eq713_factual_population",
 ]

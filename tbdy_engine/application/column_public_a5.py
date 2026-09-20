@@ -13,6 +13,7 @@ from typing import Callable, Mapping, Sequence
 
 from tbdy_engine.analysis_basis.eq713_uncracked_analysis_state import (
     AreaCategory,
+    AreaEq713TargetDisposition,
     AreaFormulation,
     AreaGrossBasePropertyEvidence,
     AreaStiffnessMode,
@@ -77,6 +78,9 @@ from tbdy_engine.integration.live_etabs_acquisition_context import TrustedLiveAc
 from tbdy_engine.providers.etabs_area_contributor_provider import (
     AreaContributorFact,
     AreaContributorPopulation,
+    AreaContributorScopeFact,
+    AreaContributorScopeStatus,
+    AreaMaterialResolution,
     AreaPropertyFamily,
     capture_area_contributor_population_from_session,
 )
@@ -104,6 +108,9 @@ from tbdy_engine.providers.etabs_eq713_response_provider import (
 from tbdy_engine.providers.etabs_frame_eq713_population_provider import (
     FrameEq713FactualFact,
     FrameEq713FactualPopulation,
+    FrameEq713ObjectTypeFact,
+    FrameEq713ObjectTypeResolution,
+    FrameEq713ResidualStructuralFact,
     FrameEq713ScopeFact,
     capture_frame_eq713_factual_population,
 )
@@ -153,6 +160,25 @@ BLOCKER_A5_REQUESTED_FOCUS_ABSENT = "LIVE_A5_REQUESTED_COLUMN_NOT_IN_FACTUAL_POP
 
 _AREA_RESPONSE_SCOPE_REF = "COLUMN_R1_EQ713_IN_PLANE_DISPLACEMENT_RESPONSE_SCOPE"
 _FRAME_MECHANICS_REF_PREFIX = "COLUMN_R1_STRICT_FRAME_MECHANICS"
+_CSI_ETABS_OBJECT_TYPE_REF = (
+    "CSI_ETABS_HELP:https://docs.csiamerica.com/help-files/etabs/"
+    "Menus/Select/Select/Object_Type.htm"
+)
+_CSI_ETABS_FRAME_SECTION_NONE_REF = (
+    "CSI_ETABS_HELP:https://docs.csiamerica.com/help-files/etabs/"
+    "Menus/Assign/Frame/Frame_Section_Property.htm"
+)
+_CSI_ETABS_LINE_SPRING_REF = (
+    "CSI_ETABS_HELP:https://docs.csiamerica.com/help-files/etabs/"
+    "Menus/Assign/Frame/Line_Springs.htm"
+)
+_CSI_ETABS_NULL_LINE_SPRING_RELEASE_REF = (
+    "CSI_ETABS_ENHANCEMENT:19.1.0_ETA_analysis_null_line"
+)
+_CSI_ETABS_FRAME_LOCAL_AXES_REF = (
+    "CSI_ETABS_HELP:https://docs.csiamerica.com/help-files/etabs/"
+    "Menus/Assign/Frame/Local_Axes_Frames.htm"
+)
 _RESPONSE_AREA_MODES = {
     AreaStiffnessMode.M11,
     AreaStiffnessMode.M22,
@@ -465,6 +491,114 @@ def _material_bases(frame_population: FrameEq713FactualPopulation):
     return by_material
 
 
+def _typed_out_of_slice_frame_disposition(
+    scope: FrameEq713ScopeFact,
+    object_type: FrameEq713ObjectTypeFact,
+    residual_structural: FrameEq713ResidualStructuralFact | None,
+) -> FrameModeAuditDisposition:
+    # Source-bound fail-closed disposition for one residual Frame.
+    if not isinstance(scope, FrameEq713ScopeFact):
+        raise TypeError("scope must be FrameEq713ScopeFact")
+    if not isinstance(object_type, FrameEq713ObjectTypeFact):
+        raise TypeError("object_type must be FrameEq713ObjectTypeFact")
+    if object_type.frame_name != scope.frame_name:
+        raise PublicA5CompositionError(
+            BLOCKER_A3_EQ713_POPULATION,
+            "Frame scope/object-type identity mismatch",
+        )
+    if residual_structural is not None and (
+        not isinstance(residual_structural, FrameEq713ResidualStructuralFact)
+        or residual_structural.frame_name != scope.frame_name
+    ):
+        raise PublicA5CompositionError(
+            BLOCKER_A3_EQ713_POPULATION,
+            "Frame residual structural identity mismatch",
+        )
+
+    refs = list(
+        dict.fromkeys(
+            (
+                *scope.source_refs,
+                *object_type.source_refs,
+                TS500_EQ713_SOURCE_REF,
+                _CSI_ETABS_OBJECT_TYPE_REF,
+            )
+        )
+    )
+    normalized = object_type.normalized_frame_type
+
+    if object_type.resolution is FrameEq713ObjectTypeResolution.UNRESOLVED:
+        reason = (
+            f"Frame {scope.frame_name!r} factual Frame type is unresolved: "
+            f"{object_type.resolution_reason}; Eq7.13 applicability remains blocked"
+        )
+    elif normalized == "NULL":
+        refs.extend(
+            (
+                _CSI_ETABS_FRAME_SECTION_NONE_REF,
+                _CSI_ETABS_LINE_SPRING_REF,
+                _CSI_ETABS_NULL_LINE_SPRING_RELEASE_REF,
+            )
+        )
+        reason = (
+            f"Frame {scope.frame_name!r} has exact ETABS FrameType={object_type.raw_frame_type!r}; "
+            "a Null line/no frame-section assignment does not by itself prove absence "
+            "of all analysis stiffness because ETABS supports line-spring assignments "
+            "on frame objects and explicitly supports line springs on Null line objects; "
+            "this exact object's complete stiffness-mechanism absence is not proven"
+        )
+    elif normalized == "BRACE":
+        refs.append(_CSI_ETABS_FRAME_LOCAL_AXES_REF)
+        if residual_structural is None:
+            reason = (
+                f"Frame {scope.frame_name!r} has exact ETABS FrameType={object_type.raw_frame_type!r}; "
+                "BRACE is a factual frame type, not a not-applicable label, and exact "
+                "source-bound structural mechanics/material evidence is incomplete"
+            )
+        else:
+            refs.extend(residual_structural.source_refs)
+            reason = (
+                f"Frame {scope.frame_name!r} has exact ETABS FrameType={object_type.raw_frame_type!r} "
+                "and generic structural section/material/modifier/release facts, but the "
+                "current Eq7.13 member-role authority does not truthfully represent BRACE "
+                "without inferring BRACE as BEAM; participation remains unresolved"
+            )
+    elif residual_structural is not None:
+        refs.extend(residual_structural.source_refs)
+        reason = (
+            f"Frame {scope.frame_name!r} has exact ETABS FrameType={object_type.raw_frame_type!r}, "
+            f"section={residual_structural.assigned_section_name!r}, "
+            f"shape={residual_structural.shape!r}, material={residual_structural.material_name!r}, "
+            "and generic elastic section/material/modifier/release facts; the active "
+            "Eq7.13 Frame audit uses a concrete-only uncracked material basis and no "
+            "source-proven material-neutral normalization contract has been established "
+            "for this residual structural Frame"
+        )
+    else:
+        reason = (
+            f"Frame {scope.frame_name!r} has exact ETABS FrameType={object_type.raw_frame_type!r}; "
+            f"current source-bound residual evidence is insufficient for a truthful "
+            f"Eq7.13 applicability/participation disposition ({scope.reason})"
+        )
+
+    exact_refs = tuple(dict.fromkeys(refs))
+    rows = tuple(
+        ModeDisposition(
+            mode,
+            ContributorDisposition.BLOCKED_UNSUPPORTED,
+            reason,
+            exact_refs,
+        )
+        for mode in FrameStiffnessMode
+    )
+    return FrameModeAuditDisposition(
+        component_uid=scope.frame_name,
+        mode_dispositions=rows,
+        blocked_reasons=(reason,),
+        source_refs=exact_refs,
+    )
+
+
 def _out_of_slice_frame_disposition(
     scope: FrameEq713ScopeFact,
 ) -> FrameModeAuditDisposition:
@@ -489,6 +623,97 @@ def _out_of_slice_frame_disposition(
         source_refs=refs,
     )
 
+
+
+
+def _same_decimal_at_observed_precision(
+    prior: object,
+    observed: object,
+) -> bool:
+    left = Decimal(str(prior))
+    right = Decimal(str(observed))
+    quantum = Decimal(1).scaleb(right.as_tuple().exponent)
+    return left.quantize(quantum) == right.quantize(quantum)
+
+
+def _extend_material_bases_from_area(
+    material_bases: Mapping[str, object],
+    area_population: AreaContributorPopulation,
+):
+    result = dict(material_bases)
+    for fact in tuple(
+        getattr(area_population, "material_facts", ()) or ()
+    ):
+        if fact.resolution is not AreaMaterialResolution.CONCRETE_PROVEN:
+            continue
+        basis = build_concrete_uncracked_material_basis(
+            material_name=fact.material_name,
+            fck_mpa=fact.concrete_fck_mpa,
+            factual_ec_mpa=fact.factual_ec_mpa,
+            factual_gc_mpa=fact.factual_gc_mpa,
+            source_refs=fact.source_refs,
+        )
+        prior = result.get(basis.material_name)
+        if prior is not None:
+            if (
+                not _same_decimal_at_observed_precision(
+                    prior.fck_mpa,
+                    basis.fck_mpa,
+                )
+                or not _same_decimal_at_observed_precision(
+                    prior.factual_ec_mpa,
+                    basis.factual_ec_mpa,
+                )
+                or not _same_decimal_at_observed_precision(
+                    prior.factual_gc_mpa,
+                    basis.factual_gc_mpa,
+                )
+            ):
+                raise PublicA5CompositionError(
+                    BLOCKER_A3_EQ713_POPULATION,
+                    f"material {basis.material_name!r} has contradictory "
+                    "same-epoch Frame/Area E/G/fck evidence",
+                )
+            # Preserve the already-accepted Frame material basis for shared
+            # materials. Area-only materials are added below. The comparison
+            # above reconciles only representation precision from the
+            # same-epoch Basic Mechanical table; it is not an engineering
+            # tolerance.
+            continue
+        result[basis.material_name] = basis
+    return result
+
+
+def _typed_out_of_slice_area_disposition(
+    scope: AreaContributorScopeFact,
+) -> AreaEq713TargetDisposition:
+    if not isinstance(scope, AreaContributorScopeFact):
+        raise TypeError("scope must be AreaContributorScopeFact")
+    if scope.supported:
+        raise PublicA5CompositionError(
+            BLOCKER_A3_EQ713_POPULATION,
+            "supported Area scope cannot enter typed-out-of-slice disposition",
+        )
+    refs = tuple(
+        dict.fromkeys((*scope.source_refs, TS500_EQ713_SOURCE_REF))
+    )
+    reason = scope.reason
+    modes = tuple(
+        ModeDisposition(
+            mode,
+            ContributorDisposition.BLOCKED_UNSUPPORTED,
+            reason,
+            refs,
+        )
+        for mode in AreaStiffnessMode
+    )
+    return AreaEq713TargetDisposition(
+        area_name=scope.area_name,
+        mode_dispositions=modes,
+        target_property_modifiers=None,
+        blocked_reasons=(reason,),
+        source_refs=refs,
+    )
 
 def _area_evidence(
     fact: AreaContributorFact,
@@ -670,6 +895,10 @@ def _build_a3(
     ] | None = None,
 ):
     material_bases = _material_bases(frame_population)
+    material_bases = _extend_material_bases_from_area(
+        material_bases,
+        area_population,
+    )
     response_refs = _response_refs(response_populations) if response_populations else ()
     area_generation_map = {
         name: tuple(generations)
@@ -698,10 +927,27 @@ def _build_a3(
                 source_refs=(*fact.source_refs, *classification.source_refs),
             )
         )
-    frame_rows.extend(
-        _out_of_slice_frame_disposition(scope)
-        for scope in frame_population.out_of_slice_rows
+    object_type_facts = tuple(
+        getattr(frame_population, "object_type_facts", ()) or ()
     )
+    if object_type_facts:
+        type_by_name = frame_population.object_type_by_name
+        residual_by_name = frame_population.residual_structural_by_name
+        frame_rows.extend(
+            _typed_out_of_slice_frame_disposition(
+                scope,
+                type_by_name[scope.frame_name],
+                residual_by_name.get(scope.frame_name),
+            )
+            for scope in frame_population.out_of_slice_rows
+        )
+    else:
+        # Compatibility-only path for bounded legacy synthetic fixtures.
+        # Production capture always emits the exact object-type denominator.
+        frame_rows.extend(
+            _out_of_slice_frame_disposition(scope)
+            for scope in frame_population.out_of_slice_rows
+        )
     observed_frame_scope = tuple(
         sorted(row.component_uid for row in frame_rows)
     )
@@ -712,8 +958,26 @@ def _build_a3(
             "the factual FrameObj universe",
         )
 
-    area_evidence = tuple(_area_evidence(fact, material_bases) for fact in area_population.rows)
-    area_by_name = {fact.area_name: fact for fact in area_population.rows}
+    exact_area_partition = bool(
+        getattr(area_population, "scope_facts", ()) or ()
+    )
+    supported_area_rows = (
+        tuple(area_population.supported_rows)
+        if exact_area_partition
+        else tuple(area_population.rows)
+    )
+    typed_area_rows = (
+        tuple(area_population.typed_out_of_slice_rows)
+        if exact_area_partition
+        else ()
+    )
+    area_evidence = tuple(
+        _area_evidence(fact, material_bases)
+        for fact in supported_area_rows
+    )
+    area_by_name = {
+        fact.area_name: fact for fact in area_population.rows
+    }
     area_rows = []
     for evidence in area_evidence:
         row = build_area_eq713_target(evidence)
@@ -744,6 +1008,20 @@ def _build_a3(
                 source_refs=response_refs,
             )
         area_rows.append(row)
+    area_rows.extend(
+        _typed_out_of_slice_area_disposition(scope)
+        for scope in typed_area_rows
+    )
+    observed_area_scope = tuple(
+        sorted(row.area_name for row in area_rows)
+    )
+    if observed_area_scope != area_population.expected_area_names:
+        raise PublicA5CompositionError(
+            BLOCKER_A3_EQ713_POPULATION,
+            "A3 Area disposition population does not exactly reconcile to "
+            "the factual AreaObj universe",
+        )
+
     return Eq713PopulationDisposition(
         area_rows=tuple(area_rows),
         frame_rows=tuple(frame_rows),
@@ -1331,6 +1609,11 @@ def _prove_post_continuity(
         model_fingerprint=context.model_fingerprint,
         evidence_epoch_id=context.evidence_epoch_id,
         session_provenance_ref=context.session_provenance_ref,
+        material_snapshot=getattr(
+            frame_post,
+            "material_snapshot",
+            None,
+        ),
     )
     if area_post.expected_area_names != area_pre.expected_area_names:
         raise PublicA5CompositionError(BLOCKER_A4_POST_CONTINUITY, "Area population changed after B5")
@@ -1847,6 +2130,11 @@ def execute_public_a5_column(
             model_fingerprint=context.model_fingerprint,
             evidence_epoch_id=context.evidence_epoch_id,
             session_provenance_ref=context.session_provenance_ref,
+            material_snapshot=getattr(
+                frame_pre,
+                "material_snapshot",
+                None,
+            ),
         )
     except PublicA5CompositionError as exc:
         if materialize_full_population:

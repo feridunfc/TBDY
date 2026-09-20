@@ -10,8 +10,9 @@ factual and do not themselves decide Eq.7.13 participation.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from enum import StrEnum
-from typing import Sequence
+from typing import Any, Mapping, Sequence
 
 from tbdy_engine.etabs.oapi.area_contributors import (
     AreaDesignOrientation,
@@ -41,6 +42,15 @@ from tbdy_engine.etabs.oapi.object_model import (
     read_wall_property_from_session,
 )
 from tbdy_engine.etabs.safety import EtabsVerifiedSession
+from tbdy_engine.providers.etabs_frame_flexural_base_provider import (
+    FrameFlexuralBaseCaptureSnapshot,
+    FrameFlexuralBaseFactError,
+    TABLE_BASIC_MATERIAL,
+    TABLE_CONCRETE,
+    _pick as _snapshot_pick,
+    _row_ref as _snapshot_row_ref,
+    _stress_to_mpa,
+)
 
 
 class EtabsAreaContributorProviderError(RuntimeError):
@@ -257,6 +267,174 @@ class AreaContributorFact:
         return not self.advanced_local_axes and self.local_axes_angle_degrees == 0.0
 
 
+
+
+class AreaMaterialResolution(StrEnum):
+    CONCRETE_PROVEN = "CONCRETE_PROVEN"
+    BASIC_MECHANICAL_MISSING = "BASIC_MECHANICAL_MISSING"
+    CONCRETE_DATA_MISSING = "CONCRETE_DATA_MISSING"
+    BASIC_MECHANICAL_PROPERTIES_UNRESOLVED = (
+        "BASIC_MECHANICAL_PROPERTIES_UNRESOLVED"
+    )
+    CONCRETE_DATA_UNRESOLVED = "CONCRETE_DATA_UNRESOLVED"
+
+
+class AreaContributorScopeStatus(StrEnum):
+    SUPPORTED = "SUPPORTED"
+    NO_PROPERTY = "NO_PROPERTY"
+    DECK_APPLICABILITY_UNRESOLVED = "DECK_APPLICABILITY_UNRESOLVED"
+    PROPERTY_FAMILY_UNRESOLVED = "PROPERTY_FAMILY_UNRESOLVED"
+    AREA_MATERIAL_IDENTITY_UNRESOLVED = "AREA_MATERIAL_IDENTITY_UNRESOLVED"
+    MATERIAL_BASIC_MECHANICAL_MISSING = "MATERIAL_BASIC_MECHANICAL_MISSING"
+    MATERIAL_CONCRETE_DATA_MISSING = "MATERIAL_CONCRETE_DATA_MISSING"
+    MATERIAL_NOT_PROVEN_CONCRETE = "MATERIAL_NOT_PROVEN_CONCRETE"
+    MATERIAL_BASIC_MECHANICAL_PROPERTIES_UNRESOLVED = (
+        "MATERIAL_BASIC_MECHANICAL_PROPERTIES_UNRESOLVED"
+    )
+    MATERIAL_CONCRETE_DATA_UNRESOLVED = (
+        "MATERIAL_CONCRETE_DATA_UNRESOLVED"
+    )
+    UNSUPPORTED_SHELL_FORMULATION = "UNSUPPORTED_SHELL_FORMULATION"
+    MATERIAL_OVERWRITE_UNQUALIFIED = "MATERIAL_OVERWRITE_UNQUALIFIED"
+    PROPERTY_GEOMETRY_UNRESOLVED = "PROPERTY_GEOMETRY_UNRESOLVED"
+
+
+@dataclass(frozen=True, slots=True)
+class AreaMaterialFactualFact:
+    material_name: str
+    resolution: AreaMaterialResolution
+    basic_mechanical_row: Mapping[str, Any] | None
+    concrete_data_row: Mapping[str, Any] | None
+    factual_ec_mpa: Decimal | None
+    factual_gc_mpa: Decimal | None
+    concrete_fck_mpa: Decimal | None
+    model_fingerprint: str
+    evidence_epoch_id: str
+    session_provenance_ref: str
+    source_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self,
+            "material_name",
+            _text(self.material_name, "material_name"),
+        )
+        if not isinstance(self.resolution, AreaMaterialResolution):
+            raise TypeError("resolution must be AreaMaterialResolution")
+        if self.basic_mechanical_row is not None:
+            object.__setattr__(
+                self,
+                "basic_mechanical_row",
+                dict(self.basic_mechanical_row),
+            )
+        if self.concrete_data_row is not None:
+            object.__setattr__(
+                self,
+                "concrete_data_row",
+                dict(self.concrete_data_row),
+            )
+        for field_name in (
+            "factual_ec_mpa",
+            "factual_gc_mpa",
+            "concrete_fck_mpa",
+        ):
+            value = getattr(self, field_name)
+            if value is not None and (
+                not isinstance(value, Decimal)
+                or not value.is_finite()
+                or value <= 0
+            ):
+                raise EtabsAreaContributorProviderError(
+                    f"{field_name} must be positive finite Decimal or None"
+                )
+        if self.resolution is AreaMaterialResolution.CONCRETE_PROVEN:
+            if (
+                self.basic_mechanical_row is None
+                or self.concrete_data_row is None
+                or self.factual_ec_mpa is None
+                or self.factual_gc_mpa is None
+                or self.concrete_fck_mpa is None
+            ):
+                raise EtabsAreaContributorProviderError(
+                    "CONCRETE_PROVEN requires exact Basic Mechanical E1/G12 "
+                    "and Concrete Data facts"
+                )
+        elif self.concrete_fck_mpa is not None:
+            raise EtabsAreaContributorProviderError(
+                "non-concrete-proven Area material cannot carry fck"
+            )
+        for field_name in (
+            "model_fingerprint",
+            "evidence_epoch_id",
+            "session_provenance_ref",
+        ):
+            object.__setattr__(
+                self,
+                field_name,
+                _text(getattr(self, field_name), field_name),
+            )
+        object.__setattr__(self, "source_refs", _refs(self.source_refs))
+
+    @property
+    def concrete_proven(self) -> bool:
+        return self.resolution is AreaMaterialResolution.CONCRETE_PROVEN
+
+
+@dataclass(frozen=True, slots=True)
+class AreaContributorScopeFact:
+    area_name: str
+    property_name: str
+    property_family: AreaPropertyFamily | None
+    material_name: str | None
+    status: AreaContributorScopeStatus
+    reason: str
+    model_fingerprint: str
+    evidence_epoch_id: str
+    session_provenance_ref: str
+    source_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "area_name", _text(self.area_name, "area_name"))
+        object.__setattr__(
+            self,
+            "property_name",
+            _text(self.property_name, "property_name"),
+        )
+        if self.property_family is not None and not isinstance(
+            self.property_family,
+            AreaPropertyFamily,
+        ):
+            raise TypeError(
+                "property_family must be AreaPropertyFamily or None"
+            )
+        if self.material_name is not None:
+            object.__setattr__(
+                self,
+                "material_name",
+                _text(self.material_name, "material_name"),
+            )
+        if not isinstance(self.status, AreaContributorScopeStatus):
+            raise TypeError("status must be AreaContributorScopeStatus")
+        object.__setattr__(self, "reason", _text(self.reason, "reason"))
+        for field_name in (
+            "model_fingerprint",
+            "evidence_epoch_id",
+            "session_provenance_ref",
+        ):
+            object.__setattr__(
+                self,
+                field_name,
+                _text(getattr(self, field_name), field_name),
+            )
+        object.__setattr__(self, "source_refs", _refs(self.source_refs))
+
+    @property
+    def supported(self) -> bool:
+        return self.status in {
+            AreaContributorScopeStatus.SUPPORTED,
+            AreaContributorScopeStatus.NO_PROPERTY,
+        }
+
 @dataclass(frozen=True, slots=True)
 class AreaContributorPopulation:
     model_fingerprint: str
@@ -265,6 +443,10 @@ class AreaContributorPopulation:
     expected_area_names: tuple[str, ...]
     rows: tuple[AreaContributorFact, ...]
     source_refs: tuple[str, ...]
+    scope_facts: tuple[AreaContributorScopeFact, ...] = ()
+    material_facts: tuple[AreaMaterialFactualFact, ...] = ()
+    supported_rows: tuple[AreaContributorFact, ...] = ()
+    typed_out_of_slice_rows: tuple[AreaContributorScopeFact, ...] = ()
 
     def __post_init__(self) -> None:
         for name in (
@@ -295,9 +477,153 @@ class AreaContributorPopulation:
             raise EtabsAreaContributorProviderError(
                 "Area factual row model/epoch/session provenance mismatch"
             )
+        scope_facts = tuple(
+            sorted(self.scope_facts, key=lambda item: item.area_name)
+        )
+        material_facts = tuple(
+            sorted(self.material_facts, key=lambda item: item.material_name)
+        )
+        supported_rows = tuple(
+            sorted(self.supported_rows, key=lambda item: item.area_name)
+        )
+        typed_out = tuple(
+            sorted(
+                self.typed_out_of_slice_rows,
+                key=lambda item: item.area_name,
+            )
+        )
+
+        if scope_facts:
+            if any(
+                not isinstance(item, AreaContributorScopeFact)
+                for item in scope_facts
+            ):
+                raise TypeError(
+                    "scope_facts must contain AreaContributorScopeFact"
+                )
+            scope_names = tuple(item.area_name for item in scope_facts)
+            if len(scope_names) != len(set(scope_names)):
+                raise EtabsAreaContributorProviderError(
+                    "duplicate Area scope identity"
+                )
+            if scope_names != expected:
+                missing = tuple(sorted(set(expected) - set(scope_names)))
+                orphan = tuple(sorted(set(scope_names) - set(expected)))
+                raise EtabsAreaContributorProviderError(
+                    "Area scope denominator is not exact; "
+                    f"missing={missing!r}; orphan={orphan!r}"
+                )
+
+            if any(
+                not isinstance(item, AreaContributorFact)
+                for item in supported_rows
+            ):
+                raise TypeError(
+                    "supported_rows must contain AreaContributorFact"
+                )
+            supported_names = tuple(
+                item.area_name for item in supported_rows
+            )
+            if len(supported_names) != len(set(supported_names)):
+                raise EtabsAreaContributorProviderError(
+                    "duplicate supported Area identity"
+                )
+
+            if any(
+                not isinstance(item, AreaContributorScopeFact)
+                for item in typed_out
+            ):
+                raise TypeError(
+                    "typed_out_of_slice_rows must contain AreaContributorScopeFact"
+                )
+            typed_names = tuple(item.area_name for item in typed_out)
+            if len(typed_names) != len(set(typed_names)):
+                raise EtabsAreaContributorProviderError(
+                    "duplicate typed-out-of-slice Area identity"
+                )
+            overlap = tuple(
+                sorted(set(supported_names) & set(typed_names))
+            )
+            if overlap:
+                raise EtabsAreaContributorProviderError(
+                    "Area supported/typed-out-of-slice overlap: "
+                    f"{overlap!r}"
+                )
+            observed = tuple(
+                sorted((*supported_names, *typed_names))
+            )
+            if observed != expected:
+                missing = tuple(sorted(set(expected) - set(observed)))
+                orphan = tuple(sorted(set(observed) - set(expected)))
+                raise EtabsAreaContributorProviderError(
+                    "Area supported + typed-out-of-slice partition is not exact; "
+                    f"missing={missing!r}; orphan={orphan!r}"
+                )
+
+            scope_by_name = {
+                item.area_name: item for item in scope_facts
+            }
+            if any(
+                not scope_by_name[name].supported
+                for name in supported_names
+            ):
+                raise EtabsAreaContributorProviderError(
+                    "supported Area row has non-supported scope status"
+                )
+            if any(
+                scope_by_name[name].supported
+                for name in typed_names
+            ):
+                raise EtabsAreaContributorProviderError(
+                    "typed-out-of-slice Area row has supported scope status"
+                )
+
+        material_names = tuple(
+            item.material_name for item in material_facts
+        )
+        if len(material_names) != len(set(material_names)):
+            raise EtabsAreaContributorProviderError(
+                "duplicate Area material factual identity"
+            )
+        if any(
+            item.model_fingerprint != self.model_fingerprint
+            or item.evidence_epoch_id != self.evidence_epoch_id
+            or item.session_provenance_ref != self.session_provenance_ref
+            for item in (*scope_facts, *material_facts)
+        ):
+            raise EtabsAreaContributorProviderError(
+                "Area scope/material model/epoch/session provenance mismatch"
+            )
+
         object.__setattr__(self, "expected_area_names", expected)
         object.__setattr__(self, "rows", rows)
+        object.__setattr__(self, "scope_facts", scope_facts)
+        object.__setattr__(self, "material_facts", material_facts)
+        object.__setattr__(self, "supported_rows", supported_rows)
+        object.__setattr__(
+            self,
+            "typed_out_of_slice_rows",
+            typed_out,
+        )
         object.__setattr__(self, "source_refs", _refs(self.source_refs))
+
+    @property
+    def exact_partition_available(self) -> bool:
+        return bool(self.scope_facts)
+
+    @property
+    def material_by_name(self) -> Mapping[str, AreaMaterialFactualFact]:
+        return {
+            item.material_name: item
+            for item in self.material_facts
+        }
+
+    @property
+    def scope_by_name(self) -> Mapping[str, AreaContributorScopeFact]:
+        return {
+            item.area_name: item
+            for item in self.scope_facts
+        }
 
     @property
     def advanced_local_axis_area_names(self) -> tuple[str, ...]:
@@ -416,12 +742,408 @@ def _capture_property_state(
     )
 
 
+
+
+def _exact_material_index(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    label: str,
+) -> dict[str, Mapping[str, Any]]:
+    result: dict[str, Mapping[str, Any]] = {}
+    for index, row in enumerate(rows):
+        raw = _snapshot_pick(
+            row,
+            ("Material", "Name"),
+            f"{label}[{index}] material identity",
+            required=False,
+        )
+        if raw in (None, ""):
+            raise EtabsAreaContributorProviderError(
+                f"{label}[{index}] has no exact material identity"
+            )
+        name = _text(str(raw).strip(), "material_name")
+        if name in result:
+            raise EtabsAreaContributorProviderError(
+                f"duplicate {label} material identity {name!r}"
+            )
+        result[name] = row
+    return result
+
+
+def _capture_area_material_facts(
+    *,
+    rows: Sequence[AreaContributorFact],
+    material_snapshot: FrameFlexuralBaseCaptureSnapshot,
+    model_fingerprint: str,
+    evidence_epoch_id: str,
+    session_provenance_ref: str,
+) -> tuple[AreaMaterialFactualFact, ...]:
+    if not isinstance(
+        material_snapshot,
+        FrameFlexuralBaseCaptureSnapshot,
+    ):
+        raise TypeError(
+            "material_snapshot must be FrameFlexuralBaseCaptureSnapshot"
+        )
+    if (
+        material_snapshot.session_provenance_ref
+        != session_provenance_ref
+    ):
+        raise EtabsAreaContributorProviderError(
+            "Area material snapshot session provenance mismatch"
+        )
+
+    basic_by_name = _exact_material_index(
+        material_snapshot.basic_material_rows,
+        label=TABLE_BASIC_MATERIAL,
+    )
+    concrete_by_name = _exact_material_index(
+        material_snapshot.concrete_rows,
+        label=TABLE_CONCRETE,
+    )
+    material_names = tuple(
+        sorted(
+            {
+                row.property_state.material_name
+                for row in rows
+                if (
+                    row.property_state is not None
+                    and row.property_state.material_name
+                    not in (None, "")
+                )
+            }
+        )
+    )
+
+    facts: list[AreaMaterialFactualFact] = []
+    for material_name in material_names:
+        basic = basic_by_name.get(material_name)
+        concrete = concrete_by_name.get(material_name)
+        ec_mpa = None
+        gc_mpa = None
+        fck_mpa = None
+        refs: list[str] = [
+            session_provenance_ref,
+            material_snapshot.ownership_proof_ref,
+        ]
+        if basic is not None:
+            refs.append(
+                _snapshot_row_ref(TABLE_BASIC_MATERIAL, basic)
+            )
+        if concrete is not None:
+            refs.append(
+                _snapshot_row_ref(TABLE_CONCRETE, concrete)
+            )
+
+        if basic is None:
+            resolution = AreaMaterialResolution.BASIC_MECHANICAL_MISSING
+        else:
+            e_raw = _snapshot_pick(
+                basic,
+                ("E1", "Elastic Modulus", "Modulus of Elasticity", "E"),
+                f"{material_name} E1",
+                required=False,
+            )
+            g_raw = _snapshot_pick(
+                basic,
+                ("G12", "Shear Modulus", "G"),
+                f"{material_name} G12",
+                required=False,
+            )
+            if e_raw in (None, "") or g_raw in (None, ""):
+                resolution = (
+                    AreaMaterialResolution.BASIC_MECHANICAL_PROPERTIES_UNRESOLVED
+                )
+            else:
+                try:
+                    ec_candidate = _stress_to_mpa(
+                        e_raw,
+                        material_snapshot.present_force_unit,
+                        material_snapshot.present_length_unit,
+                        f"{material_name} E1",
+                    )
+                    gc_candidate = _stress_to_mpa(
+                        g_raw,
+                        material_snapshot.present_force_unit,
+                        material_snapshot.present_length_unit,
+                        f"{material_name} G12",
+                    )
+                except FrameFlexuralBaseFactError:
+                    resolution = (
+                        AreaMaterialResolution.BASIC_MECHANICAL_PROPERTIES_UNRESOLVED
+                    )
+                else:
+                    if ec_candidate <= 0 or gc_candidate <= 0:
+                        resolution = (
+                            AreaMaterialResolution.BASIC_MECHANICAL_PROPERTIES_UNRESOLVED
+                        )
+                    else:
+                        ec_mpa = ec_candidate
+                        gc_mpa = gc_candidate
+                        if concrete is None:
+                            resolution = (
+                                AreaMaterialResolution.CONCRETE_DATA_MISSING
+                            )
+                        else:
+                            fc_raw = _snapshot_pick(
+                                concrete,
+                                ("Fc", "fck", "Concrete Strength"),
+                                f"{material_name} Fc",
+                                required=False,
+                            )
+                            if fc_raw in (None, ""):
+                                resolution = (
+                                    AreaMaterialResolution.CONCRETE_DATA_UNRESOLVED
+                                )
+                            else:
+                                try:
+                                    fck_candidate = _stress_to_mpa(
+                                        fc_raw,
+                                        material_snapshot.present_force_unit,
+                                        material_snapshot.present_length_unit,
+                                        f"{material_name} Fc",
+                                    )
+                                except FrameFlexuralBaseFactError:
+                                    resolution = (
+                                        AreaMaterialResolution.CONCRETE_DATA_UNRESOLVED
+                                    )
+                                else:
+                                    if fck_candidate <= 0:
+                                        resolution = (
+                                            AreaMaterialResolution.CONCRETE_DATA_UNRESOLVED
+                                        )
+                                    else:
+                                        fck_mpa = fck_candidate
+                                        resolution = (
+                                            AreaMaterialResolution.CONCRETE_PROVEN
+                                        )
+
+        facts.append(
+            AreaMaterialFactualFact(
+                material_name=material_name,
+                resolution=resolution,
+                basic_mechanical_row=basic,
+                concrete_data_row=concrete,
+                factual_ec_mpa=ec_mpa,
+                factual_gc_mpa=gc_mpa,
+                concrete_fck_mpa=fck_mpa,
+                model_fingerprint=model_fingerprint,
+                evidence_epoch_id=evidence_epoch_id,
+                session_provenance_ref=session_provenance_ref,
+                source_refs=tuple(refs),
+            )
+        )
+
+    return tuple(sorted(facts, key=lambda item: item.material_name))
+
+
+def _build_area_scope_facts(
+    rows: Sequence[AreaContributorFact],
+    material_facts: Sequence[AreaMaterialFactualFact],
+) -> tuple[AreaContributorScopeFact, ...]:
+    materials = {
+        item.material_name: item
+        for item in material_facts
+    }
+    result: list[AreaContributorScopeFact] = []
+
+    for row in rows:
+        state = row.property_state
+        refs = list(row.source_refs)
+
+        if (
+            row.orientation is AreaDesignOrientation.NULL
+            or row.property_name == "None"
+        ):
+            status = AreaContributorScopeStatus.NO_PROPERTY
+            reason = (
+                f"Area {row.area_name!r} has no assigned Area property; "
+                "the existing canonical NULL/no-property Eq7.13 path remains applicable"
+            )
+            family = None
+            material_name = None
+        elif state is None:
+            status = (
+                AreaContributorScopeStatus.PROPERTY_FAMILY_UNRESOLVED
+            )
+            reason = (
+                f"Area {row.area_name!r} assigned property "
+                f"{row.property_name!r} has no exact factual property state"
+            )
+            family = None
+            material_name = None
+        else:
+            family = state.family
+            material_name = state.material_name
+            refs.extend(state.source_refs)
+
+            if family is AreaPropertyFamily.UNRESOLVED:
+                status = (
+                    AreaContributorScopeStatus.PROPERTY_FAMILY_UNRESOLVED
+                )
+                reason = (
+                    f"Area {row.area_name!r} property "
+                    f"{row.property_name!r} family is unresolved"
+                )
+            elif family is AreaPropertyFamily.DECK:
+                status = (
+                    AreaContributorScopeStatus.DECK_APPLICABILITY_UNRESOLVED
+                )
+                reason = (
+                    f"Area {row.area_name!r} property "
+                    f"{row.property_name!r} is exact DECK; "
+                    "DECK is not automatically not-applicable and current "
+                    "Eq7.13 Area applicability remains unresolved"
+                )
+            elif family not in {
+                AreaPropertyFamily.WALL,
+                AreaPropertyFamily.SLAB,
+            }:
+                status = (
+                    AreaContributorScopeStatus.PROPERTY_FAMILY_UNRESOLVED
+                )
+                reason = (
+                    f"Area {row.area_name!r} property family "
+                    f"{family.value!r} is outside the supported simple WALL/SLAB slice"
+                )
+            elif state.shell_type_code not in {2, 3}:
+                status = (
+                    AreaContributorScopeStatus.UNSUPPORTED_SHELL_FORMULATION
+                )
+                reason = (
+                    f"Area {row.area_name!r} shell type "
+                    f"{state.shell_type_code!r} is outside the supported Eq7.13 slice"
+                )
+            elif (
+                state.thickness is None
+                or float(state.thickness) <= 0.0
+            ):
+                status = (
+                    AreaContributorScopeStatus.PROPERTY_GEOMETRY_UNRESOLVED
+                )
+                reason = (
+                    f"Area {row.area_name!r} has no positive simple-property thickness"
+                )
+            elif material_name in (None, ""):
+                status = (
+                    AreaContributorScopeStatus.AREA_MATERIAL_IDENTITY_UNRESOLVED
+                )
+                reason = (
+                    f"Area {row.area_name!r} property "
+                    f"{row.property_name!r} has no exact material identity"
+                )
+            elif row.raw_material_overwrite_name not in {
+                "",
+                "None",
+                material_name,
+            }:
+                status = (
+                    AreaContributorScopeStatus.MATERIAL_OVERWRITE_UNQUALIFIED
+                )
+                reason = (
+                    f"Area {row.area_name!r} material overwrite "
+                    f"{row.raw_material_overwrite_name!r} disagrees with "
+                    f"property material {material_name!r}"
+                )
+            else:
+                material = materials.get(material_name)
+                if material is None:
+                    status = (
+                        AreaContributorScopeStatus.MATERIAL_BASIC_MECHANICAL_MISSING
+                    )
+                    reason = (
+                        f"Area {row.area_name!r} material "
+                        f"{material_name!r} has no same-epoch material fact"
+                    )
+                else:
+                    refs.extend(material.source_refs)
+                    if (
+                        material.resolution
+                        is AreaMaterialResolution.BASIC_MECHANICAL_MISSING
+                    ):
+                        status = (
+                            AreaContributorScopeStatus.MATERIAL_BASIC_MECHANICAL_MISSING
+                        )
+                        reason = (
+                            f"Area {row.area_name!r} material "
+                            f"{material_name!r} has no exact same-epoch "
+                            "Basic Mechanical row"
+                        )
+                    elif (
+                        material.resolution
+                        is AreaMaterialResolution.CONCRETE_DATA_MISSING
+                    ):
+                        status = (
+                            AreaContributorScopeStatus.MATERIAL_CONCRETE_DATA_MISSING
+                        )
+                        reason = (
+                            f"Area {row.area_name!r} material "
+                            f"{material_name!r} has no exact same-epoch "
+                            "Concrete Data row and is not proven concrete"
+                        )
+                    elif (
+                        material.resolution
+                        is AreaMaterialResolution.BASIC_MECHANICAL_PROPERTIES_UNRESOLVED
+                    ):
+                        status = (
+                            AreaContributorScopeStatus.MATERIAL_BASIC_MECHANICAL_PROPERTIES_UNRESOLVED
+                        )
+                        reason = (
+                            f"Area {row.area_name!r} material "
+                            f"{material_name!r} exact same-epoch Basic Mechanical "
+                            "E1/G12 facts are unresolved"
+                        )
+                    elif (
+                        material.resolution
+                        is AreaMaterialResolution.CONCRETE_DATA_UNRESOLVED
+                    ):
+                        status = (
+                            AreaContributorScopeStatus.MATERIAL_CONCRETE_DATA_UNRESOLVED
+                        )
+                        reason = (
+                            f"Area {row.area_name!r} material "
+                            f"{material_name!r} exact same-epoch Concrete Data "
+                            "Fc fact is unresolved"
+                        )
+                    elif not material.concrete_proven:
+                        status = (
+                            AreaContributorScopeStatus.MATERIAL_NOT_PROVEN_CONCRETE
+                        )
+                        reason = (
+                            f"Area {row.area_name!r} material "
+                            f"{material_name!r} is not proven concrete"
+                        )
+                    else:
+                        status = AreaContributorScopeStatus.SUPPORTED
+                        reason = (
+                            f"Area {row.area_name!r} has exact supported "
+                            f"{family.value} property/material factual basis"
+                        )
+
+        result.append(
+            AreaContributorScopeFact(
+                area_name=row.area_name,
+                property_name=row.property_name,
+                property_family=family,
+                material_name=material_name,
+                status=status,
+                reason=reason,
+                model_fingerprint=row.model_fingerprint,
+                evidence_epoch_id=row.evidence_epoch_id,
+                session_provenance_ref=row.session_provenance_ref,
+                source_refs=tuple(dict.fromkeys(refs)),
+            )
+        )
+
+    return tuple(sorted(result, key=lambda item: item.area_name))
+
 def capture_area_contributor_population_from_session(
     session: EtabsVerifiedSession,
     *,
     model_fingerprint: str,
     evidence_epoch_id: str,
     session_provenance_ref: str,
+    material_snapshot: FrameFlexuralBaseCaptureSnapshot | None = None,
 ) -> AreaContributorPopulation:
     """Capture the complete AreaObj factual population for one trusted epoch."""
     if not isinstance(session, EtabsVerifiedSession):
@@ -577,6 +1299,37 @@ def capture_area_contributor_population_from_session(
         rows.append(row)
         population_refs.extend(row.source_refs)
 
+    material_facts: tuple[AreaMaterialFactualFact, ...] = ()
+    scope_facts: tuple[AreaContributorScopeFact, ...] = ()
+    supported_rows: tuple[AreaContributorFact, ...] = ()
+    typed_out_of_slice_rows: tuple[AreaContributorScopeFact, ...] = ()
+
+    if material_snapshot is not None:
+        material_facts = _capture_area_material_facts(
+            rows=tuple(rows),
+            material_snapshot=material_snapshot,
+            model_fingerprint=model,
+            evidence_epoch_id=epoch,
+            session_provenance_ref=provenance,
+        )
+        scope_facts = _build_area_scope_facts(
+            tuple(rows),
+            material_facts,
+        )
+        scope_by_name = {
+            item.area_name: item for item in scope_facts
+        }
+        supported_rows = tuple(
+            row
+            for row in rows
+            if scope_by_name[row.area_name].supported
+        )
+        typed_out_of_slice_rows = tuple(
+            item for item in scope_facts if not item.supported
+        )
+        for item in (*material_facts, *scope_facts):
+            population_refs.extend(item.source_refs)
+
     return AreaContributorPopulation(
         model_fingerprint=model,
         evidence_epoch_id=epoch,
@@ -584,12 +1337,20 @@ def capture_area_contributor_population_from_session(
         expected_area_names=expected,
         rows=tuple(rows),
         source_refs=tuple(dict.fromkeys(population_refs)),
+        scope_facts=scope_facts,
+        material_facts=material_facts,
+        supported_rows=supported_rows,
+        typed_out_of_slice_rows=typed_out_of_slice_rows,
     )
 
 
 __all__ = [
     "AreaContributorFact",
     "AreaContributorPopulation",
+    "AreaContributorScopeFact",
+    "AreaContributorScopeStatus",
+    "AreaMaterialFactualFact",
+    "AreaMaterialResolution",
     "AreaPropertyFactualState",
     "AreaPropertyFamily",
     "EtabsAreaContributorProviderError",

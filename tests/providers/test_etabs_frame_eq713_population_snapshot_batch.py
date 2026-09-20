@@ -4,11 +4,45 @@ from dataclasses import dataclass
 from decimal import Decimal
 from types import SimpleNamespace
 
+import pytest
+
 import tbdy_engine.providers.etabs_frame_eq713_population_provider as subject
 from tbdy_engine.etabs.oapi.frame_modifiers import (
     FrameModifierSurface,
     FrameModifierVector,
 )
+
+
+@pytest.fixture(autouse=True)
+def _a37_type_and_residual_capture_compat(monkeypatch):
+    # Keep pre-A3.7 capture fixtures bounded to the seams they already test.
+    def object_types(_context, expected):
+        return tuple(
+            subject.FrameEq713ObjectTypeFact(
+                frame_name=name,
+                raw_frame_type="Frame",
+                normalized_frame_type="FRAME",
+                resolution=subject.FrameEq713ObjectTypeResolution.RESOLVED,
+                source_table=subject.TABLE_FRAME_ASSIGNMENTS_SUMMARY,
+                source_column="FrameType",
+                source_row={"UniqueName": name, "FrameType": "Frame"},
+                join_identity=name,
+                resolution_reason="synthetic pre-A3.7 capture fixture",
+                source_refs=(f"type:{name}",),
+            )
+            for name in sorted(expected)
+        )
+
+    monkeypatch.setattr(
+        subject,
+        "_capture_frame_object_type_facts",
+        object_types,
+    )
+    monkeypatch.setattr(
+        subject,
+        "_capture_residual_structural_facts",
+        lambda *_args, **_kwargs: (),
+    )
 
 
 class _Context:
