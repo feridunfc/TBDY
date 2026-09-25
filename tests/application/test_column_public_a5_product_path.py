@@ -56,6 +56,9 @@ from tbdy_engine.providers.etabs_frame_eq713_population_provider import (
     FrameEq713ScopeFact,
     FrameEq713ScopeStatus,
 )
+from tbdy_engine.features.column_shear_topology import (
+    StrictColumnTopologyBundle,
+)
 from tbdy_engine.providers.etabs_strict_column_topology_provider import (
     EtabsStrictColumnTopologyEvidence,
 )
@@ -146,9 +149,16 @@ class _BaseFact:
     source_refs: tuple[str, ...]
 
 
-class _Topology:
-    def __init__(self, column):
-        self.columns = (column,)
+def _strict_topology(column):
+    """Canonical bundle wrapper for this bounded synthetic product harness."""
+    return StrictColumnTopologyBundle(
+        columns=(column,),
+        point_count=2,
+        beam_count=0,
+        supported_rc_beam_count=0,
+        unsupported_beam_count=0,
+        reviewed_length_unit="m",
+    )
 
 
 def _force_rows(case_name="EX"):
@@ -213,7 +223,7 @@ def product_harness(monkeypatch):
     )
     owned = _FakeOwnedScratch(context.source_model_identity, snapshot)
     column = _Column()
-    topology = _Topology(column)
+    topology = _strict_topology(column)
 
     base = _BaseFact(
         component_unique_name="1",
@@ -552,6 +562,7 @@ def test_public_a5_strict_topology_calls_use_reviewed_m_unit(product_harness, mo
     )
 
     assert result.column.fnd_col_2_execution is not None
+    assert isinstance(product_harness.topology, StrictColumnTopologyBundle)
     assert reviewed_units == ["m", "m"]
     assert len(provider_evidence) == 2
     assert all(
@@ -625,7 +636,7 @@ def test_out_of_slice_frame_becomes_exact_blocked_unsupported_a3_disposition(
 
 def test_unresolved_required_frame_mode_fails_closed_before_b4b(product_harness, monkeypatch):
     bad_column = _Column(top_coord_m=(1.0, 0.0, 3.0), coordinate_length_m=(10.0 ** 0.5))
-    bad_topology = _Topology(bad_column)
+    bad_topology = _strict_topology(bad_column)
     monkeypatch.setattr(
         a5,
         "capture_etabs_strict_column_topology_from_session",
