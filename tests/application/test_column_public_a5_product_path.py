@@ -39,6 +39,7 @@ from tbdy_engine.etabs.oapi.analysis_execution import (
 )
 from tbdy_engine.etabs.oapi.area_contributors import AreaDesignOrientation
 from tbdy_engine.etabs.oapi.area_modifiers import AreaModifierVector
+from tbdy_engine.etabs.oapi.concrete_design import ConcreteDesignCodeFact
 from tbdy_engine.etabs.oapi.frame_modifiers import (
     FrameModifierReadFact,
     FrameModifierSetFact,
@@ -305,6 +306,28 @@ def product_harness(monkeypatch):
         source_refs=("area-population:empty",),
     )
 
+    # B6 factual design-code seam.
+    # This synthetic harness must not weaken the production
+    # EtabsVerifiedSession safety boundary merely to progress beyond FND2.
+    design_code_calls = []
+    design_code_fact = ConcreteDesignCodeFact(
+        code_name="TEST_ONLY_PUBLIC_A5_CONCRETE_DESIGN_CODE",
+        raw_response=(
+            "TEST_ONLY_PUBLIC_A5_CONCRETE_DESIGN_CODE",
+            0,
+        ),
+    )
+
+    def capture_design_code(session, *, timeout_seconds=30.0):
+        design_code_calls.append(session)
+        return design_code_fact
+
+    monkeypatch.setattr(
+        column_execution,
+        "read_design_code_from_session",
+        capture_design_code,
+    )
+
     monkeypatch.setattr(project_execution, "EtabsVerifiedSession", _FakeSession)
     monkeypatch.setattr(project_execution, "create_trusted_live_acquisition_context", lambda verified_session: context)
     monkeypatch.setattr(column_execution, "TrustedLiveAcquisitionContext", _FakeContext)
@@ -502,6 +525,8 @@ def product_harness(monkeypatch):
         area_population=area_population,
         section_initial=section_initial,
         object_initial=object_initial,
+        design_code_calls=design_code_calls,
+        design_code_fact=design_code_fact,
     )
 
 
@@ -510,6 +535,11 @@ def test_execute_project_reaches_real_fnd2_and_preserves_non_target_frame_slots(
 
     assert result.column.fnd_col_2_execution is not None
     assert BLOCKER_LIVE_FND2_INPUT_LINEAGE not in result.column.blockers
+    assert len(product_harness.design_code_calls) == 1
+    assert isinstance(
+        product_harness.design_code_fact,
+        ConcreteDesignCodeFact,
+    )
     assert product_harness.runtime["run_calls"] == 1
     assert product_harness.runtime["delete_calls"] == 1
 
