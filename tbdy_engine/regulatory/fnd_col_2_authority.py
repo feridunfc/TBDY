@@ -167,10 +167,11 @@ APPROVED_IMPLEMENTATION_MODULES = (
     "tbdy_engine.design.columns.minimum_eccentricity",
     "tbdy_engine.design.columns.slenderness_basis",
     "tbdy_engine.design.columns.slenderness",
+    "tbdy_engine.design.columns.moment_magnification",
     "tbdy_engine.design.columns.stability_stiffness_basis",
 )
 APPROVED_IMPLEMENTATION_FINGERPRINT = (
-    "sha256:b796b93e37f42d9404ab2e44a5e58af75e6d0574b3d22f32789ade2e8d1ae7a5"
+    "sha256:4a1b9f76bed50cf231ee0ff932ff7c2aa145b89ed4aee54c8305e97cc785eef6"
 )
 BINDING_ID = "FND_COL_2_TS500_BINDING"
 
@@ -183,7 +184,7 @@ IMPLEMENTATION_BINDING = ApprovedImplementationBinding(
     rule_version=RULE_VERSION,
     implementation_modules=APPROVED_IMPLEMENTATION_MODULES,
     approved_implementation_fingerprint=APPROVED_IMPLEMENTATION_FINGERPRINT,
-    binding_version="1",
+    binding_version="2",
 )
 
 FND_COL_2_AUTHORITY_CATALOG = RegulatoryAuthorityCatalog(
