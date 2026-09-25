@@ -43,8 +43,12 @@ from tbdy_engine.analysis_basis.frame_gross_flexural_basis import (
     capture_frame_flexural_base_continuity_evidence,
 )
 from tbdy_engine.application.column_a18_end_restraint import (
+    A18FrameLocalAxisEvidence,
     A18_READY,
     materialize_ts500_column_end_restraint_ratios,
+)
+from tbdy_engine.application.column_design_basis import (
+    BoundColumnActionFamilyApplicability,
 )
 from tbdy_engine.application.column_public_a5_second_order import (
     build_public_a5_canonical_second_order_payload,
@@ -61,11 +65,19 @@ from tbdy_engine.etabs.oapi.analysis_execution import (
     get_defined_analysis_cases_from_session,
 )
 from tbdy_engine.etabs.oapi.area_contributors import AreaDesignOrientation
-from tbdy_engine.etabs.oapi.area_modifiers import AreaModifierSurface, AreaModifierVector
+from tbdy_engine.etabs.oapi.area_modifiers import (
+    AreaModifierSurface,
+    AreaModifierVector,
+    get_area_modifiers_from_session,
+)
 from tbdy_engine.etabs.oapi.eq713_response_cases import (
     qualify_eq713_horizontal_case_scope_from_session,
 )
 from tbdy_engine.etabs.oapi.frame_modifiers import FrameModifierSurface, FrameModifierVector
+from tbdy_engine.etabs.oapi.object_model import (
+    read_frame_local_axes_from_session,
+)
+from tbdy_engine.etabs.oapi.line_springs import LineSpringPropertyUniverseFact
 from tbdy_engine.features.column_shear_topology import ColumnTopologyEvidence, StrictColumnTopologyBundle
 from tbdy_engine.integration.etabs_analysis_execution import execute_controlled_analysis
 from tbdy_engine.integration.etabs_analysis_state_mutation import (
@@ -83,6 +95,7 @@ from tbdy_engine.providers.etabs_area_contributor_provider import (
     AreaContributorPopulation,
     AreaContributorScopeFact,
     AreaContributorScopeStatus,
+    AreaMaterialFactualFact,
     AreaMaterialResolution,
     AreaPropertyFamily,
     capture_area_contributor_population_from_session,
@@ -183,6 +196,9 @@ _CSI_ETABS_FRAME_LOCAL_AXES_REF = (
     "Menus/Assign/Frame/Local_Axes_Frames.htm"
 )
 _RESPONSE_AREA_MODES = {
+    AreaStiffnessMode.F11,
+    AreaStiffnessMode.F22,
+    AreaStiffnessMode.F12,
     AreaStiffnessMode.M11,
     AreaStiffnessMode.M22,
     AreaStiffnessMode.M12,
@@ -498,6 +514,7 @@ def _typed_out_of_slice_frame_disposition(
     scope: FrameEq713ScopeFact,
     object_type: FrameEq713ObjectTypeFact,
     residual_structural: FrameEq713ResidualStructuralFact | None,
+    line_spring_property_universe: LineSpringPropertyUniverseFact | None = None,
 ) -> FrameModeAuditDisposition:
     # Source-bound fail-closed disposition for one residual Frame.
     if not isinstance(scope, FrameEq713ScopeFact):
@@ -543,13 +560,159 @@ def _typed_out_of_slice_frame_disposition(
                 _CSI_ETABS_NULL_LINE_SPRING_RELEASE_REF,
             )
         )
+
+        if line_spring_property_universe is not None:
+            if not isinstance(
+                line_spring_property_universe,
+                LineSpringPropertyUniverseFact,
+            ):
+                raise TypeError(
+                    "line_spring_property_universe must be "
+                    "LineSpringPropertyUniverseFact or None"
+                )
+            refs.append(
+                line_spring_property_universe.evidence_ref
+            )
+
+        if (
+            scope.assigned_section_name is None
+            and line_spring_property_universe is not None
+            and line_spring_property_universe.proven_empty
+        ):
+            reason = (
+                f"Frame {scope.frame_name!r} has exact ETABS "
+                f"FrameType={object_type.raw_frame_type!r}, has no "
+                "frame-section assignment, and the exact model-wide "
+                "PropLineSpring property universe is successfully proven "
+                "empty; no Frame-section or named line-spring stiffness "
+                "mechanism exists for this Null Frame"
+            )
+            exact_refs = tuple(dict.fromkeys(refs))
+            rows = tuple(
+                ModeDisposition(
+                    mode,
+                    ContributorDisposition.PROVEN_NOT_APPLICABLE,
+                    reason,
+                    exact_refs,
+                )
+                for mode in FrameStiffnessMode
+            )
+            return FrameModeAuditDisposition(
+                component_uid=scope.frame_name,
+                mode_dispositions=rows,
+                blocked_reasons=(),
+                source_refs=exact_refs,
+            )
+
         reason = (
-            f"Frame {scope.frame_name!r} has exact ETABS FrameType={object_type.raw_frame_type!r}; "
-            "a Null line/no frame-section assignment does not by itself prove absence "
-            "of all analysis stiffness because ETABS supports line-spring assignments "
-            "on frame objects and explicitly supports line springs on Null line objects; "
-            "this exact object's complete stiffness-mechanism absence is not proven"
+            f"Frame {scope.frame_name!r} has exact ETABS "
+            f"FrameType={object_type.raw_frame_type!r}; a Null line/"
+            "no frame-section assignment does not by itself prove "
+            "absence of all analysis stiffness because ETABS supports "
+            "line-spring assignments on frame objects and explicitly "
+            "supports line springs on Null line objects; this exact "
+            "object's complete stiffness-mechanism absence is not proven"
         )
+    elif (
+        normalized in {"BEAM", "BRACE"}
+        and residual_structural is not None
+        and getattr(
+            residual_structural,
+            "material_type",
+            None,
+        )
+        is not None
+        and residual_structural.material_type.success
+        and residual_structural.material_type.is_steel
+        and residual_structural.material_type.material_name
+        == residual_structural.material_name
+    ):
+        refs.extend(
+            residual_structural.source_refs
+        )
+        refs.append(
+            residual_structural
+            .material_type
+            .evidence_ref
+        )
+
+        property_modifiers = tuple(
+            float(value)
+            for value
+            in residual_structural
+            .property_modifiers
+            .modifiers
+            .as_tuple()
+        )
+
+        object_modifiers = tuple(
+            float(value)
+            for value
+            in residual_structural
+            .object_modifiers
+            .modifiers
+            .as_tuple()
+        )
+
+        if (
+            all(
+                value == 1.0
+                for value in property_modifiers
+            )
+            and all(
+                value == 1.0
+                for value in object_modifiers
+            )
+        ):
+            reason = (
+                f"Frame {scope.frame_name!r} has exact "
+                f"ETABS FrameType="
+                f"{object_type.raw_frame_type!r}, "
+                f"material="
+                f"{residual_structural.material_name!r}, "
+                "and source-proven CSI "
+                "eMatType=Steel; TS500 concrete "
+                "cracking normalization is not applied "
+                "to this source-proven steel Frame. "
+                "Exact Frame property and object "
+                "modifier vectors are unity. End "
+                "releases and partial-fixity facts "
+                "remain preserved physical boundary "
+                "conditions and are not reclassified "
+                "as non-participation."
+            )
+
+            exact_refs = tuple(
+                dict.fromkeys(refs)
+            )
+
+            rows = tuple(
+                ModeDisposition(
+                    mode,
+                    ContributorDisposition
+                    .PROVEN_NOT_APPLICABLE,
+                    reason,
+                    exact_refs,
+                )
+                for mode in FrameStiffnessMode
+            )
+
+            return FrameModeAuditDisposition(
+                component_uid=scope.frame_name,
+                mode_dispositions=rows,
+                blocked_reasons=(),
+                source_refs=exact_refs,
+            )
+
+        reason = (
+            f"Frame {scope.frame_name!r} is "
+            "source-proven steel, but exact Frame "
+            "property/object modifiers are not both "
+            "unity; no bounded steel residual "
+            "normalization rule is established "
+            "for this state"
+        )
+
     elif normalized == "BRACE":
         refs.append(_CSI_ETABS_FRAME_LOCAL_AXES_REF)
         if residual_structural is None:
@@ -689,6 +852,8 @@ def _extend_material_bases_from_area(
 
 def _typed_out_of_slice_area_disposition(
     scope: AreaContributorScopeFact,
+    factual: AreaContributorFact | None = None,
+    material_fact: AreaMaterialFactualFact | None = None,
 ) -> AreaEq713TargetDisposition:
     if not isinstance(scope, AreaContributorScopeFact):
         raise TypeError("scope must be AreaContributorScopeFact")
@@ -697,10 +862,157 @@ def _typed_out_of_slice_area_disposition(
             BLOCKER_A3_EQ713_POPULATION,
             "supported Area scope cannot enter typed-out-of-slice disposition",
         )
-    refs = tuple(
-        dict.fromkeys((*scope.source_refs, TS500_EQ713_SOURCE_REF))
+    refs_list = list(
+        dict.fromkeys(
+            (
+                *scope.source_refs,
+                TS500_EQ713_SOURCE_REF,
+            )
+        )
     )
+
+    if factual is not None:
+        if not isinstance(
+            factual,
+            AreaContributorFact,
+        ):
+            raise TypeError(
+                "factual must be "
+                "AreaContributorFact or None"
+            )
+
+        if factual.area_name != scope.area_name:
+            raise PublicA5CompositionError(
+                BLOCKER_A3_EQ713_POPULATION,
+                "typed Area factual identity mismatch",
+            )
+
+        refs_list.extend(
+            factual.source_refs
+        )
+
+    if material_fact is not None:
+        if not isinstance(
+            material_fact,
+            AreaMaterialFactualFact,
+        ):
+            raise TypeError(
+                "material_fact must be "
+                "AreaMaterialFactualFact or None"
+            )
+
+        if (
+            scope.material_name is None
+            or material_fact.material_name
+            != scope.material_name
+        ):
+            raise PublicA5CompositionError(
+                BLOCKER_A3_EQ713_POPULATION,
+                "typed Area material identity mismatch",
+            )
+
+        refs_list.extend(
+            material_fact.source_refs
+        )
+
+    if (
+        scope.status
+        is AreaContributorScopeStatus
+        .DECK_APPLICABILITY_UNRESOLVED
+        and factual is not None
+        and factual.property_state is not None
+        and factual.property_state.family
+        is AreaPropertyFamily.DECK
+        and material_fact is not None
+        and material_fact.material_type is not None
+        and material_fact.material_type.success
+        and material_fact.material_type.is_steel
+        and material_fact.material_type.material_name
+        == factual.property_state.material_name
+    ):
+        property_modifiers = tuple(
+            float(value)
+            for value
+            in factual
+            .property_state
+            .property_modifiers
+            .modifiers
+            .as_tuple()
+        )
+
+        object_modifiers = tuple(
+            float(value)
+            for value
+            in factual
+            .object_modifiers
+            .modifiers
+            .as_tuple()
+        )
+
+        if (
+            all(
+                value == 1.0
+                for value in property_modifiers
+            )
+            and all(
+                value == 1.0
+                for value in object_modifiers
+            )
+        ):
+            refs_list.append(
+                material_fact
+                .material_type
+                .evidence_ref
+            )
+
+            exact_refs = tuple(
+                dict.fromkeys(
+                    refs_list
+                )
+            )
+
+            reason = (
+                f"Area {scope.area_name!r} has exact "
+                f"DECK property {scope.property_name!r}, "
+                f"material={scope.material_name!r}, "
+                "and source-proven CSI "
+                "eMatType=Steel; TS500 concrete "
+                "cracking normalization is not applied "
+                "to this source-proven steel DECK "
+                "Area. Exact Area property and object "
+                "modifier vectors are unity. This "
+                "disposition does not classify the "
+                "DECK as structurally non-participating."
+            )
+
+            modes = tuple(
+                ModeDisposition(
+                    mode,
+                    ContributorDisposition
+                    .PROVEN_NOT_APPLICABLE,
+                    reason,
+                    exact_refs,
+                )
+                for mode
+                in AreaStiffnessMode
+            )
+
+            return AreaEq713TargetDisposition(
+                area_name=scope.area_name,
+                mode_dispositions=modes,
+                target_property_modifiers=None,
+                blocked_reasons=(),
+                source_refs=exact_refs,
+            )
+
+    refs = tuple(
+        dict.fromkeys(
+            refs_list
+        )
+    )
+
     reason = scope.reason
+
     modes = tuple(
         ModeDisposition(
             mode,
@@ -941,6 +1253,11 @@ def _build_a3(
                 scope,
                 type_by_name[scope.frame_name],
                 residual_by_name.get(scope.frame_name),
+                getattr(
+                    frame_population,
+                    "line_spring_property_universe",
+                    None,
+                ),
             )
             for scope in frame_population.out_of_slice_rows
         )
@@ -1011,8 +1328,33 @@ def _build_a3(
                 source_refs=response_refs,
             )
         area_rows.append(row)
+    area_material_by_name = {
+        fact.material_name: fact
+        for fact in tuple(
+            getattr(
+                area_population,
+                "material_facts",
+                (),
+            )
+            or ()
+        )
+    }
+
     area_rows.extend(
-        _typed_out_of_slice_area_disposition(scope)
+        _typed_out_of_slice_area_disposition(
+            scope,
+            area_by_name.get(
+                scope.area_name
+            ),
+            (
+                area_material_by_name.get(
+                    scope.material_name
+                )
+                if scope.material_name
+                is not None
+                else None
+            ),
+        )
         for scope in typed_area_rows
     )
     observed_area_scope = tuple(
@@ -1118,13 +1460,27 @@ def _partition_response_blockers(
             if isinstance(evidence, AreaGrossBasePropertyEvidence):
                 response_eligible = (
                     evidence.category
-                    in {AreaCategory.FLOOR, AreaCategory.WALL}
-                    and evidence.formulation is AreaFormulation.SHELL_THICK
+                    in {
+                        AreaCategory.FLOOR,
+                        AreaCategory.WALL,
+                    }
+                    and evidence.formulation
+                    is AreaFormulation.SHELL_THICK
                     and evidence.is_concrete
                     and evidence.gross_base_qualified
                     and evidence.homogeneous_simple_property
-                    and row.target_property_modifiers is not None
-                    and mode.mode in _RESPONSE_AREA_MODES
+                    and evidence.object_modifiers_unity
+                    and (
+                        evidence.category
+                        is not AreaCategory.WALL
+                        or (
+                            evidence
+                            .default_wall_local_axes_proven
+                            is True
+                        )
+                    )
+                    and mode.mode
+                    in _RESPONSE_AREA_MODES
                 )
             else:
                 # Compatibility-only seam for bounded legacy synthetic tests.
@@ -1132,7 +1488,11 @@ def _partition_response_blockers(
                 # therefore always uses the strict branch above.
                 response_eligible = (
                     evidence is not None
-                    and getattr(evidence, "formulation", None)
+                    and getattr(
+                        evidence,
+                        "formulation",
+                        None,
+                    )
                     is AreaFormulation.SHELL_THICK
                     and bool(
                         getattr(
@@ -1141,8 +1501,29 @@ def _partition_response_blockers(
                             False,
                         )
                     )
-                    and row.target_property_modifiers is not None
-                    and mode.mode in _RESPONSE_AREA_MODES
+                    and bool(
+                        getattr(
+                            evidence,
+                            "object_modifiers_unity",
+                            True,
+                        )
+                    )
+                    and (
+                        getattr(
+                            evidence,
+                            "category",
+                            None,
+                        )
+                        is not AreaCategory.WALL
+                        or getattr(
+                            evidence,
+                            "default_wall_local_axes_proven",
+                            True,
+                        )
+                        is True
+                    )
+                    and mode.mode
+                    in _RESPONSE_AREA_MODES
                 )
             if response_eligible:
                 area_names.add(row.area_name)
@@ -1276,29 +1657,218 @@ def _b4b_targets(frame_population, area_population, frame_rows, area_rows):
             )
         )
 
-    area_by_name = {row.area_name: row for row in area_population.rows}
-    area_property_targets: dict[str, AreaModifierVector] = {}
+    area_by_name = {
+        row.area_name: row
+        for row in area_population.rows
+    }
+
+    area_property_candidates: dict[
+        str,
+        list[tuple[object, AreaModifierVector]],
+    ] = {}
+
     for disposition in area_rows:
         if disposition.target_property_modifiers is None:
             continue
-        factual = area_by_name[disposition.area_name]
+
+        factual = area_by_name[
+            disposition.area_name
+        ]
+
         if factual.property_state is None:
-            raise PublicA5CompositionError(BLOCKER_A4_B4B, "Area target lost factual property identity")
-        vector = AreaModifierVector.from_sequence(
-            tuple(float(value) for value in disposition.target_property_modifiers)
-        )
-        property_name = factual.property_name
-        previous = area_property_targets.get(property_name)
-        if previous is not None and previous.as_tuple() != vector.as_tuple():
             raise PublicA5CompositionError(
                 BLOCKER_A4_B4B,
-                f"shared Area property {property_name!r} has contradictory Eq713 target",
+                "Area target lost factual property identity",
             )
-        area_property_targets[property_name] = vector
-    for property_name, vector in area_property_targets.items():
+
+        vector = AreaModifierVector.from_sequence(
+            tuple(
+                float(value)
+                for value
+                in disposition.target_property_modifiers
+            )
+        )
+
+        area_property_candidates.setdefault(
+            factual.property_name,
+            [],
+        ).append(
+            (
+                disposition,
+                vector,
+            )
+        )
+
+    inverse_area_slot = {
+        slot: mode
+        for mode, slot in _AREA_SLOT.items()
+    }
+
+    area_property_targets: dict[
+        str,
+        AreaModifierVector,
+    ] = {}
+
+    for (
+        property_name,
+        candidates,
+    ) in area_property_candidates.items():
+        vectors = tuple(
+            vector.as_tuple()
+            for _row, vector
+            in candidates
+        )
+
+        merged = list(
+            vectors[0]
+        )
+
+        for slot in range(
+            len(merged)
+        ):
+            values = {
+                vector[slot]
+                for vector in vectors
+            }
+
+            if len(values) == 1:
+                continue
+
+            mode = inverse_area_slot.get(
+                slot
+            )
+
+            if mode is None:
+                raise PublicA5CompositionError(
+                    BLOCKER_A4_B4B,
+                    f"shared Area property "
+                    f"{property_name!r} has "
+                    "contradictory non-Eq713 modifier target",
+                )
+
+            mode_rows = []
+
+            for disposition, vector in candidates:
+                matches = tuple(
+                    item
+                    for item
+                    in disposition.mode_dispositions
+                    if item.mode is mode
+                )
+
+                if len(matches) != 1:
+                    raise PublicA5CompositionError(
+                        BLOCKER_A4_B4B,
+                        f"shared Area property "
+                        f"{property_name!r} has "
+                        f"incomplete {mode.value} "
+                        "disposition evidence",
+                    )
+
+                mode_rows.append(
+                    (
+                        matches[0],
+                        vector.as_tuple()[slot],
+                    )
+                )
+
+            dispositions = {
+                item.disposition
+                for item, _value
+                in mode_rows
+            }
+
+            if (
+                ContributorDisposition
+                .BLOCKED_UNSUPPORTED
+                in dispositions
+            ):
+                raise PublicA5CompositionError(
+                    BLOCKER_A4_B4B,
+                    f"shared Area property "
+                    f"{property_name!r} has "
+                    f"unresolved {mode.value} "
+                    "target conflict",
+                )
+
+            permitted = {
+                ContributorDisposition
+                .TARGETED_UNCRACKED,
+                ContributorDisposition
+                .PROVEN_NON_PARTICIPATING_MODE,
+                ContributorDisposition
+                .PROVEN_NOT_APPLICABLE,
+            }
+
+            if not dispositions.issubset(
+                permitted
+            ):
+                raise PublicA5CompositionError(
+                    BLOCKER_A4_B4B,
+                    f"shared Area property "
+                    f"{property_name!r} has "
+                    f"unsupported {mode.value} "
+                    "target disposition mixture",
+                )
+
+            targeted_values = tuple(
+                value
+                for item, value
+                in mode_rows
+                if (
+                    item.disposition
+                    is ContributorDisposition
+                    .TARGETED_UNCRACKED
+                )
+            )
+
+            if not targeted_values:
+                raise PublicA5CompositionError(
+                    BLOCKER_A4_B4B,
+                    f"shared Area property "
+                    f"{property_name!r} has "
+                    f"contradictory {mode.value} "
+                    "target without a participating user",
+                )
+
+            if any(
+                value != 1.0
+                for value
+                in targeted_values
+            ):
+                raise PublicA5CompositionError(
+                    BLOCKER_A4_B4B,
+                    f"shared Area property "
+                    f"{property_name!r} has "
+                    f"non-unity targeted "
+                    f"{mode.value} modifier",
+                )
+
+            # Property-level normalization is required by at
+            # least one positively participating user. Other
+            # represented users are already positively proven
+            # non-participating / not-applicable in this slot,
+            # therefore they impose no competing Eq7.13 target.
+            merged[slot] = 1.0
+
+        area_property_targets[
+            property_name
+        ] = (
+            AreaModifierVector.from_sequence(
+                tuple(merged)
+            )
+        )
+
+    for (
+        property_name,
+        vector,
+    ) in area_property_targets.items():
         targets.append(
             AreaModifierTargetRequest(
-                surface=AreaModifierSurface.AREA_PROPERTY,
+                surface=(
+                    AreaModifierSurface
+                    .AREA_PROPERTY
+                ),
                 target_name=property_name,
                 modifiers=vector,
             )
@@ -1747,6 +2317,7 @@ def _classify_beam_generation(
 
 def _area_shell_thick_generations_from_response(
     *,
+    session,
     area_population: AreaContributorPopulation,
     response: Eq713ResponsePopulationFact,
     established_state,
@@ -1776,12 +2347,59 @@ def _area_shell_thick_generations_from_response(
                 BLOCKER_A3_MEMBER_RESPONSE,
                 f"response Area {area_name!r} is outside homogeneous simple SHELL_THICK slice",
             )
-        mutation = mutations.get((AreaModifierSurface.AREA_PROPERTY, fact.property_name))
-        if mutation is None:
-            raise PublicA5CompositionError(
-                BLOCKER_A3_MEMBER_RESPONSE,
-                f"Area {area_name!r} lacks exact same-generation B4B property modifier readback",
+        mutation = mutations.get(
+            (
+                AreaModifierSurface.AREA_PROPERTY,
+                fact.property_name,
             )
+        )
+
+        if mutation is None:
+            try:
+                property_readback = (
+                    get_area_modifiers_from_session(
+                        session,
+                        surface=(
+                            AreaModifierSurface
+                            .AREA_PROPERTY
+                        ),
+                        target_name=(
+                            fact.property_name
+                        ),
+                    )
+                )
+            except Exception as exc:
+                raise PublicA5CompositionError(
+                    BLOCKER_A3_MEMBER_RESPONSE,
+                    f"Area {area_name!r} "
+                    "post-B5 PropArea modifier "
+                    f"readback failed: {exc}",
+                ) from exc
+
+            if not property_readback.success:
+                raise PublicA5CompositionError(
+                    BLOCKER_A3_MEMBER_RESPONSE,
+                    f"Area {area_name!r} "
+                    "post-B5 PropArea modifier "
+                    "readback was non-successful",
+                )
+
+            property_readback_refs = (
+                "COLUMN_R1_A3_POST_B5_"
+                "PROPAREA_READBACK",
+                property_readback.evidence_ref,
+            )
+
+        else:
+            property_readback = (
+                mutation.after
+            )
+
+            property_readback_refs = (
+                mutation.mutation_ref,
+                mutation.after.evidence_ref,
+            )
+
         facts = tuple(
             item for item in response.area_strain_results if item.area_name == area_name
         )
@@ -1798,16 +2416,21 @@ def _area_shell_thick_generations_from_response(
                 BLOCKER_A3_MEMBER_RESPONSE,
                 f"Area {area_name!r} AreaStrainShell population is empty",
             )
-        result[area_name] = AreaShellThickResponseGeneration(
-            strain_rows=rows,
-            property_modifiers=mutation.after,
-            source_refs=(
-                *response.source_refs,
-                response.evidence_ref,
-                established_state.analysis_state_identity.identity_ref,
-                mutation.mutation_ref,
-                mutation.after.evidence_ref,
-            ),
+        result[area_name] = (
+            AreaShellThickResponseGeneration(
+                strain_rows=rows,
+                property_modifiers=(
+                    property_readback
+                ),
+                source_refs=(
+                    *response.source_refs,
+                    response.evidence_ref,
+                    established_state
+                    .analysis_state_identity
+                    .identity_ref,
+                    *property_readback_refs,
+                ),
+            )
         )
     return result
 
@@ -1831,6 +2454,50 @@ def _area_continuity_key(fact: AreaContributorFact):
         None if fact.diaphragm_definition is None else fact.diaphragm_definition.semi_rigid,
         None if fact.wall_assignment is None else fact.wall_assignment.pier_name,
         None if fact.wall_assignment is None else fact.wall_assignment.spandrel_name,
+    )
+
+
+def _strict_topology_semantic_projection(value):
+    """Remove provenance-only source rows from topology identity.
+
+    Strict topology ``as_dict()`` intentionally carries the exact ETABS
+    display-table rows used to derive each factual topology object. Those
+    rows are provenance, not the topology identity itself.
+
+    B4B legitimately changes stiffness-modifier fields such as I2Mod/I3Mod
+    in section-definition rows. Modifier continuity is independently owned
+    by the B4B/B5 and frame-continuity evidence. Therefore A4 must compare
+    the derived topology semantics while preserving the raw source rows
+    on the evidence objects for traceability.
+
+    Every non-source-row field remains part of the equality contract.
+    """
+    if isinstance(value, Mapping):
+        return {
+            key: _strict_topology_semantic_projection(item)
+            for key, item in value.items()
+            if key != "source_rows"
+        }
+
+    if isinstance(value, (tuple, list)):
+        return tuple(
+            _strict_topology_semantic_projection(item)
+            for item in value
+        )
+
+    return value
+
+
+def _strict_column_topology_semantic_state(column):
+    payload = column.as_dict()
+
+    if not isinstance(payload, Mapping):
+        raise TypeError(
+            "Column topology as_dict() must return a mapping"
+        )
+
+    return _strict_topology_semantic_projection(
+        payload
     )
 
 
@@ -1904,22 +2571,70 @@ def _prove_post_continuity(
             )
         for component_id in sorted(pre_by_component):
             if (
-                pre_by_component[component_id].as_dict()
-                != post_by_component[component_id].as_dict()
+                _strict_column_topology_semantic_state(
+                    pre_by_component[
+                        component_id
+                    ]
+                )
+                !=
+                _strict_column_topology_semantic_state(
+                    post_by_component[
+                        component_id
+                    ]
+                )
             ):
                 raise PublicA5CompositionError(
                     BLOCKER_A4_POST_CONTINUITY,
-                    f"Column {component_id!r} strict topology changed across A3/B4B/B5 generation",
+                    f"Column {component_id!r} strict topology "
+                    "changed across A3/B4B/B5 generation",
                 )
-    elif target_post.as_dict() != target_column.as_dict():
+    elif (
+        _strict_column_topology_semantic_state(
+            target_post
+        )
+        !=
+        _strict_column_topology_semantic_state(
+            target_column
+        )
+    ):
         raise PublicA5CompositionError(
             BLOCKER_A4_POST_CONTINUITY,
-            "target column strict topology changed across A3/B4B/B5 generation",
+            "target column strict topology changed "
+            "across A3/B4B/B5 generation",
         )
 
     frame_post = capture_frame_eq713_factual_population(context, owned_scratch, topology_post)
     if frame_post.expected_frame_names != frame_pre.expected_frame_names:
         raise PublicA5CompositionError(BLOCKER_A4_POST_CONTINUITY, "Frame population changed after B5")
+
+    pre_line_springs = getattr(
+        frame_pre,
+        "line_spring_property_universe",
+        None,
+    )
+    post_line_springs = getattr(
+        frame_post,
+        "line_spring_property_universe",
+        None,
+    )
+
+    if (pre_line_springs is None) != (post_line_springs is None):
+        raise PublicA5CompositionError(
+            BLOCKER_A4_POST_CONTINUITY,
+            "line-spring property universe availability changed after B5",
+        )
+
+    if (
+        pre_line_springs is not None
+        and post_line_springs is not None
+        and pre_line_springs.evidence_ref
+        != post_line_springs.evidence_ref
+    ):
+        raise PublicA5CompositionError(
+            BLOCKER_A4_POST_CONTINUITY,
+            "line-spring property universe changed after B5",
+        )
+
     pre_by_name = {row.frame_name: row for row in frame_pre.rows}
     for post in frame_post.rows:
         pre = pre_by_name[post.frame_name]
@@ -1986,6 +2701,222 @@ def _authority(
     )
 
 
+def _a18_required_members(
+    *,
+    target_column,
+    topology,
+) -> tuple[tuple[str, object], ...]:
+    """Return exact A18 target/connected Frame denominator."""
+
+    members: dict[
+        str,
+        object,
+    ] = {}
+
+    def bind(
+        name,
+        member,
+    ) -> None:
+        if (
+            not isinstance(name, str)
+            or not name.strip()
+        ):
+            raise PublicA5CompositionError(
+                BLOCKER_A5_INPUT_MATERIALIZATION,
+                "A18 local-axis denominator "
+                "contains invalid Frame identity",
+            )
+
+        existing = members.get(
+            name
+        )
+
+        if (
+            existing is not None
+            and existing is not member
+        ):
+            # Same Frame may be represented by two connection objects only
+            # if the topology itself duplicated its A18 denominator.
+            raise PublicA5CompositionError(
+                BLOCKER_A5_INPUT_MATERIALIZATION,
+                f"A18 local-axis denominator "
+                f"duplicates Frame {name!r}",
+            )
+
+        members[
+            name
+        ] = member
+
+    bind(
+        target_column.unique_name,
+        target_column,
+    )
+
+    end_joints = {
+        target_column.joint_bottom,
+        target_column.joint_top,
+    }
+
+    for column in topology.columns:
+        if (
+            column.joint_bottom
+            in end_joints
+            or column.joint_top
+            in end_joints
+        ):
+            bind(
+                column.unique_name,
+                column,
+            )
+
+    for beam in (
+        *tuple(
+            target_column.beams_at_bottom
+            or ()
+        ),
+        *tuple(
+            target_column.beams_at_top
+            or ()
+        ),
+    ):
+        bind(
+            beam.beam_unique_name,
+            beam,
+        )
+
+    return tuple(
+        sorted(
+            members.items(),
+            key=lambda item: item[0],
+        )
+    )
+
+
+def _capture_a18_frame_local_axis_supplements(
+    *,
+    context,
+    target_column,
+    topology,
+    cache: dict[
+        str,
+        A18FrameLocalAxisEvidence | None,
+    ],
+) -> Mapping[
+    str,
+    A18FrameLocalAxisEvidence,
+]:
+    """Acquire only local-axis facts absent from strict topology.
+
+    Explicit display-table local-axis facts remain on their existing
+    authority path.  Missing table rows are supplemented from the same
+    verified ETABS session through FrameObj.GetLocalAxes.
+
+    Failed reads are not converted into guessed/default axes; the A18
+    materializer remains explicitly unresolved for that member.
+    """
+
+    supplements: dict[
+        str,
+        A18FrameLocalAxisEvidence,
+    ] = {}
+
+    for (
+        frame_name,
+        member,
+    ) in _a18_required_members(
+        target_column=target_column,
+        topology=topology,
+    ):
+        explicit = (
+            getattr(
+                member,
+                "local_axis_explicit",
+                False,
+            )
+            is True
+        )
+
+        row = getattr(
+            member,
+            "local_axis_row",
+            None,
+        )
+
+        angle = getattr(
+            member,
+            "local_axis_angle_deg",
+            None,
+        )
+
+        # Preserve the existing supported table path unchanged.
+        if (
+            explicit
+            and row is not None
+            and angle is not None
+            and not isinstance(
+                angle,
+                bool,
+            )
+        ):
+            continue
+
+        if frame_name not in cache:
+            try:
+                (
+                    oapi_angle,
+                    advanced,
+                    _raw,
+                ) = (
+                    read_frame_local_axes_from_session(
+                        context.verified_session,
+                        frame_name,
+                    )
+                )
+
+                cache[
+                    frame_name
+                ] = (
+                    A18FrameLocalAxisEvidence(
+                        frame_name=frame_name,
+                        angle_degrees=(
+                            oapi_angle
+                        ),
+                        advanced=advanced,
+                        source_refs=(
+                            context
+                            .session_provenance_ref,
+
+                            _CSI_ETABS_FRAME_LOCAL_AXES_REF,
+
+                            "ETABS:"
+                            "FrameObj.GetLocalAxes:"
+                            f"{frame_name}:"
+                            f"Angle={float(oapi_angle):g}:"
+                            f"Advanced={advanced}",
+                        ),
+                    )
+                )
+
+            except Exception:
+                # Fail closed at the typed A18 factual edge.  Synthetic
+                # compatibility sessions and genuine live read failures
+                # do not manufacture a default local axis.
+                cache[
+                    frame_name
+                ] = None
+
+        fact = cache[
+            frame_name
+        ]
+
+        if fact is not None:
+            supplements[
+                frame_name
+            ] = fact
+
+    return supplements
+
+
 def _materialize_fnd2_inputs(
     *,
     request,
@@ -1998,6 +2929,13 @@ def _materialize_fnd2_inputs(
     definitions,
     execution_result,
     reviewed_story_translation_tolerance,
+    route_c_w_applicability=None,
+    qualified_response_static_case_names=(),
+    qualified_response_static_source_refs=(),
+    a18_local_axis_cache: dict[
+        str,
+        A18FrameLocalAxisEvidence | None,
+    ] | None = None,
 ):
     demand_states = []
     demand_refs = []
@@ -2037,10 +2975,23 @@ def _materialize_fnd2_inputs(
         for combo_name, leaves in flattened_combos
     )
 
+    if a18_local_axis_cache is None:
+        a18_local_axis_cache = {}
+
+    a18_local_axes = (
+        _capture_a18_frame_local_axis_supplements(
+            context=context,
+            target_column=target_column,
+            topology=topology_post,
+            cache=a18_local_axis_cache,
+        )
+    )
+
     a18 = materialize_ts500_column_end_restraint_ratios(
         target_column=target_column,
         topology=topology_post,
         frame_population=frame_population,
+        frame_local_axes=a18_local_axes,
     )
     expected_a18_keys = (
         ("BOTTOM", "M2"),
@@ -2065,8 +3016,8 @@ def _materialize_fnd2_inputs(
             target_column,
             bottom_restraint_dofs=restraints.bottom.dofs,
             top_restraint_dofs=restraints.top.dofs,
-            bottom_restraint_source_ref=restraints.bottom_source_ref,
-            top_restraint_source_ref=restraints.top_source_ref,
+            bottom_restraint_source_ref=restraints.bottom.source_ref,
+            top_restraint_source_ref=restraints.top.source_ref,
         )
     except Exception:
         free_length = None
@@ -2082,6 +3033,9 @@ def _materialize_fnd2_inputs(
         a18_rows=a18,
         free_length=free_length,
         analysis_execution=execution_result,
+        route_c_w_applicability=route_c_w_applicability,
+        qualified_response_static_case_names=qualified_response_static_case_names,
+        qualified_response_static_source_refs=qualified_response_static_source_refs,
         reviewed_story_translation_tolerance=reviewed_story_translation_tolerance,
     )
 
@@ -2307,10 +3261,17 @@ def _legacy_area_response_closure(
                 previous=classifications,
             )
         if area_names:
-            generation_facts = _area_shell_thick_generations_from_response(
-                area_population=area_pre,
-                response=response,
-                established_state=established_state,
+            generation_facts = (
+                _area_shell_thick_generations_from_response(
+                    session=(
+                        context.verified_session
+                    ),
+                    area_population=area_pre,
+                    response=response,
+                    established_state=(
+                        established_state
+                    ),
+                )
             )
             for area_name, generation in generation_facts.items():
                 area_history[area_name].append(generation)
@@ -2378,6 +3339,13 @@ def _materialize_public_a5_column(
     execution_result,
     execute_fnd2: Callable[..., object],
     reviewed_story_translation_tolerance: ReviewedStoryTranslationTolerance | None,
+    route_c_w_applicability: BoundColumnActionFamilyApplicability | None = None,
+    qualified_response_static_case_names=(),
+    qualified_response_static_source_refs=(),
+    a18_local_axis_cache: dict[
+        str,
+        A18FrameLocalAxisEvidence | None,
+    ] | None = None,
 ) -> PublicA5ColumnMaterialization:
     inputs, free_length, canonical_second_order = _materialize_fnd2_inputs(
         request=request,
@@ -2390,6 +3358,10 @@ def _materialize_public_a5_column(
         definitions=definitions,
         execution_result=execution_result,
         reviewed_story_translation_tolerance=reviewed_story_translation_tolerance,
+        route_c_w_applicability=route_c_w_applicability,
+        qualified_response_static_case_names=qualified_response_static_case_names,
+        qualified_response_static_source_refs=qualified_response_static_source_refs,
+        a18_local_axis_cache=a18_local_axis_cache,
     )
     column = execute_fnd2(
         request,
@@ -2410,6 +3382,7 @@ def execute_public_a5_column(
     *,
     acquisition_context: TrustedLiveAcquisitionContext,
     execute_fnd2: Callable[..., object],
+    route_c_w_applicability: BoundColumnActionFamilyApplicability | None = None,
     reviewed_story_translation_tolerance: ReviewedStoryTranslationTolerance | None = None,
     complete_after_fnd2: Callable[..., object] | None = None,
     materialize_full_population: bool = False,
@@ -2421,6 +3394,18 @@ def execute_public_a5_column(
         raise TypeError("acquisition_context must be TrustedLiveAcquisitionContext")
     if not callable(execute_fnd2):
         raise TypeError("execute_fnd2 must be callable")
+    if (
+        route_c_w_applicability is not None
+        and not isinstance(
+            route_c_w_applicability,
+            BoundColumnActionFamilyApplicability,
+        )
+    ):
+        raise TypeError(
+            "route_c_w_applicability must be "
+            "BoundColumnActionFamilyApplicability or None"
+        )
+
     if reviewed_story_translation_tolerance is not None and not isinstance(
         reviewed_story_translation_tolerance, ReviewedStoryTranslationTolerance
     ):
@@ -2745,6 +3730,11 @@ def execute_public_a5_column(
             )
         return _blocked(request, context, BLOCKER_A4_POST_CONTINUITY)
 
+    a18_local_axis_cache: dict[
+        str,
+        A18FrameLocalAxisEvidence | None,
+    ] = {}
+
     if materialize_full_population:
         materializations: list[PublicA5ColumnMaterialization] = []
         for target in tuple(topology_post.columns):
@@ -2766,6 +3756,10 @@ def execute_public_a5_column(
                     execution_result=execution_result,
                     execute_fnd2=execute_fnd2,
                     reviewed_story_translation_tolerance=reviewed_story_translation_tolerance,
+                    route_c_w_applicability=route_c_w_applicability,
+                    qualified_response_static_case_names=qualified_static_cases,
+                    qualified_response_static_source_refs=qualified_static_refs,
+                    a18_local_axis_cache=a18_local_axis_cache,
                 )
             except PublicA5CompositionError as exc:
                 materialized = PublicA5ColumnMaterialization(
@@ -2818,6 +3812,10 @@ def execute_public_a5_column(
             execution_result=execution_result,
             execute_fnd2=execute_fnd2,
             reviewed_story_translation_tolerance=reviewed_story_translation_tolerance,
+            route_c_w_applicability=route_c_w_applicability,
+            qualified_response_static_case_names=qualified_static_cases,
+            qualified_response_static_source_refs=qualified_static_refs,
+            a18_local_axis_cache=a18_local_axis_cache,
         )
         column = materialized.column
     except PublicA5CompositionError as exc:

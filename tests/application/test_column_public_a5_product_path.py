@@ -107,6 +107,8 @@ class _Column:
     coordinate_length_m: float = 3.0
     bottom_coord_m: tuple[float, float, float] = (0.0, 0.0, 0.0)
     top_coord_m: tuple[float, float, float] = (0.0, 0.0, 3.0)
+    joint_bottom: str = "J-BOT"
+    joint_top: str = "J-TOP"
     local_axis_angle_deg: float | None = 0.0
     local_axis_explicit: bool = True
     beams_at_bottom: tuple[object, ...] = ()
@@ -119,6 +121,8 @@ class _Column:
             "section": self.section,
             "bottom_coord_m": self.bottom_coord_m,
             "top_coord_m": self.top_coord_m,
+            "joint_bottom": self.joint_bottom,
+            "joint_top": self.joint_top,
             "local_axis_angle_deg": self.local_axis_angle_deg,
             "local_axis_explicit": self.local_axis_explicit,
         }
@@ -326,10 +330,14 @@ def product_harness(monkeypatch):
         a5,
         "capture_etabs_column_endpoint_restraints_from_session",
         lambda *_args, **_kwargs: SimpleNamespace(
-            bottom=SimpleNamespace(dofs=(True,) * 6),
-            top=SimpleNamespace(dofs=(False,) * 6),
-            bottom_source_ref="restraint:bottom",
-            top_source_ref="restraint:top",
+            bottom=SimpleNamespace(
+                dofs=(True,) * 6,
+                source_ref="restraint:bottom",
+            ),
+            top=SimpleNamespace(
+                dofs=(False,) * 6,
+                source_ref="restraint:top",
+            ),
         ),
     )
     monkeypatch.setattr(a5, "resolve_ts500_column_free_length", lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("bounded test uses reviewed slenderness evidence")))

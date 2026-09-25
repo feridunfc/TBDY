@@ -67,16 +67,25 @@ def test_sway_prevented_eq724_computes_individual_beta():
     assert math.isclose(result.final_magnification_factor, expected_beta)
 
 
-def test_horizontal_load_between_ends_forces_cm_one():
+def test_horizontal_load_between_ends_forces_cm_one_without_ratio():
     result = evaluate_ts500_axis_moment_magnification(
-        _axis(axis="M2", horizontal_load_between_ends=True)
+        _axis(
+            axis="M2",
+            horizontal_load_between_ends=True,
+            m1_over_m2=None,
+        )
     )
+
     assert result.cm == 1.0
 
 
-def test_sway_permitted_uses_individual_and_story_beta():
+def test_sway_permitted_uses_individual_and_story_beta_without_ratio():
     result = evaluate_ts500_axis_moment_magnification(
-        _axis(axis="M3", sway=SWAY_PERMITTED)
+        _axis(
+            axis="M3",
+            sway=SWAY_PERMITTED,
+            m1_over_m2=None,
+        )
     )
     assert result.applied
     assert result.cm == 1.0
@@ -100,9 +109,21 @@ def test_sway_permitted_eq728_fails_closed():
 
 def test_biaxial_application_keeps_m2_and_m3_factors_separate():
     state = _state()
-    m2 = evaluate_ts500_axis_moment_magnification(_axis(axis="M2", nd=500_000.0))
+    m2 = evaluate_ts500_axis_moment_magnification(
+        _axis(
+            axis="M2",
+            nd=500_000.0,
+            m1_over_m2=1.0,
+        )
+    )
     m3 = evaluate_ts500_axis_moment_magnification(
-        _axis(axis="M3", nd=900_000.0, lk=5200.0, radius=120.0)
+        _axis(
+            axis="M3",
+            nd=900_000.0,
+            lk=5200.0,
+            radius=120.0,
+            m1_over_m2=1.0,
+        )
     )
     assert m2.final_magnification_factor != m3.final_magnification_factor
     magnified = magnify_concurrent_column_demand_state(state, m2=m2, m3=m3)
@@ -116,3 +137,16 @@ def test_magnification_result_cannot_be_applied_to_another_demand_state():
     result = evaluate_ts500_axis_moment_magnification(_axis(axis="M2", state_id="OTHER"))
     with pytest.raises(ColumnMomentMagnificationError):
         magnify_concurrent_column_demand_state(state, m2=result, m3=None)
+
+
+
+def test_sway_prevented_without_horizontal_load_requires_exact_ratio():
+    with pytest.raises(
+        ColumnMomentMagnificationError,
+        match="requires exact signed m1_over_m2",
+    ):
+        _axis(
+            axis="M2",
+            horizontal_load_between_ends=False,
+            m1_over_m2=None,
+        )

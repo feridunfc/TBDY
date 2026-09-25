@@ -11,7 +11,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from tbdy_engine.application.column_design_basis import ReviewedColumnDesignBasis
+from tbdy_engine.application.column_design_basis import (
+    ReviewedColumnDesignBasis,
+    bind_reviewed_route_c_w_applicability,
+)
 from tbdy_engine.application.column_final_cage import ReviewedColumnFinalCageContext
 from tbdy_engine.application.column_p7_runtime import (
     ReviewedColumnP7RuntimeContext,
@@ -944,9 +947,21 @@ def execute_project(
 
     context: TrustedLiveAcquisitionContext = create_trusted_live_acquisition_context(verified_session)
 
+    route_c_w_applicability = (
+        None
+        if column_design_basis is None
+        else bind_reviewed_route_c_w_applicability(
+            column_design_basis,
+            project_id=request.project_id,
+            model_fingerprint=context.model_fingerprint,
+            evidence_epoch_id=context.evidence_epoch_id,
+        )
+    )
+
     column_kwargs = {
         "acquisition_context": context,
         "column_design_basis": column_design_basis,
+        "route_c_w_applicability": route_c_w_applicability,
         "expected_combo_policy": expected_combo_policy,
     }
     if reviewed_vs5_column_axial_context is not None:

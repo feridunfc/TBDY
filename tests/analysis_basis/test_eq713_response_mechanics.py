@@ -293,3 +293,169 @@ def test_frame_section_fact_preserves_identity_success_and_evidence_ref() -> Non
     assert fact.success is True
     assert fact.source_call == "SapModel.PropFrame.GetSectProps"
     assert fact.evidence_ref.startswith("etabs-frame-section-mechanics:sha256:")
+
+
+
+def test_shellthick_positive_response_can_resolve_initial_static_prerequisite_blocker():
+    from tbdy_engine.analysis_basis.eq713_response_mechanics import (
+        AreaShellThickResponseGeneration,
+        resolve_area_response_modes,
+    )
+
+    from tbdy_engine.analysis_basis.eq713_uncracked_analysis_state import (
+        AreaCategory,
+        AreaFormulation,
+        AreaGrossBasePropertyEvidence,
+        AreaStiffnessMode,
+        ContributorDisposition,
+        build_area_eq713_target,
+        build_concrete_uncracked_material_basis,
+    )
+
+    from tbdy_engine.etabs.oapi.area_modifiers import (
+        AreaModifierReadFact,
+        AreaModifierSurface,
+        AreaModifierVector,
+    )
+
+    from tbdy_engine.etabs.oapi.eq713_response_results import (
+        AreaStrainShellResponseRow,
+    )
+
+    basis = build_concrete_uncracked_material_basis(
+        material_name="C35/45",
+        fck_mpa=35.0,
+        factual_ec_mpa=34_000.0,
+        factual_gc_mpa=14_000.0,
+        source_refs=("test:material",),
+    )
+
+    current = (
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        0.25,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+    )
+
+    gross = AreaGrossBasePropertyEvidence.build(
+        area_name="10",
+        property_name="Foundation_60cm",
+        category=AreaCategory.FLOOR,
+        formulation=AreaFormulation.SHELL_THICK,
+        is_concrete=True,
+        gross_geometry_proven=True,
+        thickness_proven=True,
+        homogeneous_simple_property=True,
+        material_overwrite_qualified=True,
+        thickness_overwrite_qualified=True,
+        property_modifiers=current,
+        object_modifiers=(1.0,) * 10,
+        material_basis=basis,
+        semi_rigid_diaphragm_participation=None,
+        source_refs=("test:area",),
+    )
+
+    base = build_area_eq713_target(
+        gross
+    )
+
+    assert (
+        base.target_property_modifiers
+        is None
+    )
+
+    assert all(
+        item.disposition
+        is ContributorDisposition.BLOCKED_UNSUPPORTED
+        for item
+        in base.mode_dispositions
+    )
+
+    readback = AreaModifierReadFact(
+        surface=AreaModifierSurface.AREA_PROPERTY,
+        target_name="Foundation_60cm",
+        modifiers=AreaModifierVector.from_sequence(
+            current
+        ),
+        return_code=0,
+    )
+
+    strain = AreaStrainShellResponseRow(
+        object_name="10",
+        element_name="E1",
+        point_element_name="P1",
+        load_case="LC_EQX",
+        step_type="",
+        step_number=0.0,
+        e11_top=2.0e-6,
+        e22_top=3.0e-6,
+        g12_top=4.0e-6,
+        emax_top=0.0,
+        emin_top=0.0,
+        eangle_top=0.0,
+        evm_top=0.0,
+        e11_bottom=1.0e-6,
+        e22_bottom=1.0e-6,
+        g12_bottom=1.0e-6,
+        emax_bottom=0.0,
+        emin_bottom=0.0,
+        eangle_bottom=0.0,
+        evm_bottom=0.0,
+        g13_avg=5.0e-6,
+        g23_avg=6.0e-6,
+        gmax_avg=0.0,
+        gangle_avg=0.0,
+    )
+
+    generation = (
+        AreaShellThickResponseGeneration(
+            strain_rows=(strain,),
+            property_modifiers=readback,
+            source_refs=("test:generation",),
+        )
+    )
+
+    resolved = resolve_area_response_modes(
+        base=base,
+        source_refs=("test:response",),
+        gross_evidence=gross,
+        shell_thickness=0.60,
+        response_generations=(
+            generation,
+        ),
+    )
+
+    assert resolved.blocked_reasons == ()
+
+    assert all(
+        item.disposition
+        is ContributorDisposition.TARGETED_UNCRACKED
+        for item
+        in resolved.mode_dispositions
+    )
+
+    assert tuple(
+        float(value)
+        for value
+        in resolved.target_property_modifiers[:8]
+    ) == (1.0,) * 8
+
+    assert tuple(
+        float(value)
+        for value
+        in resolved.target_property_modifiers[8:]
+    ) == (1.0, 1.0)
+
+    assert {
+        item.mode
+        for item
+        in resolved.mode_dispositions
+    } == set(
+        AreaStiffnessMode
+    )

@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 import math
-from typing import Iterable, Sequence
+from typing import Iterable, Mapping, Sequence
 
 from tbdy_engine.design.columns.effective_length import (
     ColumnEffectiveLengthError,
@@ -31,6 +31,7 @@ from tbdy_engine.providers.frame_section_inertia_normalization import (
 A18_READY = "READY"
 A18_EXPLICIT_UNRESOLVED = "EXPLICIT_UNRESOLVED"
 A18_AUTHORITY = "COLUMN_R1_A18_TS500_END_RESTRAINT_FACTUAL_MATERIALIZATION"
+A18_LOCAL_AXIS_AUTHORITY = "COLUMN_R1_A18_FRAME_LOCAL_AXIS_FACTUAL_BINDING"
 TS500_EQ716_COLUMN_GROSS_IG_REF = "TS500_7.6.2.2_EQ7.16:COLUMN_GROSS_UNCRACKED_IG"
 TS500_EQ716_BEAM_HALF_IG_REF = "TS500_7.6.2.2_EQ7.16:BEAM_SUPPORTED_FALLBACK_0.5_IG"
 
@@ -70,6 +71,88 @@ class A18EndRestraintMaterialization:
     source_refs: tuple[str, ...]
     unresolved_reasons: tuple[str, ...] = ()
     authority: str = A18_AUTHORITY
+
+
+@dataclass(frozen=True, slots=True)
+class A18FrameLocalAxisEvidence:
+    """Exact supplemental Frame local-axis fact for A18.
+
+    This does not replace strict topology.  It supplies the exact
+    FrameObj.GetLocalAxes result when the display-table topology has no
+    explicit local-axis row.
+    """
+
+    frame_name: str
+    angle_degrees: float
+    advanced: bool
+    source_refs: tuple[str, ...]
+    authority: str = A18_LOCAL_AXIS_AUTHORITY
+
+    def __post_init__(self) -> None:
+        if (
+            not isinstance(self.frame_name, str)
+            or not self.frame_name.strip()
+            or self.frame_name != self.frame_name.strip()
+        ):
+            raise ValueError(
+                "frame_name must be a nonblank canonical string"
+            )
+
+        if (
+            isinstance(self.angle_degrees, bool)
+            or self.angle_degrees is None
+        ):
+            raise ValueError(
+                "angle_degrees must be finite numeric"
+            )
+
+        try:
+            angle = float(
+                self.angle_degrees
+            )
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "angle_degrees must be finite numeric"
+            ) from exc
+
+        if not math.isfinite(angle):
+            raise ValueError(
+                "angle_degrees must be finite numeric"
+            )
+
+        if type(self.advanced) is not bool:
+            raise TypeError(
+                "advanced must be bool"
+            )
+
+        refs = tuple(
+            dict.fromkeys(
+                ref
+                for ref in self.source_refs
+                if (
+                    isinstance(ref, str)
+                    and ref.strip()
+                    and ref == ref.strip()
+                )
+            )
+        )
+
+        if not refs:
+            raise ValueError(
+                "source_refs must contain factual provenance"
+            )
+
+        object.__setattr__(
+            self,
+            "angle_degrees",
+            angle,
+        )
+
+        object.__setattr__(
+            self,
+            "source_refs",
+            refs,
+        )
 
 
 class _Unresolved(RuntimeError):
@@ -112,31 +195,177 @@ def _member_id(member: object, role: str) -> str:
     return value
 
 
-def _local_axis(member: object, member_id: str) -> tuple[float, tuple[str, ...]]:
-    row = getattr(member, "local_axis_row", None)
-    angle = getattr(member, "local_axis_angle_deg", None)
+def _local_axis(
+    member: object,
+    member_id: str,
+    local_axis_facts: Mapping[
+        str,
+        A18FrameLocalAxisEvidence,
+    ] | None = None,
+) -> tuple[float, tuple[str, ...]]:
+    """Resolve A18 local-axis rotation without manufacturing an assignment.
+
+    Existing explicit strict-topology table evidence remains authoritative.
+    When that row is absent, an exact non-advanced FrameObj.GetLocalAxes
+    fact may supply the missing factual rotation.
+    """
+
+    row = getattr(
+        member,
+        "local_axis_row",
+        None,
+    )
+
+    angle = getattr(
+        member,
+        "local_axis_angle_deg",
+        None,
+    )
+
+    explicit = (
+        getattr(
+            member,
+            "local_axis_explicit",
+            False,
+        )
+        is True
+    )
+
+    # Existing supported path: preserve exact table authority.
     if (
-        getattr(member, "local_axis_explicit", False) is not True
-        or row is None
-        or angle is None
-        or isinstance(angle, bool)
+        explicit
+        and row is not None
+        and angle is not None
+        and not isinstance(
+            angle,
+            bool,
+        )
     ):
+        try:
+            resolved = float(
+                angle
+            )
+        except (
+            TypeError,
+            ValueError,
+        ) as exc:
+            raise _Unresolved(
+                f"INVALID_LOCAL_AXIS:{member_id}"
+            ) from exc
+
+        if not math.isfinite(
+            resolved
+        ):
+            raise _Unresolved(
+                f"INVALID_LOCAL_AXIS:{member_id}"
+            )
+
+        raw_angle = (
+            row.get("Angle")
+            if hasattr(
+                row,
+                "get",
+            )
+            else angle
+        )
+
+        return (
+            resolved,
+            _refs(
+                (
+                    f"strict-topology:"
+                    f"frame-local-axis:"
+                    f"{member_id}",
+
+                    "ETABS:"
+                    "Frame Assignments - "
+                    "Local Axes:"
+                    f"{member_id}:"
+                    f"Angle={raw_angle}",
+                )
+            ),
+        )
+
+    # Missing table row may be supplemented only by an exact OAPI fact.
+    factual = (
+        None
+        if local_axis_facts is None
+        else local_axis_facts.get(
+            member_id
+        )
+    )
+
+    if factual is None:
         raise _Unresolved(
             f"MISSING_LOCAL_AXIS:{member_id}",
             f"strict-topology:frame:{member_id}",
         )
-    try:
-        resolved = float(angle)
-    except (TypeError, ValueError) as exc:
-        raise _Unresolved(f"INVALID_LOCAL_AXIS:{member_id}") from exc
-    if not math.isfinite(resolved):
-        raise _Unresolved(f"INVALID_LOCAL_AXIS:{member_id}")
-    raw_angle = row.get("Angle") if hasattr(row, "get") else angle
-    return resolved, _refs(
-        (
-            f"strict-topology:frame-local-axis:{member_id}",
-            f"ETABS:Frame Assignments - Local Axes:{member_id}:Angle={raw_angle}",
+
+    if not isinstance(
+        factual,
+        A18FrameLocalAxisEvidence,
+    ):
+        raise _Unresolved(
+            f"INVALID_LOCAL_AXIS_FACT:{member_id}",
+            f"strict-topology:frame:{member_id}",
         )
+
+    if (
+        factual.frame_name
+        != member_id
+    ):
+        raise _Unresolved(
+            f"LOCAL_AXIS_IDENTITY_MISMATCH:{member_id}",
+            *factual.source_refs,
+        )
+
+    if factual.advanced:
+        raise _Unresolved(
+            f"ADVANCED_LOCAL_AXIS_UNSUPPORTED:{member_id}",
+            *factual.source_refs,
+        )
+
+    resolved = float(
+        factual.angle_degrees
+    )
+
+    if not math.isfinite(
+        resolved
+    ):
+        raise _Unresolved(
+            f"INVALID_LOCAL_AXIS:{member_id}",
+            *factual.source_refs,
+        )
+
+    # If topology claims an explicit assignment but could not materialize
+    # the corresponding table row/angle, do not let OAPI hide an internal
+    # topology contradiction.
+    if explicit:
+        raise _Unresolved(
+            f"STRICT_TOPOLOGY_LOCAL_AXIS_INCOMPLETE:{member_id}",
+            *factual.source_refs,
+        )
+
+    if (
+        row is not None
+        or angle is not None
+    ):
+        raise _Unresolved(
+            f"STRICT_TOPOLOGY_LOCAL_AXIS_FLAG_MISMATCH:{member_id}",
+            *factual.source_refs,
+        )
+
+    return (
+        resolved,
+        _refs(
+            (
+                *factual.source_refs,
+                factual.authority,
+                f"strict-topology:"
+                f"frame-local-axis-table-absent:"
+                f"{member_id}",
+            )
+        ),
     )
 
 
@@ -267,9 +496,19 @@ def _column_contribution(
     column: ColumnTopologyEvidence,
     fact: FrameEq713FactualFact,
     target_axis_azimuth: float,
+    *,
+    local_axis_facts: Mapping[
+        str,
+        A18FrameLocalAxisEvidence,
+    ] | None,
 ) -> EndRestraintMemberContribution:
     member_id = _member_id(column, "COLUMN")
-    angle, axis_refs = _local_axis(column, member_id)
+
+    angle, axis_refs = _local_axis(
+        column,
+        member_id,
+        local_axis_facts,
+    )
     if _parallel(target_axis_azimuth, angle):
         mechanics_axis = "M2"
     elif _parallel(target_axis_azimuth, angle + 90.0):
@@ -313,6 +552,10 @@ def _beam_contribution(
     *,
     joint: str,
     target_axis_azimuth: float,
+    local_axis_facts: Mapping[
+        str,
+        A18FrameLocalAxisEvidence,
+    ] | None,
 ) -> EndRestraintMemberContribution | None:
     member_id = _member_id(beam, "BEAM")
     azimuth = getattr(beam, "horizontal_azimuth_deg", None)
@@ -328,7 +571,11 @@ def _beam_contribution(
     if not _perpendicular(azimuth, target_axis_azimuth):
         raise _Unresolved(f"AMBIGUOUS_BEAM_BENDING_PLANE:{member_id}", span_ref)
 
-    angle, axis_refs = _local_axis(beam, member_id)
+    angle, axis_refs = _local_axis(
+        beam,
+        member_id,
+        local_axis_facts,
+    )
     if _parallel(angle, 0.0):
         mechanics_axis = "M3"
     elif _perpendicular(angle, 0.0):
@@ -391,6 +638,10 @@ def _one(
     facts: dict[str, FrameEq713FactualFact],
     end_tag: str,
     axis: str,
+    local_axis_facts: Mapping[
+        str,
+        A18FrameLocalAxisEvidence,
+    ] | None,
 ) -> A18EndRestraintMaterialization:
     component_id = getattr(target_column, "component_id", "")
     target_id = getattr(target_column, "unique_name", "")
@@ -429,7 +680,11 @@ def _one(
         )
         if not isinstance(joint, str) or not joint.strip():
             raise _Unresolved(f"MISSING_TARGET_END_JOINT:{end_tag}")
-        target_angle, target_axis_refs = _local_axis(target_column, target_id)
+        target_angle, target_axis_refs = _local_axis(
+            target_column,
+            target_id,
+            local_axis_facts,
+        )
         evidence.extend(target_axis_refs)
         target_axis_azimuth = target_angle if axis == "M2" else target_angle + 90.0
 
@@ -453,6 +708,7 @@ def _one(
                 column,
                 fact,
                 target_axis_azimuth,
+                local_axis_facts=local_axis_facts,
             )
             column_contributions.append(contribution)
             evidence.extend(contribution.source_refs)
@@ -468,6 +724,7 @@ def _one(
                 fact,
                 joint=joint,
                 target_axis_azimuth=target_axis_azimuth,
+                local_axis_facts=local_axis_facts,
             )
             if contribution is not None:
                 beam_contributions.append(contribution)
@@ -518,6 +775,10 @@ def materialize_ts500_column_end_restraint_ratios(
     target_column: ColumnTopologyEvidence,
     topology: StrictColumnTopologyBundle,
     frame_population: FrameEq713FactualPopulation,
+    frame_local_axes: Mapping[
+        str,
+        A18FrameLocalAxisEvidence,
+    ] | None = None,
 ) -> tuple[A18EndRestraintMaterialization, ...]:
     """Return exact BOTTOM/TOP x M2/M3 A18 facts or explicit unresolved rows."""
     component_id = getattr(target_column, "component_id", "")
@@ -552,6 +813,7 @@ def materialize_ts500_column_end_restraint_ratios(
             facts=facts,
             end_tag=end_tag,
             axis=axis,
+            local_axis_facts=frame_local_axes,
         )
         for end_tag in ("BOTTOM", "TOP")
         for axis in ("M2", "M3")
@@ -561,8 +823,10 @@ def materialize_ts500_column_end_restraint_ratios(
 __all__ = [
     "A18_AUTHORITY",
     "A18_EXPLICIT_UNRESOLVED",
+    "A18_LOCAL_AXIS_AUTHORITY",
     "A18_READY",
     "A18EndRestraintMaterialization",
+    "A18FrameLocalAxisEvidence",
     "A18InertiaBasis",
     "TS500_EQ716_BEAM_HALF_IG_REF",
     "TS500_EQ716_COLUMN_GROSS_IG_REF",

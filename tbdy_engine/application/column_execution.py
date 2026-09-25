@@ -14,7 +14,10 @@ from dataclasses import dataclass, replace
 from enum import StrEnum
 from functools import partial
 
-from tbdy_engine.application.column_design_basis import ReviewedColumnDesignBasis
+from tbdy_engine.application.column_design_basis import (
+    BoundColumnActionFamilyApplicability,
+    ReviewedColumnDesignBasis,
+)
 from tbdy_engine.application.column_final_cage import (
     ReviewedColumnFinalCageContext,
     apply_reviewed_final_cage_to_transverse_input,
@@ -352,6 +355,7 @@ def execute_column_domain(
     *,
     acquisition_context: TrustedLiveAcquisitionContext,
     column_design_basis: ReviewedColumnDesignBasis | None = None,
+    route_c_w_applicability: BoundColumnActionFamilyApplicability | None = None,
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
     reviewed_column_p7_context: ReviewedColumnP7RuntimeContext | None = None,
@@ -370,6 +374,36 @@ def execute_column_domain(
         raise TypeError("_population_mode must be bool")
     if column_design_basis is not None and not isinstance(column_design_basis, ReviewedColumnDesignBasis):
         raise TypeError("column_design_basis must be ReviewedColumnDesignBasis or None")
+
+    if (
+        route_c_w_applicability is not None
+        and not isinstance(
+            route_c_w_applicability,
+            BoundColumnActionFamilyApplicability,
+        )
+    ):
+        raise TypeError(
+            "route_c_w_applicability must be "
+            "BoundColumnActionFamilyApplicability or None"
+        )
+
+    if route_c_w_applicability is not None:
+        if (
+            route_c_w_applicability.model_fingerprint
+            != acquisition_context.model_fingerprint
+        ):
+            raise ColumnExecutionContractError(
+                "Route-C W applicability model identity mismatch"
+            )
+
+        if (
+            route_c_w_applicability.evidence_epoch_id
+            != acquisition_context.evidence_epoch_id
+        ):
+            raise ColumnExecutionContractError(
+                "Route-C W applicability evidence epoch mismatch"
+            )
+
     if expected_combo_policy is not None and not isinstance(expected_combo_policy, ExpectedConcreteDesignComboPolicy):
         raise TypeError("expected_combo_policy must be ExpectedConcreteDesignComboPolicy or None")
     if (
@@ -446,6 +480,7 @@ def execute_column_domain(
             request,
             acquisition_context=acquisition_context,
             column_design_basis=column_design_basis,
+            route_c_w_applicability=route_c_w_applicability,
             expected_combo_policy=expected_combo_policy,
             reviewed_vs5_column_axial_context=reviewed_vs5_column_axial_context,
             reviewed_column_p7_context=reviewed_column_p7_context,
@@ -490,6 +525,7 @@ def execute_column_domain(
         request,
         acquisition_context=acquisition_context,
         execute_fnd2=_execute_fnd2,
+        route_c_w_applicability=route_c_w_applicability,
         reviewed_story_translation_tolerance=(
             None
             if column_design_basis is None
@@ -533,6 +569,7 @@ def _execute_column_population(
     *,
     acquisition_context: TrustedLiveAcquisitionContext,
     column_design_basis: ReviewedColumnDesignBasis | None = None,
+    route_c_w_applicability: BoundColumnActionFamilyApplicability | None = None,
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
     reviewed_column_p7_context: ReviewedColumnP7RuntimeContext | None = None,
@@ -552,6 +589,7 @@ def _execute_column_population(
         request,
         acquisition_context=acquisition_context,
         execute_fnd2=_execute_fnd2,
+        route_c_w_applicability=route_c_w_applicability,
         reviewed_story_translation_tolerance=(
             None
             if column_design_basis is None

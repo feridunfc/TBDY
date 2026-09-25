@@ -418,3 +418,123 @@ def test_unsupported_shell_formulation_is_typed_not_dropped():
         subject.AreaContributorScopeStatus.UNSUPPORTED_SHELL_FORMULATION
     )
     assert scope.area_name == "A"
+
+
+
+def test_deck_material_type_fact_is_bound_to_area_material_authority(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        subject,
+        "FrameFlexuralBaseCaptureSnapshot",
+        _Snapshot,
+    )
+
+    material_type = SimpleNamespace(
+        material_name="S355",
+        material_type_code=1,
+        symmetry_type_code=0,
+        return_code=0,
+        success=True,
+        is_steel=True,
+        evidence_ref="material-type:S355",
+    )
+
+    original = subject.MaterialTypeFact
+    subject.MaterialTypeFact = SimpleNamespace
+
+    try:
+        facts = subject._capture_area_material_facts(
+            rows=(
+                _row(
+                    "D",
+                    family=subject.AreaPropertyFamily.DECK,
+                    material="S355",
+                    shell=3,
+                ),
+            ),
+            material_snapshot=_Snapshot(
+                basic_rows=(
+                    {
+                        "Material": "S355",
+                        "E1": 210000.0,
+                        "G12": 80769.23,
+                    },
+                ),
+                concrete_rows=(),
+            ),
+            model_fingerprint="model:a38",
+            evidence_epoch_id="epoch:a38",
+            session_provenance_ref="session:a38",
+            material_type_facts={
+                "S355": material_type,
+            },
+        )
+    finally:
+        subject.MaterialTypeFact = original
+
+    assert len(facts) == 1
+    assert facts[0].material_name == "S355"
+    assert facts[0].material_type is material_type
+    assert (
+        "material-type:S355"
+        in facts[0].source_refs
+    )
+
+
+def test_deck_material_type_capture_is_bounded_to_exact_deck_materials(
+    monkeypatch,
+):
+    calls = []
+
+    fact = SimpleNamespace(
+        material_name="S355",
+        success=True,
+        is_steel=True,
+        evidence_ref="material-type:S355",
+    )
+
+    original_session = subject.EtabsVerifiedSession
+    original_type = subject.MaterialTypeFact
+
+    subject.EtabsVerifiedSession = object
+    subject.MaterialTypeFact = SimpleNamespace
+
+    monkeypatch.setattr(
+        subject,
+        "get_material_type_from_session",
+        lambda _session, *, material_name: (
+            calls.append(material_name)
+            or fact
+        ),
+    )
+
+    try:
+        rows = (
+            _row(
+                "D",
+                family=subject.AreaPropertyFamily.DECK,
+                material="S355",
+                shell=3,
+            ),
+            _row(
+                "S",
+                family=subject.AreaPropertyFamily.SLAB,
+                material="Mat",
+                shell=2,
+            ),
+        )
+
+        result = (
+            subject._capture_deck_material_type_facts(
+                object(),
+                rows,
+            )
+        )
+    finally:
+        subject.EtabsVerifiedSession = original_session
+        subject.MaterialTypeFact = original_type
+
+    assert calls == ["S355"]
+    assert tuple(result) == ("S355",)
+    assert result["S355"] is fact

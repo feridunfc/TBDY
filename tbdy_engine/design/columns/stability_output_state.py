@@ -20,6 +20,7 @@ from tbdy_engine.design.columns.stability_combo_basis import (
 
 
 SIGNED_LINEAR_ADD_STATE = "SIGNED_CONCURRENT_LINEAR_ADD_OUTPUT_STATE"
+CSI_LINEAR_ADD_SINGLE_VALUE_STEP_TYPE = "Single Value"
 STABILITY_OUTPUT_STATE_AUTHORITY = "B5_TS500_STABILITY_SIGNED_OUTPUT_STATE"
 
 
@@ -91,8 +92,8 @@ def qualify_signed_linear_add_stability_output(
     ``StabilityComboCandidate`` is created only by the existing exact
     ``FlattenedLinearCombo`` role-matching authority.  For this supported slice,
     a CSI linear-add combination is consumed only when ``JointDispl`` returns
-    the single algebraic state (blank StepType / zero StepNum).  Envelope or
-    permutation states are therefore never admitted by this binding.
+    the single algebraic state (``StepType="Single Value"`` / zero StepNum).
+    Envelope or permutation states are therefore never admitted by this binding.
     """
     if not isinstance(candidate, StabilityComboCandidate):
         raise TypeError("candidate must be StabilityComboCandidate")
@@ -126,7 +127,7 @@ def qualify_signed_linear_add_stability_output(
         "global_direction": direction_binding.global_direction,
         "combination_method": "LINEAR_ADD",
         "state_semantics": SIGNED_LINEAR_ADD_STATE,
-        "required_step_type": "",
+        "required_step_type": CSI_LINEAR_ADD_SINGLE_VALUE_STEP_TYPE,
         "required_step_number": 0.0,
         "analysis_result_ref": analysis_ref,
         "execution_proof_ref": proof_ref,
@@ -140,7 +141,7 @@ def qualify_signed_linear_add_stability_output(
         global_direction=direction_binding.global_direction,
         combination_method="LINEAR_ADD",
         state_semantics=SIGNED_LINEAR_ADD_STATE,
-        required_step_type="",
+        required_step_type=CSI_LINEAR_ADD_SINGLE_VALUE_STEP_TYPE,
         required_step_number=0.0,
         analysis_result_ref=analysis_ref,
         execution_proof_ref=proof_ref,
@@ -150,6 +151,7 @@ def qualify_signed_linear_add_stability_output(
 
 
 __all__ = [
+    "CSI_LINEAR_ADD_SINGLE_VALUE_STEP_TYPE",
     "SIGNED_LINEAR_ADD_STATE",
     "STABILITY_OUTPUT_STATE_AUTHORITY",
     "StabilityActionDirectionBinding",

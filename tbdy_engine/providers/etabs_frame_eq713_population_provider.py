@@ -25,13 +25,19 @@ from tbdy_engine.etabs.oapi.frame_releases import (
     FrameReleaseFact,
     get_frame_releases_from_session,
 )
+from tbdy_engine.etabs.oapi.line_springs import (
+    LineSpringPropertyUniverseFact,
+    read_line_spring_property_universe_from_session,
+)
 from tbdy_engine.etabs.oapi.frame_section_mechanics import (
     FrameSectionMechanicsFact,
     get_frame_section_mechanics_from_session,
 )
 from tbdy_engine.etabs.oapi.material_properties import (
     IsotropicMaterialPropertiesFact,
+    MaterialTypeFact,
     get_isotropic_material_properties_from_session,
+    get_material_type_from_session,
 )
 from tbdy_engine.etabs.oapi.object_model import read_frame_names_from_session
 from tbdy_engine.etabs.safety import RuntimeCaptureStatus
@@ -515,6 +521,7 @@ class FrameEq713ResidualStructuralFact:
     isotropic_material: IsotropicMaterialPropertiesFact
     beam_mechanics: FrameEq713BeamMechanicsFact | None
     source_refs: tuple[str, ...]
+    material_type: MaterialTypeFact | None = None
 
     def __post_init__(self) -> None:
         name = _text(self.frame_name, "frame_name")
@@ -575,6 +582,37 @@ class FrameEq713ResidualStructuralFact:
             raise EtabsFrameEq713PopulationError(
                 "residual Frame isotropic material fact is not exact/successful"
             )
+
+        if self.material_type is not None:
+            if not isinstance(
+                self.material_type,
+                MaterialTypeFact,
+            ):
+                raise TypeError(
+                    "material_type must be "
+                    "MaterialTypeFact or None"
+                )
+
+            if (
+                not self.material_type.success
+                or self.material_type.material_name
+                != material
+            ):
+                raise EtabsFrameEq713PopulationError(
+                    "residual Frame material-type fact "
+                    "is not exact/successful"
+                )
+
+            if (
+                self.material_type.evidence_ref
+                not in tuple(self.source_refs)
+            ):
+                raise EtabsFrameEq713PopulationError(
+                    "residual Frame material-type "
+                    "provenance is not bound to "
+                    "source_refs"
+                )
+
         if self.member_role == "BEAM":
             if self.beam_mechanics is not None and (
                 not isinstance(self.beam_mechanics, FrameEq713BeamMechanicsFact)
@@ -770,6 +808,7 @@ def _capture_residual_structural_facts(
     section_cache: dict[str, FrameSectionMechanicsFact] = {}
     property_modifier_cache: dict[str, FrameModifierReadFact] = {}
     material_cache: dict[str, IsotropicMaterialPropertiesFact] = {}
+    material_type_cache: dict[str, MaterialTypeFact] = {}
     result: list[FrameEq713ResidualStructuralFact] = []
 
     for scope in sorted(out_of_slice_rows, key=lambda item: item.frame_name):
@@ -816,6 +855,20 @@ def _capture_residual_structural_facts(
             )
             material_cache[material_name] = isotropic
 
+        material_type = material_type_cache.get(
+            material_name
+        )
+        if material_type is None:
+            material_type = (
+                get_material_type_from_session(
+                    context.verified_session,
+                    material_name=material_name,
+                )
+            )
+            material_type_cache[
+                material_name
+            ] = material_type
+
         beam_mechanics = beam_mechanics_by_name.get(scope.frame_name)
         fact = FrameEq713ResidualStructuralFact(
             frame_name=scope.frame_name,
@@ -836,12 +889,14 @@ def _capture_residual_structural_facts(
                 object_modifiers.evidence_ref,
                 releases.evidence_ref,
                 isotropic.evidence_ref,
+                material_type.evidence_ref,
                 *(
                     beam_mechanics.source_refs
                     if beam_mechanics is not None
                     else ()
                 ),
             ),
+            material_type=material_type,
         )
         result.append(fact)
 
@@ -907,6 +962,30 @@ class FrameEq713ScopeFact:
             raise TypeError("scope_status must be FrameEq713ScopeStatus")
         object.__setattr__(self, "reason", _text(self.reason, "reason"))
         object.__setattr__(self, "source_refs", _refs(self.source_refs))
+
+
+def _normalize_frame_section_assignment(
+    value: object,
+) -> str | None:
+    """Normalize the exact ETABS section-assignment table sentinel.
+
+    ``Frame Assignments - Section Properties`` represents an unassigned
+    Frame section with the literal canonical token ``None``.  Normalize
+    that factual table sentinel to Python ``None`` at the acquisition
+    boundary.  Do not generalize other tokens or infer applicability here.
+    """
+    if value is None:
+        return None
+
+    token = str(value).strip()
+
+    if token in {"", "None"}:
+        return None
+
+    return _text(
+        token,
+        "assigned_section_name",
+    )
 
 
 def _build_frame_scope_partition(
@@ -1026,10 +1105,8 @@ def _build_frame_scope_partition(
             f"Frame {name} assigned section",
             required=False,
         )
-        section = (
-            None
-            if section_raw in (None, "")
-            else _text(str(section_raw).strip(), "assigned_section_name")
+        section = _normalize_frame_section_assignment(
+            section_raw,
         )
         if section is None:
             out_of_slice.append(
@@ -1356,6 +1433,7 @@ class FrameEq713FactualPopulation:
     out_of_slice_rows: tuple[FrameEq713ScopeFact, ...] = ()
     object_type_facts: tuple[FrameEq713ObjectTypeFact, ...] = ()
     residual_structural_facts: tuple[FrameEq713ResidualStructuralFact, ...] = ()
+    line_spring_property_universe: LineSpringPropertyUniverseFact | None = None
     material_snapshot: FrameFlexuralBaseCaptureSnapshot | None = None
 
     def __post_init__(self) -> None:
@@ -1453,7 +1531,31 @@ class FrameEq713FactualPopulation:
                     "material snapshot provenance is not bound to Frame population"
                 )
 
+        line_spring_universe = self.line_spring_property_universe
+        if line_spring_universe is not None:
+            if not isinstance(
+                line_spring_universe,
+                LineSpringPropertyUniverseFact,
+            ):
+                raise TypeError(
+                    "line_spring_property_universe must be "
+                    "LineSpringPropertyUniverseFact or None"
+                )
+            if (
+                line_spring_universe.evidence_ref
+                not in tuple(self.source_refs)
+            ):
+                raise EtabsFrameEq713PopulationError(
+                    "line-spring property universe provenance "
+                    "is not bound to Frame population"
+                )
+
         object.__setattr__(self, "residual_structural_facts", residual)
+        object.__setattr__(
+            self,
+            "line_spring_property_universe",
+            line_spring_universe,
+        )
         object.__setattr__(self, "material_snapshot", material_snapshot)
         object.__setattr__(self, "source_refs", _refs(self.source_refs))
 
@@ -1475,6 +1577,24 @@ class FrameEq713FactualPopulation:
         }
 
 
+def _capture_line_spring_property_universe_if_needed(
+    context: TrustedLiveAcquisitionContext,
+    object_type_facts: Sequence[FrameEq713ObjectTypeFact],
+) -> LineSpringPropertyUniverseFact | None:
+    has_null_frame = any(
+        item.resolution is FrameEq713ObjectTypeResolution.RESOLVED
+        and item.normalized_frame_type == "NULL"
+        for item in object_type_facts
+    )
+
+    if not has_null_frame:
+        return None
+
+    return read_line_spring_property_universe_from_session(
+        context.verified_session,
+    )
+
+
 def capture_frame_eq713_factual_population(
     context: TrustedLiveAcquisitionContext,
     owned_scratch: OwnedScratchContext,
@@ -1494,6 +1614,12 @@ def capture_frame_eq713_factual_population(
     object_type_facts = _capture_frame_object_type_facts(
         context,
         expected,
+    )
+    line_spring_property_universe = (
+        _capture_line_spring_property_universe_if_needed(
+            context,
+            object_type_facts,
+        )
     )
     base_snapshot = capture_frame_flexural_base_snapshot(
         context=context,
@@ -1534,6 +1660,11 @@ def capture_frame_eq713_factual_population(
         context.session_provenance_ref,
         owned_scratch.ownership_proof_ref,
     ]
+
+    if line_spring_property_universe is not None:
+        population_refs.append(
+            line_spring_property_universe.evidence_ref
+        )
 
     for scope in out_of_slice_rows:
         population_refs.extend(scope.source_refs)
@@ -1644,6 +1775,7 @@ def capture_frame_eq713_factual_population(
         out_of_slice_rows=out_of_slice_rows,
         object_type_facts=object_type_facts,
         residual_structural_facts=residual_structural_facts,
+        line_spring_property_universe=line_spring_property_universe,
         material_snapshot=(
             base_snapshot
             if isinstance(

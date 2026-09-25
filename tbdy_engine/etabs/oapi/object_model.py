@@ -15,6 +15,8 @@ from tbdy_engine.etabs.safety import EtabsVerifiedSession, _execute_verified_rea
 from .contracts import (
     AreaPropertyAssignmentFact,
     EtabsOAPIError,
+    PointConnectivityFact,
+    PointConnectivityItemFact,
     PointRestraintFact,
     RebarColumnFact,
     WallPropertyFact,
@@ -102,6 +104,236 @@ def read_frame_names(frame_obj: Any) -> tuple[tuple[str, ...], object]:
 
 def read_area_names(area_obj: Any) -> tuple[tuple[str, ...], object]:
     return _read_name_list(area_obj, "AreaObj")
+
+
+def read_point_connectivity(
+    point_obj: Any,
+    point_name: str,
+) -> PointConnectivityFact:
+    """Read exact CSI object connectivity at one point object.
+
+    CSI object-type codes:
+      2 = Frame
+      3 = Cable
+      4 = Tendon
+      5 = Area
+      6 = Solid
+      7 = Link
+
+    This function is factual only.  It does not infer rotational
+    restraint, fixity, support, hinge state, or A18/A19 semantics.
+    """
+    name = _text(
+        str(point_name),
+        "point_name",
+    )
+
+    try:
+        raw = point_obj.GetConnectivity(
+            name,
+            0,
+            (),
+            (),
+            (),
+        )
+    except Exception as exc:
+        raise EtabsOAPIError(
+            "PointObj.GetConnectivity"
+            f"({name!r}) failed: "
+            f"{type(exc).__name__}: {exc}"
+        ) from exc
+
+    (
+        number_items_raw,
+        object_types_raw,
+        object_names_raw,
+        point_numbers_raw,
+        ret,
+    ) = _sequence(
+        raw,
+        method=(
+            "PointObj.GetConnectivity"
+            f"({name!r})"
+        ),
+        expected=5,
+    )
+
+    if (
+        not isinstance(ret, int)
+        or isinstance(ret, bool)
+        or ret != 0
+    ):
+        raise EtabsOAPIError(
+            "PointObj.GetConnectivity"
+            f"({name!r}) returned code {ret!r}"
+        )
+
+    if (
+        not isinstance(number_items_raw, int)
+        or isinstance(number_items_raw, bool)
+        or number_items_raw < 0
+    ):
+        raise EtabsOAPIError(
+            "PointObj.GetConnectivity"
+            f"({name!r}) returned invalid "
+            f"NumberItems={number_items_raw!r}"
+        )
+
+    number_items = int(
+        number_items_raw
+    )
+
+    def decode_array(
+        value: Any,
+        label: str,
+    ) -> tuple[Any, ...]:
+        if value is None:
+            values: tuple[Any, ...] = ()
+
+        elif isinstance(
+            value,
+            (tuple, list),
+        ):
+            values = tuple(
+                value
+            )
+
+        else:
+            raise EtabsOAPIError(
+                "PointObj.GetConnectivity"
+                f"({name!r}) returned "
+                f"non-array {label}="
+                f"{value!r}"
+            )
+
+        if len(values) != number_items:
+            raise EtabsOAPIError(
+                "PointObj.GetConnectivity"
+                f"({name!r}) {label} count "
+                f"mismatch: "
+                f"NumberItems={number_items}, "
+                f"len={len(values)}"
+            )
+
+        return values
+
+    object_types = decode_array(
+        object_types_raw,
+        "ObjectType",
+    )
+
+    object_names = decode_array(
+        object_names_raw,
+        "ObjectName",
+    )
+
+    point_numbers = decode_array(
+        point_numbers_raw,
+        "PointNumber",
+    )
+
+    items = []
+
+    for index in range(
+        number_items
+    ):
+        object_type = object_types[
+            index
+        ]
+
+        if (
+            not isinstance(
+                object_type,
+                int,
+            )
+            or isinstance(
+                object_type,
+                bool,
+            )
+            or object_type
+            not in {
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+            }
+        ):
+            raise EtabsOAPIError(
+                "PointObj.GetConnectivity"
+                f"({name!r}) returned "
+                f"invalid ObjectType "
+                f"at {index}: "
+                f"{object_type!r}"
+            )
+
+        object_name = _text(
+            object_names[index],
+            (
+                "point_connectivity"
+                f"[{index}].object_name"
+            ),
+        )
+
+        point_number = point_numbers[
+            index
+        ]
+
+        if (
+            not isinstance(
+                point_number,
+                int,
+            )
+            or isinstance(
+                point_number,
+                bool,
+            )
+            or point_number <= 0
+        ):
+            raise EtabsOAPIError(
+                "PointObj.GetConnectivity"
+                f"({name!r}) returned "
+                f"invalid PointNumber "
+                f"at {index}: "
+                f"{point_number!r}"
+            )
+
+        items.append(
+            PointConnectivityItemFact(
+                object_type=object_type,
+                object_name=object_name,
+                point_number=point_number,
+            )
+        )
+
+    identities = tuple(
+        (
+            item.object_type,
+            item.object_name,
+            item.point_number,
+        )
+        for item in items
+    )
+
+    if len(
+        identities
+    ) != len(
+        set(
+            identities
+        )
+    ):
+        raise EtabsOAPIError(
+            "PointObj.GetConnectivity"
+            f"({name!r}) returned duplicate "
+            "connectivity identities"
+        )
+
+    return PointConnectivityFact(
+        point_name=name,
+        items=tuple(items),
+        raw_response=raw,
+    )
 
 
 def read_point_restraint(point_obj: Any, point_name: str) -> PointRestraintFact:
@@ -221,6 +453,281 @@ def read_wall_property(prop_area: Any, property_name: str) -> WallPropertyFact:
     )
 
 
+def read_area_label_story(
+    area_obj: Any,
+    area_name: str,
+) -> tuple[str, str, object]:
+    """Read exact AreaObj label and story."""
+    name = _text(
+        area_name,
+        "area_name",
+    )
+
+    try:
+        raw = area_obj.GetLabelFromName(
+            name
+        )
+    except Exception as exc:
+        raise EtabsOAPIError(
+            "AreaObj.GetLabelFromName"
+            f"({name!r}) failed: "
+            f"{type(exc).__name__}: {exc}"
+        ) from exc
+
+    label, story, ret = _sequence(
+        raw,
+        method=(
+            "AreaObj.GetLabelFromName"
+            f"({name!r})"
+        ),
+        expected=3,
+    )
+
+    if (
+        not isinstance(ret, int)
+        or isinstance(ret, bool)
+        or ret != 0
+    ):
+        raise EtabsOAPIError(
+            "AreaObj.GetLabelFromName"
+            f"({name!r}) failed/raw={raw!r}"
+        )
+
+    return (
+        _text(label, "area_label"),
+        _text(story, "area_story"),
+        raw,
+    )
+
+
+def read_area_points(
+    area_obj: Any,
+    area_name: str,
+) -> tuple[tuple[str, ...], object]:
+    """Read defining PointObj identities of one AreaObj."""
+    name = _text(
+        area_name,
+        "area_name",
+    )
+
+    try:
+        raw = area_obj.GetPoints(
+            name
+        )
+    except Exception as exc:
+        raise EtabsOAPIError(
+            "AreaObj.GetPoints"
+            f"({name!r}) failed: "
+            f"{type(exc).__name__}: {exc}"
+        ) from exc
+
+    count_raw, points_raw, ret = _sequence(
+        raw,
+        method=(
+            "AreaObj.GetPoints"
+            f"({name!r})"
+        ),
+        expected=3,
+    )
+
+    if (
+        not isinstance(ret, int)
+        or isinstance(ret, bool)
+        or ret != 0
+    ):
+        raise EtabsOAPIError(
+            "AreaObj.GetPoints"
+            f"({name!r}) failed/raw={raw!r}"
+        )
+
+    count = _nonnegative_int(
+        count_raw,
+        "area_point_count",
+    )
+
+    if points_raw is None:
+        values = ()
+
+    elif isinstance(
+        points_raw,
+        (tuple, list),
+    ):
+        values = tuple(points_raw)
+
+    else:
+        values = (points_raw,)
+
+    points = tuple(
+        _text(
+            item,
+            "area_point_name",
+        )
+        for item in values
+    )
+
+    if len(points) != count:
+        raise EtabsOAPIError(
+            "AreaObj.GetPoints count mismatch: "
+            f"reported={count} "
+            f"observed={len(points)} "
+            f"raw={raw!r}"
+        )
+
+    if count < 3:
+        raise EtabsOAPIError(
+            "AreaObj.GetPoints returned fewer "
+            "than three defining points"
+        )
+
+    if len(set(points)) != len(points):
+        raise EtabsOAPIError(
+            "AreaObj.GetPoints returned duplicate "
+            "point identities"
+        )
+
+    return (
+        points,
+        raw,
+    )
+
+
+def read_point_coord_cartesian(
+    point_obj: Any,
+    point_name: str,
+    *,
+    coordinate_system: str = "Global",
+) -> tuple[float, float, float, object]:
+    """Read PointObj coordinates in CSI Present Units."""
+    name = _text(
+        point_name,
+        "point_name",
+    )
+
+    csys = _text(
+        coordinate_system,
+        "coordinate_system",
+    )
+
+    try:
+        # CSI COM type library exposes X/Y/Z as in-out doubles
+        # before the optional CSys input.  Seed the three factual
+        # output slots explicitly so comtypes does not bind CSys
+        # to X.
+        raw = point_obj.GetCoordCartesian(
+            name,
+            0.0,
+            0.0,
+            0.0,
+            csys,
+        )
+    except Exception as exc:
+        raise EtabsOAPIError(
+            "PointObj.GetCoordCartesian"
+            f"({name!r}, {csys!r}) failed: "
+            f"{type(exc).__name__}: {exc}"
+        ) from exc
+
+    x_raw, y_raw, z_raw, ret = _sequence(
+        raw,
+        method=(
+            "PointObj.GetCoordCartesian"
+            f"({name!r})"
+        ),
+        expected=4,
+    )
+
+    if (
+        not isinstance(ret, int)
+        or isinstance(ret, bool)
+        or ret != 0
+    ):
+        raise EtabsOAPIError(
+            "PointObj.GetCoordCartesian"
+            f"({name!r}) failed/raw={raw!r}"
+        )
+
+    return (
+        _finite(
+            x_raw,
+            "point_x",
+        ),
+        _finite(
+            y_raw,
+            "point_y",
+        ),
+        _finite(
+            z_raw,
+            "point_z",
+        ),
+        raw,
+    )
+
+
+def read_frame_local_axes(
+    frame_obj: Any,
+    frame_name: str,
+) -> tuple[float, bool, object]:
+    """Read the exact CSI FrameObj local-axis assignment.
+
+    CSI GetLocalAxes returns the rotation of local 2/3 about
+    positive local 1, plus whether advanced local-axis parameters
+    govern the orientation.
+    """
+    name = _text(
+        frame_name,
+        "frame_name",
+    )
+
+    try:
+        # CSI COM exposes Ang and Advanced as in-out parameters.
+        raw = frame_obj.GetLocalAxes(
+            name,
+            0.0,
+            False,
+        )
+    except Exception as exc:
+        raise EtabsOAPIError(
+            "FrameObj.GetLocalAxes"
+            f"({name!r}) failed: "
+            f"{type(exc).__name__}: {exc}"
+        ) from exc
+
+    angle_raw, advanced_raw, ret = _sequence(
+        raw,
+        method=(
+            "FrameObj.GetLocalAxes"
+            f"({name!r})"
+        ),
+        expected=3,
+    )
+
+    if (
+        not isinstance(ret, int)
+        or isinstance(ret, bool)
+        or ret != 0
+    ):
+        raise EtabsOAPIError(
+            "FrameObj.GetLocalAxes"
+            f"({name!r}) failed/raw={raw!r}"
+        )
+
+    if type(advanced_raw) is not bool:
+        raise EtabsOAPIError(
+            "FrameObj.GetLocalAxes"
+            f"({name!r}) returned non-boolean "
+            f"Advanced={advanced_raw!r}"
+        )
+
+    return (
+        _finite(
+            angle_raw,
+            "frame_local_axis_angle_degrees",
+        ),
+        advanced_raw,
+        raw,
+    )
+
+
 def read_point_names_from_session(session: EtabsVerifiedSession) -> tuple[tuple[str, ...], object]:
     return _execute_verified_read(
         session,
@@ -242,6 +749,24 @@ def read_area_names_from_session(session: EtabsVerifiedSession) -> tuple[tuple[s
         session,
         lambda _app, sap: read_area_names(sap.AreaObj),
         operation="oapi_area_obj_get_name_list",
+    )
+
+
+def read_point_connectivity_from_session(
+    session: EtabsVerifiedSession,
+    point_name: str,
+) -> PointConnectivityFact:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: (
+            read_point_connectivity(
+                sap.PointObj,
+                point_name,
+            )
+        ),
+        operation=(
+            "oapi_point_obj_get_connectivity"
+        ),
     )
 
 
@@ -289,13 +814,98 @@ def read_wall_property_from_session(
     )
 
 
+def read_area_label_story_from_session(
+    session: EtabsVerifiedSession,
+    area_name: str,
+) -> tuple[str, str, object]:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: (
+            read_area_label_story(
+                sap.AreaObj,
+                area_name,
+            )
+        ),
+        operation=(
+            "oapi_area_obj_get_label_from_name"
+        ),
+    )
+
+
+def read_area_points_from_session(
+    session: EtabsVerifiedSession,
+    area_name: str,
+) -> tuple[tuple[str, ...], object]:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: (
+            read_area_points(
+                sap.AreaObj,
+                area_name,
+            )
+        ),
+        operation=(
+            "oapi_area_obj_get_points"
+        ),
+    )
+
+
+def read_point_coord_cartesian_from_session(
+    session: EtabsVerifiedSession,
+    point_name: str,
+    *,
+    coordinate_system: str = "Global",
+) -> tuple[float, float, float, object]:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: (
+            read_point_coord_cartesian(
+                sap.PointObj,
+                point_name,
+                coordinate_system=coordinate_system,
+            )
+        ),
+        operation=(
+            "oapi_point_obj_get_coord_cartesian"
+        ),
+    )
+
+
+def read_frame_local_axes_from_session(
+    session: EtabsVerifiedSession,
+    frame_name: str,
+) -> tuple[float, bool, object]:
+    return _execute_verified_read(
+        session,
+        lambda _app, sap: (
+            read_frame_local_axes(
+                sap.FrameObj,
+                frame_name,
+            )
+        ),
+        operation=(
+            "oapi_frame_obj_get_local_axes"
+        ),
+    )
+
+
 __all__ = [
+    "read_area_label_story",
+    "read_area_label_story_from_session",
     "read_area_names",
     "read_area_names_from_session",
+    "read_area_points",
+    "read_area_points_from_session",
     "read_area_property_assignment",
     "read_area_property_assignment_from_session",
+    "read_frame_local_axes",
+    "read_frame_local_axes_from_session",
     "read_frame_names",
     "read_frame_names_from_session",
+    "read_point_connectivity",
+    "read_point_connectivity_from_session",
+    "read_point_coord_cartesian",
+    "read_point_coord_cartesian_from_session",
     "read_point_names",
     "read_point_names_from_session",
     "read_point_restraint",

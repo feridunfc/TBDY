@@ -154,18 +154,41 @@ def test_supported_membrane_blocker_is_not_shellthick_response_target():
     ) is None
 
 
-def test_supported_shellthick_non_response_prerequisite_blocker_stays_persistent():
-    reason = "floor in-plane Eq7.13 participation is not positively established as semi-rigid diaphragm response"
-    blocked = _area("A1", mode=AreaStiffnessMode.F11, reason=reason, target=False)
-    whole = Eq713PopulationDisposition(frame_rows=(), area_rows=(blocked,))
+def test_supported_shellthick_static_prerequisite_blocker_enters_positive_response_scope():
+    reason = (
+        "floor in-plane Eq7.13 participation is not "
+        "positively established as semi-rigid "
+        "diaphragm response"
+    )
+
+    blocked = _area(
+        "A1",
+        mode=AreaStiffnessMode.F11,
+        reason=reason,
+        target=False,
+    )
+
+    whole = Eq713PopulationDisposition(
+        frame_rows=(),
+        area_rows=(blocked,),
+    )
+
     partition = a5._partition_response_blockers(
         whole,
         SimpleNamespace(rows=()),
         (_shell_evidence("A1"),),
     )
-    assert partition.unresolved_count == 0
-    assert partition.response_area_names == ()
-    assert partition.persistent_non_response_blockers[0][3] == reason
+
+    assert partition.unresolved_count == 1
+    assert (
+        partition.response_area_names
+        == ("A1",)
+    )
+    assert (
+        partition
+        .persistent_non_response_blockers
+        == ()
+    )
 
 
 def test_residual_frame_blocker_does_not_suppress_supported_beam_response_scope():
@@ -319,3 +342,470 @@ def test_already_targeted_response_modes_are_not_reported_still_blocked():
         frame_names=(),
         area_names=("A1",),
     ) == ()
+
+
+
+def test_unmutated_area_property_uses_exact_post_b5_readback(
+    monkeypatch,
+):
+    readback = SimpleNamespace(
+        success=True,
+        evidence_ref="prop-readback:P",
+    )
+
+    calls = []
+
+    def read(
+        session,
+        *,
+        surface,
+        target_name,
+    ):
+        calls.append(
+            (
+                session,
+                surface,
+                target_name,
+            )
+        )
+        return readback
+
+    monkeypatch.setattr(
+        a5,
+        "get_area_modifiers_from_session",
+        read,
+    )
+
+    monkeypatch.setattr(
+        a5,
+        "AreaShellThickResponseGeneration",
+        lambda **kwargs: SimpleNamespace(
+            **kwargs
+        ),
+    )
+
+    fact = SimpleNamespace(
+        area_name="10",
+        property_name="Foundation_60cm",
+        property_state=SimpleNamespace(
+            family=a5.AreaPropertyFamily.SLAB,
+            shell_type_code=2,
+            thickness=0.60,
+        ),
+    )
+
+    response = SimpleNamespace(
+        area_names=("10",),
+        case_names=("LC_EQX", "LC_EQY"),
+        area_strain_results=(
+            SimpleNamespace(
+                area_name="10",
+                case_name="LC_EQX",
+                rows=("x-row",),
+            ),
+            SimpleNamespace(
+                area_name="10",
+                case_name="LC_EQY",
+                rows=("y-row",),
+            ),
+        ),
+        source_refs=("response:scope",),
+        evidence_ref="response:population",
+    )
+
+    state = SimpleNamespace(
+        mutation_manifest=SimpleNamespace(
+            mutations=(),
+        ),
+        analysis_state_identity=SimpleNamespace(
+            identity_ref="analysis-state:G1",
+        ),
+    )
+
+    result = (
+        a5
+        ._area_shell_thick_generations_from_response(
+            session="SESSION",
+            area_population=SimpleNamespace(
+                rows=(fact,),
+            ),
+            response=response,
+            established_state=state,
+        )
+    )
+
+    assert calls == [
+        (
+            "SESSION",
+            a5.AreaModifierSurface.AREA_PROPERTY,
+            "Foundation_60cm",
+        )
+    ]
+
+    generation = result["10"]
+
+    assert (
+        generation.property_modifiers
+        is readback
+    )
+
+    assert (
+        "prop-readback:P"
+        in generation.source_refs
+    )
+
+
+def _shared_property_row(
+    name,
+    *,
+    f11_disposition,
+    f11_value,
+):
+    rows = []
+
+    for mode in AreaStiffnessMode:
+        if mode is AreaStiffnessMode.F11:
+            disposition = (
+                f11_disposition
+            )
+            value = f11_value
+        else:
+            disposition = (
+                ContributorDisposition
+                .TARGETED_UNCRACKED
+            )
+            value = 1.0
+
+        rows.append(
+            _mode(
+                mode,
+                disposition,
+                "shared-property-test",
+            )
+        )
+
+    target = [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+    ]
+
+    target[0] = f11_value
+
+    blocked = tuple(
+        dict.fromkeys(
+            row.reason
+            for row in rows
+            if (
+                row.disposition
+                is ContributorDisposition
+                .BLOCKED_UNSUPPORTED
+            )
+        )
+    )
+
+    return AreaEq713TargetDisposition(
+        name,
+        tuple(rows),
+        tuple(target),
+        blocked,
+        (f"area:{name}",),
+    )
+
+
+def _shared_property_fact(name):
+    current = (
+        0.8,
+        0.8,
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+    )
+
+    return SimpleNamespace(
+        area_name=name,
+        property_name="BsmntWall_40cm",
+        property_state=SimpleNamespace(
+            property_modifiers=SimpleNamespace(
+                modifiers=(
+                    a5.AreaModifierVector
+                    .from_sequence(
+                        current
+                    )
+                ),
+            ),
+        ),
+    )
+
+
+def test_shared_area_property_targeted_mode_can_dominate_only_proven_nonparticipating_users():
+    pier = _shared_property_row(
+        "1",
+        f11_disposition=(
+            ContributorDisposition
+            .PROVEN_NON_PARTICIPATING_MODE
+        ),
+        f11_value=0.8,
+    )
+
+    response_positive = (
+        _shared_property_row(
+            "471",
+            f11_disposition=(
+                ContributorDisposition
+                .TARGETED_UNCRACKED
+            ),
+            f11_value=1.0,
+        )
+    )
+
+    targets = a5._b4b_targets(
+        SimpleNamespace(rows=()),
+        SimpleNamespace(
+            rows=(
+                _shared_property_fact("1"),
+                _shared_property_fact("471"),
+            )
+        ),
+        (),
+        (
+            pier,
+            response_positive,
+        ),
+    )
+
+    assert len(targets) == 1
+
+    target = targets[0]
+
+    assert (
+        target.target_name
+        == "BsmntWall_40cm"
+    )
+
+    assert (
+        target.modifiers.as_tuple()[0]
+        == 1.0
+    )
+
+
+def test_shared_area_property_targeted_mode_does_not_override_blocked_user():
+    blocked = _shared_property_row(
+        "1",
+        f11_disposition=(
+            ContributorDisposition
+            .BLOCKED_UNSUPPORTED
+        ),
+        f11_value=0.8,
+    )
+
+    response_positive = (
+        _shared_property_row(
+            "471",
+            f11_disposition=(
+                ContributorDisposition
+                .TARGETED_UNCRACKED
+            ),
+            f11_value=1.0,
+        )
+    )
+
+    with pytest.raises(
+        a5.PublicA5CompositionError,
+        match="unresolved F11",
+    ):
+        a5._b4b_targets(
+            SimpleNamespace(rows=()),
+            SimpleNamespace(
+                rows=(
+                    _shared_property_fact("1"),
+                    _shared_property_fact("471"),
+                )
+            ),
+            (),
+            (
+                blocked,
+                response_positive,
+            ),
+        )
+
+
+
+class _A4TopologyColumn:
+    def __init__(self, payload):
+        self._payload = payload
+
+    def as_dict(self):
+        return self._payload
+
+
+def test_a4_topology_semantic_projection_ignores_source_row_modifier_mutation():
+    pre = _A4TopologyColumn(
+        {
+            "component_id": "+0.00:C104:211",
+            "Section": "Column_80x80",
+            "joint_bottom": "919",
+            "joint_top": "1045",
+            "bottom_coord_m": [0.0, 0.0, -5.15],
+            "top_coord_m": [0.0, 0.0, 0.0],
+            "beams_at_top": [
+                {
+                    "beam_unique_name": "B1",
+                    "vector_from_joint_m": [4.0, 0.0, 0.0],
+                    "source_rows": {
+                        "section_definition": {
+                            "Name": "B30x50",
+                            "I2Mod": "0.35",
+                            "I3Mod": "0.35",
+                        },
+                    },
+                },
+            ],
+            "source_rows": {
+                "section_definition": {
+                    "Name": "Column_80x80",
+                    "I2Mod": "0.7",
+                    "I3Mod": "0.7",
+                },
+            },
+        }
+    )
+
+    post = _A4TopologyColumn(
+        {
+            "component_id": "+0.00:C104:211",
+            "Section": "Column_80x80",
+            "joint_bottom": "919",
+            "joint_top": "1045",
+            "bottom_coord_m": [0.0, 0.0, -5.15],
+            "top_coord_m": [0.0, 0.0, 0.0],
+            "beams_at_top": [
+                {
+                    "beam_unique_name": "B1",
+                    "vector_from_joint_m": [4.0, 0.0, 0.0],
+                    "source_rows": {
+                        "section_definition": {
+                            "Name": "B30x50",
+                            "I2Mod": "1",
+                            "I3Mod": "1",
+                        },
+                    },
+                },
+            ],
+            "source_rows": {
+                "section_definition": {
+                    "Name": "Column_80x80",
+                    "I2Mod": "1",
+                    "I3Mod": "1",
+                },
+            },
+        }
+    )
+
+    assert (
+        a5._strict_column_topology_semantic_state(
+            pre
+        )
+        ==
+        a5._strict_column_topology_semantic_state(
+            post
+        )
+    )
+
+
+def test_a4_topology_semantic_projection_still_detects_column_semantic_change():
+    pre = _A4TopologyColumn(
+        {
+            "component_id": "+0.00:C104:211",
+            "Section": "Column_80x80",
+            "joint_bottom": "919",
+            "joint_top": "1045",
+            "source_rows": {
+                "section_definition": {
+                    "I2Mod": "0.7",
+                },
+            },
+        }
+    )
+
+    post = _A4TopologyColumn(
+        {
+            "component_id": "+0.00:C104:211",
+            "Section": "Column_90x90",
+            "joint_bottom": "919",
+            "joint_top": "1045",
+            "source_rows": {
+                "section_definition": {
+                    "I2Mod": "1",
+                },
+            },
+        }
+    )
+
+    assert (
+        a5._strict_column_topology_semantic_state(
+            pre
+        )
+        !=
+        a5._strict_column_topology_semantic_state(
+            post
+        )
+    )
+
+
+def test_a4_topology_semantic_projection_still_detects_nested_beam_change():
+    pre = _A4TopologyColumn(
+        {
+            "component_id": "+0.00:C104:211",
+            "beams_at_top": [
+                {
+                    "beam_unique_name": "B1",
+                    "vector_from_joint_m": [4.0, 0.0, 0.0],
+                    "source_rows": {
+                        "section_definition": {
+                            "I2Mod": "0.35",
+                        },
+                    },
+                },
+            ],
+        }
+    )
+
+    post = _A4TopologyColumn(
+        {
+            "component_id": "+0.00:C104:211",
+            "beams_at_top": [
+                {
+                    "beam_unique_name": "B1",
+                    "vector_from_joint_m": [3.5, 0.0, 0.0],
+                    "source_rows": {
+                        "section_definition": {
+                            "I2Mod": "1",
+                        },
+                    },
+                },
+            ],
+        }
+    )
+
+    assert (
+        a5._strict_column_topology_semantic_state(
+            pre
+        )
+        !=
+        a5._strict_column_topology_semantic_state(
+            post
+        )
+    )

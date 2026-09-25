@@ -31,11 +31,24 @@ from tbdy_engine.features.used_rc_material_population import (
 from tbdy_engine.providers.etabs_column_rebar_intent_provider import (
     EtabsColumnRebarIntentEvidence,
 )
+from tbdy_engine.regulatory.contracts import (
+    ApplicabilityBinding,
+    ApplicabilityState,
+)
 
 
 COLUMN_DESIGN_BASIS_AUTHORITY = "REVIEWED_PROJECT_COLUMN_DESIGN_BASIS"
 COLUMN_DESIGN_BASIS_BINDING_AUTHORITY = "COLUMN_DESIGN_BASIS_FACTUAL_MATERIAL_BINDING"
 COLUMN_STORY_TRANSLATION_TOLERANCE_BASIS_VERSION = "COLUMN_STORY_TRANSLATION_TOLERANCE_V1"
+
+COLUMN_ROUTE_C_W_ACTION_FAMILY = "W"
+COLUMN_ROUTE_C_SUPPORTED_PATH = "COLUMN/ROUTE_C"
+COLUMN_ROUTE_C_W_APPLICABILITY_BASIS_VERSION = (
+    "COLUMN_ROUTE_C_W_APPLICABILITY_V1"
+)
+COLUMN_ROUTE_C_W_APPLICABILITY_BINDING_ID = (
+    "column-r1-route-c-w-applicability-v1"
+)
 
 
 class ColumnDesignBasisError(ValueError):
@@ -130,6 +143,97 @@ class ReviewedAggregateBasis:
 
 
 @dataclass(frozen=True, slots=True)
+class ReviewedActionFamilyApplicability:
+    """Reviewed applicability for the bounded Route-C W action family."""
+
+    state: ApplicabilityState
+    review_refs: tuple[str, ...]
+    source_refs: tuple[str, ...]
+    action_family: str = COLUMN_ROUTE_C_W_ACTION_FAMILY
+    supported_path: str = COLUMN_ROUTE_C_SUPPORTED_PATH
+    basis_version: str = COLUMN_ROUTE_C_W_APPLICABILITY_BASIS_VERSION
+
+    def __post_init__(self) -> None:
+        if not isinstance(
+            self.state,
+            ApplicabilityState,
+        ):
+            raise TypeError(
+                "state must be ApplicabilityState"
+            )
+
+        if (
+            self.action_family
+            != COLUMN_ROUTE_C_W_ACTION_FAMILY
+        ):
+            raise ColumnDesignBasisError(
+                "reviewed action-family applicability "
+                "must target W"
+            )
+
+        if (
+            self.supported_path
+            != COLUMN_ROUTE_C_SUPPORTED_PATH
+        ):
+            raise ColumnDesignBasisError(
+                "reviewed W applicability must target "
+                "COLUMN/ROUTE_C"
+            )
+
+        if (
+            self.basis_version
+            != COLUMN_ROUTE_C_W_APPLICABILITY_BASIS_VERSION
+        ):
+            raise ColumnDesignBasisError(
+                "unsupported W applicability basis version"
+            )
+
+        object.__setattr__(
+            self,
+            "review_refs",
+            _refs(
+                self.review_refs,
+                "route_c_w_applicability.review_ref",
+            ),
+        )
+
+        object.__setattr__(
+            self,
+            "source_refs",
+            _refs(
+                self.source_refs,
+                "route_c_w_applicability.source_ref",
+            ),
+        )
+
+
+def _evaluate_route_c_w_applicability(
+    value: object,
+) -> ApplicabilityState:
+    if not isinstance(
+        value,
+        ReviewedActionFamilyApplicability,
+    ):
+        raise TypeError(
+            "Route-C W applicability input must be "
+            "ReviewedActionFamilyApplicability"
+        )
+
+    return value.state
+
+
+COLUMN_ROUTE_C_W_APPLICABILITY_BINDING = (
+    ApplicabilityBinding(
+        binding_id=(
+            COLUMN_ROUTE_C_W_APPLICABILITY_BINDING_ID
+        ),
+        input_type=ReviewedActionFamilyApplicability,
+        evaluator=_evaluate_route_c_w_applicability,
+    )
+)
+
+
+@dataclass(frozen=True, slots=True)
 class ReviewedColumnDesignBasis:
     concrete_strengths: tuple[ReviewedConcreteDesignStrength, ...]
     longitudinal_steel_strengths: tuple[ReviewedLongitudinalSteelDesignStrength, ...]
@@ -141,6 +245,7 @@ class ReviewedColumnDesignBasis:
     high_ductility_applies: bool | None = None
     limited_ductility_applies: bool | None = None
     transverse_policy_refs: tuple[str, ...] = ()
+    route_c_w_applicability: ReviewedActionFamilyApplicability | None = None
 
     def __post_init__(self) -> None:
         concrete = tuple(self.concrete_strengths)
@@ -168,6 +273,18 @@ class ReviewedColumnDesignBasis:
             raise TypeError(
                 "story_translation_tolerance must be ReviewedStoryTranslationTolerance or None"
             )
+        if (
+            self.route_c_w_applicability is not None
+            and not isinstance(
+                self.route_c_w_applicability,
+                ReviewedActionFamilyApplicability,
+            )
+        ):
+            raise TypeError(
+                "route_c_w_applicability must be "
+                "ReviewedActionFamilyApplicability or None"
+            )
+
         for name in ("high_ductility_applies", "limited_ductility_applies"):
             value = getattr(self, name)
             if value is not None and type(value) is not bool:
@@ -207,6 +324,234 @@ class ReviewedColumnDesignBasis:
                 f"reviewed fyd applicability does not exactly match factual longitudinal material {name!r}"
             )
         return matches[0]
+
+
+@dataclass(frozen=True, slots=True)
+class BoundColumnActionFamilyApplicability:
+    """Project/model/epoch-bound reviewed Route-C W applicability."""
+
+    action_family: str
+    supported_path: str
+    state: ApplicabilityState
+    project_id: str
+    model_fingerprint: str
+    evidence_epoch_id: str
+    basis_version: str
+    applicability_binding_id: str
+    binding_ref: str
+    evidence_ref: str
+    review_refs: tuple[str, ...]
+    source_refs: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if (
+            self.action_family
+            != COLUMN_ROUTE_C_W_ACTION_FAMILY
+        ):
+            raise ColumnDesignBasisError(
+                "bound action family must be W"
+            )
+
+        if (
+            self.supported_path
+            != COLUMN_ROUTE_C_SUPPORTED_PATH
+        ):
+            raise ColumnDesignBasisError(
+                "bound applicability path must be "
+                "COLUMN/ROUTE_C"
+            )
+
+        if not isinstance(
+            self.state,
+            ApplicabilityState,
+        ):
+            raise TypeError(
+                "state must be ApplicabilityState"
+            )
+
+        if (
+            self.basis_version
+            != COLUMN_ROUTE_C_W_APPLICABILITY_BASIS_VERSION
+        ):
+            raise ColumnDesignBasisError(
+                "unsupported bound W applicability basis version"
+            )
+
+        if (
+            self.applicability_binding_id
+            != COLUMN_ROUTE_C_W_APPLICABILITY_BINDING_ID
+        ):
+            raise ColumnDesignBasisError(
+                "unsupported W applicability binding"
+            )
+
+        object.__setattr__(
+            self,
+            "project_id",
+            _text(
+                self.project_id,
+                "project_id",
+            ),
+        )
+
+        object.__setattr__(
+            self,
+            "model_fingerprint",
+            _text(
+                self.model_fingerprint,
+                "model_fingerprint",
+            ),
+        )
+
+        object.__setattr__(
+            self,
+            "evidence_epoch_id",
+            _text(
+                self.evidence_epoch_id,
+                "evidence_epoch_id",
+            ),
+        )
+
+        object.__setattr__(
+            self,
+            "binding_ref",
+            _text(
+                self.binding_ref,
+                "binding_ref",
+            ),
+        )
+
+        object.__setattr__(
+            self,
+            "evidence_ref",
+            _text(
+                self.evidence_ref,
+                "evidence_ref",
+            ),
+        )
+
+        object.__setattr__(
+            self,
+            "review_refs",
+            _refs(
+                self.review_refs,
+                "bound_route_c_w.review_ref",
+            ),
+        )
+
+        object.__setattr__(
+            self,
+            "source_refs",
+            _refs(
+                self.source_refs,
+                "bound_route_c_w.source_ref",
+            ),
+        )
+
+
+def bind_reviewed_route_c_w_applicability(
+    basis: ReviewedColumnDesignBasis,
+    *,
+    project_id: str,
+    model_fingerprint: str,
+    evidence_epoch_id: str,
+) -> BoundColumnActionFamilyApplicability | None:
+    """Bind reviewed W applicability to project/model/epoch identity."""
+
+    if not isinstance(
+        basis,
+        ReviewedColumnDesignBasis,
+    ):
+        raise TypeError(
+            "basis must be ReviewedColumnDesignBasis"
+        )
+
+    reviewed = basis.route_c_w_applicability
+
+    if reviewed is None:
+        return None
+
+    project = _text(
+        project_id,
+        "project_id",
+    )
+
+    model = _text(
+        model_fingerprint,
+        "model_fingerprint",
+    )
+
+    epoch = _text(
+        evidence_epoch_id,
+        "evidence_epoch_id",
+    )
+
+    state = (
+        COLUMN_ROUTE_C_W_APPLICABILITY_BINDING
+        .evaluator(reviewed)
+    )
+
+    binding_ref = _stable_ref(
+        "column-route-c-w-applicability-binding:sha256:",
+        {
+            "project_id": project,
+            "model_fingerprint": model,
+            "evidence_epoch_id": epoch,
+            "action_family": reviewed.action_family,
+            "supported_path": reviewed.supported_path,
+            "state": state.value,
+            "basis_version": reviewed.basis_version,
+            "applicability_binding_id": (
+                COLUMN_ROUTE_C_W_APPLICABILITY_BINDING
+                .binding_id
+            ),
+            "basis_refs": list(
+                basis.basis_refs
+            ),
+            "review_refs": list(
+                reviewed.review_refs
+            ),
+            "source_refs": list(
+                reviewed.source_refs
+            ),
+        },
+    )
+
+    evidence_ref = (
+        "COLUMN_ROUTE_C_GQW_APPLICABILITY:"
+        f"{state.value}:"
+        f"{binding_ref}"
+    )
+
+    source_refs = tuple(
+        dict.fromkeys(
+            (
+                *basis.basis_refs,
+                *reviewed.review_refs,
+                *reviewed.source_refs,
+                binding_ref,
+                evidence_ref,
+            )
+        )
+    )
+
+    return BoundColumnActionFamilyApplicability(
+        action_family=reviewed.action_family,
+        supported_path=reviewed.supported_path,
+        state=state,
+        project_id=project,
+        model_fingerprint=model,
+        evidence_epoch_id=epoch,
+        basis_version=reviewed.basis_version,
+        applicability_binding_id=(
+            COLUMN_ROUTE_C_W_APPLICABILITY_BINDING
+            .binding_id
+        ),
+        binding_ref=binding_ref,
+        evidence_ref=evidence_ref,
+        review_refs=reviewed.review_refs,
+        source_refs=source_refs,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -426,15 +771,23 @@ def bind_reviewed_column_design_basis(
 
 
 __all__ = [
+    "BoundColumnActionFamilyApplicability",
     "BoundColumnDesignBasis",
+    "COLUMN_ROUTE_C_SUPPORTED_PATH",
+    "COLUMN_ROUTE_C_W_ACTION_FAMILY",
+    "COLUMN_ROUTE_C_W_APPLICABILITY_BASIS_VERSION",
+    "COLUMN_ROUTE_C_W_APPLICABILITY_BINDING",
+    "COLUMN_ROUTE_C_W_APPLICABILITY_BINDING_ID",
     "COLUMN_DESIGN_BASIS_AUTHORITY",
     "COLUMN_DESIGN_BASIS_BINDING_AUTHORITY",
     "COLUMN_STORY_TRANSLATION_TOLERANCE_BASIS_VERSION",
     "ColumnDesignBasisError",
+    "ReviewedActionFamilyApplicability",
     "ReviewedAggregateBasis",
     "ReviewedColumnDesignBasis",
     "ReviewedConcreteDesignStrength",
     "ReviewedLongitudinalSteelDesignStrength",
     "ReviewedTransverseSteelDesignStrength",
     "bind_reviewed_column_design_basis",
+    "bind_reviewed_route_c_w_applicability",
 ]

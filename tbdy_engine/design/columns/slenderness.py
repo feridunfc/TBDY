@@ -36,6 +36,9 @@ TS500_APPROX_METHOD_MAX_SLENDERNESS = 100.0
 # without changing engineering semantics.
 GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED = "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED"
 MOMENT_MAGNIFICATION_REQUIRED = "MOMENT_MAGNIFICATION_REQUIRED"
+SIGNED_END_MOMENT_RATIO_REQUIRED_FOR_SLENDERNESS_DECISION = (
+    "SIGNED_END_MOMENT_RATIO_REQUIRED_FOR_SLENDERNESS_DECISION"
+)
 
 
 def _text(value: str, label: str) -> str:
@@ -103,17 +106,7 @@ class ColumnSlendernessAxisBasis:
             raise ColumnSlendernessError(f"unsupported sway_classification={sway}")
         object.__setattr__(self, "sway_classification", sway)
 
-        if sway == SWAY_PREVENTED:
-            if self.moment_ratio_m1_over_m2 is None:
-                raise ColumnSlendernessError(
-                    "sway-prevented slenderness neglect check requires moment_ratio_m1_over_m2"
-                )
-            object.__setattr__(
-                self,
-                "moment_ratio_m1_over_m2",
-                _ratio(self.moment_ratio_m1_over_m2, "moment_ratio_m1_over_m2"),
-            )
-        elif self.moment_ratio_m1_over_m2 is not None:
+        if self.moment_ratio_m1_over_m2 is not None:
             object.__setattr__(
                 self,
                 "moment_ratio_m1_over_m2",
@@ -131,7 +124,11 @@ class ColumnSlendernessAxisBasis:
             raise ColumnSlendernessError("effective-length factor lacks TS500 authority")
         if self.sway_authority != "TS500_SWAY_CLASSIFICATION":
             raise ColumnSlendernessError("sway classification lacks TS500 authority")
-        if sway == SWAY_PREVENTED and self.moment_ratio_authority != "TS500_END_MOMENT_RATIO":
+        if (
+            sway == SWAY_PREVENTED
+            and self.moment_ratio_m1_over_m2 is not None
+            and self.moment_ratio_authority != "TS500_END_MOMENT_RATIO"
+        ):
             raise ColumnSlendernessError("M1/M2 ratio lacks TS500 end-moment-ratio authority")
 
 
@@ -207,20 +204,87 @@ def _evaluate_axis(basis: ColumnSlendernessAxisBasis) -> ColumnSlendernessAxisRe
     radius = TS500_RECTANGULAR_RADIUS_FACTOR * basis.section_dimension_mm
     effective_length = basis.effective_length_factor_k * basis.free_length_ln_mm
     slenderness = effective_length / radius
-
-    if basis.sway_classification == SWAY_PREVENTED:
-        ratio = float(basis.moment_ratio_m1_over_m2)
-        limit = min(TS500_SWAY_PREVENTED_LIMIT_CAP, 34.0 - 12.0 * ratio)
-    else:
-        ratio = basis.moment_ratio_m1_over_m2
-        limit = TS500_SWAY_PERMITTED_NEGLECT_LIMIT
+    ratio = basis.moment_ratio_m1_over_m2
 
     if slenderness > TS500_APPROX_METHOD_MAX_SLENDERNESS + 1e-12:
+        limit = (
+            TS500_SWAY_PERMITTED_NEGLECT_LIMIT
+            if basis.sway_classification == SWAY_PERMITTED
+            else (
+                None
+                if ratio is None
+                else min(
+                    TS500_SWAY_PREVENTED_LIMIT_CAP,
+                    34.0 - 12.0 * ratio,
+                )
+            )
+        )
         status = GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED
-    elif slenderness <= limit + 1e-12:
-        status = "SLENDERNESS_EFFECTS_NEGLIGIBLE"
+
+    elif basis.sway_classification == SWAY_PERMITTED:
+        limit = TS500_SWAY_PERMITTED_NEGLECT_LIMIT
+
+        status = (
+            "SLENDERNESS_EFFECTS_NEGLIGIBLE"
+            if slenderness <= limit + 1e-12
+            else MOMENT_MAGNIFICATION_REQUIRED
+        )
+
+    elif ratio is None:
+        # TS500 Eq.7.17:
+        #
+        # limit = min(40, 34 - 12*r)
+        # r in [-1,+1]
+        #
+        # Exact ratio-independent domain:
+        #
+        # lambda <= 22
+        #   always negligible
+        #
+        # 22 < lambda <= 40
+        #   signed ratio required
+        #
+        # 40 < lambda <= 100
+        #   magnification required
+        #
+        # lambda > 100
+        #   handled above as general second-order analysis
+        limit = None
+
+        if (
+            slenderness
+            <= TS500_SWAY_PERMITTED_NEGLECT_LIMIT
+            + 1e-12
+        ):
+            status = (
+                "SLENDERNESS_EFFECTS_NEGLIGIBLE"
+            )
+
+        elif (
+            slenderness
+            <= TS500_SWAY_PREVENTED_LIMIT_CAP
+            + 1e-12
+        ):
+            status = (
+                SIGNED_END_MOMENT_RATIO_REQUIRED_FOR_SLENDERNESS_DECISION
+            )
+
+        else:
+            status = (
+                MOMENT_MAGNIFICATION_REQUIRED
+            )
+
     else:
-        status = MOMENT_MAGNIFICATION_REQUIRED
+        limit = min(
+            TS500_SWAY_PREVENTED_LIMIT_CAP,
+            34.0 - 12.0 * ratio,
+        )
+
+        status = (
+            "SLENDERNESS_EFFECTS_NEGLIGIBLE"
+            if slenderness <= limit + 1e-12
+            else MOMENT_MAGNIFICATION_REQUIRED
+        )
 
     return ColumnSlendernessAxisResult(
         axis=basis.axis,
@@ -264,10 +328,15 @@ def evaluate_ts500_column_slenderness(
     m2 = _evaluate_axis(basis.m2)
     m3 = _evaluate_axis(basis.m3)
     statuses = {m2.status, m3.status}
-    if statuses == {"SLENDERNESS_EFFECTS_NEGLIGIBLE"}:
-        status = "PROVEN_SLENDERNESS_EFFECTS_NEGLIGIBLE"
-    elif GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED in statuses:
+    if GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED in statuses:
         status = GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED
+
+    elif SIGNED_END_MOMENT_RATIO_REQUIRED_FOR_SLENDERNESS_DECISION in statuses:
+        status = SIGNED_END_MOMENT_RATIO_REQUIRED_FOR_SLENDERNESS_DECISION
+
+    elif statuses == {"SLENDERNESS_EFFECTS_NEGLIGIBLE"}:
+        status = "PROVEN_SLENDERNESS_EFFECTS_NEGLIGIBLE"
+
     else:
         status = "REQUIRES_MOMENT_MAGNIFICATION"
 
@@ -289,6 +358,7 @@ __all__ = [
     "ColumnSlendernessResult",
     "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED",
     "MOMENT_MAGNIFICATION_REQUIRED",
+    "SIGNED_END_MOMENT_RATIO_REQUIRED_FOR_SLENDERNESS_DECISION",
     "SWAY_PERMITTED",
     "SWAY_PREVENTED",
     "TS500_APPROX_METHOD_MAX_SLENDERNESS",

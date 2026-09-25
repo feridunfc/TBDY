@@ -4,6 +4,7 @@ from tbdy_engine.design.columns.slenderness import (
     ColumnSlendernessAxisBasis,
     ColumnSlendernessBasis,
     ColumnSlendernessError,
+    SIGNED_END_MOMENT_RATIO_REQUIRED_FOR_SLENDERNESS_DECISION,
     SWAY_PERMITTED,
     SWAY_PREVENTED,
     evaluate_ts500_column_slenderness,
@@ -118,17 +119,75 @@ def test_lambda_above_100_requires_general_second_order_analysis():
     assert result.status == "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED"
 
 
-def test_sway_prevented_requires_source_bound_m1_m2_ratio():
-    with pytest.raises(ColumnSlendernessError, match="moment_ratio_m1_over_m2"):
-        ColumnSlendernessAxisBasis(
-            axis="M2",
-            section_dimension_mm=800.0,
-            free_length_ln_mm=3000.0,
-            effective_length_factor_k=1.0,
-            sway_classification=SWAY_PREVENTED,
-            moment_ratio_m1_over_m2=None,
-            source_refs=("fixture",),
-        )
+@pytest.mark.parametrize(
+    ("slenderness", "expected_status"),
+    (
+        (
+            21.999,
+            "SLENDERNESS_EFFECTS_NEGLIGIBLE",
+        ),
+        (
+            22.0,
+            "SLENDERNESS_EFFECTS_NEGLIGIBLE",
+        ),
+        (
+            22.001,
+            SIGNED_END_MOMENT_RATIO_REQUIRED_FOR_SLENDERNESS_DECISION,
+        ),
+        (
+            40.0,
+            SIGNED_END_MOMENT_RATIO_REQUIRED_FOR_SLENDERNESS_DECISION,
+        ),
+        (
+            40.001,
+            "MOMENT_MAGNIFICATION_REQUIRED",
+        ),
+        (
+            100.0,
+            "MOMENT_MAGNIFICATION_REQUIRED",
+        ),
+        (
+            100.001,
+            "GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED",
+        ),
+    ),
+)
+def test_sway_prevented_without_ratio_uses_exact_eq717_domain_bounds(
+    slenderness,
+    expected_status,
+):
+    # h = 1000 mm
+    # i = 0.30*h = 300 mm
+    #
+    # Choose ln so Lk/i is exactly the requested lambda.
+    m2 = _axis(
+        "M2",
+        h=1000.0,
+        ln=slenderness * 300.0,
+        ratio=None,
+    )
+
+    result = evaluate_ts500_column_slenderness(
+        component_id=COMP,
+        basis=_basis(
+            m2=m2,
+        ),
+    )
+
+    assert (
+        result.m2.slenderness_ratio_lk_over_i
+        == pytest.approx(slenderness)
+    )
+
+    assert (
+        result.m2.status
+        == expected_status
+    )
+
+    assert (
+        result.m2.moment_ratio_m1_over_m2
+        is None
+    )
 
 
 def test_factual_clear_length_candidate_cannot_masquerade_as_regulatory_free_length():

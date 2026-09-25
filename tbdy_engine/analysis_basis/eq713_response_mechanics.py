@@ -57,6 +57,9 @@ _AREA_SLOT = {
     AreaStiffnessMode.V23: 7,
 }
 _RESPONSE_AREA_MODES = {
+    AreaStiffnessMode.F11,
+    AreaStiffnessMode.F22,
+    AreaStiffnessMode.F12,
     AreaStiffnessMode.M11,
     AreaStiffnessMode.M22,
     AreaStiffnessMode.M12,
@@ -423,8 +426,39 @@ def resolve_area_response_modes(
     """
     if not isinstance(base, AreaEq713TargetDisposition):
         raise TypeError("base must be AreaEq713TargetDisposition")
-    if base.target_property_modifiers is None:
+
+    generations = tuple(response_generations)
+
+    if (
+        base.target_property_modifiers is None
+        and not generations
+    ):
         return base
+
+    if generations:
+        if not isinstance(
+            gross_evidence,
+            AreaGrossBasePropertyEvidence,
+        ):
+            raise TypeError(
+                "gross_evidence is required for "
+                "ShellThick strain response closure"
+            )
+
+        if gross_evidence.area_name != base.area_name:
+            raise ValueError(
+                "Area response gross-evidence identity mismatch"
+            )
+
+        if (
+            gross_evidence.formulation
+            is not AreaFormulation.SHELL_THICK
+            or not gross_evidence.homogeneous_simple_property
+            or not gross_evidence.gross_base_qualified
+            or not gross_evidence.object_modifiers_unity
+        ):
+            return base
+
     refs = _refs(
         (
             *base.source_refs,
@@ -434,20 +468,22 @@ def resolve_area_response_modes(
             P4B_SHELL_THICK_SOURCE_REF,
         )
     )
-    target = list(base.target_property_modifiers)
-    rows = []
-    generations = tuple(response_generations)
 
-    if generations:
-        if not isinstance(gross_evidence, AreaGrossBasePropertyEvidence):
-            raise TypeError("gross_evidence is required for ShellThick strain response closure")
-        if gross_evidence.area_name != base.area_name:
-            raise ValueError("Area response gross-evidence identity mismatch")
-        if (
-            gross_evidence.formulation is not AreaFormulation.SHELL_THICK
-            or not gross_evidence.homogeneous_simple_property
-        ):
-            return base
+    if base.target_property_modifiers is None:
+        # A static role/diaphragm prerequisite may have caused the
+        # initial all-mode fail-closed disposition. Positive
+        # same-generation response is allowed to supersede that
+        # participation uncertainty, but the target still begins
+        # from the exact preserved factual PropArea vector.
+        target = list(
+            gross_evidence.property_modifiers
+        )
+    else:
+        target = list(
+            base.target_property_modifiers
+        )
+
+    rows = []
 
     for row in base.mode_dispositions:
         if (

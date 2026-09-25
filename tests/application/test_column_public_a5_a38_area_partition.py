@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 import tbdy_engine.application.column_public_a5 as a5
+from tbdy_engine.etabs.oapi.area_modifiers import AreaModifierVector
 from tbdy_engine.analysis_basis.eq713_uncracked_analysis_state import (
     AreaStiffnessMode,
     ContributorDisposition,
@@ -14,6 +15,7 @@ from tbdy_engine.providers.etabs_area_contributor_provider import (
     AreaContributorScopeFact,
     AreaContributorScopeStatus,
     AreaMaterialResolution,
+    AreaPropertyFamily,
 )
 
 
@@ -187,3 +189,208 @@ def test_contradictory_frame_area_material_basis_fails_closed(monkeypatch):
             {"C35/45": prior},
             SimpleNamespace(material_facts=(area_fact,)),
         )
+
+
+
+def _steel_deck_factual(
+    name="557",
+    *,
+    property_values=(1.0,) * 10,
+    object_values=(1.0,) * 10,
+):
+    return SimpleNamespace(
+        area_name=name,
+        property_name="Deck1",
+        property_state=SimpleNamespace(
+            family=AreaPropertyFamily.DECK,
+            material_name="S355",
+            property_modifiers=SimpleNamespace(
+                modifiers=AreaModifierVector.from_sequence(
+                    property_values
+                ),
+            ),
+        ),
+        object_modifiers=SimpleNamespace(
+            modifiers=AreaModifierVector.from_sequence(
+                object_values
+            ),
+        ),
+        source_refs=(
+            f"area:{name}",
+            "deck:Deck1",
+        ),
+    )
+
+
+def _steel_deck_material(
+    *,
+    success=True,
+    is_steel=True,
+):
+    return SimpleNamespace(
+        material_name="S355",
+        material_type=SimpleNamespace(
+            material_name="S355",
+            success=success,
+            is_steel=is_steel,
+            evidence_ref="material-type:S355",
+        ),
+        source_refs=(
+            "material:S355",
+            "material-type:S355",
+        ),
+    )
+
+
+def test_source_proven_steel_deck_closes_concrete_normalization():
+    scope = _scope(
+        AreaContributorScopeStatus
+        .DECK_APPLICABILITY_UNRESOLVED,
+        name="557",
+    )
+
+    factual = _steel_deck_factual()
+    material = _steel_deck_material()
+
+    original_fact = a5.AreaContributorFact
+    original_material = (
+        a5.AreaMaterialFactualFact
+    )
+
+    a5.AreaContributorFact = SimpleNamespace
+    a5.AreaMaterialFactualFact = SimpleNamespace
+
+    try:
+        row = (
+            a5._typed_out_of_slice_area_disposition(
+                scope,
+                factual,
+                material,
+            )
+        )
+    finally:
+        a5.AreaContributorFact = original_fact
+        a5.AreaMaterialFactualFact = (
+            original_material
+        )
+
+    assert row.blocked_reasons == ()
+    assert row.target_property_modifiers is None
+
+    assert tuple(
+        item.mode
+        for item in row.mode_dispositions
+    ) == tuple(AreaStiffnessMode)
+
+    assert all(
+        item.disposition
+        is ContributorDisposition.PROVEN_NOT_APPLICABLE
+        for item in row.mode_dispositions
+    )
+
+    assert (
+        "source-proven steel DECK"
+        in row.mode_dispositions[0].reason
+    )
+
+    assert (
+        "does not classify the DECK as structurally "
+        "non-participating"
+        in row.mode_dispositions[0].reason
+    )
+
+    assert (
+        "material-type:S355"
+        in row.source_refs
+    )
+
+
+@pytest.mark.parametrize(
+    (
+        "success",
+        "is_steel",
+        "property_values",
+        "object_values",
+    ),
+    (
+        (
+            False,
+            False,
+            (1.0,) * 10,
+            (1.0,) * 10,
+        ),
+        (
+            True,
+            False,
+            (1.0,) * 10,
+            (1.0,) * 10,
+        ),
+        (
+            True,
+            True,
+            (
+                0.5, 1.0, 1.0, 1.0, 1.0,
+                1.0, 1.0, 1.0, 1.0, 1.0,
+            ),
+            (1.0,) * 10,
+        ),
+        (
+            True,
+            True,
+            (1.0,) * 10,
+            (
+                1.0, 1.0, 1.0, 1.0, 1.0,
+                0.5, 1.0, 1.0, 1.0, 1.0,
+            ),
+        ),
+    ),
+)
+def test_steel_deck_closure_fails_closed_without_exact_bounded_facts(
+    success,
+    is_steel,
+    property_values,
+    object_values,
+):
+    scope = _scope(
+        AreaContributorScopeStatus
+        .DECK_APPLICABILITY_UNRESOLVED,
+        name="557",
+    )
+
+    factual = _steel_deck_factual(
+        property_values=property_values,
+        object_values=object_values,
+    )
+
+    material = _steel_deck_material(
+        success=success,
+        is_steel=is_steel,
+    )
+
+    original_fact = a5.AreaContributorFact
+    original_material = (
+        a5.AreaMaterialFactualFact
+    )
+
+    a5.AreaContributorFact = SimpleNamespace
+    a5.AreaMaterialFactualFact = SimpleNamespace
+
+    try:
+        row = (
+            a5._typed_out_of_slice_area_disposition(
+                scope,
+                factual,
+                material,
+            )
+        )
+    finally:
+        a5.AreaContributorFact = original_fact
+        a5.AreaMaterialFactualFact = (
+            original_material
+        )
+
+    assert all(
+        item.disposition
+        is ContributorDisposition.BLOCKED_UNSUPPORTED
+        for item in row.mode_dispositions
+    )

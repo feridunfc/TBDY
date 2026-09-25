@@ -30,6 +30,9 @@ from tbdy_engine.application.column_a23_design_demands import (
     build_a23_pre_magnification_population,
     materialize_canonical_concurrent_design_demands,
 )
+from tbdy_engine.application.column_design_basis import (
+    BoundColumnActionFamilyApplicability,
+)
 from tbdy_engine.application.column_fnd2_second_order_payload import (
     build_canonical_second_order_fnd2_payload,
 )
@@ -59,6 +62,8 @@ from tbdy_engine.features.column_shear_topology import (
     StrictColumnTopologyBundle,
 )
 from tbdy_engine.integration.etabs_analysis_execution import AnalysisExecutionResult
+from tbdy_engine.etabs.safety import read_verified_unit_snapshot
+from tbdy_engine.etabs.source_units import decode_csi_length_unit
 from tbdy_engine.providers.etabs_frame_eq713_population_provider import (
     FrameEq713FactualPopulation,
 )
@@ -68,8 +73,24 @@ from tbdy_engine.providers.etabs_static_linear_case_provider import (
 from tbdy_engine.providers.etabs_ts500_stability_action_provider import (
     promote_etabs_static_cases_to_ts500_stability_actions,
 )
+from tbdy_engine.regulatory.contracts import ApplicabilityState
 
 PUBLIC_A5_SECOND_ORDER_AUTHORITY = "COLUMN_R1_PUBLIC_A5_CANONICAL_SECOND_ORDER_COMPOSITION"
+
+ROUTE_C_W_ACTION_SOURCE_BLOCKER = (
+    "ROUTE_C_W_ACTION_SOURCE_NOT_PROVEN"
+)
+
+ROUTE_C_W_DIRECTION_BLOCKER_PREFIX = (
+    "ROUTE_C_W_DIRECTION_SOURCE_BOUND_EVIDENCE_NOT_AVAILABLE:"
+)
+
+
+def _reviewed_displacement_unit_from_session(session) -> str:
+    unit_snapshot = read_verified_unit_snapshot(session)
+    return decode_csi_length_unit(
+        unit_snapshot.present_length_unit
+    ).value
 
 
 def _refs(values: Sequence[str]) -> tuple[str, ...]:
@@ -129,32 +150,111 @@ def _target_frame_fact(frame_population: FrameEq713FactualPopulation, target_uid
     return matches[0]
 
 
-def _static_case_names(demand_states: Sequence[ColumnDemandState]) -> tuple[str, ...]:
-    names = tuple(sorted({row.output_case for row in demand_states if row.case_type == "LinStatic"}))
+def _static_case_names(
+    demand_states: Sequence[ColumnDemandState],
+    *,
+    additional_case_names: Sequence[str] = (),
+) -> tuple[str, ...]:
+    additional = tuple(additional_case_names)
+
+    if (
+        len(additional) != len(set(additional))
+        or any(
+            not isinstance(name, str)
+            or not name.strip()
+            or name != name.strip()
+            for name in additional
+        )
+    ):
+        raise ValueError(
+            "QUALIFIED_RESPONSE_STATIC_CASE_NAMES_NOT_CANONICAL"
+        )
+
+    names = tuple(
+        sorted(
+            {
+                row.output_case
+                for row in demand_states
+                if row.case_type == "LinStatic"
+            }
+            | set(additional)
+        )
+    )
+
     if not names:
         raise ValueError("NO_FACTUAL_LINEAR_STATIC_CASE_DEMANDS")
+
     return names
 
 
-def _static_exact_combo_names(design_demands) -> tuple[str, ...]:
-    names: list[str] = []
-    blocked: list[str] = []
+def _partition_end_moment_ratio_capability(
+    design_demands,
+) -> tuple[
+    tuple[str, ...],
+    tuple[str, ...],
+]:
+    """Partition supported outputs without manufacturing RS physical end signs."""
+    exact_static: list[str] = []
+    supported_nonexact: list[str] = []
+
     for combo in design_demands.combo_results:
+        name = combo.definition.name
+
         if combo.build is None:
-            blocked.append(combo.definition.name)
-            continue
-        states = tuple(combo.build.states)
-        if not states or any(state.case_type != "DesignStaticLinearExact" for state in states):
-            blocked.append(combo.definition.name)
-            continue
-        names.append(combo.definition.name)
-    if blocked:
-        raise ValueError(
-            "A20_EXACT_SIGNED_END_MOMENT_NOT_AVAILABLE:" + ",".join(sorted(blocked))
+            raise ValueError(
+                f"A20_COMBO_BUILD_NOT_AVAILABLE:"
+                f"{name}"
+            )
+
+        states = tuple(
+            combo.build.states
         )
-    if not names:
-        raise ValueError("A20_NO_STATIC_EXACT_DESIGN_COMBOS")
-    return tuple(sorted(names))
+
+        if not states:
+            raise ValueError(
+                f"A20_COMBO_STATE_POPULATION_EMPTY:"
+                f"{name}"
+            )
+
+        case_types = {
+            state.case_type
+            for state in states
+        }
+
+        if (
+            case_types
+            == {"DesignStaticLinearExact"}
+        ):
+            exact_static.append(
+                name
+            )
+
+        elif (
+            case_types
+            ==
+            {"DesignResponseSpectrumPermutation"}
+        ):
+            supported_nonexact.append(
+                name
+            )
+
+        else:
+            raise ValueError(
+                "A20_UNSUPPORTED_END_MOMENT_STATE_TYPES:"
+                f"{name}:"
+                + ",".join(
+                    sorted(case_types)
+                )
+            )
+
+    return (
+        tuple(
+            sorted(exact_static)
+        ),
+        tuple(
+            sorted(supported_nonexact)
+        ),
+    )
 
 
 def build_public_a5_canonical_second_order_payload(
@@ -169,6 +269,9 @@ def build_public_a5_canonical_second_order_payload(
     a18_rows: Sequence[object],
     free_length: ColumnFreeLengthResolution | None,
     analysis_execution: AnalysisExecutionResult,
+    route_c_w_applicability: BoundColumnActionFamilyApplicability | None = None,
+    qualified_response_static_case_names: Sequence[str] = (),
+    qualified_response_static_source_refs: Sequence[str] = (),
     reviewed_story_translation_tolerance: ReviewedStoryTranslationTolerance | None = None,
     horizontal_load_evidence: Sequence[A22HorizontalLoadEvidence] = (),
 ) -> dict[str, object]:
@@ -180,6 +283,47 @@ def build_public_a5_canonical_second_order_payload(
     """
     blockers: list[str] = []
     refs: list[str] = [PUBLIC_A5_SECOND_ORDER_AUTHORITY]
+
+    if (
+        route_c_w_applicability is not None
+        and not isinstance(
+            route_c_w_applicability,
+            BoundColumnActionFamilyApplicability,
+        )
+    ):
+        raise TypeError(
+            "route_c_w_applicability must be "
+            "BoundColumnActionFamilyApplicability or None"
+        )
+
+    if route_c_w_applicability is None:
+        w_applicability_state = (
+            ApplicabilityState.UNRESOLVED
+        )
+    else:
+        w_applicability_state = (
+            route_c_w_applicability.state
+        )
+
+        refs.extend(
+            route_c_w_applicability.source_refs
+        )
+
+    if (
+        w_applicability_state
+        is ApplicabilityState.UNRESOLVED
+    ):
+        blockers.append(
+            "A17:ROUTE_C_W_APPLICABILITY_UNRESOLVED"
+        )
+
+    elif (
+        w_applicability_state
+        is ApplicabilityState.INVALID_CONTEXT
+    ):
+        blockers.append(
+            "A17:ROUTE_C_W_APPLICABILITY_INVALID_CONTEXT"
+        )
 
     a18 = tuple(a18_rows)
     refs.extend(ref for row in a18 for ref in getattr(row, "source_refs", ()))
@@ -201,14 +345,86 @@ def build_public_a5_canonical_second_order_payload(
             blockers.append(f"A19:{free_length.status}")
 
     states = tuple(constituent_case_demands)
+
+    qualified_response_static_names = tuple(
+        qualified_response_static_case_names
+    )
+    qualified_response_static_refs = _refs(
+        qualified_response_static_source_refs
+    )
+
+    if (
+        qualified_response_static_names
+        and not qualified_response_static_refs
+    ):
+        blockers.append(
+            "A17:QUALIFIED_RESPONSE_STATIC_CASE_SCOPE_SOURCE_NOT_PROVEN"
+        )
+
+    refs.extend(qualified_response_static_refs)
+
     try:
-        static_names = _static_case_names(states)
+        static_names = _static_case_names(
+            states,
+            additional_case_names=qualified_response_static_names,
+        )
         route_c = resolve_route_c_source_bound_directions(
             session=session,
             static_case_names=static_names,
         )
         refs.extend(route_c.source_refs)
-        blockers.extend(f"A17:{item}" for item in route_c.blockers)
+
+        route_c_blockers = tuple(
+            route_c.blockers
+        )
+
+        if (
+            w_applicability_state
+            is ApplicabilityState.PROVEN_NOT_APPLICABLE
+        ):
+            factual_w_direction_blockers = tuple(
+                item
+                for item in route_c_blockers
+                if item.startswith(
+                    ROUTE_C_W_DIRECTION_BLOCKER_PREFIX
+                )
+            )
+
+            blockers.extend(
+                (
+                    "A17:"
+                    "ROUTE_C_W_APPLICABILITY_CONFLICT_"
+                    "FACTUAL_W_SOURCE_PRESENT:"
+                    + item[
+                        len(
+                            ROUTE_C_W_DIRECTION_BLOCKER_PREFIX
+                        ):
+                    ]
+                )
+                for item
+                in factual_w_direction_blockers
+            )
+
+        if (
+            w_applicability_state
+            is not ApplicabilityState.APPLIES
+        ):
+            route_c_blockers = tuple(
+                item
+                for item in route_c_blockers
+                if (
+                    item
+                    != ROUTE_C_W_ACTION_SOURCE_BLOCKER
+                    and not item.startswith(
+                        ROUTE_C_W_DIRECTION_BLOCKER_PREFIX
+                    )
+                )
+            )
+
+        blockers.extend(
+            f"A17:{item}"
+            for item in route_c_blockers
+        )
     except Exception as exc:
         blockers.append(f"A17:ROUTE_C_DIRECTION_MATERIALIZATION_FAILED:{exc}")
         route_c = None
@@ -225,7 +441,21 @@ def build_public_a5_canonical_second_order_payload(
             blockers=("A17:REVIEWED_STORY_TRANSLATION_TOLERANCE_NOT_BOUND",),
             refs=refs,
         )
-    assert route_c is not None and route_c.ready
+    assert route_c is not None
+
+    if {
+        item.global_direction
+        for item in route_c.bindings
+    } != {"X", "Y"}:
+        return _block(
+            component_id=component_id,
+            blockers=(
+                "A17:"
+                "ROUTE_C_REQUIRED_DIRECTION_SET_NOT_PROVEN",
+            ),
+            refs=refs,
+        )
+
     assert free_length is not None and free_length.resolved
 
     try:
@@ -238,15 +468,50 @@ def build_public_a5_canonical_second_order_payload(
             _flattened_stability_combos(flattened_combos),
             actions,
         )
-        refs.extend(stability_combos.source_refs)
-        if not stability_combos.both_bases_present:
-            return _block(
-                component_id=component_id,
-                blockers=(f"A17:{stability_combos.status}",),
-                refs=refs,
+        refs.extend(
+            stability_combos.source_refs
+        )
+
+        if (
+            w_applicability_state
+            is ApplicabilityState.PROVEN_NOT_APPLICABLE
+        ):
+            if not stability_combos.gqe_candidates:
+                return _block(
+                    component_id=component_id,
+                    blockers=(
+                        f"A17:{stability_combos.status}",
+                    ),
+                    refs=refs,
+                )
+
+            candidates = tuple(
+                stability_combos.gqe_candidates
             )
-        binding_by_case = {item.case_name: item for item in route_c.bindings}
-        candidates = (*stability_combos.gqe_candidates, *stability_combos.gqw_candidates)
+
+        else:
+            if not stability_combos.both_bases_present:
+                return _block(
+                    component_id=component_id,
+                    blockers=(
+                        f"A17:{stability_combos.status}",
+                    ),
+                    refs=refs,
+                )
+
+            candidates = (
+                *stability_combos.gqe_candidates,
+                *stability_combos.gqw_candidates,
+            )
+
+        binding_by_case = {
+            item.case_name: item
+            for item in route_c.bindings
+        }
+        reviewed_displacement_unit = _reviewed_displacement_unit_from_session(session)
+        refs.append(
+            f"ETABS:PresentLengthUnit:{reviewed_displacement_unit}"
+        )
         runtimes = []
         for candidate in candidates:
             direction = binding_by_case.get(candidate.horizontal_case_name)
@@ -266,7 +531,7 @@ def build_public_a5_canonical_second_order_payload(
                     story=target_column.story,
                     reference_component_id=component_id,
                     translation_tolerance=reviewed_story_translation_tolerance,
-                    reviewed_displacement_unit="mm",
+                    reviewed_displacement_unit=reviewed_displacement_unit,
                     reviewed_force_unit="kN",
                     uncracked_basis_refs=(
                         analysis_execution.analysis_result_identity.parent_analysis_state_ref,
@@ -323,47 +588,117 @@ def build_public_a5_canonical_second_order_payload(
                 ),
                 refs=refs,
             )
-        exact_combo_names = _static_exact_combo_names(design_demands)
-        a20 = materialize_exact_static_end_moment_ratios(
-            component_id=component_id,
-            demand_states=design_demands.promoted_states,
-            qualified_static_case_names=exact_combo_names,
-            analysis_result_ref=analysis_execution.analysis_result_identity.identity_ref,
-            execution_proof_ref=analysis_execution.execution_proof_ref,
-            case_scope_refs=(
-                analysis_execution.analysis_result_identity.parent_analysis_state_ref,
-                *refs,
-            ),
+        exact_combo_names, nonexact_combo_names = (
+            _partition_end_moment_ratio_capability(
+                design_demands
+            )
         )
-        refs.extend(ref for row in a20 for ref in row.source_refs)
-        unresolved_a20 = tuple(row for row in a20 if row.disposition != A20_READY)
-        if unresolved_a20:
-            return _block(
-                component_id=component_id,
-                blockers=tuple(
-                    f"A20:{row.output_case}:{row.local_bending_axis}:{reason}"
-                    for row in unresolved_a20
-                    for reason in (row.unresolved_reasons or (row.disposition,))
-                ),
-                refs=refs,
+
+        qualified_output_case_names = tuple(
+            sorted(
+                (
+                    *exact_combo_names,
+                    *nonexact_combo_names,
+                )
+            )
+        )
+
+        if not qualified_output_case_names:
+            raise ValueError(
+                "A21_NO_SUPPORTED_DESIGN_OUTPUT_CASES"
             )
 
-        a21 = materialize_ts500_slenderness_decisions(
-            target_column=target_column,
-            a19_rows=a19,
-            a20_rows=a20,
-            qualified_static_case_names=exact_combo_names,
+        # A20 remains exact-static only.
+        # RS states are NOT promoted into physical signed end pairs.
+        if exact_combo_names:
+            a20 = (
+                materialize_exact_static_end_moment_ratios(
+                    component_id=component_id,
+
+                    demand_states=(
+                        design_demands.promoted_states
+                    ),
+
+                    qualified_static_case_names=(
+                        exact_combo_names
+                    ),
+
+                    analysis_result_ref=(
+                        analysis_execution
+                        .analysis_result_identity
+                        .identity_ref
+                    ),
+
+                    execution_proof_ref=(
+                        analysis_execution
+                        .execution_proof_ref
+                    ),
+
+                    case_scope_refs=(
+                        analysis_execution
+                        .analysis_result_identity
+                        .parent_analysis_state_ref,
+
+                        *refs,
+                    ),
+                )
+            )
+        else:
+            a20 = ()
+
+        refs.extend(
+            ref
+            for row in a20
+            for ref in row.source_refs
         )
-        refs.extend(ref for row in a21 for ref in row.source_refs)
-        unresolved_a21 = tuple(row for row in a21 if row.disposition != A21_READY)
+
+        # A20 is NOT a universal prerequisite.
+        #
+        # A21 owns ratio-independent progress where TS500 permits it.
+        a21 = (
+            materialize_ts500_slenderness_decisions(
+                target_column=target_column,
+
+                a19_rows=a19,
+
+                a20_rows=a20,
+
+                qualified_output_case_names=(
+                    qualified_output_case_names
+                ),
+            )
+        )
+
+        refs.extend(
+            ref
+            for row in a21
+            for ref in row.source_refs
+        )
+
+        unresolved_a21 = tuple(
+            row
+            for row in a21
+            if row.disposition != A21_READY
+        )
+
         if unresolved_a21:
             return _block(
                 component_id=component_id,
+
                 blockers=tuple(
-                    f"A21:{row.output_case}:{reason}"
+                    (
+                        f"A21:{row.output_case}:"
+                        f"{reason}"
+                    )
                     for row in unresolved_a21
-                    for reason in (row.unresolved_reasons or (row.disposition,))
+                    for reason in (
+                        row.unresolved_reasons
+                        or (
+                            row.disposition,
+                        )
+                    )
                 ),
+
                 refs=refs,
             )
 

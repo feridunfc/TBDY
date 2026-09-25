@@ -236,3 +236,241 @@ def test_steel_residual_fact_uses_generic_elastic_owners_and_no_concrete_basis(
     assert fact.section_mechanics.section_name == "HE160A"
     assert not hasattr(fact, "concrete_fck_mpa")
     assert not hasattr(fact, "material_basis")
+
+
+
+def test_null_object_type_triggers_exact_line_spring_universe_capture(
+    monkeypatch,
+):
+    fact = subject.LineSpringPropertyUniverseFact(
+        property_names=(),
+        reported_count=0,
+        return_code=0,
+    )
+    calls = []
+
+    monkeypatch.setattr(
+        subject,
+        "read_line_spring_property_universe_from_session",
+        lambda session: (
+            calls.append(session)
+            or fact
+        ),
+    )
+
+    context = SimpleNamespace(
+        verified_session=object(),
+    )
+
+    result = (
+        subject._capture_line_spring_property_universe_if_needed(
+            context,
+            (_type("NULL-1", "Null"),),
+        )
+    )
+
+    assert result is fact
+    assert calls == [context.verified_session]
+
+
+def test_non_null_object_universe_does_not_read_line_spring_properties(
+    monkeypatch,
+):
+    def forbidden(_session):
+        raise AssertionError(
+            "line-spring property universe is only required "
+            "when exact NULL Frames exist"
+        )
+
+    monkeypatch.setattr(
+        subject,
+        "read_line_spring_property_universe_from_session",
+        forbidden,
+    )
+
+    context = SimpleNamespace(
+        verified_session=object(),
+    )
+
+    result = (
+        subject._capture_line_spring_property_universe_if_needed(
+            context,
+            (_type("B1", "Beam"),),
+        )
+    )
+
+    assert result is None
+
+
+
+@pytest.mark.parametrize(
+    "raw",
+    (
+        None,
+        "",
+        "None",
+        " None ",
+    ),
+)
+def test_etabs_none_section_assignment_sentinel_normalizes_to_absence(
+    raw,
+):
+    assert (
+        subject._normalize_frame_section_assignment(raw)
+        is None
+    )
+
+
+def test_real_section_identity_is_preserved_by_assignment_normalization():
+    assert (
+        subject._normalize_frame_section_assignment(
+            "HE160A",
+        )
+        == "HE160A"
+    )
+
+
+def test_noncanonical_none_like_token_is_not_broadened():
+    assert (
+        subject._normalize_frame_section_assignment(
+            "NONE",
+        )
+        == "NONE"
+    )
+
+
+
+@dataclass(frozen=True)
+class _MaterialType:
+    material_name: str
+    material_type_code: int = 1
+    symmetry_type_code: int = 0
+    return_code: int = 0
+    evidence_ref: str = "material-type:S355"
+
+    @property
+    def success(self):
+        return self.return_code == 0
+
+    @property
+    def is_steel(self):
+        return (
+            self.success
+            and self.material_type_code == 1
+        )
+
+
+def test_residual_structural_capture_binds_material_type_fact(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        subject,
+        "FrameSectionMechanicsFact",
+        _Section,
+    )
+    monkeypatch.setattr(
+        subject,
+        "FrameModifierReadFact",
+        _Modifier,
+    )
+    monkeypatch.setattr(
+        subject,
+        "FrameReleaseFact",
+        _Release,
+    )
+    monkeypatch.setattr(
+        subject,
+        "IsotropicMaterialPropertiesFact",
+        _Material,
+    )
+    monkeypatch.setattr(
+        subject,
+        "MaterialTypeFact",
+        _MaterialType,
+    )
+
+    monkeypatch.setattr(
+        subject,
+        "get_frame_section_mechanics_from_session",
+        lambda _session, *, section_name: (
+            _Section(section_name)
+        ),
+    )
+
+    def modifiers(
+        _session,
+        *,
+        surface,
+        target_name,
+    ):
+        return _Modifier(
+            surface,
+            target_name,
+        )
+
+    monkeypatch.setattr(
+        subject,
+        "get_frame_modifiers_from_session",
+        modifiers,
+    )
+
+    monkeypatch.setattr(
+        subject,
+        "get_frame_releases_from_session",
+        lambda _session, *, frame_name: (
+            _Release(frame_name)
+        ),
+    )
+
+    monkeypatch.setattr(
+        subject,
+        "get_isotropic_material_properties_from_session",
+        lambda _session, *, material_name: (
+            _Material(material_name)
+        ),
+    )
+
+    material_type = _MaterialType("S355")
+
+    monkeypatch.setattr(
+        subject,
+        "get_material_type_from_session",
+        lambda _session, *, material_name: (
+            material_type
+        ),
+    )
+
+    context = SimpleNamespace(
+        verified_session=object(),
+    )
+
+    scope = _scope(
+        "760",
+        status=(
+            subject.FrameEq713ScopeStatus
+            .OUT_OF_SLICE_UNSUPPORTED_SECTION_OR_MATERIAL
+        ),
+        section="HE160A",
+        shape="Steel I/Wide Flange",
+        material="S355",
+        role="BEAM",
+    )
+
+    result = (
+        subject._capture_residual_structural_facts(
+            context,
+            (scope,),
+            {},
+        )
+    )
+
+    assert len(result) == 1
+
+    fact = result[0]
+
+    assert fact.material_type is material_type
+    assert fact.material_type.is_steel is True
+    assert (
+        material_type.evidence_ref
+        in fact.source_refs
+    )

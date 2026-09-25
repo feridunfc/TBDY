@@ -41,6 +41,10 @@ from tbdy_engine.etabs.oapi.object_model import (
     read_area_property_assignment_from_session,
     read_wall_property_from_session,
 )
+from tbdy_engine.etabs.oapi.material_properties import (
+    MaterialTypeFact,
+    get_material_type_from_session,
+)
 from tbdy_engine.etabs.safety import EtabsVerifiedSession
 from tbdy_engine.providers.etabs_frame_flexural_base_provider import (
     FrameFlexuralBaseCaptureSnapshot,
@@ -312,6 +316,7 @@ class AreaMaterialFactualFact:
     evidence_epoch_id: str
     session_provenance_ref: str
     source_refs: tuple[str, ...]
+    material_type: MaterialTypeFact | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -363,6 +368,33 @@ class AreaMaterialFactualFact:
             raise EtabsAreaContributorProviderError(
                 "non-concrete-proven Area material cannot carry fck"
             )
+        if self.material_type is not None:
+            if not isinstance(
+                self.material_type,
+                MaterialTypeFact,
+            ):
+                raise TypeError(
+                    "material_type must be "
+                    "MaterialTypeFact or None"
+                )
+
+            if (
+                self.material_type.material_name
+                != self.material_name
+            ):
+                raise EtabsAreaContributorProviderError(
+                    "Area material-type fact identity mismatch"
+                )
+
+            if (
+                self.material_type.evidence_ref
+                not in tuple(self.source_refs)
+            ):
+                raise EtabsAreaContributorProviderError(
+                    "Area material-type provenance "
+                    "is not bound to source_refs"
+                )
+
         for field_name in (
             "model_fingerprint",
             "evidence_epoch_id",
@@ -770,6 +802,46 @@ def _exact_material_index(
     return result
 
 
+def _capture_deck_material_type_facts(
+    session: EtabsVerifiedSession,
+    rows: Sequence[AreaContributorFact],
+) -> Mapping[str, MaterialTypeFact]:
+    """Capture exact material type only for factual DECK properties.
+
+    This is a factual acquisition helper only.  It does not decide
+    Eq7.13 participation or TS500 applicability.
+    """
+    if not isinstance(
+        session,
+        EtabsVerifiedSession,
+    ):
+        raise TypeError(
+            "session must be EtabsVerifiedSession"
+        )
+
+    names = tuple(
+        sorted({
+            row.property_state.material_name
+            for row in rows
+            if (
+                row.property_state is not None
+                and row.property_state.family
+                is AreaPropertyFamily.DECK
+                and row.property_state.material_name
+                not in (None, "")
+            )
+        })
+    )
+
+    return {
+        name: get_material_type_from_session(
+            session,
+            material_name=name,
+        )
+        for name in names
+    }
+
+
 def _capture_area_material_facts(
     *,
     rows: Sequence[AreaContributorFact],
@@ -777,6 +849,10 @@ def _capture_area_material_facts(
     model_fingerprint: str,
     evidence_epoch_id: str,
     session_provenance_ref: str,
+    material_type_facts: Mapping[
+        str,
+        MaterialTypeFact,
+    ] | None = None,
 ) -> tuple[AreaMaterialFactualFact, ...]:
     if not isinstance(
         material_snapshot,
@@ -815,17 +891,41 @@ def _capture_area_material_facts(
         )
     )
 
+    typed_materials = dict(
+        material_type_facts or {}
+    )
+
     facts: list[AreaMaterialFactualFact] = []
+
     for material_name in material_names:
         basic = basic_by_name.get(material_name)
         concrete = concrete_by_name.get(material_name)
         ec_mpa = None
         gc_mpa = None
         fck_mpa = None
+        material_type = typed_materials.get(
+            material_name
+        )
+
+        if (
+            material_type is not None
+            and material_type.material_name
+            != material_name
+        ):
+            raise EtabsAreaContributorProviderError(
+                "Area material-type registry "
+                "identity mismatch"
+            )
+
         refs: list[str] = [
             session_provenance_ref,
             material_snapshot.ownership_proof_ref,
         ]
+
+        if material_type is not None:
+            refs.append(
+                material_type.evidence_ref
+            )
         if basic is not None:
             refs.append(
                 _snapshot_row_ref(TABLE_BASIC_MATERIAL, basic)
@@ -931,6 +1031,7 @@ def _capture_area_material_facts(
                 evidence_epoch_id=evidence_epoch_id,
                 session_provenance_ref=session_provenance_ref,
                 source_refs=tuple(refs),
+                material_type=material_type,
             )
         )
 
@@ -1305,12 +1406,22 @@ def capture_area_contributor_population_from_session(
     typed_out_of_slice_rows: tuple[AreaContributorScopeFact, ...] = ()
 
     if material_snapshot is not None:
+        deck_material_type_facts = (
+            _capture_deck_material_type_facts(
+                session,
+                tuple(rows),
+            )
+        )
+
         material_facts = _capture_area_material_facts(
             rows=tuple(rows),
             material_snapshot=material_snapshot,
             model_fingerprint=model,
             evidence_epoch_id=epoch,
             session_provenance_ref=provenance,
+            material_type_facts=(
+                deck_material_type_facts
+            ),
         )
         scope_facts = _build_area_scope_facts(
             tuple(rows),

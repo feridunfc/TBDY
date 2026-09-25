@@ -38,6 +38,7 @@ from tbdy_engine.design.columns.rebar_selection import ColumnDemandState
 from tbdy_engine.design.columns.slenderness import (
     GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED,
     MOMENT_MAGNIFICATION_REQUIRED,
+    SIGNED_END_MOMENT_RATIO_REQUIRED_FOR_SLENDERNESS_DECISION,
     SWAY_PERMITTED,
 )
 from tbdy_engine.design.columns.stability_action_basis import (
@@ -133,9 +134,21 @@ def _one_a20(rows: Sequence[A20AxisEndMomentMaterialization], output_case: str, 
 
 
 def _one_a21(rows: Sequence[A21StateSlendernessMaterialization], output_case: str):
-    matches = tuple(row for row in rows if row.output_case == output_case)
-    if len(matches) != 1 or matches[0].disposition != A21_READY or matches[0].result is None:
-        raise ValueError(f"A21_NOT_READY:{output_case}")
+    matches = tuple(
+        row
+        for row in rows
+        if row.output_case == output_case
+    )
+
+    if (
+        len(matches) != 1
+        or matches[0].result is None
+    ):
+        raise ValueError(
+            f"A21_RESULT_NOT_AVAILABLE:"
+            f"{output_case}"
+        )
+
     return matches[0]
 
 
@@ -266,50 +279,212 @@ def materialize_ts500_moment_magnification(
         for axis in ("M2", "M3"):
             row_refs = list(common_refs)
             try:
-                a21 = _one_a21(a21_rows, state.output_case)
-                slender = a21.result.m2 if axis == "M2" else a21.result.m3
-                row_refs.extend(a21.source_refs)
-                if slender.status == GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED:
+                a21 = _one_a21(
+                    a21_rows,
+                    state.output_case,
+                )
+
+                slender = (
+                    a21.result.m2
+                    if axis == "M2"
+                    else a21.result.m3
+                )
+
+                row_refs.extend(
+                    a21.source_refs
+                )
+
+                if (
+                    slender.status
+                    ==
+                    SIGNED_END_MOMENT_RATIO_REQUIRED_FOR_SLENDERNESS_DECISION
+                ):
                     output.append(
                         A22AxisStateMaterialization(
                             component_id=component_id,
-                            demand_state_id=state.state_id,
-                            output_case=state.output_case,
+
+                            demand_state_id=(
+                                state.state_id
+                            ),
+
+                            output_case=(
+                                state.output_case
+                            ),
+
                             end_tag=state.end_tag,
+
                             local_bending_axis=axis,
-                            disposition=A22_REANALYSIS_REQUIRED,
+
+                            disposition=(
+                                A22_EXPLICIT_UNRESOLVED
+                            ),
+
                             basis=None,
+
                             result=None,
-                            source_refs=_refs(tuple(row_refs)),
-                            unresolved_reasons=("TS500_7.6.1_GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED",),
+
+                            source_refs=_refs(
+                                tuple(row_refs)
+                            ),
+
+                            unresolved_reasons=(
+                                (
+                                    "SIGNED_M1_M2_REQUIRED_FOR_EQ7_17:"
+                                    f"{axis}"
+                                ),
+                            ),
                         )
                     )
+
                     continue
-                if slender.status != MOMENT_MAGNIFICATION_REQUIRED:
+
+                if (
+                    slender.status
+                    ==
+                    GENERAL_SECOND_ORDER_ANALYSIS_REQUIRED
+                ):
                     output.append(
                         A22AxisStateMaterialization(
                             component_id=component_id,
-                            demand_state_id=state.state_id,
-                            output_case=state.output_case,
+
+                            demand_state_id=(
+                                state.state_id
+                            ),
+
+                            output_case=(
+                                state.output_case
+                            ),
+
                             end_tag=state.end_tag,
+
                             local_bending_axis=axis,
-                            disposition=A22_NOT_REQUIRED,
+
+                            disposition=(
+                                A22_REANALYSIS_REQUIRED
+                            ),
+
                             basis=None,
+
                             result=None,
-                            source_refs=_refs(tuple(row_refs)),
+
+                            source_refs=_refs(
+                                tuple(row_refs)
+                            ),
+
+                            unresolved_reasons=(
+                                "TS500_7.6.1_"
+                                "GENERAL_SECOND_ORDER_"
+                                "ANALYSIS_REQUIRED",
+                            ),
                         )
                     )
+
                     continue
+
+                if (
+                    slender.status
+                    != MOMENT_MAGNIFICATION_REQUIRED
+                ):
+                    output.append(
+                        A22AxisStateMaterialization(
+                            component_id=component_id,
+
+                            demand_state_id=(
+                                state.state_id
+                            ),
+
+                            output_case=(
+                                state.output_case
+                            ),
+
+                            end_tag=state.end_tag,
+
+                            local_bending_axis=axis,
+
+                            disposition=(
+                                A22_NOT_REQUIRED
+                            ),
+
+                            basis=None,
+
+                            result=None,
+
+                            source_refs=_refs(
+                                tuple(row_refs)
+                            ),
+                        )
+                    )
+
+                    continue
+
                 if definition is None:
-                    raise ValueError(f"MISSING_COMBO_DEFINITION:{state.output_case}")
-                a19 = _one_a19(a19_rows, axis)
-                a20 = _one_a20(a20_rows, state.output_case, axis)
-                horizontal = _horizontal(horizontal_load_evidence, axis)
-                row_refs.extend((*a19.source_refs, *a20.source_refs, *horizontal.source_refs))
-                if a19.sway_classification == SWAY_PERMITTED:
                     raise ValueError(
-                        f"SWAY_PERMITTED_STORY_MAGNIFICATION_AGGREGATES_NOT_MATERIALIZED:{axis}"
+                        f"MISSING_COMBO_DEFINITION:"
+                        f"{state.output_case}"
                     )
+
+                a19 = _one_a19(
+                    a19_rows,
+                    axis,
+                )
+
+                row_refs.extend(
+                    a19.source_refs
+                )
+
+                # Existing separate authority gap:
+                # SWAY_PERMITTED still requires factual
+                # story critical-load aggregates.
+                #
+                # Crucially, do NOT request A20 just to
+                # discover this later blocker.
+                if (
+                    a19.sway_classification
+                    == SWAY_PERMITTED
+                ):
+                    raise ValueError(
+                        "SWAY_PERMITTED_STORY_"
+                        "MAGNIFICATION_AGGREGATES_"
+                        "NOT_MATERIALIZED:"
+                        f"{axis}"
+                    )
+
+                # SWAY_PREVENTED:
+                # horizontal-load-between-ends remains
+                # positively source-bound.
+                #
+                # No evidence != False.
+                horizontal = _horizontal(
+                    horizontal_load_evidence,
+                    axis,
+                )
+
+                row_refs.extend(
+                    horizontal.source_refs
+                )
+
+                a20 = None
+
+                if not horizontal.horizontal_load_between_ends:
+                    a20 = _one_a20(
+                        a20_rows,
+                        state.output_case,
+                        axis,
+                    )
+
+                    row_refs.extend(
+                        a20.source_refs
+                    )
+
+                moment_ratio_m1_over_m2 = (
+                    None
+                    if a20 is None
+                    else (
+                        a20.evidence
+                        .moment_ratio_m1_over_m2
+                    )
+                )
+
                 if slender.radius_of_gyration_i_mm is None or a19.effective_length_lk_mm is None:
                     raise ValueError(f"SLENDERNESS_GEOMETRY_NOT_RESOLVED:{axis}")
                 ec_mpa, ic_mm4, mechanics_refs = _column_mechanics(target_frame_fact, axis)
@@ -326,7 +501,7 @@ def materialize_ts500_moment_magnification(
                     axis=axis,
                     sway_classification=str(a19.sway_classification),
                     nd_compression_n=state.nd_compression_n,
-                    m1_over_m2=a20.evidence.moment_ratio_m1_over_m2,
+                    m1_over_m2=moment_ratio_m1_over_m2,
                     effective_length_lk_mm=a19.effective_length_lk_mm,
                     radius_i_mm=slender.radius_of_gyration_i_mm,
                     ec_mpa=ec_mpa,

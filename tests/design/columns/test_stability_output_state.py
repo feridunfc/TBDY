@@ -2,6 +2,7 @@ import pytest
 
 from tbdy_engine.design.columns.stability_combo_basis import StabilityComboCandidate
 from tbdy_engine.design.columns.stability_output_state import (
+    CSI_LINEAR_ADD_SINGLE_VALUE_STEP_TYPE,
     SIGNED_LINEAR_ADD_STATE,
     StabilityActionDirectionBinding,
     StabilityOutputStateError,
@@ -38,7 +39,11 @@ def test_signed_linear_add_binding_preserves_direction_and_b5_identity():
     assert result.global_direction == "X"
     assert result.combination_method == "LINEAR_ADD"
     assert result.state_semantics == SIGNED_LINEAR_ADD_STATE
-    assert result.required_step_type == ""
+    assert (
+        result.required_step_type
+        == CSI_LINEAR_ADD_SINGLE_VALUE_STEP_TYPE
+        == "Single Value"
+    )
     assert result.required_step_number == 0.0
     assert result.analysis_result_ref == "analysis-result:1"
     assert result.execution_proof_ref == "execution-proof:1"

@@ -21,6 +21,24 @@ class PointRestraintFact:
 
 
 @dataclass(frozen=True, slots=True)
+class PointConnectivityItemFact:
+    object_type: int
+    object_name: str
+    point_number: int
+
+
+@dataclass(frozen=True, slots=True)
+class PointConnectivityFact:
+    point_name: str
+    items: tuple[PointConnectivityItemFact, ...]
+    raw_response: object
+
+    @property
+    def number_items(self) -> int:
+        return len(self.items)
+
+
+@dataclass(frozen=True, slots=True)
 class RebarColumnFact:
     section_name: str
     mat_prop_long: str
@@ -106,6 +124,8 @@ __all__ = [
     "ConcreteColumnSummaryFact",
     "ConcreteDesignSectionFact",
     "EtabsOAPIError",
+    "PointConnectivityFact",
+    "PointConnectivityItemFact",
     "PointRestraintFact",
     "RebarColumnFact",
     "ResponseComboConstituentFact",

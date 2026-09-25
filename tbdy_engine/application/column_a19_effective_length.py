@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from tbdy_engine.application.column_a18_end_restraint import (
+    A18_AUTHORITY,
     A18_READY,
     A18EndRestraintMaterialization,
 )
@@ -30,6 +31,9 @@ from tbdy_engine.design.columns.free_length_basis import (
 A19_READY = "READY"
 A19_EXPLICIT_UNRESOLVED = "EXPLICIT_UNRESOLVED"
 A19_AUTHORITY = "COLUMN_R1_A19_TS500_EFFECTIVE_LENGTH_COMPOSITION"
+A19_ONE_END_HINGED_AUTHORITY = (
+    "COLUMN_R1_A19_ONE_END_HINGED_FROM_A18_NO_RELEASE_OR_PARTIAL_FIXITY"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,6 +44,7 @@ class A19AxisEffectiveLengthMaterialization:
     sway_classification: str | None
     alpha_bottom: float | None
     alpha_top: float | None
+    one_end_hinged: bool | None
     k: float | None
     free_length_ln_mm: float | None
     effective_length_lk_mm: float | None
@@ -68,6 +73,53 @@ def _a18_for(
     return matches[0]
 
 
+def _derive_one_end_hinged_from_a18(
+    *,
+    bottom: A18EndRestraintMaterialization,
+    top: A18EndRestraintMaterialization,
+) -> tuple[bool, tuple[str, ...]]:
+    rows = (bottom, top)
+
+    for row in rows:
+        if row.disposition != A18_READY:
+            raise ValueError(
+                f"A18_NOT_READY_FOR_ONE_END_HINGED:"
+                f"{row.local_bending_axis}:{row.end_tag}"
+            )
+
+        if row.authority != A18_AUTHORITY:
+            raise ValueError(
+                f"A18_AUTHORITY_MISMATCH_FOR_ONE_END_HINGED:"
+                f"{row.local_bending_axis}:{row.end_tag}"
+            )
+
+        release_refs = tuple(
+            ref
+            for ref in row.source_refs
+            if ref.startswith("etabs-frame-release:sha256:")
+        )
+
+        if not release_refs:
+            raise ValueError(
+                f"A18_RELEASE_EVIDENCE_NOT_BOUND_FOR_ONE_END_HINGED:"
+                f"{row.local_bending_axis}:{row.end_tag}"
+            )
+
+    refs = _refs(
+        bottom.source_refs,
+        top.source_refs,
+        (
+            A19_ONE_END_HINGED_AUTHORITY,
+            "A18_READY_CONTRACT:NO_RELEASE_OR_PARTIAL_FIXITY_EFFECT",
+        ),
+    )
+
+    # Source-bound negative fact:
+    # this supported A18 slice cannot represent an exactly-one-end-hinged
+    # target Column.
+    return False, refs
+
+
 def _unresolved(
     *,
     component_id: str,
@@ -76,6 +128,7 @@ def _unresolved(
     source_refs: tuple[str, ...],
     alpha_bottom: float | None = None,
     alpha_top: float | None = None,
+    one_end_hinged: bool | None = None,
     sway_classification: str | None = None,
     free_length_ln_mm: float | None = None,
 ) -> A19AxisEffectiveLengthMaterialization:
@@ -86,6 +139,7 @@ def _unresolved(
         sway_classification=sway_classification,
         alpha_bottom=alpha_bottom,
         alpha_top=alpha_top,
+        one_end_hinged=one_end_hinged,
         k=None,
         free_length_ln_mm=free_length_ln_mm,
         effective_length_lk_mm=None,
@@ -143,6 +197,26 @@ def materialize_ts500_effective_lengths(
             )
             continue
 
+        try:
+            one_end_hinged, hinge_refs = _derive_one_end_hinged_from_a18(
+                bottom=bottom,
+                top=top,
+            )
+        except ValueError as exc:
+            outputs.append(
+                _unresolved(
+                    component_id=component_id,
+                    axis=axis,
+                    reason=str(exc),
+                    source_refs=refs,
+                    alpha_bottom=alpha_bottom,
+                    alpha_top=alpha_top,
+                )
+            )
+            continue
+
+        refs = _refs(refs, hinge_refs)
+
         local_axis = getattr(local_sway.local_binding, axis.lower(), None)
         sway = None if local_axis is None else local_axis.sway_classification
         if local_sway.status != A17_READY or sway is None:
@@ -154,6 +228,7 @@ def materialize_ts500_effective_lengths(
                     source_refs=_refs(refs, tuple(getattr(local_axis, "source_refs", ()) or ())),
                     alpha_bottom=alpha_bottom,
                     alpha_top=alpha_top,
+                    one_end_hinged=one_end_hinged,
                 )
             )
             continue
@@ -168,6 +243,7 @@ def materialize_ts500_effective_lengths(
                     source_refs=refs,
                     alpha_bottom=alpha_bottom,
                     alpha_top=alpha_top,
+                    one_end_hinged=one_end_hinged,
                     sway_classification=sway,
                 )
             )
@@ -179,6 +255,7 @@ def materialize_ts500_effective_lengths(
                 alpha_bottom=float(alpha_bottom),
                 alpha_top=float(alpha_top),
                 sway_classification=sway,
+                one_end_hinged=one_end_hinged,
                 source_refs=_refs(
                     refs,
                     tuple(getattr(local_axis, "source_refs", ()) or ()),
@@ -186,7 +263,10 @@ def materialize_ts500_effective_lengths(
                 ),
             )
             factor = evaluate_ts500_effective_length_factor(basis)
-            lk = column_effective_length_mm(factor.k, float(ln))
+            lk = column_effective_length_mm(
+                free_length_mm=float(ln),
+                factor=factor,
+            )
         except (ColumnEffectiveLengthError, TypeError, ValueError) as exc:
             outputs.append(
                 _unresolved(
@@ -196,6 +276,7 @@ def materialize_ts500_effective_lengths(
                     source_refs=refs,
                     alpha_bottom=alpha_bottom,
                     alpha_top=alpha_top,
+                    one_end_hinged=one_end_hinged,
                     sway_classification=sway,
                     free_length_ln_mm=float(ln),
                 )
@@ -210,10 +291,11 @@ def materialize_ts500_effective_lengths(
                 sway_classification=sway,
                 alpha_bottom=float(alpha_bottom),
                 alpha_top=float(alpha_top),
-                k=factor.k,
+                one_end_hinged=one_end_hinged,
+                k=factor.effective_length_factor_k,
                 free_length_ln_mm=float(ln),
                 effective_length_lk_mm=lk,
-                controlling_equation=factor.controlling_equation,
+                controlling_equation=None,
                 source_refs=_refs(refs, factor.source_refs, (factor.authority, A19_AUTHORITY)),
             )
         )
@@ -223,6 +305,7 @@ def materialize_ts500_effective_lengths(
 
 __all__ = [
     "A19_AUTHORITY",
+    "A19_ONE_END_HINGED_AUTHORITY",
     "A19_EXPLICIT_UNRESOLVED",
     "A19_READY",
     "A19AxisEffectiveLengthMaterialization",

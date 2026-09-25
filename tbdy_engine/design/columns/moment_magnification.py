@@ -66,7 +66,7 @@ class ColumnMomentMagnificationAxisBasis:
     axis: str
     sway_classification: str
     nd_compression_n: float
-    m1_over_m2: float
+    m1_over_m2: float | None
     effective_length_lk_mm: float
     radius_i_mm: float
     ec_mpa: float
@@ -93,7 +93,6 @@ class ColumnMomentMagnificationAxisBasis:
             raise ColumnMomentMagnificationError("unsupported sway classification")
         object.__setattr__(self, "sway_classification", sway)
         object.__setattr__(self, "nd_compression_n", _nonnegative(self.nd_compression_n, "nd_compression_n"))
-        object.__setattr__(self, "m1_over_m2", _ratio(self.m1_over_m2, "m1_over_m2"))
         object.__setattr__(self, "effective_length_lk_mm", _positive(self.effective_length_lk_mm, "effective_length_lk_mm"))
         object.__setattr__(self, "radius_i_mm", _positive(self.radius_i_mm, "radius_i_mm"))
         object.__setattr__(self, "ec_mpa", _positive(self.ec_mpa, "ec_mpa"))
@@ -108,6 +107,27 @@ class ColumnMomentMagnificationAxisBasis:
         object.__setattr__(self, "stiffness_method", method)
         if type(self.horizontal_load_between_ends) is not bool:
             raise ColumnMomentMagnificationError("horizontal_load_between_ends must be bool")
+
+        if self.m1_over_m2 is None:
+            if (
+                sway == SWAY_PREVENTED
+                and not self.horizontal_load_between_ends
+            ):
+                raise ColumnMomentMagnificationError(
+                    "sway-prevented magnification without "
+                    "horizontal load between ends requires "
+                    "exact signed m1_over_m2"
+                )
+        else:
+            object.__setattr__(
+                self,
+                "m1_over_m2",
+                _ratio(
+                    self.m1_over_m2,
+                    "m1_over_m2",
+                ),
+            )
+
         refs = tuple(_text(ref, "source_ref") for ref in self.source_refs)
         if not refs or len(set(refs)) != len(refs):
             raise ColumnMomentMagnificationError("source_refs must be nonempty and unique")
@@ -193,7 +213,16 @@ def evaluate_ts500_axis_moment_magnification(
         )
 
     if basis.sway_classification == SWAY_PREVENTED:
-        cm = 1.0 if basis.horizontal_load_between_ends else max(0.4, 0.6 + 0.4 * basis.m1_over_m2)
+        if basis.horizontal_load_between_ends:
+            cm = 1.0
+        else:
+            assert basis.m1_over_m2 is not None
+            cm = max(
+                0.4,
+                0.6
+                + 0.4
+                * basis.m1_over_m2,
+            )
         denominator = 1.0 - basis.nd_compression_n / (1.3 * nk)
         if denominator <= 0.0:
             return ColumnMomentMagnificationAxisResult(

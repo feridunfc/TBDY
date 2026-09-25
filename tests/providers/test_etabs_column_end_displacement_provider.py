@@ -5,6 +5,7 @@ import pytest
 import tbdy_engine.providers.etabs_column_end_displacement_provider as provider
 from tbdy_engine.design.columns.stability_combo_basis import StabilityComboCandidate
 from tbdy_engine.design.columns.stability_output_state import (
+    CSI_LINEAR_ADD_SINGLE_VALUE_STEP_TYPE,
     StabilityActionDirectionBinding,
     qualify_signed_linear_add_stability_output,
 )
@@ -37,7 +38,15 @@ def _state(direction="X"):
     )
 
 
-def _joint_fact(point, output, u1, u2, *, step_type="", step_number=0.0):
+def _joint_fact(
+    point,
+    output,
+    u1,
+    u2,
+    *,
+    step_type=CSI_LINEAR_ADD_SINGLE_VALUE_STEP_TYPE,
+    step_number=0.0,
+):
     return JointDisplacementResultFact(
         point_object=point,
         output_name=output,
