@@ -546,6 +546,62 @@ def _column_contribution(
     )
 
 
+def _beam_geometry_eligibility(
+    beam: object,
+    member_id: str,
+    target_axis_azimuth: float,
+) -> tuple[bool, str]:
+    """Classify Eq.7.16 beam-plane eligibility before stiffness facts.
+
+    Geometry alone is sufficient to prove that a parallel beam cannot
+    contribute to the target bending-axis denominator.  Only a geometrically
+    relevant perpendicular beam is allowed to proceed to FrameEq713 factual
+    stiffness qualification.
+    """
+    azimuth = getattr(
+        beam,
+        "horizontal_azimuth_deg",
+        None,
+    )
+    if azimuth is None or isinstance(
+        azimuth,
+        bool,
+    ):
+        raise _Unresolved(
+            f"MISSING_BEAM_BENDING_PLANE:{member_id}"
+        )
+    try:
+        azimuth = float(
+            azimuth
+        )
+    except (TypeError, ValueError) as exc:
+        raise _Unresolved(
+            f"MISSING_BEAM_BENDING_PLANE:{member_id}"
+        ) from exc
+
+    span_ref = (
+        f"strict-topology:beam-azimuth:"
+        f"{member_id}:deg={azimuth:g}"
+    )
+
+    if _parallel(
+        azimuth,
+        target_axis_azimuth,
+    ):
+        return False, span_ref
+
+    if not _perpendicular(
+        azimuth,
+        target_axis_azimuth,
+    ):
+        raise _Unresolved(
+            f"AMBIGUOUS_BEAM_BENDING_PLANE:{member_id}",
+            span_ref,
+        )
+
+    return True, span_ref
+
+
 def _beam_contribution(
     beam: object,
     fact: FrameEq713FactualFact,
@@ -557,19 +613,21 @@ def _beam_contribution(
         A18FrameLocalAxisEvidence,
     ] | None,
 ) -> EndRestraintMemberContribution | None:
-    member_id = _member_id(beam, "BEAM")
-    azimuth = getattr(beam, "horizontal_azimuth_deg", None)
-    if azimuth is None or isinstance(azimuth, bool):
-        raise _Unresolved(f"MISSING_BEAM_BENDING_PLANE:{member_id}")
-    try:
-        azimuth = float(azimuth)
-    except (TypeError, ValueError) as exc:
-        raise _Unresolved(f"MISSING_BEAM_BENDING_PLANE:{member_id}") from exc
-    span_ref = f"strict-topology:beam-azimuth:{member_id}:deg={azimuth:g}"
-    if _parallel(azimuth, target_axis_azimuth):
+    member_id = _member_id(
+        beam,
+        "BEAM",
+    )
+
+    contributes, span_ref = (
+        _beam_geometry_eligibility(
+            beam,
+            member_id,
+            target_axis_azimuth,
+        )
+    )
+
+    if not contributes:
         return None
-    if not _perpendicular(azimuth, target_axis_azimuth):
-        raise _Unresolved(f"AMBIGUOUS_BEAM_BENDING_PLANE:{member_id}", span_ref)
 
     angle, axis_refs = _local_axis(
         beam,
@@ -715,10 +773,30 @@ def _one(
 
         beam_contributions = []
         for beam in beams:
-            member_id = _member_id(beam, "BEAM")
-            fact = facts.get(member_id)
+            member_id = _member_id(
+                beam,
+                "BEAM",
+            )
+
+            contributes, _span_ref = (
+                _beam_geometry_eligibility(
+                    beam,
+                    member_id,
+                    target_axis_azimuth,
+                )
+            )
+
+            if not contributes:
+                continue
+
+            fact = facts.get(
+                member_id
+            )
             if fact is None:
-                raise _Unresolved(f"MISSING_FRAME_FACT:{member_id}")
+                raise _Unresolved(
+                    f"MISSING_FRAME_FACT:{member_id}"
+                )
+
             contribution = _beam_contribution(
                 beam,
                 fact,
@@ -726,9 +804,14 @@ def _one(
                 target_axis_azimuth=target_axis_azimuth,
                 local_axis_facts=local_axis_facts,
             )
+
             if contribution is not None:
-                beam_contributions.append(contribution)
-                evidence.extend(contribution.source_refs)
+                beam_contributions.append(
+                    contribution
+                )
+                evidence.extend(
+                    contribution.source_refs
+                )
 
         ratio = evaluate_ts500_end_restraint_ratio(
             end_tag=end_tag,

@@ -6,6 +6,9 @@ from types import SimpleNamespace
 
 import tbdy_engine.application.column_public_a5 as a5
 import tbdy_engine.application.project_execution as project_execution
+from tbdy_engine.etabs.oapi.analysis_execution import (
+    DefinedAnalysisCasePopulationFact,
+)
 from tbdy_engine.etabs.oapi.frame_modifiers import (
     FrameModifierReadFact,
     FrameModifierSurface,
@@ -34,7 +37,7 @@ def _configure(monkeypatch, *, zero_v2: bool):
         vector_from_joint_m=(4.0, 0.0, 0.0),
     )
     column = replace(harness.column, beams_at_top=(beam_topology,))
-    topology = base._Topology(column)
+    topology = base._strict_topology(column)
     monkeypatch.setattr(
         a5,
         "capture_etabs_strict_column_topology_from_session",
@@ -135,6 +138,16 @@ def _configure(monkeypatch, *, zero_v2: bool):
     harness.modifier_values[(FrameModifierSurface.FRAME_OBJECT.value, "B1")] = object_initial
 
     cases = ("gravity-leaf", "modal-extra", "quake-alpha", "quake-beta")
+
+    defined_cases = DefinedAnalysisCasePopulationFact(
+        case_names=cases,
+        return_code=0,
+    )
+    monkeypatch.setattr(
+        a5,
+        "get_defined_analysis_cases_from_session",
+        lambda _session: defined_cases,
+    )
     harness.runtime["run_flags"].clear()
     harness.runtime["run_flags"].update({name: False for name in cases})
     harness.runtime["statuses"].clear()
