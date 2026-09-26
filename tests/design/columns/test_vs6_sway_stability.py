@@ -13,6 +13,7 @@ from tbdy_engine.design.columns.sway_stability import (
     evaluate_ts500_story_stability_index,
     resolve_ts500_story_sway_from_stability_indices,
 )
+from tbdy_engine.regulatory.contracts import ApplicabilityState
 
 
 def _evidence(load_basis: str, *, drift_mm: float) -> StoryStabilityIndexEvidence:
@@ -85,3 +86,41 @@ def test_if_unfavorable_basis_exceeds_limit_proof_route_stays_unresolved():
     )
     assert result.status == "NOT_PROVEN_SWAY_PREVENTED_BY_TS500_STABILITY_INDEX"
     assert result.governing_phi == pytest.approx(0.06)
+
+
+def test_reviewed_w_not_applicable_keeps_gqe_proof_and_applicability_lineage():
+    result = resolve_ts500_story_sway_from_stability_indices(
+        (_evidence(TS500_LOAD_GQE, drift_mm=6.0),), story="+0.00", direction="X",
+        gqw_applicability=ApplicabilityState.PROVEN_NOT_APPLICABLE,
+        applicability_source_refs=("review:bound-W-PNA",),
+    )
+    assert result.status == "PROVEN_SWAY_PREVENTED_BY_TS500_STABILITY_INDEX"
+    assert result.governing_phi == pytest.approx(0.03)
+    assert result.governing_load_basis == TS500_LOAD_GQE
+    assert "review:bound-W-PNA" in result.source_refs
+
+
+def test_w_not_applicable_does_not_waive_gqe_or_accept_conflicting_w_facts():
+    kwargs = dict(story="+0.00", direction="X",
+                  gqw_applicability=ApplicabilityState.PROVEN_NOT_APPLICABLE,
+                  applicability_source_refs=("review:bound-W-PNA",))
+    result = resolve_ts500_story_sway_from_stability_indices((), **kwargs)
+    assert result.status == "BLOCKED_TS500_SWAY_STABILITY_INDEX_EVIDENCE"
+    assert result.missing_load_bases == (TS500_LOAD_GQE,)
+    with pytest.raises(StoryStabilityIndexError, match="conflicts"):
+        resolve_ts500_story_sway_from_stability_indices(
+            (_evidence(TS500_LOAD_GQW, drift_mm=6.0),), **kwargs)
+    kwargs["applicability_source_refs"] = ()
+    with pytest.raises(StoryStabilityIndexError, match="source-bound"):
+        resolve_ts500_story_sway_from_stability_indices((), **kwargs)
+
+
+@pytest.mark.parametrize("state", [ApplicabilityState.UNRESOLVED, ApplicabilityState.INVALID_CONTEXT])
+def test_unknown_w_applicability_cannot_prove_sway_prevented(state):
+    result = resolve_ts500_story_sway_from_stability_indices(
+        tuple(_evidence(basis, drift_mm=6.0) for basis in (TS500_LOAD_GQE, TS500_LOAD_GQW)),
+        story="+0.00", direction="X", gqw_applicability=state,
+        applicability_source_refs=("review:W-unresolved",),
+    )
+    assert result.status == "BLOCKED_TS500_SWAY_STABILITY_INDEX_EVIDENCE"
+    assert result.governing_phi is None

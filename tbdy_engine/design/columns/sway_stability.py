@@ -20,6 +20,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 import math
 
+from tbdy_engine.regulatory.contracts import ApplicabilityState
+
 
 TS500_STABILITY_LIMIT = 0.05
 TS500_LOAD_GQE = "TS500_FD_1.0G_1.0Q_1.0E"
@@ -157,16 +159,24 @@ def resolve_ts500_story_sway_from_stability_indices(
     *,
     story: str,
     direction: str,
+    gqw_applicability: ApplicabilityState = ApplicabilityState.APPLIES,
+    applicability_source_refs: tuple[str, ...] = (),
 ) -> StorySwayStabilityResolution:
     """Use the unfavorable prescribed load basis to prove sway-prevented behavior.
 
-    Both TS500 load bases must be present.  Missing evidence blocks this proof
-    route rather than being interpreted as zero demand.
+    Both bases remain required by default. The existing reviewed Route-C W
+    applicability contract may explicitly exclude GQW, retaining its evidence.
+    Missing evidence is never interpreted as zero demand.
     """
     story_name = _text(story, "story")
     direction_name = _text(direction, "direction")
     if direction_name not in {"X", "Y"}:
         raise StoryStabilityIndexError("direction must be X or Y")
+    if not isinstance(gqw_applicability, ApplicabilityState):
+        raise TypeError("gqw_applicability must be ApplicabilityState")
+    applicability_refs = tuple(_text(ref, "applicability_source_ref") for ref in applicability_source_refs)
+    if gqw_applicability is not ApplicabilityState.APPLIES and not applicability_refs:
+        raise StoryStabilityIndexError("non-default GQW applicability requires source-bound evidence")
 
     selected = tuple(
         item for item in evidences
@@ -175,8 +185,13 @@ def resolve_ts500_story_sway_from_stability_indices(
     bases = tuple(item.load_basis for item in selected)
     if len(bases) != len(set(bases)):
         raise StoryStabilityIndexError("duplicate story/direction/load_basis stability evidence")
-    missing = tuple(sorted(REQUIRED_STABILITY_LOAD_BASES - set(bases)))
-    if missing:
+    required = REQUIRED_STABILITY_LOAD_BASES
+    if gqw_applicability is ApplicabilityState.PROVEN_NOT_APPLICABLE:
+        if TS500_LOAD_GQW in bases:
+            raise StoryStabilityIndexError("GQW evidence conflicts with proven-not-applicable W basis")
+        required = frozenset({TS500_LOAD_GQE})
+    missing = tuple(sorted(required - set(bases)))
+    if missing or gqw_applicability not in {ApplicabilityState.APPLIES, ApplicabilityState.PROVEN_NOT_APPLICABLE}:
         return StorySwayStabilityResolution(
             story=story_name,
             direction=direction_name,
@@ -185,7 +200,7 @@ def resolve_ts500_story_sway_from_stability_indices(
             governing_load_basis=None,
             load_results=(),
             missing_load_bases=missing,
-            source_refs=("TS500 7.6.2.1 Eq.7.13 requires unfavorable prescribed load basis",),
+            source_refs=("TS500 7.6.2.1 Eq.7.13 requires unfavorable prescribed load basis", *applicability_refs),
         )
 
     results = tuple(evaluate_ts500_story_stability_index(item) for item in selected)
@@ -195,7 +210,7 @@ def resolve_ts500_story_sway_from_stability_indices(
         if governing.proves_sway_prevented
         else "NOT_PROVEN_SWAY_PREVENTED_BY_TS500_STABILITY_INDEX"
     )
-    refs = tuple(dict.fromkeys(ref for result in results for ref in result.source_refs))
+    refs = tuple(dict.fromkeys((*applicability_refs, *(ref for result in results for ref in result.source_refs))))
     return StorySwayStabilityResolution(
         story=story_name,
         direction=direction_name,

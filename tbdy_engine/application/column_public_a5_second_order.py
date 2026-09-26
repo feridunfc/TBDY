@@ -544,6 +544,7 @@ def build_public_a5_canonical_second_order_payload(
             component_id=component_id,
             story=target_column.story,
             candidate_runtimes=tuple(runtimes),
+            route_c_w_applicability=route_c_w_applicability,
         )
         refs.extend(local_sway.source_refs)
         if local_sway.status != A17_READY:

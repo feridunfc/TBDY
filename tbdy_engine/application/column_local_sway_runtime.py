@@ -14,6 +14,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 
+from tbdy_engine.application.column_design_basis import BoundColumnActionFamilyApplicability
+from tbdy_engine.regulatory.contracts import ApplicabilityState
+
 from tbdy_engine.design.columns.local_axis_sway_binding import (
     ColumnLocalAxisSwayBinding,
     GlobalSwayDirectionEvidence,
@@ -63,6 +66,7 @@ def _resolve_direction(
     *,
     story: str,
     direction: str,
+    route_c_w_applicability: BoundColumnActionFamilyApplicability | None = None,
 ) -> StorySwayStabilityResolution:
     evidences = tuple(
         item.stability_evidence
@@ -76,6 +80,10 @@ def _resolve_direction(
             evidences,
             story=story,
             direction=direction,
+            gqw_applicability=(ApplicabilityState.APPLIES if route_c_w_applicability is None
+                               else route_c_w_applicability.state),
+            applicability_source_refs=(() if route_c_w_applicability is None
+                                       else route_c_w_applicability.source_refs),
         )
     except Exception as exc:
         raise ColumnLocalSwayRuntimeError(
@@ -110,6 +118,7 @@ def compose_column_local_axis_sway_runtime(
     story: str,
     candidate_runtimes: Sequence[object],
     projection_tolerance: float = 1.0e-10,
+    route_c_w_applicability: BoundColumnActionFamilyApplicability | None = None,
 ) -> ColumnLocalAxisSwayRuntime:
     """Resolve A16 X/Y evidence and bind it to the Column's factual M2/M3 axes.
 
@@ -119,6 +128,8 @@ def compose_column_local_axis_sway_runtime(
     local M2/M3 without assuming X=M2 or Y=M3.
     """
     story_name = _text(story, "story")
+    if route_c_w_applicability is not None and not isinstance(route_c_w_applicability, BoundColumnActionFamilyApplicability):
+        raise TypeError("route_c_w_applicability must be BoundColumnActionFamilyApplicability or None")
     column = _target_column(topology, component_id)
     if column.story != story_name:
         raise ColumnLocalSwayRuntimeError(
@@ -129,11 +140,13 @@ def compose_column_local_axis_sway_runtime(
         candidate_runtimes,
         story=story_name,
         direction="X",
+        route_c_w_applicability=route_c_w_applicability,
     )
     global_y = _resolve_direction(
         candidate_runtimes,
         story=story_name,
         direction="Y",
+        route_c_w_applicability=route_c_w_applicability,
     )
 
     local_axis_ref = (

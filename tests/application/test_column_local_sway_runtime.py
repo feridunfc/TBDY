@@ -1,6 +1,8 @@
 from types import SimpleNamespace
 
 import tbdy_engine.application.column_local_sway_runtime as runtime
+from test_column_route_c_w_applicability import _bound
+from tbdy_engine.regulatory.contracts import ApplicabilityState
 from tbdy_engine.design.columns.local_axis_sway_binding import LOCAL_SWAY_PREVENTED
 from tbdy_engine.design.columns.sway_stability import (
     LOAD_BASIS_AUTHORITY,
@@ -104,3 +106,18 @@ def test_a17_does_not_promote_failed_eq713_route_to_sway_permitted(monkeypatch):
     assert result.local_binding.m3.sway_classification is None
     assert "SWAY_PERMITTED" not in result.local_binding.m2.status
     assert "SWAY_PERMITTED" not in result.local_binding.m3.status
+
+
+def test_a17_consumes_bound_w_applicability_without_losing_its_provenance(monkeypatch):
+    monkeypatch.setattr(runtime, "StrictColumnTopologyBundle", _Topology)
+    bound = _bound(ApplicabilityState.PROVEN_NOT_APPLICABLE)
+    result = runtime.compose_column_local_axis_sway_runtime(
+        topology=_Topology((_column(),)), component_id="S1:C1:U1", story="S1",
+        candidate_runtimes=tuple(_candidate(axis, _evidence(
+            axis, TS500_LOAD_GQE, drift_mm=5.0, source_ref=f"{axis}:gqe")) for axis in ("X", "Y")),
+        route_c_w_applicability=bound,
+    )
+    assert result.status == runtime.STATUS_READY
+    assert set(bound.source_refs) <= set(result.source_refs)
+    assert result.global_x.governing_load_basis == TS500_LOAD_GQE
+    assert result.global_y.governing_load_basis == TS500_LOAD_GQE
