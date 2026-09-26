@@ -790,6 +790,92 @@ def test_requested_focus_absent_never_builds_fake_denominator_or_report(
     assert setup.harness.runtime["run_calls"] == 0
 
 
+def _leave_sway_unresolved(monkeypatch, setup, component_ids):
+    """Exercise real FND2 classification with missing per-component evidence."""
+    original = a5.build_public_a5_canonical_second_order_payload
+
+    def payload(*, component_id, **kwargs):
+        value = original(component_id=component_id, **kwargs)
+        if component_id in component_ids:
+            for axis in ("m2", "m3"):
+                value[axis]["sway_classification"] = None
+                value[axis]["sway_source_ref"] = None
+                value[axis]["sway_authority"] = None
+        return value
+
+    monkeypatch.setattr(a5, "build_public_a5_canonical_second_order_payload", payload)
+
+
+@pytest.mark.parametrize("focus", (COMPONENT_1, COMPONENT_2))
+def test_mixed_fnd2_population_continues_only_ready_through_one_model_wide_b6(
+    monkeypatch, focus,
+):
+    setup = _install_two_column_harness(monkeypatch)
+    _leave_sway_unresolved(monkeypatch, setup, (COMPONENT_2,))
+    context, scratch, analysis = _install_lifecycle_counters(monkeypatch, setup)
+    counts, factual_results = _install_real_b6_owner(monkeypatch, setup)
+
+    result = project_execution.execute_project(
+        _two_column_request(focus), verified_session=setup.module._FakeSession(),
+    )
+    ready, unresolved = result.columns
+    assert (ready.component_id, unresolved.component_id) == (COMPONENT_1, COMPONENT_2)
+    assert ready.status == "READY"
+    assert unresolved.status == "UNRESOLVED"
+    assert unresolved.fnd_col_2_execution is not None
+    assert unresolved.design_state is None
+    assert unresolved.controlled_design_result is None
+    assert unresolved.longitudinal_runtime is None
+    assert counts == {"controlled_design": 1, "start_design": 1}
+    assert context["count"] == scratch["count"] == analysis["count"] == 1
+    assert setup.harness.runtime["run_calls"] == 1
+    assert ready.design_lineage.qualified
+    assert ready.design_result_identity.parent_design_state_ref == ready.design_state.identity_ref
+    assert ready.factual_design_results is factual_results
+    assert factual_results.expected_component_ids == (COMPONENT_1, COMPONENT_2)
+    scopes = tuple(sorted(design_component_scope_ref(c) for c in (COMPONENT_1, COMPONENT_2)))
+    assert ready.design_state.design_component_population_refs == scopes
+    assert ready.design_result_identity.result_scope_refs == scopes
+    assert ready.readiness_binding.readiness_ref in ready.design_state.state_basis_refs
+    assert unresolved.readiness_binding.readiness_ref not in ready.design_state.state_basis_refs
+    assert result.column.component_id == focus
+    denominator = result.column_denominator
+    assert denominator.expected_component_ids == (COMPONENT_1, COMPONENT_2)
+    assert denominator.silent_missing_count == denominator.duplicate_count == denominator.orphan_count == 0
+    assert result.reconciliation.column_population_reconciled
+    assert result.reconciliation.column_partition_complete
+    assert result.building_report_model is not None
+
+
+def test_no_ready_population_retains_truth_and_never_calls_b6(monkeypatch):
+    setup = _install_two_column_harness(monkeypatch)
+    _leave_sway_unresolved(monkeypatch, setup, (COMPONENT_1, COMPONENT_2))
+    counts, _ = _install_real_b6_owner(monkeypatch, setup)
+    result = project_execution.execute_project(
+        _two_column_request(), verified_session=setup.module._FakeSession(),
+    )
+    assert tuple(c.status for c in result.columns) == ("UNRESOLVED", "UNRESOLVED")
+    assert counts == {"controlled_design": 0, "start_design": 0}
+    assert result.column_denominator.expected_component_ids == (COMPONENT_1, COMPONENT_2)
+    assert result.reconciliation.column_population_reconciled
+    assert result.building_report_model is not None
+
+
+def test_mixed_population_b6_scope_failure_preserves_non_ready_outcome(monkeypatch):
+    setup = _install_two_column_harness(monkeypatch)
+    _leave_sway_unresolved(monkeypatch, setup, (COMPONENT_2,))
+    counts, _ = _install_real_b6_owner(monkeypatch, setup, result_component_ids=(COMPONENT_1,))
+    result = project_execution.execute_project(
+        _two_column_request(), verified_session=setup.module._FakeSession(),
+    )
+    ready, unresolved = result.columns
+    assert ready.status == STATUS_APPLICATION_BLOCKED
+    assert unresolved.status == "UNRESOLVED"
+    assert all(c.controlled_design_result is None for c in result.columns)
+    assert counts == {"controlled_design": 1, "start_design": 1}
+    assert result.reconciliation.column_population_reconciled
+
+
 def test_duplicate_factual_component_identity_is_population_unknown(
     monkeypatch,
 ):
@@ -893,8 +979,9 @@ def test_shared_post_topology_failure_blocks_every_factual_component(
     assert result.building_report_model is None
 
 
+@pytest.mark.parametrize("full_population", (True, False))
 def test_b6_component_set_mismatch_fails_before_start_design(
-    monkeypatch,
+    monkeypatch, full_population,
 ):
     setup = _install_two_column_harness(monkeypatch)
     population = a5.execute_public_a5_column(
@@ -921,10 +1008,12 @@ def test_b6_component_set_mismatch_fails_before_start_design(
     )
     with pytest.raises(
         ColumnExecutionContractError,
-        match="supplied component set differs from strict topology",
+        match=("supplied component set differs from strict topology" if full_population
+               else "READY component is outside strict topology"),
     ):
         column_execution._establish_public_b6_generation(
-            (population.columns[0].column,),
+            (population.columns[0].column if full_population else
+             replace(population.columns[0].column, component_id=ABSENT_FOCUS),),
             acquisition_context=population.acquisition_context,
             owned_scratch=population.owned_scratch,
             analysis_execution=population.analysis_execution,
@@ -932,7 +1021,7 @@ def test_b6_component_set_mismatch_fails_before_start_design(
             selected_combo_population=population.selected_combo_population,
             combo_definitions=population.combo_definitions,
             flattened_combos=population.flattened_combos,
-            require_full_population=True,
+            require_full_population=full_population,
         )
     assert start_calls["count"] == 0
 

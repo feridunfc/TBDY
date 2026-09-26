@@ -140,7 +140,6 @@ BLOCKER_LONGITUDINAL_PRODUCTION = "LONGITUDINAL_PRODUCTION_NOT_CLOSED"
 BLOCKER_TRANSVERSE_PRODUCTION = "TRANSVERSE_CONFINEMENT_PRODUCTION_NOT_CLOSED"
 BLOCKER_P7_PRODUCTION = "P7_PRODUCTION_NOT_CLOSED"
 BLOCKER_LIMITED_SHEAR_PRODUCTION = "LIMITED_SHEAR_PRODUCTION_NOT_CLOSED"
-BLOCKER_B6_POPULATION_READINESS = "B6_FULL_COLUMN_POPULATION_NOT_FND2_READY"
 BLOCKER_B6_POPULATION_SCOPE = "B6_FULL_COLUMN_POPULATION_SCOPE_NOT_EXACT"
 
 
@@ -659,39 +658,27 @@ def _execute_column_population(
             blockers=tuple(a5_population.blockers) or (blocker,),
         )
 
-    if any(item.status != STATUS_READY for item in base_columns):
-        population_columns = tuple(
-            item
-            if item.status != STATUS_READY
-            else replace(
-                item,
-                status=STATUS_APPLICATION_BLOCKED,
-                blockers=tuple(
-                    dict.fromkeys(
-                        (*item.blockers, BLOCKER_B6_POPULATION_READINESS)
-                    )
-                ),
-            )
-            for item in base_columns
-        )
+    # FND2 gates consumption per component, not the factual model population.
+    # B6 still designs/captures the complete strict topology exactly once.
+    ready_columns = tuple(item for item in base_columns if item.status == STATUS_READY)
+    if not ready_columns:
         focus = next(
             item
-            for item in population_columns
+            for item in base_columns
             if item.component_id == request.component_id
         )
         return ColumnPopulationExecution(
             population_state=ColumnPopulationState.KNOWN,
             expected_component_ids=expected_component_ids,
-            columns=population_columns,
+            columns=base_columns,
             focus_component_id=request.component_id,
             focus_present=True,
             focus_column=focus,
-            blockers=(BLOCKER_B6_POPULATION_READINESS,),
         )
 
     try:
         shared_b6 = _establish_public_b6_generation(
-            base_columns,
+            ready_columns,
             acquisition_context=a5_population.acquisition_context,
             owned_scratch=a5_population.owned_scratch,
             analysis_execution=a5_population.analysis_execution,
@@ -699,7 +686,7 @@ def _execute_column_population(
             selected_combo_population=a5_population.selected_combo_population,
             combo_definitions=a5_population.combo_definitions,
             flattened_combos=a5_population.flattened_combos,
-            require_full_population=True,
+            require_full_population=False,
         )
     except Exception as exc:
         blocker = (
@@ -707,7 +694,7 @@ def _execute_column_population(
             f"{type(exc).__name__}:{exc}"
         )
         population_columns = tuple(
-            replace(
+            item if item.status != STATUS_READY else replace(
                 item,
                 status=STATUS_APPLICATION_BLOCKED,
                 blockers=tuple(
@@ -1493,7 +1480,7 @@ def _establish_public_b6_generation(
     flattened_combos,
     require_full_population: bool,
 ) -> _PublicB6Generation:
-    """Establish the one B6 generation for the exact factual Column population."""
+    """Use READY bindings to establish one model-wide factual B6 generation."""
     frozen = tuple(columns)
     if not frozen:
         raise ColumnExecutionContractError("B6 Column population must be nonempty")
@@ -1501,11 +1488,11 @@ def _establish_public_b6_generation(
         raise TypeError("columns must contain ColumnDomainArtifact")
     if any(item.status != STATUS_READY for item in frozen):
         raise ColumnExecutionContractError(
-            "B6 full-population generation requires every supplied Column FND2 READY"
+            "B6 generation requires every supplied Column FND2 READY"
         )
     if any(item.readiness_binding is None for item in frozen):
         raise ColumnExecutionContractError(
-            "B6 full-population generation requires every readiness binding"
+            "B6 generation requires every supplied readiness binding"
         )
 
     model = frozen[0].model_fingerprint
@@ -1536,6 +1523,10 @@ def _establish_public_b6_generation(
     if require_full_population and supplied_component_ids != topology_component_ids:
         raise ColumnExecutionContractError(
             f"{BLOCKER_B6_POPULATION_SCOPE}: supplied component set differs from strict topology"
+        )
+    if not set(supplied_component_ids).issubset(topology_component_ids):
+        raise ColumnExecutionContractError(
+            f"{BLOCKER_B6_POPULATION_SCOPE}: READY component is outside strict topology"
         )
 
     analysis_lineage = analysis_execution.qualification
