@@ -1,7 +1,8 @@
 """A37 production composition for existing VS6-P7 Column shear authority.
 
-Application sequencing only.  No P7 formula, governing-row heuristic,
-second result-table read, or transverse-cage inference is owned here.
+Application sequencing only. No P7 formula, governing-row heuristic or
+transverse-cage inference is owned here. Combo facts use the existing VS5
+provider and the same qualified B5 generation.
 """
 from __future__ import annotations
 
@@ -15,6 +16,9 @@ from tbdy_engine.application.column_longitudinal_runtime import (
 from tbdy_engine.design.columns.free_length_basis import ColumnFreeLengthResolution
 from tbdy_engine.design.columns.rebar_selection import ColumnDemandState
 from tbdy_engine.etabs.safety import read_verified_unit_snapshot
+from tbdy_engine.providers.etabs_column_axial_b5_provider import (
+    capture_b5_bound_column_combo_force_populations,
+)
 from tbdy_engine.features.column_shear_demand_evidence import (
     ColumnShearDemandEvidenceBundle,
     build_column_shear_demand_evidence,
@@ -200,6 +204,8 @@ def build_b5_bound_column_shear_evidence(
     model_fingerprint: str,
     acquisition_context: TrustedLiveAcquisitionContext,
     analysis_execution: AnalysisExecutionResult,
+    topology=None,
+    flattened_combos=(),
 ) -> ColumnShearDemandEvidenceBundle:
     """Reuse the exact qualified B5 Column-force populations; do not reread them."""
     if not isinstance(acquisition_context, TrustedLiveAcquisitionContext):
@@ -216,6 +222,18 @@ def build_b5_bound_column_shear_evidence(
     expected_cases = tuple(analysis_execution.manifest.scope.case_names)
     if not populations or tuple(sorted(item.case_name for item in populations)) != expected_cases:
         raise ColumnP7RuntimeError("P7 requires the exact complete B5 result-population scope")
+    combo_definitions = tuple(flattened_combos)
+    combo_names = tuple(name for name, _ in combo_definitions)
+    if combo_definitions:
+        if topology is None:
+            raise ColumnP7RuntimeError("combo shear responses require the full factual topology")
+        if set(combo_names) & set(expected_cases):
+            raise ColumnP7RuntimeError("load-case and combination output names must be distinct")
+        combo_populations = capture_b5_bound_column_combo_force_populations(
+            session=acquisition_context.verified_session, analysis_execution=analysis_execution,
+            topology=topology, required_combo_names=combo_names, flattened_combos=combo_definitions,
+        )
+        populations = (*populations, *combo_populations)
     rows = tuple(row for population in populations for row in population.rows)
     if not rows:
         raise ColumnP7RuntimeError("P7 B5 result population contains no rows")
@@ -240,7 +258,7 @@ def build_b5_bound_column_shear_evidence(
     return build_column_shear_demand_evidence(
         model_fingerprint=_text(model_fingerprint, "model_fingerprint"),
         rows=rows,
-        output_names=expected_cases,
+        output_names=tuple(sorted((*expected_cases, *combo_names))),
         force_unit=force_unit,
         length_unit=length_unit,
         unit_provenance_refs=unit_refs,
@@ -258,6 +276,8 @@ def compose_column_p7_runtime(
     longitudinal_runtime: ColumnLongitudinalRuntimeComposition,
     reviewed_context: ReviewedColumnP7RuntimeContext,
     short_column_context: ReviewedColumnShortColumnContext,
+    topology=None,
+    flattened_combos=(),
 ) -> ColumnP7RuntimeComposition:
     component = _text(component_id, "component_id")
     if not isinstance(reviewed_context, ReviewedColumnP7RuntimeContext):
@@ -321,11 +341,14 @@ def compose_column_p7_runtime(
         model_fingerprint=model_fingerprint,
         acquisition_context=acquisition_context,
         analysis_execution=analysis_execution,
+        topology=topology,
+        flattened_combos=flattened_combos,
     )
 
     runs = []
     for plan in reviewed_context.directions:
-        plan_refs = tuple(dict.fromkeys((*reviewed_context.review_refs, *plan.review_refs)))
+        plan_refs = tuple(dict.fromkeys((*reviewed_context.review_refs, *plan.review_refs,
+                                       *short_column_context.review_refs)))
         tbdy_selection = ColumnShearDemandSelection(
             component_id=component,
             column_unique_name=target.unique_name,
@@ -359,7 +382,7 @@ def compose_column_p7_runtime(
                 free_length=free_length,
                 short_column_applies=(short_column_context.short_column_applies),
                 short_free_length_mm=(short_column_context.short_free_length_mm),
-                short_basis_refs=short_column_context.review_refs,
+                short_basis_refs=(short_column_context.review_refs if short_column_context.short_column_applies else ()),
                 shear_evidence=bundle,
                 tbdy_vd_selection=tbdy_selection,
                 ts500_vd_selection=ts500_selection,

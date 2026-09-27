@@ -202,6 +202,8 @@ def test_runtime_binds_reviewed_identities_to_runtime_epoch_and_canonical_materi
         for item in calls
     )
     assert all(item["demand_states"] == states for item in calls)
+    assert all(item["short_basis_refs"] == () for item in calls)
+    assert all("REVIEW:NOT_SHORT" in item["tbdy_vd_selection"].review_refs for item in calls)
 
 
 def test_a37_reviewed_context_is_not_added_to_request_dtos():

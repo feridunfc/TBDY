@@ -20,6 +20,11 @@ import tbdy_engine.application.column_public_a5_second_order as second_order
 import tbdy_engine.application.column_stability_runtime as stability
 import tbdy_engine.application.column_route_c_direction_binding as direction
 import tbdy_engine.application.column_longitudinal_runtime as longitudinal
+import tbdy_engine.application.column_p7_runtime as p7
+from tbdy_engine.application.column_final_cage import ReviewedColumnFinalCageContext
+from tbdy_engine.application.column_vc_runtime import ReviewedColumnVcRuntimeContext, ReviewedHighColumnVcDirectionPlan
+from tbdy_engine.features.column_shear_demand_evidence import column_shear_source_identity
+from tbdy_engine.regulatory.vs6_column_shear_p7_integration import ReviewedDAmplifiedShearAuthority
 import tbdy_engine.application.project_execution as project
 import tbdy_engine.providers.etabs_column_end_displacement_provider as displacements
 import tbdy_engine.providers.etabs_column_axial_b5_provider as axial
@@ -67,7 +72,7 @@ from tbdy_engine.providers.etabs_concrete_design_combo_selection_probe import (
 )
 from tbdy_engine.providers.etabs_story_stability_result_provider import EtabsStoryStabilityComboFact
 from tbdy_engine.providers.strict_topology_stiffness_evidence_provider import build_assigned_rc_frame_bending_modifier_evidence
-from tbdy_engine.regulatory.contracts import ApplicabilityState
+from tbdy_engine.regulatory.contracts import ApplicabilityState, AvailabilityState
 
 
 C1, C2 = population.COMPONENT_1, population.COMPONENT_2
@@ -156,6 +161,30 @@ def _axial_context():
         linear_superposition_reviewed=True, compression_sign=-1,
         ndm_regulatory_authority_ids=("authority:TBDY2018:7.3.1.2",), ndm_review_refs=("review:ndm",),
         ts500_combination_ids=("GQEX", "GQEY"), ts500_gamma_mc=1.5, ts500_review_refs=("review:Nd",))
+
+
+def _shear_contexts(module):
+    eq = module._force_rows("EX")[0]
+    total = {**eq, "OutputCase": "GQEX", "CaseType": "Combination", "StepType": None}
+    eq_id, total_id = column_shear_source_identity(eq), column_shear_source_identity(total)
+    bottom, top = (f"{C1}|GQEX|{end}|STATIC_LINEAR_EXACT|TS5006.3.10|M2=ORIGINAL|M3=ORIGINAL"
+                   for end in ("I_END", "J_END"))
+    return dict(
+        reviewed_column_p7_context=p7.ReviewedColumnP7RuntimeContext(C1, tuple(
+            p7.ReviewedColumnP7DirectionPlan(C1, axis, total_id, total_id, bottom, top, False,
+                ReviewedDAmplifiedShearAuthority(C1, axis, AvailabilityState.RESOLVED, 500.,
+                    "review:offline-D-amplified-candidate", ("review:offline-D",)), ("review:offline-P7",))
+            for axis in ("V2", "V3")), ("review:offline-P7",)),
+        reviewed_column_short_column_context=p7.ReviewedColumnShortColumnContext(
+            C1, False, None, None, None, ("review:offline-not-short",)),
+        reviewed_column_final_cage_context=ReviewedColumnFinalCageContext(
+            C1, "C50x80", "10", 4, 4, 100., 150., 100., 800., 140., 180., 200.,
+            False, None, ("review:offline-final-cage",)),
+        reviewed_column_vc_context=ReviewedColumnVcRuntimeContext(C1,
+            high_directions=tuple(ReviewedHighColumnVcDirectionPlan(
+                C1, axis, bottom, bottom, eq_id, total_id, True, ("review:offline-Vc",))
+                for axis in ("V2", "V3")), review_refs=("review:offline-Vc",)),
+    )
 
 
 def _install(monkeypatch):
@@ -318,6 +347,9 @@ def _install(monkeypatch):
             expected_unique_names=expectation.expected_unique_names, observed_unique_names=expectation.expected_unique_names,
             rows=rows)
     monkeypatch.setattr(axial, "capture_column_force_result_population_from_session", combo_forces)
+    monkeypatch.setattr(p7, "TrustedLiveAcquisitionContext", setup.module._FakeContext)
+    monkeypatch.setattr(p7, "read_verified_unit_snapshot", lambda *a, **k:
+        NS(present_units_api="GetPresentUnits_2", present_force_unit=4, present_length_unit=6))
     return NS(setup=setup, counters=counters, lifecycle=lifecycle, topology=topology, combos=combos)
 
 
@@ -326,7 +358,7 @@ def test_public_mixed_vertical_uses_real_canonical_fnd2_and_longitudinal_owners(
     result = project.execute_project(population._two_column_request(),
         verified_session=harness.setup.module._FakeSession(),
         column_design_basis=_basis(), expected_combo_policy=_policy(harness.combos),
-        reviewed_vs5_column_axial_context=_axial_context())
+        reviewed_vs5_column_axial_context=_axial_context(), **_shear_contexts(harness.setup.module))
     ready, unresolved = result.columns
     assert ready.design_state is not None, (ready.status, ready.blockers)
     assert ready.a23_demand_states, ready.blockers
@@ -336,6 +368,9 @@ def test_public_mixed_vertical_uses_real_canonical_fnd2_and_longitudinal_owners(
     assert ready.longitudinal_runtime.detailing.status == "FINAL_DETAILING_REQUIRED"
     assert ready.column_axial_vs5 is not None, ready.blockers
     assert ready.transverse_confinement is not None, ready.blockers
+    assert ready.column_shear_p7 is not None, ready.blockers
+    assert {axis for axis, _ in ready.transverse_confinement.shear_vr_by_direction_kn} == {"DIR2", "DIR3"}
+    assert ready.final_transverse_cage.semantic_role == "USER_PROVIDED_REBAR"
     assert unresolved.status == "UNRESOLVED"
     assert unresolved.controlled_design_result is None
     assert unresolved.selected_rebar is None

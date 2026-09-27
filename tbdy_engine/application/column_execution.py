@@ -1979,6 +1979,8 @@ def _complete_public_b6_after_fnd2(
                 free_length=selected_column.free_length,
                 demand_states=selected_column.a23_demand_states,
                 longitudinal_runtime=runtime,
+                topology=topology,
+                flattened_combos=flattened_combos,
                 reviewed_context=reviewed_column_p7_context,
                 short_column_context=(
                     reviewed_column_short_column_context

@@ -94,6 +94,31 @@ def _b5_population_rows(
     return tuple(out)
 
 
+def capture_b5_bound_column_combo_force_populations(
+    *, session, analysis_execution, topology, required_combo_names, flattened_combos,
+):
+    """Read exact combo responses from the existing qualified B5 generation.
+
+    This is the same factual read used by VS5. Every flattened load case must
+    already be in B5; no analysis is executed and no response is calculated.
+    """
+    if not isinstance(analysis_execution, AnalysisExecutionResult):
+        raise TypeError("analysis_execution must be AnalysisExecutionResult")
+    if not analysis_execution.qualification.qualified:
+        raise ColumnAxialB5EvidenceError("combo responses require qualified B5 lineage")
+    names = tuple(required_combo_names)
+    if len(set(names)) != len(names):
+        raise ColumnAxialB5EvidenceError("duplicate requested combination identity")
+    _combination_rows(required_combo_names=names, flattened_combos=flattened_combos,
+                      exact_b5_case_scope=frozenset(analysis_execution.manifest.scope.case_names))
+    expectation = ColumnForcePopulationExpectation(
+        expected_unique_names=tuple(item.unique_name for item in topology.columns),
+        source_row_count=len(topology.columns),
+    )
+    return tuple(capture_column_force_result_population_from_session(
+        session, case_name=name, expectation=expectation) for name in names)
+
+
 def capture_b5_bound_column_axial_evidence(
     *,
     session,
@@ -157,12 +182,10 @@ def capture_b5_bound_column_axial_evidence(
     )
     final_rows: list[Mapping[str, object]] = []
     final_refs: list[str] = []
-    for combo_name in required_combos:
-        fact = capture_column_force_result_population_from_session(
-            session,
-            case_name=combo_name,
-            expectation=expectation,
-        )
+    for fact in capture_b5_bound_column_combo_force_populations(
+        session=session, analysis_execution=analysis_execution, topology=topology,
+        required_combo_names=required_combos, flattened_combos=flattened_combos,
+    ):
         final_rows.extend(fact.rows)
         final_refs.append(fact.evidence_ref)
 
@@ -242,4 +265,5 @@ def capture_b5_bound_column_axial_evidence(
 __all__ = [
     "ColumnAxialB5EvidenceError",
     "capture_b5_bound_column_axial_evidence",
+    "capture_b5_bound_column_combo_force_populations",
 ]

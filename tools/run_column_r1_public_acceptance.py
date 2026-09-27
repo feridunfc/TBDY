@@ -131,6 +131,8 @@ def main():
         (output / "project-artifact.json").write_text(json.dumps(_json(_observations(result)), indent=2, allow_nan=False), encoding="utf-8")
         denominator, fcr = result.column_denominator, result.reconciliation
         ready = tuple(c for c in result.columns if _is_ready(c))
+        population_ids = {c.component_id for c in result.columns}
+        design_results = {c.design_result_identity.identity_ref for c in ready if c.design_result_identity is not None}
         receipt.update(component_count=len(result.columns), ready_count=len(ready),
                        outcomes={c.component_id: {"status": c.status, "blockers": c.blockers} for c in result.columns},
                        A38=denominator is not None, A39=fcr is not None, A40=result.building_report_model is not None)
@@ -138,6 +140,12 @@ def main():
             "one_acquisition_and_scratch": all(receipt["owner_calls"][x] == 1 for x in ("acquisition", "scratch")),
             "shared_B6": receipt["owner_calls"]["B6"] == receipt["owner_calls"]["StartDesign"] == (1 if ready else 0),
             "nonready_no_design": all(c.controlled_design_result is None for c in result.columns if not _is_ready(c)),
+            "ready_qualified_design": all(c.controlled_design_result is not None
+                and c.controlled_design_result.design_lineage.qualified for c in ready),
+            "one_shared_design_result": len(design_results) == (1 if ready else 0),
+            "full_design_population": all(c.controlled_design_result is not None
+                and set(c.controlled_design_result.factual_design_results.expected_component_ids) == population_ids
+                and set(c.controlled_design_result.factual_design_results.captured_component_ids) == population_ids for c in ready),
             "A38_complete": denominator is not None and not any((denominator.silent_missing_count, denominator.duplicate_count, denominator.orphan_count)),
             "A39_reconciled": fcr is not None and fcr.column_population_reconciled,
             "A40_present": result.building_report_model is not None,
