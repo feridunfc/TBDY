@@ -55,6 +55,28 @@ def _reader(artifact: ReportArtifact) -> PdfReader:
     return PdfReader(BytesIO(artifact.content))
 
 
+def test_oversized_component_cards_paginate_without_losing_references() -> None:
+    from tbdy_engine.product_reports.building_report_html_ur1c import _components, _css
+
+    refs = [f"component-proof-{i:03d}-" + "source-bound-" * 12 for i in range(80)]
+    facets = [
+        {"component_type": "COLUMN", "component_id": f"C{j}",
+         "contribution_count": 40, "contribution_refs": refs[j * 40:(j + 1) * 40]}
+        for j in range(2)
+    ]
+    html = "<style>" + _css() + "</style>" + _components(
+        {"component_facets": facets}, set(refs),
+    )
+    content = pdf_module._render_pdf_bytes(
+        html, options=PdfRenderOptions(), pdf_identifier=b"component-pagination-proof",
+    )
+    reader = PdfReader(BytesIO(content))
+    assert len(reader.pages) > 1
+    text = "".join(page.extract_text() for page in reader.pages)
+    for i in range(80):
+        assert f"component-proof-{i:03d}" in text
+
+
 def _text(artifact: ReportArtifact) -> str:
     return "\n".join(page.extract_text() or "" for page in _reader(artifact).pages)
 
