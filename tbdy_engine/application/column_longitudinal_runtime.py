@@ -358,6 +358,7 @@ def compose_column_longitudinal_runtime(
         detailing=detailing,
         tie_diameter_mm=tie_diameter_mm,
         tie_catalog_ref=tie_catalog_ref,
+        rebar_catalog=catalog,
     )
 
 

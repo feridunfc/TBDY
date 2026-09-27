@@ -99,7 +99,7 @@ def _report_status(column: ColumnDomainArtifact) -> str:
     }.get(readiness.status, "NOT_EVALUATED")
 
 
-def _report_contribution(column: ColumnDomainArtifact) -> SliceReportContribution:
+def _report_contribution(column: ColumnDomainArtifact, *, primary_requested: bool = True) -> SliceReportContribution:
     if column.fnd_col_2_execution is None:
         raise ProjectExecutionContractError("report contribution requires canonical FND-COL-2 execution")
     readiness = column.fnd_col_2_execution.readiness
@@ -107,12 +107,12 @@ def _report_contribution(column: ColumnDomainArtifact) -> SliceReportContributio
         ReportField(
             key="summary_scope",
             label="Summary scope",
-            value="PRIMARY_REQUESTED_COLUMN",
+            value="PRIMARY_REQUESTED_COLUMN" if primary_requested else "CANONICAL_CLOSURE_COLUMN",
             role="AUTHORITY",
         ),
         ReportField(
             key="application_status",
-            label="Primary requested Column application status",
+            label="Primary requested Column application status" if primary_requested else "Canonical closure Column application status",
             value=column.status,
             role="STATUS",
         )
@@ -408,7 +408,7 @@ def _report_contribution(column: ColumnDomainArtifact) -> SliceReportContributio
 
     return SliceReportContribution(
         slice_id=f"product-spine-col-1:readiness:{column.component_id}",
-        title="Primary requested Column summary",
+        title="Primary requested Column summary" if primary_requested else "Canonical closure Column summary",
         contribution_kind="REGULATORY",
         status=_report_status(column),
         component_type="COLUMN",
@@ -733,6 +733,13 @@ def _analysis_basis_refs(column: ColumnDomainArtifact) -> tuple[AnalysisBasisRef
     )
 
 
+def _canonical_closure_column(column, columns):
+    """Select an existing execution for FCR without changing the requested focus."""
+    candidates = (column, *sorted(columns, key=lambda item: item.component_id))
+    return next((item for item in candidates if item.fnd_col_2_program is not None
+                 and item.fnd_col_2_execution is not None), None)
+
+
 def _build_closure_and_report(
     request: ProjectExecutionRequest,
     column: ColumnDomainArtifact,
@@ -746,10 +753,13 @@ def _build_closure_and_report(
     execution_mode_label: str,
 ) -> tuple[StructuralAssessment, ProjectCoverageReconciliation, BuildingReportModel]:
     """Reuse existing Assessment/FCR/BuildingReportModel without engineering reinterpretation."""
-    if column.fnd_col_2_program is None or column.fnd_col_2_execution is None:
+    closure_column = _canonical_closure_column(column, () if columns is None else columns)
+    if closure_column is None:
         raise ProjectExecutionContractError("canonical closure requires FND-COL-2 program/execution")
-    contribution = _report_contribution(column)
-    binding = _report_binding(column, contribution)
+    if (closure_column.model_fingerprint, closure_column.evidence_epoch_id) != (column.model_fingerprint, column.evidence_epoch_id):
+        raise ProjectExecutionContractError("canonical closure Column must belong to the same model and epoch")
+    contribution = _report_contribution(closure_column, primary_requested=closure_column.component_id == column.component_id)
+    binding = _report_binding(closure_column, contribution)
     leaf_contributions, leaf_bindings = _column_leaf_report_population(
         column_denominator,
         columns=((column,) if columns is None else columns),
@@ -760,12 +770,12 @@ def _build_closure_and_report(
         item.source_ref for item in report_bindings
     )
     reconciliation = ProjectCoverageReconciler.reconcile(
-        compiled_program=column.fnd_col_2_program,
-        store_snapshot=column.fnd_col_2_execution.snapshot,
+        compiled_program=closure_column.fnd_col_2_program,
+        store_snapshot=closure_column.fnd_col_2_execution.snapshot,
         report_contributions=report_contributions,
         required_report_source_refs=required_report_source_refs,
         report_bindings=report_bindings,
-        analysis_basis_refs=_analysis_basis_refs(column),
+        analysis_basis_refs=_analysis_basis_refs(closure_column),
         column_denominator=column_denominator,
     )
     basis = ProjectBasisLedger(
@@ -1022,7 +1032,7 @@ def execute_project(
         ),
     )
 
-    if column.fnd_col_2_execution is None:
+    if _canonical_closure_column(column, population.columns) is None:
         return ProjectExecutionArtifact(
             project_id=request.project_id,
             report_id=request.report_id,

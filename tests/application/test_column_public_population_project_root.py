@@ -907,8 +907,9 @@ def test_duplicate_factual_component_identity_is_population_unknown(
     assert result.building_report_model is None
 
 
+@pytest.mark.parametrize("focus", [COMPONENT_1, COMPONENT_2])
 def test_one_component_fnd2_materialization_failure_preserves_population(
-    monkeypatch,
+    monkeypatch, focus,
 ):
     setup = _install_two_column_harness(monkeypatch)
     original = a5._materialize_fnd2_inputs
@@ -921,7 +922,7 @@ def test_one_component_fnd2_materialization_failure_preserves_population(
     monkeypatch.setattr(a5, "_materialize_fnd2_inputs", materialize)
 
     result = project_execution.execute_project(
-        _two_column_request(),
+        _two_column_request(focus),
         verified_session=setup.module._FakeSession(),
     )
 
@@ -945,6 +946,16 @@ def test_one_component_fnd2_materialization_failure_preserves_population(
         COMPONENT_2,
     )
     assert setup.harness.runtime["run_calls"] == 1
+    assert result.column.component_id == focus
+    assert result.reconciliation is not None
+    assert result.reconciliation.column_population_reconciled
+    assert result.building_report_model is not None
+    assert result.status == by_component[focus].status
+    summary = next(item for item in result.building_report_model.contributions
+                   if item.slice_id.startswith("product-spine-col-1:readiness:"))
+    assert summary.component_id == COMPONENT_1
+    assert _fields(summary)["summary_scope"] == (
+        "PRIMARY_REQUESTED_COLUMN" if focus == COMPONENT_1 else "CANONICAL_CLOSURE_COLUMN")
 
 
 def test_shared_post_topology_failure_blocks_every_factual_component(
