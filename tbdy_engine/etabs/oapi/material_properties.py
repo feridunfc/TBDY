@@ -12,14 +12,15 @@ from dataclasses import dataclass, field
 import hashlib
 import json
 import math
+import uuid
 from typing import Any
 
 from tbdy_engine.etabs.safety import EtabsVerifiedSession, _execute_verified_read
 
-from .contracts import EtabsOAPIError
+from .contracts import EtabsOAPIError, SourceUnitProvenance
 
 
-ISOTROPIC_MATERIAL_FACT_CONTRACT = "ETABS_ISOTROPIC_MATERIAL_FACT_V1"
+ISOTROPIC_MATERIAL_FACT_CONTRACT = "ETABS_ISOTROPIC_MATERIAL_FACT_V2"
 ISOTROPIC_MATERIAL_EVIDENCE_PREFIX = "etabs-isotropic-material:sha256:"
 
 MATERIAL_TYPE_FACT_CONTRACT = "ETABS_MATERIAL_TYPE_FACT_V1"
@@ -67,8 +68,20 @@ class IsotropicMaterialPropertiesFact:
     return_code: int
     evidence_ref: str = field(init=False)
     contract: str = ISOTROPIC_MATERIAL_FACT_CONTRACT
+    raw_response: tuple[object, ...] = ()
+    unit_provenance: tuple[SourceUnitProvenance, ...] = ()
+    source_model_ref: str | None = None
+    session_ref: str | None = None
+    capture_ref: str | None = None
+    unit_observation: str | None = None
+    raw_response_ref: str = field(init=False)
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "raw_response", tuple(self.raw_response))
+        object.__setattr__(self, "unit_provenance", tuple(self.unit_provenance))
+        if any(not isinstance(item, SourceUnitProvenance) for item in self.unit_provenance):
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:INVALID_PROVENANCE_TYPE")
+        object.__setattr__(self, "raw_response_ref", _digest({"raw": self.raw_response}))
         object.__setattr__(self, "material_name", _text(self.material_name, "material_name"))
         for attribute in (
             "modulus_of_elasticity",
@@ -78,6 +91,11 @@ class IsotropicMaterialPropertiesFact:
             "temperature",
         ):
             object.__setattr__(self, attribute, _number(getattr(self, attribute), attribute))
+        if self.raw_response:
+            expected = (self.modulus_of_elasticity, self.poisson_ratio,
+                        self.thermal_coefficient, self.shear_modulus, self.return_code)
+            if _decode_get_mp_isotropic(self.raw_response) != expected:
+                raise EtabsOAPIError("UNIT_UNQUALIFIED:RAW_PROPERTY_VALUE_MISMATCH")
         if type(self.return_code) is not int:
             raise EtabsOAPIError("return_code must be an integer")
         if self.contract != ISOTROPIC_MATERIAL_FACT_CONTRACT:
@@ -88,6 +106,12 @@ class IsotropicMaterialPropertiesFact:
             _digest(
                 {
                     "contract": self.contract,
+                    "raw_response_ref": self.raw_response_ref,
+                    "unit_provenance": [item.evidence_ref for item in self.unit_provenance],
+                    "source_model_ref": self.source_model_ref,
+                    "session_ref": self.session_ref,
+                    "capture_ref": self.capture_ref,
+                    "unit_observation": self.unit_observation,
                     "material_name": self.material_name,
                     "modulus_of_elasticity": self.modulus_of_elasticity,
                     "poisson_ratio": self.poisson_ratio,
@@ -98,6 +122,21 @@ class IsotropicMaterialPropertiesFact:
                 }
             ),
         )
+
+    def source_unit_for(self, output_key: str, dimension: str) -> SourceUnitProvenance:
+        if not self.success or not self.raw_response:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_SUCCESSFUL_RAW_RESPONSE")
+        if not all((self.source_model_ref, self.session_ref, self.capture_ref)):
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_PROPERTY_CONTEXT")
+        matches = tuple(item for item in self.unit_provenance if item.output_key == output_key)
+        if len(matches) != 1:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_OR_DUPLICATE_OUTPUT_BINDING")
+        binding = matches[0]
+        binding.require(source_call="SapModel.PropMaterial.GetMPIsotropic", subject_key=self.material_name,
+                        output_key=output_key, dimension=dimension,
+                        source_model_ref=self.source_model_ref, session_ref=self.session_ref,
+                        capture_ref=self.capture_ref, raw_response_ref=self.raw_response_ref)
+        return binding
 
     @property
     def success(self) -> bool:
@@ -338,7 +377,11 @@ def get_isotropic_material_properties_from_session(
         raise ValueError("timeout_seconds must be finite and greater than zero")
 
     def acquire(_application: object, model_api: Any) -> IsotropicMaterialPropertiesFact:
-        raw = model_api.PropMaterial.GetMPIsotropic(name, temp)
+        # Existing session observations only: no new ETABS unit/identity calls.
+        identity = getattr(session, "identity", None)
+        units = getattr(identity, "units", None)
+        observed = json.dumps(units.as_dict(), sort_keys=True, default=str) if units else None
+        raw = model_api.PropMaterial.GetMPIsotropic(name, Temp=temp)
         e_value, u_value, a_value, g_value, return_code = _decode_get_mp_isotropic(raw)
         return IsotropicMaterialPropertiesFact(
             material_name=name,
@@ -348,6 +391,11 @@ def get_isotropic_material_properties_from_session(
             shear_modulus=g_value,
             temperature=temp,
             return_code=return_code,
+            raw_response=tuple(raw),
+            source_model_ref=getattr(identity, "model_full_path", None),
+            session_ref=(f"etabs-session:pid:{identity.process_id}" if identity else None),
+            capture_ref=f"property-capture:{uuid.uuid4().hex}",
+            unit_observation=observed,
         )
 
     return _execute_verified_read(

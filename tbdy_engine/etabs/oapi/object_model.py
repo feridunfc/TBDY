@@ -8,6 +8,9 @@ other raw CSI capability objects.
 from __future__ import annotations
 
 import math
+import json
+import uuid
+from dataclasses import replace
 from typing import Any, Sequence
 
 from tbdy_engine.etabs.safety import EtabsVerifiedSession, _execute_verified_read
@@ -450,6 +453,8 @@ def read_wall_property(prop_area: Any, property_name: str) -> WallPropertyFact:
         notes="" if padded[5] is None else str(padded[5]),
         guid="" if padded[6] is None else str(padded[6]),
         raw_response=raw,
+        return_code=ret,
+        thickness_applicable=shell_type in {1, 2, 3, 4, 5},  # existing eShellType: Layered=6
     )
 
 
@@ -807,11 +812,16 @@ def read_wall_property_from_session(
     session: EtabsVerifiedSession,
     property_name: str,
 ) -> WallPropertyFact:
-    return _execute_verified_read(
-        session,
-        lambda _app, sap: read_wall_property(sap.PropArea, property_name),
-        operation="oapi_prop_area_get_wall",
-    )
+    def acquire(_app, sap):
+        fact = read_wall_property(sap.PropArea, property_name)
+        identity = getattr(session, "identity", None)
+        units = getattr(identity, "units", None)
+        return replace(fact, source_model_ref=getattr(identity, "model_full_path", None),
+                       session_ref=(f"etabs-session:pid:{identity.process_id}" if identity else None),
+                       capture_ref=f"property-capture:{uuid.uuid4().hex}",
+                       unit_observation=(json.dumps(units.as_dict(), sort_keys=True, default=str) if units else None))
+
+    return _execute_verified_read(session, acquire, operation="oapi_prop_area_get_wall")
 
 
 def read_area_label_story_from_session(

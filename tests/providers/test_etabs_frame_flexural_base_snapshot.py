@@ -4,6 +4,7 @@ from collections import Counter
 from types import SimpleNamespace
 
 import pytest
+from unit_contract_fixtures import table as table_fixture
 
 import tbdy_engine.providers.etabs_frame_flexural_base_provider as subject
 
@@ -69,7 +70,12 @@ def _install_environment(
 
     def capture_rows(_context, table):
         counter[table] += 1
-        return tuple(table_rows[table])
+        units = {key: ("m" if key in {"t2", "t3"} else "kN/m2")
+                 for row in table_rows[table] for key in row if key in {"t2", "t3", "E1", "Fc"}}
+        return table_fixture(table, tuple(table_rows[table]), units,
+                             model=context.source_model_identity.source_model_ref,
+                             session=context.session_provenance_ref,
+                             capture=context.acquisition_context_ref)
 
     monkeypatch.setattr(subject, "_rows", capture_rows)
 

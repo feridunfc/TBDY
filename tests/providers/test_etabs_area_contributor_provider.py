@@ -3,6 +3,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from unit_contract_fixtures import wall as qualified_wall
 
 import tbdy_engine.providers.etabs_area_contributor_provider as subject
 from tbdy_engine.etabs.oapi.area_contributors import (
@@ -131,12 +132,7 @@ def factual_runtime(monkeypatch):
     monkeypatch.setattr(
         subject,
         "read_wall_property_from_session",
-        lambda _session, name: SimpleNamespace(
-            wall_type=1,
-            shell_type=2,
-            material_name="C35/45",
-            thickness=0.40,
-        ),
+        lambda _session, name: qualified_wall(name),
     )
     monkeypatch.setattr(
         subject,

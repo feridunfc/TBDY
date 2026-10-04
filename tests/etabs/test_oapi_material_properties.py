@@ -19,8 +19,8 @@ class _PropMaterial:
         self.type_calls = []
         self.type_raw = (1, 0, 0)
 
-    def GetMPIsotropic(self, name, temperature=0.0):
-        self.calls.append((name, temperature))
+    def GetMPIsotropic(self, name, E=0., U=0., A=0., G=0., Temp=0.0):
+        self.calls.append((name, Temp))
         return self.raw
 
     def GetTypeOAPI(self, name):

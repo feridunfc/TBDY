@@ -22,6 +22,8 @@ from typing import Any, Mapping, Sequence
 import uuid
 
 from tbdy_engine.etabs.oapi import fetch_display_table_from_session
+from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError, SourceUnitProvenance
+from tbdy_engine.etabs.oapi.database_tables import DisplayTableFetchResult
 from tbdy_engine.etabs.safety import (
     RuntimeCaptureStatus,
     read_verified_unit_snapshot,
@@ -38,7 +40,7 @@ TABLE_FRAME_SECTION_SUMMARY = "Frame Section Property Definitions - Summary"
 TABLE_BASIC_MATERIAL = "Material Properties - Basic Mechanical Properties"
 TABLE_CONCRETE = "Material Properties - Concrete Data"
 
-FRAME_FLEXURAL_BASE_FACT_CONTRACT = "ETABS_FRAME_FLEXURAL_BASE_FACT_V2"
+FRAME_FLEXURAL_BASE_FACT_CONTRACT = "ETABS_FRAME_FLEXURAL_BASE_FACT_V3"
 FRAME_FLEXURAL_BASE_EVIDENCE_PREFIX = "etabs-frame-flexural-base:sha256:"
 FRAME_FLEXURAL_BASE_SEMANTIC_REF_PREFIX = (
     "etabs-frame-flexural-base-semantic:sha256:"
@@ -51,8 +53,8 @@ SUPPORTED_FRAME_SECTION_SEMANTICS = "PRISMATIC_RECTANGULAR_RC_FRAME"
 _FRAME_FLEXURAL_BASE_FACT_ISSUANCE_TOKEN = object()
 _FRAME_FLEXURAL_BASE_SNAPSHOT_ISSUANCE_TOKEN = object()
 
-# CSI ETABS v1 eForce/eLength documented integer values. Present units are the
-# units used for data transmitted through the API; no unit setter is used here.
+# CSI enum factors are conversion primitives only. They are not authority
+# for the source unit of a table field or a separately acquired property.
 _FORCE_TO_N = {
     1: Decimal("4.4482216152605"),   # lb
     2: Decimal("4448.2216152605"),  # kip
@@ -136,6 +138,95 @@ def _length_to_mm(
     return _decimal(value, label) * factor
 
 
+
+def _qualified_quantity(value: object, binding: SourceUnitProvenance, dimension: str) -> Decimal:
+    if not isinstance(binding, SourceUnitProvenance):
+        raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:MISSING_BINDING")
+    try:
+        unit = binding.require(source_call=binding.source_call, subject_key=binding.subject_key,
+                               output_key=binding.output_key, dimension=dimension)
+    except EtabsOAPIError as exc:
+        raise FrameFlexuralBaseFactError(str(exc)) from exc
+    lengths = {"mm": 4, "cm": 5, "m": 6}
+    stresses = {"MPa": (3, 4), "N/mm2": (3, 4), "N/mm^2": (3, 4),
+                "Pa": (3, 6), "N/m2": (3, 6), "N/m^2": (3, 6),
+                "kN/m2": (4, 6), "kN/m^2": (4, 6)}
+    if dimension == "L" and unit in lengths:
+        return _length_to_mm(value, lengths[unit], binding.output_key)
+    if dimension == "F/L2" and unit in stresses:
+        return _stress_to_mpa(value, *stresses[unit], binding.output_key)
+    raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:UNKNOWN_OR_WRONG_DIMENSION_UNIT")
+
+
+def _selected_field_key(row: Mapping[str, Any], aliases: Sequence[str]) -> str:
+    for alias in aliases:
+        matches = [key for key in row if str(key).strip().casefold() == alias.strip().casefold()]
+        if len(matches) > 1:
+            raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:AMBIGUOUS_FIELD_KEY")
+        if matches and row[matches[0]] not in (None, ""):
+            return matches[0]
+    raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:MISSING_FIELD_VALUE")
+
+
+def _table_quantity(
+    snapshot: FrameFlexuralBaseCaptureSnapshot, table: str,
+    row: Mapping[str, Any], aliases: Sequence[str], dimension: str,
+    conversions: list[Mapping[str, Any]] | None = None,
+) -> Decimal:
+    key = _selected_field_key(row, aliases)
+    bindings = getattr(snapshot, "table_unit_provenance", {}).get(table, ())
+    if (any(not isinstance(item, SourceUnitProvenance) for item in bindings)
+            or len({item.output_key for item in bindings}) != len(bindings)):
+        raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:DUPLICATE_OR_INVALID_FIELD_METADATA")
+    matches = [item for item in bindings if isinstance(item, SourceUnitProvenance) and item.output_key == key]
+    metadata_ref = getattr(snapshot, "table_metadata_refs", {}).get(table)
+    if len(matches) != 1 or not metadata_ref:
+        raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:MISSING_OR_DUPLICATE_FIELD_METADATA")
+    binding = matches[0]
+    try:
+        binding.require(source_call="SapModel.DatabaseTables.GetAllFieldsInTable",
+                        subject_key=table, output_key=key, dimension=dimension,
+                        source_model_ref=snapshot.source_model_ref, session_ref=snapshot.session_provenance_ref,
+                        capture_ref=snapshot.acquisition_context_ref, raw_response_ref=metadata_ref)
+    except EtabsOAPIError as exc:
+        raise FrameFlexuralBaseFactError(str(exc)) from exc
+    normalized = _qualified_quantity(row[key], binding, dimension)
+    if conversions is not None:
+        conversions.append({"table": table, "field_key": key, "raw_value": str(row[key]),
+                            "source_unit": binding.source_unit,
+                            "canonical_unit": "mm" if dimension == "L" else "MPa",
+                            "normalized_value": str(normalized),
+                            "factor": str(_qualified_quantity(1, binding, dimension)),
+                            "unit_evidence_ref": binding.evidence_ref})
+    return normalized
+
+
+def _property_stress_to_mpa(
+    material: Any, output_key: str, *, source_model_ref: str | None = None,
+    session_ref: str | None = None, conversions: list[Mapping[str, Any]] | None = None,
+) -> Decimal:
+    if output_key not in {"E", "G"}:
+        raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:UNSUPPORTED_MATERIAL_OUTPUT")
+    try:
+        binding = material.source_unit_for(output_key, "F/L2")
+        if source_model_ref is None or session_ref is None:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_CONSUMER_CONTEXT")
+        binding.require(source_call="SapModel.PropMaterial.GetMPIsotropic",
+                        subject_key=material.material_name, output_key=output_key, dimension="F/L2",
+                        source_model_ref=source_model_ref, session_ref=session_ref)
+    except (EtabsOAPIError, AttributeError) as exc:
+        raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:" + str(exc)) from exc
+    value = material.modulus_of_elasticity if output_key == "E" else material.shear_modulus
+    result = _qualified_quantity(value, binding, "F/L2")
+    if conversions is not None:
+        conversions.append({"method": binding.source_call, "output_key": output_key,
+                            "raw_value": str(value), "source_unit": binding.source_unit,
+                            "canonical_unit": "MPa", "normalized_value": str(result),
+                            "factor": str(_qualified_quantity(1, binding, "F/L2")),
+                            "unit_evidence_ref": binding.evidence_ref})
+    return result
+
+
 def _canonical_path(value: str) -> str:
     return ntpath.normcase(ntpath.normpath(_text(value, "model_path")))
 
@@ -189,7 +280,7 @@ def _pick(
 def _rows(
     context: TrustedLiveAcquisitionContext,
     table: str,
-) -> tuple[Mapping[str, Any], ...]:
+) -> DisplayTableFetchResult:
     fetched = fetch_display_table_from_session(
         context.verified_session,
         table,
@@ -200,9 +291,9 @@ def _rows(
             f"{table} requires FULL capture; "
             f"got {fetched.capture_status.value}"
         )
-    if fetched.parsed.return_code not in (None, 0):
+    if type(fetched.parsed.return_code) is not int or fetched.parsed.return_code != 0:
         raise FrameFlexuralBaseFactError(
-            f"{table} returned nonzero code "
+            f"UNIT_UNQUALIFIED:{table} missing/nonzero table return code "
             f"{fetched.parsed.return_code}"
         )
     rows = tuple(fetched.parsed.rows)
@@ -213,7 +304,7 @@ def _rows(
         raise FrameFlexuralBaseFactError(
             f"{table} captured/reported row count mismatch"
         )
-    return rows
+    return fetched
 
 
 def _one(
@@ -285,6 +376,9 @@ class FrameFlexuralBaseCaptureSnapshot:
     section_summary_by_section: Mapping[str, Mapping[str, Any]]
     basic_material_by_name: Mapping[str, Mapping[str, Any]]
     concrete_material_by_name: Mapping[str, Mapping[str, Any]]
+    table_unit_provenance: Mapping[str, tuple[SourceUnitProvenance, ...]]
+    table_metadata_refs: Mapping[str, str]
+    table_metadata_raw: Mapping[str, tuple[object, ...]]
 
     def __init__(
         self,
@@ -302,6 +396,9 @@ class FrameFlexuralBaseCaptureSnapshot:
         section_summary_rows: Sequence[Mapping[str, Any]],
         basic_material_rows: Sequence[Mapping[str, Any]],
         concrete_rows: Sequence[Mapping[str, Any]],
+        table_unit_provenance: Mapping[str, tuple[SourceUnitProvenance, ...]] | None = None,
+        table_metadata_refs: Mapping[str, str] | None = None,
+        table_metadata_raw: Mapping[str, tuple[object, ...]] | None = None,
     ) -> None:
         if _issuance_token is not _FRAME_FLEXURAL_BASE_SNAPSHOT_ISSUANCE_TOKEN:
             raise TypeError(
@@ -326,6 +423,12 @@ class FrameFlexuralBaseCaptureSnapshot:
             )
         object.__setattr__(self, "present_force_unit", present_force_unit)
         object.__setattr__(self, "present_length_unit", present_length_unit)
+
+        object.__setattr__(self, "table_unit_provenance", MappingProxyType({
+            name: tuple(items) for name, items in (table_unit_provenance or {}).items()}))
+        object.__setattr__(self, "table_metadata_refs", MappingProxyType(dict(table_metadata_refs or {})))
+        object.__setattr__(self, "table_metadata_raw", MappingProxyType({
+            name: tuple(items) for name, items in (table_metadata_raw or {}).items()}))
 
         frozen = {
             "assignment_rows": _freeze_rows(assignment_rows),
@@ -408,6 +511,7 @@ class FrameFlexuralBaseFact:
     semantic_state_ref: str
     evidence_ref: str
     contract: str
+    unit_conversions: tuple[Mapping[str, Any], ...]
 
     def __init__(
         self,
@@ -431,6 +535,7 @@ class FrameFlexuralBaseFact:
         source_rows: tuple[tuple[str, Mapping[str, Any]], ...],
         source_refs: tuple[str, ...],
         contract: str = FRAME_FLEXURAL_BASE_FACT_CONTRACT,
+        unit_conversions: Sequence[Mapping[str, Any]] = (),
     ) -> None:
         if _issuance_token is not _FRAME_FLEXURAL_BASE_FACT_ISSUANCE_TOKEN:
             raise TypeError(
@@ -528,6 +633,7 @@ class FrameFlexuralBaseFact:
         object.__setattr__(self, "source_rows", source_rows)
         object.__setattr__(self, "source_refs", source_refs)
         object.__setattr__(self, "contract", contract)
+        object.__setattr__(self, "unit_conversions", tuple(MappingProxyType(dict(item)) for item in unit_conversions))
 
         semantic_payload = self.semantic_payload()
         semantic_state_ref = _sha_ref(
@@ -549,6 +655,7 @@ class FrameFlexuralBaseFact:
             "present_force_unit": self.present_force_unit,
             "present_length_unit": self.present_length_unit,
             "source_refs": list(self.source_refs),
+            "unit_conversions": [dict(item) for item in self.unit_conversions],
         }
         object.__setattr__(
             self,
@@ -593,6 +700,7 @@ def _issue_frame_flexural_base_fact(
     present_length_unit: int,
     source_rows: tuple[tuple[str, Mapping[str, Any]], ...],
     source_refs: tuple[str, ...],
+    unit_conversions: Sequence[Mapping[str, Any]] = (),
 ) -> FrameFlexuralBaseFact:
     """Private issuance seam; tests may use it but production callers must not."""
     return FrameFlexuralBaseFact(
@@ -614,6 +722,7 @@ def _issue_frame_flexural_base_fact(
         present_length_unit=present_length_unit,
         source_rows=source_rows,
         source_refs=source_refs,
+        unit_conversions=unit_conversions,
     )
 
 
@@ -650,11 +759,15 @@ def capture_frame_flexural_base_snapshot(
             "present API force/length unit provenance is unsupported"
         )
 
-    assignment_rows = _rows(context, TABLE_FRAME_ASSIGNMENTS)
-    rectangular_rows = _rows(context, TABLE_RECTANGULAR)
-    section_summary_rows = _rows(context, TABLE_FRAME_SECTION_SUMMARY)
-    basic_material_rows = _rows(context, TABLE_BASIC_MATERIAL)
-    concrete_rows = _rows(context, TABLE_CONCRETE)
+    tables = {table: _rows(context, table) for table in (
+        TABLE_FRAME_ASSIGNMENTS, TABLE_RECTANGULAR, TABLE_FRAME_SECTION_SUMMARY,
+        TABLE_BASIC_MATERIAL, TABLE_CONCRETE)}
+    # Metadata is never synthesized from capture-wide present units.
+    assignment_rows = tables[TABLE_FRAME_ASSIGNMENTS].parsed.rows
+    rectangular_rows = tables[TABLE_RECTANGULAR].parsed.rows
+    section_summary_rows = tables[TABLE_FRAME_SECTION_SUMMARY].parsed.rows
+    basic_material_rows = tables[TABLE_BASIC_MATERIAL].parsed.rows
+    concrete_rows = tables[TABLE_CONCRETE].parsed.rows
 
     units_after = read_verified_unit_snapshot(context.verified_session)
     identity_after = reread_verified_session_identity(
@@ -685,6 +798,10 @@ def capture_frame_flexural_base_snapshot(
         section_summary_rows=section_summary_rows,
         basic_material_rows=basic_material_rows,
         concrete_rows=concrete_rows,
+        table_unit_provenance={name: item.field_unit_provenance for name, item in tables.items()},
+        table_metadata_refs={name: item.field_metadata_ref for name, item in tables.items()
+                             if item.field_metadata_raw and item.field_unit_status == "QUALIFIED"},
+        table_metadata_raw={name: item.field_metadata_raw for name, item in tables.items()},
     )
 
 
@@ -773,36 +890,16 @@ def bind_frame_flexural_base_fact_from_snapshot(
             f"expected exactly one concrete material={material!r}; got 0"
         )
 
-    t2_mm = _length_to_mm(
-        _pick(rectangle, ("t2", "T2", "Width"), "t2"),
-        snapshot.present_length_unit,
-        "t2",
-    )
-    t3_mm = _length_to_mm(
-        _pick(rectangle, ("t3", "T3", "Depth"), "t3"),
-        snapshot.present_length_unit,
-        "t3",
-    )
-    ec_mpa = _stress_to_mpa(
-        _pick(
-            basic,
-            ("E1", "Elastic Modulus", "Modulus of Elasticity", "E"),
-            "E1",
-        ),
-        snapshot.present_force_unit,
-        snapshot.present_length_unit,
-        "E1",
-    )
-    fck_mpa = _stress_to_mpa(
-        _pick(
-            concrete,
-            ("Fc", "fck", "Concrete Strength"),
-            "Fc",
-        ),
-        snapshot.present_force_unit,
-        snapshot.present_length_unit,
-        "Fc",
-    )
+    unit_conversions: list[Mapping[str, Any]] = []
+    t2_mm = _table_quantity(snapshot, TABLE_RECTANGULAR, rectangle,
+                            ("t2", "T2", "Width"), "L", unit_conversions)
+    t3_mm = _table_quantity(snapshot, TABLE_RECTANGULAR, rectangle,
+                            ("t3", "T3", "Depth"), "L", unit_conversions)
+    ec_mpa = _table_quantity(snapshot, TABLE_BASIC_MATERIAL, basic,
+                            ("E1", "Elastic Modulus", "Modulus of Elasticity", "E"),
+                            "F/L2", unit_conversions)
+    fck_mpa = _table_quantity(snapshot, TABLE_CONCRETE, concrete,
+                             ("Fc", "fck", "Concrete Strength"), "F/L2", unit_conversions)
 
     source_rows = (
         (TABLE_FRAME_ASSIGNMENTS, assignment),
@@ -827,6 +924,7 @@ def bind_frame_flexural_base_fact_from_snapshot(
         present_force_unit=snapshot.present_force_unit,
         present_length_unit=snapshot.present_length_unit,
         source_rows=source_rows,
+        unit_conversions=unit_conversions,
         source_refs=tuple(
             _row_ref(table, row)
             for table, row in source_rows

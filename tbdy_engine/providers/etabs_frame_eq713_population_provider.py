@@ -7,12 +7,13 @@ promoted here to participation.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import StrEnum
 import hashlib
 import json
 import math
+from types import MappingProxyType
 from typing import Any, Mapping, Sequence
 
 from tbdy_engine.etabs.oapi import fetch_display_table_from_session
@@ -57,7 +58,8 @@ from tbdy_engine.providers.etabs_frame_flexural_base_provider import (
     TABLE_RECTANGULAR,
     FrameFlexuralBaseCaptureSnapshot,
     FrameFlexuralBaseFact,
-    _stress_to_mpa,
+    _property_stress_to_mpa,
+    FrameFlexuralBaseFactError,
     bind_frame_flexural_base_fact_from_snapshot,
     capture_frame_flexural_base_snapshot,
 )
@@ -1348,6 +1350,7 @@ class FrameEq713FactualFact:
     factual_gc_mpa: Decimal
     beam_mechanics: FrameEq713BeamMechanicsFact | None
     source_refs: tuple[str, ...]
+    unit_conversions: tuple[Mapping[str, Any], ...] = field(init=False)
 
     def __post_init__(self) -> None:
         name = _text(self.frame_name, "frame_name")
@@ -1392,6 +1395,19 @@ class FrameEq713FactualFact:
             or not self.isotropic_material.success
         ):
             raise EtabsFrameEq713PopulationError("Frame isotropic material fact is not exact/successful")
+        conversions: list[Mapping[str, Any]] = []
+        try:
+            expected_ec = _property_stress_to_mpa(
+                self.isotropic_material, "E", source_model_ref=getattr(self.base_fact, "source_model_ref", None),
+                session_ref=getattr(self.base_fact, "session_provenance_ref", None), conversions=conversions)
+            expected_gc = _property_stress_to_mpa(
+                self.isotropic_material, "G", source_model_ref=getattr(self.base_fact, "source_model_ref", None),
+                session_ref=getattr(self.base_fact, "session_provenance_ref", None), conversions=conversions)
+        except FrameFlexuralBaseFactError as exc:
+            raise EtabsFrameEq713PopulationError(str(exc)) from exc
+        if self.factual_ec_mpa != expected_ec or self.factual_gc_mpa != expected_gc:
+            raise EtabsFrameEq713PopulationError("UNIT_UNQUALIFIED:CANONICAL_STRESS_VALUE_MISMATCH")
+        object.__setattr__(self, "unit_conversions", tuple(MappingProxyType(dict(item)) for item in conversions))
         if self.factual_ec_mpa <= 0 or self.factual_gc_mpa <= 0:
             raise EtabsFrameEq713PopulationError("GetMPIsotropic E/G must be positive in MPa")
         if self.member_role == "BEAM":
@@ -1728,18 +1744,15 @@ def capture_frame_eq713_factual_population(
             raise EtabsFrameEq713PopulationError(
                 f"PropMaterial.GetMPIsotropic failed for {base.material_name!r}"
             )
-        ec_mpa = _stress_to_mpa(
-            material.modulus_of_elasticity,
-            base.present_force_unit,
-            base.present_length_unit,
-            "PropMaterial.GetMPIsotropic.E",
-        )
-        gc_mpa = _stress_to_mpa(
-            material.shear_modulus,
-            base.present_force_unit,
-            base.present_length_unit,
-            "PropMaterial.GetMPIsotropic.G",
-        )
+        try:
+            ec_mpa = _property_stress_to_mpa(
+                material, "E", source_model_ref=getattr(base, "source_model_ref", None),
+                session_ref=getattr(base, "session_provenance_ref", None))
+            gc_mpa = _property_stress_to_mpa(
+                material, "G", source_model_ref=getattr(base, "source_model_ref", None),
+                session_ref=getattr(base, "session_provenance_ref", None))
+        except FrameFlexuralBaseFactError as exc:
+            raise EtabsFrameEq713PopulationError(str(exc)) from exc
         refs = (
             *base.source_refs,
             base.evidence_ref,

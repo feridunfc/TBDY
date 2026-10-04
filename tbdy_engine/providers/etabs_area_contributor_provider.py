@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
 from typing import Any, Mapping, Sequence
+from types import MappingProxyType
 
 from tbdy_engine.etabs.oapi.area_contributors import (
     AreaDesignOrientation,
@@ -53,7 +54,8 @@ from tbdy_engine.providers.etabs_frame_flexural_base_provider import (
     TABLE_CONCRETE,
     _pick as _snapshot_pick,
     _row_ref as _snapshot_row_ref,
-    _stress_to_mpa,
+    _table_quantity,
+    _qualified_quantity,
 )
 
 
@@ -94,6 +96,8 @@ class AreaPropertyFactualState:
     thickness: float | None
     property_modifiers: AreaModifierReadFact
     source_refs: tuple[str, ...]
+    wall_source_fact: WallPropertyFact | None = None
+    raw_thickness: float | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -317,8 +321,10 @@ class AreaMaterialFactualFact:
     session_provenance_ref: str
     source_refs: tuple[str, ...]
     material_type: MaterialTypeFact | None = None
+    unit_conversions: tuple[Mapping[str, Any], ...] = ()
 
     def __post_init__(self) -> None:
+        object.__setattr__(self, "unit_conversions", tuple(MappingProxyType(dict(item)) for item in self.unit_conversions))
         object.__setattr__(
             self,
             "material_name",
@@ -732,6 +738,8 @@ def _capture_property_state(
     shell_type_code: int | None = None
     material_name: str | None = None
     thickness: float | None = None
+    raw_thickness: float | None = None
+    wall_source_fact: WallPropertyFact | None = None
 
     if orientation is AreaDesignOrientation.WALL:
         try:
@@ -747,7 +755,15 @@ def _capture_property_state(
             family_type_code = wall.wall_type
             shell_type_code = wall.shell_type
             material_name = wall.material_name
-            thickness = wall.thickness
+            wall_source_fact = wall
+            raw_thickness = wall.thickness
+            try:
+                binding = wall.source_unit_for("Thickness", "L")
+                thickness = float(_qualified_quantity(wall.thickness, binding, "L") / 1000)
+                refs.append(binding.evidence_ref)
+            except (EtabsOAPIError, FrameFlexuralBaseFactError, AttributeError) as exc:
+                refs.append(f"UNIT_UNQUALIFIED:WALL_THICKNESS:{property_name}:{exc}")
+                thickness = None
             refs.append(
                 f"CSI:PropArea.GetWall:{property_name}:{wall.wall_type}:{wall.shell_type}"
             )
@@ -769,6 +785,7 @@ def _capture_property_state(
         shell_type_code=shell_type_code,
         material_name=material_name,
         thickness=thickness,
+        wall_source_fact=wall_source_fact, raw_thickness=raw_thickness,
         property_modifiers=modifier_fact,
         source_refs=tuple(refs),
     )
@@ -900,6 +917,7 @@ def _capture_area_material_facts(
     for material_name in material_names:
         basic = basic_by_name.get(material_name)
         concrete = concrete_by_name.get(material_name)
+        unit_conversions: list[Mapping[str, Any]] = []
         ec_mpa = None
         gc_mpa = None
         fck_mpa = None
@@ -956,19 +974,15 @@ def _capture_area_material_facts(
                 )
             else:
                 try:
-                    ec_candidate = _stress_to_mpa(
-                        e_raw,
-                        material_snapshot.present_force_unit,
-                        material_snapshot.present_length_unit,
-                        f"{material_name} E1",
-                    )
-                    gc_candidate = _stress_to_mpa(
-                        g_raw,
-                        material_snapshot.present_force_unit,
-                        material_snapshot.present_length_unit,
-                        f"{material_name} G12",
-                    )
-                except FrameFlexuralBaseFactError:
+                    conversions = []
+                    ec_candidate = _table_quantity(material_snapshot, TABLE_BASIC_MATERIAL, basic,
+                        ("E1", "Elastic Modulus", "Modulus of Elasticity", "E"), "F/L2", conversions)
+                    gc_candidate = _table_quantity(material_snapshot, TABLE_BASIC_MATERIAL, basic,
+                        ("G12", "Shear Modulus", "G"), "F/L2", conversions)
+                    unit_conversions.extend(conversions)
+                    refs.extend(item["unit_evidence_ref"] for item in conversions)
+                except FrameFlexuralBaseFactError as exc:
+                    refs.append(str(exc))
                     resolution = (
                         AreaMaterialResolution.BASIC_MECHANICAL_PROPERTIES_UNRESOLVED
                     )
@@ -997,13 +1011,13 @@ def _capture_area_material_facts(
                                 )
                             else:
                                 try:
-                                    fck_candidate = _stress_to_mpa(
-                                        fc_raw,
-                                        material_snapshot.present_force_unit,
-                                        material_snapshot.present_length_unit,
-                                        f"{material_name} Fc",
-                                    )
-                                except FrameFlexuralBaseFactError:
+                                    conversions = []
+                                    fck_candidate = _table_quantity(material_snapshot, TABLE_CONCRETE, concrete,
+                                        ("Fc", "fck", "Concrete Strength"), "F/L2", conversions)
+                                    unit_conversions.extend(conversions)
+                                    refs.extend(item["unit_evidence_ref"] for item in conversions)
+                                except FrameFlexuralBaseFactError as exc:
+                                    refs.append(str(exc))
                                     resolution = (
                                         AreaMaterialResolution.CONCRETE_DATA_UNRESOLVED
                                     )
@@ -1032,6 +1046,7 @@ def _capture_area_material_facts(
                 session_provenance_ref=session_provenance_ref,
                 source_refs=tuple(refs),
                 material_type=material_type,
+                unit_conversions=tuple(unit_conversions),
             )
         )
 
@@ -1123,7 +1138,7 @@ def _build_area_scope_facts(
                     AreaContributorScopeStatus.PROPERTY_GEOMETRY_UNRESOLVED
                 )
                 reason = (
-                    f"Area {row.area_name!r} has no positive simple-property thickness"
+                    f"Area {row.area_name!r} has no positive qualified simple-property thickness; UNIT_UNQUALIFIED if source authority is missing"
                 )
             elif material_name in (None, ""):
                 status = (

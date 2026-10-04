@@ -10,6 +10,10 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from typing import Any, Mapping, Sequence
+import hashlib
+import json
+
+from .contracts import SourceUnitProvenance
 
 from tbdy_engine.etabs.safety import (
     DatabaseTablesReadTransaction,
@@ -75,10 +79,27 @@ class DisplayTableFetchResult:
     capture_status: RuntimeCaptureStatus = RuntimeCaptureStatus.UNKNOWN
     display_selection: Mapping[str, Any] = field(default_factory=dict)
     state_diagnostics: tuple[Mapping[str, Any], ...] = field(default_factory=tuple)
+    # Exact field-unit ABI is unsupported at this checkpoint. Existing live
+    # fetches remain raw/unqualified; no GetAllFieldsInTable call is added.
+    field_unit_provenance: tuple[SourceUnitProvenance, ...] = ()
+    field_metadata_raw: tuple[object, ...] = ()
+    field_unit_status: str = "UNIT_UNQUALIFIED:FIELD_UNIT_ABI_UNSUPPORTED"
+
+    @property
+    def field_metadata_ref(self) -> str:
+        raw = json.dumps(self.field_metadata_raw, sort_keys=True, default=str).encode()
+        return "table-field-metadata:sha256:" + hashlib.sha256(raw).hexdigest()
 
     def header_payload(self, registry: Any) -> dict[str, Any]:
         payload = self.parsed.header_payload(registry)
         payload.update({
+            "field_unit_status": self.field_unit_status,
+            "field_metadata_raw": self.field_metadata_raw,
+            "field_metadata_ref": self.field_metadata_ref,
+            "field_unit_provenance": [
+                {name: getattr(item, name) for name in item.__dataclass_fields__}
+                for item in self.field_unit_provenance
+            ],
             "raw_response": self.raw_response,
             "signature_attempts": [dict(item) for item in self.signature_attempts],
             "selected_signature": dict(self.selected_signature),
