@@ -236,11 +236,11 @@ def decode_table_field_metadata(raw: Any, *, table_name: str) -> TableFieldMetad
 
 
 def fetch_table_field_metadata(database_tables: Any, table_name: str) -> TableFieldMetadataFetchResult:
-    """Exactly one getter, with reviewed argument order; no fallback or retry."""
+    """One generated comtypes wrapper call with TableKey; no fallback or retry."""
     if not isinstance(table_name, str) or not table_name or table_name != table_name.strip():
         raise EtabsOAPIError("UNIT_UNQUALIFIED:INVALID_TABLEKEY")
     try:
-        raw = database_tables.GetAllFieldsInTable(table_name, 0, 0, [], [], [], [], [])
+        raw = database_tables.GetAllFieldsInTable(table_name)
     except Exception as exc:
         return TableFieldMetadataFetchResult(table_name, (),
             f"UNIT_UNQUALIFIED:FIELD_METADATA_GETTER_FAILED:{type(exc).__name__}:{exc}")

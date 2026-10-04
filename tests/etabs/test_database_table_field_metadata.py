@@ -182,20 +182,27 @@ def test_zero_fields_is_valid_empty_metadata_but_cannot_qualify_t2():
     assert bound(result).field_unit_status == "UNIT_UNQUALIFIED"
 
 
-def test_metadata_getter_exact_input_order_one_call_and_no_display_read():
+def test_metadata_getter_exact_TableKey_only_one_call_and_unchanged_output():
+    value = tuple(tuple(v) if isinstance(v,list) else v for v in raw())
     class MetadataOnly:
         def __init__(self):self.calls=[]
-        def GetAllFieldsInTable(self,*args):self.calls.append(deepcopy(args));return raw()
+        def GetAllFieldsInTable(self,TableKey):
+            self.calls.append(TableKey)
+            assert len(self.calls) == 1, "No second call or fallback"
+            return value
         def __getattr__(self,name):raise AssertionError("Unexpected native call "+name)
     db = MetadataOnly();result = owner.fetch_table_field_metadata(db,TABLE)
-    assert db.calls == [(TABLE,0,0,[],[],[],[],[])]
+    assert db.calls == [TABLE]
+    assert result.raw_response == value
+    assert result == metadata(value)
     assert result.status == "PARSED_EXACT_FIELD_METADATA"
 
 
 def test_native_exception_preserved_without_retry_or_fallback():
     class Failure:
         calls=0
-        def GetAllFieldsInTable(self,*args):
+        def GetAllFieldsInTable(self,TableKey):
+            assert TableKey == TABLE
             self.calls+=1;raise RuntimeError("synthetic failure")
     db = Failure();result = owner.fetch_table_field_metadata(db,TABLE)
     assert db.calls == 1
@@ -233,7 +240,11 @@ def test_session_read_uses_existing_STA_and_only_metadata_capability(monkeypatch
         identity=SimpleNamespace(model_full_path=MODEL,process_id=73)
     class MetadataOnly:
         calls=0
-        def GetAllFieldsInTable(self,*args):self.calls+=1;return raw()
+        def GetAllFieldsInTable(self,TableKey):
+            assert TableKey == TABLE
+            self.calls+=1
+            assert self.calls == 1, "No second call or fallback"
+            return raw()
     session=Session();db=MetadataOnly();seen=[]
     def fake_read(actual,callback,*,operation,timeout_seconds):
         assert actual is session
