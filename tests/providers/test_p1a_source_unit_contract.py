@@ -200,7 +200,7 @@ def test_Temp_optional_ABI_binding_offline_no_extra_ETABS_calls(monkeypatch):
     assert fact.temperature==25. and not fact.unit_provenance
 
 
-def test_field_ABI_unsupported_does_not_add_metadata_getter_or_fallback():
+def test_display_read_does_not_add_metadata_getter_or_fallback():
     calls=[]
     class Tables:
         def GetTableForDisplayArray(self,*args):
@@ -210,7 +210,7 @@ def test_field_ABI_unsupported_does_not_add_metadata_getter_or_fallback():
             raise AssertionError("no new calls authorized")
     result=fetch_display_table(Tables(),"T")
     assert calls==["GetTableForDisplayArray"]
-    assert result.field_unit_status=="UNIT_UNQUALIFIED:FIELD_UNIT_ABI_UNSUPPORTED"
+    assert result.field_unit_status=="UNIT_UNQUALIFIED:FIELD_METADATA_NOT_ACQUIRED"
     assert result.field_unit_provenance==() and result.field_metadata_raw==()
 
 
