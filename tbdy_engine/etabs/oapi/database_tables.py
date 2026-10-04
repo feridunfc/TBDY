@@ -13,7 +13,7 @@ from typing import Any, Mapping, Sequence
 import hashlib
 import json
 
-from .contracts import SourceUnitProvenance
+from .contracts import EtabsOAPIError, SourceUnitProvenance
 
 from tbdy_engine.etabs.safety import (
     DatabaseTablesReadTransaction,
@@ -79,11 +79,11 @@ class DisplayTableFetchResult:
     capture_status: RuntimeCaptureStatus = RuntimeCaptureStatus.UNKNOWN
     display_selection: Mapping[str, Any] = field(default_factory=dict)
     state_diagnostics: tuple[Mapping[str, Any], ...] = field(default_factory=tuple)
-    # Exact field-unit ABI is unsupported at this checkpoint. Existing live
-    # fetches remain raw/unqualified; no GetAllFieldsInTable call is added.
+    # Display reads alone do not acquire or qualify metadata. The bounded
+    # metadata read and explicit field binding below are separate operations.
     field_unit_provenance: tuple[SourceUnitProvenance, ...] = ()
     field_metadata_raw: tuple[object, ...] = ()
-    field_unit_status: str = "UNIT_UNQUALIFIED:FIELD_UNIT_ABI_UNSUPPORTED"
+    field_unit_status: str = "UNIT_UNQUALIFIED:FIELD_METADATA_NOT_ACQUIRED"
 
     @property
     def field_metadata_ref(self) -> str:
@@ -137,6 +137,206 @@ class DisplayTableFetchResult:
         })
         payload["raw_table_diagnostics"] = raw
         return payload
+
+
+FIELD_METADATA_SOURCE_CALL = "SapModel.DatabaseTables.GetAllFieldsInTable"
+FIELD_METADATA_ABI_REF = (
+    "cached-typelib:sha256:"
+    "d44dd4473c4141ff78cdb0fdbe6dfd5c48dd11d84c9df57181fe4dc17892557f"
+    "#cDatabaseTables.GetAllFieldsInTable:2361-2374"
+)
+FIELD_METADATA_OUTPUT_ORDER = (
+    "TableVersion", "NumberFields", "FieldKey", "FieldName", "Description",
+    "UnitsString", "IsImportable", "pRetVal",
+)
+# Only the unit spellings already supported by the consuming factual owner.
+# Dimensions come from the requested FieldKey contract, never from a report.
+_FIELD_UNIT_DIMENSIONS = {
+    "mm": "L", "cm": "L", "m": "L", "MPa": "F/L2", "Pa": "F/L2",
+    "N/mm2": "F/L2", "N/mm^2": "F/L2", "N/m2": "F/L2",
+    "N/m^2": "F/L2", "kN/m2": "F/L2", "kN/m^2": "F/L2",
+}
+
+
+def _metadata_raw_tuple(raw: Any) -> tuple[object, ...]:
+    """Retain every returned value without coercion or unit conversion."""
+    def freeze(value: Any) -> Any:
+        return tuple(freeze(x) for x in value) if isinstance(value, (tuple, list)) else deepcopy(value)
+    return tuple(freeze(x) for x in raw) if isinstance(raw, (tuple, list)) else (freeze(raw),)
+
+
+@dataclass(frozen=True, slots=True)
+class TableFieldMetadataFetchResult:
+    """Exact metadata ABI facts; source context and unit qualification are separate."""
+
+    table_name: str
+    raw_response: tuple[object, ...]
+    status: str
+    table_version: int | None = None
+    number_fields: int | None = None
+    field_keys: tuple[str, ...] = ()
+    field_names: tuple[str, ...] = ()
+    descriptions: tuple[str, ...] = ()
+    units_strings: tuple[str, ...] = ()
+    is_importable: tuple[bool, ...] = ()
+    return_code: int | None = None
+    source_model_ref: str | None = None
+    session_ref: str | None = None
+    capture_ref: str | None = None
+
+    @property
+    def raw_response_ref(self) -> str:
+        # Matches DisplayTableFetchResult.field_metadata_ref exactly.
+        raw = json.dumps(self.raw_response, sort_keys=True, default=str).encode()
+        return "table-field-metadata:sha256:" + hashlib.sha256(raw).hexdigest()
+
+    def field_metadata(self, field_key: str) -> Mapping[str, Any]:
+        if self.status != "PARSED_EXACT_FIELD_METADATA":
+            raise EtabsOAPIError(self.status)
+        # Never align against a display table's field position or an alias.
+        if field_key not in self.field_keys:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_EXACT_FIELDKEY")
+        index = self.field_keys.index(field_key)
+        return {"FieldKey": self.field_keys[index], "FieldName": self.field_names[index],
+                "Description": self.descriptions[index], "UnitsString": self.units_strings[index],
+                "IsImportable": self.is_importable[index]}
+
+
+def decode_table_field_metadata(raw: Any, *, table_name: str) -> TableFieldMetadataFetchResult:
+    """Decode only the reviewed eight-output Python ABI; no positional guessing."""
+    retained = _metadata_raw_tuple(raw)
+    def blocked(reason: str) -> TableFieldMetadataFetchResult:
+        ret = retained[-1] if len(retained) == 8 and type(retained[-1]) is int else None
+        return TableFieldMetadataFetchResult(table_name, retained, "UNIT_UNQUALIFIED:" + reason,
+                                             return_code=ret)
+    if not isinstance(table_name, str) or not table_name or table_name != table_name.strip():
+        return blocked("INVALID_TABLEKEY")
+    if not isinstance(raw, (tuple, list)) or len(raw) != 8:
+        return blocked("FIELD_METADATA_ABI_SHAPE")
+    version, count, keys, names, descriptions, units, importable, ret = retained
+    if type(ret) is not int or ret != 0:
+        return blocked("FIELD_METADATA_RETURN_CODE")
+    if type(version) is not int or version < 0 or type(count) is not int or count < 0:
+        return blocked("FIELD_METADATA_VERSION_OR_COUNT")
+    arrays = (keys, names, descriptions, units, importable)
+    if any(not isinstance(x, tuple) or len(x) != count for x in arrays):
+        return blocked("FIELD_METADATA_ARRAY_LENGTH")
+    if any(type(x) is not str for array in arrays[:4] for x in array):
+        return blocked("FIELD_METADATA_STRING_ARRAY_TYPE")
+    if any(not key or key != key.strip() for key in keys):
+        return blocked("FIELD_METADATA_INVALID_FIELDKEY")
+    if len(set(keys)) != count:
+        return blocked("FIELD_METADATA_DUPLICATE_FIELDKEY")
+    if any(type(x) is not bool for x in importable):
+        return blocked("FIELD_METADATA_IMPORTABLE_TYPE")
+    return TableFieldMetadataFetchResult(
+        table_name, retained, "PARSED_EXACT_FIELD_METADATA", version, count,
+        keys, names, descriptions, units, importable, ret,
+    )
+
+
+def fetch_table_field_metadata(database_tables: Any, table_name: str) -> TableFieldMetadataFetchResult:
+    """Exactly one getter, with reviewed argument order; no fallback or retry."""
+    if not isinstance(table_name, str) or not table_name or table_name != table_name.strip():
+        raise EtabsOAPIError("UNIT_UNQUALIFIED:INVALID_TABLEKEY")
+    try:
+        raw = database_tables.GetAllFieldsInTable(table_name, 0, 0, [], [], [], [], [])
+    except Exception as exc:
+        return TableFieldMetadataFetchResult(table_name, (),
+            f"UNIT_UNQUALIFIED:FIELD_METADATA_GETTER_FAILED:{type(exc).__name__}:{exc}")
+    return decode_table_field_metadata(raw, table_name=table_name)
+
+
+def fetch_table_field_metadata_from_session(
+    session: Any, table_name: str, *, timeout_seconds: float = 30.0,
+) -> TableFieldMetadataFetchResult:
+    """Metadata-only read through the existing safety/STA boundary.
+
+    No identity/unit rereads or display-table reads are added. A unit-observation
+    contract must be supplied explicitly when binding the retained metadata.
+    """
+    import math
+    import uuid
+    from tbdy_engine.etabs.safety import EtabsVerifiedSession, _execute_verified_read
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+    if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+        raise ValueError("timeout_seconds must be finite and positive")
+    if not isinstance(table_name, str) or not table_name or table_name != table_name.strip():
+        raise EtabsOAPIError("UNIT_UNQUALIFIED:INVALID_TABLEKEY")
+    def acquire(_application: object, model_api: Any) -> TableFieldMetadataFetchResult:
+        result = fetch_table_field_metadata(model_api.DatabaseTables, table_name)
+        return replace(result, source_model_ref=session.identity.model_full_path,
+            session_ref=f"etabs-session:pid:{session.identity.process_id}",
+            capture_ref=f"field-metadata-capture:{uuid.uuid4().hex}")
+    return _execute_verified_read(session, acquire,
+        operation="oapi_database_tables_get_all_fields_in_table", timeout_seconds=timeout_seconds)
+
+
+def bind_display_table_field_units(
+    fetched: DisplayTableFetchResult, metadata: TableFieldMetadataFetchResult, *,
+    field_dimensions: Mapping[str, str], source_model_ref: str, session_ref: str,
+    capture_ref: str, unit_state_before: str | None, unit_state_after: str | None,
+) -> DisplayTableFetchResult:
+    """Attach only exact FieldKey metadata; preserve display values/behavior.
+
+    Caller-supplied capture observations are required; cached session units or
+    report defaults are never substituted. Unknown fields block individually.
+    """
+    if metadata.table_name != fetched.table_name or metadata.table_name != fetched.parsed.actual_table_name:
+        raise EtabsOAPIError("UNIT_UNQUALIFIED:FIELD_METADATA_TABLEKEY_MISMATCH")
+    if not metadata.raw_response and metadata.status.startswith("UNIT_UNQUALIFIED:FIELD_METADATA_GETTER_FAILED:"):
+        return replace(fetched, field_metadata_raw=(), field_unit_provenance=(),
+                       field_unit_status=metadata.status)
+    decoded = decode_table_field_metadata(metadata.raw_response, table_name=metadata.table_name)
+    attributes = ("status", "table_version", "number_fields", "field_keys", "field_names",
+                  "descriptions", "units_strings", "is_importable", "return_code")
+    if any(getattr(decoded, name) != getattr(metadata, name) for name in attributes):
+        return replace(fetched, field_metadata_raw=metadata.raw_response,
+            field_unit_provenance=(), field_unit_status="UNIT_UNQUALIFIED:FIELD_METADATA_RAW_CONFLICT")
+    if metadata.status != "PARSED_EXACT_FIELD_METADATA":
+        return replace(fetched, field_metadata_raw=metadata.raw_response,
+            field_unit_provenance=(), field_unit_status=metadata.status)
+    if not isinstance(field_dimensions, Mapping) or not field_dimensions:
+        raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_FIELD_DIMENSION_CONTRACT")
+    if any(type(key) is not str or not key or key != key.strip()
+           or type(dimension) is not str or not dimension or dimension != dimension.strip()
+           for key, dimension in field_dimensions.items()):
+        raise EtabsOAPIError("UNIT_UNQUALIFIED:INVALID_FIELD_DIMENSION_CONTRACT")
+    for name, actual, expected in (("MODEL",metadata.source_model_ref,source_model_ref),
+            ("SESSION",metadata.session_ref,session_ref), ("CAPTURE",metadata.capture_ref,capture_ref)):
+        if actual is not None and actual != expected:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:FIELD_METADATA_" + name + "_MISMATCH")
+    bindings = []
+    for key, dimension in field_dimensions.items():
+        unit = None
+        reason = "MISSING_EXACT_FIELDKEY"
+        if key in fetched.parsed.field_keys and key in metadata.field_keys:
+            unit = metadata.field_metadata(key)["UnitsString"]
+            reason = "BLANK_UNKNOWN_OR_WRONG_DIMENSION_UNITSSTRING"
+            if unit in _FIELD_UNIT_DIMENSIONS and _FIELD_UNIT_DIMENSIONS[unit] == dimension:
+                reason = "QUALIFIED_EXACT_FIELDKEY_METADATA"
+        binding = SourceUnitProvenance(
+            source_call=FIELD_METADATA_SOURCE_CALL, subject_key=metadata.table_name,
+            output_key=key, dimension=dimension, source_unit=unit,
+            authority_ref=FIELD_METADATA_ABI_REF,
+            authority_version=f"TableVersion:{metadata.table_version}",
+            authority_kind="REVIEWED_FIELD_UNIT_METADATA", source_model_ref=source_model_ref,
+            session_ref=session_ref, capture_ref=capture_ref, raw_response_ref=metadata.raw_response_ref,
+            return_code=metadata.return_code, unit_state_before=unit_state_before,
+            unit_state_after=unit_state_after,
+            qualification="QUALIFIED" if reason == "QUALIFIED_EXACT_FIELDKEY_METADATA" else "UNIT_UNQUALIFIED",
+            reason=reason,
+        )
+        try:
+            binding.require(source_call=FIELD_METADATA_SOURCE_CALL, subject_key=metadata.table_name,
+                output_key=key, dimension=dimension)
+        except EtabsOAPIError as exc:
+            binding = replace(binding, qualification="UNIT_UNQUALIFIED", reason=str(exc))
+        bindings.append(binding)
+    status = "QUALIFIED" if all(b.qualification == "QUALIFIED" for b in bindings) else "UNIT_UNQUALIFIED"
+    return replace(fetched, field_metadata_raw=metadata.raw_response,
+        field_unit_provenance=tuple(bindings), field_unit_status=status)
 
 
 DISPLAY_TABLE_SIGNATURES: tuple[tuple[str, tuple[Any, ...]], ...] = (
@@ -1122,6 +1322,13 @@ def try_get_display_table(
 __all__ = [
     "DISPLAY_TABLE_SIGNATURES",
     "DisplayTableFetchResult",
+    "FIELD_METADATA_ABI_REF",
+    "FIELD_METADATA_OUTPUT_ORDER",
+    "TableFieldMetadataFetchResult",
+    "bind_display_table_field_units",
+    "decode_table_field_metadata",
+    "fetch_table_field_metadata",
+    "fetch_table_field_metadata_from_session",
     "ParsedDisplayTable",
     "_extract_compact_six_item_etabs_shape",
     "_rows_from_data",
