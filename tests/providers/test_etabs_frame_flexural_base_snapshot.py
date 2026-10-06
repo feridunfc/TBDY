@@ -1,20 +1,31 @@
 from __future__ import annotations
 
 from collections import Counter
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
+from unit_contract_fixtures import table as table_fixture
 
 import tbdy_engine.providers.etabs_frame_flexural_base_provider as subject
+from tbdy_engine.etabs import safety
+from tbdy_engine.etabs.oapi import database_tables
+from tbdy_engine.etabs.safety import EtabsUnitSnapshot
 
 
 class _SourceIdentity:
     source_model_ref = "source-model:flexural-snapshot"
+    normalized_model_reference = r"C:\tmp\source.edb"
+
+
+class _Session:
+    identity = SimpleNamespace(model_full_path=_SourceIdentity.normalized_model_reference,
+                               process_id=73)
 
 
 class _Context:
     def __init__(self):
-        self.verified_session = object()
+        self.verified_session = _Session()
         self.source_model_identity = _SourceIdentity()
         self.acquisition_context_ref = "acquisition:flexural-snapshot"
         self.session_provenance_ref = "session:flexural-snapshot"
@@ -58,6 +69,9 @@ def _install_environment(
     units=None,
     identities=None,
     calls=None,
+    metadata_calls=None,
+    metadata_units=None,
+    raw_metadata_transform=None,
 ):
     context = _Context()
     scratch = _Scratch(context.source_model_identity)
@@ -66,14 +80,42 @@ def _install_environment(
 
     monkeypatch.setattr(subject, "TrustedLiveAcquisitionContext", _Context)
     monkeypatch.setattr(subject, "OwnedScratchContext", _Scratch)
+    monkeypatch.setattr(safety, "EtabsVerifiedSession", _Session)
 
-    def capture_rows(_context, table):
+    def capture_rows(session, table, *, max_rows):
+        assert session is context.verified_session and max_rows is None
         counter[table] += 1
-        return tuple(table_rows[table])
+        units = {key: ("m" if key in {"t2", "t3"} else "kN/m2")
+                 for row in table_rows[table] for key in row if key in {"t2", "t3", "E1", "Fc"}}
+        fetched = table_fixture(table, tuple(table_rows[table]), units,
+                             model=context.source_model_identity.source_model_ref,
+                             session=context.session_provenance_ref,
+                             capture=context.acquisition_context_ref)
+        return replace(fetched, field_metadata_raw=(), field_unit_provenance=(),
+                       field_unit_status="UNIT_UNQUALIFIED:FIELD_METADATA_NOT_ACQUIRED")
 
-    monkeypatch.setattr(subject, "_rows", capture_rows)
+    monkeypatch.setattr(subject, "fetch_display_table_from_session", capture_rows)
 
-    stable_units = SimpleNamespace(
+    metadata_counter = Counter() if metadata_calls is None else metadata_calls
+    class MetadataOnly:
+        def GetAllFieldsInTable(self, TableKey):
+            metadata_counter[TableKey] += 1
+            keys = tuple(dict.fromkeys(key for row in table_rows[TableKey] for key in row))
+            units = tuple((metadata_units or {}).get(key,
+                          "m" if key in {"t2", "t3", "Width", "Depth", "T2", "T3"}
+                          else "kN/m2" if key in {"E1", "E", "Fc", "fck"} else "")
+                          for key in keys)
+            raw = (1, len(keys), keys, keys, keys, units, (False,) * len(keys), 0)
+            return raw_metadata_transform(TableKey, raw) if raw_metadata_transform else raw
+
+    def verified_read(session, callback, *, operation, timeout_seconds):
+        assert session is context.verified_session
+        assert operation == "oapi_database_tables_get_all_fields_in_table"
+        return callback(object(), SimpleNamespace(DatabaseTables=MetadataOnly()))
+
+    monkeypatch.setattr(safety, "_execute_verified_read", verified_read)
+
+    stable_units = EtabsUnitSnapshot(
         present_force_unit=4,
         present_length_unit=6,
     )
@@ -84,7 +126,7 @@ def _install_environment(
 
     monkeypatch.setattr(subject, "read_verified_unit_snapshot", read_units)
 
-    stable_identity = SimpleNamespace(model_full_path=scratch.scratch_path)
+    stable_identity = SimpleNamespace(model_full_path=scratch.scratch_path, process_id=73)
     identity_values = iter(identities) if identities is not None else None
 
     def read_identity(_session):
@@ -218,8 +260,8 @@ def test_population_style_binding_captures_each_full_base_table_exactly_once(
 
 
 def test_unit_state_change_during_snapshot_capture_fails_closed(monkeypatch):
-    before = SimpleNamespace(present_force_unit=4, present_length_unit=6)
-    after = SimpleNamespace(present_force_unit=3, present_length_unit=4)
+    before = EtabsUnitSnapshot(present_force_unit=4, present_length_unit=6)
+    after = EtabsUnitSnapshot(present_force_unit=3, present_length_unit=4)
     context, scratch, _calls = _install_environment(
         monkeypatch,
         units=(before, after),
@@ -238,8 +280,8 @@ def test_unit_state_change_during_snapshot_capture_fails_closed(monkeypatch):
 def test_active_model_change_during_snapshot_capture_fails_closed(monkeypatch):
     context = _Context()
     scratch = _Scratch(context.source_model_identity)
-    before = SimpleNamespace(model_full_path=scratch.scratch_path)
-    after = SimpleNamespace(model_full_path=r"C:\tmp\wrong.edb")
+    before = SimpleNamespace(model_full_path=scratch.scratch_path, process_id=73)
+    after = SimpleNamespace(model_full_path=r"C:\tmp\wrong.edb", process_id=73)
     context, scratch, _calls = _install_environment(
         monkeypatch,
         identities=(before, after),

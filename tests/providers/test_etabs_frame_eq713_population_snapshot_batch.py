@@ -5,6 +5,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
+from unit_contract_fixtures import material as qualified_material, MODEL, SESSION
 
 import tbdy_engine.providers.etabs_frame_eq713_population_provider as subject
 from tbdy_engine.etabs.oapi.frame_modifiers import (
@@ -85,6 +86,8 @@ class _Base:
     present_length_unit: int = 6
     source_refs: tuple[str, ...] = ("base:ref",)
     evidence_ref: str = "base:evidence"
+    source_model_ref: str = MODEL
+    session_provenance_ref: str = SESSION
 
 
 @dataclass(frozen=True)
@@ -121,6 +124,12 @@ class _Material:
     evidence_ref: str = "material:evidence"
     modulus_of_elasticity: float = 33_000.0
     shear_modulus: float = 13_200.0
+
+    def source_unit_for(self, key, dimension):
+        # Independently declared synthetic property units, not base table units.
+        return qualified_material(self.material_name, e=self.modulus_of_elasticity,
+                                  g=self.shear_modulus, unit="MPa").source_unit_for(key, dimension)
+
 
 
 
@@ -222,11 +231,7 @@ def test_population_captures_one_base_snapshot_and_binds_many_supported_frames(
         "get_isotropic_material_properties_from_session",
         lambda _session, *, material_name: _Material(material_name),
     )
-    monkeypatch.setattr(
-        subject,
-        "_stress_to_mpa",
-        lambda value, *_args: Decimal(str(value)),
-    )
+
 
     population = subject.capture_frame_eq713_factual_population(
         context,

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from types import SimpleNamespace
 
 import pytest
+from unit_contract_fixtures import material as qualified_material, MODEL, SESSION
 
 import tbdy_engine.providers.etabs_frame_eq713_population_provider as subject
 from tbdy_engine.etabs.oapi.frame_modifiers import (
@@ -200,6 +201,12 @@ class _Material:
     evidence_ref: str = "material:S355"
     modulus_of_elasticity: float = 200_000_000.0
     shear_modulus: float = 76_923_000.0
+
+    def source_unit_for(self, key, dimension):
+        # Independently declared synthetic property units, not base table units.
+        return qualified_material(self.material_name, e=self.modulus_of_elasticity,
+                                  g=self.shear_modulus, unit="kN/m2").source_unit_for(key, dimension)
+
 
 
 def test_steel_residual_fact_uses_generic_elastic_owners_and_no_concrete_basis(

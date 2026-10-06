@@ -114,6 +114,9 @@ class EtabsUnitSnapshot:
     present_units_api: str | None = None
     database_units_api: str | None = None
     diagnostics: tuple[Mapping[str, Any], ...] = field(default_factory=tuple)
+    raw_unit_reads: tuple[tuple[str, str], ...] = field(default=(), compare=False)
+    present_observation_status: str = "UNIT_UNQUALIFIED"
+    database_observation_status: str = "UNIT_UNQUALIFIED"
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -128,6 +131,9 @@ class EtabsUnitSnapshot:
             "present_units_api": self.present_units_api,
             "database_units_api": self.database_units_api,
             "diagnostics": [dict(item) for item in self.diagnostics],
+            "raw_unit_reads": dict(self.raw_unit_reads),
+            "present_observation_status": self.present_observation_status,
+            "database_observation_status": self.database_observation_status,
         }
 
 
@@ -325,35 +331,36 @@ def _string_items(raw: Any) -> list[str]:
     return []
 
 
-def _read_triplet_method(sap_model: Any, method_name: str) -> tuple[Any, Any, Any, int | None] | None:
+def _read_triplet_method(sap_model: Any, method_name: str, *, raw_reads: dict[str, str] | None = None) -> tuple[Any, Any, Any, int | None] | None:
     method = _safe_attr(sap_model, method_name)
     if not callable(method):
         return None
     try:
         raw = method()
+        if raw_reads is not None:
+            raw_reads[method_name] = repr(raw)
     except Exception:
         return None
     if isinstance(raw, Mapping):
-        keys = list(raw)
-        if len(keys) >= 3:
-            values = [raw[key] for key in keys[:3]]
-            return values[0], values[1], values[2], _return_code(raw)
-    if isinstance(raw, (tuple, list)):
-        values = list(raw)
-        code = _return_code(raw)
-        if len(values) >= 4 and code is not None:
-            values = values[:-1]
-        if len(values) >= 3:
-            return values[0], values[1], values[2], code
+        keys = ("forceUnits", "lengthUnits", "temperatureUnits")
+        if all(key in raw for key in keys):
+            code = raw.get("pRetVal", raw.get("return_code"))
+            return *(raw[key] for key in keys), (code if type(code) is int else None)
+    if isinstance(raw, (tuple, list)) and len(raw) in (3, 4):
+        code = raw[3] if len(raw) == 4 and type(raw[3]) is int else None
+        return raw[0], raw[1], raw[2], code
+
     return None
 
 
-def _read_scalar_method(sap_model: Any, method_name: str) -> Any:
+def _read_scalar_method(sap_model: Any, method_name: str, *, raw_reads: dict[str, str] | None = None) -> Any:
     method = _safe_attr(sap_model, method_name)
     if not callable(method):
         return None
     try:
         raw = method()
+        if raw_reads is not None:
+            raw_reads[method_name] = repr(raw)
     except Exception:
         return None
     if isinstance(raw, (tuple, list)):
@@ -367,33 +374,34 @@ def _read_scalar_method(sap_model: Any, method_name: str) -> Any:
 def read_etabs_unit_snapshot(sap_model: Any) -> EtabsUnitSnapshot:
     """Read ETABS unit provenance without changing present units."""
     diagnostics: list[dict[str, Any]] = []
+    raw_reads: dict[str, str] = {}
 
-    present_triplet = _read_triplet_method(sap_model, "GetPresentUnits_2")
+    present_triplet = _read_triplet_method(sap_model, "GetPresentUnits_2", raw_reads=raw_reads)
     if present_triplet is not None:
         pf, pl, pt, ret = present_triplet
-        if ret not in (None, 0):
+        if type(ret) is not int or ret != 0:
             diagnostics.append({
                 "api": "GetPresentUnits_2",
                 "return_code": ret,
-                "status": "NONZERO_RETURN",
+                "status": "MISSING_OR_NONZERO_RETURN",
                 "error_code": EtabsSafetyErrorCode.UNIT_PROVENANCE_UNAVAILABLE.value,
             })
             present_triplet = None
 
-    database_triplet = _read_triplet_method(sap_model, "GetDatabaseUnits_2")
+    database_triplet = _read_triplet_method(sap_model, "GetDatabaseUnits_2", raw_reads=raw_reads)
     if database_triplet is not None:
         df, dl, dt, ret = database_triplet
-        if ret not in (None, 0):
+        if type(ret) is not int or ret != 0:
             diagnostics.append({
                 "api": "GetDatabaseUnits_2",
                 "return_code": ret,
-                "status": "NONZERO_RETURN",
+                "status": "MISSING_OR_NONZERO_RETURN",
                 "error_code": EtabsSafetyErrorCode.UNIT_PROVENANCE_UNAVAILABLE.value,
             })
             database_triplet = None
 
-    present_units = _read_scalar_method(sap_model, "GetPresentUnits")
-    database_units = _read_scalar_method(sap_model, "GetDatabaseUnits")
+    present_units = _read_scalar_method(sap_model, "GetPresentUnits", raw_reads=raw_reads)
+    database_units = _read_scalar_method(sap_model, "GetDatabaseUnits", raw_reads=raw_reads)
 
     if present_triplet is not None:
         pf, pl, pt, _ = present_triplet
@@ -422,6 +430,27 @@ def read_etabs_unit_snapshot(sap_model: Any) -> EtabsUnitSnapshot:
             "error_code": EtabsSafetyErrorCode.UNIT_PROVENANCE_UNAVAILABLE.value,
         })
 
+    # Only enum relationships established by the preserved cache. This is
+    # observation validation, not a property getter's source-unit semantics.
+    reviewed_triplets = {6: (4, 6, 2), 10: (3, 6, 2)}
+    statuses: dict[str, str] = {}
+
+    def observed_enum(value: Any) -> int | None:
+        candidate = getattr(value, "value", value)
+        return int(candidate) if isinstance(candidate, int) and not isinstance(candidate, bool) else None
+
+    for kind, enum, triplet in (("present", present_units, present_triplet),
+                                ("database", database_units, database_triplet)):
+        expected = reviewed_triplets.get(observed_enum(enum))
+        if triplet is None or expected is None:
+            statuses[kind] = "UNIT_UNQUALIFIED"
+        elif tuple(observed_enum(v) for v in triplet[:3]) != expected:
+            statuses[kind] = "UNIT_UNQUALIFIED"
+            diagnostics.append({"api": kind + "_units", "status": "ENUM_TRIPLET_MISMATCH",
+                                "error_code": EtabsSafetyErrorCode.UNIT_PROVENANCE_UNAVAILABLE.value})
+        else:
+            statuses[kind] = "OBSERVED_CONSISTENT"
+
     return EtabsUnitSnapshot(
         present_units=present_units,
         database_units=database_units,
@@ -434,6 +463,9 @@ def read_etabs_unit_snapshot(sap_model: Any) -> EtabsUnitSnapshot:
         present_units_api=present_api,
         database_units_api=database_api,
         diagnostics=tuple(diagnostics),
+        raw_unit_reads=tuple(sorted(raw_reads.items())),
+        present_observation_status=statuses["present"],
+        database_observation_status=statuses["database"],
     )
 
 

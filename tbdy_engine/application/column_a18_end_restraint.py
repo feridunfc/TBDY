@@ -445,20 +445,22 @@ def _inertia_m4(
         f"MISSING_OR_INVALID_SECTION_INERTIA:{member_id}:{mechanics_axis}",
     )
     base = getattr(fact, "base_fact", None)
-    unit = getattr(base, "present_length_unit", None)
-    if unit is None or isinstance(unit, bool):
-        raise _Unresolved(f"MISSING_PRESENT_LENGTH_UNIT:{member_id}")
     mechanics_ref = getattr(mechanics, "evidence_ref", None)
     if not isinstance(mechanics_ref, str) or not mechanics_ref.strip():
         raise _Unresolved(f"MISSING_SECTION_MECHANICS_PROVENANCE:{member_id}")
+    output = "I22" if mechanics_axis == "M2" else "I33"
     try:
+        binding = mechanics.source_unit_for(output, "L4")
         normalized = normalize_frame_section_inertia_m4(
-            raw,
-            unit,
-            source_ref=mechanics_ref,
+            raw, binding, source_ref=mechanics_ref,
+            source_model_ref=getattr(base, "source_model_ref", None),
+            session_ref=getattr(base, "session_provenance_ref", None),
+            subject_key=getattr(mechanics, "section_name", None), output_key=output,
+            capture_ref=getattr(mechanics, "capture_ref", None),
+            raw_response_ref=getattr(mechanics, "raw_response_ref", None),
         )
     except Exception as exc:
-        raise _Unresolved(f"UNSUPPORTED_PRESENT_LENGTH_UNIT:{member_id}") from exc
+        raise _Unresolved(f"UNIT_UNQUALIFIED:{member_id}:{exc}") from exc
     return normalized.inertia_m4, _refs(
         (
             mechanics_ref,

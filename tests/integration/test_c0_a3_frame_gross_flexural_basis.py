@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 import inspect
 from types import SimpleNamespace
@@ -22,6 +23,10 @@ from tbdy_engine.etabs.oapi.frame_modifiers import (
     FrameModifierSurface,
     FrameModifierVector,
 )
+from tbdy_engine.etabs.oapi.database_tables import (
+    DisplayTableFetchResult, ParsedDisplayTable, decode_table_field_metadata,
+)
+from tbdy_engine.etabs.safety import EtabsUnitSnapshot, RuntimeCaptureStatus
 from tbdy_engine.integration import etabs_analysis_state_mutation as b4b_module
 from tbdy_engine.integration import etabs_analysis_state_revalidation as revalidation_module
 from tbdy_engine.integration.etabs_analysis_execution import AnalysisExecutionResult
@@ -457,7 +462,9 @@ def test_b4b_exposes_opaque_additional_state_basis_commitment_seam():
 
 
 def test_revalidation_preserves_complete_original_state_basis_population():
-    source = inspect.getsource(revalidation_module.revalidate_frame_modifier_analysis_state)
+    # The compatibility entrypoint delegates; the existing canonical helper
+    # owns preservation of the state-basis population (also true at BASE).
+    source = inspect.getsource(revalidation_module._revalidate)
     assert "state_basis_refs=established_state.analysis_state_identity.state_basis_refs" in source
 
 
@@ -473,16 +480,17 @@ def test_ts500_unknown_concrete_class_is_unresolved_not_interpolated():
 def _provider_context(monkeypatch, tables):
     context = Mock(spec=TrustedLiveAcquisitionContext)
     owned = Mock(spec=OwnedScratchContext)
-    source = SimpleNamespace(source_model_ref="source:1")
+    source = SimpleNamespace(source_model_ref="source:1", normalized_model_reference=r"C:\source.edb")
     context.source_model_identity = source
     context.acquisition_context_ref = "acq:1"
     context.session_provenance_ref = "session:1"
-    context.verified_session = object()
+    context.verified_session = SimpleNamespace(
+        identity=SimpleNamespace(model_full_path=r"C:\source.edb", process_id=73))
     owned.source_model_identity = source
     owned.ownership_proof_ref = "scratch:1"
     owned.scratch_path = r"C:\scratch.edb"
-    identity = SimpleNamespace(model_full_path=r"C:\scratch.edb")
-    units = SimpleNamespace(present_force_unit=3, present_length_unit=4)
+    identity = SimpleNamespace(model_full_path=r"C:\scratch.edb", process_id=73)
+    units = EtabsUnitSnapshot(present_force_unit=3, present_length_unit=4)
     monkeypatch.setattr(
         provider,
         "reread_verified_session_identity",
@@ -493,11 +501,23 @@ def _provider_context(monkeypatch, tables):
         "read_verified_unit_snapshot",
         lambda session: units,
     )
-    monkeypatch.setattr(
-        provider,
-        "_rows",
-        lambda ctx, table: tuple(tables[table]),
-    )
+    def display(session, table, *, max_rows):
+        assert session is context.verified_session and max_rows is None
+        keys = tuple(dict.fromkeys(key for row in tables[table] for key in row))
+        return DisplayTableFetchResult(table,
+            ParsedDisplayTable(table, "ROWS_PARSED", field_keys=keys,
+                               rows=tuple(tables[table]), row_count_reported=len(tables[table]), return_code=0),
+            capture_status=RuntimeCaptureStatus.FULL)
+    def metadata(session, table, *, capture_ref):
+        assert session is context.verified_session
+        keys = tuple(dict.fromkeys(key for row in tables[table] for key in row))
+        units = tuple("mm" if key in {"t2", "t3"} else "MPa" if key in {"E1", "Fc"} else "" for key in keys)
+        raw = (1, len(keys), keys, keys, keys, units, (False,) * len(keys), 0)
+        return replace(decode_table_field_metadata(raw, table_name=table),
+                       source_model_ref=r"C:\source.edb", session_ref="etabs-session:pid:73",
+                       capture_ref=capture_ref)
+    monkeypatch.setattr(provider, "fetch_display_table_from_session", display)
+    monkeypatch.setattr(provider, "fetch_table_field_metadata_from_session", metadata)
     return context, owned
 
 
@@ -610,7 +630,7 @@ def test_missing_e1_fails_closed(monkeypatch):
     tables = _valid_tables()
     del tables[provider.TABLE_BASIC_MATERIAL][0]["E1"]
     context, owned = _provider_context(monkeypatch, tables)
-    with pytest.raises(FrameFlexuralBaseFactError, match="E1"):
+    with pytest.raises(FrameFlexuralBaseFactError, match="UNIT_UNQUALIFIED:MISSING_FIELD_VALUE"):
         provider.capture_frame_flexural_base_fact(
             context=context,
             owned_scratch=owned,

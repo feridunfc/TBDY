@@ -5,6 +5,7 @@ from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
+from unit_contract_fixtures import table as qualified_table, MODEL
 
 import tbdy_engine.providers.etabs_area_contributor_provider as subject
 from tbdy_engine.etabs.oapi.area_contributors import AreaDesignOrientation
@@ -29,6 +30,15 @@ class _Snapshot:
         self.present_length_unit = 4
         self.session_provenance_ref = provenance
         self.ownership_proof_ref = "owned:a38"
+        self.source_model_ref = MODEL
+        self.acquisition_context_ref = "synthetic:table-capture"
+        tables = {name: qualified_table(name, rows,
+                  {key: "MPa" for row in rows for key in row if key in {"E1", "G12", "Fc"}},
+                  model=self.source_model_ref, session=provenance, capture=self.acquisition_context_ref)
+                  for name, rows in ((subject.TABLE_BASIC_MATERIAL, self.basic_material_rows),
+                                     (subject.TABLE_CONCRETE, self.concrete_rows))}
+        self.table_unit_provenance = {name: item.field_unit_provenance for name, item in tables.items()}
+        self.table_metadata_refs = {name: item.field_metadata_ref for name, item in tables.items()}
 
 
 def _modifier(surface, target):

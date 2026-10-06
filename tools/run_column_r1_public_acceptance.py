@@ -71,6 +71,24 @@ def _observations(result):
                 A38=result.column_denominator, A39=result.reconciliation, A40=result.building_report_model)
 
 
+def _persist_report_package(model, output):
+    """Persist the same canonical A40 model through the existing passive owners."""
+    from tbdy_engine.product_reports.building_report_package import (
+        build_building_report_package,
+        verify_building_report_package,
+    )
+
+    artifact = build_building_report_package(model)
+    verify_building_report_package(artifact)
+    destination = output / artifact.filename
+    with destination.open("xb") as stream:
+        stream.write(artifact.content)
+    if _sha(destination).lower() != artifact.sha256:
+        raise RuntimeError("Persisted report package SHA256 mismatch")
+    return dict(filename=artifact.filename, sha256=artifact.sha256,
+                size_bytes=len(artifact.content))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--expected-sha", required=True)
@@ -154,6 +172,7 @@ def main():
         receipt["composition_pass"] = all(checks.values())
         if not receipt["composition_pass"]:
             raise RuntimeError("Public-root composition acceptance failed; inspect receipt and exact component outcomes")
+        receipt["report_delivery"] = _persist_report_package(result.building_report_model, output)
     except BaseException as exc:
         receipt["error"] = f"{type(exc).__name__}: {exc}"
         raise
