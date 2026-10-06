@@ -805,6 +805,8 @@ def _capture_residual_structural_facts(
     context: TrustedLiveAcquisitionContext,
     out_of_slice_rows: Sequence[FrameEq713ScopeFact],
     beam_mechanics_by_name: Mapping[str, FrameEq713BeamMechanicsFact],
+    *,
+    owned_scratch: OwnedScratchContext,
 ) -> tuple[FrameEq713ResidualStructuralFact, ...]:
     # Capture generic elastic facts without manufacturing concrete authority.
     section_cache: dict[str, FrameSectionMechanicsFact] = {}
@@ -854,6 +856,8 @@ def _capture_residual_structural_facts(
             isotropic = get_isotropic_material_properties_from_session(
                 context.verified_session,
                 material_name=material_name,
+                context=context,
+                owned_scratch=owned_scratch,
             )
             material_cache[material_name] = isotropic
 
@@ -1665,6 +1669,7 @@ def capture_frame_eq713_factual_population(
         context,
         out_of_slice_rows,
         beam_mechanics_by_name,
+        owned_scratch=owned_scratch,
     )
 
     material_cache: dict[str, IsotropicMaterialPropertiesFact] = {}
@@ -1738,6 +1743,8 @@ def capture_frame_eq713_factual_population(
             material = get_isotropic_material_properties_from_session(
                 context.verified_session,
                 material_name=base.material_name,
+                context=context,
+                owned_scratch=owned_scratch,
             )
             material_cache[base.material_name] = material
         if not material.success:
