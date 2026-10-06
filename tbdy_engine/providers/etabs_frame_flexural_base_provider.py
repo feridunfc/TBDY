@@ -12,7 +12,7 @@ later AnalysisStateIdentity; deterministic semantic equality is represented by
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal, InvalidOperation
 import hashlib
 import json
@@ -23,7 +23,11 @@ import uuid
 
 from tbdy_engine.etabs.oapi import fetch_display_table_from_session
 from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError, SourceUnitProvenance
-from tbdy_engine.etabs.oapi.database_tables import DisplayTableFetchResult
+from tbdy_engine.etabs.oapi.database_tables import (
+    DisplayTableFetchResult,
+    bind_display_table_field_units,
+    fetch_table_field_metadata_from_session,
+)
 from tbdy_engine.etabs.safety import (
     RuntimeCaptureStatus,
     read_verified_unit_snapshot,
@@ -39,6 +43,15 @@ TABLE_RECTANGULAR = "Frame Section Property Definitions - Concrete Rectangular"
 TABLE_FRAME_SECTION_SUMMARY = "Frame Section Property Definitions - Summary"
 TABLE_BASIC_MATERIAL = "Material Properties - Basic Mechanical Properties"
 TABLE_CONCRETE = "Material Properties - Concrete Data"
+
+# Use the same alias selector as factual quantity binding, retaining the exact
+# selected display FieldKey rather than substituting an alias as authority.
+_DIMENSIONAL_FIELDS = {
+    TABLE_RECTANGULAR: ((("t2", "T2", "Width"), "L"),
+                        (("t3", "T3", "Depth"), "L")),
+    TABLE_BASIC_MATERIAL: ((("E1", "Elastic Modulus", "Modulus of Elasticity", "E"), "F/L2"),),
+    TABLE_CONCRETE: ((("Fc", "fck", "Concrete Strength"), "F/L2"),),
+}
 
 FRAME_FLEXURAL_BASE_FACT_CONTRACT = "ETABS_FRAME_FLEXURAL_BASE_FACT_V3"
 FRAME_FLEXURAL_BASE_EVIDENCE_PREFIX = "etabs-frame-flexural-base:sha256:"
@@ -748,8 +761,11 @@ def capture_frame_flexural_base_snapshot(
         owned_scratch.scratch_path
     ):
         raise FrameFlexuralBaseFactError(
-            "active ETABS model is not the exact owned scratch"
+            "UNIT_UNQUALIFIED:active ETABS model is not the exact owned scratch"
         )
+    expected_pid = context.verified_session.identity.process_id
+    if type(expected_pid) is not int or expected_pid <= 0 or identity_before.process_id != expected_pid:
+        raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:FIELD_METADATA_SESSION_MISMATCH")
 
     units_before = read_verified_unit_snapshot(context.verified_session)
     pf = _enum_int(units_before.present_force_unit, "force")
@@ -762,7 +778,48 @@ def capture_frame_flexural_base_snapshot(
     tables = {table: _rows(context, table) for table in (
         TABLE_FRAME_ASSIGNMENTS, TABLE_RECTANGULAR, TABLE_FRAME_SECTION_SUMMARY,
         TABLE_BASIC_MATERIAL, TABLE_CONCRETE)}
-    # Metadata is never synthesized from capture-wide present units.
+    # Each metadata read receives a fresh, caller-owned event nonce. Origin
+    # path/PID/nonce are checked before bridging into the existing context refs.
+    metadata_events = {}
+    for table, requirements in _DIMENSIONAL_FIELDS.items():
+        event_ref = f"field-metadata-capture:{uuid.uuid4().hex}"
+        metadata = fetch_table_field_metadata_from_session(
+            context.verified_session, table, capture_ref=event_ref
+        )
+        identity = context.verified_session.identity
+        if (_canonical_path(metadata.source_model_ref or "") != _canonical_path(identity.model_full_path)
+                or _canonical_path(identity.model_full_path) !=
+                _canonical_path(context.source_model_identity.normalized_model_reference)):
+            raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:FIELD_METADATA_MODEL_MISMATCH")
+        if metadata.session_ref != f"etabs-session:pid:{identity.process_id}":
+            raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:FIELD_METADATA_SESSION_MISMATCH")
+        if metadata.capture_ref != event_ref:
+            raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:FIELD_METADATA_CAPTURE_MISMATCH")
+        dimensions = {}
+        for aliases, dimension in requirements:
+            if not tables[table].parsed.rows:
+                raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:MISSING_FIELD_VALUE")
+            for row in tables[table].parsed.rows:
+                dimensions[_selected_field_key(row, aliases)] = dimension
+        # Validate exact metadata and dimensions now, before any later table
+        # read. These origin-bound bindings are not issued to a snapshot yet.
+        state = json.dumps(units_before.as_dict(), sort_keys=True)
+        try:
+            bound = bind_display_table_field_units(
+                tables[table], metadata, field_dimensions=dimensions,
+                source_model_ref=metadata.source_model_ref,
+                session_ref=metadata.session_ref, capture_ref=metadata.capture_ref,
+                unit_state_before=state, unit_state_after=state,
+            )
+        except EtabsOAPIError as exc:
+            raise FrameFlexuralBaseFactError(str(exc)) from exc
+        if bound.field_unit_status != "QUALIFIED":
+            reason = bound.field_unit_status
+            raise FrameFlexuralBaseFactError(
+                reason if reason.startswith("UNIT_UNQUALIFIED:") else "UNIT_UNQUALIFIED:" + reason
+            )
+        tables[table] = bound
+        metadata_events[table] = metadata
     assignment_rows = tables[TABLE_FRAME_ASSIGNMENTS].parsed.rows
     rectangular_rows = tables[TABLE_RECTANGULAR].parsed.rows
     section_summary_rows = tables[TABLE_FRAME_SECTION_SUMMARY].parsed.rows
@@ -775,14 +832,50 @@ def capture_frame_flexural_base_snapshot(
     )
     if units_after != units_before:
         raise FrameFlexuralBaseFactError(
-            "ETABS API unit state changed during factual capture"
+            "UNIT_UNQUALIFIED:ETABS API unit state changed during factual capture"
         )
     if _canonical_path(identity_after.model_full_path) != _canonical_path(
         owned_scratch.scratch_path
     ):
         raise FrameFlexuralBaseFactError(
-            "active ETABS model changed during factual capture"
+            "UNIT_UNQUALIFIED:active ETABS model changed during factual capture"
         )
+
+    if identity_before.process_id != expected_pid or identity_after.process_id != expected_pid:
+        raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:FIELD_METADATA_SESSION_MISMATCH")
+    if identity_after != identity_before:
+        raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:active ETABS model state changed during factual capture")
+
+    # The typed context and owned scratch, fresh session observations and the
+    # per-read nonce establish equivalence. Preserve all original references
+    # alongside that proof; never replace them without retained origin evidence.
+    for table, metadata in metadata_events.items():
+        bridge = {
+            "metadata_origin": {"source_model_ref": metadata.source_model_ref,
+                                "session_ref": metadata.session_ref,
+                                "capture_ref": metadata.capture_ref},
+            "context": {"source_model_ref": context.source_model_identity.source_model_ref,
+                        "session_ref": context.session_provenance_ref,
+                        "capture_ref": context.acquisition_context_ref},
+            "ownership_proof_ref": owned_scratch.ownership_proof_ref,
+            "scratch_path": owned_scratch.scratch_path,
+            "active_model_before": identity_before.model_full_path,
+            "active_model_after": identity_after.model_full_path,
+            "process_id": expected_pid,
+        }
+        observation_before = json.dumps({**units_before.as_dict(),
+                                         "same_capture_bridge": bridge}, sort_keys=True)
+        observation_after = json.dumps({**units_after.as_dict(),
+                                        "same_capture_bridge": bridge}, sort_keys=True)
+        tables[table] = replace(tables[table], field_unit_provenance=tuple(
+            replace(binding,
+                    source_model_ref=context.source_model_identity.source_model_ref,
+                    session_ref=context.session_provenance_ref,
+                    capture_ref=context.acquisition_context_ref,
+                    unit_state_before=observation_before,
+                    unit_state_after=observation_after)
+            for binding in tables[table].field_unit_provenance
+        ))
 
     return FrameFlexuralBaseCaptureSnapshot(
         _issuance_token=_FRAME_FLEXURAL_BASE_SNAPSHOT_ISSUANCE_TOKEN,
