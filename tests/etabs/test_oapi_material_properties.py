@@ -6,6 +6,7 @@ import pytest
 
 import tbdy_engine.etabs.oapi.material_properties as subject
 from tbdy_engine.etabs.oapi.contracts import EtabsOAPIError
+from tbdy_engine.etabs.safety import read_session_identity
 
 
 class _FakeSession:
@@ -18,9 +19,12 @@ class _PropMaterial:
         self.raw = (30_000_000.0, 0.20, 1.0e-5, 12_500_000.0, 0)
         self.type_calls = []
         self.type_raw = (1, 0, 0)
+        self.after_getter = lambda: None
 
     def GetMPIsotropic(self, name, E=0., U=0., A=0., G=0., Temp=0.0):
         self.calls.append((name, Temp))
+        self.model.events.append("GetMPIsotropic")
+        self.after_getter()
         return self.raw
 
     def GetTypeOAPI(self, name):
@@ -28,11 +32,59 @@ class _PropMaterial:
         return self.type_raw
 
 
+class _Model:
+    """Offline native observations; distinct present and database contexts."""
+    def __init__(self, prop):
+        self.PropMaterial = prop
+        prop.model = self
+        self.events = []
+        self.filename = "source.edb"
+        self.directory = r"C:\synthetic"
+        self.present = 10
+        self.triplet = (3, 6, 2, 0)
+
+    def GetPresentUnits(self):
+        self.events.append("GetPresentUnits")
+        return self.present
+
+    def GetPresentUnits_2(self):
+        self.events.append("GetPresentUnits_2")
+        return self.triplet
+
+    def GetDatabaseUnits(self):
+        return 6
+
+    def GetDatabaseUnits_2(self):
+        return (4, 6, 2, 0)
+
+    def GetModelFilename(self, IncludePath):
+        assert IncludePath is False
+        self.events.append("GetModelFilename")
+        return self.filename
+
+    def GetModelFilepath(self):
+        return self.directory
+
+    def GetProgramInfo(self):
+        return ("ETABS", "23.2.0", "Synthetic")
+
+    def GetVersion(self):
+        return ("23.2.0", 0.0, 0)
+
+    def GetModelIsLocked(self):
+        return True
+
+
 @pytest.fixture
 def runtime(monkeypatch):
     session = _FakeSession()
     prop_material = _PropMaterial()
-    model = SimpleNamespace(PropMaterial=prop_material)
+    model = _Model(prop_material)
+    application = SimpleNamespace(GetOAPIVersionNumber=lambda: 2.014)
+    session.identity = read_session_identity(application, model, process_id=16664,
+                                             attach_strategy="OFFLINE_FIXTURE")
+    session._gateway_session = object()
+    model.events.clear()
 
     monkeypatch.setattr(subject, "EtabsVerifiedSession", _FakeSession)
 
@@ -43,7 +95,7 @@ def runtime(monkeypatch):
             "oapi_prop_material_get_type_oapi",
         }
         assert timeout_seconds > 0.0
-        return function(object(), model)
+        return function(application, model)
 
     monkeypatch.setattr(subject, "_execute_verified_read", fake_read)
     return session, prop_material

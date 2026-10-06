@@ -239,7 +239,7 @@ def test_section_mechanics_is_cached_by_exact_assigned_section(monkeypatch):
     monkeypatch.setattr(
         subject,
         "get_isotropic_material_properties_from_session",
-        lambda _session, *, material_name: _Material(material_name),
+        lambda _session, *, material_name, context, owned_scratch: _Material(material_name),
     )
 
     population = subject.capture_frame_eq713_factual_population(context, scratch, topology)
@@ -433,7 +433,7 @@ def test_capture_only_materializes_supported_rows_and_preserves_out_of_slice(
     monkeypatch.setattr(
         subject,
         "get_isotropic_material_properties_from_session",
-        lambda _session, *, material_name: _Material(material_name),
+        lambda _session, *, material_name, context, owned_scratch: _Material(material_name),
     )
 
 

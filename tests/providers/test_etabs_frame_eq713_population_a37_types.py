@@ -432,7 +432,7 @@ def test_residual_structural_capture_binds_material_type_fact(
     monkeypatch.setattr(
         subject,
         "get_isotropic_material_properties_from_session",
-        lambda _session, *, material_name: (
+        lambda _session, *, material_name, context, owned_scratch: (
             _Material(material_name)
         ),
     )
@@ -468,6 +468,7 @@ def test_residual_structural_capture_binds_material_type_fact(
             context,
             (scope,),
             {},
+            owned_scratch=object(),
         )
     )
 

@@ -229,7 +229,7 @@ def test_population_captures_one_base_snapshot_and_binds_many_supported_frames(
     monkeypatch.setattr(
         subject,
         "get_isotropic_material_properties_from_session",
-        lambda _session, *, material_name: _Material(material_name),
+        lambda _session, *, material_name, context, owned_scratch: _Material(material_name),
     )
 
 

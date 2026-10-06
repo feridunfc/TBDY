@@ -182,7 +182,7 @@ def test_raw_properties_cannot_be_relabelled_by_changing_only_numeric_value():
         replace(material(),modulus_of_elasticity=34000.)
 
 
-def test_Temp_optional_ABI_binding_offline_no_extra_ETABS_calls(monkeypatch):
+def test_Temp_optional_ABI_binding_offline_with_fresh_observations(monkeypatch):
     calls=[]
     class Prop:
         def GetMPIsotropic(self, Name, E=0., U=0., A=0., G=0., Temp=0.):
@@ -190,6 +190,17 @@ def test_Temp_optional_ABI_binding_offline_no_extra_ETABS_calls(monkeypatch):
             return (34_000.,.2,1e-5,14_166.6667,0)
     class FakeSession: pass
     session=FakeSession()
+    from tbdy_engine.etabs.safety import EtabsSessionIdentity
+    units=EtabsUnitSnapshot(present_units=10,present_force_unit=3,present_length_unit=6,
+                           present_observation_status="OBSERVED_CONSISTENT")
+    session.identity=EtabsSessionIdentity(16664,"fixture",2.014,"ETABS","23.2.0","fixture",
+                                        0.,r"C:\synthetic\source.edb",None,"UNAVAILABLE",True,units)
+    session._gateway_session=object()
+    observations=[]
+    def identity_read(*args,**kwargs):
+        observations.append("fresh")
+        return replace(session.identity,units=replace(units))
+    monkeypatch.setattr(mp,"read_session_identity",identity_read)
     monkeypatch.setattr(mp,"EtabsVerifiedSession",FakeSession)
     def read(s,callback,**kwargs):
         assert s is session
@@ -197,7 +208,8 @@ def test_Temp_optional_ABI_binding_offline_no_extra_ETABS_calls(monkeypatch):
     monkeypatch.setattr(mp,"_execute_verified_read",read)
     fact=mp.get_isotropic_material_properties_from_session(session,material_name="C",temperature=25.)
     assert calls==[("C",0.,0.,0.,0.,25.)]
-    assert fact.temperature==25. and not fact.unit_provenance
+    assert fact.temperature==25. and len(fact.unit_provenance)==2
+    assert observations==["fresh","fresh"]
 
 
 def test_display_read_does_not_add_metadata_getter_or_fallback():
