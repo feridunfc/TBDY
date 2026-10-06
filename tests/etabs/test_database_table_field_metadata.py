@@ -235,7 +235,8 @@ def test_display_table_behavior_remains_unchanged_without_implicit_metadata():
     assert after.field_metadata_ref == metadata().raw_response_ref
 
 
-def test_session_read_uses_existing_STA_and_only_metadata_capability(monkeypatch):
+@pytest.mark.parametrize("capture_ref", [None, "field-metadata-capture:caller-owned-event"])
+def test_session_read_uses_existing_STA_and_only_metadata_capability(monkeypatch, capture_ref):
     class Session:
         identity=SimpleNamespace(model_full_path=MODEL,process_id=73)
     class MetadataOnly:
@@ -252,10 +253,12 @@ def test_session_read_uses_existing_STA_and_only_metadata_capability(monkeypatch
         return callback(object(),SimpleNamespace(DatabaseTables=db))
     monkeypatch.setattr(safety,"EtabsVerifiedSession",Session)
     monkeypatch.setattr(safety,"_execute_verified_read",fake_read)
-    result=owner.fetch_table_field_metadata_from_session(session,TABLE)
+    result=owner.fetch_table_field_metadata_from_session(session,TABLE,capture_ref=capture_ref)
     assert db.calls == 1 and seen == [("oapi_database_tables_get_all_fields_in_table",30.0)]
     assert result.source_model_ref == MODEL and result.session_ref == "etabs-session:pid:73"
     assert result.capture_ref.startswith("field-metadata-capture:")
+    if capture_ref is not None:
+        assert result.capture_ref == capture_ref
     assert result.status == "PARSED_EXACT_FIELD_METADATA"
 
 

@@ -249,11 +249,14 @@ def fetch_table_field_metadata(database_tables: Any, table_name: str) -> TableFi
 
 def fetch_table_field_metadata_from_session(
     session: Any, table_name: str, *, timeout_seconds: float = 30.0,
+    capture_ref: str | None = None,
 ) -> TableFieldMetadataFetchResult:
     """Metadata-only read through the existing safety/STA boundary.
 
     No identity/unit rereads or display-table reads are added. A unit-observation
     contract must be supplied explicitly when binding the retained metadata.
+    An optional caller-owned fresh capture reference permits same-acquisition
+    verification; it is not authority for source/model or units by itself.
     """
     import math
     import uuid
@@ -264,11 +267,15 @@ def fetch_table_field_metadata_from_session(
         raise ValueError("timeout_seconds must be finite and positive")
     if not isinstance(table_name, str) or not table_name or table_name != table_name.strip():
         raise EtabsOAPIError("UNIT_UNQUALIFIED:INVALID_TABLEKEY")
+    if capture_ref is not None and (not isinstance(capture_ref, str)
+            or not capture_ref or capture_ref != capture_ref.strip()):
+        raise EtabsOAPIError("UNIT_UNQUALIFIED:INVALID_METADATA_CAPTURE_REF")
     def acquire(_application: object, model_api: Any) -> TableFieldMetadataFetchResult:
         result = fetch_table_field_metadata(model_api.DatabaseTables, table_name)
         return replace(result, source_model_ref=session.identity.model_full_path,
             session_ref=f"etabs-session:pid:{session.identity.process_id}",
-            capture_ref=f"field-metadata-capture:{uuid.uuid4().hex}")
+            capture_ref=capture_ref if capture_ref is not None
+                else f"field-metadata-capture:{uuid.uuid4().hex}")
     return _execute_verified_read(session, acquire,
         operation="oapi_database_tables_get_all_fields_in_table", timeout_seconds=timeout_seconds)
 
