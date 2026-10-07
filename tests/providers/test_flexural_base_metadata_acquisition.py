@@ -81,7 +81,7 @@ def test_alias_selection_and_reordered_metadata_bind_exact_raw_FieldKeys(monkeyp
     assert bindings == {"Width": "m", "Depth": "mm"}
 
 
-@pytest.mark.parametrize("key", ["t2", "t3", "E1", "Fc"])
+@pytest.mark.parametrize("key", ["t2", "t3", "E1", "G12", "Fc"])
 @pytest.mark.parametrize("bad_unit", ["", "unknown-unit", "m4"])
 def test_each_required_field_rejects_its_own_invalid_unit(monkeypatch, key, bad_unit):
     context, scratch, _ = _install_environment(monkeypatch, metadata_units={key: bad_unit})
@@ -90,7 +90,7 @@ def test_each_required_field_rejects_its_own_invalid_unit(monkeypatch, key, bad_
 
 
 @pytest.mark.parametrize("key,wrong_dimension_unit", [("t2", "MPa"), ("t3", "MPa"),
-                                                     ("E1", "m"), ("Fc", "m")])
+                                                     ("E1", "m"), ("G12", "m"), ("Fc", "m")])
 def test_supported_unit_with_wrong_physical_dimension_is_rejected(monkeypatch, key, wrong_dimension_unit):
     context, scratch, _ = _install_environment(monkeypatch, metadata_units={key: wrong_dimension_unit})
     with pytest.raises(owner.FrameFlexuralBaseFactError, match="UNIT_UNQUALIFIED"):
