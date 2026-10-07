@@ -9,11 +9,16 @@ from __future__ import annotations
 
 import math
 import json
+import ntpath
 import uuid
 from dataclasses import replace
 from typing import Any, Sequence
 
-from tbdy_engine.etabs.safety import EtabsVerifiedSession, _execute_verified_read
+from tbdy_engine.etabs.safety import (
+    EtabsSessionIdentity, EtabsVerifiedSession, _execute_verified_read,
+    read_session_identity,
+)
+from tbdy_engine.etabs.source_units import EtabsSourceUnitError, decode_csi_length_unit
 
 from .contracts import (
     AreaPropertyAssignmentFact,
@@ -22,7 +27,16 @@ from .contracts import (
     PointConnectivityItemFact,
     PointRestraintFact,
     RebarColumnFact,
+    SourceUnitProvenance,
     WallPropertyFact,
+)
+
+
+_WALL_THICKNESS_AUTHORITY_REF = (
+    "COLUMN_R1_P1A_Q1P_PRESENT_WALL_THICKNESS_COMPATIBILITY_POLICY_V1"
+)
+_WALL_THICKNESS_AUTHORITY_VERSION = (
+    "PROJECT_REVIEWED_V1_20261007;CSI_ETABSv1_GETWALL_THICKNESS_L"
 )
 
 
@@ -812,14 +826,99 @@ def read_wall_property_from_session(
     session: EtabsVerifiedSession,
     property_name: str,
 ) -> WallPropertyFact:
-    def acquire(_app, sap):
-        fact = read_wall_property(sap.PropArea, property_name)
-        identity = getattr(session, "identity", None)
-        units = getattr(identity, "units", None)
-        return replace(fact, source_model_ref=getattr(identity, "model_full_path", None),
-                       session_ref=(f"etabs-session:pid:{identity.process_id}" if identity else None),
-                       capture_ref=f"property-capture:{uuid.uuid4().hex}",
-                       unit_observation=(json.dumps(units.as_dict(), sort_keys=True, default=str) if units else None))
+    """Bind Thickness to fresh present units around one native acquisition."""
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+    name = _text(property_name, "property_name")
+    identity = session.identity
+    gateway = session._gateway_session
+    if (not isinstance(identity, EtabsSessionIdentity) or gateway is None
+            or type(identity.process_id) is not int or identity.process_id <= 0):
+        raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_SESSION_IDENTITY")
+    pid = identity.process_id
+    session_ref = f"etabs-session:pid:{pid}"
+    capture_ref = f"property-capture:{uuid.uuid4().hex}"
+
+    def observe(application, sap):
+        if session.identity is not identity or session._gateway_session is not gateway:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:SESSION_MISMATCH")
+        try:
+            current = read_session_identity(
+                application, sap, process_id=pid, attach_strategy=identity.attach_strategy,
+            )
+        except Exception as exc:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_FRESH_OBSERVATION") from exc
+        if session.identity is not identity or session._gateway_session is not gateway:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:SESSION_MISMATCH")
+        if not isinstance(current, EtabsSessionIdentity):
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_FRESH_OBSERVATION")
+        if (current.process_id != pid or current.attach_strategy != identity.attach_strategy
+                or current.program_name != identity.program_name):
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:SESSION_MISMATCH")
+        if (current.program_name != "ETABS" or current.program_version != "23.2.0"
+                or current.program_api_version != 2.014
+                or current.program_version != identity.program_version
+                or current.program_api_version != identity.program_api_version):
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:UNREVIEWED_COMPATIBILITY_SCOPE")
+        path = current.model_full_path
+        if (not isinstance(path, str) or not path.strip() or path != path.strip()
+                or not ntpath.isabs(path)):
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_ACTIVE_MODEL_IDENTITY")
+        units = current.units
+        if units is None or units.present_observation_status != "OBSERVED_CONSISTENT":
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_PRESENT_UNIT_OBSERVATION")
+        try:
+            unit = decode_csi_length_unit(units.present_length_unit).value
+        except EtabsSourceUnitError as exc:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:UNSUPPORTED_PRESENT_LENGTH_UNIT") from exc
+        # Active scratch identity is observed, not copied from the cached source.
+        source_ref = ntpath.normcase(ntpath.normpath(path))
+        state = json.dumps({"active_identity": current.as_dict(),
+                            "session_ref": session_ref, "capture_ref": capture_ref},
+                           sort_keys=True)
+        return current, source_ref, unit, state
+
+    def acquire(application, sap):
+        before, source_ref, source_unit, state_before = observe(application, sap)
+        try:
+            fact = read_wall_property(sap.PropArea, name)
+        except Exception as exc:
+            # Observe after the single call even when native/ABI decoding fails.
+            # Preserve the original failure; an observation never triggers retry.
+            try:
+                observe(application, sap)
+            except Exception as observation_error:
+                exc.add_note(f"After GetWall observation failed: {observation_error}")
+            raise
+        after, source_after, unit_after, state_after = observe(application, sap)
+        if before != after or source_ref != source_after or source_unit != unit_after:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:CAPTURE_STATE_DRIFT")
+        contextual = replace(
+            fact, source_model_ref=source_ref, session_ref=session_ref,
+            capture_ref=capture_ref,
+            unit_observation=json.dumps({"before": json.loads(state_before),
+                                         "after": json.loads(state_after)}, sort_keys=True),
+        )
+        if (type(fact.return_code) is not int or fact.return_code != 0
+                or not fact.thickness_applicable or fact.shell_type not in {1, 2, 3, 4, 5}
+                or isinstance(fact.raw_response[3], bool)
+                or not math.isfinite(fact.thickness) or fact.thickness <= 0):
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:WALL_THICKNESS_UNAVAILABLE_OR_INAPPLICABLE")
+        binding = SourceUnitProvenance(
+            source_call="SapModel.PropArea.GetWall", subject_key=name,
+            output_key="Thickness", dimension="L", source_unit=source_unit,
+            authority_ref=_WALL_THICKNESS_AUTHORITY_REF,
+            authority_version=_WALL_THICKNESS_AUTHORITY_VERSION,
+            authority_kind="REVIEWED_PROPERTY_SOURCE_SEMANTICS",
+            source_model_ref=source_ref, session_ref=session_ref, capture_ref=capture_ref,
+            raw_response_ref=contextual.raw_response_ref, return_code=fact.return_code,
+            unit_state_before=state_before, unit_state_after=state_after,
+            qualification="QUALIFIED",
+            reason="CSI_PRESENT_SEMANTICS_WITH_REVIEWED_Q1P_THICKNESS_POLICY",
+        )
+        qualified = replace(contextual, unit_provenance=(binding,))
+        qualified.source_unit_for("Thickness", "L")
+        return qualified
 
     return _execute_verified_read(session, acquire, operation="oapi_prop_area_get_wall")
 
