@@ -49,7 +49,8 @@ TABLE_CONCRETE = "Material Properties - Concrete Data"
 _DIMENSIONAL_FIELDS = {
     TABLE_RECTANGULAR: ((("t2", "T2", "Width"), "L"),
                         (("t3", "T3", "Depth"), "L")),
-    TABLE_BASIC_MATERIAL: ((("E1", "Elastic Modulus", "Modulus of Elasticity", "E"), "F/L2"),),
+    TABLE_BASIC_MATERIAL: ((("E1", "Elastic Modulus", "Modulus of Elasticity", "E"), "F/L2"),
+                           (("G12", "Shear Modulus", "G"), "F/L2")),
     TABLE_CONCRETE: ((("Fc", "fck", "Concrete Strength"), "F/L2"),),
 }
 
@@ -171,13 +172,20 @@ def _qualified_quantity(value: object, binding: SourceUnitProvenance, dimension:
     raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:UNKNOWN_OR_WRONG_DIMENSION_UNIT")
 
 
-def _selected_field_key(row: Mapping[str, Any], aliases: Sequence[str]) -> str:
+def _selected_field_key(
+    row: Mapping[str, Any], aliases: Sequence[str], *, require_value: bool = True,
+) -> str:
+    empty_key = None
     for alias in aliases:
         matches = [key for key in row if str(key).strip().casefold() == alias.strip().casefold()]
         if len(matches) > 1:
             raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:AMBIGUOUS_FIELD_KEY")
         if matches and row[matches[0]] not in (None, ""):
             return matches[0]
+        if matches and empty_key is None:
+            empty_key = matches[0]
+    if not require_value and empty_key is not None:
+        return empty_key
     raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:MISSING_FIELD_VALUE")
 
 
@@ -800,7 +808,11 @@ def capture_frame_flexural_base_snapshot(
             if not tables[table].parsed.rows:
                 raise FrameFlexuralBaseFactError("UNIT_UNQUALIFIED:MISSING_FIELD_VALUE")
             for row in tables[table].parsed.rows:
-                dimensions[_selected_field_key(row, aliases)] = dimension
+                # G12 can be blank for unrelated materials. Bind its field
+                # metadata without accepting a missing material quantity;
+                # _table_quantity retains its required-value check.
+                require_value = not (table == TABLE_BASIC_MATERIAL and aliases[0] == "G12")
+                dimensions[_selected_field_key(row, aliases, require_value=require_value)] = dimension
         # Validate exact metadata and dimensions now, before any later table
         # read. These origin-bound bindings are not issued to a snapshot yet.
         state = json.dumps(units_before.as_dict(), sort_keys=True)

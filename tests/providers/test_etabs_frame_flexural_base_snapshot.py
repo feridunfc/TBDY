@@ -54,7 +54,7 @@ def _rows_fixture():
             {"Name": "R2", "Shape": "Concrete Rectangular", "Material": "C35"},
         ),
         subject.TABLE_BASIC_MATERIAL: (
-            {"Material": "C35", "E1": 33_000_000.0},
+            {"Material": "C35", "E1": 33_000_000.0, "G12": 13_750_000.0},
         ),
         subject.TABLE_CONCRETE: (
             {"Material": "C35", "Fc": 35_000.0},
@@ -86,7 +86,7 @@ def _install_environment(
         assert session is context.verified_session and max_rows is None
         counter[table] += 1
         units = {key: ("m" if key in {"t2", "t3"} else "kN/m2")
-                 for row in table_rows[table] for key in row if key in {"t2", "t3", "E1", "Fc"}}
+                 for row in table_rows[table] for key in row if key in {"t2", "t3", "E1", "G12", "Fc"}}
         fetched = table_fixture(table, tuple(table_rows[table]), units,
                              model=context.source_model_identity.source_model_ref,
                              session=context.session_provenance_ref,
@@ -103,7 +103,7 @@ def _install_environment(
             keys = tuple(dict.fromkeys(key for row in table_rows[TableKey] for key in row))
             units = tuple((metadata_units or {}).get(key,
                           "m" if key in {"t2", "t3", "Width", "Depth", "T2", "T3"}
-                          else "kN/m2" if key in {"E1", "E", "Fc", "fck"} else "")
+                          else "kN/m2" if key in {"E1", "E", "G12", "Shear Modulus", "G", "Fc", "fck"} else "")
                           for key in keys)
             raw = (1, len(keys), keys, keys, keys, units, (False,) * len(keys), 0)
             return raw_metadata_transform(TableKey, raw) if raw_metadata_transform else raw
@@ -317,7 +317,7 @@ def test_active_model_change_during_snapshot_capture_fails_closed(monkeypatch):
         ),
         (
             subject.TABLE_BASIC_MATERIAL,
-            {"Material": "C35", "E1": 33_000_000.0},
+            {"Material": "C35", "E1": 33_000_000.0, "G12": 13_750_000.0},
             "duplicate basic material identity",
         ),
         (
