@@ -23,7 +23,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "packages" / "etabs_gateway" / "src")]
 SOURCE = Path(r"C:\tmp\B-BLOK_Revised.EDB")
-SOURCE_SHA256 = "5AA83947C46AE886DD43E8BD2270DAEAC6117AE60BAD1F8CB9ED9874CD3E2A44"
+SOURCE_SHA256 = "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F"
 
 
 def _git(*args):
