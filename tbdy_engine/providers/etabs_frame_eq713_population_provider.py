@@ -830,6 +830,8 @@ def _capture_residual_structural_facts(
             section_mechanics = get_frame_section_mechanics_from_session(
                 context.verified_session,
                 section_name=section,
+                context=context,
+                owned_scratch=owned_scratch,
             )
             section_cache[section] = section_mechanics
 
@@ -1715,6 +1717,8 @@ def capture_frame_eq713_factual_population(
             section_mechanics = get_frame_section_mechanics_from_session(
                 context.verified_session,
                 section_name=section,
+                context=context,
+                owned_scratch=owned_scratch,
             )
             section_mechanics_cache[section] = section_mechanics
         if not section_mechanics.success or section_mechanics.section_name != section:

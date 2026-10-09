@@ -1,4 +1,4 @@
-"""R1 authority boundary: raw native seam stays unqualified pending review.
+"""R1 authority boundary: cached state alone cannot qualify native inertia.
 
 Qualified DTOs below have independent OFFLINE_SYNTHETIC_1 authority only.
 They test existing contracts/A18, not installed CSI source-unit semantics.
@@ -31,40 +31,25 @@ def synthetic_fact():
 
 
 @pytest.mark.parametrize("present_length", [4, 6])
-def test_current_native_seam_keeps_both_outputs_raw_without_source_authority(monkeypatch, present_length):
+def test_cached_units_cannot_replace_fresh_native_observations(monkeypatch, present_length):
     calls = []
 
     class FakeSession:
-        identity = NS(model_full_path="synthetic:active-scratch", process_id=123,
-                      units=NS(as_dict=lambda: {"present_length_unit": present_length,
-                                               "database_length_unit": 6}))
-
-    class PropFrame:
-        def GetSectProps(self, name):
-            calls.append(name)
-            return RAW
-
-        def __getattr__(self, name):
-            raise AssertionError(f"forbidden native call: {name}")
+        identity = NS(model_full_path="synthetic:active-source", process_id=123,
+                      program_version="23.2.0", program_api_version=2.014,
+                      attach_strategy="OFFLINE_FIXTURE",
+                      units=NS(as_dict=lambda: {"present_length_unit": present_length}))
+        _gateway_session = object()
 
     session = FakeSession()
     monkeypatch.setattr(subject, "EtabsVerifiedSession", FakeSession)
-
-    def verified_read(actual_session, callback, **kwargs):
-        assert actual_session is session
-        assert kwargs["operation"] == "oapi_prop_frame_get_sect_props"
-        return callback(object(), NS(PropFrame=PropFrame()))
-
-    monkeypatch.setattr(subject, "_execute_verified_read", verified_read)
-    fact = subject.get_frame_section_mechanics_from_session(session, section_name="S")
-    assert calls == ["S"]
-    assert fact.raw_response == RAW
-    assert fact.inertia_22 == RAW[4] and fact.inertia_33 == RAW[5]
-    assert fact.unit_provenance == ()
-    assert fact.unit_observation is not None  # Cached context cannot issue authority.
-    for key in ("I22", "I33"):
-        with pytest.raises(EtabsOAPIError, match="MISSING_OR_DUPLICATE_OUTPUT_BINDING"):
-            fact.source_unit_for(key, "L4")
+    model = NS(PropFrame=NS(GetSectProps=lambda name: calls.append(name)))
+    monkeypatch.setattr(subject, "_execute_verified_read",
+                        lambda actual, callback, **kwargs: callback(object(), model))
+    monkeypatch.setattr(subject, "read_session_identity", lambda *args, **kwargs: None)
+    with pytest.raises(EtabsOAPIError, match="SESSION_MISMATCH"):
+        subject.get_frame_section_mechanics_from_session(session, section_name="S")
+    assert not calls
 
 
 def test_synthetic_bindings_are_independent_and_raw_is_unchanged():

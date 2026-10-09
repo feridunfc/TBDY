@@ -221,7 +221,9 @@ def test_section_mechanics_is_cached_by_exact_assigned_section(monkeypatch):
         bind_base,
     )
 
-    def section_fact(_session, *, section_name):
+    def section_fact(_session, *, section_name, context, owned_scratch):
+        assert _session is context.verified_session
+        assert owned_scratch.source_model_identity == context.source_model_identity
         section_calls.append(section_name)
         return _Section(section_name)
 
@@ -418,7 +420,7 @@ def test_capture_only_materializes_supported_rows_and_preserves_out_of_slice(
     monkeypatch.setattr(
         subject,
         "get_frame_section_mechanics_from_session",
-        lambda _session, *, section_name: _Section(section_name),
+        lambda _session, *, section_name, context, owned_scratch: _Section(section_name),
     )
     monkeypatch.setattr(
         subject,

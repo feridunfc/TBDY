@@ -5,21 +5,33 @@ Eq.7.13, or engineering-policy semantics and exposes no second ETABS access path
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 import hashlib
 import json
 import math
+import ntpath
 import uuid
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-from tbdy_engine.etabs.safety import EtabsVerifiedSession, _execute_verified_read
+from tbdy_engine.etabs.safety import (
+    EtabsVerifiedSession, _execute_verified_read, read_session_identity,
+)
+from tbdy_engine.etabs.source_units import EtabsSourceUnitError, decode_csi_length_unit
 
 from .contracts import EtabsOAPIError, SourceUnitProvenance
+
+if TYPE_CHECKING:
+    from tbdy_engine.integration.live_etabs_acquisition_context import TrustedLiveAcquisitionContext
+    from tbdy_engine.integration.etabs_scratch_lifecycle import OwnedScratchContext
 
 
 FRAME_SECTION_MECHANICS_FACT_CONTRACT = "ETABS_FRAME_SECTION_MECHANICS_FACT_V2"
 FRAME_SECTION_MECHANICS_EVIDENCE_PREFIX = "etabs-frame-section-mechanics:sha256:"
 FRAME_SECTION_MECHANICS_SOURCE_CALL = "SapModel.PropFrame.GetSectProps"
+FRAME_SECTION_INERTIA_SOURCE_AUTHORITY_REF = "COLUMN_R1_GETSECTPROPS_PRESENT_L4_POLICY_V1"
+FRAME_SECTION_INERTIA_SOURCE_AUTHORITY_VERSION = (
+    "SOURCE_AUTHORIZED_V1_20261009;CSI_ETABSv1_2024_PRESENT_L4"
+)
 
 
 def _text(value: object, label: str) -> str:
@@ -175,6 +187,8 @@ def get_frame_section_mechanics_from_session(
     *,
     section_name: str,
     timeout_seconds: float = 30.0,
+    context: TrustedLiveAcquisitionContext | None = None,
+    owned_scratch: OwnedScratchContext | None = None,
 ) -> FrameSectionMechanicsFact:
     """Retrieve factual Area/As2/As3/J/I22/I33 values for one Frame section."""
     if not isinstance(session, EtabsVerifiedSession):
@@ -184,14 +198,89 @@ def get_frame_section_mechanics_from_session(
     if not math.isfinite(timeout) or timeout <= 0.0:
         raise ValueError("timeout_seconds must be finite and greater than zero")
 
-    def acquire(_application: object, model_api: Any) -> FrameSectionMechanicsFact:
-        # Existing session observations only: no new ETABS unit/identity calls.
-        identity = getattr(session, "identity", None)
-        units = getattr(identity, "units", None)
-        observed = json.dumps(units.as_dict(), sort_keys=True, default=str) if units else None
+    # Reuse Q1N's native-property capture pattern, with independent method and
+    # output authority. Present length is observed, never changed or inferred.
+    identity = session.identity
+    if identity.program_version != "23.2.0" or identity.program_api_version != 2.014:
+        raise EtabsOAPIError("UNIT_UNQUALIFIED:UNREVIEWED_COMPATIBILITY_SCOPE")
+    pid = identity.process_id
+    if type(pid) is not int or pid <= 0:
+        raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_SESSION_IDENTITY")
+    gateway = session._gateway_session
+    expected_path = _text(identity.model_full_path, "source_model_ref")
+    source_ref = expected_path
+    session_ref = f"etabs-session:pid:{pid}"
+    bridge: dict[str, object] = {}
+    source_identity = None
+    if context is not None or owned_scratch is not None:
+        from tbdy_engine.integration.live_etabs_acquisition_context import TrustedLiveAcquisitionContext
+        from tbdy_engine.integration.etabs_scratch_lifecycle import OwnedScratchContext
+        if not isinstance(context, TrustedLiveAcquisitionContext) or not isinstance(owned_scratch, OwnedScratchContext):
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_OWNED_CAPTURE_CONTEXT")
+        if context.verified_session is not session:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:SESSION_MISMATCH")
+        if context.source_model_identity != owned_scratch.source_model_identity:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:SOURCE_MODEL_MISMATCH")
+        if ntpath.normcase(ntpath.normpath(identity.model_full_path)) != context.source_model_identity.normalized_model_reference:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:SOURCE_MODEL_MISMATCH")
+        source_identity = context.source_model_identity
+        expected_path = owned_scratch.scratch_path
+        source_ref = context.source_model_identity.source_model_ref
+        session_ref = context.session_provenance_ref
+        bridge = {"source_model_ref": source_ref, "session_ref": session_ref,
+                  "acquisition_context_ref": context.acquisition_context_ref,
+                  "ownership_proof_ref": owned_scratch.ownership_proof_ref,
+                  "scratch_path": expected_path}
+    capture_ref = f"property-capture:{uuid.uuid4().hex}"
+
+    def observe(application: object, model_api: Any) -> tuple[object, str, str]:
+        if session.identity != identity or session._gateway_session is not gateway:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:SESSION_MISMATCH")
+        if bridge:
+            # Factory-issued frozen context must remain the same origin even
+            # while the active model is the owned scratch, exactly as in Q1N.
+            current_bridge = {
+                "source_model_ref": context.source_model_identity.source_model_ref,
+                "session_ref": context.session_provenance_ref,
+                "acquisition_context_ref": context.acquisition_context_ref,
+                "ownership_proof_ref": owned_scratch.ownership_proof_ref,
+                "scratch_path": owned_scratch.scratch_path,
+            }
+            if (context.verified_session is not session
+                    or context.source_model_identity != source_identity
+                    or context.source_model_identity != owned_scratch.source_model_identity
+                    or current_bridge != bridge):
+                raise EtabsOAPIError("UNIT_UNQUALIFIED:OWNED_CAPTURE_CONTEXT_DRIFT")
+        try:
+            current = read_session_identity(application, model_api,
+                                            process_id=pid, attach_strategy=identity.attach_strategy)
+        except Exception as exc:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_FRESH_OBSERVATION") from exc
+        if current is None or current.process_id != pid:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:SESSION_MISMATCH")
+        if ntpath.normcase(ntpath.normpath(current.model_full_path)) != ntpath.normcase(ntpath.normpath(expected_path)):
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:ACTIVE_MODEL_MISMATCH")
+        if current.program_version != identity.program_version or current.program_api_version != identity.program_api_version:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:SESSION_MISMATCH")
+        units = current.units
+        if units is None or units.present_observation_status != "OBSERVED_CONSISTENT":
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:MISSING_PRESENT_UNIT_OBSERVATION")
+        try:
+            source_unit = f"{decode_csi_length_unit(units.present_length_unit).value}4"
+        except EtabsSourceUnitError as exc:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:UNSUPPORTED_PRESENT_LENGTH_UNIT") from exc
+        state = json.dumps({"active_identity": current.as_dict(),
+                            "same_capture_bridge": bridge}, sort_keys=True)
+        return current, state, source_unit
+
+    def acquire(application: object, model_api: Any) -> FrameSectionMechanicsFact:
+        before, state_before, source_unit = observe(application, model_api)
         raw = model_api.PropFrame.GetSectProps(name)
+        after, state_after, unit_after = observe(application, model_api)
+        if before != after or source_unit != unit_after:
+            raise EtabsOAPIError("UNIT_UNQUALIFIED:CAPTURE_STATE_DRIFT")
         area, as2, as3, torsion, i22, i33, return_code = _decode_get_sect_props(raw)
-        return FrameSectionMechanicsFact(
+        fact = FrameSectionMechanicsFact(
             section_name=name,
             area=area,
             shear_area_2=as2,
@@ -201,11 +290,29 @@ def get_frame_section_mechanics_from_session(
             inertia_33=i33,
             return_code=return_code,
             raw_response=tuple(raw),
-            source_model_ref=getattr(identity, "model_full_path", None),
-            session_ref=(f"etabs-session:pid:{identity.process_id}" if identity else None),
-            capture_ref=f"property-capture:{uuid.uuid4().hex}",
-            unit_observation=observed,
+            source_model_ref=source_ref,
+            session_ref=session_ref,
+            capture_ref=capture_ref,
+            unit_observation=json.dumps({"before": json.loads(state_before),
+                                         "after": json.loads(state_after)}, sort_keys=True),
         )
+        if return_code != 0:
+            return fact
+        provenance = tuple(SourceUnitProvenance(
+            source_call=FRAME_SECTION_MECHANICS_SOURCE_CALL, subject_key=name,
+            output_key=key, dimension="L4", source_unit=source_unit,
+            authority_ref=FRAME_SECTION_INERTIA_SOURCE_AUTHORITY_REF,
+            authority_version=FRAME_SECTION_INERTIA_SOURCE_AUTHORITY_VERSION,
+            authority_kind="REVIEWED_PROPERTY_SOURCE_SEMANTICS",
+            source_model_ref=source_ref, session_ref=session_ref, capture_ref=capture_ref,
+            raw_response_ref=fact.raw_response_ref, return_code=return_code,
+            unit_state_before=state_before, unit_state_after=state_after,
+            qualification="QUALIFIED", reason="SOURCE_AUTHORIZED_GETSECTPROPS_PRESENT_L4",
+        ) for key in ("I22", "I33"))
+        qualified = replace(fact, unit_provenance=provenance)
+        for key in ("I22", "I33"):
+            qualified.source_unit_for(key, "L4")
+        return qualified
 
     return _execute_verified_read(
         session,
@@ -219,6 +326,8 @@ __all__ = [
     "FRAME_SECTION_MECHANICS_EVIDENCE_PREFIX",
     "FRAME_SECTION_MECHANICS_FACT_CONTRACT",
     "FRAME_SECTION_MECHANICS_SOURCE_CALL",
+    "FRAME_SECTION_INERTIA_SOURCE_AUTHORITY_REF",
+    "FRAME_SECTION_INERTIA_SOURCE_AUTHORITY_VERSION",
     "FrameSectionMechanicsFact",
     "get_frame_section_mechanics_from_session",
 ]
