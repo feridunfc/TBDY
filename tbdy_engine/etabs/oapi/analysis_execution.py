@@ -21,7 +21,7 @@ from etabs_gateway.mutation_transport import (
     _execute_bounded_model_mutation,
 )
 
-from tbdy_engine.etabs.safety import EtabsVerifiedSession, _execute_verified_read
+from tbdy_engine.etabs.safety import EtabsVerifiedSession, _execute_verified_read, read_session_identity
 
 from .contracts import EtabsOAPIError
 
@@ -921,3 +921,164 @@ __all__ = [
     "run_analysis_from_session",
     "set_run_case_flag_from_session",
 ]
+
+
+# CSI API ETABS v1 (2024), pages 675–698. These are ByRef output names,
+# not an interpretation of undocumented integer enumerations. No setter is
+# reachable through this bounded acquisition owner.
+RESPONSE_SPECTRUM_SETTINGS_SOURCE = (
+    "CSI_API_ETABS_v1_2024:sha256:"
+    "6ee860c75d37215d6d6c44251e94788709439e155b68a7939e893a66f01dda27#675-698"
+)
+_RS_SETTING_OUTPUTS = {
+    "GetModalCase": ("ModalCase",),
+    "GetLoads": ("NumberLoads", "LoadName", "Func", "SF", "CSys", "Ang"),
+    "GetModalComb_1": ("MyType", "F1", "F2", "PeriodicRigidCombType", "Td"),
+    "GetDirComb": ("MyType", "SF"),
+    "GetDampType": ("DampType",),
+    "GetDampConstant": ("Damp",),
+    "GetDampInterpolated": ("DampType", "NumberItems", "Time", "Damp"),
+    "GetDampProportional": ("DampType", "DampA", "DampB", "DampF1", "DampF2", "DampD1", "DampD2"),
+    "GetDampOverrides": ("NumberItems", "Mode", "Damp"),
+    "GetEccentricity": ("Eccen",),
+    "GetDiaphragmEccentricityOverride": ("Num", "Diaph", "Eccen"),
+}
+
+
+@dataclass(frozen=True, slots=True)
+class ResponseSpectrumSettingReadFact:
+    method: str
+    outputs: tuple[tuple[str, object], ...]
+    raw_response: tuple[object, ...]
+    return_code: int
+    source_ref: str = RESPONSE_SPECTRUM_SETTINGS_SOURCE
+
+    @property
+    def success(self) -> bool:
+        return self.return_code == 0
+
+
+@dataclass(frozen=True, slots=True)
+class ResponseSpectrumSettingsFact:
+    case_name: str
+    settings: tuple[ResponseSpectrumSettingReadFact, ...]
+    source_model_ref: str
+    session_ref: str
+    capture_ref: str
+    observation_before: str
+    observation_after: str
+    # Factual settings are not an analysis generation or a design state.
+    analysis_result_qualified: bool = field(default=False, init=False)
+
+    @property
+    def evidence_ref(self) -> str:
+        return _digest({"case": self.case_name, "source": self.source_model_ref,
+                        "session": self.session_ref, "capture": self.capture_ref,
+                        "before": self.observation_before, "after": self.observation_after,
+                        "raw": [(s.method, s.raw_response) for s in self.settings]})
+
+
+def _decode_response_spectrum_setting(method: str, raw: object) -> ResponseSpectrumSettingReadFact:
+    """Decode reviewed output order; retain nonzero results without promotion.
+
+    Inactive damping getters may return nonzero. Their outputs remain raw and
+    unqualified; a successful unrelated getter cannot qualify them.
+    """
+    import math
+    from copy import deepcopy
+    keys = _RS_SETTING_OUTPUTS[method]
+    if not isinstance(raw, (tuple, list)) or len(raw) != len(keys) + 1 or type(raw[-1]) is not int:
+        raise EtabsOAPIError(f"ResponseSpectrum.{method}: unsupported ABI shape")
+    frozen = tuple(deepcopy(raw))
+    if raw[-1] != 0:
+        return ResponseSpectrumSettingReadFact(method, (), frozen, raw[-1])
+    outputs = tuple(zip(keys, frozen[:-1]))
+    array_fields = {
+        "GetLoads": ("LoadName", "Func", "SF", "CSys", "Ang"),
+        "GetDampInterpolated": ("Time", "Damp"),
+        "GetDampOverrides": ("Mode", "Damp"),
+        "GetDiaphragmEccentricityOverride": ("Diaph", "Eccen"),
+    }
+    values = dict(outputs)
+    count_key = next((key for key in ("NumberLoads", "NumberItems", "Num") if key in values), None)
+    for key, value in outputs:
+        if key in {"NumberLoads", "NumberItems", "Num", "MyType", "PeriodicRigidCombType", "DampType"}:
+            if type(value) is not int or value < 0:
+                raise EtabsOAPIError(f"ResponseSpectrum.{method}.{key}: invalid integer")
+        elif key == "ModalCase":
+            _text(value, key)
+        elif key in array_fields.get(method, ()) and (isinstance(value, (list, tuple)) or
+                (value is None and count_key is not None and values[count_key] == 0)):
+            continue  # Counted prefix validated below; preserve unused capacity.
+        elif type(value) not in (int, float) or not math.isfinite(value):
+            raise EtabsOAPIError(f"ResponseSpectrum.{method}.{key}: invalid scalar")
+    if count_key:
+        count = values[count_key]
+        array_keys = array_fields[method]
+        for key in array_keys:
+            array = values[key]
+            if count == 0 and array is None:
+                continue
+            if not isinstance(array, (tuple, list)) or len(array) < count:
+                raise EtabsOAPIError(f"ResponseSpectrum.{method}.{key}: incomplete counted population")
+            for value in array[:count]:
+                if key in {"LoadName", "Func", "CSys", "Diaph"}:
+                    _text(value, key)
+                elif key == "Mode":
+                    if type(value) is not int or value <= 0:
+                        raise EtabsOAPIError(f"ResponseSpectrum.{method}.Mode: invalid mode")
+                elif type(value) not in (int, float) or not math.isfinite(value):
+                    raise EtabsOAPIError(f"ResponseSpectrum.{method}.{key}: invalid numeric array")
+    return ResponseSpectrumSettingReadFact(method, outputs, frozen, raw[-1])
+
+
+def get_response_spectrum_settings_from_session(
+    session: EtabsVerifiedSession, *, case_name: str, timeout_seconds: float = 30.0,
+) -> ResponseSpectrumSettingsFact:
+    """One fresh before/after bounded factual settings capture on verified STA.
+
+    Numeric method codes are retained, never guessed from case names. This
+    protected-source reader does not issue scratch/B5 lineage.
+    """
+    import math
+    import uuid
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+    name = _text(case_name, "case_name")
+    if not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+        raise ValueError("timeout_seconds must be finite and positive")
+    expected = session.identity
+    if expected.program_version != "23.2.0" or expected.program_api_version != 2.014:
+        raise EtabsOAPIError("ResponseSpectrum settings: unsupported ETABS/API version")
+    gateway = session._gateway_session
+    capture = f"response-spectrum-settings-capture:{uuid.uuid4().hex}"
+
+    def acquire(application: object, model_api: Any) -> ResponseSpectrumSettingsFact:
+        def observe():
+            if session.identity != expected or session._gateway_session is not gateway:
+                raise EtabsOAPIError("ResponseSpectrum settings: session drift")
+            observed = read_session_identity(application, model_api,
+                process_id=expected.process_id, attach_strategy=expected.attach_strategy)
+            if observed != expected:
+                raise EtabsOAPIError("ResponseSpectrum settings: source/session/unit drift")
+            if (observed.units.present_observation_status != "OBSERVED_CONSISTENT"
+                    or observed.units.database_observation_status != "OBSERVED_CONSISTENT"):
+                raise EtabsOAPIError("ResponseSpectrum settings: independent unit observations missing")
+            return json.dumps(observed.as_dict(), sort_keys=True)
+        before = observe()
+        owner = model_api.LoadCases.ResponseSpectrum
+        facts = []
+        for method in _RS_SETTING_OUTPUTS:
+            getter = getattr(owner, method, None)
+            if not callable(getter):
+                raise EtabsOAPIError(f"ResponseSpectrum.{method}: getter unavailable")
+            try:
+                raw = getter(name)
+            except Exception as exc:
+                raise EtabsOAPIError(f"ResponseSpectrum.{method}: getter failed: {exc}") from exc
+            facts.append(_decode_response_spectrum_setting(method, raw))
+        after = observe()
+        return ResponseSpectrumSettingsFact(name, tuple(facts), expected.model_full_path,
+            f"etabs-session:pid:{expected.process_id}", capture, before, after)
+    return _execute_verified_read(session, acquire,
+        operation="oapi_response_spectrum_settings_read", timeout_seconds=timeout_seconds)
