@@ -13,6 +13,7 @@ import tbdy_engine.application.column_public_a5 as a5
 import tbdy_engine.application.column_execution as column_execution
 import tbdy_engine.application.project_execution as project_execution
 import tbdy_engine.analysis_basis.frame_gross_flexural_basis as continuity
+from tests.application._a4_property_facts import section_fact, material_fact
 import tbdy_engine.integration.etabs_analysis_execution as b5
 import tbdy_engine.integration.etabs_analysis_state_mutation as b4b
 import tbdy_engine.integration.etabs_analysis_state_revalidation as revalidation
@@ -281,11 +282,11 @@ def product_harness(monkeypatch):
         frame_name="1",
         member_role="COLUMN",
         base_fact=base,
-        section_mechanics=SimpleNamespace(evidence_ref="section-mechanics:C50x80"),
+        section_mechanics=section_fact(),
         property_modifiers=property_fact,
         object_modifiers=object_fact,
         releases=SimpleNamespace(evidence_ref="release:1"),
-        isotropic_material=SimpleNamespace(evidence_ref="isotropic:C35"),
+        isotropic_material=material_fact(),
         factual_ec_mpa=Decimal("33000"),
         factual_gc_mpa=Decimal("13200"),
         source_refs=(

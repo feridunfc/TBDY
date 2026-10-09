@@ -57,7 +57,7 @@ from tbdy_engine.etabs.oapi.analysis_execution import DefinedAnalysisCasePopulat
 from tbdy_engine.etabs.oapi.frame_modifiers import FrameModifierVector
 from tbdy_engine.etabs.oapi.frame_releases import FrameReleaseFact
 from tbdy_engine.etabs.oapi.frame_section_mechanics import FrameSectionMechanicsFact
-from tbdy_engine.etabs.oapi.material_properties import IsotropicMaterialPropertiesFact
+from tests.application._a4_property_facts import material_fact
 from tbdy_engine.providers.etabs_auto_seismic_direction_provider import (
     EtabsAutoSeismicDirectionEvidence, EtabsAutoSeismicDirectionRow, REQUIRED_DIRECTION_FIELDS,
 )
@@ -241,7 +241,7 @@ def _install(monkeypatch):
                 session=mechanics.session_ref, capture=mechanics.capture_ref,
             ) for key in ("I22", "I33")
         ))
-        fact.isotropic_material = IsotropicMaterialPropertiesFact("C35", 33000.0, 0.2, 1e-5, 13200.0, 0.0, 0)
+        fact.isotropic_material = material_fact()
         fact.source_refs = (f"factual-frame:{uid}", base.evidence_ref)
         if uid in beams:
             fact.beam_mechanics = NS(member_axis_vector=beams[uid].vector_from_joint_m,

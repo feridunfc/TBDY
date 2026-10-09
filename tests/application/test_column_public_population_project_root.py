@@ -11,6 +11,7 @@ from types import SimpleNamespace
 import pytest
 
 import tbdy_engine.analysis_basis.frame_gross_flexural_basis as continuity
+from tests.application._a4_property_facts import section_fact, material_fact
 import tbdy_engine.application.column_execution as column_execution
 import tbdy_engine.application.column_public_a5 as a5
 import tbdy_engine.application.project_execution as project_execution
@@ -148,13 +149,11 @@ def _install_two_column_harness(monkeypatch):
         frame_name="2",
         member_role="COLUMN",
         base_fact=base_2,
-        section_mechanics=SimpleNamespace(
-            evidence_ref="section-mechanics:C50x80B"
-        ),
+        section_mechanics=section_fact("C50x80B"),
         property_modifiers=property_2,
         object_modifiers=object_2,
         releases=SimpleNamespace(evidence_ref="release:2"),
-        isotropic_material=SimpleNamespace(evidence_ref="isotropic:C35:2"),
+        isotropic_material=material_fact(),
         factual_ec_mpa=Decimal("33000"),
         factual_gc_mpa=Decimal("13200"),
         source_refs=(

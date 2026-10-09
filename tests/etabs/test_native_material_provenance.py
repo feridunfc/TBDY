@@ -18,6 +18,17 @@ def acquire(runtime, **kwargs):
     return subject.get_isotropic_material_properties_from_session(session, material_name="C30", **kwargs)
 
 
+def test_fresh_native_getters_keep_capture_proofs_and_share_a4_semantics(runtime):
+    from tbdy_engine.application.column_public_a5 import _isotropic_material_continuity_key
+
+    pre, post = acquire(runtime), acquire(runtime)
+    assert runtime[1].calls == [("C30", 0.), ("C30", 0.)]
+    assert pre.capture_ref != post.capture_ref
+    assert pre.evidence_ref != post.evidence_ref
+    assert all(p.evidence_ref != q.evidence_ref for p, q in zip(pre.unit_provenance, post.unit_provenance))
+    assert _isotropic_material_continuity_key(pre) == _isotropic_material_continuity_key(post)
+
+
 @pytest.mark.parametrize("key", ["E", "G"])
 def test_missing_binding_reproduces_the_A3_failure(runtime, key):
     fact = replace(acquire(runtime), unit_provenance=())
