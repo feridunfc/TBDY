@@ -563,3 +563,202 @@ __all__ = [
     "classify_frame_response_participation",
     "resolve_area_response_modes",
 ]
+
+
+# Gate 1 arithmetic only. This helper never issues an output-state binding or
+# StoryStabilityIndexEvidence. CSI FAQ authorizes amplitude * modal quantity;
+# base-reaction documentation demonstrates sum-before-modal-combination.
+CSI_NATIVE_MODAL_AMPLITUDE_SOURCE = (
+    "https://wikicsiamerica.atlassian.net/wiki/spaces/kb/pages/2006323/"
+    "Response-spectrum%2Banalysis%2BFAQ"
+)
+
+
+@dataclass(frozen=True, slots=True)
+class NativeModalNormalizationBinding:
+    source_model_ref: str
+    session_ref: str
+    acquisition_ref: str
+    modal_case: str
+    spectrum_case: str
+    source_direction: str
+    database_force_unit: str
+    database_length_unit: str
+    normalization_ref: str
+
+    def __post_init__(self):
+        for name in self.__dataclass_fields__:
+            _text(getattr(self, name), name)
+        if self.source_direction not in {"U1", "U2", "U3"}:
+            raise ValueError("source_direction must be exact U1/U2/U3, not inferred global X/Y")
+        if self.database_force_unit not in {"N", "kN", "tonf"} or self.database_length_unit not in {"m", "mm"}:
+            raise ValueError("unsupported independently qualified database units")
+
+
+@dataclass(frozen=True, slots=True)
+class NativeModalAmplitude:
+    mode: int
+    period_s: float
+    multiplier: float
+    binding: NativeModalNormalizationBinding
+    source_field: str
+    raw_response_ref: str
+
+    def __post_init__(self):
+        if type(self.mode) is not int or self.mode <= 0:
+            raise ValueError("mode must be a positive exact index")
+        values = _values((self.period_s, self.multiplier), "modal amplitude")
+        if values[0] <= 0:
+            raise ValueError("modal period must be positive")
+        expected = self.binding.source_direction + "Amp"
+        if self.source_field != expected:
+            raise ValueError("amplitude field must be exact U1Amp/U2Amp/U3Amp; Acc is not a multiplier")
+        _text(self.raw_response_ref, "amplitude raw_response_ref")
+
+
+@dataclass(frozen=True, slots=True)
+class NativeModalColumnAxial:
+    column_unique_name: str
+    mode: int
+    signed_p: float
+    physical_length: float
+    binding: NativeModalNormalizationBinding
+    force_unit: str
+    length_unit: str
+    step_type: str
+    physical_location: str
+    raw_response_ref: str
+    length_source_ref: str
+
+    def __post_init__(self):
+        _text(self.column_unique_name, "column_unique_name")
+        _text(self.raw_response_ref, "force raw_response_ref")
+        _text(self.length_source_ref, "physical length source")
+        if type(self.mode) is not int or self.mode <= 0 or self.step_type != "Mode":
+            raise ValueError("only signed eigen/modal Mode rows qualify; spectral Max/Min are not modes")
+        vals = _values((self.signed_p, self.physical_length), "modal column")
+        if vals[1] <= 0:
+            raise ValueError("physical member length must be positive")
+        if self.physical_location != "PHYSICAL_BOTTOM":
+            raise ValueError("axial row must be bound to the physical bottom, not station inferred without topology")
+        if self.force_unit != self.binding.database_force_unit or self.length_unit != self.binding.database_length_unit:
+            raise ValueError("modal response and physical lengths must use the independently observed database units")
+
+
+@dataclass(frozen=True, slots=True)
+class NativeModalAggregateComputation:
+    mode: int
+    period_s: float
+    r_force_per_length: float
+    column_contributions: tuple[tuple[str, float], ...]
+    binding: NativeModalNormalizationBinding
+    source_refs: tuple[str, ...]
+    # Caller-supplied source refs cannot self-issue controlled-execution lineage.
+    qualified_for_stability: bool = False
+
+    def __post_init__(self):
+        if self.qualified_for_stability is not False:
+            raise ValueError("Gate 1 arithmetic cannot qualify a stability result state")
+
+
+def aggregate_native_modal_column_axial(
+    *, amplitude: NativeModalAmplitude,
+    columns: Sequence[NativeModalColumnAxial],
+    expected_complete_story_columns: Sequence[str],
+) -> NativeModalAggregateComputation:
+    """R_n = amplitude_n * sum(-P_eigen,j,n / l_j), before any modal norm.
+
+    The caller must bind the complete factual Column denominator, physical
+    station and source-qualified lengths. Signs, tension and cancellation are
+    retained. This is a pure computation, not a live source qualification.
+    A source-bound adapter and the exact current B5 issuer remain required.
+    """
+    if not isinstance(amplitude, NativeModalAmplitude):
+        raise TypeError("amplitude must be NativeModalAmplitude")
+    expected = tuple(_text(x, "expected Column") for x in expected_complete_story_columns)
+    if not expected or len(set(expected)) != len(expected):
+        raise ValueError("complete story Column denominator must be nonempty and unique")
+    rows = tuple(columns)
+    if any(not isinstance(x, NativeModalColumnAxial) for x in rows):
+        raise TypeError("columns must contain NativeModalColumnAxial")
+    names = tuple(x.column_unique_name for x in rows)
+    if len(set(names)) != len(names) or set(names) != set(expected):
+        raise ValueError("missing/extra/duplicate Column in complete-story modal denominator")
+    contributions = []
+    refs = [CSI_NATIVE_MODAL_AMPLITUDE_SOURCE, amplitude.raw_response_ref]
+    for row in sorted(rows, key=lambda r: r.column_unique_name):
+        if row.binding != amplitude.binding or row.mode != amplitude.mode:
+            raise ValueError("source/session/acquisition/modal normalization/case/direction/mode mismatch")
+        contribution = -row.signed_p * amplitude.multiplier / row.physical_length
+        if not math.isfinite(contribution):
+            raise ValueError("nonfinite modal contribution")
+        contributions.append((row.column_unique_name, contribution))
+        refs.extend((row.raw_response_ref, row.length_source_ref))
+    total = math.fsum(x[1] for x in contributions)
+    if not math.isfinite(total):
+        raise ValueError("nonfinite complete-story modal aggregate")
+    return NativeModalAggregateComputation(amplitude.mode, amplitude.period_s, total,
+        tuple(contributions), amplitude.binding, tuple(dict.fromkeys(refs)))
+
+
+def srss_native_modal_aggregates(
+    modes: Sequence[NativeModalAggregateComputation], *, source_modal_method: str,
+) -> float:
+    """SRSS of physical aggregates; never substitute SRSS for observed CQC.
+
+    Mode completeness, actual native method/rigid-response settings and B5
+    lineage must be independently qualified by the eventual adapter. A numeric
+    return from this helper is not a regulatory stability statistic.
+    """
+    rows = tuple(modes)
+    if source_modal_method != "SRSS":
+        raise ValueError("native method is not SRSS; no CQC/damping/rigid-response inference permitted")
+    if not rows or any(not isinstance(x, NativeModalAggregateComputation) for x in rows):
+        raise ValueError("nonempty modal aggregate population required")
+    if len({x.mode for x in rows}) != len(rows) or any(x.binding != rows[0].binding for x in rows):
+        raise ValueError("duplicate mode or modal basis drift")
+    return math.hypot(*(x.r_force_per_length for x in rows))
+
+
+@dataclass(frozen=True, slots=True)
+class NativeModalScalarResponse:
+    mode: int
+    value: float
+    binding: NativeModalNormalizationBinding
+    quantity: str
+    source_unit: str
+    physical_grain_ref: str
+    raw_response_refs: tuple[str, ...]
+    step_type: str = "Mode"
+
+    def __post_init__(self):
+        if type(self.mode) is not int or self.mode <= 0 or self.step_type != "Mode":
+            raise ValueError("scalar must be an exact signed modal response, not a spectrum extremum")
+        _values((self.value,), "modal scalar")
+        expected_unit = {"PHYSICAL_TOP_MINUS_BOTTOM_TRANSLATION": self.binding.database_length_unit,
+                         "STORY_BOTTOM_SHEAR": self.binding.database_force_unit}.get(self.quantity)
+        if expected_unit is None or self.source_unit != expected_unit:
+            raise ValueError("exact physical response quantity and database-normalized unit required")
+        _text(self.physical_grain_ref, "physical_grain_ref")
+        _refs(self.raw_response_refs)
+        if self.quantity == "PHYSICAL_TOP_MINUS_BOTTOM_TRANSLATION" and len(set(self.raw_response_refs)) != 2:
+            raise ValueError("physical top-minus-bottom requires two independent endpoint source rows")
+
+
+def native_modal_scalar_contribution(
+    *, amplitude: NativeModalAmplitude, response: NativeModalScalarResponse,
+) -> float:
+    """Scale an already bound signed physical linear response by native Amp.
+
+    Translation must be top-bottom before scaling/combination; shear must be
+    the exact signed storey bottom cut. Neither scalar is promoted to a joint
+    TS500 statistic, global direction or concurrent time state by this helper.
+    """
+    if not isinstance(amplitude, NativeModalAmplitude) or not isinstance(response, NativeModalScalarResponse):
+        raise TypeError("typed native amplitude and modal scalar required")
+    if response.binding != amplitude.binding or response.mode != amplitude.mode:
+        raise ValueError("source/session/normalization/case/direction/mode mismatch")
+    product = amplitude.multiplier * response.value
+    if not math.isfinite(product):
+        raise ValueError("nonfinite native modal scalar contribution")
+    return product

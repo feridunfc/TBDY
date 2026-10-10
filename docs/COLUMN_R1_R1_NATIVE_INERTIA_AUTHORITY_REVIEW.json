@@ -1,0 +1,50 @@
+{
+  "schema": "COLUMN_R1_R1_NATIVE_INERTIA_AUTHORITY_REVIEW_V1",
+  "R1": "REVIEW_REQUIRED",
+  "root_cause": "GETSECTPROPS_I22_I33_METHOD_SPECIFIC_SOURCE_UNIT_AUTHORITY_NOT_FOUND_IN_BOUNDED_EXISTING_SCOPE",
+  "native_owner": "tbdy_engine/etabs/oapi/frame_section_mechanics.py#get_frame_section_mechanics_from_session",
+  "exact_outputs": [
+    "I22",
+    "I33"
+  ],
+  "dimension": "L4",
+  "current_native_provenance": [],
+  "current_native_fresh_before_after": false,
+  "authority_borrowing": false,
+  "production_patch": false,
+  "A18_weakened": false,
+  "historical_anomalies_rescaled": false,
+  "tests": {
+    "new_authority_boundary": 46,
+    "focused_group": 483,
+    "integrated_group": 10,
+    "distinct_PASS": 493,
+    "total_executions": 539,
+    "final_failures": 0,
+    "inherited_integrated_fixture_failures_resolved": 5,
+    "native_positive_acquisition_tests": "DEFERRED_PENDING_AUTHORITY",
+    "synthetic_authority": "OFFLINE_SYNTHETIC_1_ONLY",
+    "compile_import": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "production_and_policy_hashes": {
+    "tbdy_engine/etabs/oapi/frame_section_mechanics.py": "05780e98d4b25070f5d302bb10570cdfd539111ff63d0013181852f851ffd68d",
+    "tbdy_engine/etabs/oapi/contracts.py": "0153ef212c7174bbd42b01f87b606b817ea5f31086eee9ced6e5d7a1d8f36f98",
+    "tbdy_engine/etabs/oapi/material_properties.py": "7e41a087fa680cf96fec677b8cf0221cc39a4f31e2a23a7726c87b5279660aed",
+    "tbdy_engine/etabs/oapi/object_model.py": "6f2e4ace622059b43f7e89e278f3d1a1c4b32d59739e6f36d9e9284f0b1105cb",
+    "tbdy_engine/application/column_a18_end_restraint.py": "9b9c766f0ca446566adc7cf443ef513a7923f37636fdbfda9d524fb24c923257",
+    "tbdy_engine/providers/frame_section_inertia_normalization.py": "8239e65b82019bb08b7673a9ef61a6c29199eb306e03f34820f8b32cbf0bd4a6",
+    "docs/COLUMN_R1_P1A_Q1N_PRESENT_EG_COMPATIBILITY_POLICY_V1.md": "235081ed74eaaeecf5619c7c6506cb25b5bb4ec213112c01dab4439255635af2",
+    "docs/COLUMN_R1_P1A_Q1P_PRESENT_WALL_THICKNESS_COMPATIBILITY_POLICY_V1.md": "48580ce3c0faeae6e6b37bbe90010331f3100f442a4d649f7c4846faa6a5dc90"
+  },
+  "reference_spec_library_id": "libfile_f431b3845fc8819186340bf561b95a27",
+  "approval_packet": "docs/COLUMN_R1_R1_NATIVE_INERTIA_AUTHORITY_REVIEW.md",
+  "Package_0": "CLOSED",
+  "Package_1A": "OPEN",
+  "ETABS_accessed": false,
+  "RunAnalysis": 0,
+  "StartDesign": 0,
+  "live_executed": false,
+  "R2_ready": false,
+  "next_edge": "GETSECTPROPS_I22_I33_METHOD_SPECIFIC_AUTHORITY_REVIEW"
+}

@@ -23,6 +23,7 @@ from tbdy_engine.providers.etabs_strict_column_topology_provider import (
     EtabsStrictColumnTopologyEvidence,
 )
 from tests.application import test_column_public_a5_product_path as base
+from tests.application._a4_property_facts import qualify as qualify_property
 
 
 def _configure(monkeypatch, *, zero_v2: bool):
@@ -66,6 +67,7 @@ def _configure(monkeypatch, *, zero_v2: bool):
         inertia_33=0.004,
         return_code=0,
     )
+    section = qualify_property(replace(section, raw_response=(.15, .10, .11, .002, .003, .004, 1., 2., 3., 4., 5., 6., 0)))
     material = IsotropicMaterialPropertiesFact(
         material_name="C35",
         modulus_of_elasticity=33_000.0,
@@ -75,6 +77,7 @@ def _configure(monkeypatch, *, zero_v2: bool):
         temperature=0.0,
         return_code=0,
     )
+    material = qualify_property(replace(material, raw_response=(33000., .2, 1.e-5, 13200., 0)))
     section_initial = FrameModifierVector.from_sequence((0.41, 0.52, 0.63, 0.74, 0.85, 0.96, 1.0, 1.0))
     object_initial = FrameModifierVector.from_sequence((0.31, 0.42, 0.53, 0.64, 0.75, 0.86, 1.0, 1.0))
     property_fact = FrameModifierReadFact(

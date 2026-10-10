@@ -1,0 +1,59 @@
+{
+  "schema": "COLUMN_R1_R0_CURRENT_SOURCE_AUTHORITY_RECONCILIATION_V1",
+  "audit_utc_date": "2026-10-08",
+  "base_head": "a7c8bab81eed687051c43b14fbf1e981b797a1e3",
+  "base_tree": "c09a825569feec35cf7416398b743f711162d2be",
+  "R0": "AUDIT_COMPLETE_REVIEW_REQUIRED",
+  "historical_reviewed_source_sha256": "5AA83947C46AE886DD43E8BD2270DAEAC6117AE60BAD1F8CB9ED9874CD3E2A44",
+  "latest_preserved_physical_source_sha256": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+  "fresh_source_hash_measured": false,
+  "FC09_SOURCE_IDENTITY": "REUSE_AS_IS",
+  "A17_TOLERANCE_APPLICABILITY": "REVIEW_REQUIRED",
+  "DESIGN_BASIS_APPLICABILITY": "REVIEW_REQUIRED",
+  "EXPECTED_COMBO_POLICY_APPLICABILITY": "REVIEW_REQUIRED",
+  "VS5_APPLICABILITY": "REVIEW_REQUIRED",
+  "W_APPLICABILITY": "REVIEW_REQUIRED",
+  "HARNESS_PIN_STATUS": "REBIND_REQUIRED",
+  "accepted_input_integrity": "REUSE_AS_IS",
+  "accepted_input_sha256": "9D7BAE7108C655751C018071E9B17D1D401A21904DAAD140BDBE81566AC9FBBC",
+  "accepted_input_embedded_source_sha256": "5AA83947C46AE886DD43E8BD2270DAEAC6117AE60BAD1F8CB9ED9874CD3E2A44",
+  "historical_combo_source_sha256": "5AA83947C46AE886DD43E8BD2270DAEAC6117AE60BAD1F8CB9ED9874CD3E2A44",
+  "review_required_items": [
+    "A17_FC09",
+    "DESIGN_BASIS_FC09",
+    "COMBOS_FC09",
+    "VS5_FC09",
+    "ROUTE_C_W_FC09",
+    "ACCEPTED_INPUT_FC09_BINDING"
+  ],
+  "evidence": {
+    "reviewed_input_library_id": "libfile_d19852597c008191b6fdeb802c9b1ad1",
+    "physical_source_receipt_library_archive_id": "libfile_21a2d166eca481918d37bb671ee76d17",
+    "physical_source_archive_sha256": "c5b1c80dbe2648fe29c8e1084ff33d8567ffcaada28b006b8360a3f9406841d2",
+    "physical_source_receipt_member": "COLUMN_R1_POST_Q1P_LIVE_RECEIPT.json",
+    "physical_source_receipt_sha256": "2d1b59a0181eb5150973e1cd638e89876dc005e30d66b1f9103c8aa33d8ccc54",
+    "repo_file_sha256": {
+      "tools/run_column_r1_public_acceptance.py": "7bdf8d13cd312b4451339d412061529652bf3ce47a9b9c5ed822b720954aebdf",
+      "tools/column_r1_bblok_e1_reviewed_inputs.py": "9e325ac2288b8ae62abc5e7d04aa0880d4f681f65cea35fe7a48671da60c9c00",
+      "docs/B-BLOK-COLUMN-A17-TOL-v1.md": "3c0249aa210865f584ada46682abd31a480eb221931bf1e18ed7d04734ac2abe"
+    },
+    "review_references": {
+      "PROJECT_REVIEW_REF": "review:column-r1:B-BLOK:2026-09-27",
+      "COMBO_REVIEW_REF": "review:column-r1:B-BLOK:current-12-exact-design-combos:2026-09-27",
+      "AGGREGATE_REVIEW_REF": "review:column-r1:B-BLOK:aggregate-max:20mm:2026-09-27",
+      "ROUTE_C_W_REVIEW_REF": "review:column-r1:B-BLOK:route-c-w:PROVEN_NOT_APPLICABLE:2026-09-27"
+    }
+  },
+  "production_patch": false,
+  "reviewed_input_executed": false,
+  "ETABS_accessed": false,
+  "live_executed": false,
+  "RunAnalysis": 0,
+  "StartDesign": 0,
+  "Package_0": "CLOSED",
+  "Package_1A": "OPEN",
+  "approval_packet": "docs/COLUMN_R1_R0_CURRENT_SOURCE_AUTHORITY_RECONCILIATION.md",
+  "next_edge": "BOUNDED_FC09_PROJECT_REVIEW_INDEPENDENT_OF_R1",
+  "FC09_SOURCE_IDENTITY_SCOPE": "PRESERVED_PHYSICAL_FILE_EVIDENCE_ONLY_NOT_CURRENT_RESULT_EPOCH",
+  "HARNESS_REBIND_PRECONDITION": "EXPLICIT_FC09_PROJECT_REVIEW_AND_ACCEPTED_INPUT_IDENTITY"
+}

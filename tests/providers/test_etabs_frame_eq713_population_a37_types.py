@@ -399,7 +399,7 @@ def test_residual_structural_capture_binds_material_type_fact(
     monkeypatch.setattr(
         subject,
         "get_frame_section_mechanics_from_session",
-        lambda _session, *, section_name: (
+        lambda _session, *, section_name, context, owned_scratch: (
             _Section(section_name)
         ),
     )

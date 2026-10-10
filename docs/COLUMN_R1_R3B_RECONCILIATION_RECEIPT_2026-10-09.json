@@ -1,0 +1,3787 @@
+{
+  "schema": "COLUMN_R1_R3B_OFFLINE_RECONCILIATION_V1",
+  "repository": "feridunfc/TBDY",
+  "base_HEAD": "5aba2eea7893763a92be1f3856e6b0a2ed509ac8",
+  "base_TREE": "de50fe6e7aa170bf6f473d0b76a030090e59ba80",
+  "branch": "worker/column-r1-r1b-live-candidate",
+  "commit_identity": "The commit containing this receipt; its first parent must equal base_HEAD. A self-referential final commit hash is intentionally not embedded.",
+  "precedence": "CURRENT VERIFIED REPO/GIT > LATEST LIVE RECEIPT > LATEST HANDOFF > CURRENT RECIPE/ARCHITECTURE > OLDER DOCUMENTS",
+  "evidence": {
+    "preflight_file": "column-r1-r0-r1-preflight_20261009_192703.json",
+    "preflight_SHA256": "79A7BCA0DD50F42B6D9852D2ED56DFC03D0A1CDB40A1C534EA7071F6E8C4CE00",
+    "preflight_repository": {
+      "HEAD": "9f29d5a5f5add26fe3bb2513675430f06fe4076b",
+      "TREE": "6e174f86c0dd5f3e6badd98bc1c8cf20fab82a89",
+      "worktree_status": ""
+    },
+    "protected_source_SHA256": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+    "protected_source_before": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+    "protected_source_after": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+    "preflight_context_refs": {
+      "source_model_ref": "etabs-source-model-ref:sha256:a8458d0b0d05dbeec2677802b1b50878fd8013277c74252dc3cd432a08fc5670",
+      "session_ref": "etabs-session-provenance:sha256:034846894197efa1b75ac1fcf728feb8b307cae9b33dce54fbf8cd40b67db751",
+      "capture_ref": "etabs-acquisition-context:sha256:c400afd97e7defd21fd794be8505c4dd14d21811a944e7a30350176567618fdc",
+      "evidence_epoch_id": "epoch:live-acquisition:sha256:bd87f77203760afe9d18655f2afd920e21612484331edd71cf01913ab34c6120"
+    },
+    "reviewed_input_SHA256": "9D7BAE7108C655751C018071E9B17D1D401A21904DAAD140BDBE81566AC9FBBC",
+    "unchanged_12_combo_equality_packet": "A24412D2DECB10E715C2A235FE7FDE0545B4422CEEBB428C7540D9D074D18992",
+    "R3B_supervisor_file": "Pasted text(20261009-194744).txt",
+    "R3B_supervisor_SHA256": "925630B84A701B7D51D7954D36EF555A43DD927A5FCC47DB4E4109BB79BEB8F0",
+    "standards": [
+      "TS500.pdf section 7.6.2.1 / Eq.7.13; Library libfile_1316414d673c8191b4f47942011c9430",
+      "TBDY 2018 sections 4.4.2, 4.4.3, 4.4.4, 4.8.2.1; Library libfile_47b20ebde9548191a2f74dce2ed0d07c"
+    ],
+    "FC09_project_authority": "docs/B-BLOK-COLUMN-FC09-REBIND-v1.md",
+    "additional_historical_M5B_file": "Pasted text(20261009-200159).txt",
+    "additional_historical_M5B_SHA256": "914E21E72590C75EE7649AA366790279A4A867AF481FF57B80265E55E67D832B"
+  },
+  "canonical_state": {
+    "R0": "CLOSED / FC09 REBIND IMPLEMENTED",
+    "R1": "CLOSED / LIVE PROVEN",
+    "A4": "CLOSED / LIVE PROVEN",
+    "component_count": 260,
+    "latest_live_ready_count": 0,
+    "A17_cohort": 142,
+    "A18_A19_cohort": 118,
+    "A38": true,
+    "A39": true,
+    "A40": true,
+    "live_executed_in_this_package": false
+  },
+  "12_SELECTED_DESIGN_COMBO_RECONCILIATION": {
+    "count": 12,
+    "meaning": "Exact unchanged reviewed policy equality is not TBDY-template compliance or Eq713 state authority",
+    "rows": [
+      {
+        "actual_definition_fingerprint": "combo-definition:sha256:c8aeab20f1f8cea7432ee64057f7523fb7ce34494689e2e7c6a361b067d1be94",
+        "identity": [
+          "Strength",
+          "Crack_SeisX"
+        ],
+        "leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "1",
+          "RSY": "0.3"
+        },
+        "reviewed_definition_fingerprint": "combo-definition:sha256:c8aeab20f1f8cea7432ee64057f7523fb7ce34494689e2e7c6a361b067d1be94",
+        "selected_source_row_ref": "CSI:DatabaseTables.GetTableForDisplayArray:Concrete Frame Design Load Combination Data:row:selected-design-combo-row:sha256:b83bb126225efe02af57f62a08ad50d191c36e84d87b9e9e697a42cd6ea52bc9",
+        "unchanged_reviewed_policy": "MATCH"
+      },
+      {
+        "actual_definition_fingerprint": "combo-definition:sha256:2f74a0d0664c32b79b47c7170402876a5fcc1e2a0b85f7a5beecea19af74b232",
+        "identity": [
+          "Strength",
+          "Crack_SeisX_Soil"
+        ],
+        "leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "1",
+          "RSY": "0.3"
+        },
+        "reviewed_definition_fingerprint": "combo-definition:sha256:2f74a0d0664c32b79b47c7170402876a5fcc1e2a0b85f7a5beecea19af74b232",
+        "selected_source_row_ref": "CSI:DatabaseTables.GetTableForDisplayArray:Concrete Frame Design Load Combination Data:row:selected-design-combo-row:sha256:e527fefec2f583b4e53fc4c83853c7baee303b46251e975f4a81a96569126586",
+        "unchanged_reviewed_policy": "MATCH"
+      },
+      {
+        "actual_definition_fingerprint": "combo-definition:sha256:1a61a8b62831548beb437efdf82ea336af083dbce918fbdf3e5dd2a149515d0d",
+        "identity": [
+          "Strength",
+          "Crack_SeisX_Up"
+        ],
+        "leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "1",
+          "RSY": "0.3"
+        },
+        "reviewed_definition_fingerprint": "combo-definition:sha256:1a61a8b62831548beb437efdf82ea336af083dbce918fbdf3e5dd2a149515d0d",
+        "selected_source_row_ref": "CSI:DatabaseTables.GetTableForDisplayArray:Concrete Frame Design Load Combination Data:row:selected-design-combo-row:sha256:2b2f159b7c192cec880bd4248fdad3329baa235786d18c670077f735c993d328",
+        "unchanged_reviewed_policy": "MATCH"
+      },
+      {
+        "actual_definition_fingerprint": "combo-definition:sha256:2af200247afa3cc02c78d391655d94636b4bb4b3ebed16832cccdbefed8dd3a6",
+        "identity": [
+          "Strength",
+          "Crack_SeisX_UpSoil"
+        ],
+        "leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "1",
+          "RSY": "0.3"
+        },
+        "reviewed_definition_fingerprint": "combo-definition:sha256:2af200247afa3cc02c78d391655d94636b4bb4b3ebed16832cccdbefed8dd3a6",
+        "selected_source_row_ref": "CSI:DatabaseTables.GetTableForDisplayArray:Concrete Frame Design Load Combination Data:row:selected-design-combo-row:sha256:3792d63d5e2615556c0a997f52b7218fd35c2fd25c59b798373f3331edbe7c69",
+        "unchanged_reviewed_policy": "MATCH"
+      },
+      {
+        "actual_definition_fingerprint": "combo-definition:sha256:0da9e8a2a1cb700828640f1215958b16f94a465b6135e5eaad72526fb45bde5f",
+        "identity": [
+          "Strength",
+          "Crack_SeisY"
+        ],
+        "leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "0.3",
+          "RSY": "1"
+        },
+        "reviewed_definition_fingerprint": "combo-definition:sha256:0da9e8a2a1cb700828640f1215958b16f94a465b6135e5eaad72526fb45bde5f",
+        "selected_source_row_ref": "CSI:DatabaseTables.GetTableForDisplayArray:Concrete Frame Design Load Combination Data:row:selected-design-combo-row:sha256:238c9f92cde85b1a580437bff5fb0a36eca8c74fe99ab60aa3602b5942a9ec5e",
+        "unchanged_reviewed_policy": "MATCH"
+      },
+      {
+        "actual_definition_fingerprint": "combo-definition:sha256:fdb3c70acb2aa3f92a327455e443c5821d3ceff5c08b0401df740fb0fcd215dc",
+        "identity": [
+          "Strength",
+          "Crack_SeisY_Soil"
+        ],
+        "leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "0.3",
+          "RSY": "1"
+        },
+        "reviewed_definition_fingerprint": "combo-definition:sha256:fdb3c70acb2aa3f92a327455e443c5821d3ceff5c08b0401df740fb0fcd215dc",
+        "selected_source_row_ref": "CSI:DatabaseTables.GetTableForDisplayArray:Concrete Frame Design Load Combination Data:row:selected-design-combo-row:sha256:ffd79e48ec30b9354b8633b105752133a0b5d38df81066e54f166f2b35b72571",
+        "unchanged_reviewed_policy": "MATCH"
+      },
+      {
+        "actual_definition_fingerprint": "combo-definition:sha256:6b6d53b7c6223748b1095aafb78ed5dad003e1b60238567df15eb628cfaad11d",
+        "identity": [
+          "Strength",
+          "Crack_SeisY_Up"
+        ],
+        "leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "0.3",
+          "RSY": "1"
+        },
+        "reviewed_definition_fingerprint": "combo-definition:sha256:6b6d53b7c6223748b1095aafb78ed5dad003e1b60238567df15eb628cfaad11d",
+        "selected_source_row_ref": "CSI:DatabaseTables.GetTableForDisplayArray:Concrete Frame Design Load Combination Data:row:selected-design-combo-row:sha256:7620cc296e63de0acf9351c9b3e718f6f408817dc593b78ad8e4cb0c100ca52e",
+        "unchanged_reviewed_policy": "MATCH"
+      },
+      {
+        "actual_definition_fingerprint": "combo-definition:sha256:63d340279a6466697ef790bb0959195cfe5249e02dbf029a444c43a99dd7bc7e",
+        "identity": [
+          "Strength",
+          "Crack_SeisY_UpSoil"
+        ],
+        "leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "0.3",
+          "RSY": "1"
+        },
+        "reviewed_definition_fingerprint": "combo-definition:sha256:63d340279a6466697ef790bb0959195cfe5249e02dbf029a444c43a99dd7bc7e",
+        "selected_source_row_ref": "CSI:DatabaseTables.GetTableForDisplayArray:Concrete Frame Design Load Combination Data:row:selected-design-combo-row:sha256:bf84e32b4c9bfd09a508dd17019d1c94bd05ae4e4c167267738285a73e47bb43",
+        "unchanged_reviewed_policy": "MATCH"
+      },
+      {
+        "actual_definition_fingerprint": "combo-definition:sha256:b92f13e4855f769c3d634b75fc23187f10346e8091b0c3338e5c66dae3b35b0f",
+        "identity": [
+          "Strength",
+          "Grav_Service"
+        ],
+        "leaf_signature": {
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1"
+        },
+        "reviewed_definition_fingerprint": "combo-definition:sha256:b92f13e4855f769c3d634b75fc23187f10346e8091b0c3338e5c66dae3b35b0f",
+        "selected_source_row_ref": "CSI:DatabaseTables.GetTableForDisplayArray:Concrete Frame Design Load Combination Data:row:selected-design-combo-row:sha256:2f964b51ab09f167163b9cd40dfa120d4599f6b6bcf33170730809678d07ab41",
+        "unchanged_reviewed_policy": "MATCH"
+      },
+      {
+        "actual_definition_fingerprint": "combo-definition:sha256:b287f6e9c2ada35460dfb1741d4726fdc7414a53c7cfe32e286532fe817716f9",
+        "identity": [
+          "Strength",
+          "Grav_TempNeg"
+        ],
+        "leaf_signature": {
+          "LC_DDL": "1.2",
+          "LC_DL": "1",
+          "LC_LL": "1.2",
+          "LC_S": "1.2",
+          "LC_SDL": "1",
+          "LC_T": "-1.2",
+          "LC_WDL": "1"
+        },
+        "reviewed_definition_fingerprint": "combo-definition:sha256:b287f6e9c2ada35460dfb1741d4726fdc7414a53c7cfe32e286532fe817716f9",
+        "selected_source_row_ref": "CSI:DatabaseTables.GetTableForDisplayArray:Concrete Frame Design Load Combination Data:row:selected-design-combo-row:sha256:f34e0f8b3bd4523c36ea0b0fd7566d371cb530112539283b3e3c8dc9d9435a80",
+        "unchanged_reviewed_policy": "MATCH"
+      },
+      {
+        "actual_definition_fingerprint": "combo-definition:sha256:8170e46595d1e35ce4a92f75fafd11ceaac283abc4f0b3d972736239d3f54ede",
+        "identity": [
+          "Strength",
+          "Grav_TempPos"
+        ],
+        "leaf_signature": {
+          "LC_DDL": "1.2",
+          "LC_DL": "1",
+          "LC_LL": "1.2",
+          "LC_S": "1.2",
+          "LC_SDL": "1",
+          "LC_T": "1.2",
+          "LC_WDL": "1"
+        },
+        "reviewed_definition_fingerprint": "combo-definition:sha256:8170e46595d1e35ce4a92f75fafd11ceaac283abc4f0b3d972736239d3f54ede",
+        "selected_source_row_ref": "CSI:DatabaseTables.GetTableForDisplayArray:Concrete Frame Design Load Combination Data:row:selected-design-combo-row:sha256:e4eb800785e97e903d9ce341fc5c1239d148b3688bc25d1d8aaa27d8e9b71141",
+        "unchanged_reviewed_policy": "MATCH"
+      },
+      {
+        "actual_definition_fingerprint": "combo-definition:sha256:2200d4cc006f5e76a8ec336181365f3edc6d2bd09c886fadcd198d7923e87ac1",
+        "identity": [
+          "Strength",
+          "Grav_Ult"
+        ],
+        "leaf_signature": {
+          "LC_DDL": "1.6",
+          "LC_DL": "1.4",
+          "LC_LL": "1.6",
+          "LC_S": "1.6",
+          "LC_SDL": "1.4",
+          "LC_WDL": "1.4"
+        },
+        "reviewed_definition_fingerprint": "combo-definition:sha256:2200d4cc006f5e76a8ec336181365f3edc6d2bd09c886fadcd198d7923e87ac1",
+        "selected_source_row_ref": "CSI:DatabaseTables.GetTableForDisplayArray:Concrete Frame Design Load Combination Data:row:selected-design-combo-row:sha256:263b4759225443fd3eec77b125a1acc4d545b3175388a8271a6ac1b0f3ba253e",
+        "unchanged_reviewed_policy": "MATCH"
+      }
+    ],
+    "source": "preflight-fact:sha256:1f05db51590cac21d7f8a0656313023cbb0bb03da6993e06eca6339aaf12664e"
+  },
+  "DIRECTIONAL_COMBINATION_LOCATION": {
+    "combo_level": "RSX/RSY 1.0/0.3 or 0.3/1.0 in all eight selected Crack combos",
+    "double_100_30_excluded": false,
+    "internal_case_level": "NOT_CAPTURED"
+  },
+  "EDZ_SOURCE_AND_FACTOR": {
+    "case_definition": "0.351*(LC_DL+LC_SDL+LC_WDL)",
+    "combo_factors": {
+      "Crack_SeisX": "0.3",
+      "Crack_SeisX_Soil": "0.3",
+      "Crack_SeisX_Up": "-0.3",
+      "Crack_SeisX_UpSoil": "-0.3",
+      "Crack_SeisY": "0.3",
+      "Crack_SeisY_Soil": "0.3",
+      "Crack_SeisY_Up": "-0.3",
+      "Crack_SeisY_UpSoil": "-0.3",
+      "Grav_Service": null,
+      "Grav_TempNeg": null,
+      "Grav_TempPos": null,
+      "Grav_Ult": null
+    },
+    "downward_effective_G_factor": "0.1053",
+    "fact": {
+      "context_refs": {
+        "capture_ref": "etabs-acquisition-context:sha256:c400afd97e7defd21fd794be8505c4dd14d21811a944e7a30350176567618fdc",
+        "evidence_epoch_id": "epoch:live-acquisition:sha256:bd87f77203760afe9d18655f2afd920e21612484331edd71cf01913ab34c6120",
+        "session_ref": "etabs-session-provenance:sha256:034846894197efa1b75ac1fcf728feb8b307cae9b33dce54fbf8cd40b67db751",
+        "source_model_ref": "etabs-source-model-ref:sha256:a8458d0b0d05dbeec2677802b1b50878fd8013277c74252dc3cd432a08fc5670"
+      },
+      "payload_ref": "preflight-fact:sha256:abe3467294076de2420498bb5c3a85629f33d404b4848815ee69359a8287d26f",
+      "status": "CAPTURED",
+      "value": {
+        "loads": [
+          {
+            "index": 0,
+            "load_name": "LC_DL",
+            "load_type": "Load",
+            "scale_factor": 0.351
+          },
+          {
+            "index": 1,
+            "load_name": "LC_SDL",
+            "load_type": "Load",
+            "scale_factor": 0.351
+          },
+          {
+            "index": 2,
+            "load_name": "LC_WDL",
+            "load_type": "Load",
+            "scale_factor": 0.351
+          }
+        ],
+        "name": "EDZ",
+        "raw_response": [
+          3,
+          [
+            "Load",
+            "Load",
+            "Load"
+          ],
+          [
+            "LC_DL",
+            "LC_SDL",
+            "LC_WDL"
+          ],
+          [
+            0.351,
+            0.351,
+            0.351
+          ],
+          0
+        ]
+      }
+    },
+    "status": "PROVEN_FACTUAL_FACTOR; SDS relationship is supervisor/project policy, not independently captured SDS",
+    "upward_effective_G_factor": "-0.1053"
+  },
+  "FC09_FACTUAL_CASE_SIGNATURES": {
+    "RSX": {
+      "fact": {
+        "context_refs": {
+          "capture_ref": "etabs-acquisition-context:sha256:c400afd97e7defd21fd794be8505c4dd14d21811a944e7a30350176567618fdc",
+          "evidence_epoch_id": "epoch:live-acquisition:sha256:bd87f77203760afe9d18655f2afd920e21612484331edd71cf01913ab34c6120",
+          "session_ref": "etabs-session-provenance:sha256:034846894197efa1b75ac1fcf728feb8b307cae9b33dce54fbf8cd40b67db751",
+          "source_model_ref": "etabs-source-model-ref:sha256:a8458d0b0d05dbeec2677802b1b50878fd8013277c74252dc3cd432a08fc5670"
+        },
+        "payload_ref": "preflight-fact:sha256:0c6d40c78ed801cb7019999c7c96884d13c449938c979ec4a26ebf102f6423ca",
+        "status": "CAPTURED",
+        "value": {
+          "auto_flag": 0,
+          "case_type_code": 4,
+          "design_type_code": 5,
+          "design_type_option": 0,
+          "name": "RSX",
+          "raw_response": [
+            4,
+            0,
+            5,
+            0,
+            0,
+            0
+          ],
+          "subtype_code": 0
+        }
+      },
+      "not_captured": [
+        "modal_case",
+        "loads_U1_U2_U3",
+        "functions",
+        "scales",
+        "coordinate_systems",
+        "angles",
+        "modal_combination_method",
+        "directional_combination_method",
+        "damping",
+        "eccentricity"
+      ],
+      "signature_status": "PARTIAL"
+    },
+    "RSY": {
+      "fact": {
+        "context_refs": {
+          "capture_ref": "etabs-acquisition-context:sha256:c400afd97e7defd21fd794be8505c4dd14d21811a944e7a30350176567618fdc",
+          "evidence_epoch_id": "epoch:live-acquisition:sha256:bd87f77203760afe9d18655f2afd920e21612484331edd71cf01913ab34c6120",
+          "session_ref": "etabs-session-provenance:sha256:034846894197efa1b75ac1fcf728feb8b307cae9b33dce54fbf8cd40b67db751",
+          "source_model_ref": "etabs-source-model-ref:sha256:a8458d0b0d05dbeec2677802b1b50878fd8013277c74252dc3cd432a08fc5670"
+        },
+        "payload_ref": "preflight-fact:sha256:7c214203d5bee3de2ee5e8ecc0ddc9791f81a6a555011d4950983827df4d47a0",
+        "status": "CAPTURED",
+        "value": {
+          "auto_flag": 0,
+          "case_type_code": 4,
+          "design_type_code": 5,
+          "design_type_option": 0,
+          "name": "RSY",
+          "raw_response": [
+            4,
+            0,
+            5,
+            0,
+            0,
+            0
+          ],
+          "subtype_code": 0
+        }
+      },
+      "not_captured": [
+        "modal_case",
+        "loads_U1_U2_U3",
+        "functions",
+        "scales",
+        "coordinate_systems",
+        "angles",
+        "modal_combination_method",
+        "directional_combination_method",
+        "damping",
+        "eccentricity"
+      ],
+      "signature_status": "PARTIAL"
+    }
+  },
+  "FC09_FACTUAL_COMBO_SIGNATURES": {
+    "combos": [
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "RSX",
+            "scale_factor": 2.5
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "RSY",
+            "scale_factor": 0.75
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 8,
+            "name": "EDZ",
+            "scale_factor": 0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:4a899ed01ddddc6e8d333dd160b97b15d38a452fd5b390bee9f001f0b54acaba",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "2.5",
+          "RSY": "0.75"
+        },
+        "name": "Cap_SeisX",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[9, (0, 0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'RSX', 'RSY', 'EDZ'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.5, 0.75, 0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "LC_H",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "LC_HE",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 8,
+            "name": "RSX",
+            "scale_factor": 2.5
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 9,
+            "name": "RSY",
+            "scale_factor": 0.75
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 10,
+            "name": "EDZ",
+            "scale_factor": 0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:95739f828ec75ad7644881f67274ec695ae7d9b7018b2fd6ef86991108afeaff",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "2.5",
+          "RSY": "0.75"
+        },
+        "name": "Cap_SeisX_Soil",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[11, (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'LC_H', 'LC_HE', 'RSX', 'RSY', 'EDZ'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.5, 0.75, 0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "RSX",
+            "scale_factor": 2.5
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "RSY",
+            "scale_factor": 0.75
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "EDZ",
+            "scale_factor": -0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:03bbc75293e2e940c8892ebc802fb58d723ecbf74ac34a371b20c56fe3f666e1",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "2.5",
+          "RSY": "0.75"
+        },
+        "name": "Cap_SeisX_Up",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[6, (0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'RSX', 'RSY', 'EDZ'), (0.9, 0.9, 0.9, 2.5, 0.75, -0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_H",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_HE",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "RSX",
+            "scale_factor": 2.5
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "RSY",
+            "scale_factor": 0.75
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "EDZ",
+            "scale_factor": -0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:976316c7273e2fd1ec3c347560092b5856741d5e6250ca34c5d7c832cc664dd0",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "2.5",
+          "RSY": "0.75"
+        },
+        "name": "Cap_SeisX_UpSoil",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[8, (0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_H', 'LC_HE', 'RSX', 'RSY', 'EDZ'), (0.9, 0.9, 0.9, 1.0, 1.0, 2.5, 0.75, -0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "RSY",
+            "scale_factor": 2.5
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "RSX",
+            "scale_factor": 0.75
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 8,
+            "name": "EDZ",
+            "scale_factor": 0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:0d2049263df980534cba9945b1c754d6e5a7398c93af248ed81dd67b58f644ba",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "0.75",
+          "RSY": "2.5"
+        },
+        "name": "Cap_SeisY",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[9, (0, 0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'RSY', 'RSX', 'EDZ'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.5, 0.75, 0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "LC_H",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "LC_HE",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 8,
+            "name": "RSY",
+            "scale_factor": 2.5
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 9,
+            "name": "RSX",
+            "scale_factor": 0.75
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 10,
+            "name": "EDZ",
+            "scale_factor": 0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:e47738b5c455f4521e819160fbe0f92dcfd3ba4043caeee8237eef2f015a82b6",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "0.75",
+          "RSY": "2.5"
+        },
+        "name": "Cap_SeisY_Soil",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[11, (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'LC_H', 'LC_HE', 'RSY', 'RSX', 'EDZ'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.5, 0.75, 0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "RSY",
+            "scale_factor": 2.5
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "RSX",
+            "scale_factor": 0.75
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "EDZ",
+            "scale_factor": -0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:7620e2f0795dfca19e7302c334d331fd3bff7487b619b7179f2e054879f6f154",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "0.75",
+          "RSY": "2.5"
+        },
+        "name": "Cap_SeisY_Up",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[6, (0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'RSY', 'RSX', 'EDZ'), (0.9, 0.9, 0.9, 2.5, 0.75, -0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_H",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_HE",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "RSY",
+            "scale_factor": 2.5
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "RSX",
+            "scale_factor": 0.75
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "EDZ",
+            "scale_factor": -0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:0f35e90ce39e614e5f1efb36f29e307cf867a8456e62080034bd0a5de7f25459",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "0.75",
+          "RSY": "2.5"
+        },
+        "name": "Cap_SeisY_UpSoil",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[8, (0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_H', 'LC_HE', 'RSY', 'RSX', 'EDZ'), (0.9, 0.9, 0.9, 1.0, 1.0, 2.5, 0.75, -0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "RSX",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "RSY",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 8,
+            "name": "EDZ",
+            "scale_factor": 0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:c8aeab20f1f8cea7432ee64057f7523fb7ce34494689e2e7c6a361b067d1be94",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "1",
+          "RSY": "0.3"
+        },
+        "name": "Crack_SeisX",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[9, (0, 0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'RSX', 'RSY', 'EDZ'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.3, 0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": true
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "LC_H",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "LC_HE",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 8,
+            "name": "RSX",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 9,
+            "name": "RSY",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 10,
+            "name": "EDZ",
+            "scale_factor": 0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:2f74a0d0664c32b79b47c7170402876a5fcc1e2a0b85f7a5beecea19af74b232",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "1",
+          "RSY": "0.3"
+        },
+        "name": "Crack_SeisX_Soil",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[11, (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'LC_H', 'LC_HE', 'RSX', 'RSY', 'EDZ'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.3, 0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": true
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "RSX",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "RSY",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "EDZ",
+            "scale_factor": -0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:1a61a8b62831548beb437efdf82ea336af083dbce918fbdf3e5dd2a149515d0d",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "1",
+          "RSY": "0.3"
+        },
+        "name": "Crack_SeisX_Up",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[6, (0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'RSX', 'RSY', 'EDZ'), (0.9, 0.9, 0.9, 1.0, 0.3, -0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": true
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_H",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_HE",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "RSX",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "RSY",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "EDZ",
+            "scale_factor": -0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:2af200247afa3cc02c78d391655d94636b4bb4b3ebed16832cccdbefed8dd3a6",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "1",
+          "RSY": "0.3"
+        },
+        "name": "Crack_SeisX_UpSoil",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[8, (0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_H', 'LC_HE', 'RSX', 'RSY', 'EDZ'), (0.9, 0.9, 0.9, 1.0, 1.0, 1.0, 0.3, -0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": true
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "RSY",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "RSX",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 8,
+            "name": "EDZ",
+            "scale_factor": 0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:0da9e8a2a1cb700828640f1215958b16f94a465b6135e5eaad72526fb45bde5f",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "0.3",
+          "RSY": "1"
+        },
+        "name": "Crack_SeisY",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[9, (0, 0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'RSY', 'RSX', 'EDZ'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.3, 0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": true
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "LC_H",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "LC_HE",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 8,
+            "name": "RSY",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 9,
+            "name": "RSX",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 10,
+            "name": "EDZ",
+            "scale_factor": 0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:fdb3c70acb2aa3f92a327455e443c5821d3ceff5c08b0401df740fb0fcd215dc",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "0.3",
+          "RSY": "1"
+        },
+        "name": "Crack_SeisY_Soil",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[11, (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'LC_H', 'LC_HE', 'RSY', 'RSX', 'EDZ'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.3, 0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": true
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "RSY",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "RSX",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "EDZ",
+            "scale_factor": -0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:6b6d53b7c6223748b1095aafb78ed5dad003e1b60238567df15eb628cfaad11d",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "0.3",
+          "RSY": "1"
+        },
+        "name": "Crack_SeisY_Up",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[6, (0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'RSY', 'RSX', 'EDZ'), (0.9, 0.9, 0.9, 1.0, 0.3, -0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": true
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_H",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_HE",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "RSY",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "RSX",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "EDZ",
+            "scale_factor": -0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:63d340279a6466697ef790bb0959195cfe5249e02dbf029a444c43a99dd7bc7e",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "0.3",
+          "RSY": "1"
+        },
+        "name": "Crack_SeisY_UpSoil",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[8, (0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_H', 'LC_HE', 'RSY', 'RSX', 'EDZ'), (0.9, 0.9, 0.9, 1.0, 1.0, 1.0, 0.3, -0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": true
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "RSX",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "RSY",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 8,
+            "name": "EDZ",
+            "scale_factor": 0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:eaa635e0f60f3b56b0c23d18e39278c86d7eef2ab52c92b8d2202f654cc90792",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "1",
+          "RSY": "0.3"
+        },
+        "name": "Duct_SeisX",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[9, (0, 0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'RSX', 'RSY', 'EDZ'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.3, 0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "LC_H",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "LC_HE",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 8,
+            "name": "RSX",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 9,
+            "name": "RSY",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 10,
+            "name": "EDZ",
+            "scale_factor": 0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:cb23218f6413d5b243799691e4a6de64677a5ca1d310b3430b3247ccaad92f1b",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "1",
+          "RSY": "0.3"
+        },
+        "name": "Duct_SeisX_Soil",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[11, (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'LC_H', 'LC_HE', 'RSX', 'RSY', 'EDZ'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.3, 0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "RSX",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "RSY",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "EDZ",
+            "scale_factor": -0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:1b426899c8bb6eac344882faa4a38f896323496d67cde23673f4089173156e24",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "1",
+          "RSY": "0.3"
+        },
+        "name": "Duct_SeisX_Up",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[6, (0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'RSX', 'RSY', 'EDZ'), (0.9, 0.9, 0.9, 1.0, 0.3, -0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_H",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_HE",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "RSX",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "RSY",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "EDZ",
+            "scale_factor": -0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:090f9498f41b8152fa1482ef4a42122152d07ca2d6edf7008e2fe7096f2fe15f",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "1",
+          "RSY": "0.3"
+        },
+        "name": "Duct_SeisX_UpSoil",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[8, (0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_H', 'LC_HE', 'RSX', 'RSY', 'EDZ'), (0.9, 0.9, 0.9, 1.0, 1.0, 1.0, 0.3, -0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "RSY",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "RSX",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 8,
+            "name": "EDZ",
+            "scale_factor": 0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:b7a628983afcdae2483ff912d2c74d0a7a12add1bb494b2f308a6a5c4bb16079",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "0.3",
+          "RSY": "1"
+        },
+        "name": "Duct_SeisY",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[9, (0, 0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'RSY', 'RSX', 'EDZ'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.3, 0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "LC_H",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "LC_HE",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 8,
+            "name": "RSY",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 9,
+            "name": "RSX",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 10,
+            "name": "EDZ",
+            "scale_factor": 0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:2475471c65b6ea067a404fb717da4abdde6354d74243af36f7c587ecf166ab22",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "0.3",
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1",
+          "RSX": "0.3",
+          "RSY": "1"
+        },
+        "name": "Duct_SeisY_Soil",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[11, (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'LC_H', 'LC_HE', 'RSY', 'RSX', 'EDZ'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.3, 0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "RSY",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "RSX",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "EDZ",
+            "scale_factor": -0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:bb22e10493d96630d37df0711f0ec4d52e49e50f39cae973838f98bd10de85ee",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "0.3",
+          "RSY": "1"
+        },
+        "name": "Duct_SeisY_Up",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[6, (0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'RSY', 'RSX', 'EDZ'), (0.9, 0.9, 0.9, 1.0, 0.3, -0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_H",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_HE",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "RSY",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "RSX",
+            "scale_factor": 0.3
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 7,
+            "name": "EDZ",
+            "scale_factor": -0.3
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:3013596d5f925b4ddee9b2ebabcf09f1bdd01fee555ebb8196c6be43beafbe80",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "EDZ": "-0.3",
+          "LC_DL": "0.9",
+          "LC_H": "1",
+          "LC_HE": "1",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9",
+          "RSX": "0.3",
+          "RSY": "1"
+        },
+        "name": "Duct_SeisY_UpSoil",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[8, (0, 0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_H', 'LC_HE', 'RSY', 'RSX', 'EDZ'), (0.9, 0.9, 0.9, 1.0, 1.0, 1.0, 0.3, -0.3), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "ENVELOPE",
+        "constituents": [
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 0,
+            "name": "Crack_SeisX",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 1,
+            "name": "Crack_SeisY",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 2,
+            "name": "Crack_SeisX_Soil",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 3,
+            "name": "Crack_SeisY_Soil",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 4,
+            "name": "Crack_SeisX_Up",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 5,
+            "name": "Crack_SeisY_Up",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 6,
+            "name": "Crack_SeisX_UpSoil",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 7,
+            "name": "Crack_SeisY_UpSoil",
+            "scale_factor": 1.0
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:4e48d6a6e4ce5a856731a0419f07692e9c8951071094959a233b198dafff35e7",
+        "flatten_status": "NOT_LINEAR_ADD_DO_NOT_FLATTEN",
+        "flattened_leaf_signature": null,
+        "name": "ENV_CRK",
+        "nested_dependency_names": [
+          "Crack_SeisX",
+          "Crack_SeisY",
+          "Crack_SeisX_Soil",
+          "Crack_SeisY_Soil",
+          "Crack_SeisX_Up",
+          "Crack_SeisY_Up",
+          "Crack_SeisX_UpSoil",
+          "Crack_SeisY_UpSoil"
+        ],
+        "raw_get_case_list": "[8, (1, 1, 1, 1, 1, 1, 1, 1), ('Crack_SeisX', 'Crack_SeisY', 'Crack_SeisX_Soil', 'Crack_SeisY_Soil', 'Crack_SeisX_Up', 'Crack_SeisY_Up', 'Crack_SeisX_UpSoil', 'Crack_SeisY_UpSoil'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0), 0]",
+        "raw_get_type_combo": "[1, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "ENVELOPE",
+        "constituents": [
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 0,
+            "name": "Cap_SeisX",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 1,
+            "name": "Cap_SeisY",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 2,
+            "name": "Cap_SeisX_Soil",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 3,
+            "name": "Cap_SeisY_Soil",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 4,
+            "name": "Cap_SeisX_Up",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 5,
+            "name": "Cap_SeisY_Up",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 6,
+            "name": "Cap_SeisX_UpSoil",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 7,
+            "name": "Cap_SeisY_UpSoil",
+            "scale_factor": 1.0
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:62acc8b0de6572e71161ddafd1730919d7c9272161163c3f516611109f7b96d6",
+        "flatten_status": "NOT_LINEAR_ADD_DO_NOT_FLATTEN",
+        "flattened_leaf_signature": null,
+        "name": "ENV_D",
+        "nested_dependency_names": [
+          "Cap_SeisX",
+          "Cap_SeisY",
+          "Cap_SeisX_Soil",
+          "Cap_SeisY_Soil",
+          "Cap_SeisX_Up",
+          "Cap_SeisY_Up",
+          "Cap_SeisX_UpSoil",
+          "Cap_SeisY_UpSoil"
+        ],
+        "raw_get_case_list": "[8, (1, 1, 1, 1, 1, 1, 1, 1), ('Cap_SeisX', 'Cap_SeisY', 'Cap_SeisX_Soil', 'Cap_SeisY_Soil', 'Cap_SeisX_Up', 'Cap_SeisY_Up', 'Cap_SeisX_UpSoil', 'Cap_SeisY_UpSoil'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0), 0]",
+        "raw_get_type_combo": "[1, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "ENVELOPE",
+        "constituents": [
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 0,
+            "name": "Grav_Service",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 1,
+            "name": "Grav_Ult",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 2,
+            "name": "Grav_TempPos",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 3,
+            "name": "Grav_TempNeg",
+            "scale_factor": 1.0
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:fbf2ef102073bf05f477fde9c90e1b1f42350ea81bbea7cb01e034806c5f3b9a",
+        "flatten_status": "NOT_LINEAR_ADD_DO_NOT_FLATTEN",
+        "flattened_leaf_signature": null,
+        "name": "ENV_GRAV",
+        "nested_dependency_names": [
+          "Grav_Service",
+          "Grav_Ult",
+          "Grav_TempPos",
+          "Grav_TempNeg"
+        ],
+        "raw_get_case_list": "[4, (1, 1, 1, 1), ('Grav_Service', 'Grav_Ult', 'Grav_TempPos', 'Grav_TempNeg'), (1.0, 1.0, 1.0, 1.0), 0]",
+        "raw_get_type_combo": "[1, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "ENVELOPE",
+        "constituents": [
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 0,
+            "name": "Soil_Ult",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 1,
+            "name": "Soil_Up",
+            "scale_factor": 1.0
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:7c556f94bffef09f537f38a93c60b7f038e55ea349953b1a1127a175eb54ef18",
+        "flatten_status": "NOT_LINEAR_ADD_DO_NOT_FLATTEN",
+        "flattened_leaf_signature": null,
+        "name": "ENV_SOIL",
+        "nested_dependency_names": [
+          "Soil_Ult",
+          "Soil_Up"
+        ],
+        "raw_get_case_list": "[2, (1, 1), ('Soil_Ult', 'Soil_Up'), (1.0, 1.0), 0]",
+        "raw_get_type_combo": "[1, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "ENVELOPE",
+        "constituents": [
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 0,
+            "name": "Duct_SeisX",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 1,
+            "name": "Duct_SeisY",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 2,
+            "name": "Duct_SeisX_Soil",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 3,
+            "name": "Duct_SeisY_Soil",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 4,
+            "name": "Duct_SeisX_Up",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 5,
+            "name": "Duct_SeisY_Up",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 6,
+            "name": "Duct_SeisX_UpSoil",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_COMBO",
+            "cname_type_code": 1,
+            "index": 7,
+            "name": "Duct_SeisY_UpSoil",
+            "scale_factor": 1.0
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:ae177b032434c16d4d75a975de82da0a510e4634a36d62053eef55f0de939af2",
+        "flatten_status": "NOT_LINEAR_ADD_DO_NOT_FLATTEN",
+        "flattened_leaf_signature": null,
+        "name": "ENV_UNC",
+        "nested_dependency_names": [
+          "Duct_SeisX",
+          "Duct_SeisY",
+          "Duct_SeisX_Soil",
+          "Duct_SeisY_Soil",
+          "Duct_SeisX_Up",
+          "Duct_SeisY_Up",
+          "Duct_SeisX_UpSoil",
+          "Duct_SeisY_UpSoil"
+        ],
+        "raw_get_case_list": "[8, (1, 1, 1, 1, 1, 1, 1, 1), ('Duct_SeisX', 'Duct_SeisY', 'Duct_SeisX_Soil', 'Duct_SeisY_Soil', 'Duct_SeisX_Up', 'Duct_SeisY_Up', 'Duct_SeisX_UpSoil', 'Duct_SeisY_UpSoil'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0), 0]",
+        "raw_get_type_combo": "[1, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.0
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:b92f13e4855f769c3d634b75fc23187f10346e8091b0c3338e5c66dae3b35b0f",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "LC_DDL": "1",
+          "LC_DL": "1",
+          "LC_LL": "1",
+          "LC_S": "1",
+          "LC_SDL": "1",
+          "LC_WDL": "1"
+        },
+        "name": "Grav_Service",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[6, (0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S'), (1.0, 1.0, 1.0, 1.0, 1.0, 1.0), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": true
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.2
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.2
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.2
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "LC_T",
+            "scale_factor": -1.2
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:b287f6e9c2ada35460dfb1741d4726fdc7414a53c7cfe32e286532fe817716f9",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "LC_DDL": "1.2",
+          "LC_DL": "1",
+          "LC_LL": "1.2",
+          "LC_S": "1.2",
+          "LC_SDL": "1",
+          "LC_T": "-1.2",
+          "LC_WDL": "1"
+        },
+        "name": "Grav_TempNeg",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[7, (0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'LC_T'), (1.0, 1.0, 1.0, 1.2, 1.2, 1.2, -1.2), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": true
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.0
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.2
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.2
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.2
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "LC_T",
+            "scale_factor": 1.2
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:8170e46595d1e35ce4a92f75fafd11ceaac283abc4f0b3d972736239d3f54ede",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "LC_DDL": "1.2",
+          "LC_DL": "1",
+          "LC_LL": "1.2",
+          "LC_S": "1.2",
+          "LC_SDL": "1",
+          "LC_T": "1.2",
+          "LC_WDL": "1"
+        },
+        "name": "Grav_TempPos",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[7, (0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'LC_T'), (1.0, 1.0, 1.0, 1.2, 1.2, 1.2, 1.2), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": true
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.4
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.4
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.4
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.6
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.6
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.6
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:2200d4cc006f5e76a8ec336181365f3edc6d2bd09c886fadcd198d7923e87ac1",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "LC_DDL": "1.6",
+          "LC_DL": "1.4",
+          "LC_LL": "1.6",
+          "LC_S": "1.6",
+          "LC_SDL": "1.4",
+          "LC_WDL": "1.4"
+        },
+        "name": "Grav_Ult",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[6, (0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S'), (1.4, 1.4, 1.4, 1.6, 1.6, 1.6), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": true
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 1.4
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 1.4
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 1.4
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_LL",
+            "scale_factor": 1.6
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 4,
+            "name": "LC_DDL",
+            "scale_factor": 1.6
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 5,
+            "name": "LC_S",
+            "scale_factor": 1.6
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 6,
+            "name": "LC_H",
+            "scale_factor": 1.6
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:5e943fdb0f31aec52919e123827d0b8bbf2fdac2a2796bc186761869f3849f7d",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "LC_DDL": "1.6",
+          "LC_DL": "1.4",
+          "LC_H": "1.6",
+          "LC_LL": "1.6",
+          "LC_S": "1.6",
+          "LC_SDL": "1.4",
+          "LC_WDL": "1.4"
+        },
+        "name": "Soil_Ult",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[7, (0, 0, 0, 0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_LL', 'LC_DDL', 'LC_S', 'LC_H'), (1.4, 1.4, 1.4, 1.6, 1.6, 1.6, 1.6), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      },
+      {
+        "combo_type": "LINEAR_ADD",
+        "constituents": [
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 0,
+            "name": "LC_DL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 1,
+            "name": "LC_SDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 2,
+            "name": "LC_WDL",
+            "scale_factor": 0.9
+          },
+          {
+            "cname_type": "LOAD_CASE",
+            "cname_type_code": 0,
+            "index": 3,
+            "name": "LC_H",
+            "scale_factor": 1.6
+          }
+        ],
+        "definition_fingerprint": "combo-definition:sha256:665496f45f0be1d98378a508db48a29882946f1d66a550502120793c9136e70c",
+        "flatten_status": "PROVEN_LINEAR_ADD",
+        "flattened_leaf_signature": {
+          "LC_DL": "0.9",
+          "LC_H": "1.6",
+          "LC_SDL": "0.9",
+          "LC_WDL": "0.9"
+        },
+        "name": "Soil_Up",
+        "nested_dependency_names": [],
+        "raw_get_case_list": "[4, (0, 0, 0, 0), ('LC_DL', 'LC_SDL', 'LC_WDL', 'LC_H'), (0.9, 0.9, 0.9, 1.6), 0]",
+        "raw_get_type_combo": "[0, 0]",
+        "selected_for_concrete_design": false
+      }
+    ],
+    "count": 35,
+    "source": "preflight-fact:sha256:6af357f5ed1d21a621ff248509db49355750d23ec073559d92eb0120a49e32af"
+  },
+  "MODAL_COMBINATION_METHOD": "NOT_CAPTURED_IN_FC09_PREFLIGHT",
+  "SNOW_1.0_VS_0.2_DISPOSITION": {
+    "case": {
+      "context_refs": {
+        "capture_ref": "etabs-acquisition-context:sha256:c400afd97e7defd21fd794be8505c4dd14d21811a944e7a30350176567618fdc",
+        "evidence_epoch_id": "epoch:live-acquisition:sha256:bd87f77203760afe9d18655f2afd920e21612484331edd71cf01913ab34c6120",
+        "session_ref": "etabs-session-provenance:sha256:034846894197efa1b75ac1fcf728feb8b307cae9b33dce54fbf8cd40b67db751",
+        "source_model_ref": "etabs-source-model-ref:sha256:a8458d0b0d05dbeec2677802b1b50878fd8013277c74252dc3cd432a08fc5670"
+      },
+      "payload_ref": "preflight-fact:sha256:1378e701723fa9f3aa3a158147c0d9265426a2f1e030bd2de7a08b83dedce591",
+      "status": "CAPTURED",
+      "value": {
+        "loads": [
+          {
+            "index": 0,
+            "load_name": "LC_S",
+            "load_type": "Load",
+            "scale_factor": 1.0
+          }
+        ],
+        "name": "LC_S",
+        "raw_response": [
+          1,
+          [
+            "Load"
+          ],
+          [
+            "LC_S"
+          ],
+          [
+            1.0
+          ],
+          0
+        ]
+      }
+    },
+    "pattern": {
+      "context_refs": {
+        "capture_ref": "etabs-acquisition-context:sha256:c400afd97e7defd21fd794be8505c4dd14d21811a944e7a30350176567618fdc",
+        "evidence_epoch_id": "epoch:live-acquisition:sha256:bd87f77203760afe9d18655f2afd920e21612484331edd71cf01913ab34c6120",
+        "session_ref": "etabs-session-provenance:sha256:034846894197efa1b75ac1fcf728feb8b307cae9b33dce54fbf8cd40b67db751",
+        "source_model_ref": "etabs-source-model-ref:sha256:a8458d0b0d05dbeec2677802b1b50878fd8013277c74252dc3cd432a08fc5670"
+      },
+      "payload_ref": "preflight-fact:sha256:f865d66aecb6975a57bc37dfc5c202cee538ab561e524bb28110c115b6666919",
+      "status": "CAPTURED",
+      "value": {
+        "name": "LC_S",
+        "raw_response": [
+          7,
+          0
+        ],
+        "type_code": 7
+      }
+    },
+    "policy_or_model_changed": false,
+    "rows": [
+      {
+        "accepted_seismic_S": "0.2",
+        "actual_LC_S": "1",
+        "classification": "TRUE_POLICY_MISMATCH",
+        "difference": "0.8",
+        "identity": [
+          "Strength",
+          "Crack_SeisX"
+        ]
+      },
+      {
+        "accepted_seismic_S": "0.2",
+        "actual_LC_S": "1",
+        "classification": "TRUE_POLICY_MISMATCH",
+        "difference": "0.8",
+        "identity": [
+          "Strength",
+          "Crack_SeisX_Soil"
+        ]
+      },
+      {
+        "accepted_seismic_S": "0.2",
+        "actual_LC_S": "1",
+        "classification": "TRUE_POLICY_MISMATCH",
+        "difference": "0.8",
+        "identity": [
+          "Strength",
+          "Crack_SeisY"
+        ]
+      },
+      {
+        "accepted_seismic_S": "0.2",
+        "actual_LC_S": "1",
+        "classification": "TRUE_POLICY_MISMATCH",
+        "difference": "0.8",
+        "identity": [
+          "Strength",
+          "Crack_SeisY_Soil"
+        ]
+      }
+    ],
+    "source_correction": "Review LC_S coefficient 1.0 -> 0.2 in the four listed selected downward Crack combos; any EDB change requires new hash and reviewed-policy reconciliation",
+    "status": "SOURCE_CORRECTION_REQUIRED"
+  },
+  "PROTA_REFERENCE_SIGNATURES": {
+    "status": "PARTIAL",
+    "authority": "Comparison/prior art only; neither FC09 project authority nor a concurrency contract",
+    "supplied_80_row_reference": {
+      "source": "R3B supervisor attachment section 4; numeric per-row 80-row table was not attached locally or recovered in the bounded search",
+      "concrete_rows_9_40": {
+        "Gc": [
+          1.0,
+          0.9
+        ],
+        "Qc": [
+          1.0,
+          0.0
+        ],
+        "S_with_Qc": 0.2,
+        "Ez_numeric": [
+          0.3,
+          -0.3
+        ],
+        "horizontal_primary_secondary": [
+          1.0,
+          0.3
+        ],
+        "Ey_fields": "INCOMPLETE_DO_NOT_RECONSTRUCT"
+      },
+      "distinct_family_rows_41_56": {
+        "G": 1.2,
+        "Q": 1.0,
+        "S": 0.2,
+        "visible_Ez": 0.3
+      },
+      "wind_rows_69_72": {
+        "G": 1.2,
+        "Q": 1.0,
+        "S": 0.5,
+        "W": "alternative directional case; individual numeric signatures not supplied"
+      }
+    },
+    "recovered_example_reports": [
+      {
+        "name": "sway1.docx",
+        "url": "https://drive.google.com/file/d/10Wx6oZY1O1O8x_6Mm_PugRkWEEmnascR/view",
+        "sha256": "6e8863ae52834af5febbdd30db0648de186a713f7da991e05db660bb2425b0d7",
+        "finding": "Q=1.5*Delta*(sumNd/h)/Vf, critical combo by direction, prevented/permitted outputs; does not disclose modal aggregate or compatibility algebra"
+      },
+      {
+        "name": "tr2.docx",
+        "url": "https://drive.google.com/file/d/14goOgcl7bs7AoFInwxyEqUsh1JC2lsAa/view",
+        "sha256": "fed779673b89681a733101ea42fbf640f7da692bc24f7a72a9c2c3624be0c194",
+        "finding": "19 complete numeric combo rows; 2-story different example, no snow column. Not the supplied 80-row reference"
+      },
+      {
+        "name": "tr6.docx",
+        "url": "https://drive.google.com/file/d/1MlDeopGj-rolUJnRLmLFgYVP2wfMC6m3/view",
+        "sha256": "3d9d226df14262457c83e539397c6a975ed587f5d873db6ed44bff1046f6f543",
+        "table_index_zero_based": 9,
+        "numeric_table": [
+          [
+            "No",
+            "Combination",
+            "G",
+            "Gc",
+            "Q",
+            "Qc",
+            "Qp1",
+            "Qp2",
+            "Ez",
+            "Ex+",
+            "Ex-",
+            "Ey+",
+            "Ey-"
+          ],
+          [
+            "1",
+            "G+Q",
+            "1.40",
+            ".00",
+            "1.60",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            ".00"
+          ],
+          [
+            "2",
+            "G+Qp1",
+            "1.40",
+            ".00",
+            ".00",
+            ".00",
+            "1.60",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            ".00"
+          ],
+          [
+            "3",
+            "G+Qp2",
+            "1.40",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            "1.60",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            ".00"
+          ],
+          [
+            "4",
+            "Gc+Qc+Ez+Ex+",
+            ".00",
+            "1.00",
+            ".00",
+            "1.00",
+            ".00",
+            ".00",
+            "0.30",
+            "1.00",
+            ".00",
+            ".00",
+            "0.30"
+          ],
+          [
+            "5",
+            "Gc+Qc+Ez-Ex+",
+            ".00",
+            "1.00",
+            ".00",
+            "1.00",
+            ".00",
+            ".00",
+            "0.30",
+            "- 1.00",
+            ".00",
+            ".00",
+            "- 0.30"
+          ],
+          [
+            "6",
+            "Gc+Qc+Ez+Ex-",
+            ".00",
+            "1.00",
+            ".00",
+            "1.00",
+            ".00",
+            ".00",
+            "0.30",
+            ".00",
+            "1.00",
+            "0.30",
+            ".00"
+          ],
+          [
+            "7",
+            "Gc+Qc+Ez-Ex-",
+            ".00",
+            "1.00",
+            ".00",
+            "1.00",
+            ".00",
+            ".00",
+            "0.30",
+            ".00",
+            "- 1.00",
+            "- 0.30",
+            ".00"
+          ],
+          [
+            "8",
+            "Gc+Qc+Ez+Ey+",
+            ".00",
+            "1.00",
+            ".00",
+            "1.00",
+            ".00",
+            ".00",
+            "0.30",
+            ".00",
+            "0.30",
+            "1.00",
+            ".00"
+          ],
+          [
+            "9",
+            "Gc+Qc+Ez-Ey+",
+            ".00",
+            "1.00",
+            ".00",
+            "1.00",
+            ".00",
+            ".00",
+            "0.30",
+            ".00",
+            "- 0.30",
+            "- 1.00",
+            ".00"
+          ],
+          [
+            "10",
+            "Gc+Qc+Ez+Ey-",
+            ".00",
+            "1.00",
+            ".00",
+            "1.00",
+            ".00",
+            ".00",
+            "0.30",
+            "0.30",
+            ".00",
+            ".00",
+            "1.00"
+          ],
+          [
+            "11",
+            "Gc+Qc+Ez-Ey-",
+            ".00",
+            "1.00",
+            ".00",
+            "1.00",
+            ".00",
+            ".00",
+            "0.30",
+            "- 0.30",
+            ".00",
+            ".00",
+            "- 1.00"
+          ],
+          [
+            "12",
+            "Gc+Ez+Ex+",
+            ".00",
+            "0.90",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            "- 0.30",
+            "1.00",
+            ".00",
+            ".00",
+            "0.30"
+          ],
+          [
+            "13",
+            "Gc+Ez-Ex+",
+            ".00",
+            "0.90",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            "- 0.30",
+            "- 1.00",
+            ".00",
+            ".00",
+            "- 0.30"
+          ],
+          [
+            "14",
+            "Gc+Ez+Ex-",
+            ".00",
+            "0.90",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            "- 0.30",
+            ".00",
+            "1.00",
+            "0.30",
+            ".00"
+          ],
+          [
+            "15",
+            "Gc+Ez-Ex-",
+            ".00",
+            "0.90",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            "- 0.30",
+            ".00",
+            "- 1.00",
+            "- 0.30",
+            ".00"
+          ],
+          [
+            "16",
+            "Gc+Ez+Ey+",
+            ".00",
+            "0.90",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            "- 0.30",
+            ".00",
+            "0.30",
+            "1.00",
+            ".00"
+          ],
+          [
+            "17",
+            "Gc+Ez-Ey+",
+            ".00",
+            "0.90",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            "- 0.30",
+            ".00",
+            "- 0.30",
+            "- 1.00",
+            ".00"
+          ],
+          [
+            "18",
+            "Gc+Ez+Ey-",
+            ".00",
+            "0.90",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            "- 0.30",
+            "0.30",
+            ".00",
+            ".00",
+            "1.00"
+          ],
+          [
+            "19",
+            "Gc+Ez-Ey-",
+            ".00",
+            "0.90",
+            ".00",
+            ".00",
+            ".00",
+            ".00",
+            "- 0.30",
+            "- 0.30",
+            ".00",
+            ".00",
+            "- 1.00"
+          ]
+        ],
+        "finding": "19 complete numeric rows; no Snow column. Ez-minus-looking names with positive numeric Ez exist. Preserve numeric entries; do not substitute this different example for the 80-row table"
+      }
+    ],
+    "caveats": [
+      "Use numeric coefficients over combination names",
+      "Ex+/Ex- may be separate eccentricity cases, not physical modal signs; case definitions unavailable",
+      "Do not copy steel G=1.2 into concrete G=1.0",
+      "Seismic 0.2S and wind 0.5S remain distinct",
+      "Do not deduplicate wind names without full numeric signatures",
+      "Do not invent missing Ey fields"
+    ],
+    "reconciliation_result": "FC09 true snow mismatch independently proven without requiring Prota row inference"
+  },
+  "accepted_TBDY_templates": {
+    "concrete_down": "G+Q+0.2S+EdH+0.3EDZ",
+    "concrete_up": "0.9G+H+EdH-0.3EDZ",
+    "EdH_X": "RSX+0.3RSY subject to factual directional qualification and signed alternatives",
+    "EdH_Y": "0.3RSX+RSY subject to factual directional qualification and signed alternatives",
+    "G": [
+      "LC_DL",
+      "LC_SDL",
+      "LC_WDL"
+    ],
+    "Q": [
+      "LC_LL",
+      "LC_DDL"
+    ],
+    "S": "LC_S",
+    "H": "Project-applicable earth pressure; LC_H and LC_HE are factual constituents of selected Soil variants, but absence in other variants is not universal nonapplicability",
+    "scope": "Four symbolic templates do not prove completeness of polarity/eccentricity branches or physical concurrency"
+  },
+  "selected_12_template_disposition": {
+    "Crack_SeisX": "TRUE_POLICY_MISMATCH: LC_S=1 instead of 0.2",
+    "Crack_SeisY": "TRUE_POLICY_MISMATCH: LC_S=1 instead of 0.2",
+    "Crack_SeisX_Soil": "TRUE_POLICY_MISMATCH: LC_S=1 instead of 0.2; H/HE applicability requires project context",
+    "Crack_SeisY_Soil": "TRUE_POLICY_MISMATCH: LC_S=1 instead of 0.2; H/HE applicability requires project context",
+    "Crack_SeisX_Up": "Numeric 0.9G, no Q/S, -0.3EDZ MATCH template fragment; internal RS and H applicability unresolved",
+    "Crack_SeisY_Up": "Numeric 0.9G, no Q/S, -0.3EDZ MATCH template fragment; internal RS and H applicability unresolved",
+    "Crack_SeisX_UpSoil": "Numeric 0.9G+LC_H+LC_HE, no Q/S, -0.3EDZ MATCH template fragment; H/HE/RS context unresolved",
+    "Crack_SeisY_UpSoil": "Numeric 0.9G+LC_H+LC_HE, no Q/S, -0.3EDZ MATCH template fragment; H/HE/RS context unresolved",
+    "Grav_Service": "12-policy MATCH; different nonseismic family, not one of four templates",
+    "Grav_Ult": "12-policy MATCH; 1.4G+1.6Q+1.6S, different nonseismic family",
+    "Grav_TempPos": "12-policy MATCH; different temperature family",
+    "Grav_TempNeg": "12-policy MATCH; different temperature family"
+  },
+  "M6_A_REUSE": {
+    "status": "REUSED / ACCEPTED PRINCIPLE, NOT EXECUTED ON FC09 RESULTS",
+    "authority": "R3B supervisor attachment section 6.1 supersedes older M6 NOT_PROVEN status only for aggregate-first principle",
+    "operand": "R_n = sum over complete qualified story columns of Ndi,n / li; signed per-mode column aggregate first; source-authorized modal combination afterwards",
+    "not_permitted": [
+      "Sum independent member CQC maxima",
+      "Assign physical response-spectrum signs",
+      "Assume zero vertical resultant",
+      "Treat modal eigenvector forces as spectrally scaled RS contributions without qualification",
+      "Treat statistical effect as synchronous time-history state"
+    ],
+    "existing_reuse_owners": [
+      "tbdy_engine/providers/etabs_story_stability_result_provider.py:_sum_story_axial_compression_n (signed physical-bottom column population; current concurrent slice only)",
+      "tbdy_engine/etabs/oapi/eq713_response_results.py (typed local generalized force acquisition)",
+      "tbdy_engine/etabs/oapi/analysis_execution.py:ResponseSpectrumModalCaseFact (factual dependency only)",
+      "tbdy_engine/design/columns/sway_stability.py (keep pure Eq.7.13 kernel)",
+      "tbdy_engine/analysis_basis/eq713_uncracked_analysis_state.py (keep E2 authority)"
+    ],
+    "historical_M5B_reconciliation": {
+      "base_HEAD": "0d9239ee20e3e6edc53d5d7872eb6814a98735f1",
+      "disposition": "Prior-art authority boundary only; do not replace later M5 closure, FC09 R0/R1/A4 closures or latest R3B M6-A acceptance with old NOT_PROVEN status",
+      "Eq727_relation": "ANALOGOUS_SUPPORT_ONLY; not a direct Eq713 population/sign definition",
+      "global_section_cut_replacement": "NOT_AUTHORIZED; consistent with current M6-B findings",
+      "modal_identity_extraction": "Historical mmap extraction can establish modal dependency/participation only in its exact old artifact; it supplies neither FC09 modal combination settings nor current B5 scaled Column force contributions",
+      "tension_population_rule": "Latest R3B explicitly accepts signed aggregate over qualified columns. This older request asks an unresolved question; it does not override that new accepted principle or authorize a compression-only clip."
+    }
+  },
+  "M6_B_NATIVE_AGGREGATE_FINDINGS": {
+    "status": "EXACT_REMAINING_EDGE / NOT CLOSED",
+    "Story_Forces_P": {
+      "historical_evidence": "Library libfile_f3d19a951c548191ba7b902dcbaf09e3, M5_BBLOK_STORY_RESULTANT_PROBE.json lines 1-115; old HEAD 371775aa; source/session not current B5",
+      "observed": "Modal story +14.5 Bottom P=-5.3713 at mode 1, P=4.157 at mode 2; confirms nonzero resultant only",
+      "barrier": "P has force dimension, not sum(Ndi/li). Column-only boundary, proper li weighting and complete cut-transfer contribution are not qualified by Story P. RS Max/Min P cannot be substituted for signed column aggregate"
+    },
+    "Section_Cut_F3": {
+      "status": "NOT_PROVEN",
+      "finding": "No section-cut factual owner or current FC09 section-cut capture is available in this candidate/receipt. Exact section membership, cut axes/sign, Column-only boundary and length weighting not supplied. A native F3 force is not automatically a force/length operand"
+    },
+    "per_mode_column_tables": {
+      "historical_evidence": "Library libfile_d78eaa081bd88191b20cf1db2d5bea92, M5_BBLOK_MODAL_ROUTE_PROBE.json summary lines 18284-18309",
+      "full_modal_column_population": true,
+      "modal_force_modes_equal_modal_mass_modes": false,
+      "finding": "M5 supplies prior evidence of coupling; it does not qualify complete spectrally scaled mode contributions for current FC09 uncracked B5"
+    },
+    "existing_eq713_response_mechanics": {
+      "owner": "tbdy_engine/analysis_basis/eq713_response_mechanics.py + providers/etabs_eq713_response_provider.py",
+      "finding": "Positive-only member stiffness-mode participation. No CQC/SRSS story design-force aggregate and no joint Delta/R/V stability-state qualifier. Reuse acquisition/E2 lineage, not its participation boolean as a force operand"
+    },
+    "capability_limit": "No ETABS execution permitted: current native table/section-cut availability has not been exhaustively live-proven. A claim that ETABS cannot provide an exact operand is not made."
+  },
+  "EQ713_STABILITY_STATE_CAPABILITY": {
+    "EXACT_EXISTING_COMBO": "Current canonical owner recognizes existing LINEAR_ADD with promoted atomic LinStatic G/Q and one E; no qualified RS promotion. Current G/Q reviewed design combos are present but are not exact source-authorized Eq.7.13 GQE states",
+    "DERIVED_MODAL_DESIGN_EFFECT": "Aggregate-first R_n principle authorized; full FC09 mode/scaling/direction facts and joint operand design-effect contract not yet available",
+    "PHYSICALLY_CONCURRENT_STATE": "NOT_PROVEN_FOR_RESPONSE_SPECTRUM; do not weaken signed Single Value physical-state contract",
+    "STATISTICAL_MAXIMUM_RANGE": "TBDY response-spectrum effect permitted as statistical magnitude/range; does not identify independent member extrema as concurrent",
+    "exact_remaining_authority_question": "For FC09 TS500 Eq.7.13 under G+Q+E, what source-backed compatible DESIGN_EFFECT rule joins the accepted aggregate-first modal R=sum(Ndi/li) with Delta_i and Vfi, including gravity, EDZ and X/Y branches and governing selection, while explicitly retaining statistical rather than physical-concurrent semantics?",
+    "exact_remaining_factual_capability": "Complete direction/scaling/modal-method RS signatures and complete per-mode physical Column contributions with li and same qualified uncracked B5 AnalysisResultIdentity/execution-proof lineage",
+    "A17_142": "TRUTHFULLY_BLOCKED; no A17 status or READY promotion changed",
+    "W": "PROVEN_NOT_APPLICABLE by unchanged FC09 authority",
+    "all_260_READY_required": false,
+    "B6_policy": "READY=0 -> StartDesign=0; READY>0 -> one shared B6 / at most one StartDesign; continue legal READY leaves",
+    "next_live_run_authorized": false
+  },
+  "implementation": {
+    "production_files_changed": [],
+    "offline_tool": "tools/column_r1_r3b_combo_reconciliation.py",
+    "test_file": "tests/application/test_column_r1_r3b_combo_reconciliation.py",
+    "existing_owners_reused": [
+      "column_public_a5._flatten_combo",
+      "column_concrete_design_evidence_authority.neutral_combo_definition",
+      "column_concrete_design_evidence_authority.normalized_combo_definition_fingerprint",
+      "column_r1_bblok_fc09_reviewed_inputs.load_inputs with exact 9D7 verification"
+    ],
+    "not_changed": [
+      "R0/R1/A4",
+      "A18/A19",
+      "12 reviewed combos",
+      "9D7 bytes",
+      "VS5 policy",
+      "protected EDB",
+      "RunAnalysis/StartDesign lifecycle",
+      "sway engineering kernel"
+    ],
+    "reason_no_stability_patch": "No proven factual source-to-owner mismatch in this candidate authorizes converting RS maxima into Eq.7.13 operands. Snow is a protected-source/policy discrepancy, not an arithmetic bug to patch around."
+  },
+  "validation": {
+    "status": "PASS",
+    "prior_integrated_required": 846,
+    "modal_aggregation_regressions": "NOT_APPLICABLE: no modal aggregate implementation or semantic contract introduced",
+    "reproduction_command": "python tools/column_r1_r3b_combo_reconciliation.py --preflight C:\\tmp\\column-r1-r0-r1-preflight_20261009_192703.json --reviewed-inputs C:\\tmp\\column-r1-reviewed-inputs.py (installed repository dependencies; offline only)",
+    "integrated_distinct_PASS": 929,
+    "previous_distinct_846_ids_preserved": true,
+    "new_focused_PASS": 35,
+    "additional_existing_stability_response_regressions_PASS": 48,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "compile_import": "PASS",
+    "git_diff_check": "PASS",
+    "integrated_junit_SHA256": "E59BDCA86AB053AB7A7F84A868B4E609C8FD586A3F68CAF739BD7B4C626806C4",
+    "test_files": [
+      "tests/analysis_basis/test_eq713_frame_mechanics.py",
+      "tests/analysis_basis/test_eq713_uncracked_analysis_state.py",
+      "tests/application/test_column_a18_beam_fact_ordering.py",
+      "tests/application/test_column_public_a5_product_path.py",
+      "tests/application/test_column_public_b6_join.py",
+      "tests/application/test_column_public_b6_project_root.py",
+      "tests/application/test_column_public_mixed_vertical.py",
+      "tests/application/test_column_public_population_project_root.py",
+      "tests/application/test_column_r1_a35_longitudinal_detailing.py",
+      "tests/application/test_column_r1_a36_transverse_runtime.py",
+      "tests/application/test_column_r1_a37_limited_shear_runtime.py",
+      "tests/application/test_column_r1_bblok_e1_binding.py",
+      "tests/application/test_column_r1_e2_whole_system_gate.py",
+      "tests/application/test_column_r1_fc09_rebind.py",
+      "tests/architecture/test_b5_analysis_execution_guards.py",
+      "tests/coverage/test_column_r1_a39_fcr_reconciliation.py",
+      "tests/design/columns/test_column_r1_a0_fnd2_magnification_join.py",
+      "tests/design/columns/test_fnd_col_2_design_readiness.py",
+      "tests/design/columns/test_fnd_col_4_pmm_assessment.py",
+      "tests/design/columns/test_p8a_b_column_longitudinal_production_composition.py",
+      "tests/design/columns/test_story_relative_translation.py",
+      "tests/design/columns/test_vs6_p7_column_shear.py",
+      "tests/design/columns/test_vs6_rebar_selection.py",
+      "tests/design/columns/test_vs6_rebar_selection_authority.py",
+      "tests/etabs/test_column_r1_read_only_preflight.py",
+      "tests/etabs/test_database_table_field_metadata.py",
+      "tests/etabs/test_frame_section_inertia_authority_boundary.py",
+      "tests/etabs/test_native_frame_section_provenance.py",
+      "tests/etabs/test_native_material_provenance.py",
+      "tests/etabs/test_native_wall_thickness_provenance.py",
+      "tests/etabs/test_oapi_material_properties.py",
+      "tests/integration/test_b5_analysis_execution.py",
+      "tests/integration/test_b5_analysis_lineage_issuer.py",
+      "tests/integration/test_b5_response_spectrum_runtime_dependencies.py",
+      "tests/integration/test_b6_controlled_design_execution.py",
+      "tests/integration/test_b6_p0_design_preflight.py",
+      "tests/providers/test_b5_column_force_result_population_provider.py",
+      "tests/providers/test_column_b5_combo_force_projection.py",
+      "tests/providers/test_etabs_frame_eq713_population_a36_beam_mechanics.py",
+      "tests/providers/test_etabs_frame_eq713_population_a37_types.py",
+      "tests/providers/test_etabs_frame_eq713_population_p4a2.py",
+      "tests/providers/test_etabs_frame_eq713_population_snapshot_batch.py",
+      "tests/providers/test_etabs_frame_flexural_base_snapshot.py",
+      "tests/providers/test_flexural_base_metadata_acquisition.py",
+      "tests/providers/test_native_wall_thickness_consumer.py",
+      "tests/providers/test_p1a_source_unit_contract.py",
+      "tests/regulatory/test_column_shear_limited_775.py",
+      "tests/regulatory/test_column_shear_vc.py",
+      "tests/regulatory/test_column_transverse_confinement.py",
+      "tests/application/test_column_public_a4_post_continuity.py",
+      "tests/application/test_column_public_a5_frame_production_join.py",
+      "tests/application/test_column_r1_r3b_combo_reconciliation.py",
+      "tests/design/columns/test_column_r1_a0_stability_combo_basis.py",
+      "tests/design/columns/test_stability_output_state.py",
+      "tests/application/test_column_stability_runtime.py",
+      "tests/providers/test_etabs_story_stability_result_provider.py",
+      "tests/analysis_basis/test_eq713_response_mechanics.py",
+      "tests/providers/test_etabs_eq713_response_provider_p4b.py"
+    ]
+  },
+  "next_action": "Supervisor review of the exact four-combo +0.8S discrepancy and protected-source correction disposition; any approved EDB correction must get a fresh source SHA and reviewed-policy rebind before product live. No blanket re-audit or first-blocker diagnostic rerun.",
+  "report_environment": "Windows weasyprint installation issue remains separate; no ETABS rerun for PDF delivery."
+}

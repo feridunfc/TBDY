@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from decimal import Decimal
+import logging
 from typing import Callable, Mapping, Sequence
 
 from tbdy_engine.analysis_basis.eq713_uncracked_analysis_state import (
@@ -78,6 +79,8 @@ from tbdy_engine.etabs.oapi.object_model import (
     read_frame_local_axes_from_session,
 )
 from tbdy_engine.etabs.oapi.line_springs import LineSpringPropertyUniverseFact
+from tbdy_engine.etabs.oapi.frame_section_mechanics import FrameSectionMechanicsFact
+from tbdy_engine.etabs.oapi.material_properties import IsotropicMaterialPropertiesFact
 from tbdy_engine.features.column_shear_topology import ColumnTopologyEvidence, StrictColumnTopologyBundle
 from tbdy_engine.integration.etabs_analysis_execution import execute_controlled_analysis
 from tbdy_engine.integration.etabs_analysis_state_mutation import (
@@ -2501,6 +2504,45 @@ def _strict_column_topology_semantic_state(column):
     )
 
 
+def _property_unit_continuity_key(fact, outputs, dimension):
+    """Validate each fresh binding, then compare source authority semantics.
+
+    Capture identities and their evidence digests remain on the original facts.
+    The native owner validates each capture's before/after active/unit state;
+    those acquisition observations are not an immutable PRE/POST property.
+    """
+    fields = (
+        "source_call", "subject_key", "output_key", "dimension", "source_unit",
+        "authority_ref", "authority_version", "authority_kind",
+        "source_model_ref", "session_ref", "raw_response_ref", "return_code",
+        "qualification", "reason",
+    )
+    return tuple(
+        tuple(getattr(binding, field) for field in fields)
+        for binding in (fact.source_unit_for(key, dimension) for key in outputs)
+    )
+
+
+def _section_mechanics_continuity_key(fact: FrameSectionMechanicsFact):
+    return (
+        fact.contract, fact.section_name, fact.area, fact.shear_area_2,
+        fact.shear_area_3, fact.torsional_constant, fact.inertia_22,
+        fact.inertia_33, fact.return_code, fact.source_call,
+        fact.raw_response_ref, fact.source_model_ref, fact.session_ref,
+        _property_unit_continuity_key(fact, ("I22", "I33"), "L4"),
+    )
+
+
+def _isotropic_material_continuity_key(fact: IsotropicMaterialPropertiesFact):
+    return (
+        fact.contract, fact.material_name, fact.modulus_of_elasticity,
+        fact.poisson_ratio, fact.thermal_coefficient, fact.shear_modulus,
+        fact.temperature, fact.return_code, fact.raw_response_ref,
+        fact.source_model_ref, fact.session_ref,
+        _property_unit_continuity_key(fact, ("E", "G"), "F/L2"),
+    )
+
+
 def _prove_post_continuity(
     *,
     context,
@@ -2638,16 +2680,24 @@ def _prove_post_continuity(
     pre_by_name = {row.frame_name: row for row in frame_pre.rows}
     for post in frame_post.rows:
         pre = pre_by_name[post.frame_name]
-        if (
-            post.base_fact.semantic_state_ref != pre.base_fact.semantic_state_ref
-            or post.section_mechanics.evidence_ref != pre.section_mechanics.evidence_ref
-            or post.releases.evidence_ref != pre.releases.evidence_ref
-            or post.isotropic_material.evidence_ref != pre.isotropic_material.evidence_ref
+        for property_name, key in (
+            ("base_fact", lambda fact: fact.semantic_state_ref),
+            ("section_mechanics", _section_mechanics_continuity_key),
+            ("releases", lambda fact: fact.evidence_ref),
+            ("isotropic_material", _isotropic_material_continuity_key),
         ):
-            raise PublicA5CompositionError(
-                BLOCKER_A4_POST_CONTINUITY,
-                f"Frame {post.frame_name!r} immutable factual state changed after B5",
-            )
+            try:
+                unchanged = key(getattr(post, property_name)) == key(getattr(pre, property_name))
+            except Exception as exc:
+                raise PublicA5CompositionError(
+                    BLOCKER_A4_POST_CONTINUITY,
+                    f"Frame {post.frame_name!r} {property_name} continuity unqualified: {exc}",
+                ) from exc
+            if not unchanged:
+                raise PublicA5CompositionError(
+                    BLOCKER_A4_POST_CONTINUITY,
+                    f"Frame {post.frame_name!r} {property_name} immutable factual state changed after B5",
+                )
 
     area_post = capture_area_contributor_population_from_session(
         context.verified_session,
@@ -3710,6 +3760,7 @@ def execute_public_a5_column(
             verify_full_population=materialize_full_population,
         )
     except PublicA5CompositionError as exc:
+        logging.getLogger(__name__).exception("A4 post-continuity rejected: %s", exc)
         if materialize_full_population:
             return _known_blocked_population(
                 request,
@@ -3719,7 +3770,8 @@ def execute_public_a5_column(
                 owned_scratch=owned_scratch,
             )
         return _blocked(request, context, exc.blocker)
-    except Exception:
+    except Exception as exc:
+        logging.getLogger(__name__).exception("A4 post-continuity acquisition failed: %s", exc)
         if materialize_full_population:
             return _known_blocked_population(
                 request,

@@ -57,7 +57,7 @@ from tbdy_engine.etabs.oapi.analysis_execution import DefinedAnalysisCasePopulat
 from tbdy_engine.etabs.oapi.frame_modifiers import FrameModifierVector
 from tbdy_engine.etabs.oapi.frame_releases import FrameReleaseFact
 from tbdy_engine.etabs.oapi.frame_section_mechanics import FrameSectionMechanicsFact
-from tbdy_engine.etabs.oapi.material_properties import IsotropicMaterialPropertiesFact
+from tests.application._a4_property_facts import material_fact
 from tbdy_engine.providers.etabs_auto_seismic_direction_provider import (
     EtabsAutoSeismicDirectionEvidence, EtabsAutoSeismicDirectionRow, REQUIRED_DIRECTION_FIELDS,
 )
@@ -73,6 +73,7 @@ from tbdy_engine.providers.etabs_concrete_design_combo_selection_probe import (
 from tbdy_engine.providers.etabs_story_stability_result_provider import EtabsStoryStabilityComboFact
 from tbdy_engine.providers.strict_topology_stiffness_evidence_provider import build_assigned_rc_frame_bending_modifier_evidence
 from tbdy_engine.regulatory.contracts import ApplicabilityState, AvailabilityState
+from unit_contract_fixtures import binding as synthetic_unit_binding
 
 
 C1, C2 = population.COMPONENT_1, population.COMPONENT_2
@@ -204,6 +205,7 @@ def _install(monkeypatch):
     @dataclass(frozen=True)
     class Base(setup.module._BaseFact):
         present_length_unit: int = 6
+        session_provenance_ref: str = "session-provenance:public-a5"
 
     facts = []
     beams = {b.beam_unique_name: b for c in topology.columns for b in (*c.beams_at_bottom, *c.beams_at_top)}
@@ -223,9 +225,23 @@ def _install(monkeypatch):
         fact.property_modifiers, fact.object_modifiers = prop, obj
         fact.member_role = "BEAM" if uid in beams else "COLUMN"
         fact.releases = FrameReleaseFact(uid, (False,) * 6, (False,) * 6, (0.,) * 6, (0.,) * 6, 0)
-        fact.section_mechanics = FrameSectionMechanicsFact(base.assigned_section_name, 0.4, 0.3, 0.3,
-            0.006, 0.008333333333333333, 0.021333333333333336, 0)
-        fact.isotropic_material = IsotropicMaterialPropertiesFact("C35", 33000.0, 0.2, 1e-5, 13200.0, 0.0, 0)
+        # Independent offline authority, never current native GetSectProps semantics.
+        # Retain the fixture's physical values; A18 must consume each own binding.
+        raw_mechanics = (0.4, 0.3, 0.3, 0.006, 0.008333333333333333,
+                         0.021333333333333336, 1., 1., 1., 1., 1., 1., 0)
+        mechanics = FrameSectionMechanicsFact(
+            base.assigned_section_name, *raw_mechanics[:6], 0,
+            raw_response=raw_mechanics, source_model_ref=base.source_model_ref,
+            session_ref=base.session_provenance_ref, capture_ref=f"synthetic:mechanics:{uid}",
+        )
+        fact.section_mechanics = replace(mechanics, unit_provenance=tuple(
+            synthetic_unit_binding(
+                mechanics.source_call, mechanics.section_name, key, "L4", "m4",
+                mechanics.raw_response_ref, model=mechanics.source_model_ref,
+                session=mechanics.session_ref, capture=mechanics.capture_ref,
+            ) for key in ("I22", "I33")
+        ))
+        fact.isotropic_material = material_fact()
         fact.source_refs = (f"factual-frame:{uid}", base.evidence_ref)
         if uid in beams:
             fact.beam_mechanics = NS(member_axis_vector=beams[uid].vector_from_joint_m,

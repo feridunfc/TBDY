@@ -214,7 +214,7 @@ def test_population_captures_one_base_snapshot_and_binds_many_supported_frames(
     monkeypatch.setattr(
         subject,
         "get_frame_section_mechanics_from_session",
-        lambda _session, *, section_name: _Section(section_name),
+        lambda _session, *, section_name, context, owned_scratch: _Section(section_name),
     )
     monkeypatch.setattr(
         subject,
