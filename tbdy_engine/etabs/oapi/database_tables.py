@@ -1302,12 +1302,15 @@ def fetch_display_table_for_output(
     *,
     preferred_output_case: str,
     max_rows: int | None = None,
+    modal_mode_range: tuple[int, int] | None = None,
 ) -> DisplayTableFetchResult:
     transaction = DatabaseTablesReadTransaction(database_tables)
     selection: Mapping[str, Any] = {}
     fetched: DisplayTableFetchResult | None = None
     with transaction:
         selection = transaction.select_output(preferred_output_case)
+        if modal_mode_range is not None:
+            transaction.select_modal_modes(modal_mode_range)
         fetched = fetch_display_table(database_tables, table_name, max_rows=max_rows)
     assert fetched is not None
     return replace(

@@ -24,6 +24,7 @@ from tbdy_engine.etabs.oapi.frame_modifiers import (
 )
 from tbdy_engine.etabs.oapi.frame_section_mechanics import FrameSectionMechanicsFact
 from tbdy_engine.etabs.oapi.material_properties import IsotropicMaterialPropertiesFact
+from tbdy_engine.etabs.oapi.database_tables import TableFieldMetadataFetchResult
 
 from .eq713_frame_mechanics import (
     FrameEq713MechanicsError,
@@ -572,6 +573,13 @@ CSI_NATIVE_MODAL_AMPLITUDE_SOURCE = (
     "https://wikicsiamerica.atlassian.net/wiki/spaces/kb/pages/2006323/"
     "Response-spectrum%2Banalysis%2BFAQ"
 )
+CSI_DATABASE_NORMALIZED_MODAL_AMPLITUDE_CONTRACT = (
+    "CSI_DATABASE_NORMALIZED_MODAL_AMPLITUDE_MULTIPLICATION_V1"
+)
+CSI_NATIVE_MODAL_NORMALIZATION_SOURCE = (
+    "https://docs.csiamerica.com/manuals/etabs/Analysis%20Reference.pdf"
+    "#printed-pages-376-394"
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -603,6 +611,9 @@ class NativeModalAmplitude:
     binding: NativeModalNormalizationBinding
     source_field: str
     raw_response_ref: str
+    native_field_unit: str | None = None
+    native_metadata_ref: str | None = None
+    normalization_contract: str | None = None
 
     def __post_init__(self):
         if type(self.mode) is not int or self.mode <= 0:
@@ -614,6 +625,58 @@ class NativeModalAmplitude:
         if self.source_field != expected:
             raise ValueError("amplitude field must be exact U1Amp/U2Amp/U3Amp; Acc is not a multiplier")
         _text(self.raw_response_ref, "amplitude raw_response_ref")
+        provenance = (self.native_field_unit, self.native_metadata_ref, self.normalization_contract)
+        if any(x is not None for x in provenance):
+            if self.native_field_unit != self.binding.database_length_unit:
+                raise ValueError("native amplitude field unit must remain the database length unit")
+            _text(self.native_metadata_ref, "native amplitude metadata ref")
+            if self.normalization_contract != CSI_DATABASE_NORMALIZED_MODAL_AMPLITUDE_CONTRACT:
+                raise ValueError("unsupported native modal normalization contract")
+
+
+def bind_database_normalized_native_modal_amplitude(
+    *, mode: int, period_s: float, native_value: float,
+    binding: NativeModalNormalizationBinding,
+    metadata: TableFieldMetadataFetchResult,
+    raw_response_ref: str,
+    observed_present_force_unit: str, observed_present_length_unit: str,
+) -> NativeModalAmplitude:
+    """Bind CSI's native numerical multiplier in the identical-unit scope.
+
+    CSI Analysis Reference (Rev.15), pp.376/394, defines unit-modal-mass
+    normalization and multiplication of modal responses by the reported Amp.
+    CSI's FAQ specifies database-unit normalization. The table's reported
+    length unit is retained; Amp is not relabelled dimensionless. No spectrum
+    scale, participation factor or eigenvalue is applied a second time.
+
+    The acquisition adapter must independently verify source/session/units
+    and the native modal response population. This pure binding cannot issue
+    B5 lineage, CQC combination or a joint TS500 design statistic. Different
+    present/database units are deliberately unsupported rather than guessed.
+    """
+    if not isinstance(binding, NativeModalNormalizationBinding):
+        raise TypeError("typed native modal binding required")
+    if not isinstance(metadata, TableFieldMetadataFetchResult):
+        raise TypeError("typed native field metadata required")
+    if binding.normalization_ref != CSI_DATABASE_NORMALIZED_MODAL_AMPLITUDE_CONTRACT:
+        raise ValueError("exact source-supported database normalization contract required")
+    if (observed_present_force_unit, observed_present_length_unit) != (
+        binding.database_force_unit, binding.database_length_unit
+    ):
+        raise ValueError("present/database unit mismatch: normalization conversion is not authorized")
+    if metadata.table_name != "Response Spectrum Modal Info" or metadata.return_code != 0:
+        raise ValueError("successful exact native amplitude table metadata required")
+    if len(set(metadata.field_keys)) != len(metadata.field_keys):
+        raise ValueError("duplicate native amplitude metadata field")
+    field = binding.source_direction + "Amp"
+    definition = metadata.field_metadata(field)
+    if definition["UnitsString"] != binding.database_length_unit or not definition["Description"]:
+        raise ValueError("native amplitude field unit/definition mismatch")
+    if metadata.field_metadata("Period")["UnitsString"] != "sec":
+        raise ValueError("native modal period unit must be sec")
+    return NativeModalAmplitude(mode, period_s, native_value, binding, field,
+        raw_response_ref, definition["UnitsString"], metadata.raw_response_ref,
+        CSI_DATABASE_NORMALIZED_MODAL_AMPLITUDE_CONTRACT)
 
 
 @dataclass(frozen=True, slots=True)

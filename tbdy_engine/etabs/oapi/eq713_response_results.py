@@ -7,7 +7,7 @@ applicability, participation, modifier targets, or PASS/FAIL.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 import math
 from typing import Any
@@ -47,6 +47,7 @@ class FrameForceResponseFact:
     rows: tuple[FrameForceResponseRow, ...]
     return_code: int
     source_api: str = "Results.FrameForce"
+    state_diagnostics: tuple[dict[str, Any], ...] = ()
 
     @property
     def evidence_ref(self) -> str:
@@ -398,6 +399,7 @@ def read_frame_force_response_from_session(
     frame_name: str,
     case_name: str,
     timeout_seconds: float = 30.0,
+    modal_mode_range: tuple[int, int] | None = None,
 ) -> FrameForceResponseFact:
     frame = _text(frame_name, "frame_name")
     case = _text(case_name, "case_name")
@@ -409,8 +411,12 @@ def read_frame_force_response_from_session(
             raise EtabsOAPIError("Results.FrameForce is unavailable")
         with ResultsSetupReadTransaction(sap_model) as transaction:
             transaction.select_case(case)
+            if modal_mode_range is not None:
+                transaction.select_modal_modes(modal_mode_range)
             raw = method(frame, _OBJECT_ELM)
-        return decode_frame_force_response(raw, frame_name=frame, case_name=case)
+        fact = decode_frame_force_response(raw, frame_name=frame, case_name=case)
+        return (replace(fact, state_diagnostics=tuple(dict(x) for x in transaction.diagnostics))
+                if modal_mode_range is not None else fact)
 
     return _execute_verified_read(
         session,

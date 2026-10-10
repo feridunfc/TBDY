@@ -11,6 +11,7 @@ from __future__ import annotations
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from enum import Enum
+import math
 import ntpath
 import threading
 from typing import Any, Mapping, Sequence
@@ -866,6 +867,109 @@ def _read_output_options_if_supported(database_tables: Any) -> tuple[Any, ...] |
     return tuple(values)
 
 
+class _ModalOutputOptionState:
+    """Subordinate native mode-range state for the existing read transactions.
+
+    CSI API ETABS v1 (2024), Get/SetOptionModeShape pp.265-266/286-287;
+    Get/SetOutputOptionsForDisplay pp.910-913/936-939. Only output options
+    change; every unrelated native scalar is retained and verified exactly.
+    """
+
+    def __init__(self, owner: Any, *, table: bool, diagnostics: list) -> None:
+        self.owner, self.table, self.diagnostics = owner, table, diagnostics
+        self.getter = "GetOutputOptionsForDisplay" if table else "GetOptionModeShape"
+        self.setter = "SetOutputOptionsForDisplay" if table else "SetOptionModeShape"
+        _require_methods(owner, (self.getter, self.setter))
+        self.before = self.read()
+        self.diagnostics.append({"phase": "modal_output_snapshot", "getter": self.getter,
+                                 "raw_response": list(self.before) + [0]})
+
+    def read(self) -> tuple[Any, ...]:
+        raw = getattr(self.owner, self.getter)()
+        size = 15 if self.table else 3
+        if (not isinstance(raw, (tuple, list)) or len(raw) != size + 1
+                or type(raw[-1]) is not int or raw[-1] != 0):
+            raise EtabsCapabilityError(f"{self.getter}: successful exact native ABI required",
+                code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED)
+        values = tuple(raw[:-1])
+        booleans = {0, 4, 7} if self.table else {2}
+        doubles = {1, 2, 3} if self.table else set()
+        for index, value in enumerate(values):
+            valid = (type(value) is bool if index in booleans else
+                     type(value) in (int, float) and math.isfinite(value) if index in doubles else
+                     type(value) is int)
+            if not valid:
+                raise EtabsCapabilityError(f"{self.getter}: native output {index} type invalid",
+                    code=EtabsSafetyErrorCode.STATE_SNAPSHOT_UNSUPPORTED)
+        return values
+
+    def write(self, values: tuple, *, restoring: bool) -> None:
+        raw = getattr(self.owner, self.setter)(*values)
+        if not (type(raw) is int and raw == 0 or
+                isinstance(raw, (tuple, list)) and len(raw) == 1
+                and type(raw[0]) is int and raw[0] == 0):
+            error = EtabsStateRestoreError if restoring else EtabsStateVerificationError
+            raise error(f"{self.setter}: native setter did not return success: {raw!r}",
+                code=(EtabsSafetyErrorCode.STATE_RESTORE_FAILED if restoring else
+                      EtabsSafetyErrorCode.TEMPORARY_STATE_SET_FAILED))
+
+    def apply(self, mode_range: tuple[int, int]) -> None:
+        if (not isinstance(mode_range, tuple) or len(mode_range) != 2
+                or any(type(x) is not int or x <= 0 for x in mode_range)
+                or mode_range[0] > mode_range[1]):
+            raise ValueError("positive exact inclusive modal range required")
+        requested = list(self.before)
+        if self.table:
+            requested[4:7] = [False, *mode_range]
+        else:
+            requested[:] = [*mode_range, False]
+        expected = tuple(requested)
+        self.write(expected, restoring=False)
+        actual = self.read()
+        verified = actual == expected
+        self.diagnostics.append({"phase": "temporary_modal_modes", "getter": self.getter,
+            "requested": list(expected), "observed": list(actual), "success": verified})
+        if not verified:
+            raise EtabsStateVerificationError(f"{self.getter}: temporary modal options differ",
+                code=EtabsSafetyErrorCode.TEMPORARY_STATE_VERIFY_FAILED)
+
+    def restore(self) -> None:
+        try:
+            self.write(self.before, restoring=True)
+            actual = self.read()
+            if actual != self.before:
+                raise EtabsStateRestoreError(f"{self.getter}: modal options did not restore exactly",
+                    code=EtabsSafetyErrorCode.STATE_RESTORE_VERIFY_FAILED)
+        except Exception as exc:
+            self.diagnostics.append({"phase": "modal_output_restore_verify", "success": False,
+                                     "getter": self.getter, "message": str(exc)})
+            raise
+        self.diagnostics.append({"phase": "modal_output_restore_verify", "success": True,
+            "getter": self.getter, "expected": list(self.before), "observed": list(actual)})
+
+
+def _restore_modal_option_then_selection(transaction: Any) -> Exception | None:
+    """Attempt both independent restorations even if either one fails."""
+    errors = []
+    if transaction._modal_output_state is not None:
+        try:
+            transaction._modal_output_state.restore()
+        except Exception as exc:
+            errors.append(exc)
+    try:
+        transaction._restore_and_verify()
+    except Exception as exc:
+        errors.append(exc)
+    if not errors:
+        return None
+    if len(errors) == 1 and isinstance(errors[0], EtabsStateRestoreError):
+        errors[0].details["state_diagnostics"] = tuple(transaction.diagnostics)
+        return errors[0]
+    return EtabsStateRestoreError("; ".join(str(x) for x in errors),
+        code=EtabsSafetyErrorCode.STATE_RESTORE_FAILED,
+        details={"state_diagnostics": tuple(transaction.diagnostics)})
+
+
 class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTransaction"]):
     """Reversible DatabaseTables case/combo display-selection transaction."""
 
@@ -883,6 +987,14 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
         self.snapshot: DatabaseTablesSelectionSnapshot | None = None
         self.diagnostics: list[dict[str, Any]] = []
         self._entered = False
+        self._modal_output_state: _ModalOutputOptionState | None = None
+
+    def select_modal_modes(self, mode_range: tuple[int, int]) -> None:
+        if not self._entered or self._modal_output_state is not None:
+            raise ValueError("one modal output range per entered transaction required")
+        self._modal_output_state = _ModalOutputOptionState(
+            self.database_tables, table=True, diagnostics=self.diagnostics)
+        self._modal_output_state.apply(mode_range)
 
     def __enter__(self) -> "DatabaseTablesReadTransaction":
         _PROCESS_LOCAL_ACQUISITION_LOCK.acquire()
@@ -1227,9 +1339,7 @@ class DatabaseTablesReadTransaction(AbstractContextManager["DatabaseTablesReadTr
     def __exit__(self, exc_type, exc, tb) -> bool:
         restore_error: Exception | None = None
         try:
-            self._restore_and_verify()
-        except Exception as restore_exc:
-            restore_error = restore_exc
+            restore_error = _restore_modal_option_then_selection(self)
         finally:
             if self._entered:
                 self._entered = False
@@ -1358,6 +1468,14 @@ class ResultsSetupReadTransaction(AbstractContextManager["ResultsSetupReadTransa
         self._combo_names: tuple[str, ...] = ()
         self.diagnostics: list[dict[str, Any]] = []
         self._entered = False
+        self._modal_output_state: _ModalOutputOptionState | None = None
+
+    def select_modal_modes(self, mode_range: tuple[int, int]) -> None:
+        if not self._entered or self._modal_output_state is not None:
+            raise ValueError("one modal output range per entered transaction required")
+        self._modal_output_state = _ModalOutputOptionState(
+            self.setup, table=False, diagnostics=self.diagnostics)
+        self._modal_output_state.apply(mode_range)
 
     def __enter__(self) -> "ResultsSetupReadTransaction":
         _PROCESS_LOCAL_ACQUISITION_LOCK.acquire()
@@ -1572,9 +1690,7 @@ class ResultsSetupReadTransaction(AbstractContextManager["ResultsSetupReadTransa
     def __exit__(self, exc_type, exc, tb) -> bool:
         restore_error: Exception | None = None
         try:
-            self._restore_and_verify()
-        except Exception as restore_exc:
-            restore_error = restore_exc
+            restore_error = _restore_modal_option_then_selection(self)
         finally:
             if self._entered:
                 self._entered = False
