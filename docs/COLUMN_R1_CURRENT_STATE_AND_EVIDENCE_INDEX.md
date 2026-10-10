@@ -1,6 +1,6 @@
 # Column-R1 current state and evidence index
 
-Reconciled 2026-10-10 after PR #197 integration and for the bounded R3D modal-population repair. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
+Reconciled 2026-10-10 after PR #197, the successful R3D operator capture and R3E native amplitude binding. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
 
 ## Accepted repository checkpoint and precedence
 
@@ -114,11 +114,11 @@ Recovered source locations:
 
 The 32-column example supports the recovered aggregate warning and internal Prota report consistency. It provides no current FC09 epoch, native modal normalization or approved joint Delta/R/V selection law. Original files may be supplied locally at `C:\tmp\column-r1-m6-reference` for exact-source verification; rounded report values do not authorize hidden-algorithm inference.
 
-## R3D current native receipt and completeness finding
+## R3D historical incomplete receipt and repair
 
 Historical source receipt: `column-r1-r3c-modal_20261010_065722.json`, SHA256 **`4ea722960a5167bdfee0545b645b1dc2a9dd7992c072f60fc53aca2038f5cac7`**. Complete raw JSON is external evidence, preserved at Library `libfile_dfd08b0570188191ba381e963b0fa378` (file `file_00000000e030820a8288326e647134f7`); it is not copied into Git. The worker verified the complete raw-file hash and exercised its actual rows in a regression. Do not overwrite it or reinterpret it as a qualified B5 result epoch.
 
-| Current FC09 native observation | Proven scope / limitation |
+| Historical 06:57 FC09 observation | Proven scope / limitation |
 | --- | --- |
 | RSX / RSY loads | U1 only / U2 only; actual dependency `Modal` |
 | Modal / directional combination | CQC / SRSS; damping 0.05; eccentricity 0.05 |
@@ -135,7 +135,17 @@ R3D extends the existing `ResultsSetupReadTransaction` and `DatabaseTablesReadTr
 
 `tools/column_r1_r3c_modal_read_only.py` now requires exact 100-mode equality per physical Column/element/station grain and physical endpoint/element grain, complete 86/172 connectivity coverage, and exact mode equality in amplitude, period, mass and filtered bottom-story shear tables. Story Forces candidates require exact `OutputCase=Modal`, `StepType=Mode`, `Story=+0.00`, native `Location=Bottom`; raw unrelated rows remain in the receipt. Native field metadata, observed present/database units, direction-specific load settings and mode/period alignment are retained and checked. Native `U1Amp/U2Amp/U3Amp` are dimensional length values in this receipt: **no multiplier, sign, normalization or unit scaling is invented**.
 
-Bounded implementation and negative-test validation are recorded in [R3D offline receipt](COLUMN_R1_R3D_OFFLINE_RECEIPT_2026-10-10.json). **100-mode native physical result coverage and native restoration remain pending the operator's new read.** Even a passing factual read cannot qualify modal normalization, a current uncracked B5 epoch/bridge, a native CQC adapter or the joint Delta/R/V design statistic. No R2/product rerun or TS500/READY promotion is authorized by this repair.
+Bounded implementation and negative-test validation are recorded in [R3D offline receipt](COLUMN_R1_R3D_OFFLINE_RECEIPT_2026-10-10.json). The historical pending-live status was closed by the later 07:32 operator receipt below. Historical receipts remain unchanged.
+
+## Current R3D live proof and R3E normalization binding
+
+Accepted R3D implementation HEAD `7bd7f4bbf9b2992c685f51db45f0b43a11ac633a`, TREE `e609d86df6a9adc5cd5b9fc9063b3ca584ea7150`; 1199 distinct PASS, zero failures/errors/skips, preserving all 1035 prior identities.
+
+Latest receipt: `column-r1-r3d-modal_20261010_073229.json`, SHA256 `83ce2ff7c3a6170e931d2869e212adde93b7c08b25bbf44e9f0c2c663f156b03`, complete raw file external at Library `libfile_3ee6376e3be481919daf1bc5554f2682`. **R3D CLOSED / LIVE PROVEN at +0.00**, 86 factual Columns/172 endpoints, exact 100-mode physical grains, source/session/units unchanged, all 263 modal output transactions restored. Initial API mode range 1–1 and table range 1–12 are now directly observed; temporary ranges 1–100 close the truncation. This receipt is factual, not a B5 result epoch.
+
+[R3E native normalization closure](COLUMN_R1_R3E_NATIVE_MODAL_NORMALIZATION_2026-10-10.md) records the exact CSI source law and the existing-owner binder. Database-normalized native Amp multiplies the signed native modal response directly within independently observed identical present/database units. Native length metadata, signs and raw refs remain intact. No second SF/participation/eigenvalue scaling is applied. The offline tool binds 200 actual amplitudes from the exact receipt bytes, with no ETABS access or engineering promotion. Current validation is in [R3E offline receipt](COLUMN_R1_R3E_OFFLINE_RECEIPT_2026-10-10.json).
+
+R3E validation: **1238 distinct PASS / 1238 executions / zero failures, errors or skips**, preserving all 1199 prior identities and adding 39 native-normalization regressions. Focused suite 81 PASS; compile/import and diff-check PASS. The machine receipt records exact tested-code and external JUnit hashes. Historical 958/1035/1199 receipts remain intact.
 
 ## R3C owners and gate boundaries
 
@@ -152,13 +162,13 @@ See [R3C modal handoff](COLUMN_R1_R3C_MODAL_GATE_HANDOFF_2026-10-09.md) and [off
 
 CSI sources and source-PDF hashes/pages are retained in the handoff/receipt. Original CSI API PDF SHA256 is `6ee860c75d37215d6d6c44251e94788709439e155b68a7939e893a66f01dda27`; TS500 PDF SHA256 is `d925114d01a1de2baee63738bc0da0112b547b58526c3394843c36ee66722d44`. These complete PDFs are external evidence, not tracked raw files.
 
-**Gate 1:** offline arithmetic passes. The 2026-10-10 receipt now proves the current native case signatures/methods and records amplitudes, but physical mode populations are incomplete as detailed above. Complete physical per-mode R/Delta/V, normalization and B5 lineage remain NOT PROVEN. Native CQC adapter is not implemented. Story Forces/base reactions are not asserted to be exact Column-only length-weighted R.
+**Gate 1:** exact native 100-mode populations and database-unit amplitude normalization are now proven within the accepted representative scope. Complete topology/length-bound physical per-mode R/Delta/V construction, source-exact CQC treatment and qualified current uncracked B5 lineage remain open. Native CQC adapter is not implemented. Story Forces/base reactions are not asserted to be exact Column-only length-weighted R. Numerical multiplication is not an engineering joint-statistic approval.
 
 **Gate 2 / actual OPEN M6-B decision:** qualify one exact unfavorable TS500 Eq.7.13 joint Delta/R/V design statistic for 1.0G+1.0Q+E, including source-supported modal/directional correlation, accepted physical translation, X/Y/orthogonal/EDZ alternatives, sign/applicability and nonzero denominator. Separate spectrum maxima do not prove concurrency or a conservative ratio bound.
 
 `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` is **NOT APPROVED / NOT IMPLEMENTED**. Its mathematical proposal, alternatives and limits remain in the R3C handoff. Neither this index nor integration approves it.
 
-**Missing next evidence:** one new FC09 `+0.00` RSX/RSY read-only receipt with independently verified/restored output options and exact 100-mode physical populations. The existing receipt is preserved as incomplete evidence. Even a complete protected-source receipt cannot issue a qualified B5 epoch. Eventual production use additionally needs the exact current uncracked B5 execution proof and owned-scratch/source bridge; old result identities cannot be rebound.
+**Remaining evidence:** exact physical-bottom Column/length and endpoint/cut bindings for the aggregate construction, source-exact CQC behavior, qualified current uncracked B5 execution proof/owned-scratch bridge, and the explicitly approved joint engineering selection law. The native capture and amplitude normalization are no longer missing edges. A protected-source read cannot issue a B5 epoch; old result identities cannot be rebound. No further live run is authorized here.
 
 ## Last 1035-test validation and integration scope
 
@@ -171,36 +181,8 @@ The historical R3C offline receipt records **1035 distinct PASS, 1035 executions
 
 The complete historical JUnit XMLs and original external test inputs are not committed; the tracked machine receipt is the durable summary/hash locator. The final XML was independently checked against its recorded hash and 1035/0/0/0 counts during initial index preparation. PR #197 added only the original index beyond the accepted nine implementation commits. The later R3D repair has its own bounded diff and current regression receipt. Do not relabel a reused receipt as a newly executed test run.
 
-## Next executable local action for R3D
+## Next executable action
 
-Only a read-only native modal capture is next. Inspect its receipt before any further run or patch. Do not run PRODUCT_ADVANCEMENT_RUN. Use the actual PID of the ETABS instance already showing the exact protected FC09 file; no PID/name fallback and no source reopening is authorized here.
+No further modal capture is needed to repeat the closed 100-mode population proof. Reproduce the accepted native-amplitude binding **offline only** with `tools/column_r1_r3e_modal_normalization_offline.py`; the exact Windows command is preserved in the R3E closure document. The earlier R3D Read-Host command has been superseded by the successful operator capture. Execute future guards in a single PowerShell script block so a terminating error stops the whole operation.
 
-This command fetches the bounded repair branch, proves accepted merged-main ancestry, and selects that fetched candidate without rewriting local branch history. The worker's final transport receipt pins its exact commit/tree; use those pins when executing. Stop on any failed guard. Execute only once, then inspect the new receipt.
-
-```powershell
-cd C:\Users\FCY\PycharmProjects\tbdy_engine_a37
-if (git status --porcelain) { throw 'Worktree dirty: STOP' }
-git fetch origin worker/column-r1-r3d-modal-population-completeness
-if ($LASTEXITCODE -ne 0) { throw 'Fetch failed: STOP' }
-$candidate = (git rev-parse origin/worker/column-r1-r3d-modal-population-completeness).Trim()
-if ($LASTEXITCODE -ne 0) { throw 'Candidate identity unavailable: STOP' }
-git merge-base --is-ancestor ea8bb7aa18214e01d2efe1c28ca56ef2e2cafb64 $candidate
-if ($LASTEXITCODE -ne 0) { throw 'Accepted merged main absent: STOP' }
-git switch --detach $candidate
-if ($LASTEXITCODE -ne 0) { throw 'Exact candidate checkout failed: STOP' }
-if ((git rev-parse HEAD).Trim() -ne $candidate) { throw 'HEAD mismatch: STOP' }
-if (!(Test-Path .\docs\COLUMN_R1_CURRENT_STATE_AND_EVIDENCE_INDEX.md)) { throw 'Evidence index absent: STOP' }
-if (!(Test-Path .\tools\column_r1_r3c_modal_read_only.py)) { throw 'Native capture tool absent: STOP' }
-$etabsPid = [int](Read-Host 'Actual PID of ETABS displaying protected FC09')
-if ($etabsPid -le 0) { throw 'Invalid actual PID: STOP' }
-$receipt = Join-Path 'C:\tmp' ('column-r1-r3d-modal_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.json')
-python .\tools\column_r1_r3c_modal_read_only.py --source 'C:\tmp\B-BLOK_Revised.EDB' --pid $etabsPid --story '+0.00' --receipt $receipt
-if ($LASTEXITCODE -ne 0) { throw "Capture blocked: inspect $receipt; do not rerun analysis" }
-Write-Host "Inspect receipt before any next action: $receipt"
-```
-
-The tool reads RSX and RSY automatically, uses the exact existing `Response Spectrum Modal Info` table key by default, verifies 100-mode equality against native Modal authority, verifies every required physical Column/end-point read and restores both safety-owned selections and modal output options. It hashes FC09 before/after and issues no qualified analysis epoch. Missing/truncated tables, rows, source metadata or restoration must fail closed. There is no RunAnalysis, StartDesign, Save or SetPresentUnits in this operation.
-
-## Current disposition
-
-PR #197 integration is complete and earlier recovered evidence is preserved. R3D is a bounded population-acquisition repair requiring a new operator read before native completeness is claimed. **M6-B remains OPEN; R3C PARTIAL; B-BLOK engineering release OPEN; R2_RERUN_READY=NO.** The next local read is separate from B5 and subject to receipt review. Full release is 260 truthful outcomes plus FCR/current report package/independent review, not a requirement that all Columns PASS or become READY.
+Next causal work: bind the complete applicable physical modal aggregates through existing owners, while keeping current B5 lineage and the joint-statistic approval independent. `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` remains unapproved. **M6-B OPEN; R2_RERUN_READY=NO; no ETABS/product run authorized.**
