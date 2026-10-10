@@ -32,6 +32,9 @@ from tbdy_engine.features.column_shear_topology import (
     ColumnPhysicalEndpointsEvidence,
 )
 from tbdy_engine.etabs.oapi.eq713_response_results import FrameForceResponseFact, FrameForceResponseRow
+from tbdy_engine.etabs.oapi.joint_displacement_results import JointDisplacementResultFact, JointDisplacementResultRow
+from tbdy_engine.etabs.oapi.database_tables import TableFieldMetadataFetchResult
+from tbdy_engine.analysis_basis.eq713_response_mechanics import NativeModalAmplitude, NativeModalScalarResponse
 from tbdy_engine.providers.etabs_column_force_result_population_provider import (
     ColumnForcePopulationExpectation,
     capture_column_force_result_population_from_session,
@@ -115,6 +118,102 @@ def _text(value: object, label: str) -> str:
     if not isinstance(value, str) or not value.strip() or value != value.strip():
         raise StoryStabilityResultProviderError(f"{label} must be a nonblank canonical string")
     return value
+
+
+def qualify_native_modal_endpoint_rows(
+    point: str, fact: JointDisplacementResultFact, *, modal_case: str,
+    expected_modes: Sequence[int], length_unit: str, raw_response_ref: str,
+) -> tuple[JointDisplacementResultRow, ...]:
+    """Preserve point-LOCAL endpoint responses; never relabel them global.
+
+    CSI API ETABS v1 (2024), JointDispl pp.147-150 defines U1/U2/U3 in
+    point-element local axes. Physical coordinates do not prove those axes.
+    An independently captured local-to-global transformation is still needed.
+    """
+    _text(point, "physical endpoint")
+    _text(raw_response_ref, "endpoint raw response")
+    modes = tuple(expected_modes)
+    if (not modes or any(type(n) is not int or n <= 0 for n in modes)
+            or len(set(modes)) != len(modes)):
+        raise StoryStabilityResultProviderError("exact complete endpoint mode authority required")
+    if (not isinstance(fact, JointDisplacementResultFact) or fact.return_code != 0
+            or fact.source_api != "Results.JointDispl" or fact.item_type_elm != 0
+            or fact.point_object != point or fact.output_name != modal_case or fact.output_kind != "case"
+            or length_unit != "m"):
+        raise StoryStabilityResultProviderError("successful exact native endpoint/case/metre source required")
+    by_mode, elements = {}, set()
+    for row in fact.rows:
+        if (row.point_object != point or row.load_case != modal_case or row.step_type != "Mode"
+                or type(row.step_number) not in (int, float) or not math.isfinite(row.step_number)
+                or int(row.step_number) != row.step_number or int(row.step_number) not in modes):
+            raise StoryStabilityResultProviderError("endpoint object/case/Mode population mismatch")
+        n = int(row.step_number)
+        if n in by_mode:
+            raise StoryStabilityResultProviderError("duplicate/ambiguous physical endpoint mode")
+        _text(row.element_name, "physical endpoint element")
+        if any(type(v) not in (int, float) or not math.isfinite(v) for v in (row.u1, row.u2, row.u3)):
+            raise StoryStabilityResultProviderError("finite signed native endpoint translations required")
+        elements.add(row.element_name)
+        by_mode[n] = row
+    if set(by_mode) != set(modes) or len(elements) != 1:
+        raise StoryStabilityResultProviderError("incomplete endpoint modes or element-grain drift")
+    return tuple(by_mode[n] for n in modes)
+
+
+def qualify_native_modal_story_shear(
+    rows: Sequence[Mapping[str, Any]], *, story: str,
+    amplitudes: Sequence[NativeModalAmplitude], expected_modes: Sequence[int],
+    metadata: TableFieldMetadataFetchResult, raw_response_ref: str,
+) -> tuple[NativeModalScalarResponse, ...]:
+    """Exact global signed bottom-cut modes, before native Amp multiplication.
+
+    Unrelated stories/cases/top cuts are excluded, not modal alternatives.
+    VX/VY direction and kN units must be established by native metadata.
+    The case's Global/zero-angle load mapping belongs to the source adapter.
+    This selector cannot issue a B5 epoch or a statistical stability state.
+    """
+    _text(story, "physical story")
+    _text(raw_response_ref, "story shear raw response")
+    modes, amps = tuple(expected_modes), tuple(amplitudes)
+    if (not modes or any(type(n) is not int or n <= 0 for n in modes)
+            or len(set(modes)) != len(modes) or any(not isinstance(a, NativeModalAmplitude) for a in amps)
+            or tuple(a.mode for a in amps) != modes):
+        raise StoryStabilityResultProviderError("complete matching amplitude/mode authority required")
+    binding = amps[0].binding
+    if any(a.binding != binding for a in amps) or binding.database_force_unit != "kN":
+        raise StoryStabilityResultProviderError("story shear amplitude source/case/unit drift")
+    field = {"U1": "VX", "U2": "VY"}.get(binding.source_direction)
+    if field is None or not isinstance(metadata, TableFieldMetadataFetchResult):
+        raise StoryStabilityResultProviderError("qualified X/Y shear field metadata required")
+    if metadata.table_name != "Story Forces" or metadata.return_code != 0 or len(set(metadata.field_keys)) != len(metadata.field_keys):
+        raise StoryStabilityResultProviderError("successful exact unique Story Forces metadata required")
+    definition = metadata.field_metadata(field)
+    direction = {"VX": "X", "VY": "Y"}[field]
+    if (definition["UnitsString"] != "kN"
+            or definition["Description"] != f"The shear force in the global {direction}-direction."):
+        raise StoryStabilityResultProviderError("native global shear direction/unit metadata mismatch")
+    selected = {}
+    for row in rows:
+        if (row.get("Story"), row.get("OutputCase"), row.get("Location")) != (story, binding.modal_case, "Bottom"):
+            continue
+        if row.get("StepType") != "Mode" or row.get("CaseType") not in {"LinModRitz", "LinModEigen"}:
+            raise StoryStabilityResultProviderError("bottom modal row must be a native Mode, not an extremum")
+        if isinstance(row.get("StepNumber"), bool):
+            raise StoryStabilityResultProviderError("exact modal index required")
+        number = _finite(row.get("StepNumber"), "shear mode")
+        if int(number) != number or int(number) not in modes:
+            raise StoryStabilityResultProviderError("extra/fractional shear mode")
+        n = int(number)
+        if n in selected:
+            raise StoryStabilityResultProviderError("duplicate bottom modal shear mode")
+        if isinstance(row.get(field), bool):
+            raise StoryStabilityResultProviderError("signed shear must be factual numeric")
+        selected[n] = NativeModalScalarResponse(n, _finite(row.get(field), field), binding,
+            "STORY_BOTTOM_SHEAR", "kN", f"Story Forces|{story}|Bottom|{binding.modal_case}|Mode:{n}|{field}",
+            (raw_response_ref, metadata.raw_response_ref))
+    if set(selected) != set(modes):
+        raise StoryStabilityResultProviderError("incomplete exact bottom modal shear population")
+    return tuple(selected[n] for n in modes)
 
 
 def _finite(value: object, label: str) -> float:
