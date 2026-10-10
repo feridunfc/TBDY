@@ -1,0 +1,356 @@
+{
+  "package": "R3H_CSI_REPORTED_TOTAL_MODAL_DAMPING_AND_REPRESENTATIVE_CQC",
+  "date": "2026-10-10",
+  "disposition": "CLOSED_REPRESENTATIVE_OFFLINE_SCOPE",
+  "parent_head": "8ed7d4e920bd213e4304849e423b5bd45f47125a",
+  "parent_tree": "821f3070c8e0ac5f4b759a0ffbd86b6d81223206",
+  "branch": "worker/column-r1-r3h-reported-total-damping-cqc",
+  "integrated": {
+    "distinct_pass": 1489,
+    "executions": 1489,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "failed_identities": [],
+    "junit_sha256": "686f826b789d27cff298bd1ad3e79d1c38e7d962c0d1289d92d839c8d6942707",
+    "prior_1410_preserved": true,
+    "lost_prior_test_identities": [],
+    "new_test_identities": 79,
+    "prior_junit_sha256": "6532442f5fc734ed10264976c21a2abf2353d330aedb25e643513398ecbcfd89",
+    "test_files": [
+      "tests/analysis_basis/test_eq713_frame_mechanics.py",
+      "tests/analysis_basis/test_eq713_response_mechanics.py",
+      "tests/analysis_basis/test_eq713_uncracked_analysis_state.py",
+      "tests/application/test_column_a18_beam_fact_ordering.py",
+      "tests/application/test_column_public_a4_post_continuity.py",
+      "tests/application/test_column_public_a5_frame_production_join.py",
+      "tests/application/test_column_public_a5_product_path.py",
+      "tests/application/test_column_public_b6_join.py",
+      "tests/application/test_column_public_b6_project_root.py",
+      "tests/application/test_column_public_mixed_vertical.py",
+      "tests/application/test_column_public_population_project_root.py",
+      "tests/application/test_column_r1_a35_longitudinal_detailing.py",
+      "tests/application/test_column_r1_a36_transverse_runtime.py",
+      "tests/application/test_column_r1_a37_limited_shear_runtime.py",
+      "tests/application/test_column_r1_bblok_e1_binding.py",
+      "tests/application/test_column_r1_e2_whole_system_gate.py",
+      "tests/application/test_column_r1_fc09_rebind.py",
+      "tests/application/test_column_r1_m6_reference_recovery.py",
+      "tests/application/test_column_r1_r3b_combo_reconciliation.py",
+      "tests/application/test_column_stability_runtime.py",
+      "tests/architecture/test_b5_analysis_execution_guards.py",
+      "tests/coverage/test_column_r1_a39_fcr_reconciliation.py",
+      "tests/design/columns/test_column_r1_a0_fnd2_magnification_join.py",
+      "tests/design/columns/test_column_r1_a0_stability_combo_basis.py",
+      "tests/design/columns/test_fnd_col_2_design_readiness.py",
+      "tests/design/columns/test_fnd_col_4_pmm_assessment.py",
+      "tests/design/columns/test_p8a_b_column_longitudinal_production_composition.py",
+      "tests/design/columns/test_stability_output_state.py",
+      "tests/design/columns/test_story_relative_translation.py",
+      "tests/design/columns/test_vs6_p7_column_shear.py",
+      "tests/design/columns/test_vs6_rebar_selection.py",
+      "tests/design/columns/test_vs6_rebar_selection_authority.py",
+      "tests/etabs/test_column_r1_read_only_preflight.py",
+      "tests/etabs/test_database_table_field_metadata.py",
+      "tests/etabs/test_frame_section_inertia_authority_boundary.py",
+      "tests/etabs/test_native_frame_section_provenance.py",
+      "tests/etabs/test_native_material_provenance.py",
+      "tests/etabs/test_native_wall_thickness_provenance.py",
+      "tests/etabs/test_oapi_material_properties.py",
+      "tests/integration/test_b5_analysis_execution.py",
+      "tests/integration/test_b5_analysis_lineage_issuer.py",
+      "tests/integration/test_b5_response_spectrum_runtime_dependencies.py",
+      "tests/integration/test_b6_controlled_design_execution.py",
+      "tests/integration/test_b6_p0_design_preflight.py",
+      "tests/providers/test_b5_column_force_result_population_provider.py",
+      "tests/providers/test_column_b5_combo_force_projection.py",
+      "tests/providers/test_etabs_eq713_response_provider_p4b.py",
+      "tests/providers/test_etabs_frame_eq713_population_a36_beam_mechanics.py",
+      "tests/providers/test_etabs_frame_eq713_population_a37_types.py",
+      "tests/providers/test_etabs_frame_eq713_population_p4a2.py",
+      "tests/providers/test_etabs_frame_eq713_population_snapshot_batch.py",
+      "tests/providers/test_etabs_frame_flexural_base_snapshot.py",
+      "tests/providers/test_etabs_story_stability_result_provider.py",
+      "tests/providers/test_flexural_base_metadata_acquisition.py",
+      "tests/providers/test_native_wall_thickness_consumer.py",
+      "tests/providers/test_p1a_source_unit_contract.py",
+      "tests/regulatory/test_column_shear_limited_775.py",
+      "tests/regulatory/test_column_shear_vc.py",
+      "tests/regulatory/test_column_transverse_confinement.py",
+      "tests/etabs/test_column_r1_r3c_native_settings.py",
+      "tests/analysis_basis/test_column_r1_r3c_modal_aggregate.py",
+      "tests/etabs/test_column_r1_r3c_modal_read_only.py",
+      "tests/etabs/test_column_r1_r3d_modal_output_state.py",
+      "tests/etabs/test_column_r1_r3d_modal_population.py",
+      "tests/etabs/test_safety_foundation.py",
+      "tests/etabs/test_joint_displacement_results.py",
+      "tests/analysis_basis/test_column_r1_r3e_native_normalization.py",
+      "tests/analysis_basis/test_column_r1_r3f_physical_modal_aggregate.py",
+      "tests/features/test_vs6_column_shear_topology.py",
+      "tests/features/test_vs6_column_shear_topology_mixed_beams.py",
+      "tests/analysis_basis/test_column_r1_r3g_periodic_cqc.py",
+      "tests/providers/test_column_r1_r3g_physical_modal_operands.py",
+      "tests/analysis_basis/test_column_r1_r3h_reported_total_damping.py",
+      "tests/providers/test_column_r1_r3h_damping_cqc_binding.py"
+    ]
+  },
+  "new_focused_final": {
+    "distinct_pass": 79,
+    "source": "Final integrated JUnit subset of the two R3H test modules",
+    "failures": 0,
+    "errors": 0,
+    "skips": 0
+  },
+  "initial_focused_run": {
+    "distinct_pass": 72,
+    "executions": 72,
+    "failures": 0,
+    "errors": 0,
+    "skips": 0,
+    "failed_identities": [],
+    "junit_sha256": "3d77247b722efb6739de0427e578786700c133db128eb0e37ebe8a99974d135f"
+  },
+  "architecture": {
+    "current": {
+      "distinct_pass": 17,
+      "executions": 22,
+      "failures": 5,
+      "errors": 0,
+      "skips": 0,
+      "failed_identities": [
+        "tests.architecture.test_b4s_scratch_lifecycle_guards::test_private_b4t_transport_is_consumed_only_by_exact_typed_oapi_allowlist",
+        "tests.architecture.test_g1_arch_drift_guards::test_legacy_exception_baseline_is_shrink_only",
+        "tests.architecture.test_g1_arch_drift_guards::test_no_public_raw_sapmodel_escape",
+        "tests.architecture.test_g1_arch_drift_guards::test_provider_and_oapi_dependency_direction",
+        "tests.architecture.test_g1_arch_drift_guards::test_supported_graph_has_zero_forbidden_legacy_tools_or_report_authority"
+      ],
+      "junit_sha256": "340b12c3c6253badb75d38a583e2939bdc18d8653af6b529af548426eb63fca0"
+    },
+    "exact_merged_main_baseline": {
+      "distinct_pass": 17,
+      "executions": 22,
+      "failures": 5,
+      "errors": 0,
+      "skips": 0,
+      "failed_identities": [
+        "tests.architecture.test_b4s_scratch_lifecycle_guards::test_private_b4t_transport_is_consumed_only_by_exact_typed_oapi_allowlist",
+        "tests.architecture.test_g1_arch_drift_guards::test_legacy_exception_baseline_is_shrink_only",
+        "tests.architecture.test_g1_arch_drift_guards::test_no_public_raw_sapmodel_escape",
+        "tests.architecture.test_g1_arch_drift_guards::test_provider_and_oapi_dependency_direction",
+        "tests.architecture.test_g1_arch_drift_guards::test_supported_graph_has_zero_forbidden_legacy_tools_or_report_authority"
+      ],
+      "junit_sha256": "5eaf3ebc6b3dee2d00508b08fadfbcc459813c5274c0557f463ed085a4885891"
+    },
+    "full_diagnostic_equality": true,
+    "failed_test_identity_delta": [],
+    "new_violation_paths": [],
+    "new_violation_symbols": [],
+    "expanded_guard_exceptions": "NONE",
+    "guard_and_baseline_hashes": {
+      "tests/architecture/test_b4s_scratch_lifecycle_guards.py": "e46a9fcf8737eafc47d92d206621e01c9782f000af8650bec18983d5134bee2b",
+      "tests/architecture/test_g1_arch_drift_guards.py": "596f1c40394a642b2e69d8083cdd1641bb633cb6fc9b80a9dec87e061b275151",
+      "tests/architecture/g1_legacy_exception_baseline.json": "fe4c4eb587fe7c9b922b7f1f4eab3d7753c6e5676f6bf61580bc9c01d964ab67"
+    },
+    "b4t_allowlist": [
+      "tbdy_engine/etabs/oapi/analysis_execution.py",
+      "tbdy_engine/etabs/oapi/area_modifiers.py",
+      "tbdy_engine/etabs/oapi/concrete_design.py",
+      "tbdy_engine/etabs/oapi/file_lifecycle.py",
+      "tbdy_engine/etabs/oapi/frame_modifiers.py"
+    ],
+    "guards": {
+      "test_private_b4t_transport_is_consumed_only_by_exact_typed_oapi_allowlist": {
+        "violations": [
+          "tbdy_engine/etabs/oapi/model_lock.py|_B4T_MUTATION_TRANSPORT_KEY",
+          "tbdy_engine/etabs/oapi/model_lock.py|_execute_bounded_model_mutation",
+          "tbdy_engine/etabs/oapi/model_lock.py|etabs_gateway.mutation_transport"
+        ],
+        "required_allowlist_symbols_missing": []
+      },
+      "test_supported_graph_has_zero_forbidden_legacy_tools_or_report_authority": {
+        "forbidden_legacy": [
+          "tbdy_engine.features.column_shear_demand_evidence",
+          "tbdy_engine.features.etabs_com_attach",
+          "tbdy_engine.features.live_etabs_geometry_probe",
+          "tbdy_engine.features.used_rc_material_population"
+        ],
+        "legacy_report": [],
+        "tools": []
+      },
+      "test_no_public_raw_sapmodel_escape": {
+        "raw_escapes": [
+          "tbdy_engine.features.live_etabs_geometry_probe|attach_to_running_etabs"
+        ],
+        "public_raw_capabilities": []
+      },
+      "test_provider_and_oapi_dependency_direction": {
+        "provider": [
+          "tbdy_engine.providers.etabs_column_axial_b5_provider|tbdy_engine.regulatory",
+          "tbdy_engine.providers.etabs_column_axial_b5_provider|tbdy_engine.regulatory.vs5_column_axial_program"
+        ],
+        "oapi_gateway": []
+      },
+      "test_legacy_exception_baseline_is_shrink_only": {
+        "violations": [
+          "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|acquire|sap_model"
+        ],
+        "observed_legacy_debt": [
+          "LEGACY_IMPORT|tbdy_engine/engine/project_execution.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/engine/vs5_column_axial_execution.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/features/live_etabs_concrete_material_probe.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/features/live_etabs_geometry_probe.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/features/live_etabs_table_discovery.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/features/used_rc_material_population.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/product/live_beam_geometry_f0_product.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/product/live_geometry_product.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/product/live_rc_component_f0_product.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/product/live_seismic_response_product.py|tbdy_engine.features.etabs_com_attach",
+          "MUTATION_CALL|tbdy_engine/engine/unit_context.py|SetPresentUnits",
+          "RAW_CAP_ATTR|tbdy_engine/features/column_shear_demand_evidence.py|sap_model.DatabaseTables",
+          "RAW_CAP_ATTR|tbdy_engine/features/live_etabs_concrete_material_probe.py|sap_model.DatabaseTables",
+          "RAW_CAP_ATTR|tbdy_engine/features/live_etabs_geometry_probe.py|sap_model.DatabaseTables",
+          "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.AreaObj",
+          "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.DatabaseTables",
+          "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.PropArea",
+          "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.PropMaterial",
+          "RAW_ESCAPE_COMPAT|tbdy_engine/etabs/connection.py|get_sap",
+          "RAW_PARAM|tbdy_engine/engine/unit_context.py|attach_unit_context|sap_model",
+          "RAW_PARAM|tbdy_engine/engine/unit_context.py|read_etabs_units|sap_model",
+          "RAW_PARAM|tbdy_engine/engine/unit_context.py|set_etabs_units_kn_m|sap_model",
+          "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_exact_output_case_table|database_tables",
+          "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_live_mdev_mo_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_static_table|database_tables",
+          "RAW_PARAM|tbdy_engine/features/column_shear_demand_evidence.py|capture_live_column_shear_demand_evidence|sap_model",
+          "RAW_PARAM|tbdy_engine/features/etabs_column_axial_evidence.py|capture_live_column_axial_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/features/etabs_mdev_mo_evidence.py|capture_exact_output_case_table|database_tables",
+          "RAW_PARAM|tbdy_engine/features/etabs_mdev_mo_evidence.py|capture_live_mdev_mo_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/features/live_etabs_concrete_material_probe.py|__init__|database_tables",
+          "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_etabs_length_unit_evidence|sap_model",
+          "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_etabs_table_for_geometry|database_tables",
+          "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_frame_component_type_source|database_tables",
+          "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_accepted_wall_inventory_rows|database_tables",
+          "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_material_fact|sap_model",
+          "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_wall_fact|sap_model",
+          "RAW_PARAM|tbdy_engine/integration/live_beam_geometry_f0.py|read_observed_etabs_model_path|sap_model",
+          "RAW_PARAM|tbdy_engine/integration/live_seismic_response_f0.py|_fetch_exact|database_tables",
+          "RAW_PARAM|tbdy_engine/integration/live_seismic_response_f0.py|capture_seismic_response|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_auto_seismic_direction_provider.py|capture_etabs_auto_seismic_direction_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|_read_fact|resp_combo",
+          "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|capture_etabs_combo_definitions|resp_combo",
+          "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|capture_etabs_combo_definition|resp_combo",
+          "RAW_PARAM|tbdy_engine/providers/etabs_concrete_column_design_result_provider.py|capture_concrete_column_design_results|sap_model",
+          "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py|acquire_actual_concrete_design_combo_selection|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py|probe_concrete_frame_design_combo_selection_table|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_section_provider.py|capture_concrete_column_design_sections|design_concrete",
+          "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|acquire|sap_model",
+          "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|capture_etabs_rebar_catalog_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_strict_column_topology_provider.py|_fetch_full_rows|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_strict_column_topology_provider.py|capture_etabs_strict_column_topology|database_tables"
+        ]
+      }
+    },
+    "diagnostics_sha256": "f8e7da509994aa86f2cabd9fe3d85bb68595390e8106cefb3ecd8c9765da9454",
+    "baseline_diagnostics_sha256": "7bf56fb143eedcf250268d2912cf26d43e237d34ea32468644395278900d2e2a",
+    "technical_debt": "Five pre-existing negative guard tests remain actual FAIL; no guards or allowlists weakened"
+  },
+  "compile_import": "PASS",
+  "git_diff_check": "PASS",
+  "tested_file_sha256": {
+    "tbdy_engine/analysis_basis/eq713_response_mechanics.py": "8f8fb372c6433ac174525ebb44373901216b14ee168608b3a3c9fa2693565220",
+    "tbdy_engine/providers/etabs_story_stability_result_provider.py": "f2191a5a6a88092a3198fcee31af7a744f0bfac7aa1547af0a8dabe5a021bcb6",
+    "tools/column_r1_r3h_reported_damping_offline.py": "17677e6ff84f09d145388792f8f4ead3a5b4b2f0fbf2932220b6a77f62669ebd",
+    "tests/analysis_basis/test_column_r1_r3h_reported_total_damping.py": "433c20929234fc7b074a9204509b72e8ac9b42717cc2a35cf0f3af28f0ec50e2",
+    "tests/providers/test_column_r1_r3h_damping_cqc_binding.py": "422f0cf09f12e7e3b5553daf140710305726d31c69de49411b9d7a6f0355611c"
+  },
+  "historical_receipts_unchanged": {
+    "docs/COLUMN_R1_R3G_OFFLINE_RECEIPT_2026-10-10.json": "d41144ed1c43c0bc2cb8b9282c7765e100aa037fc97265abf800c9e8de7cc300",
+    "docs/COLUMN_R1_PR199_INTEGRATION_RECEIPT_2026-10-10.json": "ffe901b4d56f51cb1b5a4932d423baecb853135a5ca473b9e35dcced48e40466",
+    "docs/COLUMN_R1_R3D_OFFLINE_RECEIPT_2026-10-10.json": "452f194a513c40a5ecbaf68f954f69997c66edfa7fc07b11fb0eabd63a051568",
+    "docs/COLUMN_R1_M6_RECOVERED_REFERENCE_RECEIPT_2026-10-09.json": "a9f71bb79f0843f332573b723be620a5b69479358b232592c67e6d92b7cf7fb9",
+    "docs/COLUMN_R1_R3F_OFFLINE_RECEIPT_2026-10-10.json": "fde893a86c2d280273bd6e68a320be694a4b607837895bc9881b8a3e00d301c5",
+    "docs/COLUMN_R1_R3C_OFFLINE_RECEIPT_2026-10-09.json": "bbb8432ba48ef566bb891d47806678f24fd155e064366dcfa235590eb294f4f1",
+    "docs/COLUMN_R1_R3B_RECONCILIATION_RECEIPT_2026-10-09.json": "9af48fd39b2f5192e0b26de9c01fba53c07fc68be79d146535f755f85c4401b7",
+    "docs/COLUMN_R1_PR198_INTEGRATION_RECEIPT_2026-10-10.json": "468a574770ecc72fab3320d131f78193ac45929cffc5dc15866d499ebf5b3e8b",
+    "docs/COLUMN_R1_R3E_OFFLINE_RECEIPT_2026-10-10.json": "4febb3e3df343badfabbc8970f5e9f772543e45bea50e3b8b286cece8b1e1c61"
+  },
+  "source_review": {
+    "faq": "https://wiki.csiamerica.com/display/kb/Damping+FAQ",
+    "faq_updated": "2022-10-08",
+    "faq_scope": "Per-mode response spectrum table damping includes effective discrete damper contribution",
+    "manual": "https://docs.csiamerica.com/manuals/etabs/Analysis%20Reference.pdf",
+    "manual_rev": "15 July 2016",
+    "manual_printed_pages": [
+      387,
+      388,
+      390,
+      394
+    ],
+    "native_damping_coverage": {
+      "RSX": 100,
+      "RSY": 100
+    },
+    "native_total_values": {
+      "RSX": [
+        0.05
+      ],
+      "RSY": [
+        0.05
+      ]
+    },
+    "receipt_sha256": "83ce2ff7c3a6170e931d2869e212adde93b7c08b25bbf44e9f0c2c663f156b03",
+    "manual_direct_definition": "Printed page394 Damping and Accelerations explicitly defines the reported ratio as case plus effective link/support plus composite material modal damping",
+    "source_meaning": "PROVEN_REPORTED_EFFECTIVE_TOTAL_USED_BY_CQC"
+  },
+  "original_receipt_sha256": "83ce2ff7c3a6170e931d2869e212adde93b7c08b25bbf44e9f0c2c663f156b03",
+  "original_receipt_library_locator": "libfile_3ee6376e3be481919daf1bc5554f2682",
+  "derived_receipt": {
+    "sha256": "8c2b632c6f209bc964283090320f12e2987e83cbedecda77da041dfa1f702bf0",
+    "size_bytes": 12587932,
+    "library_locator": "libfile_76e077b9ec548191aabd6761a3fde992"
+  },
+  "total_damping_checks": {
+    "RSX": {
+      "unique_modes": 100,
+      "reported_total_values": [
+        0.05
+      ],
+      "case_damping_observation": 0.05,
+      "comparison": "NATIVE_TOTAL_OBSERVED_INDEPENDENTLY; NO_COMPONENT_ZERO_INFERENCE",
+      "additional_case_material_link_contribution_added": false
+    },
+    "RSY": {
+      "unique_modes": 100,
+      "reported_total_values": [
+        0.05
+      ],
+      "case_damping_observation": 0.05,
+      "comparison": "NATIVE_TOTAL_OBSERVED_INDEPENDENTLY; NO_COMPONENT_ZERO_INFERENCE",
+      "additional_case_material_link_contribution_added": false
+    }
+  },
+  "CQC_values": {
+    "RSX_R_CQC": 256.23299606353487,
+    "RSY_R_CQC": 84.76888878898679,
+    "RSX_V_CQC": 11424.577470752454,
+    "RSY_V_CQC": 11585.486716434587
+  },
+  "matrix_dimensions": {
+    "RSX": [
+      100,
+      100
+    ],
+    "RSY": [
+      100,
+      100
+    ]
+  },
+  "independent_quadratic_validation": "50-digit Decimal, reciprocal frequency ratio, full signed double sum; relative comparison 2e-13",
+  "GLOBAL_DELTA": "BLOCKED_POINT_LOCAL_TO_GLOBAL_AXES_NOT_CAPTURED",
+  "CURRENT_UNCRACKED_B5": "NOT_PROVIDED",
+  "JOINT_DELTA_R_V": "PROJECT_DECISION_REQUIRED",
+  "M6_B": "OPEN",
+  "R2_RERUN_READY": false,
+  "ETABS_EXECUTED": false,
+  "SOURCE_MUTATED": false,
+  "source_hash_verified_offline": true
+}
