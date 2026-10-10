@@ -1,6 +1,6 @@
 # Column-R1 current state and evidence index
 
-Reconciled 2026-10-10 after PR #197, the successful R3D operator capture and R3E native amplitude binding. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
+Reconciled 2026-10-10 after PR #198 history-preserving integration and R3F representative physical modal aggregation. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
 
 ## Accepted repository checkpoint and precedence
 
@@ -181,8 +181,18 @@ The historical R3C offline receipt records **1035 distinct PASS, 1035 executions
 
 The complete historical JUnit XMLs and original external test inputs are not committed; the tracked machine receipt is the durable summary/hash locator. The final XML was independently checked against its recorded hash and 1035/0/0/0 counts during initial index preparation. PR #197 added only the original index beyond the accepted nine implementation commits. The later R3D repair has its own bounded diff and current regression receipt. Do not relabel a reused receipt as a newly executed test run.
 
+## PR #198 integration and representative R3F closure
+
+Verified remote main after PR #198: `26155744efcc3e708544bf4bd6b2f6836d21160c`, tree `69b345ba07d9fa719729b547daa5975c7eb6c6fb`. Its parents are accepted main `ea8bb7aa` and R3E `c6bcca7`; both original commits `7bd7f4bbf9b2992c685f51db45f0b43a11ac633a` and `c6bcca7e4a39bd366f3cb7f140ba4bad07aff393` are ancestors. Both closure receipts, all recovered M6 sources/projections and this index are present on verified main. R3F starts from that main on `worker/column-r1-r3f-physical-modal-aggregate`.
+
+[PR #198 integration receipt](COLUMN_R1_PR198_INTEGRATION_RECEIPT_2026-10-10.json) preserves complete diagnostic equality for all five pre-existing negative architecture guard failures, including paths/symbols/observed exception sets, unchanged guard/allowlist/baseline hashes and sensitive safety/binder import review. Three GitHub checks succeeded. **The five guard tests remain FAIL and explicit technical debt.** Supervisor authorized a scoped baseline differential for PR #198 only; no continuing waiver, disabled guard or expanded exception is created.
+
+[R3F closure](COLUMN_R1_R3F_PHYSICAL_MODAL_AGGREGATE_CLOSURE_2026-10-10.md) and [R3F offline receipt](COLUMN_R1_R3F_OFFLINE_RECEIPT_2026-10-10.json) close the representative `+0.00` physical-bottom/axis-length/signed-per-mode operand boundary. The exact external 07:32 receipt and all retained raw payload refs are revalidated, not reacquired. Shared `column_shear_topology.py` geometry and `etabs_story_stability_result_provider.py` native selector bind 86 Columns × 100 modes = 8,600 unique physical-bottom rows. All actual bottoms are I at ObjSta=ElmSta=0. TS500 p.20 explicitly defines axis-to-axis `li`; full native object/coordinate/vertical axis lengths reconcile exactly at 5.15 m. Clear lengths/end offsets are not substituted or assumed zero. Source PDF digest and the native normalization dimensional interpretation are in the closure.
+
+`tools/column_r1_r3f_physical_modal_aggregate_offline.py` reuses R3E and existing `aggregate_native_modal_column_axial` to retain 100 signed RSX and 100 signed RSY vectors, complete individual contributions, actual native amplitude m header/metadata and all source/session/capture/force/geometry references. Negative P is compression; one negation maps to Nd, preserving tension cancellation. No additional spectrum factor, CQC, concurrent modal state or B5 epoch is issued. The full numerical reconciliation JSON and JUnit files remain external, with hashes in the offline receipt; the 41 MB original raw file remains at its existing locator.
+
 ## Next executable action
 
-No further modal capture is needed to repeat the closed 100-mode population proof. Reproduce the accepted native-amplitude binding **offline only** with `tools/column_r1_r3e_modal_normalization_offline.py`; the exact Windows command is preserved in the R3E closure document. The earlier R3D Read-Host command has been superseded by the successful operator capture. Execute future guards in a single PowerShell script block so a terminating error stops the whole operation.
+No further modal capture or ETABS run is needed to repeat the closed representative physical operand proof. Reproduce R3F offline with the exact single-block Windows command in its closure document and `tools/column_r1_r3f_physical_modal_aggregate_offline.py`. It validates the accepted original bytes and writes a new result outside Git. The R3D Read-Host command is superseded; no PID is needed for this offline command.
 
-Next causal work: bind the complete applicable physical modal aggregates through existing owners, while keeping current B5 lineage and the joint-statistic approval independent. `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` remains unapproved. **M6-B OPEN; R2_RERUN_READY=NO; no ETABS/product run authorized.**
+Next bounded causal edge: **R3G source-exact CQC treatment**, with qualified physical Delta/V bindings kept explicit. Current qualified uncracked B5 execution lineage and the joint Delta/R/V engineering selection law remain independent open gates. `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` remains NOT_APPROVED / NOT_IMPLEMENTED. The representative 86-Column operand proof does not qualify the full 260-Column population. **M6-B OPEN; R2_RERUN_READY=NO; no ETABS/product run authorized.**
