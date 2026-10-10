@@ -866,6 +866,8 @@ def native_modal_scalar_contribution(
 # constant-damping periodic coefficients cited by the CSI CQC method.
 CSI_PERIODIC_CQC_SOURCE = "CSI_ANALYSIS_REFERENCE_REV15_2016_CHXX_PP387_390"
 WILSON_PERIODIC_CQC_SOURCE = "WILSON_CH15_REV2014_EQ15_9_15_10"
+CSI_REPORTED_TOTAL_MODAL_DAMPING_V1 = "CSI_REPORTED_TOTAL_MODAL_DAMPING_V1"
+CSI_REPORTED_TOTAL_DAMPING_SOURCE = "CSI_ANALYSIS_REFERENCE_REV15_CHXX_P394_AND_DAMPING_FAQ_2006597"
 
 
 @dataclass(frozen=True, slots=True)
@@ -896,10 +898,57 @@ class ModalDampingComponents:
 
 
 @dataclass(frozen=True, slots=True)
+class CsiReportedTotalModalDamping:
+    """Native reported total, as defined in CSI Rev.15 p.394.
+
+    This alternative contains the case, composite material and effective
+    link/support contributions already. It is not a component to add to them.
+    The factual provider must bind the exact table field and mode; this pure
+    record cannot issue an AnalysisResultIdentity or stability qualification.
+    """
+    mode: int
+    reported_total_ratio: float
+    native_value_text: str
+    binding: NativeModalNormalizationBinding
+    native_field: str
+    metadata_ref: str
+    raw_payload_ref: str
+    authority_ref: str = CSI_REPORTED_TOTAL_MODAL_DAMPING_V1
+    dimension: str = "DIMENSIONLESS"
+    unit: str = "ratio"
+    native_field_unit: str = ""
+    qualified_for_stability: bool = False
+
+    def __post_init__(self):
+        if type(self.mode) is not int or self.mode <= 0:
+            raise ValueError("exact positive reported damping mode required")
+        if not isinstance(self.binding, NativeModalNormalizationBinding):
+            raise TypeError("typed native source/session/capture/case binding required")
+        value = _values((self.reported_total_ratio,), "reported total damping")[0]
+        try:
+            native = Decimal(_text(self.native_value_text, "native damping value"))
+        except InvalidOperation as exc:
+            raise ValueError("invalid native damping ratio text") from exc
+        if not native.is_finite() or not 0 <= value < 1 or float(native) != value:
+            raise ValueError("exact finite native total damping ratio in [0,1) required")
+        if (self.native_field, self.authority_ref, self.dimension, self.unit, self.native_field_unit) != (
+                "DampRatio", CSI_REPORTED_TOTAL_MODAL_DAMPING_V1, "DIMENSIONLESS", "ratio", ""):
+            raise ValueError("exact CSI reported total damping field/authority/ratio semantics required")
+        _text(self.metadata_ref, "native damping metadata ref")
+        _text(self.raw_payload_ref, "native damping raw payload ref")
+        if self.qualified_for_stability is not False:
+            raise ValueError("reported damping cannot qualify B5 or a joint stability state")
+
+    @property
+    def total_ratio(self) -> float:
+        return self.reported_total_ratio
+
+
+@dataclass(frozen=True, slots=True)
 class PeriodicCqcMode:
     mode: int
     frequency_hz: float
-    damping: ModalDampingComponents
+    damping: ModalDampingComponents | CsiReportedTotalModalDamping
     binding: NativeModalNormalizationBinding
     source_refs: tuple[str, ...]
 
@@ -908,8 +957,11 @@ class PeriodicCqcMode:
             raise ValueError("exact positive modal index required")
         if _values((self.frequency_hz,), "frequency")[0] <= 0:
             raise ValueError("source-qualified cyclic frequency must be positive")
-        if not isinstance(self.damping, ModalDampingComponents) or not isinstance(self.binding, NativeModalNormalizationBinding):
+        if not isinstance(self.damping, (ModalDampingComponents, CsiReportedTotalModalDamping)) or not isinstance(self.binding, NativeModalNormalizationBinding):
             raise TypeError("typed source-bound modal damping and normalization required")
+        if isinstance(self.damping, CsiReportedTotalModalDamping) and (
+                self.damping.mode != self.mode or self.damping.binding != self.binding):
+            raise ValueError("reported total damping mode/source/session/capture/case mismatch")
         _refs(self.source_refs)
 
 

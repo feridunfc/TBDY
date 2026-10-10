@@ -34,7 +34,9 @@ from tbdy_engine.features.column_shear_topology import (
 from tbdy_engine.etabs.oapi.eq713_response_results import FrameForceResponseFact, FrameForceResponseRow
 from tbdy_engine.etabs.oapi.joint_displacement_results import JointDisplacementResultFact, JointDisplacementResultRow
 from tbdy_engine.etabs.oapi.database_tables import TableFieldMetadataFetchResult
-from tbdy_engine.analysis_basis.eq713_response_mechanics import NativeModalAmplitude, NativeModalScalarResponse
+from tbdy_engine.analysis_basis.eq713_response_mechanics import (
+    NativeModalAmplitude, NativeModalScalarResponse, CsiReportedTotalModalDamping,
+)
 from tbdy_engine.providers.etabs_column_force_result_population_provider import (
     ColumnForcePopulationExpectation,
     capture_column_force_result_population_from_session,
@@ -118,6 +120,65 @@ def _text(value: object, label: str) -> str:
     if not isinstance(value, str) or not value.strip() or value != value.strip():
         raise StoryStabilityResultProviderError(f"{label} must be a nonblank canonical string")
     return value
+
+
+def qualify_native_reported_total_modal_damping(
+    rows: Sequence[Mapping[str, Any]], *, amplitudes: Sequence[NativeModalAmplitude],
+    expected_modes: Sequence[int], metadata: TableFieldMetadataFetchResult,
+    raw_response_ref: str,
+) -> tuple[CsiReportedTotalModalDamping, ...]:
+    """Bind CSI's reported TOTAL; never reconstruct fictional components.
+
+    CSI Rev.15 Chapter XX p.394 defines the reported damping as the sum of
+    case, effective link/support and composite material contributions. The
+    Damping FAQ (page 2006597) identifies this response-spectrum modal table.
+    This factual selection cannot issue current uncracked B5 lineage.
+    """
+    _text(raw_response_ref, "reported damping raw response")
+    modes = tuple(expected_modes)
+    amps = tuple(amplitudes)
+    if (not modes or any(type(n) is not int or n <= 0 for n in modes)
+            or len(set(modes)) != len(modes)
+            or any(not isinstance(a, NativeModalAmplitude) for a in amps)
+            or tuple(a.mode for a in amps) != modes):
+        raise StoryStabilityResultProviderError("complete unique matching damping/amplitude modes required")
+    if any(a.binding != amps[0].binding for a in amps):
+        raise StoryStabilityResultProviderError("reported damping amplitude source/case drift")
+    if (not isinstance(metadata, TableFieldMetadataFetchResult)
+            or metadata.table_name != "Response Spectrum Modal Info" or metadata.return_code != 0
+            or len(set(metadata.field_keys)) != len(metadata.field_keys)):
+        raise StoryStabilityResultProviderError("successful exact reported damping table metadata required")
+    definitions = {
+        "SpecCase": ("", "The name of a response spectrum load case."),
+        "ModalCase": ("", "The name of a modal load case."),
+        "Mode": ("", "The mode number."),
+        "Period": ("sec", "The period of the mode."),
+        "DampRatio": ("", "The damping ratio."),
+    }
+    for field, expected in definitions.items():
+        definition = metadata.field_metadata(field)
+        if (definition["UnitsString"], definition["Description"]) != expected:
+            raise StoryStabilityResultProviderError("native total damping field definition/unit mismatch")
+    selected = {}
+    by_mode = {a.mode: a for a in amps}
+    for row in rows:
+        if (row["SpecCase"], row["ModalCase"]) != (amps[0].binding.spectrum_case, amps[0].binding.modal_case):
+            raise StoryStabilityResultProviderError("reported damping spectrum/modal case mismatch")
+        if isinstance(row["Mode"], bool):
+            raise StoryStabilityResultProviderError("exact damping mode required")
+        n = float(row["Mode"])
+        if not math.isfinite(n) or not n.is_integer() or int(n) not in by_mode or int(n) in selected:
+            raise StoryStabilityResultProviderError("missing/extra/duplicate or invalid reported damping mode")
+        mode = int(n)
+        if isinstance(row["Period"], bool) or float(row["Period"]) != by_mode[mode].period_s:
+            raise StoryStabilityResultProviderError("reported damping native modal period mismatch")
+        if not isinstance(row["DampRatio"], str):
+            raise StoryStabilityResultProviderError("exact native damping text required")
+        selected[mode] = CsiReportedTotalModalDamping(mode, float(row["DampRatio"]), row["DampRatio"],
+            by_mode[mode].binding, "DampRatio", metadata.raw_response_ref, raw_response_ref)
+    if set(selected) != set(modes):
+        raise StoryStabilityResultProviderError("incomplete reported total damping population")
+    return tuple(selected[n] for n in modes)
 
 
 def qualify_native_modal_endpoint_rows(
