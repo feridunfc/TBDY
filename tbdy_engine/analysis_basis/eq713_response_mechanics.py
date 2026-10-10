@@ -859,3 +859,155 @@ def native_modal_scalar_contribution(
     if not math.isfinite(product):
         raise ValueError("nonfinite native modal scalar contribution")
     return product
+
+
+# CSI Rev.15 Chapter XX pp.387-390 selects CQC and total modal damping.
+# Wilson (2014 revision), Chapter 15 equations 15.9-15.10, supplies the
+# constant-damping periodic coefficients cited by the CSI CQC method.
+CSI_PERIODIC_CQC_SOURCE = "CSI_ANALYSIS_REFERENCE_REV15_2016_CHXX_PP387_390"
+WILSON_PERIODIC_CQC_SOURCE = "WILSON_CH15_REV2014_EQ15_9_15_10"
+
+
+@dataclass(frozen=True, slots=True)
+class ModalDampingComponents:
+    """Already source-bound per-mode contributions, including factual zeros.
+
+    Case damping is not total damping. A missing material or link/support
+    contribution cannot be defaulted to zero. This pure DTO issues no source
+    authority; an acquisition/qualification adapter must establish each ref.
+    """
+    case_ratio: float
+    material_ratio: float
+    link_support_ratio: float
+    case_source_ref: str
+    material_source_ref: str
+    link_support_source_ref: str
+
+    def __post_init__(self):
+        values = _values((self.case_ratio, self.material_ratio, self.link_support_ratio), "damping")
+        if any(v < 0 for v in values) or math.fsum(values) >= 1:
+            raise ValueError("source-qualified underdamped total ratios require 0 <= damping < 1")
+        for ref in (self.case_source_ref, self.material_source_ref, self.link_support_source_ref):
+            _text(ref, "independent damping source ref")
+
+    @property
+    def total_ratio(self) -> float:
+        return math.fsum((self.case_ratio, self.material_ratio, self.link_support_ratio))
+
+
+@dataclass(frozen=True, slots=True)
+class PeriodicCqcMode:
+    mode: int
+    frequency_hz: float
+    damping: ModalDampingComponents
+    binding: NativeModalNormalizationBinding
+    source_refs: tuple[str, ...]
+
+    def __post_init__(self):
+        if type(self.mode) is not int or self.mode <= 0:
+            raise ValueError("exact positive modal index required")
+        if _values((self.frequency_hz,), "frequency")[0] <= 0:
+            raise ValueError("source-qualified cyclic frequency must be positive")
+        if not isinstance(self.damping, ModalDampingComponents) or not isinstance(self.binding, NativeModalNormalizationBinding):
+            raise TypeError("typed source-bound modal damping and normalization required")
+        _refs(self.source_refs)
+
+
+@dataclass(frozen=True, slots=True)
+class CqcModalQuantity:
+    mode: int
+    value: float
+    binding: NativeModalNormalizationBinding
+    quantity: str
+    unit: str
+    source_refs: tuple[str, ...]
+
+    def __post_init__(self):
+        if type(self.mode) is not int or self.mode <= 0:
+            raise ValueError("exact positive modal index required")
+        _values((self.value,), "signed physical modal quantity")
+        if not isinstance(self.binding, NativeModalNormalizationBinding):
+            raise TypeError("typed native normalization required")
+        _text(self.quantity, "physical quantity")
+        _text(self.unit, "physical unit")
+        _refs(self.source_refs)
+
+
+def _constant_damping_cqc_coefficient(a: float, b: float, damping: float) -> float:
+    # Canonical frequency ratio <= 1 makes symmetry exact in floating point.
+    # CSI explicitly states the all-zero-damping limit is SRSS. No fallback
+    # for unsupported unequal damping or rigid response is made here.
+    if damping == 0:
+        return 0.0
+    if a == b:
+        return 1.0
+    r = min(a, b) / max(a, b)
+    return (8 * damping**2 * (1 + r) * r**1.5 /
+            ((1 - r**2)**2 + 4 * damping**2 * r * (1 + r)**2))
+
+
+def _cqc_quadratic_magnitude(values: Sequence[float], matrix: Sequence[Sequence[float]]) -> float:
+    """Scaled signed quadratic arithmetic; no absolute-value sign fabrication."""
+    scale = max(abs(v) for v in values)
+    if scale == 0:
+        return 0.0
+    q = tuple(v / scale for v in values)
+    quadratic = math.fsum(matrix[i][j] * q[i] * q[j]
+                          for i in range(len(q)) for j in range(len(q)))
+    if not math.isfinite(quadratic) or quadratic < 0:
+        raise ValueError("invalid negative/nonfinite CQC quadratic; no clipping or absolute value")
+    magnitude = scale * math.sqrt(quadratic)
+    if not math.isfinite(magnitude):
+        raise ValueError("nonfinite CQC statistical magnitude")
+    return magnitude
+
+
+@dataclass(frozen=True, slots=True)
+class PeriodicCqcOperator:
+    """Source-exact constant-total-damping periodic CQC, not a design state.
+
+    F2=0 is CSI's explicit all-periodic branch. Other rigid treatments and
+    unequal total damping are deliberately unsupported. No method enum is
+    interpreted: the adapter must supply the native named CQC selection.
+    """
+    modes: tuple[PeriodicCqcMode, ...]
+    expected_modes: tuple[int, ...]
+    source_modal_method: str
+    rigid_response_f2: float
+
+    def __post_init__(self):
+        if self.source_modal_method != "CQC":
+            raise ValueError("exact native named CQC method required; directional SRSS is separate")
+        if _values((self.rigid_response_f2,), "rigid-response F2")[0] != 0:
+            raise ValueError("unsupported rigid response: exact CSI F2=0 all-periodic branch required")
+        expected = self.expected_modes
+        if (not expected or any(type(n) is not int or n <= 0 for n in expected)
+                or len(set(expected)) != len(expected)):
+            raise ValueError("complete unique applicable mode authority required")
+        if (not self.modes or any(not isinstance(m, PeriodicCqcMode) for m in self.modes)
+                or tuple(m.mode for m in self.modes) != expected):
+            raise ValueError("missing/duplicate/extra/reordered CQC modes")
+        if any(m.binding != self.modes[0].binding for m in self.modes):
+            raise ValueError("CQC source/session/capture/case/direction/normalization drift")
+        if any(m.damping.total_ratio != self.modes[0].damping.total_ratio for m in self.modes):
+            raise ValueError("unequal total modal damping: source-supported operator not implemented")
+
+    @property
+    def correlation_matrix(self) -> tuple[tuple[float, ...], ...]:
+        z = self.modes[0].damping.total_ratio
+        return tuple(tuple(1.0 if i == j else
+                     _constant_damping_cqc_coefficient(a.frequency_hz, b.frequency_hz, z)
+                     for j, b in enumerate(self.modes)) for i, a in enumerate(self.modes))
+
+    def combine(self, quantities: Sequence[CqcModalQuantity]) -> float:
+        rows = tuple(quantities)
+        if (any(not isinstance(r, CqcModalQuantity) for r in rows)
+                or tuple(r.mode for r in rows) != self.expected_modes):
+            raise ValueError("complete matching signed quantity mode population required")
+        if any(r.binding != self.modes[0].binding for r in rows):
+            raise ValueError("quantity source/session/capture/case/direction/normalization drift")
+        if any((r.quantity, r.unit) != (rows[0].quantity, rows[0].unit) for r in rows):
+            raise ValueError("cannot combine different physical quantities or units")
+        # Return is an unsigned statistical magnitude of ONE quantity. No
+        # AnalysisResultIdentity, joint Delta/R/V state or stability promotion.
+        return _cqc_quadratic_magnitude(tuple(r.value for r in rows), self.correlation_matrix)

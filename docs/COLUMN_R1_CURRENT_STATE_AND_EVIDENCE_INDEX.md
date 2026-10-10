@@ -1,6 +1,6 @@
 # Column-R1 current state and evidence index
 
-Reconciled 2026-10-10 after PR #198 history-preserving integration and R3F representative physical modal aggregation. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
+Reconciled 2026-10-10 after PR #199 history-preserving R3F integration and the bounded R3G partial closure. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
 
 ## Accepted repository checkpoint and precedence
 
@@ -14,6 +14,10 @@ Reconciled 2026-10-10 after PR #198 history-preserving integration and R3F repre
 | Accepted merged main / R3D parent | `ea8bb7aa18214e01d2efe1c28ca56ef2e2cafb64` |
 | Accepted merged main TREE | `f23b81cc80435e06913529b62ef4a526d83e04ca` |
 | R3D bounded repair branch | `worker/column-r1-r3d-modal-population-completeness` |
+| Latest verified merged main / R3G parent | `b7adc4550f1a02d9ea3cfcca3b6c3232e2573c50` |
+| Latest verified merged main TREE | `8fb52b44302f779c1ac5544e8843e4975e1187ae` |
+| Preserved R3F commit | `6d24842bf4a96a18218019c0257cdec04a75ee03` |
+| Current bounded R3G branch | `worker/column-r1-r3g-source-exact-cqc-modal-operands` |
 
 The original documentation-only index commit `84cdb486` and all nine implementation commits were preserved by PR #197's history-preserving merge. The R3D repair starts from that verified merged main; it does not replace or recreate earlier work.
 
@@ -162,13 +166,13 @@ See [R3C modal handoff](COLUMN_R1_R3C_MODAL_GATE_HANDOFF_2026-10-09.md) and [off
 
 CSI sources and source-PDF hashes/pages are retained in the handoff/receipt. Original CSI API PDF SHA256 is `6ee860c75d37215d6d6c44251e94788709439e155b68a7939e893a66f01dda27`; TS500 PDF SHA256 is `d925114d01a1de2baee63738bc0da0112b547b58526c3394843c36ee66722d44`. These complete PDFs are external evidence, not tracked raw files.
 
-**Gate 1:** exact native 100-mode populations and database-unit amplitude normalization are now proven within the accepted representative scope. Complete topology/length-bound physical per-mode R/Delta/V construction, source-exact CQC treatment and qualified current uncracked B5 lineage remain open. Native CQC adapter is not implemented. Story Forces/base reactions are not asserted to be exact Column-only length-weighted R. Numerical multiplication is not an engineering joint-statistic approval.
+**Gate 1, current after R3G:** representative 100-mode populations, native normalization and physical signed R are proven by R3D/R3E/R3F. R3G adds exact global bottom-cut V and a source-proven constant-total-damping, all-periodic CQC operator. Actual FC09 CQC application is blocked by absent total per-mode material/link-support damping evidence. Global Delta is blocked by absent point local-to-global axes; the existing common story-translation semantics and B5 requirements remain strict. Story Forces/base reactions are not asserted to be exact Column-only R. Numerical multiplication is not a joint-statistic approval.
 
 **Gate 2 / actual OPEN M6-B decision:** qualify one exact unfavorable TS500 Eq.7.13 joint Delta/R/V design statistic for 1.0G+1.0Q+E, including source-supported modal/directional correlation, accepted physical translation, X/Y/orthogonal/EDZ alternatives, sign/applicability and nonzero denominator. Separate spectrum maxima do not prove concurrency or a conservative ratio bound.
 
 `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` is **NOT APPROVED / NOT IMPLEMENTED**. Its mathematical proposal, alternatives and limits remain in the R3C handoff. Neither this index nor integration approves it.
 
-**Remaining evidence:** exact physical-bottom Column/length and endpoint/cut bindings for the aggregate construction, source-exact CQC behavior, qualified current uncracked B5 execution proof/owned-scratch bridge, and the explicitly approved joint engineering selection law. The native capture and amplitude normalization are no longer missing edges. A protected-source read cannot issue a B5 epoch; old result identities cannot be rebound. No further live run is authorized here.
+**Remaining evidence:** actual total per-mode damping for the CQC application; endpoint local-to-global transforms and an applicable common physical story Delta; qualified current uncracked B5 execution proof/owned-scratch bridge; explicitly approved joint engineering selection. R3F physical-bottom/axis-length and R3G bottom-cut V bindings are no longer missing edges. A protected-source read cannot issue a B5 epoch; old result identities cannot be rebound. No further live run is authorized here.
 
 ## Last 1035-test validation and integration scope
 
@@ -191,8 +195,20 @@ Verified remote main after PR #198: `26155744efcc3e708544bf4bd6b2f6836d21160c`, 
 
 `tools/column_r1_r3f_physical_modal_aggregate_offline.py` reuses R3E and existing `aggregate_native_modal_column_axial` to retain 100 signed RSX and 100 signed RSY vectors, complete individual contributions, actual native amplitude m header/metadata and all source/session/capture/force/geometry references. Negative P is compression; one negation maps to Nd, preserving tension cancellation. No additional spectrum factor, CQC, concurrent modal state or B5 epoch is issued. The full numerical reconciliation JSON and JUnit files remain external, with hashes in the offline receipt; the 41 MB original raw file remains at its existing locator.
 
+## PR #199 integration and current R3G partial result
+
+R3F was independently integrated through [PR #199](https://github.com/feridunfc/TBDY/pull/199), merge `b7adc4550f1a02d9ea3cfcca3b6c3232e2573c50`. Fetched remote main has tree `8fb52b44302f779c1ac5544e8843e4975e1187ae`, exactly the accepted R3F tree; original `6d24842bf4a96a18218019c0257cdec04a75ee03` is an ancestor. All R3D/R3E/R3F/M6 receipts remain byte-identical. [PR #199 integration receipt](COLUMN_R1_PR199_INTEGRATION_RECEIPT_2026-10-10.json) records fresh exact path/symbol/exception-set non-expansion and 3/3 CI SUCCESS. The five historical guard failures remain actual debt; PR #198 was not used as a blanket waiver.
+
+[R3G source/physical-operand record](COLUMN_R1_R3G_SOURCE_CQC_PHYSICAL_OPERANDS_2026-10-10.md) and [R3G offline receipt](COLUMN_R1_R3G_OFFLINE_RECEIPT_2026-10-10.json): **PARTIAL**, 1410 distinct PASS, preserving every prior 1297 identity and adding 113 tests. Separate architecture suite 17 PASS / 5 unchanged FAIL, with complete violation-set equality and no guard/baseline/allowlist edits. Compile/import and diff-check PASS.
+
+Existing `eq713_response_mechanics.py::PeriodicCqcOperator` implements Wilson's source coefficient for equal total damping and CSI F2=0, signed quadratic arithmetic, complete matching modes and explicit unsupported-setting rejection. The independent published coefficient table and synthetic complete 100×100 behavior are tested. **No actual FC09 matrix or CQC magnitude is issued:** the receipt contains case damping but no total per-mode material/link-support damping proof.
+
+Existing `etabs_story_stability_result_provider.py::qualify_native_modal_story_shear` binds exact +0.00/Bottom/Modal/Mode VX-global-X or VY-global-Y metadata and one matching native amplitude. Both cases have 100 signed V contributions. `qualify_native_modal_endpoint_rows` preserves 17200 point-local rows and the offline adapter retains 8600 physical endpoint pairs. CSI JointDispl is point-local; missing local-to-global transforms are not defaulted to identity. No global Delta scalar is formed, no average/maximum drift is substituted, and the existing common story-translation/B5 contract is unchanged.
+
+`tools/column_r1_r3g_modal_operands_offline.py` verifies the exact accepted 07:32 bytes and retained payload hashes, reuses R3E/R3F, and emits mode/R/V/period/native amplitude/source/physical-grain refs while leaving Delta and total damping explicitly absent. Actual native table labels establish CQC/SRSS/No rigid response without undocumented integer interpretation. The full derived JSON is external at `libfile_83de99a7a5748191847395991ab17405`; original raw input remains `libfile_3ee6376e3be481919daf1bc5554f2682`. Hashes are retained in the R3G receipt. No current B5 epoch, statistical joint-state approval, full-260 proof, ETABS access or R2 authorization is created.
+
 ## Next executable action
 
-No further modal capture or ETABS run is needed to repeat the closed representative physical operand proof. Reproduce R3F offline with the exact single-block Windows command in its closure document and `tools/column_r1_r3f_physical_modal_aggregate_offline.py`. It validates the accepted original bytes and writes a new result outside Git. The R3D Read-Host command is superseded; no PID is needed for this offline command.
+Reproduce the current bounded facts with `tools/column_r1_r3g_modal_operands_offline.py` and the single-block offline Windows command in the R3G record. It verifies the accepted original bytes, retains R3F R and factual V, and reports the exact damping/Delta blockers. No PID, interactive input, new ETABS capture or product run is needed for this reproduction.
 
-Next bounded causal edge: **R3G source-exact CQC treatment**, with qualified physical Delta/V bindings kept explicit. Current qualified uncracked B5 execution lineage and the joint Delta/R/V engineering selection law remain independent open gates. `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` remains NOT_APPROVED / NOT_IMPLEMENTED. The representative 86-Column operand proof does not qualify the full 260-Column population. **M6-B OPEN; R2_RERUN_READY=NO; no ETABS/product run authorized.**
+Next bounded source edge: **source-qualified total modal damping for RSX/RSY modes 1–100**, including case/material/link-support contributions or positive proof of factual zero contributions. Point local-to-global transforms and applicable common story Delta remain explicit independent blockers. Current uncracked B5 execution lineage and the joint Delta/R/V selection law remain independent open gates. `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` remains NOT_APPROVED / NOT_IMPLEMENTED. Representative 86-Column facts do not qualify the full 260-Column population. **R3G PARTIAL; M6-B OPEN; R2_RERUN_READY=NO; no ETABS/product run authorized.**
