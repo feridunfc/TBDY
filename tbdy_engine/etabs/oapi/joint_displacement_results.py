@@ -7,7 +7,7 @@ storey translations, or assign TS500 engineering meaning.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 from typing import Any
 
@@ -47,6 +47,7 @@ class JointDisplacementResultFact:
     return_code: int
     source_api: str = "Results.JointDispl"
     item_type_elm: int = CSI_ITEM_TYPE_ELM_OBJECT
+    state_diagnostics: tuple[dict[str, Any], ...] = ()
 
     @property
     def evidence_ref(self) -> str:
@@ -172,6 +173,7 @@ def read_joint_displ_from_session(
     output_name: str,
     output_kind: str,
     timeout_seconds: float = 30.0,
+    modal_mode_range: tuple[int, int] | None = None,
 ) -> JointDisplacementResultFact:
     """Read one point object's displacement under one exact selected output."""
     if not isinstance(session, EtabsVerifiedSession):
@@ -192,13 +194,17 @@ def read_joint_displ_from_session(
                 transaction.select_combo(name)
             else:
                 transaction.select_case(name)
+            if modal_mode_range is not None:
+                transaction.select_modal_modes(modal_mode_range)
             raw = method(point, CSI_ITEM_TYPE_ELM_OBJECT)
-        return decode_joint_displ_response(
+        fact = decode_joint_displ_response(
             raw,
             point_object=point,
             output_name=name,
             output_kind=kind,
         )
+        return (replace(fact, state_diagnostics=tuple(dict(x) for x in transaction.diagnostics))
+                if modal_mode_range is not None else fact)
 
     return _execute_verified_read(
         session,

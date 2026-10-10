@@ -43,6 +43,7 @@ def fetch_display_table_for_output_from_session(
     preferred_output_case: str,
     max_rows: int | None = None,
     timeout_seconds: float = 30.0,
+    modal_mode_range: tuple[int, int] | None = None,
 ) -> DisplayTableFetchResult:
     """Execute the safety-owned reversible display-selection transaction on STA."""
     return _execute_verified_read(
@@ -52,6 +53,7 @@ def fetch_display_table_for_output_from_session(
             table_name,
             preferred_output_case=preferred_output_case,
             max_rows=max_rows,
+            **({"modal_mode_range": modal_mode_range} if modal_mode_range is not None else {}),
         ),
         operation="oapi_database_tables_selected_display_read",
         timeout_seconds=timeout_seconds,

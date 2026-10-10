@@ -1,18 +1,21 @@
 # Column-R1 current state and evidence index
 
-Reconciled 2026-10-10 for integration of `worker/column-r1-r1b-live-candidate` into `feridunfc/TBDY` main. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
+Reconciled 2026-10-10 after PR #197 integration and for the bounded R3D modal-population repair. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
 
 ## Accepted repository checkpoint and precedence
 
 | Anchor | Exact identity |
 | --- | --- |
-| Accepted implementation HEAD | `c045b452aae21a0858d3788a006c71d9f1452fa1` |
-| Accepted implementation TREE | `2e7da327f083781fec1c8cde0ed2a43ac2b4698a` |
+| Accepted R3C implementation HEAD before PR #197 | `c045b452aae21a0858d3788a006c71d9f1452fa1` |
+| Accepted R3C implementation TREE before PR #197 | `2e7da327f083781fec1c8cde0ed2a43ac2b4698a` |
 | Verified pre-integration main | `a7c8bab81eed687051c43b14fbf1e981b797a1e3` |
-| Source branch | `worker/column-r1-r1b-live-candidate` |
-| Verified source relationship | Nine commits ahead, zero behind main; clean worktree; local and remote source HEAD equal |
+| Prior integration source branch | `worker/column-r1-r1b-live-candidate` |
+| Prior verified source relationship | Nine implementation commits ahead, zero behind pre-integration main; clean worktree; local and remote source HEAD equal |
+| Accepted merged main / R3D parent | `ea8bb7aa18214e01d2efe1c28ca56ef2e2cafb64` |
+| Accepted merged main TREE | `f23b81cc80435e06913529b62ef4a526d83e04ca` |
+| R3D bounded repair branch | `worker/column-r1-r3d-modal-population-completeness` |
 
-The documentation-only index commit descends from the accepted implementation HEAD. Integration must retain all nine commits through a history-preserving merge. The merge SHA is established by the PR and remote-main readback, not predicted in this file.
+The original documentation-only index commit `84cdb486` and all nine implementation commits were preserved by PR #197's history-preserving merge. The R3D repair starts from that verified merged main; it does not replace or recreate earlier work.
 
 **CURRENT VERIFIED REPO/GIT > LATEST LIVE RECEIPT > LATEST MASTER HANDOFF > CURRENT CANONICAL RECIPE / ARCHITECTURE ADDENDUM > OLDER DOCUMENTS.**
 
@@ -111,6 +114,29 @@ Recovered source locations:
 
 The 32-column example supports the recovered aggregate warning and internal Prota report consistency. It provides no current FC09 epoch, native modal normalization or approved joint Delta/R/V selection law. Original files may be supplied locally at `C:\tmp\column-r1-m6-reference` for exact-source verification; rounded report values do not authorize hidden-algorithm inference.
 
+## R3D current native receipt and completeness finding
+
+Historical source receipt: `column-r1-r3c-modal_20261010_065722.json`, SHA256 **`4ea722960a5167bdfee0545b645b1dc2a9dd7992c072f60fc53aca2038f5cac7`**. Complete raw JSON is external evidence, preserved at Library `libfile_dfd08b0570188191ba381e963b0fa378` (file `file_00000000e030820a8288326e647134f7`); it is not copied into Git. The worker verified the complete raw-file hash and exercised its actual rows in a regression. Do not overwrite it or reinterpret it as a qualified B5 result epoch.
+
+| Current FC09 native observation | Proven scope / limitation |
+| --- | --- |
+| RSX / RSY loads | U1 only / U2 only; actual dependency `Modal` |
+| Modal / directional combination | CQC / SRSS; damping 0.05; eccentricity 0.05 |
+| Reference population | 100 native modes in modal periods / spectrum modal amplitude tables |
+| `+0.00` physical population | 86 factual Columns; 172 physical endpoints |
+| API FrameForce / JointDispl | Every object read contains only Mode 1: **incomplete** |
+| Story Forces | Modal rows cover modes 1–12, plus unrelated combination rows: **incomplete** |
+| Protected disk source | Exact FC09 SHA before and after; unchanged |
+| Previous status label | `FACTUAL_CAPTURE_COMPLETE_PENDING_NORMALIZATION_B5_AND_JOINT_RULE` **does not prove mode-population completeness** |
+
+The existing R3C tool selected cases but did not inspect or set either native modal output range. CSI API ETABS v1 (2024), SHA256 `6ee860c75d37215d6d6c44251e94788709439e155b68a7939e893a66f01dda27`, documents two independent controls: `Results.Setup.Get/SetOptionModeShape` (pp.265–266 / 286–287) and `DatabaseTables.Get/SetOutputOptionsForDisplay` (pp.910–913 / 936–939). **The old receipt did not retain their initial values.** A starting range of 1–1 or 1–12 must not be claimed as directly observed. The proven code gap is uncontrolled native ranges plus absent exact population validation; the next receipt records before/temporary/restored values and decides whether range selection closes the native truncation.
+
+R3D extends the existing `ResultsSetupReadTransaction` and `DatabaseTablesReadTransaction`, under their existing acquisition lock. Each requested modal read snapshots the exact successful native ABI, selects inclusive 1–100, verifies the complete options tuple, performs the read, then restores and verifies every original scalar and result-selection flag. The database setter changes only `IsAllModes`, `StartMode`, `EndMode`; all base-reaction, buckling, history and combination options remain exact. Failed option restoration is a hard failure; case/combo restoration is still attempted. Ordinary callers that do not request a modal range retain their existing behavior.
+
+`tools/column_r1_r3c_modal_read_only.py` now requires exact 100-mode equality per physical Column/element/station grain and physical endpoint/element grain, complete 86/172 connectivity coverage, and exact mode equality in amplitude, period, mass and filtered bottom-story shear tables. Story Forces candidates require exact `OutputCase=Modal`, `StepType=Mode`, `Story=+0.00`, native `Location=Bottom`; raw unrelated rows remain in the receipt. Native field metadata, observed present/database units, direction-specific load settings and mode/period alignment are retained and checked. Native `U1Amp/U2Amp/U3Amp` are dimensional length values in this receipt: **no multiplier, sign, normalization or unit scaling is invented**.
+
+Bounded implementation and negative-test validation are recorded in [R3D offline receipt](COLUMN_R1_R3D_OFFLINE_RECEIPT_2026-10-10.json). **100-mode native physical result coverage and native restoration remain pending the operator's new read.** Even a passing factual read cannot qualify modal normalization, a current uncracked B5 epoch/bridge, a native CQC adapter or the joint Delta/R/V design statistic. No R2/product rerun or TS500/READY promotion is authorized by this repair.
+
 ## R3C owners and gate boundaries
 
 See [R3C modal handoff](COLUMN_R1_R3C_MODAL_GATE_HANDOFF_2026-10-09.md) and [offline validation receipt](COLUMN_R1_R3C_OFFLINE_RECEIPT_2026-10-09.json).
@@ -126,55 +152,55 @@ See [R3C modal handoff](COLUMN_R1_R3C_MODAL_GATE_HANDOFF_2026-10-09.md) and [off
 
 CSI sources and source-PDF hashes/pages are retained in the handoff/receipt. Original CSI API PDF SHA256 is `6ee860c75d37215d6d6c44251e94788709439e155b68a7939e893a66f01dda27`; TS500 PDF SHA256 is `d925114d01a1de2baee63738bc0da0112b547b58526c3394843c36ee66722d44`. These complete PDFs are external evidence, not tracked raw files.
 
-**Gate 1:** offline arithmetic passes; current FC09 RSX/RSY modal signatures, amplitudes, normalization, physical per-mode R/Delta/V and actual combination method remain NOT LIVE PROVEN. Native CQC adapter is not implemented. Story Forces/base reactions are not asserted to be exact Column-only length-weighted R.
+**Gate 1:** offline arithmetic passes. The 2026-10-10 receipt now proves the current native case signatures/methods and records amplitudes, but physical mode populations are incomplete as detailed above. Complete physical per-mode R/Delta/V, normalization and B5 lineage remain NOT PROVEN. Native CQC adapter is not implemented. Story Forces/base reactions are not asserted to be exact Column-only length-weighted R.
 
 **Gate 2 / actual OPEN M6-B decision:** qualify one exact unfavorable TS500 Eq.7.13 joint Delta/R/V design statistic for 1.0G+1.0Q+E, including source-supported modal/directional correlation, accepted physical translation, X/Y/orthogonal/EDZ alternatives, sign/applicability and nonzero denominator. Separate spectrum maxima do not prove concurrency or a conservative ratio bound.
 
 `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` is **NOT APPROVED / NOT IMPLEMENTED**. Its mathematical proposal, alternatives and limits remain in the R3C handoff. Neither this index nor integration approves it.
 
-**Missing next evidence:** one current FC09 `+0.00` RSX/RSY native read-only modal JSON receipt. No such receipt is claimed at this checkpoint. Even a complete protected-source receipt cannot issue a qualified B5 epoch. Eventual production use additionally needs the exact current uncracked B5 execution proof and owned-scratch/source bridge; old result identities cannot be rebound.
+**Missing next evidence:** one new FC09 `+0.00` RSX/RSY read-only receipt with independently verified/restored output options and exact 100-mode physical populations. The existing receipt is preserved as incomplete evidence. Even a complete protected-source receipt cannot issue a qualified B5 epoch. Eventual production use additionally needs the exact current uncracked B5 execution proof and owned-scratch/source bridge; old result identities cannot be rebound.
 
 ## Last 1035-test validation and integration scope
 
-The R3C offline receipt records **1035 distinct PASS, 1035 executions, zero failures/errors/skips**, preserving all 958 prior test identities plus 77 new regressions, compile/import PASS and diff-check PASS. Six exact tested-code SHA256 values are in that receipt and must still match at integration.
+The historical R3C offline receipt records **1035 distinct PASS, 1035 executions, zero failures/errors/skips**, preserving all 958 prior test identities plus 77 new regressions, compile/import PASS and diff-check PASS. Its six tested-code hashes bind that earlier implementation. R3D intentionally changes acquisition/tool files and supplies a separate current validation receipt; the historical proof is not relabelled as a current execution.
 
 | Raw validation evidence (outside Git) | SHA256 |
 | --- | --- |
 | Final JUnit `integrated-final.xml` | `db140a34f030e58bb33670605292e4372bc35e3f3a57a499cc8248b4bda30361` |
 | Focused JUnit receipt | `86496e62f96a9c2d8b8258880f6d970198947bd37929361f70dd24593bd34341` |
 
-The complete JUnit XMLs and original external test inputs are not committed; the tracked machine receipt is the durable summary/hash locator. The final XML was independently checked against its recorded hash and 1035/0/0/0 counts during index preparation. This index is the only new file beyond the accepted nine-commit candidate; it changes no production/test/preflight file. PR integration checks are separate from the accepted 1035-test proof and must be inspected before merge. Do not relabel a reused receipt as a newly executed test run.
+The complete historical JUnit XMLs and original external test inputs are not committed; the tracked machine receipt is the durable summary/hash locator. The final XML was independently checked against its recorded hash and 1035/0/0/0 counts during initial index preparation. PR #197 added only the original index beyond the accepted nine implementation commits. The later R3D repair has its own bounded diff and current regression receipt. Do not relabel a reused receipt as a newly executed test run.
 
-## Next executable local action after merge
+## Next executable local action for R3D
 
 Only a read-only native modal capture is next. Inspect its receipt before any further run or patch. Do not run PRODUCT_ADVANCEMENT_RUN. Use the actual PID of the ETABS instance already showing the exact protected FC09 file; no PID/name fallback and no source reopening is authorized here.
 
-This command fetches the merged main, proves that the accepted source is its ancestor, and selects that exact fetched snapshot without rewriting local branch history. Stop on any failed guard. A post-merge handoff may additionally pin the independently verified merge HEAD/TREE.
+This command fetches the bounded repair branch, proves accepted merged-main ancestry, and selects that fetched candidate without rewriting local branch history. The worker's final transport receipt pins its exact commit/tree; use those pins when executing. Stop on any failed guard. Execute only once, then inspect the new receipt.
 
 ```powershell
 cd C:\Users\FCY\PycharmProjects\tbdy_engine_a37
 if (git status --porcelain) { throw 'Worktree dirty: STOP' }
-git fetch origin main
+git fetch origin worker/column-r1-r3d-modal-population-completeness
 if ($LASTEXITCODE -ne 0) { throw 'Fetch failed: STOP' }
-$mergedMain = (git rev-parse origin/main).Trim()
-if ($LASTEXITCODE -ne 0) { throw 'Main identity unavailable: STOP' }
-git merge-base --is-ancestor c045b452aae21a0858d3788a006c71d9f1452fa1 $mergedMain
-if ($LASTEXITCODE -ne 0) { throw 'Accepted source absent from main: STOP' }
-git switch --detach $mergedMain
-if ($LASTEXITCODE -ne 0) { throw 'Exact main checkout failed: STOP' }
-if ((git rev-parse HEAD).Trim() -ne $mergedMain) { throw 'HEAD mismatch: STOP' }
+$candidate = (git rev-parse origin/worker/column-r1-r3d-modal-population-completeness).Trim()
+if ($LASTEXITCODE -ne 0) { throw 'Candidate identity unavailable: STOP' }
+git merge-base --is-ancestor ea8bb7aa18214e01d2efe1c28ca56ef2e2cafb64 $candidate
+if ($LASTEXITCODE -ne 0) { throw 'Accepted merged main absent: STOP' }
+git switch --detach $candidate
+if ($LASTEXITCODE -ne 0) { throw 'Exact candidate checkout failed: STOP' }
+if ((git rev-parse HEAD).Trim() -ne $candidate) { throw 'HEAD mismatch: STOP' }
 if (!(Test-Path .\docs\COLUMN_R1_CURRENT_STATE_AND_EVIDENCE_INDEX.md)) { throw 'Evidence index absent: STOP' }
 if (!(Test-Path .\tools\column_r1_r3c_modal_read_only.py)) { throw 'Native capture tool absent: STOP' }
 $etabsPid = [int](Read-Host 'Actual PID of ETABS displaying protected FC09')
 if ($etabsPid -le 0) { throw 'Invalid actual PID: STOP' }
-$receipt = Join-Path 'C:\tmp' ('column-r1-r3c-modal_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.json')
+$receipt = Join-Path 'C:\tmp' ('column-r1-r3d-modal_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '.json')
 python .\tools\column_r1_r3c_modal_read_only.py --source 'C:\tmp\B-BLOK_Revised.EDB' --pid $etabsPid --story '+0.00' --receipt $receipt
 if ($LASTEXITCODE -ne 0) { throw "Capture blocked: inspect $receipt; do not rerun analysis" }
 Write-Host "Inspect receipt before any next action: $receipt"
 ```
 
-The tool reads RSX and RSY automatically, uses the exact existing `Response Spectrum Modal Info` table key by default, captures actual modal dependencies and complete representative-story Column/end-point populations, restores safety-owned result selections, hashes FC09 before/after and issues no qualified analysis epoch. Missing table/rows/source facts must be reported, not manufactured. There is no RunAnalysis, StartDesign, Save or SetPresentUnits in this operation.
+The tool reads RSX and RSY automatically, uses the exact existing `Response Spectrum Modal Info` table key by default, verifies 100-mode equality against native Modal authority, verifies every required physical Column/end-point read and restores both safety-owned selections and modal output options. It hashes FC09 before/after and issues no qualified analysis epoch. Missing/truncated tables, rows, source metadata or restoration must fail closed. There is no RunAnalysis, StartDesign, Save or SetPresentUnits in this operation.
 
 ## Current disposition
 
-Completed implementation and recovered evidence are ready for history-preserving integration. **M6-B remains OPEN; R3C PARTIAL; B-BLOK engineering release OPEN; R2_RERUN_READY=NO.** The next local read is separate from B5 and subject to receipt review. Full release is 260 truthful outcomes plus FCR/current report package/independent review, not a requirement that all Columns PASS or become READY.
+PR #197 integration is complete and earlier recovered evidence is preserved. R3D is a bounded population-acquisition repair requiring a new operator read before native completeness is claimed. **M6-B remains OPEN; R3C PARTIAL; B-BLOK engineering release OPEN; R2_RERUN_READY=NO.** The next local read is separate from B5 and subject to receipt review. Full release is 260 truthful outcomes plus FCR/current report package/independent review, not a requirement that all Columns PASS or become READY.
