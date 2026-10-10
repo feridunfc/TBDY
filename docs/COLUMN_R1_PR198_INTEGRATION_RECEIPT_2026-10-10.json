@@ -1,0 +1,442 @@
+{
+  "package": "PR_198_SCOPED_BASELINE_DIFFERENTIAL_ACCEPTANCE",
+  "base": "ea8bb7aa18214e01d2efe1c28ca56ef2e2cafb64",
+  "candidate": "c6bcca7e4a39bd366f3cb7f140ba4bad07aff393",
+  "candidate_tree": "69b345ba07d9fa719729b547daa5975c7eb6c6fb",
+  "authority": "SUPERVISOR ADDENDUM PR #198 \u2014 scoped to this integration only",
+  "baseline_failures": 5,
+  "candidate_failures": 5,
+  "failed_test_identity_delta": [],
+  "new_violation_paths": [],
+  "new_violation_symbols": [],
+  "expanded_guard_exceptions": "NONE",
+  "failure_diagnostic_delta": {},
+  "exact_violation_nonexpansion": "PASS",
+  "diagnostics_equal": true,
+  "baseline_diagnostics": {
+    "head": "ea8bb7aa18214e01d2efe1c28ca56ef2e2cafb64",
+    "guards": {
+      "test_private_b4t_transport_is_consumed_only_by_exact_typed_oapi_allowlist": {
+        "violations": [
+          "tbdy_engine/etabs/oapi/model_lock.py|_B4T_MUTATION_TRANSPORT_KEY",
+          "tbdy_engine/etabs/oapi/model_lock.py|_execute_bounded_model_mutation",
+          "tbdy_engine/etabs/oapi/model_lock.py|etabs_gateway.mutation_transport"
+        ],
+        "required_allowlist_symbols_missing": []
+      },
+      "test_supported_graph_has_zero_forbidden_legacy_tools_or_report_authority": {
+        "forbidden_legacy": [
+          "tbdy_engine.features.column_shear_demand_evidence",
+          "tbdy_engine.features.etabs_com_attach",
+          "tbdy_engine.features.live_etabs_geometry_probe",
+          "tbdy_engine.features.used_rc_material_population"
+        ],
+        "legacy_report": [],
+        "tools": []
+      },
+      "test_no_public_raw_sapmodel_escape": {
+        "raw_escapes": [
+          "tbdy_engine.features.live_etabs_geometry_probe|attach_to_running_etabs"
+        ],
+        "public_raw_capabilities": []
+      },
+      "test_provider_and_oapi_dependency_direction": {
+        "provider": [
+          "tbdy_engine.providers.etabs_column_axial_b5_provider|tbdy_engine.regulatory",
+          "tbdy_engine.providers.etabs_column_axial_b5_provider|tbdy_engine.regulatory.vs5_column_axial_program"
+        ],
+        "oapi_gateway": []
+      },
+      "test_legacy_exception_baseline_is_shrink_only": {
+        "violations": [
+          "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|acquire|sap_model"
+        ],
+        "observed_legacy_debt": [
+          "LEGACY_IMPORT|tbdy_engine/engine/project_execution.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/engine/vs5_column_axial_execution.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/features/live_etabs_concrete_material_probe.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/features/live_etabs_geometry_probe.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/features/live_etabs_table_discovery.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/features/used_rc_material_population.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/product/live_beam_geometry_f0_product.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/product/live_geometry_product.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/product/live_rc_component_f0_product.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/product/live_seismic_response_product.py|tbdy_engine.features.etabs_com_attach",
+          "MUTATION_CALL|tbdy_engine/engine/unit_context.py|SetPresentUnits",
+          "RAW_CAP_ATTR|tbdy_engine/features/column_shear_demand_evidence.py|sap_model.DatabaseTables",
+          "RAW_CAP_ATTR|tbdy_engine/features/live_etabs_concrete_material_probe.py|sap_model.DatabaseTables",
+          "RAW_CAP_ATTR|tbdy_engine/features/live_etabs_geometry_probe.py|sap_model.DatabaseTables",
+          "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.AreaObj",
+          "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.DatabaseTables",
+          "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.PropArea",
+          "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.PropMaterial",
+          "RAW_ESCAPE_COMPAT|tbdy_engine/etabs/connection.py|get_sap",
+          "RAW_PARAM|tbdy_engine/engine/unit_context.py|attach_unit_context|sap_model",
+          "RAW_PARAM|tbdy_engine/engine/unit_context.py|read_etabs_units|sap_model",
+          "RAW_PARAM|tbdy_engine/engine/unit_context.py|set_etabs_units_kn_m|sap_model",
+          "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_exact_output_case_table|database_tables",
+          "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_live_mdev_mo_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_static_table|database_tables",
+          "RAW_PARAM|tbdy_engine/features/column_shear_demand_evidence.py|capture_live_column_shear_demand_evidence|sap_model",
+          "RAW_PARAM|tbdy_engine/features/etabs_column_axial_evidence.py|capture_live_column_axial_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/features/etabs_mdev_mo_evidence.py|capture_exact_output_case_table|database_tables",
+          "RAW_PARAM|tbdy_engine/features/etabs_mdev_mo_evidence.py|capture_live_mdev_mo_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/features/live_etabs_concrete_material_probe.py|__init__|database_tables",
+          "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_etabs_length_unit_evidence|sap_model",
+          "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_etabs_table_for_geometry|database_tables",
+          "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_frame_component_type_source|database_tables",
+          "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_accepted_wall_inventory_rows|database_tables",
+          "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_material_fact|sap_model",
+          "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_wall_fact|sap_model",
+          "RAW_PARAM|tbdy_engine/integration/live_beam_geometry_f0.py|read_observed_etabs_model_path|sap_model",
+          "RAW_PARAM|tbdy_engine/integration/live_seismic_response_f0.py|_fetch_exact|database_tables",
+          "RAW_PARAM|tbdy_engine/integration/live_seismic_response_f0.py|capture_seismic_response|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_auto_seismic_direction_provider.py|capture_etabs_auto_seismic_direction_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|_read_fact|resp_combo",
+          "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|capture_etabs_combo_definitions|resp_combo",
+          "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|capture_etabs_combo_definition|resp_combo",
+          "RAW_PARAM|tbdy_engine/providers/etabs_concrete_column_design_result_provider.py|capture_concrete_column_design_results|sap_model",
+          "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py|acquire_actual_concrete_design_combo_selection|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py|probe_concrete_frame_design_combo_selection_table|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_section_provider.py|capture_concrete_column_design_sections|design_concrete",
+          "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|acquire|sap_model",
+          "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|capture_etabs_rebar_catalog_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_strict_column_topology_provider.py|_fetch_full_rows|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_strict_column_topology_provider.py|capture_etabs_strict_column_topology|database_tables"
+        ]
+      }
+    },
+    "guard_and_baseline_hashes": {
+      "tests/architecture/test_b4s_scratch_lifecycle_guards.py": "e46a9fcf8737eafc47d92d206621e01c9782f000af8650bec18983d5134bee2b",
+      "tests/architecture/test_g1_arch_drift_guards.py": "596f1c40394a642b2e69d8083cdd1641bb633cb6fc9b80a9dec87e061b275151",
+      "tests/architecture/g1_legacy_exception_baseline.json": "fe4c4eb587fe7c9b922b7f1f4eab3d7753c6e5676f6bf61580bc9c01d964ab67"
+    },
+    "b4t_allowlist": [
+      "tbdy_engine/etabs/oapi/analysis_execution.py",
+      "tbdy_engine/etabs/oapi/area_modifiers.py",
+      "tbdy_engine/etabs/oapi/concrete_design.py",
+      "tbdy_engine/etabs/oapi/file_lifecycle.py",
+      "tbdy_engine/etabs/oapi/frame_modifiers.py"
+    ],
+    "changed_production_imports": {
+      "tbdy_engine/analysis_basis/eq713_response_mechanics.py": [
+        "__future__",
+        "dataclasses",
+        "decimal",
+        "eq713_frame_mechanics",
+        "eq713_uncracked_analysis_state",
+        "math",
+        "tbdy_engine.etabs.oapi.area_modifiers",
+        "tbdy_engine.etabs.oapi.eq713_response_results",
+        "tbdy_engine.etabs.oapi.frame_modifiers",
+        "tbdy_engine.etabs.oapi.frame_section_mechanics",
+        "tbdy_engine.etabs.oapi.material_properties",
+        "typing"
+      ],
+      "tbdy_engine/etabs/_safety_legacy.py": [
+        "__future__",
+        "contextlib",
+        "dataclasses",
+        "enum",
+        "ntpath",
+        "threading",
+        "typing"
+      ],
+      "tbdy_engine/etabs/oapi/__init__.py": [
+        "__future__",
+        "database_tables",
+        "tbdy_engine.etabs.safety"
+      ],
+      "tbdy_engine/etabs/oapi/database_tables.py": [
+        "__future__",
+        "contracts",
+        "copy",
+        "dataclasses",
+        "hashlib",
+        "json",
+        "math",
+        "tbdy_engine.etabs.safety",
+        "typing",
+        "uuid"
+      ],
+      "tbdy_engine/etabs/oapi/eq713_response_results.py": [
+        "__future__",
+        "contracts",
+        "dataclasses",
+        "enum",
+        "math",
+        "tbdy_engine.etabs.safety",
+        "typing"
+      ],
+      "tbdy_engine/etabs/oapi/joint_displacement_results.py": [
+        "__future__",
+        "contracts",
+        "dataclasses",
+        "math",
+        "tbdy_engine.etabs.safety",
+        "typing"
+      ]
+    },
+    "module_paths": {
+      "tbdy_engine.features.column_shear_demand_evidence": "tbdy_engine/features/column_shear_demand_evidence.py",
+      "tbdy_engine.features.etabs_com_attach": "tbdy_engine/features/etabs_com_attach.py",
+      "tbdy_engine.features.live_etabs_geometry_probe": "tbdy_engine/features/live_etabs_geometry_probe.py",
+      "tbdy_engine.features.used_rc_material_population": "tbdy_engine/features/used_rc_material_population.py",
+      "tbdy_engine.providers.etabs_column_axial_b5_provider": "tbdy_engine/providers/etabs_column_axial_b5_provider.py"
+    }
+  },
+  "candidate_diagnostics": {
+    "head": "c6bcca7e4a39bd366f3cb7f140ba4bad07aff393",
+    "guards": {
+      "test_private_b4t_transport_is_consumed_only_by_exact_typed_oapi_allowlist": {
+        "violations": [
+          "tbdy_engine/etabs/oapi/model_lock.py|_B4T_MUTATION_TRANSPORT_KEY",
+          "tbdy_engine/etabs/oapi/model_lock.py|_execute_bounded_model_mutation",
+          "tbdy_engine/etabs/oapi/model_lock.py|etabs_gateway.mutation_transport"
+        ],
+        "required_allowlist_symbols_missing": []
+      },
+      "test_supported_graph_has_zero_forbidden_legacy_tools_or_report_authority": {
+        "forbidden_legacy": [
+          "tbdy_engine.features.column_shear_demand_evidence",
+          "tbdy_engine.features.etabs_com_attach",
+          "tbdy_engine.features.live_etabs_geometry_probe",
+          "tbdy_engine.features.used_rc_material_population"
+        ],
+        "legacy_report": [],
+        "tools": []
+      },
+      "test_no_public_raw_sapmodel_escape": {
+        "raw_escapes": [
+          "tbdy_engine.features.live_etabs_geometry_probe|attach_to_running_etabs"
+        ],
+        "public_raw_capabilities": []
+      },
+      "test_provider_and_oapi_dependency_direction": {
+        "provider": [
+          "tbdy_engine.providers.etabs_column_axial_b5_provider|tbdy_engine.regulatory",
+          "tbdy_engine.providers.etabs_column_axial_b5_provider|tbdy_engine.regulatory.vs5_column_axial_program"
+        ],
+        "oapi_gateway": []
+      },
+      "test_legacy_exception_baseline_is_shrink_only": {
+        "violations": [
+          "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|acquire|sap_model"
+        ],
+        "observed_legacy_debt": [
+          "LEGACY_IMPORT|tbdy_engine/engine/project_execution.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/engine/vs5_column_axial_execution.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/features/live_etabs_concrete_material_probe.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/features/live_etabs_geometry_probe.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/features/live_etabs_table_discovery.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/features/used_rc_material_population.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/product/live_beam_geometry_f0_product.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/product/live_geometry_product.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/product/live_rc_component_f0_product.py|tbdy_engine.features.etabs_com_attach",
+          "LEGACY_IMPORT|tbdy_engine/product/live_seismic_response_product.py|tbdy_engine.features.etabs_com_attach",
+          "MUTATION_CALL|tbdy_engine/engine/unit_context.py|SetPresentUnits",
+          "RAW_CAP_ATTR|tbdy_engine/features/column_shear_demand_evidence.py|sap_model.DatabaseTables",
+          "RAW_CAP_ATTR|tbdy_engine/features/live_etabs_concrete_material_probe.py|sap_model.DatabaseTables",
+          "RAW_CAP_ATTR|tbdy_engine/features/live_etabs_geometry_probe.py|sap_model.DatabaseTables",
+          "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.AreaObj",
+          "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.DatabaseTables",
+          "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.PropArea",
+          "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.PropMaterial",
+          "RAW_ESCAPE_COMPAT|tbdy_engine/etabs/connection.py|get_sap",
+          "RAW_PARAM|tbdy_engine/engine/unit_context.py|attach_unit_context|sap_model",
+          "RAW_PARAM|tbdy_engine/engine/unit_context.py|read_etabs_units|sap_model",
+          "RAW_PARAM|tbdy_engine/engine/unit_context.py|set_etabs_units_kn_m|sap_model",
+          "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_exact_output_case_table|database_tables",
+          "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_live_mdev_mo_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_static_table|database_tables",
+          "RAW_PARAM|tbdy_engine/features/column_shear_demand_evidence.py|capture_live_column_shear_demand_evidence|sap_model",
+          "RAW_PARAM|tbdy_engine/features/etabs_column_axial_evidence.py|capture_live_column_axial_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/features/etabs_mdev_mo_evidence.py|capture_exact_output_case_table|database_tables",
+          "RAW_PARAM|tbdy_engine/features/etabs_mdev_mo_evidence.py|capture_live_mdev_mo_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/features/live_etabs_concrete_material_probe.py|__init__|database_tables",
+          "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_etabs_length_unit_evidence|sap_model",
+          "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_etabs_table_for_geometry|database_tables",
+          "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_frame_component_type_source|database_tables",
+          "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_accepted_wall_inventory_rows|database_tables",
+          "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_material_fact|sap_model",
+          "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_wall_fact|sap_model",
+          "RAW_PARAM|tbdy_engine/integration/live_beam_geometry_f0.py|read_observed_etabs_model_path|sap_model",
+          "RAW_PARAM|tbdy_engine/integration/live_seismic_response_f0.py|_fetch_exact|database_tables",
+          "RAW_PARAM|tbdy_engine/integration/live_seismic_response_f0.py|capture_seismic_response|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_auto_seismic_direction_provider.py|capture_etabs_auto_seismic_direction_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|_read_fact|resp_combo",
+          "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|capture_etabs_combo_definitions|resp_combo",
+          "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|capture_etabs_combo_definition|resp_combo",
+          "RAW_PARAM|tbdy_engine/providers/etabs_concrete_column_design_result_provider.py|capture_concrete_column_design_results|sap_model",
+          "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py|acquire_actual_concrete_design_combo_selection|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py|probe_concrete_frame_design_combo_selection_table|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_section_provider.py|capture_concrete_column_design_sections|design_concrete",
+          "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|acquire|sap_model",
+          "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|capture_etabs_rebar_catalog_evidence|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_strict_column_topology_provider.py|_fetch_full_rows|database_tables",
+          "RAW_PARAM|tbdy_engine/providers/etabs_strict_column_topology_provider.py|capture_etabs_strict_column_topology|database_tables"
+        ]
+      }
+    },
+    "guard_and_baseline_hashes": {
+      "tests/architecture/test_b4s_scratch_lifecycle_guards.py": "e46a9fcf8737eafc47d92d206621e01c9782f000af8650bec18983d5134bee2b",
+      "tests/architecture/test_g1_arch_drift_guards.py": "596f1c40394a642b2e69d8083cdd1641bb633cb6fc9b80a9dec87e061b275151",
+      "tests/architecture/g1_legacy_exception_baseline.json": "fe4c4eb587fe7c9b922b7f1f4eab3d7753c6e5676f6bf61580bc9c01d964ab67"
+    },
+    "b4t_allowlist": [
+      "tbdy_engine/etabs/oapi/analysis_execution.py",
+      "tbdy_engine/etabs/oapi/area_modifiers.py",
+      "tbdy_engine/etabs/oapi/concrete_design.py",
+      "tbdy_engine/etabs/oapi/file_lifecycle.py",
+      "tbdy_engine/etabs/oapi/frame_modifiers.py"
+    ],
+    "changed_production_imports": {
+      "tbdy_engine/analysis_basis/eq713_response_mechanics.py": [
+        "__future__",
+        "dataclasses",
+        "decimal",
+        "eq713_frame_mechanics",
+        "eq713_uncracked_analysis_state",
+        "math",
+        "tbdy_engine.etabs.oapi.area_modifiers",
+        "tbdy_engine.etabs.oapi.database_tables",
+        "tbdy_engine.etabs.oapi.eq713_response_results",
+        "tbdy_engine.etabs.oapi.frame_modifiers",
+        "tbdy_engine.etabs.oapi.frame_section_mechanics",
+        "tbdy_engine.etabs.oapi.material_properties",
+        "typing"
+      ],
+      "tbdy_engine/etabs/_safety_legacy.py": [
+        "__future__",
+        "contextlib",
+        "dataclasses",
+        "enum",
+        "math",
+        "ntpath",
+        "threading",
+        "typing"
+      ],
+      "tbdy_engine/etabs/oapi/__init__.py": [
+        "__future__",
+        "database_tables",
+        "tbdy_engine.etabs.safety"
+      ],
+      "tbdy_engine/etabs/oapi/database_tables.py": [
+        "__future__",
+        "contracts",
+        "copy",
+        "dataclasses",
+        "hashlib",
+        "json",
+        "math",
+        "tbdy_engine.etabs.safety",
+        "typing",
+        "uuid"
+      ],
+      "tbdy_engine/etabs/oapi/eq713_response_results.py": [
+        "__future__",
+        "contracts",
+        "dataclasses",
+        "enum",
+        "math",
+        "tbdy_engine.etabs.safety",
+        "typing"
+      ],
+      "tbdy_engine/etabs/oapi/joint_displacement_results.py": [
+        "__future__",
+        "contracts",
+        "dataclasses",
+        "math",
+        "tbdy_engine.etabs.safety",
+        "typing"
+      ]
+    },
+    "module_paths": {
+      "tbdy_engine.features.column_shear_demand_evidence": "tbdy_engine/features/column_shear_demand_evidence.py",
+      "tbdy_engine.features.etabs_com_attach": "tbdy_engine/features/etabs_com_attach.py",
+      "tbdy_engine.features.live_etabs_geometry_probe": "tbdy_engine/features/live_etabs_geometry_probe.py",
+      "tbdy_engine.features.used_rc_material_population": "tbdy_engine/features/used_rc_material_population.py",
+      "tbdy_engine.providers.etabs_column_axial_b5_provider": "tbdy_engine/providers/etabs_column_axial_b5_provider.py"
+    }
+  },
+  "changed_architecture_sensitive_imports": {
+    "tbdy_engine/analysis_basis/eq713_response_mechanics.py": {
+      "added": [
+        "tbdy_engine.etabs.oapi.database_tables"
+      ],
+      "removed": []
+    },
+    "tbdy_engine/etabs/_safety_legacy.py": {
+      "added": [
+        "math"
+      ],
+      "removed": []
+    },
+    "tbdy_engine/etabs/oapi/__init__.py": {
+      "added": [],
+      "removed": []
+    },
+    "tbdy_engine/etabs/oapi/database_tables.py": {
+      "added": [],
+      "removed": []
+    },
+    "tbdy_engine/etabs/oapi/eq713_response_results.py": {
+      "added": [],
+      "removed": []
+    },
+    "tbdy_engine/etabs/oapi/joint_displacement_results.py": {
+      "added": [],
+      "removed": []
+    }
+  },
+  "guard_or_allowlist_or_baseline_modified": false,
+  "review": {
+    "_safety_legacy": "Only math import added. Output-option calls stay in existing lock-owned read transactions with exact native snapshot, temporary verification and independent restoration. No new model mutation, COM attach or regulatory dependency. Existing approved R3D read/restoration proof reused.",
+    "native_amplitude_binder": "Only typed database_tables metadata import added under analysis_basis -> OAPI. Pure computation; no live attach, execution issuer, regulatory promotion or inverse provider dependency."
+  },
+  "junit_evidence": {
+    "integration-main-architecture-envfixed.xml": "be80b19ef734206c041e85f4f39f0a5a113f59eae1e670b67bb6506f9456c7cd",
+    "integration-candidate-architecture-envfixed.xml": "4a44ae21f2b0849b56d1ea4bbaff5b9ee89c3935fd3c43da80e3cec37cc65328"
+  },
+  "extraction_script_sha256": "c066b5520b877ab1763f69e9895d37fd2d65e739ffc594f0b687a0b7b6e22f62",
+  "technical_debt": "Five tests remain FAIL. No permanent waiver, exception widening, guard disablement or PASS claim.",
+  "ETABS_EXECUTED": false,
+  "original_differential_receipt_sha256": "77cff58ff3c248f5cf4d22d92f40ca422c6269a5e3ed557de920691c5c4c7c85",
+  "integration": {
+    "pr_url": "https://github.com/feridunfc/TBDY/pull/198",
+    "method": "merge",
+    "merge_sha": "26155744efcc3e708544bf4bd6b2f6836d21160c",
+    "verified_remote_main_head": "26155744efcc3e708544bf4bd6b2f6836d21160c",
+    "verified_remote_main_tree": "69b345ba07d9fa719729b547daa5975c7eb6c6fb",
+    "parents": [
+      "ea8bb7aa18214e01d2efe1c28ca56ef2e2cafb64",
+      "c6bcca7e4a39bd366f3cb7f140ba4bad07aff393"
+    ],
+    "original_commits_preserved": [
+      "7bd7f4bbf9b2992c685f51db45f0b43a11ac633a",
+      "c6bcca7e4a39bd366f3cb7f140ba4bad07aff393"
+    ],
+    "ancestry": "PASS",
+    "r3d_r3e_receipts_and_index_present": true,
+    "CI": "3/3 SUCCESS",
+    "checks": [
+      {
+        "name": "offline-acceptance",
+        "run": 38026770215,
+        "job": 114139159622
+      },
+      {
+        "name": "wall-pack-a-kernel",
+        "run": 38026770297,
+        "job": 114139160026
+      },
+      {
+        "name": "ur-1e-validation",
+        "run": 38026770307,
+        "job": 114139160032
+      }
+    ],
+    "r3f_branch": "worker/column-r1-r3f-physical-modal-aggregate",
+    "r3f_base": "26155744efcc3e708544bf4bd6b2f6836d21160c"
+  }
+}

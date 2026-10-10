@@ -275,6 +275,90 @@ def _distance(a: PointTopologyEvidence, b: PointTopologyEvidence) -> float:
     return math.dist(a.coord_m, b.coord_m)
 
 
+@dataclass(frozen=True, slots=True)
+class ColumnPhysicalEndpointsEvidence:
+    """Factual axis endpoints only; no clear-length or design applicability."""
+    unique_name: str
+    story: str
+    point_i: PointTopologyEvidence
+    point_j: PointTopologyEvidence
+    bottom: PointTopologyEvidence
+    top: PointTopologyEvidence
+    object_length_m: float
+    coordinate_length_m: float
+    connectivity_row: Mapping[str, Any]
+    source_refs: tuple[str, ...]
+
+    def __post_init__(self):
+        _text(self.unique_name, "column.unique_name")
+        _text(self.story, "column.story")
+        if any(not isinstance(p, PointTopologyEvidence) for p in
+               (self.point_i, self.point_j, self.bottom, self.top)):
+            raise ColumnShearTopologyError("typed physical points required")
+        if (self.bottom, self.top) != _column_bottom_top(self.point_i, self.point_j, self.unique_name):
+            raise ColumnShearTopologyError("physical bottom/top does not match exact I/J elevation")
+        for name in ("object_length_m", "coordinate_length_m"):
+            value = _float(getattr(self, name), name)
+            if value <= 0:
+                raise ColumnShearTopologyError("positive physical axis lengths required")
+            object.__setattr__(self, name, value)
+        if self.coordinate_length_m != _distance(self.point_i, self.point_j):
+            raise ColumnShearTopologyError("physical coordinate length does not match exact endpoints")
+        refs = tuple(_text(r, "physical source_ref") for r in self.source_refs)
+        if len(set(refs)) < 2:
+            raise ColumnShearTopologyError("independent physical source refs required")
+        object.__setattr__(self, "source_refs", refs)
+        object.__setattr__(self, "connectivity_row", _freeze(self.connectivity_row))
+
+
+def _exact_frame_endpoints(row, *, kind, uid, points, tolerance):
+    point_i_uid = _text(row.get("UniquePtI"), f"{kind} {uid}.UniquePtI")
+    point_j_uid = _text(row.get("UniquePtJ"), f"{kind} {uid}.UniquePtJ")
+    point_i, point_j = points.get(point_i_uid), points.get(point_j_uid)
+    if point_i is None or point_j is None:
+        raise ColumnShearTopologyError(f"{kind} {uid} endpoint point missing: I={point_i is not None} J={point_j is not None}")
+    if point_i.unique_name != point_i_uid or point_j.unique_name != point_j_uid:
+        raise ColumnShearTopologyError(f"{kind} {uid} point index identity mismatch")
+    object_length = _float(row.get("Length"), f"{kind} {uid}.Length")
+    coordinate_length = _distance(point_i, point_j)
+    if object_length <= 0 or coordinate_length <= 0:
+        raise ColumnShearTopologyError(f"{kind} {uid} nonpositive axis length")
+    if abs(object_length - coordinate_length) > tolerance:
+        raise ColumnShearTopologyError(f"{kind} {uid} object/coordinate length mismatch: object={object_length} coordinate={coordinate_length} tolerance={tolerance}")
+    return point_i_uid, point_j_uid, point_i, point_j, object_length
+
+
+def _column_bottom_top(point_i, point_j, uid):
+    if point_i.z_m == point_j.z_m:
+        raise ColumnShearTopologyError(f"column {uid} endpoints have equal Z; top/bottom identity is unresolved")
+    return (point_i, point_j) if point_i.z_m < point_j.z_m else (point_j, point_i)
+
+
+def resolve_column_physical_endpoints(
+    row: Mapping[str, Any], *, points: Mapping[str, PointTopologyEvidence],
+    source_refs: Sequence[str], reviewed_length_unit: str,
+    coordinate_length_tolerance_m: float = 0.002,
+) -> ColumnPhysicalEndpointsEvidence:
+    """Reuse the strict owner geometry without inventing missing assignments.
+
+    This subset needs no beam, section or end-offset facts. It cannot issue
+    the complete shear topology bundle or promote an analysis clear length.
+    """
+    if reviewed_length_unit != "m":
+        raise ColumnShearTopologyError("physical endpoint length contract requires m")
+    tolerance = _float(coordinate_length_tolerance_m, "coordinate_length_tolerance_m")
+    if tolerance < 0:
+        raise ColumnShearTopologyError("coordinate_length_tolerance_m must be >= 0")
+    uid = _text(row.get("UniqueName"), "column.UniqueName")
+    _, _, i, j, length = _exact_frame_endpoints(row, kind="column", uid=uid, points=points, tolerance=tolerance)
+    bottom, top = _column_bottom_top(i, j, uid)
+    refs = tuple(_text(x, "physical endpoint source_ref") for x in source_refs)
+    if len(set(refs)) < 2:
+        raise ColumnShearTopologyError("independent Column and Point source refs required")
+    return ColumnPhysicalEndpointsEvidence(uid, _text(row.get("Story"), "column.Story"),
+        i, j, bottom, top, length, _distance(i, j), _freeze(row), refs)
+
+
 def _beam_connection(
     *,
     row: Mapping[str, Any],
@@ -392,22 +476,7 @@ def build_strict_column_topology(
     def exact_endpoints(
         row: Mapping[str, Any], *, kind: str, uid: str
     ) -> tuple[str, str, PointTopologyEvidence, PointTopologyEvidence, float]:
-        point_i_uid = _text(row.get("UniquePtI"), f"{kind} {uid}.UniquePtI")
-        point_j_uid = _text(row.get("UniquePtJ"), f"{kind} {uid}.UniquePtJ")
-        point_i = points.get(point_i_uid)
-        point_j = points.get(point_j_uid)
-        if point_i is None or point_j is None:
-            raise ColumnShearTopologyError(
-                f"{kind} {uid} endpoint point missing: I={point_i_uid in points} J={point_j_uid in points}"
-            )
-        object_length = _float(row.get("Length"), f"{kind} {uid}.Length")
-        coordinate_length = _distance(point_i, point_j)
-        if abs(object_length - coordinate_length) > tolerance:
-            raise ColumnShearTopologyError(
-                f"{kind} {uid} object/coordinate length mismatch: object={object_length} "
-                f"coordinate={coordinate_length} tolerance={tolerance}"
-            )
-        return point_i_uid, point_j_uid, point_i, point_j, object_length
+        return _exact_frame_endpoints(row, kind=kind, uid=uid, points=points, tolerance=tolerance)
 
     beam_connections_by_joint: dict[str, list[BeamJointConnection]] = {}
     beam_uids: set[str] = set()
@@ -502,10 +571,7 @@ def build_strict_column_topology(
         _point_i_uid, _point_j_uid, point_i, point_j, object_length = exact_endpoints(
             row, kind="column", uid=uid
         )
-        if point_i.z_m == point_j.z_m:
-            raise ColumnShearTopologyError(
-                f"column {uid} endpoints have equal Z; top/bottom identity is unresolved"
-            )
+        bottom, top = _column_bottom_top(point_i, point_j, uid)
 
         offset_i = _float(offset_row.get("OffsetI"), f"column {uid}.OffsetI")
         offset_j = _float(offset_row.get("OffsetJ"), f"column {uid}.OffsetJ")
@@ -513,10 +579,8 @@ def build_strict_column_topology(
             raise ColumnShearTopologyError(f"column {uid} end offsets must be >= 0")
 
         if point_i.z_m < point_j.z_m:
-            bottom, top = point_i, point_j
             offset_bottom, offset_top = offset_i, offset_j
         else:
-            bottom, top = point_j, point_i
             offset_bottom, offset_top = offset_j, offset_i
 
         clear_candidate = object_length - offset_i - offset_j

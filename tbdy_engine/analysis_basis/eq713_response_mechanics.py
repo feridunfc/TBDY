@@ -25,6 +25,7 @@ from tbdy_engine.etabs.oapi.frame_modifiers import (
 from tbdy_engine.etabs.oapi.frame_section_mechanics import FrameSectionMechanicsFact
 from tbdy_engine.etabs.oapi.material_properties import IsotropicMaterialPropertiesFact
 from tbdy_engine.etabs.oapi.database_tables import TableFieldMetadataFetchResult
+from tbdy_engine.features.column_shear_topology import ColumnPhysicalEndpointsEvidence
 
 from .eq713_frame_mechanics import (
     FrameEq713MechanicsError,
@@ -580,6 +581,39 @@ CSI_NATIVE_MODAL_NORMALIZATION_SOURCE = (
     "https://docs.csiamerica.com/manuals/etabs/Analysis%20Reference.pdf"
     "#printed-pages-376-394"
 )
+TS500_EQ713_AXIS_TO_AXIS_LENGTH_SOURCE = (
+    "TS500_2000:sha256:d925114d01a1de2baee63738bc0da0112b547b58526c3394843c36ee66722d44"
+    "#printed-page-20:li-axis-to-axis"
+)
+
+
+def qualify_ts500_eq713_axis_to_axis_length(
+    column: ColumnPhysicalEndpointsEvidence, *, source_length_unit: str,
+    authority_ref: str = TS500_EQ713_AXIS_TO_AXIS_LENGTH_SOURCE,
+    length_basis: str = "AXIS_TO_AXIS",
+) -> float:
+    """TS500 p.20 defines li axis-to-axis, separately from net/free ln.
+
+    The bounded native Column slice uses reconciled physical axis nodes and
+    full object length. End-length offsets are neither assumed zero nor
+    subtracted. This does not authorize free-length, slanted-axis projection,
+    unknown insertion/eccentric offset corrections or a stability result epoch.
+    """
+    if authority_ref != TS500_EQ713_AXIS_TO_AXIS_LENGTH_SOURCE or length_basis != "AXIS_TO_AXIS":
+        raise ValueError("exact TS500 axis-to-axis li authority required; clear/end-offset lengths are unsupported")
+    if not isinstance(column, ColumnPhysicalEndpointsEvidence) or source_length_unit != "m":
+        raise ValueError("typed source-qualified metre axis endpoints required")
+    a, b = column.bottom, column.top
+    # This source-bound initial slice is vertical. Inclined/projection policies
+    # are not manufactured by a geometric coincidence.
+    if (a.x_m, a.y_m) != (b.x_m, b.y_m) or not a.z_m < b.z_m:
+        raise ValueError("vertical axis-to-axis physical Column scope required")
+    values = _values((column.object_length_m, column.coordinate_length_m, b.z_m-a.z_m), "axis length")
+    if any(v <= 0 for v in values) or values[0] != values[1] or values[1] != values[2]:
+        raise ValueError("exact positive object/coordinate/axis length equality required for li")
+    if not column.source_refs:
+        raise ValueError("axis length raw source refs required")
+    return values[0]
 
 
 @dataclass(frozen=True, slots=True)

@@ -29,7 +29,9 @@ from tbdy_engine.etabs.safety import EtabsVerifiedSession, RuntimeCaptureStatus
 from tbdy_engine.features.column_shear_topology import (
     ColumnTopologyEvidence,
     StrictColumnTopologyBundle,
+    ColumnPhysicalEndpointsEvidence,
 )
+from tbdy_engine.etabs.oapi.eq713_response_results import FrameForceResponseFact, FrameForceResponseRow
 from tbdy_engine.providers.etabs_column_force_result_population_provider import (
     ColumnForcePopulationExpectation,
     capture_column_force_result_population_from_session,
@@ -43,6 +45,70 @@ TS500_DELTA_D_MAPPING_NOT_PROVEN = "NOT_PROVEN_CSI_STORYDRIFTS_TO_TS500_DELTA_I"
 
 class StoryStabilityResultProviderError(RuntimeError):
     """Raised when exact post-B5 story-stability facts cannot be established."""
+
+
+class NativeModalBottomBindingError(StoryStabilityResultProviderError):
+    def __init__(self, code: str, column: str, raw_response_ref: str, detail: str):
+        self.code, self.column, self.raw_response_ref = code, column, raw_response_ref
+        super().__init__(f"{code}: Column={column}; raw={raw_response_ref}; {detail}")
+
+
+def qualify_native_modal_physical_bottom_rows(
+    column: ColumnPhysicalEndpointsEvidence, fact: FrameForceResponseFact, *,
+    modal_case: str, expected_modes: Sequence[int], raw_response_ref: str,
+    force_unit: str, length_unit: str,
+) -> tuple[FrameForceResponseRow, ...]:
+    """Exact native object endpoint, retaining the uniquely matching element.
+
+    ObjSta is measured from object I; ElmSta remains the factual element grain.
+    Unlike the old display-table min/max selector, a truncated station universe
+    cannot masquerade as a physical endpoint. No nearest-station tolerance or
+    element orientation is inferred. This factual selector issues no B5 epoch.
+    """
+    if not isinstance(column, ColumnPhysicalEndpointsEvidence) or not isinstance(fact, FrameForceResponseFact):
+        raise TypeError("typed physical Column and native FrameForce fact required")
+    def fail(code, detail):
+        raise NativeModalBottomBindingError(code, column.unique_name, raw_response_ref, detail)
+    if not isinstance(raw_response_ref, str) or not raw_response_ref.strip() or raw_response_ref != raw_response_ref.strip():
+        fail("MODAL_BOTTOM_RAW_REF_MISSING", "exact raw property/result binding required")
+    if force_unit != "kN" or length_unit != "m":
+        fail("MODAL_BOTTOM_UNIT_SCOPE", "current factual Column slice requires kN/m")
+    modes = tuple(expected_modes)
+    if not modes or any(type(n) is not int or n <= 0 for n in modes) or len(set(modes)) != len(modes):
+        fail("MODAL_BOTTOM_MODE_AUTHORITY", "nonempty unique exact mode population required")
+    if (fact.return_code != 0 or fact.source_api != "Results.FrameForce"
+            or fact.frame_name != column.unique_name or fact.case_name != modal_case):
+        fail("MODAL_BOTTOM_SOURCE_IDENTITY", "successful exact object/modal case source required")
+    target = 0.0 if column.bottom.unique_name == column.point_i.unique_name else column.object_length_m
+    grains, selected = {}, {}
+    for row in fact.rows:
+        if row.object_name != column.unique_name or row.load_case != modal_case or row.step_type != "Mode":
+            fail("MODAL_BOTTOM_ROW_IDENTITY", "object/case/Mode mismatch")
+        if (type(row.step_number) not in (int, float) or not math.isfinite(row.step_number)
+                or int(row.step_number) != row.step_number or int(row.step_number) not in modes):
+            fail("MODAL_BOTTOM_MODE_POPULATION", "invalid/extra mode")
+        if (not isinstance(row.element_name, str) or not row.element_name.strip() or row.element_name != row.element_name.strip()
+                or any(type(v) not in (int, float) or not math.isfinite(v)
+                       for v in (row.object_station, row.element_station, row.p))
+                or min(row.object_station, row.element_station) < 0):
+            fail("MODAL_BOTTOM_ROW_VALUES", "finite signed P and native element/stations required")
+        n = int(row.step_number)
+        grain = (row.element_name, row.object_station, row.element_station)
+        population = grains.setdefault(grain, set())
+        if n in population:
+            fail("MODAL_BOTTOM_DUPLICATE_MODE", f"duplicate mode={n}; grain={grain}")
+        population.add(n)
+        if row.object_station == target:
+            if n in selected:
+                fail("MODAL_BOTTOM_AMBIGUOUS_STATION", f"mode={n}; target={target}; multiple native element rows")
+            selected[n] = row
+    if not grains or any(values != set(modes) for values in grains.values()):
+        fail("MODAL_BOTTOM_MODE_POPULATION", "missing mode in a native physical grain")
+    if set(selected) != set(modes):
+        fail("MODAL_BOTTOM_ENDPOINT_NOT_EXACT", f"target ObjSta={target}; no exact physical endpoint per mode")
+    if len({(r.element_name, r.element_station) for r in selected.values()}) != 1:
+        fail("MODAL_BOTTOM_ELEMENT_GRAIN_DRIFT", "endpoint element identity/station differs between modes")
+    return tuple(selected[n] for n in sorted(modes))
 
 
 def _text(value: object, label: str) -> str:
