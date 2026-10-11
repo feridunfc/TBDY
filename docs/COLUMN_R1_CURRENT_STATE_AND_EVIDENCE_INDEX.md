@@ -1,6 +1,6 @@
 # Column-R1 current state and evidence index
 
-Reconciled 2026-10-11 after PR #202 history-preserving R3I integration and R3J global-displacement source-route research. R3J is BLOCKED at the exact native table/transform source contract; no global Delta is issued. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
+Reconciled 2026-10-11 after PR #203 history-preserving R3J integration and R3K getter-only native schema-probe preparation. R3J research is CLOSED / REUSE; its source contract remains BLOCKED. R3K live schema discovery is NOT AUTHORIZED / NOT EXECUTED; no global Delta is issued. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
 
 ## Accepted repository checkpoint and precedence
 
@@ -25,9 +25,13 @@ Reconciled 2026-10-11 after PR #202 history-preserving R3I integration and R3J g
 | Prior independently verified main / R3I parent | `74b31465b2a8237a4653713a0bbb1bfa30085f43` |
 | Prior independently verified main TREE | `3c74a72094af293ffac410c4f4be09d69dc6b54a` |
 | Preserved R3I commit | `e3d06aa0f497c26e92ce0e4c1c8a8b80896ed7ff` |
-| Latest independently verified main / R3J parent | `67e97215daeecb7e8ad84609656f3a1f6c64cc42` |
-| Latest independently verified main TREE | `b398e969e8256d2c6e1d01110f5e4694ca6233b4` |
-| Current bounded R3J branch | `worker/column-r1-r3j-point-global-source-route` |
+| Prior independently verified main / R3J parent | `67e97215daeecb7e8ad84609656f3a1f6c64cc42` |
+| Prior independently verified main TREE | `b398e969e8256d2c6e1d01110f5e4694ca6233b4` |
+| Prior bounded R3J branch | `worker/column-r1-r3j-point-global-source-route` |
+| Preserved R3J commit | `8cdb656695b4e6f067cb4ef95f501bfc4f55c9c5` |
+| Latest independently verified main / R3K parent | `8d36568c370cce677db21b51aa2a99849f86da43` |
+| Latest independently verified main TREE | `8e6d67d33a35b4efdb1398a8345e106dafa3472e` |
+| Current bounded R3K branch | `worker/column-r1-r3k-native-global-displacement-schema` |
 
 The original documentation-only index commit `84cdb486` and all nine implementation commits were preserved by PR #197's history-preserving merge. The R3D repair starts from that verified merged main; it does not replace or recreate earlier work.
 
@@ -237,7 +241,7 @@ Complete current derived JSON: `libfile_76e077b9ec548191aabd6761a3fde992`, SHA25
 
 The next source edge is a CSI ETABS v1 definition of PointElm.GetTransformationMatrix Value ordering and the conversion equation for the exact JointDispl Elm local components to Global X/Y/Z. Until it closes, no new live command is issued. The eventual read scope remains the existing 172 endpoints only, through the verified gateway with protected FC09/PID/path/session/unit/hash guards and no mutations. No broad modal capture or R2 run is authorized.
 
-## PR #202 integration and current R3J source-route gate
+## PR #202 integration and R3J source-route gate — retained historical checkpoint
 
 [PR #202](https://github.com/feridunfc/TBDY/pull/202) preserves original R3I `e3d06aa...` in merged main `67e97215daeecb7e8ad84609656f3a1f6c64cc42`, tree `b398e969e8256d2c6e1d01110f5e4694ca6233b4`. The verified merge parents are exact prior main `74b31465...` and original R3I. [Fresh PR #202 receipt](COLUMN_R1_PR202_INTEGRATION_RECEIPT_2026-10-11.json) records 1489 distinct PASS identities: initial integrated run 1485 PASS / 4 external skips, then all four passed against exact separately held original files. No unresolved skips, failures or errors remain in that accepted identity set. Main/candidate collected identities match. Both negative suites remain 17 PASS / 5 actual FAIL with complete diagnostic, observed debt, guard/baseline hash and allowlist equality; no new violation or continuing waiver. All three applicable CI checks succeeded, including the current-main differential gate.
 
@@ -249,4 +253,16 @@ There are still 0 qualified global endpoint modes and 0/8600 qualified global to
 
 Reproduce current bounded facts/CQC with `tools/column_r1_r3h_reported_damping_offline.py` and the single-block offline Windows command in the R3H record. It verifies the accepted original bytes, preserves native normalization and reports the independent Delta/B5/joint-statistic gates. No PID, interactive input, new ETABS capture or product run is needed.
 
-Next bounded source edge: **applicable CSI global Joint Displacements table field/basis/physical-grain authority**, otherwise exact PointElm matrix Value ordering/direction/applicability authority. R3I is MERGED as a blocked factual audit; R3J source-route research is BLOCKED. No new capture command is available. Current uncracked B5 execution lineage and the joint Delta/R/V selection law remain independent open gates. `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` remains NOT_APPROVED / NOT_IMPLEMENTED. Representative 86-Column facts do not qualify the full 260-Column population. **R3H representative offline CQC boundary CLOSED; global Delta NOT_PROVEN; M6-B OPEN; R2_RERUN_READY=NO; no ETABS/product run authorized.**
+At R3J receipt creation, the next bounded source edge was **applicable CSI global Joint Displacements table field/basis/physical-grain authority**, otherwise exact PointElm matrix Value ordering/direction/applicability authority. R3I was MERGED as a blocked factual audit; R3J research retained the blocked source finding. No new capture command was available at that checkpoint. R3K's metadata-only proposal below does not qualify result acquisition. Current uncracked B5 execution lineage and the joint Delta/R/V selection law remain independent open gates. `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` remains NOT_APPROVED / NOT_IMPLEMENTED. Representative 86-Column facts do not qualify the full 260-Column population. **R3H representative offline CQC boundary CLOSED; global Delta NOT_PROVEN; M6-B OPEN; R2_RERUN_READY=NO; no ETABS/product run authorized.**
+
+## R3K current active edge — native schema discovery preparation
+
+R3J research was integrated by [PR #203](https://github.com/feridunfc/TBDY/pull/203), preserving original commit ancestry. [Integration receipt](COLUMN_R1_PR203_INTEGRATION_RECEIPT_2026-10-11.json) records fresh 1489 accepted PASS identities, exact 17 PASS / 5 actual FAIL architecture equality and 3/3 applicable CI SUCCESS. Five architecture failures remain debt; no continuing exception is granted.
+
+[R3K schema-probe preparation and proposed operator command](COLUMN_R1_R3K_NATIVE_SCHEMA_PROBE_2026-10-11.md) reuses the verified gateway/session and DatabaseTables owners. Only optional native available-table identity and exact GetAllFieldsInTable metadata are prepared. No GetTableForDisplayArray, result rows, setter, output-selection transaction, analysis/design or protected-model save is introduced. [R3K offline receipt](COLUMN_R1_R3K_SCHEMA_PROBE_RECEIPT_2026-10-11.json) records validation and independent gates.
+
+CURRENT ACTIVE EDGE: supervisor authorization for one bounded getter-only schema discovery by an operator at an independently verified existing PID, followed by the original immutable receipt and SHA sidecar. LIVE_EXECUTION NOT_AUTHORIZED; ETABS_EXECUTED_BY_WORKER NO. Native availability/fields are NOT_OBSERVED until actual evidence is supplied. The R3J CSI support request remains DRAFT / NOT SENT.
+
+Even successful raw schema extraction cannot qualify global Delta: table field semantics, coordinate basis, modal row grain, point-object/result-element binding, panel-zone applicability and exact 172 endpoints × 100 modes must all close separately. Preserve the PointElm alternative without speculative identity or transpose assumptions. GLOBAL_MODAL_DELTA NOT_PROVEN; CURRENT_B5 NOT_PROVIDED; JOINT_DELTA_R_V PROJECT_DECISION_REQUIRED; M6-B OPEN; R2_RERUN_READY NO; Column-R1 software CLOSED; B-BLOK engineering OPEN.
+
+R3K validation: 1543 integrated PASS (all 1489 accepted identities plus 54 new synthetic probe identities; zero unresolved skip/failure/error); focused getter/safety 202 PASS. Canonical architecture suites each 17 PASS / 5 actual FAIL with exact equal diagnostics. Supplemental old OAPI callsite suite each 14 PASS / 1 actual FAIL, same missing StartDesign callsite expectation in exact base and candidate. That sixth observed failure remains separate existing debt. New/expanded violations 0; guard/allowlist changes 0. Compile/import, CLI help and diff-check PASS. Native schema/availability remain NOT_OBSERVED.
