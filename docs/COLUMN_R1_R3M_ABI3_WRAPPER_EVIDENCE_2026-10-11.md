@@ -66,7 +66,7 @@ NOT_OBSERVED and all eight native factual/result contracts unqualified.
 | PointObj.GetCoordCartesian | Name, CSys | X, Y, Z omitted conditionally; observed CSys flag17/default Global |
 | PointObj.GetElm | Name | Elm omitted conditionally; scalar BSTR is not a physical/panel-zone proof |
 | PointElm.GetTransformationMatrix | Name | Value omitted conditionally; array size/order/direction not proven |
-| Results.JointDispl | Name, ItemTypeElm | Thirteen INOUT outputs omitted conditionally; no result rows acquired |
+| Results.JointDispl | Name, ItemTypeElm | Twelve INOUT outputs omitted conditionally; no result rows acquired |
 
 No argument plan is executed. In particular, `GetCoordCartesian(name, "Global")`
 is not substituted for the named plan: INOUT X/Y/Z occupy input positions.

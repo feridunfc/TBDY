@@ -580,3 +580,34 @@ FC09_PRODUCTION_GATE UNCHANGED; CURRENT_SOURCE CANDIDATE_ONLY;
 GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
 NEXT EXACT CAUSAL EDGE: supervisor review and separate authorization for one
 existing-wrapper-only observation; original receipt review before native getters.
+
+
+## R3M ABI-3 — original live wrapper receipt independently verified (2026-10-11)
+
+WRAPPER_OBSERVATION RECEIPT_VERIFIED_CLOSED_METADATA_ONLY. The pending actual
+wrapper observation status is superseded for these exact eight targets by this
+original receipt. Native getter contracts qualified remain0; no target invoked.
+
+- Original JSON SHA256: `1072e2b647a95b58ddea79db939647fa65c44593edfd8b9e63740c4a5adc66fb`.
+- Evidence: `COLUMN_R1_R3M_ABI3_WRAPPER_LIVE_EVIDENCE_2026-10-11.md`.
+- Derived adoption: `COLUMN_R1_R3M_ABI3_WRAPPER_LIVE_ADOPTION_2026-10-11.json`.
+- Capture HEAD `a12430133a5e7d9817aa3af2a6d1eecb12eeb262`, TREE
+  `0b3c7baadce7709c360b0c290cee5aaccaa57dfb`; exact external artifact/clean guards.
+- Eight wrapper raw hashes and eight native metadata raw hashes independently
+  recomputed; native objects equal accepted originals, code/closure/prototype/
+  verified-owner binding observed; one bounded callback, errors=[], target calls0.
+- Native backend vtable/method IID NOT_OBSERVED_NOT_PROBED; native return/response
+  NOT_OBSERVED; matrices and modal result rows0; no engineering/global promotion.
+- Recorded candidate SHA/session/units/lock before/after match accepted ABI-2/ABI-3.
+  Selection NOT_READ; worker has not hashed Windows EDB bytes or run ETABS.
+- JointDispl has12 INOUT +1 OUT|RETVAL =13 declared outputs; proposal prose corrected.
+- Documentation-only adoption;1988 PASS identities/files and45 protected surfaces
+  preserved; architecture31 PASS/6 real FAIL unchanged, full sets equal, delta0;
+  compile/import/diff PASS; original pairs/external artifacts unchanged outside Git.
+
+ABI-1/ABI-2/native declaration discovery CLOSED/REUSE. FC09_PRODUCTION_GATE
+UNCHANGED; CURRENT_SOURCE CANDIDATE_ONLY; FULL_FACT_CENSUS/172_MATRIX_SCAN/P2
+NOT_AUTHORIZED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
+NEXT EXACT CAUSAL EDGE: separately reviewed minimal factual-getter validation
+proposal, preserving backend provenance and exact response/source/session gates;
+no new live execution or complete census/scan authorization from this adoption.
