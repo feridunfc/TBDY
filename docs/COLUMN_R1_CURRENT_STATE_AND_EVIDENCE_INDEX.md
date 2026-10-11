@@ -1,6 +1,6 @@
 # Column-R1 current state and evidence index
 
-Reconciled 2026-10-10 after PR #201 history-preserving R3H integration and the bounded R3I point-axis source gate. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
+Reconciled 2026-10-11 after PR #202 history-preserving R3I integration and R3J global-displacement source-route research. R3J is BLOCKED at the exact native table/transform source contract; no global Delta is issued. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
 
 ## Accepted repository checkpoint and precedence
 
@@ -22,9 +22,12 @@ Reconciled 2026-10-10 after PR #201 history-preserving R3H integration and the b
 | Prior merged main TREE | `821f3070c8e0ac5f4b759a0ffbd86b6d81223206` |
 | Prior bounded R3H branch | `worker/column-r1-r3h-reported-total-damping-cqc` |
 | Preserved R3H commit | `c9bc7860ef69fccf8d756908a6e0e67d02ab59a2` |
-| Latest independently verified main / R3I parent | `74b31465b2a8237a4653713a0bbb1bfa30085f43` |
-| Latest independently verified main TREE | `3c74a72094af293ffac410c4f4be09d69dc6b54a` |
-| Current bounded R3I branch | `worker/column-r1-r3i-point-global-translation` |
+| Prior independently verified main / R3I parent | `74b31465b2a8237a4653713a0bbb1bfa30085f43` |
+| Prior independently verified main TREE | `3c74a72094af293ffac410c4f4be09d69dc6b54a` |
+| Preserved R3I commit | `e3d06aa0f497c26e92ce0e4c1c8a8b80896ed7ff` |
+| Latest independently verified main / R3J parent | `67e97215daeecb7e8ad84609656f3a1f6c64cc42` |
+| Latest independently verified main TREE | `b398e969e8256d2c6e1d01110f5e4694ca6233b4` |
+| Current bounded R3J branch | `worker/column-r1-r3j-point-global-source-route` |
 
 The original documentation-only index commit `84cdb486` and all nine implementation commits were preserved by PR #197's history-preserving merge. The R3D repair starts from that verified merged main; it does not replace or recreate earlier work.
 
@@ -234,8 +237,16 @@ Complete current derived JSON: `libfile_76e077b9ec548191aabd6761a3fde992`, SHA25
 
 The next source edge is a CSI ETABS v1 definition of PointElm.GetTransformationMatrix Value ordering and the conversion equation for the exact JointDispl Elm local components to Global X/Y/Z. Until it closes, no new live command is issued. The eventual read scope remains the existing 172 endpoints only, through the verified gateway with protected FC09/PID/path/session/unit/hash guards and no mutations. No broad modal capture or R2 run is authorized.
 
+## PR #202 integration and current R3J source-route gate
+
+[PR #202](https://github.com/feridunfc/TBDY/pull/202) preserves original R3I `e3d06aa...` in merged main `67e97215daeecb7e8ad84609656f3a1f6c64cc42`, tree `b398e969e8256d2c6e1d01110f5e4694ca6233b4`. The verified merge parents are exact prior main `74b31465...` and original R3I. [Fresh PR #202 receipt](COLUMN_R1_PR202_INTEGRATION_RECEIPT_2026-10-11.json) records 1489 distinct PASS identities: initial integrated run 1485 PASS / 4 external skips, then all four passed against exact separately held original files. No unresolved skips, failures or errors remain in that accepted identity set. Main/candidate collected identities match. Both negative suites remain 17 PASS / 5 actual FAIL with complete diagnostic, observed debt, guard/baseline hash and allowlist equality; no new violation or continuing waiver. All three applicable CI checks succeeded, including the current-main differential gate.
+
+[R3J source route](COLUMN_R1_R3J_GLOBAL_DISPLACEMENT_SOURCE_ROUTE_2026-10-11.md) and [machine receipt](COLUMN_R1_R3J_SOURCE_ROUTE_RECEIPT_2026-10-11.json) distinguish the primary CSI ETABS point-object global reporting convention from the native joint-local API layer. CSI documents the Joint Displacements presentation table and panel-zone reporting rules. However, the exact ETABS 23.2/API 2.014 table FieldKeys, field-basis/units, signed direct-modal grain and physical point binding are not yet source-qualified. No table payload/metadata or panel-zone assignments are present in the accepted R3D capture. The alternative PointElm matrix layout/direction/applicability contract remains blocked. R3J disposition is **BLOCKED_EXACT_GLOBAL_DISPLACEMENT_SOURCE_SEMANTICS**, with a focused CSI request drafted but not sent.
+
+There are still 0 qualified global endpoint modes and 0/8600 qualified global top-minus-bottom pairs. No transform kernel, new native command, source mutation or product run was introduced. The preferred next source edge is the **exact global Joint Displacements DatabaseTables contract**, then a separately authorized bounded acquisition of missing native facts; PointElm direct matrix authority is the fallback. Do not infer table basis from Ux/Uy/Uz spelling or rename old local records. Current B5 and M6-B remain independent open gates.
+
 ## Existing offline replay / next source action
 
 Reproduce current bounded facts/CQC with `tools/column_r1_r3h_reported_damping_offline.py` and the single-block offline Windows command in the R3H record. It verifies the accepted original bytes, preserves native normalization and reports the independent Delta/B5/joint-statistic gates. No PID, interactive input, new ETABS capture or product run is needed.
 
-Next bounded source edge: **exact CSI point-element matrix Value ordering/direction authority**, then the missing physical endpoint-axis facts and existing applicable common story Delta operator. R3I is BLOCKED at the source gate; no new capture command is available. Current uncracked B5 execution lineage and the joint Delta/R/V selection law remain independent open gates. `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` remains NOT_APPROVED / NOT_IMPLEMENTED. Representative 86-Column facts do not qualify the full 260-Column population. **R3H representative offline CQC boundary CLOSED; M6-B OPEN; R2_RERUN_READY=NO; no ETABS/product run authorized.**
+Next bounded source edge: **applicable CSI global Joint Displacements table field/basis/physical-grain authority**, otherwise exact PointElm matrix Value ordering/direction/applicability authority. R3I is MERGED as a blocked factual audit; R3J source-route research is BLOCKED. No new capture command is available. Current uncracked B5 execution lineage and the joint Delta/R/V selection law remain independent open gates. `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` remains NOT_APPROVED / NOT_IMPLEMENTED. Representative 86-Column facts do not qualify the full 260-Column population. **R3H representative offline CQC boundary CLOSED; global Delta NOT_PROVEN; M6-B OPEN; R2_RERUN_READY=NO; no ETABS/product run authorized.**
