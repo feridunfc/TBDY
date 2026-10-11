@@ -521,3 +521,34 @@ FC09_PRODUCTION_GATE UNCHANGED; CURRENT_SOURCE CANDIDATE_ONLY; worker ETABS NO.
 GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
 NEXT EXACT CAUSAL EDGE: supervisor review of final pinned external artifacts,
 then separate authorization for exactly one metadata-only operator observation.
+
+
+## R3M ABI-3 — original live metadata receipt independently verified (2026-10-11)
+
+ABI3_LIVE_METADATA RECEIPT_VERIFIED_CLOSED. Original operator JSON and sidecar
+whole-byte hashes match; all 8 raw metadata hashes independently recomputed.
+Capture HEAD `c66bb0e6ce574ff3f667e324660d26c8e0cb055e`, TREE
+`794dac8a5cf3a408cf9609ba7523d122254f38b5`, exact Python hash and clean capture guards.
+
+- Original JSON SHA256: `11355e6860ba435e1275a7251efb0a5701268e4293c98c58a9231b2194f5b5be`.
+- Evidence: `COLUMN_R1_R3M_ABI3_LIVE_METADATA_EVIDENCE_2026-10-11.md`.
+- Derived adoption: `COLUMN_R1_R3M_ABI3_LIVE_METADATA_ADOPTION_2026-10-11.json`.
+- Exactly one metadata callback, 8 source-compatible declarations, 0 factual/
+  result getter invocations, errors=[]; all actual remaining bound wrappers
+  NOT_YET_OBSERVED; live getter contracts QUALIFIED=0.
+- GetCoordCartesian X/Y/Z INOUT=3 precede CSys IN|OPTIONAL=17, default Global.
+- Current candidate SHA, source/session/lock/units match before/after and ABI-2.
+- Selection NOT_READ; no independent before/after selection comparison claimed.
+- Original raw metadata remains unchanged outside Git; no response copied into Git.
+- Documentation-only adoption; 1949 PASS identities/files preserved, including1856.
+  Six real architecture FAIL retained; protected surfaces/full violation sets unchanged.
+
+The previous offline inventory's NOT_YET_OBSERVED native declaration status is
+superseded for the exact eight declarations by this original observation. Runtime
+wrapper, getter response, matrix layout/direction, panel-zone and modal-grain
+blockers remain. No engineering/global qualification or new execution authority.
+ABI-1/ABI-2 not reopened; FC09_PRODUCTION_GATE UNCHANGED; candidate-only authority.
+FULL_FACT_CENSUS/172_MATRIX_SCAN/P2 NOT_AUTHORIZED; GLOBAL_DELTA NOT_PROVEN;
+M6_B OPEN; R2_RERUN_READY NO; worker ETABS NO.
+NEXT EXACT CAUSAL EDGE: offline actual bound-wrapper qualification preparation;
+any later operator/getter execution needs a separately bounded authorized scope.
