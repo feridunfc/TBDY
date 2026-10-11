@@ -1,0 +1,1224 @@
+{
+  "R3D_original_sha256": "83ce2ff7c3a6170e931d2869e212adde93b7c08b25bbf44e9f0c2c663f156b03",
+  "columns": [
+    {
+      "column_unique_name": "210",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "918",
+        "object_story": "Base",
+        "retained_local_Elm": "918"
+      },
+      "top": {
+        "UniqueName": "1044",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1044"
+      }
+    },
+    {
+      "column_unique_name": "211",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "919",
+        "object_story": "Base",
+        "retained_local_Elm": "919"
+      },
+      "top": {
+        "UniqueName": "1045",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1045"
+      }
+    },
+    {
+      "column_unique_name": "212",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "921",
+        "object_story": "Base",
+        "retained_local_Elm": "921"
+      },
+      "top": {
+        "UniqueName": "1046",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1046"
+      }
+    },
+    {
+      "column_unique_name": "213",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "922",
+        "object_story": "Base",
+        "retained_local_Elm": "922"
+      },
+      "top": {
+        "UniqueName": "1047",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1047"
+      }
+    },
+    {
+      "column_unique_name": "214",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "923",
+        "object_story": "Base",
+        "retained_local_Elm": "923"
+      },
+      "top": {
+        "UniqueName": "1048",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1048"
+      }
+    },
+    {
+      "column_unique_name": "215",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "924",
+        "object_story": "Base",
+        "retained_local_Elm": "924"
+      },
+      "top": {
+        "UniqueName": "1049",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1049"
+      }
+    },
+    {
+      "column_unique_name": "216",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "925",
+        "object_story": "Base",
+        "retained_local_Elm": "925"
+      },
+      "top": {
+        "UniqueName": "96",
+        "object_story": "+0.00",
+        "retained_local_Elm": "96"
+      }
+    },
+    {
+      "column_unique_name": "217",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "926",
+        "object_story": "Base",
+        "retained_local_Elm": "926"
+      },
+      "top": {
+        "UniqueName": "73",
+        "object_story": "+0.00",
+        "retained_local_Elm": "73"
+      }
+    },
+    {
+      "column_unique_name": "218",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "927",
+        "object_story": "Base",
+        "retained_local_Elm": "927"
+      },
+      "top": {
+        "UniqueName": "76",
+        "object_story": "+0.00",
+        "retained_local_Elm": "76"
+      }
+    },
+    {
+      "column_unique_name": "219",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "928",
+        "object_story": "Base",
+        "retained_local_Elm": "928"
+      },
+      "top": {
+        "UniqueName": "110",
+        "object_story": "+0.00",
+        "retained_local_Elm": "110"
+      }
+    },
+    {
+      "column_unique_name": "220",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "929",
+        "object_story": "Base",
+        "retained_local_Elm": "929"
+      },
+      "top": {
+        "UniqueName": "104",
+        "object_story": "+0.00",
+        "retained_local_Elm": "104"
+      }
+    },
+    {
+      "column_unique_name": "221",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "930",
+        "object_story": "Base",
+        "retained_local_Elm": "930"
+      },
+      "top": {
+        "UniqueName": "100",
+        "object_story": "+0.00",
+        "retained_local_Elm": "100"
+      }
+    },
+    {
+      "column_unique_name": "222",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "931",
+        "object_story": "Base",
+        "retained_local_Elm": "931"
+      },
+      "top": {
+        "UniqueName": "704",
+        "object_story": "+0.00",
+        "retained_local_Elm": "704"
+      }
+    },
+    {
+      "column_unique_name": "223",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "932",
+        "object_story": "Base",
+        "retained_local_Elm": "932"
+      },
+      "top": {
+        "UniqueName": "707",
+        "object_story": "+0.00",
+        "retained_local_Elm": "707"
+      }
+    },
+    {
+      "column_unique_name": "224",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "933",
+        "object_story": "Base",
+        "retained_local_Elm": "933"
+      },
+      "top": {
+        "UniqueName": "709",
+        "object_story": "+0.00",
+        "retained_local_Elm": "709"
+      }
+    },
+    {
+      "column_unique_name": "225",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "934",
+        "object_story": "Base",
+        "retained_local_Elm": "934"
+      },
+      "top": {
+        "UniqueName": "40",
+        "object_story": "+0.00",
+        "retained_local_Elm": "40"
+      }
+    },
+    {
+      "column_unique_name": "226",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "935",
+        "object_story": "Base",
+        "retained_local_Elm": "935"
+      },
+      "top": {
+        "UniqueName": "713",
+        "object_story": "+0.00",
+        "retained_local_Elm": "713"
+      }
+    },
+    {
+      "column_unique_name": "227",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "936",
+        "object_story": "Base",
+        "retained_local_Elm": "936"
+      },
+      "top": {
+        "UniqueName": "715",
+        "object_story": "+0.00",
+        "retained_local_Elm": "715"
+      }
+    },
+    {
+      "column_unique_name": "228",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "937",
+        "object_story": "Base",
+        "retained_local_Elm": "937"
+      },
+      "top": {
+        "UniqueName": "1050",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1050"
+      }
+    },
+    {
+      "column_unique_name": "229",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "942",
+        "object_story": "Base",
+        "retained_local_Elm": "942"
+      },
+      "top": {
+        "UniqueName": "23",
+        "object_story": "+0.00",
+        "retained_local_Elm": "23"
+      }
+    },
+    {
+      "column_unique_name": "230",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "943",
+        "object_story": "Base",
+        "retained_local_Elm": "943"
+      },
+      "top": {
+        "UniqueName": "724",
+        "object_story": "+0.00",
+        "retained_local_Elm": "724"
+      }
+    },
+    {
+      "column_unique_name": "231",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "944",
+        "object_story": "Base",
+        "retained_local_Elm": "944"
+      },
+      "top": {
+        "UniqueName": "730",
+        "object_story": "+0.00",
+        "retained_local_Elm": "730"
+      }
+    },
+    {
+      "column_unique_name": "232",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "945",
+        "object_story": "Base",
+        "retained_local_Elm": "945"
+      },
+      "top": {
+        "UniqueName": "118",
+        "object_story": "+0.00",
+        "retained_local_Elm": "118"
+      }
+    },
+    {
+      "column_unique_name": "233",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "946",
+        "object_story": "Base",
+        "retained_local_Elm": "946"
+      },
+      "top": {
+        "UniqueName": "1051",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1051"
+      }
+    },
+    {
+      "column_unique_name": "234",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "954",
+        "object_story": "Base",
+        "retained_local_Elm": "954"
+      },
+      "top": {
+        "UniqueName": "756",
+        "object_story": "+0.00",
+        "retained_local_Elm": "756"
+      }
+    },
+    {
+      "column_unique_name": "235",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "955",
+        "object_story": "Base",
+        "retained_local_Elm": "955"
+      },
+      "top": {
+        "UniqueName": "758",
+        "object_story": "+0.00",
+        "retained_local_Elm": "758"
+      }
+    },
+    {
+      "column_unique_name": "236",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "956",
+        "object_story": "Base",
+        "retained_local_Elm": "956"
+      },
+      "top": {
+        "UniqueName": "760",
+        "object_story": "+0.00",
+        "retained_local_Elm": "760"
+      }
+    },
+    {
+      "column_unique_name": "237",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "957",
+        "object_story": "Base",
+        "retained_local_Elm": "957"
+      },
+      "top": {
+        "UniqueName": "52",
+        "object_story": "+0.00",
+        "retained_local_Elm": "52"
+      }
+    },
+    {
+      "column_unique_name": "238",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "958",
+        "object_story": "Base",
+        "retained_local_Elm": "958"
+      },
+      "top": {
+        "UniqueName": "54",
+        "object_story": "+0.00",
+        "retained_local_Elm": "54"
+      }
+    },
+    {
+      "column_unique_name": "239",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "959",
+        "object_story": "Base",
+        "retained_local_Elm": "959"
+      },
+      "top": {
+        "UniqueName": "764",
+        "object_story": "+0.00",
+        "retained_local_Elm": "764"
+      }
+    },
+    {
+      "column_unique_name": "240",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "960",
+        "object_story": "Base",
+        "retained_local_Elm": "960"
+      },
+      "top": {
+        "UniqueName": "67",
+        "object_story": "+0.00",
+        "retained_local_Elm": "67"
+      }
+    },
+    {
+      "column_unique_name": "241",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "961",
+        "object_story": "Base",
+        "retained_local_Elm": "961"
+      },
+      "top": {
+        "UniqueName": "1052",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1052"
+      }
+    },
+    {
+      "column_unique_name": "242",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "962",
+        "object_story": "Base",
+        "retained_local_Elm": "962"
+      },
+      "top": {
+        "UniqueName": "769",
+        "object_story": "+0.00",
+        "retained_local_Elm": "769"
+      }
+    },
+    {
+      "column_unique_name": "243",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "963",
+        "object_story": "Base",
+        "retained_local_Elm": "963"
+      },
+      "top": {
+        "UniqueName": "771",
+        "object_story": "+0.00",
+        "retained_local_Elm": "771"
+      }
+    },
+    {
+      "column_unique_name": "244",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "965",
+        "object_story": "Base",
+        "retained_local_Elm": "965"
+      },
+      "top": {
+        "UniqueName": "774",
+        "object_story": "+0.00",
+        "retained_local_Elm": "774"
+      }
+    },
+    {
+      "column_unique_name": "245",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "966",
+        "object_story": "Base",
+        "retained_local_Elm": "966"
+      },
+      "top": {
+        "UniqueName": "777",
+        "object_story": "+0.00",
+        "retained_local_Elm": "777"
+      }
+    },
+    {
+      "column_unique_name": "246",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "967",
+        "object_story": "Base",
+        "retained_local_Elm": "967"
+      },
+      "top": {
+        "UniqueName": "779",
+        "object_story": "+0.00",
+        "retained_local_Elm": "779"
+      }
+    },
+    {
+      "column_unique_name": "247",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "968",
+        "object_story": "Base",
+        "retained_local_Elm": "968"
+      },
+      "top": {
+        "UniqueName": "781",
+        "object_story": "+0.00",
+        "retained_local_Elm": "781"
+      }
+    },
+    {
+      "column_unique_name": "248",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "969",
+        "object_story": "Base",
+        "retained_local_Elm": "969"
+      },
+      "top": {
+        "UniqueName": "783",
+        "object_story": "+0.00",
+        "retained_local_Elm": "783"
+      }
+    },
+    {
+      "column_unique_name": "249",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "970",
+        "object_story": "Base",
+        "retained_local_Elm": "970"
+      },
+      "top": {
+        "UniqueName": "68",
+        "object_story": "+0.00",
+        "retained_local_Elm": "68"
+      }
+    },
+    {
+      "column_unique_name": "250",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "971",
+        "object_story": "Base",
+        "retained_local_Elm": "971"
+      },
+      "top": {
+        "UniqueName": "1053",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1053"
+      }
+    },
+    {
+      "column_unique_name": "251",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "972",
+        "object_story": "Base",
+        "retained_local_Elm": "972"
+      },
+      "top": {
+        "UniqueName": "789",
+        "object_story": "+0.00",
+        "retained_local_Elm": "789"
+      }
+    },
+    {
+      "column_unique_name": "252",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "973",
+        "object_story": "Base",
+        "retained_local_Elm": "973"
+      },
+      "top": {
+        "UniqueName": "791",
+        "object_story": "+0.00",
+        "retained_local_Elm": "791"
+      }
+    },
+    {
+      "column_unique_name": "253",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "974",
+        "object_story": "Base",
+        "retained_local_Elm": "974"
+      },
+      "top": {
+        "UniqueName": "793",
+        "object_story": "+0.00",
+        "retained_local_Elm": "793"
+      }
+    },
+    {
+      "column_unique_name": "254",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "975",
+        "object_story": "Base",
+        "retained_local_Elm": "975"
+      },
+      "top": {
+        "UniqueName": "795",
+        "object_story": "+0.00",
+        "retained_local_Elm": "795"
+      }
+    },
+    {
+      "column_unique_name": "255",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "976",
+        "object_story": "Base",
+        "retained_local_Elm": "976"
+      },
+      "top": {
+        "UniqueName": "797",
+        "object_story": "+0.00",
+        "retained_local_Elm": "797"
+      }
+    },
+    {
+      "column_unique_name": "256",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "977",
+        "object_story": "Base",
+        "retained_local_Elm": "977"
+      },
+      "top": {
+        "UniqueName": "799",
+        "object_story": "+0.00",
+        "retained_local_Elm": "799"
+      }
+    },
+    {
+      "column_unique_name": "257",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "978",
+        "object_story": "Base",
+        "retained_local_Elm": "978"
+      },
+      "top": {
+        "UniqueName": "801",
+        "object_story": "+0.00",
+        "retained_local_Elm": "801"
+      }
+    },
+    {
+      "column_unique_name": "258",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "979",
+        "object_story": "Base",
+        "retained_local_Elm": "979"
+      },
+      "top": {
+        "UniqueName": "70",
+        "object_story": "+0.00",
+        "retained_local_Elm": "70"
+      }
+    },
+    {
+      "column_unique_name": "259",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "980",
+        "object_story": "Base",
+        "retained_local_Elm": "980"
+      },
+      "top": {
+        "UniqueName": "1054",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1054"
+      }
+    },
+    {
+      "column_unique_name": "260",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "984",
+        "object_story": "Base",
+        "retained_local_Elm": "984"
+      },
+      "top": {
+        "UniqueName": "808",
+        "object_story": "+0.00",
+        "retained_local_Elm": "808"
+      }
+    },
+    {
+      "column_unique_name": "261",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "985",
+        "object_story": "Base",
+        "retained_local_Elm": "985"
+      },
+      "top": {
+        "UniqueName": "810",
+        "object_story": "+0.00",
+        "retained_local_Elm": "810"
+      }
+    },
+    {
+      "column_unique_name": "262",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "986",
+        "object_story": "Base",
+        "retained_local_Elm": "986"
+      },
+      "top": {
+        "UniqueName": "812",
+        "object_story": "+0.00",
+        "retained_local_Elm": "812"
+      }
+    },
+    {
+      "column_unique_name": "263",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "987",
+        "object_story": "Base",
+        "retained_local_Elm": "987"
+      },
+      "top": {
+        "UniqueName": "816",
+        "object_story": "+0.00",
+        "retained_local_Elm": "816"
+      }
+    },
+    {
+      "column_unique_name": "264",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "988",
+        "object_story": "Base",
+        "retained_local_Elm": "988"
+      },
+      "top": {
+        "UniqueName": "818",
+        "object_story": "+0.00",
+        "retained_local_Elm": "818"
+      }
+    },
+    {
+      "column_unique_name": "265",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "989",
+        "object_story": "Base",
+        "retained_local_Elm": "989"
+      },
+      "top": {
+        "UniqueName": "820",
+        "object_story": "+0.00",
+        "retained_local_Elm": "820"
+      }
+    },
+    {
+      "column_unique_name": "266",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "990",
+        "object_story": "Base",
+        "retained_local_Elm": "990"
+      },
+      "top": {
+        "UniqueName": "126",
+        "object_story": "+0.00",
+        "retained_local_Elm": "126"
+      }
+    },
+    {
+      "column_unique_name": "267",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "992",
+        "object_story": "Base",
+        "retained_local_Elm": "992"
+      },
+      "top": {
+        "UniqueName": "824",
+        "object_story": "+0.00",
+        "retained_local_Elm": "824"
+      }
+    },
+    {
+      "column_unique_name": "268",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "999",
+        "object_story": "Base",
+        "retained_local_Elm": "999"
+      },
+      "top": {
+        "UniqueName": "841",
+        "object_story": "+0.00",
+        "retained_local_Elm": "841"
+      }
+    },
+    {
+      "column_unique_name": "269",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1000",
+        "object_story": "Base",
+        "retained_local_Elm": "1000"
+      },
+      "top": {
+        "UniqueName": "843",
+        "object_story": "+0.00",
+        "retained_local_Elm": "843"
+      }
+    },
+    {
+      "column_unique_name": "270",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1001",
+        "object_story": "Base",
+        "retained_local_Elm": "1001"
+      },
+      "top": {
+        "UniqueName": "845",
+        "object_story": "+0.00",
+        "retained_local_Elm": "845"
+      }
+    },
+    {
+      "column_unique_name": "271",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1002",
+        "object_story": "Base",
+        "retained_local_Elm": "1002"
+      },
+      "top": {
+        "UniqueName": "848",
+        "object_story": "+0.00",
+        "retained_local_Elm": "848"
+      }
+    },
+    {
+      "column_unique_name": "272",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1003",
+        "object_story": "Base",
+        "retained_local_Elm": "1003"
+      },
+      "top": {
+        "UniqueName": "852",
+        "object_story": "+0.00",
+        "retained_local_Elm": "852"
+      }
+    },
+    {
+      "column_unique_name": "273",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1004",
+        "object_story": "Base",
+        "retained_local_Elm": "1004"
+      },
+      "top": {
+        "UniqueName": "60",
+        "object_story": "+0.00",
+        "retained_local_Elm": "60"
+      }
+    },
+    {
+      "column_unique_name": "274",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1005",
+        "object_story": "Base",
+        "retained_local_Elm": "1005"
+      },
+      "top": {
+        "UniqueName": "1",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1"
+      }
+    },
+    {
+      "column_unique_name": "275",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1006",
+        "object_story": "Base",
+        "retained_local_Elm": "1006"
+      },
+      "top": {
+        "UniqueName": "855",
+        "object_story": "+0.00",
+        "retained_local_Elm": "855"
+      }
+    },
+    {
+      "column_unique_name": "276",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1007",
+        "object_story": "Base",
+        "retained_local_Elm": "1007"
+      },
+      "top": {
+        "UniqueName": "4",
+        "object_story": "+0.00",
+        "retained_local_Elm": "4"
+      }
+    },
+    {
+      "column_unique_name": "277",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1010",
+        "object_story": "Base",
+        "retained_local_Elm": "1010"
+      },
+      "top": {
+        "UniqueName": "84",
+        "object_story": "+0.00",
+        "retained_local_Elm": "84"
+      }
+    },
+    {
+      "column_unique_name": "278",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1011",
+        "object_story": "Base",
+        "retained_local_Elm": "1011"
+      },
+      "top": {
+        "UniqueName": "80",
+        "object_story": "+0.00",
+        "retained_local_Elm": "80"
+      }
+    },
+    {
+      "column_unique_name": "279",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1012",
+        "object_story": "Base",
+        "retained_local_Elm": "1012"
+      },
+      "top": {
+        "UniqueName": "63",
+        "object_story": "+0.00",
+        "retained_local_Elm": "63"
+      }
+    },
+    {
+      "column_unique_name": "280",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1013",
+        "object_story": "Base",
+        "retained_local_Elm": "1013"
+      },
+      "top": {
+        "UniqueName": "877",
+        "object_story": "+0.00",
+        "retained_local_Elm": "877"
+      }
+    },
+    {
+      "column_unique_name": "281",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1014",
+        "object_story": "Base",
+        "retained_local_Elm": "1014"
+      },
+      "top": {
+        "UniqueName": "879",
+        "object_story": "+0.00",
+        "retained_local_Elm": "879"
+      }
+    },
+    {
+      "column_unique_name": "282",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1015",
+        "object_story": "Base",
+        "retained_local_Elm": "1015"
+      },
+      "top": {
+        "UniqueName": "882",
+        "object_story": "+0.00",
+        "retained_local_Elm": "882"
+      }
+    },
+    {
+      "column_unique_name": "283",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1016",
+        "object_story": "Base",
+        "retained_local_Elm": "1016"
+      },
+      "top": {
+        "UniqueName": "884",
+        "object_story": "+0.00",
+        "retained_local_Elm": "884"
+      }
+    },
+    {
+      "column_unique_name": "284",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1017",
+        "object_story": "Base",
+        "retained_local_Elm": "1017"
+      },
+      "top": {
+        "UniqueName": "886",
+        "object_story": "+0.00",
+        "retained_local_Elm": "886"
+      }
+    },
+    {
+      "column_unique_name": "285",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1018",
+        "object_story": "Base",
+        "retained_local_Elm": "1018"
+      },
+      "top": {
+        "UniqueName": "888",
+        "object_story": "+0.00",
+        "retained_local_Elm": "888"
+      }
+    },
+    {
+      "column_unique_name": "287",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1020",
+        "object_story": "Base",
+        "retained_local_Elm": "1020"
+      },
+      "top": {
+        "UniqueName": "1056",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1056"
+      }
+    },
+    {
+      "column_unique_name": "288",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1021",
+        "object_story": "Base",
+        "retained_local_Elm": "1021"
+      },
+      "top": {
+        "UniqueName": "64",
+        "object_story": "+0.00",
+        "retained_local_Elm": "64"
+      }
+    },
+    {
+      "column_unique_name": "289",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1022",
+        "object_story": "Base",
+        "retained_local_Elm": "1022"
+      },
+      "top": {
+        "UniqueName": "895",
+        "object_story": "+0.00",
+        "retained_local_Elm": "895"
+      }
+    },
+    {
+      "column_unique_name": "290",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1023",
+        "object_story": "Base",
+        "retained_local_Elm": "1023"
+      },
+      "top": {
+        "UniqueName": "897",
+        "object_story": "+0.00",
+        "retained_local_Elm": "897"
+      }
+    },
+    {
+      "column_unique_name": "291",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1024",
+        "object_story": "Base",
+        "retained_local_Elm": "1024"
+      },
+      "top": {
+        "UniqueName": "899",
+        "object_story": "+0.00",
+        "retained_local_Elm": "899"
+      }
+    },
+    {
+      "column_unique_name": "292",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1025",
+        "object_story": "Base",
+        "retained_local_Elm": "1025"
+      },
+      "top": {
+        "UniqueName": "901",
+        "object_story": "+0.00",
+        "retained_local_Elm": "901"
+      }
+    },
+    {
+      "column_unique_name": "293",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1027",
+        "object_story": "Base",
+        "retained_local_Elm": "1027"
+      },
+      "top": {
+        "UniqueName": "903",
+        "object_story": "+0.00",
+        "retained_local_Elm": "903"
+      }
+    },
+    {
+      "column_unique_name": "294",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1028",
+        "object_story": "Base",
+        "retained_local_Elm": "1028"
+      },
+      "top": {
+        "UniqueName": "905",
+        "object_story": "+0.00",
+        "retained_local_Elm": "905"
+      }
+    },
+    {
+      "column_unique_name": "295",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1030",
+        "object_story": "Base",
+        "retained_local_Elm": "1030"
+      },
+      "top": {
+        "UniqueName": "1057",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1057"
+      }
+    },
+    {
+      "column_unique_name": "296",
+      "column_story": "+0.00",
+      "bottom": {
+        "UniqueName": "1033",
+        "object_story": "Base",
+        "retained_local_Elm": "1033"
+      },
+      "top": {
+        "UniqueName": "1058",
+        "object_story": "+0.00",
+        "retained_local_Elm": "1058"
+      }
+    }
+  ],
+  "column_count": 86,
+  "endpoint_count": 172,
+  "modes": [
+    1,
+    100
+  ],
+  "existing_local_modal_rows": 17200,
+  "expected_endpoint_pairs": 8600,
+  "physical_plan_sha256": "bd032c4e9e9a7ee4d494cd399a39f82d6837ad4f83e3565d81142ee64628fee6",
+  "point_topology_ref": "modal-read:sha256:735444512927779850baa4fac0814d3b8481e498fe800c2fdad729575c2274a0",
+  "column_topology_ref": "modal-read:sha256:96c1bd19b45f39638a9e6812b172d1b6d1e0b154464df141fa4baa5f01e576a6",
+  "table_result_element_binding": "BLOCKED_NOT_OBSERVED",
+  "global_endpoint_modal_rows": 0,
+  "PHYSICAL_POINT_BINDING": "BLOCKED",
+  "PANEL_ZONE_APPLICABILITY": "BLOCKED"
+}
