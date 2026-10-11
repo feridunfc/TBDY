@@ -1,0 +1,81 @@
+{
+  "scope": "DERIVED_SOURCE_BOUND_INDEX_NO_ORIGINAL_NATIVE_RESPONSES",
+  "manual_original": {
+    "name": "joint_global_crosscheck_20261011_140422.json",
+    "library_file_id": "libfile_c36ff6258248819182a035c233636fb5",
+    "sha256": "ef4bbadc3fb034f59533f6279c816cba8713ab3649950fce12018a8db4f82a29",
+    "HEAD": "ab16c693c887ca383603ef3c372a098e05272706",
+    "TREE": "a1f54bf3eb600b6929584fcf8483132b1448a51f",
+    "pid": 2072,
+    "source_sha_before": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+    "source_sha_after": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+    "source_session_units_unchanged": true,
+    "raw_pointelm_response_sha256": "d1aa0de4172574367399b0594d550e3d67ad65485f1b03886d381050fc1bc816",
+    "raw_jointdispl_response_sha256": "5b2e20bc24911652c7a2b13ed23330d1ed03f5094d055dcc1329d17e502a35a4",
+    "native_return_codes": [
+      0,
+      0
+    ],
+    "reused_point": {
+      "Story": "+0.00",
+      "UniqueName": "1044",
+      "Column": "210",
+      "endpoint": "TOP",
+      "Case": "LC_DL"
+    },
+    "matrix_classification": "IDENTITY_WITHIN_TOLERANCE",
+    "LC_DL_local_translation_m": [
+      6.551988343712905e-05,
+      7.4312662822226e-05,
+      -0.002343749593030482
+    ],
+    "candidate_separation_m": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "original_returned_case_rows": 7,
+    "original_status_preserved": "BLOCKED_READ_ONLY_MANUAL_COMPARISON",
+    "GUI_original_readings": "NOT_CONTAINED_IN_ORIGINAL_RECEIPT",
+    "acceptance_authority": "Supervisor R3M instruction: reuse accepted 1044 / LC_DL manual comparison"
+  },
+  "physical_population": {
+    "reused_plan": "COLUMN_R1_R3L_PHYSICAL_BINDING_PLAN_2026-10-11.json",
+    "reused_plan_file_sha256": "9c62720170a335af085c1f89409e7938bd273d11252f675628782dee6b1cdb10",
+    "R3D_original_sha256": "83ce2ff7c3a6170e931d2869e212adde93b7c08b25bbf44e9f0c2c663f156b03",
+    "physical_plan_sha256": "bd032c4e9e9a7ee4d494cd399a39f82d6837ad4f83e3565d81142ee64628fee6",
+    "columns": 86,
+    "endpoints": 172,
+    "object_story_counts": {
+      "+0.00": 86,
+      "Base": 86
+    },
+    "modes": 100,
+    "retained_local_modal_rows": 17200,
+    "retained_local_endpoint_pairs": 8600,
+    "current_native_matrix_observation_count": 1,
+    "unobserved_endpoint_matrix_count": 171
+  },
+  "external_artifact": {
+    "name": "column_r1_r3m_matrix_probe.py",
+    "library_file_id": "libfile_a261590cce848191bd9bf4493e01ec00",
+    "library_version": 1,
+    "sha256": "3531a45013ab57dd6993ead7b1fa71117a690b3a0f22c14c296cced9e1cb391d",
+    "tracked_in_git": false,
+    "explicit_offline_test_file": "tests/etabs/r3m_external_probe_regression.py",
+    "expected_operator_binding": "exact canonical R3M HEAD/TREE from supervisor exit"
+  },
+  "NONIDENTITY_POINT_FOUND": "NOT_OBSERVED_PENDING_OPERATOR_SCAN",
+  "ETABS_EXECUTED_BY_WORKER": "NO",
+  "SOURCE_MUTATED": "NO",
+  "P2_EXECUTION_AUTHORIZED": false,
+  "GLOBAL_COORDINATE_CONTRACT": "BLOCKED",
+  "GLOBAL_ENDPOINT_MODAL_ROWS": 0,
+  "GLOBAL_STORY_DELTA": "NOT_PROVEN",
+  "CURRENT_B5": "NOT_PROVIDED",
+  "JOINT_DELTA_R_V": "PROJECT_DECISION_REQUIRED",
+  "M6_B": "OPEN",
+  "R2_RERUN_READY": false,
+  "CSI_SUPPORT_REQUEST": "DRAFT_NOT_SENT",
+  "NEXT_EXACT_CAUSAL_EDGE": "Operator receipt for complete 172 native endpoint matrices; eligible nonidentity/nonzero LC_DL point then original discriminating GUI comparison"
+}

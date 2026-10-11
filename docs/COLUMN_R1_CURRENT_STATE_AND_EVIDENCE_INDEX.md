@@ -1,6 +1,6 @@
 # Column-R1 current state and evidence index
 
-Reconciled 2026-10-11 after PR #204 history-preserving R3K integration and supervisor acceptance of the original P1 native schema. R3K native schema is CLOSED. R3L adopts immutable native evidence, reconciles the precise global route and prepares a separate blocked P2 design. Global coordinate/modal-result/physical-table/panel-zone contracts remain BLOCKED; no additional ETABS execution is authorized. Historical documents and receipts remain unchanged. This index grants no engineering result, B5 epoch or release approval.
+Reconciled 2026-10-11 after PR #205 history-preserving R3L integration. All 1614 accepted PASS identities are preserved. R3K native schema remains CLOSED; R3D–R3L are not reopened. R3M reuses the accepted 1044 / LC_DL observation and prepares a repo-external getter-only empirical matrix experiment. The worker has not executed ETABS. Global coordinate/modal-result/physical-table/panel-zone contracts remain BLOCKED, P2 remains unauthorized, M6-B remains OPEN and R2 is not ready. This index grants no engineering result, B5 epoch or release approval.
 
 ## Accepted repository checkpoint and precedence
 
@@ -34,15 +34,32 @@ Reconciled 2026-10-11 after PR #204 history-preserving R3K integration and super
 | Preserved R3K branch | `worker/column-r1-r3k-native-global-displacement-schema` |
 | Preserved R3K HEAD / native P1 anchor | `ab16c693c887ca383603ef3c372a098e05272706` |
 | Preserved R3K TREE / native P1 anchor | `a1f54bf3eb600b6929584fcf8483132b1448a51f` |
-| Latest independently verified main / R3L parent | `c26b458a1f96ff584ed77db52b61a5f6fc620510` |
-| Latest independently verified main TREE | `a1f54bf3eb600b6929584fcf8483132b1448a51f` |
-| Current R3L branch | `worker/column-r1-r3l-global-displacement-route-qualification` |
+| Prior independently verified main / R3L parent | `c26b458a1f96ff584ed77db52b61a5f6fc620510` |
+| Prior independently verified main TREE | `a1f54bf3eb600b6929584fcf8483132b1448a51f` |
+| Preserved R3L branch | `worker/column-r1-r3l-global-displacement-route-qualification` |
+| Preserved R3L HEAD | `76ad3e6fec7fbf7aca0eb83e3cd1eb0c7c5491d0` |
+| Preserved R3L TREE | `96d1958c69e6bcde88da1496a52782f40bf37a08` |
+| Latest independently verified main / R3M parent | `158c6a29a8a5add84afaa1d944fddde0a303d354` |
+| Latest independently verified main TREE | `96d1958c69e6bcde88da1496a52782f40bf37a08` |
+| Current R3M branch | `worker/column-r1-r3m-empirical-point-matrix-probe` |
 
 The original documentation-only index commit `84cdb486` and all nine implementation commits were preserved by PR #197's history-preserving merge. The R3D repair starts from that verified merged main; it does not replace or recreate earlier work.
 
 **CURRENT VERIFIED REPO/GIT > LATEST LIVE RECEIPT > LATEST MASTER HANDOFF > CURRENT CANONICAL RECIPE / ARCHITECTURE ADDENDUM > OLDER DOCUMENTS.**
 
 In particular, the initial R0/R1 audit documents and the R0B document's then-valid `R2_READY=YES` are historical checkpoints. Later R3C evidence controls today's gate: **M6-B OPEN; R2_RERUN_READY=NO**. No first READY or current B6 live proof is claimed.
+
+## R3M empirical point-matrix continuation
+
+[PR #205 integration receipt](COLUMN_R1_PR205_INTEGRATION_RECEIPT_2026-10-11.json) records 1614 fresh accepted PASS identities, the original R3L HEAD/TREE, exact merge parents and three successful CI workflows. Five canonical architecture failures and one supplemental OAPI failure remain real FAIL with identical complete violation sets; 45 protected surfaces are unchanged. UR-1E broad regression retains the same two actual FAIL signatures in base/candidate with `new_failures=[]`. No guard, allowlist or baseline was changed.
+
+[Source-bound derived index](COLUMN_R1_R3M_DERIVED_EVIDENCE_INDEX_2026-10-11.json) reuses the immutable original manual receipt `joint_global_crosscheck_20261011_140422.json` (SHA `ef4bbadc3fb034f59533f6279c816cba8713ab3649950fce12018a8db4f82a29`). Its sole native matrix, point 1044 / Story +0.00 / Column 210 / LC_DL, is identity. The nonzero local translation gives identical direct/transpose candidates and establishes no global semantics. Original GUI readings are not present in that receipt and are not manufactured.
+
+[Empirical matrix/operator plan](COLUMN_R1_R3M_EMPIRICAL_MATRIX_PLAN_2026-10-11.md) describes the repo-external script `column_r1_r3m_matrix_probe.py`, Library `libfile_a261590cce848191bd9bf4493e01ec00` version 1, SHA `3531a45013ab57dd6993ead7b1fa71117a690b3a0f22c14c296cced9e1cb391d`. Only offline tests and derived evidence are in Git. It can inspect the R3D-retained actual Elm for each of 172 physical endpoints using the existing verified-PID gateway STA. Candidate LC_DL acquisition requires that LC_DL already be the sole selected case and no combos; the seven-case original selection cannot be changed by the script.
+
+[Offline validation receipt](COLUMN_R1_R3M_OFFLINE_RECEIPT_2026-10-11.json) records the explicit external-artifact regressions and accepted-test preservation. The suite is invoked explicitly with a pinned external artifact; missing or altered bytes fail without skips or downloads. Native source/session/units/selection drift, duplicate rows, wrong Elm and rounding ambiguity fail closed.
+
+`NONIDENTITY_POINT_FOUND=NOT_OBSERVED_PENDING_OPERATOR_SCAN`: only 1 of 172 native matrices has been observed, and that one is identity. A valid complete all-identity scan alone can close this population as NOT_FOUND; a synthetic offline scan cannot. Next exact causal edge: original operator matrix-scan receipt, then an eligible nonidentity/nonzero LC_DL endpoint with candidate separation exceeding verified GUI rounding uncertainty and original GUI readings for the exact Story/UniqueName/OutputCase triple. No worker ETABS execution, modal recapture, setters or P2 global-table capture occurred. CSI request remains DRAFT_NOT_SENT; global delta NOT_PROVEN, M6-B OPEN, R2_RERUN_READY NO.
 
 ## Accepted architecture and recipe
 
@@ -244,7 +261,7 @@ Complete current derived JSON: `libfile_76e077b9ec548191aabd6761a3fde992`, SHA25
 
 [R3I source gate](COLUMN_R1_R3I_POINT_AXIS_SOURCE_GATE_2026-10-10.md) and [machine receipt](COLUMN_R1_R3I_OFFLINE_RECEIPT_2026-10-10.json) record the exact bounded result: all 275 original payload hashes verified, 172 point-local endpoints × 100 modes, no captured point-axis/matrix facts, zero qualified global endpoint/top-minus-bottom rows. The exact CSI API v1 point matrix pages establish signatures but do not specify Value flattening or conversion direction; matching Obj/Elm names and point coordinates do not prove orientation applicability. The basic PointObj angle convention is documented but is not a current PointElm orientation proof. No production/test/preflight changes or speculative matrix/angle transformation were introduced.
 
-The next source edge is a CSI ETABS v1 definition of PointElm.GetTransformationMatrix Value ordering and the conversion equation for the exact JointDispl Elm local components to Global X/Y/Z. Until it closes, no new live command is issued. The eventual read scope remains the existing 172 endpoints only, through the verified gateway with protected FC09/PID/path/session/unit/hash guards and no mutations. No broad modal capture or R2 run is authorized.
+At the R3I checkpoint, the next source edge was a CSI ETABS v1 definition of PointElm.GetTransformationMatrix Value ordering and the conversion equation for the exact JointDispl Elm local components to Global X/Y/Z. No new live command was issued at that checkpoint; R3M now prepares the separate empirical diagnostic described above, without global qualification. The eventual read scope remains the existing 172 endpoints only, through the verified gateway with protected FC09/PID/path/session/unit/hash guards and no mutations. No broad modal capture or R2 run is authorized.
 
 ## PR #202 integration and R3J source-route gate — retained historical checkpoint
 
@@ -308,7 +325,7 @@ combo-first/superset selector and core restoration failure dependency require
 review within the existing safety owner; no code or selection mutation is made.
 No P2 command or execution approval is issued. CSI support remains DRAFT / NOT SENT.
 
-Current exact causal edge: archive applicable CSI authority for Joint Displacements
+At the R3L checkpoint, the exact causal edge was to archive applicable CSI authority for Joint Displacements
 API global basis, signed direct modal grain and panel-zone/result-joint bridge;
 then review minimal binding facts and exact selection/restoration before P2.
 GLOBAL_ENDPOINT_MODAL_ROWS=0; GLOBAL_STORY_DELTA=NOT_PROVEN;
