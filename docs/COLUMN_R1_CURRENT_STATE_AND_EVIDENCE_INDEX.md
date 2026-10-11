@@ -445,3 +445,19 @@ ABI-2 validation: 1842 PASS (1796 accepted preserved +46 new); exact negative
 architecture comparison 31 PASS / 6 unchanged real FAIL, delta zero; protected45
 unchanged. Compile/import/diff check PASS. Separate one-getter operator
 authorization is the next gate; no live operation or automatic retry executed.
+
+
+## R3M ABI-2 — AST serialization repair (2026-10-11)
+
+The verified original runtime diagnostic isolates a Python 3.14 `ast.dump`
+formatting difference, with identical comtypes factory source. Only the external
+wrapper verifier explicitly includes empty AST fields; all native and runtime
+code/closure guards remain. Original GetNameList attempts = 0; integrity checks PASS.
+
+- Evidence: `COLUMN_R1_R3M_ABI2_AST_SERIALIZATION_EVIDENCE_2026-10-11.md`.
+- Derived receipt: `COLUMN_R1_R3M_ABI2_AST_SERIALIZATION_RECEIPT_2026-10-11.json`.
+- Original static diagnostic SHA256: `c4661b69bdaf3133404d44d104917a288f3912f4e362e3dbd0943570b01a5800`.
+- Corrected external Python SHA256: `1738ac0ce9cc97825035311a2c694bea7e503ce207a09e27dd78830c7a4f2753`.
+- Integrated: 1856 PASS = 1842 accepted preserved +14 new; architecture delta 0.
+- New one-getter live receipt PENDING; worker ETABS NO; matrix scan NOT_EXECUTED.
+- FC09 gate UNCHANGED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
