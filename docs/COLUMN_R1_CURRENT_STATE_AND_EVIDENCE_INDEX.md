@@ -417,3 +417,31 @@ unchanged. Worker ETABS execution NO; automatic retry NO; FC09 gate UNCHANGED;
 ABI-1 validation: 1796 PASS (1758 accepted identities preserved +38 new); both
 architecture baselines 31 PASS / 6 real unchanged FAIL, zero expanded violations;
 45 protected hashes unchanged. Compile/import/diff check PASS.
+
+## R3M ABI-2 — observed INOUT contract, 2026-10-11
+
+Supervisor accepts ABI-1 live discovery of ONE cFrameObj.GetNameList declaration:
+__com_interface__, IID `{F87E3A66-8381-4202-897F-46683A8477D4}`, flags [3,3,10].
+Native target was NOT invoked; failure is INOUT decoder rejection, not model or
+analysis failure. INOUT is both input and output; RETVAL remains separately tracked.
+Actual accepted comtypes wrapper code is exercised offline and verified at runtime
+before the proposed sole native call. Original ABI-1 receipt/sidecar/type metadata
+are mandatory operator inputs; full native metadata bytes are not manufactured.
+
+[ABI-2 contract and one-getter operator design](COLUMN_R1_R3M_ABI2_INOUT_EVIDENCE_2026-10-11.md)
+and [ABI-2 offline evidence receipt](COLUMN_R1_R3M_ABI2_OFFLINE_RECEIPT_2026-10-11.json).
+External Python SHA256:
+`3c2ec29d660e6c354ebd7ae534370b24e5c941c35a887821ea5128d8f7e826a3`.
+Other planned getters remain uninvoked; late positional CSys/INOUT binding is an
+explicit future ABI gate. No production wrapper/gateway/engineering changes.
+LIVE_GETNAMELIST NOT_EXECUTED; MATRIX_SCAN NOT_EXECUTED; FC09 UNCHANGED;
+CURRENT_SOURCE CANDIDATE_ONLY; global delta NOT_PROVEN; M6-B OPEN; R2 NO.
+
+Supervisor-supplied ETABSv1 API excerpt directly corroborates ref Int32 / ref
+string[] and Int32 zero-success semantics; its exact signature/assembly context
+are retained in the ABI-2 source audit, separately from native metadata authority.
+
+ABI-2 validation: 1842 PASS (1796 accepted preserved +46 new); exact negative
+architecture comparison 31 PASS / 6 unchanged real FAIL, delta zero; protected45
+unchanged. Compile/import/diff check PASS. Separate one-getter operator
+authorization is the next gate; no live operation or automatic retry executed.
