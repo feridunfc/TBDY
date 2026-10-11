@@ -489,3 +489,35 @@ No worker ETABS, no additional operator retry, census, matrix scan or P2 authori
 NEXT EXACT CAUSAL EDGE: prepare getter-free metadata inspection of remaining factual
 getters and qualify each exact ABI/Python call offline before separate execution authority.
 FC09 gate UNCHANGED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
+
+
+## R3M ABI-3 — remaining getter metadata package (2026-10-11)
+
+ABI3_OFFLINE CLOSED; ABI3_LIVE_METADATA PENDING_SUPERVISOR_AUTHORIZATION.
+ABI-1 and ABI-2 remain CLOSED; accepted one-call GetNameList LIVE PASS unchanged.
+All eight target methods have SOURCE_BACKED_OFFLINE signatures; exact ETABS23.2
+native flags/types/declaring IIDs and actual bound-wrapper contracts remain
+NOT_YET_OBSERVED / BLOCKED_UNQUALIFIED. No target getter or result was executed.
+
+- Audit: `COLUMN_R1_R3M_ABI3_OFFLINE_EVIDENCE_2026-10-11.md`.
+- Derived offline receipt: `COLUMN_R1_R3M_ABI3_OFFLINE_RECEIPT_2026-10-11.json`.
+- External Python SHA256: `b46144d729c0f539fa629752f14a5149905746bc551370f6cc5d1eca5725acc4`.
+- Original ABI-2 JSON/sidecar required outside Git, unchanged; raw evidence is not copied.
+- Focused 93 PASS; integrated 1949 PASS = 1856 accepted preserved +93 new.
+- Architecture: 31 PASS /6 real FAIL on fresh exact baseline and candidate; full
+  violation sets equal, delta0; all 45 protected surfaces and accepted test files unchanged.
+- Compile/import/diff PASS; external PowerShell runtime NOT_EXECUTED.
+
+Historical positional GetCoordCartesian(name, "Global") remains unqualified.
+Named pure-IN binding is offline-tested against accepted comtypes source; actual
+remaining bound wrappers are still missing evidence. Matrix layout/direction,
+GetElm physical/panel-zone binding and modal row grain are not qualified.
+One bounded getter-free metadata callback is prepared for separately authorized
+operator use on existing PID2072; fresh PID, exact source/session/units/lock and
+original evidence must match. No selection access or mutation, fallback or retry.
+
+FULL_FACT_CENSUS and 172_MATRIX_SCAN NOT_AUTHORIZED; P2/global result capture NO.
+FC09_PRODUCTION_GATE UNCHANGED; CURRENT_SOURCE CANDIDATE_ONLY; worker ETABS NO.
+GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
+NEXT EXACT CAUSAL EDGE: supervisor review of final pinned external artifacts,
+then separate authorization for exactly one metadata-only operator observation.
