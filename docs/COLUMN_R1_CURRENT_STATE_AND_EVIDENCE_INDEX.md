@@ -1,6 +1,6 @@
 # Column-R1 current state and evidence index
 
-Reconciled 2026-10-10 after PR #200 history-preserving R3G integration and the bounded R3H reported-total-damping CQC closure. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
+Reconciled 2026-10-10 after PR #201 history-preserving R3H integration and the bounded R3I point-axis source gate. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
 
 ## Accepted repository checkpoint and precedence
 
@@ -18,9 +18,13 @@ Reconciled 2026-10-10 after PR #200 history-preserving R3G integration and the b
 | Prior merged main TREE | `8fb52b44302f779c1ac5544e8843e4975e1187ae` |
 | Preserved R3F commit | `6d24842bf4a96a18218019c0257cdec04a75ee03` |
 | Preserved R3G commit | `ade11d0e55eb620816387b065735d1612c95927c` |
-| Latest verified merged main / R3H parent | `8ed7d4e920bd213e4304849e423b5bd45f47125a` |
-| Latest verified merged main TREE | `821f3070c8e0ac5f4b759a0ffbd86b6d81223206` |
-| Current bounded R3H branch | `worker/column-r1-r3h-reported-total-damping-cqc` |
+| Prior merged main / R3H parent | `8ed7d4e920bd213e4304849e423b5bd45f47125a` |
+| Prior merged main TREE | `821f3070c8e0ac5f4b759a0ffbd86b6d81223206` |
+| Prior bounded R3H branch | `worker/column-r1-r3h-reported-total-damping-cqc` |
+| Preserved R3H commit | `c9bc7860ef69fccf8d756908a6e0e67d02ab59a2` |
+| Latest independently verified main / R3I parent | `74b31465b2a8237a4653713a0bbb1bfa30085f43` |
+| Latest independently verified main TREE | `3c74a72094af293ffac410c4f4be09d69dc6b54a` |
+| Current bounded R3I branch | `worker/column-r1-r3i-point-global-translation` |
 
 The original documentation-only index commit `84cdb486` and all nine implementation commits were preserved by PR #197's history-preserving merge. The R3D repair starts from that verified merged main; it does not replace or recreate earlier work.
 
@@ -210,7 +214,7 @@ Existing `etabs_story_stability_result_provider.py::qualify_native_modal_story_s
 
 `tools/column_r1_r3g_modal_operands_offline.py` verifies the exact accepted 07:32 bytes and retained payload hashes, reuses R3E/R3F, and emits mode/R/V/period/native amplitude/source/physical-grain refs while leaving Delta and total damping explicitly absent. Actual native table labels establish CQC/SRSS/No rigid response without undocumented integer interpretation. The full derived JSON is external at `libfile_83de99a7a5748191847395991ab17405`; original raw input remains `libfile_3ee6376e3be481919daf1bc5554f2682`. Hashes are retained in the R3G receipt. No current B5 epoch, statistical joint-state approval, full-260 proof, ETABS access or R2 authorization is created.
 
-## PR #200 integration and current R3H closure
+## PR #200 integration and accepted R3H closure
 
 [PR #200](https://github.com/feridunfc/TBDY/pull/200) merged R3G preserving `ade11d0e55eb620816387b065735d1612c95927c`. Fetched remote main `8ed7d4e920bd213e4304849e423b5bd45f47125a` has tree `821f3070c8e0ac5f4b759a0ffbd86b6d81223206`. [Fresh integration receipt](COLUMN_R1_PR200_INTEGRATION_RECEIPT_2026-10-10.json) retains 1410 PASS, exact full architecture diagnostic equality against b7adc455, unchanged guards/baseline/allowlists, 3/3 CI SUCCESS and original source ancestry. Five architecture tests remain actual FAIL and explicit debt; this fresh disposition is scoped to PR #200.
 
@@ -222,8 +226,16 @@ Separate CQC magnitudes from actual native reported decimals: RSX R **256.232996
 
 Complete current derived JSON: `libfile_76e077b9ec548191aabd6761a3fde992`, SHA256 `8c2b632c6f209bc964283090320f12e2987e83cbedecda77da041dfa1f702bf0`. The complete original remains `libfile_3ee6376e3be481919daf1bc5554f2682`; historical R3G JSON remains `libfile_83de99a7a5748191847395991ab17405`. Full raw files/JUnit XMLs are external; their durable hashes and test-file/identity records are in the machine receipts. No historical receipt is relabelled as a new run.
 
-## Next executable action
+## PR #201 integration and current R3I source gate
+
+[PR #201](https://github.com/feridunfc/TBDY/pull/201) merged original R3H with commit `74b31465b2a8237a4653713a0bbb1bfa30085f43`; independently fetched main has the exact R3H tree `3c74a72094af293ffac410c4f4be09d69dc6b54a`. Original R3H is an ancestor and R3D–R3H receipts remain byte-identical. [Fresh PR #201 integration receipt](COLUMN_R1_PR201_INTEGRATION_RECEIPT_2026-10-10.json) records all 1489 accepted PASS identities, complete exact-main architecture violation equality, unchanged guards/baselines/allowlists, sensitive import review and 3/3 CI SUCCESS. The five architecture tests remain actual FAIL; earlier dispositions were not standing waivers.
+
+[R3I source gate](COLUMN_R1_R3I_POINT_AXIS_SOURCE_GATE_2026-10-10.md) and [machine receipt](COLUMN_R1_R3I_OFFLINE_RECEIPT_2026-10-10.json) record the exact bounded result: all 275 original payload hashes verified, 172 point-local endpoints × 100 modes, no captured point-axis/matrix facts, zero qualified global endpoint/top-minus-bottom rows. The exact CSI API v1 point matrix pages establish signatures but do not specify Value flattening or conversion direction; matching Obj/Elm names and point coordinates do not prove orientation applicability. The basic PointObj angle convention is documented but is not a current PointElm orientation proof. No production/test/preflight changes or speculative matrix/angle transformation were introduced.
+
+The next source edge is a CSI ETABS v1 definition of PointElm.GetTransformationMatrix Value ordering and the conversion equation for the exact JointDispl Elm local components to Global X/Y/Z. Until it closes, no new live command is issued. The eventual read scope remains the existing 172 endpoints only, through the verified gateway with protected FC09/PID/path/session/unit/hash guards and no mutations. No broad modal capture or R2 run is authorized.
+
+## Existing offline replay / next source action
 
 Reproduce current bounded facts/CQC with `tools/column_r1_r3h_reported_damping_offline.py` and the single-block offline Windows command in the R3H record. It verifies the accepted original bytes, preserves native normalization and reports the independent Delta/B5/joint-statistic gates. No PID, interactive input, new ETABS capture or product run is needed.
 
-Next bounded source edge: **physical point-element local-to-global axes for the retained endpoint translations**, followed by the existing applicable common story Delta operator. Current uncracked B5 execution lineage and the joint Delta/R/V selection law remain independent open gates. `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` remains NOT_APPROVED / NOT_IMPLEMENTED. Representative 86-Column facts do not qualify the full 260-Column population. **R3H representative offline CQC boundary CLOSED; M6-B OPEN; R2_RERUN_READY=NO; no ETABS/product run authorized.**
+Next bounded source edge: **exact CSI point-element matrix Value ordering/direction authority**, then the missing physical endpoint-axis facts and existing applicable common story Delta operator. R3I is BLOCKED at the source gate; no new capture command is available. Current uncracked B5 execution lineage and the joint Delta/R/V selection law remain independent open gates. `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` remains NOT_APPROVED / NOT_IMPLEMENTED. Representative 86-Column facts do not qualify the full 260-Column population. **R3H representative offline CQC boundary CLOSED; M6-B OPEN; R2_RERUN_READY=NO; no ETABS/product run authorized.**

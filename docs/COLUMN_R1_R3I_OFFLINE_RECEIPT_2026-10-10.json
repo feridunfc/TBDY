@@ -1,0 +1,1066 @@
+{
+  "receipt_name": "column-r1-r3d-modal_20261010_073229.json",
+  "receipt_sha256": "83ce2ff7c3a6170e931d2869e212adde93b7c08b25bbf44e9f0c2c663f156b03",
+  "all_275_payload_hashes_verified": true,
+  "point_local_endpoint_count": 172,
+  "point_local_modal_rows": 17200,
+  "endpoint_axes_or_transform_facts": [],
+  "global_endpoint_modal_rows": 0,
+  "column_global_top_minus_bottom_rows": 0,
+  "points": {
+    "1": {
+      "element_name": "1",
+      "raw_ref": "modal-read:sha256:26760e40d8c95b0d8fbb8e72758f8b0a74ab0dffb7907e005c1488df408ec6cc",
+      "rows": 100
+    },
+    "100": {
+      "element_name": "100",
+      "raw_ref": "modal-read:sha256:2c1c35f3398b8a5361c80cf91278c78c3134921099d4e71d937f5250df97658a",
+      "rows": 100
+    },
+    "1000": {
+      "element_name": "1000",
+      "raw_ref": "modal-read:sha256:9e4b07dd04e7e932a199b2caa062d28cfb909cabd42e24d47953bf647931353b",
+      "rows": 100
+    },
+    "1001": {
+      "element_name": "1001",
+      "raw_ref": "modal-read:sha256:991b0606d464db245bbaa4d7dc3b9025d8442c5d0d25e26b09aa7e0347c83991",
+      "rows": 100
+    },
+    "1002": {
+      "element_name": "1002",
+      "raw_ref": "modal-read:sha256:ede6e3f25dc1c90f16fa0b8f2282d962447a62fd734dfe4525817dc9291f9844",
+      "rows": 100
+    },
+    "1003": {
+      "element_name": "1003",
+      "raw_ref": "modal-read:sha256:79a5702c53b64dbfa95599e31405a84b154ed0670f54b902c90aa005f2487ecd",
+      "rows": 100
+    },
+    "1004": {
+      "element_name": "1004",
+      "raw_ref": "modal-read:sha256:b0d20f9b8b2381f4272d70e6b427029f095bd9d60a889940a54e3b2798a449bf",
+      "rows": 100
+    },
+    "1005": {
+      "element_name": "1005",
+      "raw_ref": "modal-read:sha256:0aa24479ee46647da9d5cde3d38a87655677f6e36527b7bfe698b16c1bbc1866",
+      "rows": 100
+    },
+    "1006": {
+      "element_name": "1006",
+      "raw_ref": "modal-read:sha256:8bc59c60c2d10202d321efcab115a34ae58d1e256fd938e83ecac99a3c264737",
+      "rows": 100
+    },
+    "1007": {
+      "element_name": "1007",
+      "raw_ref": "modal-read:sha256:a5b6a46d2b9293236d28d667b28bdbfd9fd64bf728ee3d1aaf97cf1402c0b607",
+      "rows": 100
+    },
+    "1010": {
+      "element_name": "1010",
+      "raw_ref": "modal-read:sha256:9febab9ba46f3866008dae4c7d2fd034503866fb0da788ce6e343c03ce15478c",
+      "rows": 100
+    },
+    "1011": {
+      "element_name": "1011",
+      "raw_ref": "modal-read:sha256:08b62d13b6dc119cc8da14bef6fb8aeea7a20bc56238bdc09415f45a11a75275",
+      "rows": 100
+    },
+    "1012": {
+      "element_name": "1012",
+      "raw_ref": "modal-read:sha256:7c30a9c5da1fe204788114635de391d12116e2eba4f1247fa18cc89ef5ed6eea",
+      "rows": 100
+    },
+    "1013": {
+      "element_name": "1013",
+      "raw_ref": "modal-read:sha256:33a92f7a419d844b8535ff310704dc0fb76d437602073bf3fbce723fee1b2a3b",
+      "rows": 100
+    },
+    "1014": {
+      "element_name": "1014",
+      "raw_ref": "modal-read:sha256:5ab6634a3ac9ce487a898faad6c1c2fc278ac8aef8e30e650e7cb9a7e3e85e25",
+      "rows": 100
+    },
+    "1015": {
+      "element_name": "1015",
+      "raw_ref": "modal-read:sha256:2028a3014e98bbd1ab61f7d270fcbb7f255fbcc701fad3088e0a029040803973",
+      "rows": 100
+    },
+    "1016": {
+      "element_name": "1016",
+      "raw_ref": "modal-read:sha256:a5f3fa8adbbcf7a4bfdd65c570fb5be0c5762e2eabdfdb0421d794a927107107",
+      "rows": 100
+    },
+    "1017": {
+      "element_name": "1017",
+      "raw_ref": "modal-read:sha256:9f8d19ba7c1d56ede6d5cfed78c9642e1469fc8c371106b274e28c6fe4ea9827",
+      "rows": 100
+    },
+    "1018": {
+      "element_name": "1018",
+      "raw_ref": "modal-read:sha256:de5940a6973cb351a17a1f8014ef3bdf7244424cdebbc2c19d9d98a27a8dc8fa",
+      "rows": 100
+    },
+    "1020": {
+      "element_name": "1020",
+      "raw_ref": "modal-read:sha256:0152483a7ce1e9e169bed144a6b8d42b3f8b5df7b5f70712636da31a23825ed6",
+      "rows": 100
+    },
+    "1021": {
+      "element_name": "1021",
+      "raw_ref": "modal-read:sha256:66b73851f7491834caf4a3a0b5ee36317ed74012131560b3657772299ce5a211",
+      "rows": 100
+    },
+    "1022": {
+      "element_name": "1022",
+      "raw_ref": "modal-read:sha256:c02e243e174c6647438b87748ee2b929e79d5f3fc00613c7afe5fbb91676a248",
+      "rows": 100
+    },
+    "1023": {
+      "element_name": "1023",
+      "raw_ref": "modal-read:sha256:da3537a82f409d044a7dcc78a43a5798ccb548df167a78956a46fdeb048479c7",
+      "rows": 100
+    },
+    "1024": {
+      "element_name": "1024",
+      "raw_ref": "modal-read:sha256:0a05033b6e9f10635bd0d90808e55b903599d15d5d704ce4d68992f132709394",
+      "rows": 100
+    },
+    "1025": {
+      "element_name": "1025",
+      "raw_ref": "modal-read:sha256:24ddc463a30ebd72457141df1c2b67158f606556610d4a2ba22114e085d21914",
+      "rows": 100
+    },
+    "1027": {
+      "element_name": "1027",
+      "raw_ref": "modal-read:sha256:f12e4a26aac940588aafe25045604a482bcb0d2bd1085deb4529485b7ee25722",
+      "rows": 100
+    },
+    "1028": {
+      "element_name": "1028",
+      "raw_ref": "modal-read:sha256:d89724257ebf8850cff63bf2409bf11ba076b6b24fd16d69ed494894d1c45aff",
+      "rows": 100
+    },
+    "1030": {
+      "element_name": "1030",
+      "raw_ref": "modal-read:sha256:28336774093af3f83af1f0900b321c50a2f0f1ee4fdbccda2ea2af33a0ccd3ea",
+      "rows": 100
+    },
+    "1033": {
+      "element_name": "1033",
+      "raw_ref": "modal-read:sha256:fa1e9810ad37a6e47da54f55b1e176c3f496969e07733c6489fce8891c5d77b1",
+      "rows": 100
+    },
+    "104": {
+      "element_name": "104",
+      "raw_ref": "modal-read:sha256:6c02b8c061bde1d572fa4af3dd6cdd9c24bd800e32776e4653dff5695cfd3e41",
+      "rows": 100
+    },
+    "1044": {
+      "element_name": "1044",
+      "raw_ref": "modal-read:sha256:19d03e32188f1e67fde874e3c580d2915c50adeba0a710ac4c2728e100d701d2",
+      "rows": 100
+    },
+    "1045": {
+      "element_name": "1045",
+      "raw_ref": "modal-read:sha256:d0c6165aa8cb13be8057df9dca32c3f5b9e6ada566552b487ef9dbd913f2efec",
+      "rows": 100
+    },
+    "1046": {
+      "element_name": "1046",
+      "raw_ref": "modal-read:sha256:5710badf9882bd5bc4f5c19adf3a5e3b5e6fe2251ee86bcf6437ba48cd200397",
+      "rows": 100
+    },
+    "1047": {
+      "element_name": "1047",
+      "raw_ref": "modal-read:sha256:8ba9217d058eed107d5caa807fee12261e9f3f3f0c6a029cb37498af8d87fd78",
+      "rows": 100
+    },
+    "1048": {
+      "element_name": "1048",
+      "raw_ref": "modal-read:sha256:a6e42ce4d50ed9f41fdbccee6cc6607d88824d372740e42b115e7252cb0faa8d",
+      "rows": 100
+    },
+    "1049": {
+      "element_name": "1049",
+      "raw_ref": "modal-read:sha256:d2f602caa804f4a2a54fd75f8eaf38fc8bd8d290f739e2cbb621ce1ee0ebfc11",
+      "rows": 100
+    },
+    "1050": {
+      "element_name": "1050",
+      "raw_ref": "modal-read:sha256:a666324f32c5ef13c02720f6fd2c9dbcd47d30d497e01610ada1bb45a78c0008",
+      "rows": 100
+    },
+    "1051": {
+      "element_name": "1051",
+      "raw_ref": "modal-read:sha256:62be0b091a7489382844664fc2a016649344e37f45e48f6bc0b9faace4487a71",
+      "rows": 100
+    },
+    "1052": {
+      "element_name": "1052",
+      "raw_ref": "modal-read:sha256:75cae8a42436dfe795394b64d96670af42b4463c4d4be6d0b73f43c3d8e008d2",
+      "rows": 100
+    },
+    "1053": {
+      "element_name": "1053",
+      "raw_ref": "modal-read:sha256:8e8c45a851652a61de8ff73b1d36460782bc8d762f1d0619e74851ad153d32ef",
+      "rows": 100
+    },
+    "1054": {
+      "element_name": "1054",
+      "raw_ref": "modal-read:sha256:ee48031ef48e403e1f5c936d57d13f2045db4407ed0bf712b6f1006ebb952009",
+      "rows": 100
+    },
+    "1056": {
+      "element_name": "1056",
+      "raw_ref": "modal-read:sha256:6e96518aeb455b21f4bab8723a6bf208a69793638c112a334548f78ce4774636",
+      "rows": 100
+    },
+    "1057": {
+      "element_name": "1057",
+      "raw_ref": "modal-read:sha256:f913b2dd61af06f817034988ab62ad0a56f436ef08ce0922d3ffff427d1b95b1",
+      "rows": 100
+    },
+    "1058": {
+      "element_name": "1058",
+      "raw_ref": "modal-read:sha256:6d4ed32f05d3536b027ada246b97e008ec2e702bcff593afec685646ee2556e7",
+      "rows": 100
+    },
+    "110": {
+      "element_name": "110",
+      "raw_ref": "modal-read:sha256:eea164555292239261c647cdbb54ddafd2a378c86d7ae700a76d55ce48d73c48",
+      "rows": 100
+    },
+    "118": {
+      "element_name": "118",
+      "raw_ref": "modal-read:sha256:33c9f4c5e6990fac21fd36470ce6c990abc581af31d4f5041c069ec6df59a10d",
+      "rows": 100
+    },
+    "126": {
+      "element_name": "126",
+      "raw_ref": "modal-read:sha256:67b8b6fb08638e043776180424d8b3b9852a3ed79d6e7df1708723127086e17c",
+      "rows": 100
+    },
+    "23": {
+      "element_name": "23",
+      "raw_ref": "modal-read:sha256:5ad53606e263cf3bdbce973dfd4de3985836d75d03d1570a57ebb6485e0aafc3",
+      "rows": 100
+    },
+    "4": {
+      "element_name": "4",
+      "raw_ref": "modal-read:sha256:58381cdd16c53b6cb12944ebf64c1320a07816158355ed0915972005ccfb49ad",
+      "rows": 100
+    },
+    "40": {
+      "element_name": "40",
+      "raw_ref": "modal-read:sha256:193491804a00e834f524f0dc0e7dd3a43b5350dc302e852e7b55c63009c9325b",
+      "rows": 100
+    },
+    "52": {
+      "element_name": "52",
+      "raw_ref": "modal-read:sha256:f2b67dcd1ce492d98f27e7091cb30e709e8759fb29ca20b367e8c31a0934c03b",
+      "rows": 100
+    },
+    "54": {
+      "element_name": "54",
+      "raw_ref": "modal-read:sha256:ce2a534a712d1aef3c9a656544340c1209c0a19cd24870c82b148d8f2978de3d",
+      "rows": 100
+    },
+    "60": {
+      "element_name": "60",
+      "raw_ref": "modal-read:sha256:24c52e164e456cbaf360ad09cd869269aa73e1220cdc2fd7273e338a4f9ca3c4",
+      "rows": 100
+    },
+    "63": {
+      "element_name": "63",
+      "raw_ref": "modal-read:sha256:bf0ef64fe3b7c5e3e5ed3da581143a363ad291accee764d36fb869f8919852ac",
+      "rows": 100
+    },
+    "64": {
+      "element_name": "64",
+      "raw_ref": "modal-read:sha256:0ddc9bc6aaccc3ed422280cfd461b780725e12782d5bc9a600924a823b63f683",
+      "rows": 100
+    },
+    "67": {
+      "element_name": "67",
+      "raw_ref": "modal-read:sha256:9de314c280316e56d763c82e4dd8c3a86f191f6d1441a23939556c9c29d4dcf5",
+      "rows": 100
+    },
+    "68": {
+      "element_name": "68",
+      "raw_ref": "modal-read:sha256:02a57c6d36d022c2e4a9821bee3b3400b3586a92ef04af7e4ffca9e262e29b7a",
+      "rows": 100
+    },
+    "70": {
+      "element_name": "70",
+      "raw_ref": "modal-read:sha256:afee6319ebdf5b1ab835fc03d1f47f426a199d920ca1a4e68e3e26c8af06d1e4",
+      "rows": 100
+    },
+    "704": {
+      "element_name": "704",
+      "raw_ref": "modal-read:sha256:bdee18681a1e36cf3479d17dc2e0baf74e3c2c9284fdba74beb2d8f42e16d880",
+      "rows": 100
+    },
+    "707": {
+      "element_name": "707",
+      "raw_ref": "modal-read:sha256:66f19c1131dc0df6614dde8de7ace825da4ddfd8e68e78a2a1973a11e9908d9f",
+      "rows": 100
+    },
+    "709": {
+      "element_name": "709",
+      "raw_ref": "modal-read:sha256:50ece1cb6ec036e34eed2d8bce5e2da55ead59af652a6252193e82cf2bc7cfcd",
+      "rows": 100
+    },
+    "713": {
+      "element_name": "713",
+      "raw_ref": "modal-read:sha256:561a85bbdc2375571e27a301019fecd3c3ca414ab6348d8958de33ae4c75fa8e",
+      "rows": 100
+    },
+    "715": {
+      "element_name": "715",
+      "raw_ref": "modal-read:sha256:fa7710bbc27033e6a772551fa87abd6cb0628a072a1d06b3aed6e4fd13c34174",
+      "rows": 100
+    },
+    "724": {
+      "element_name": "724",
+      "raw_ref": "modal-read:sha256:be0033382eda140ba18d597a7ac56dc52ca3f40806bb8d148fe6bd576b655884",
+      "rows": 100
+    },
+    "73": {
+      "element_name": "73",
+      "raw_ref": "modal-read:sha256:361812ff9175aa358c5b2f5017e05ecb9224a3997ff657433b636e6ed33594da",
+      "rows": 100
+    },
+    "730": {
+      "element_name": "730",
+      "raw_ref": "modal-read:sha256:cdad8c808d60ab63678d22ec870431159b9591d7d6535fae9736cf55b0869854",
+      "rows": 100
+    },
+    "756": {
+      "element_name": "756",
+      "raw_ref": "modal-read:sha256:4bf3eb3dfcd34adc2835df97b994b19b4f688b057c950c8dd54cb2ec022625c9",
+      "rows": 100
+    },
+    "758": {
+      "element_name": "758",
+      "raw_ref": "modal-read:sha256:48196161ae703e7169c35d3a43cfdb171e1cbd8fd13b3d5b4c3157314cfaf16d",
+      "rows": 100
+    },
+    "76": {
+      "element_name": "76",
+      "raw_ref": "modal-read:sha256:8c491c57923d5a4edecffa09000951c4e5c2303fa4a42e0b33e3a291e358a2b2",
+      "rows": 100
+    },
+    "760": {
+      "element_name": "760",
+      "raw_ref": "modal-read:sha256:195c5903edda692504759178bb62e82080e1f5d1e5b5844e64cdcbc37acfede5",
+      "rows": 100
+    },
+    "764": {
+      "element_name": "764",
+      "raw_ref": "modal-read:sha256:5349d633ee634e3d6a89180e80bbb5400399f298b2889589e64aba90681bec3a",
+      "rows": 100
+    },
+    "769": {
+      "element_name": "769",
+      "raw_ref": "modal-read:sha256:4acf12fb329862f3c71bba8212ae3eacf7d7de63592a425a88a91d690fb75f42",
+      "rows": 100
+    },
+    "771": {
+      "element_name": "771",
+      "raw_ref": "modal-read:sha256:3b4ed54054935a72e4e953e62d222f16f44377d9c02a4101b1e2cbfe7f64d40e",
+      "rows": 100
+    },
+    "774": {
+      "element_name": "774",
+      "raw_ref": "modal-read:sha256:9bc1947ddbecaf2b1b1cefa7691906511f33cd82dcf98e97a45ec0066d6affa2",
+      "rows": 100
+    },
+    "777": {
+      "element_name": "777",
+      "raw_ref": "modal-read:sha256:e18cb77dbdbf46ac31922d8c7317db13a9689cdce02949efe5868a80edf4997a",
+      "rows": 100
+    },
+    "779": {
+      "element_name": "779",
+      "raw_ref": "modal-read:sha256:cc1571307f7948cee93d8a557469bf167282f2c4f70534951ffb5b5ce7a73d99",
+      "rows": 100
+    },
+    "781": {
+      "element_name": "781",
+      "raw_ref": "modal-read:sha256:d5fcfdc5bf48a9de70e4c1493f2740fe311ad393d453e74ff62422671d6d4972",
+      "rows": 100
+    },
+    "783": {
+      "element_name": "783",
+      "raw_ref": "modal-read:sha256:818874a9cb5b3b64324db276a6a3aac9bc908c7ba9f6c459d3b1fe866a0de7a9",
+      "rows": 100
+    },
+    "789": {
+      "element_name": "789",
+      "raw_ref": "modal-read:sha256:46b851369de8e2daf8221795ae5fb2721a4b0d7a9400b1843c724ba64ae7f74c",
+      "rows": 100
+    },
+    "791": {
+      "element_name": "791",
+      "raw_ref": "modal-read:sha256:f633f61002f68015497ea72c5c22292be280a3b069008b34a2aa5ad4b8583571",
+      "rows": 100
+    },
+    "793": {
+      "element_name": "793",
+      "raw_ref": "modal-read:sha256:685893038e16e8a2bcae1a718bb7efdb02714f8d434a3dcf4c539074778605ef",
+      "rows": 100
+    },
+    "795": {
+      "element_name": "795",
+      "raw_ref": "modal-read:sha256:f0c0ce6c4df51524c1491b5de719733222755c83316529d11dd82e63acf6520f",
+      "rows": 100
+    },
+    "797": {
+      "element_name": "797",
+      "raw_ref": "modal-read:sha256:2b29a9034dd58b0de589c766e5e062586f4a53908e8e2e87b32e11dfb3e34fe7",
+      "rows": 100
+    },
+    "799": {
+      "element_name": "799",
+      "raw_ref": "modal-read:sha256:a0db7851b5637d6803eee976d646df51d447444ec490db444443fd7fa7ae7859",
+      "rows": 100
+    },
+    "80": {
+      "element_name": "80",
+      "raw_ref": "modal-read:sha256:a96994a90ef90a409967ddf850aa3e712e0dd52ebcf437eee834b012411f73e0",
+      "rows": 100
+    },
+    "801": {
+      "element_name": "801",
+      "raw_ref": "modal-read:sha256:0eee96131d7f3785d912775d2ba563fd9c5f4a643bb5c21749b2e327245837a4",
+      "rows": 100
+    },
+    "808": {
+      "element_name": "808",
+      "raw_ref": "modal-read:sha256:d00f640f7e690247d4c447248aff6d663f93c075411f6ac446f13a65f7dfc616",
+      "rows": 100
+    },
+    "810": {
+      "element_name": "810",
+      "raw_ref": "modal-read:sha256:b69a010096731c36f6520dabd109749762142037b8825cea3ae8f87c40d4f1da",
+      "rows": 100
+    },
+    "812": {
+      "element_name": "812",
+      "raw_ref": "modal-read:sha256:4c62e7362fa40d8109fdee2fdd9a49905232f264dc6f6436b8536ec16cc6d7af",
+      "rows": 100
+    },
+    "816": {
+      "element_name": "816",
+      "raw_ref": "modal-read:sha256:1b9a1cb75221f85171b60a2a7033da7cc3b8e87e0275b62abbbb9c9d4b06eae8",
+      "rows": 100
+    },
+    "818": {
+      "element_name": "818",
+      "raw_ref": "modal-read:sha256:b0ddaffcd00090dfc83ee0d7fcd0caf679f8f4da2679f96b7730f3267d6b99b4",
+      "rows": 100
+    },
+    "820": {
+      "element_name": "820",
+      "raw_ref": "modal-read:sha256:2966f69f3fdf755cab40c2d9ec4f6e426b124ec34e3d257c738b7ae478f402e8",
+      "rows": 100
+    },
+    "824": {
+      "element_name": "824",
+      "raw_ref": "modal-read:sha256:473f8c3d747d65040d8c5b0abb2938f2beb363513b3d84bed1883e58ce6d7474",
+      "rows": 100
+    },
+    "84": {
+      "element_name": "84",
+      "raw_ref": "modal-read:sha256:90f6147ad546919eeed1c71c3b304bd81a5494db43a41baffb9a512fcd195618",
+      "rows": 100
+    },
+    "841": {
+      "element_name": "841",
+      "raw_ref": "modal-read:sha256:9d57b312bc3a684e33175e0e4c1c749a35e8159e2559b63c9747013ed30a65ee",
+      "rows": 100
+    },
+    "843": {
+      "element_name": "843",
+      "raw_ref": "modal-read:sha256:64f772d5f6566d6f4512a55a685a00c0c3b0adb40e8ef3aaf27d3dad3a887973",
+      "rows": 100
+    },
+    "845": {
+      "element_name": "845",
+      "raw_ref": "modal-read:sha256:044a69db8af89b0554d9c9d75a745295ef6f66868f375b68e661ad13e01a34c7",
+      "rows": 100
+    },
+    "848": {
+      "element_name": "848",
+      "raw_ref": "modal-read:sha256:3d464dbf795627da6b78dba9a4d163f97b5029af936b595de53ab1ceb242e26a",
+      "rows": 100
+    },
+    "852": {
+      "element_name": "852",
+      "raw_ref": "modal-read:sha256:b5465de13608cafd91ba9124c91cfb5b709ed94d85e9f0cf58490db5bfe1eb6f",
+      "rows": 100
+    },
+    "855": {
+      "element_name": "855",
+      "raw_ref": "modal-read:sha256:fee9e8bbe90cf2b80936e354b6010877a62818b5f45f5a790be1c317460ff123",
+      "rows": 100
+    },
+    "877": {
+      "element_name": "877",
+      "raw_ref": "modal-read:sha256:085eebaf5b633243096eb724aa2142b73c8c018a15e796da4ad78e96ab3a72df",
+      "rows": 100
+    },
+    "879": {
+      "element_name": "879",
+      "raw_ref": "modal-read:sha256:6544163ecf7281ed09b9ffbf2fdc17d6e0bba6cc408b8ca48165098656fed026",
+      "rows": 100
+    },
+    "882": {
+      "element_name": "882",
+      "raw_ref": "modal-read:sha256:3e229c2772f407b9dc40aa3d2cfe71652ca84343ec65210fab7a61524e4bdb9a",
+      "rows": 100
+    },
+    "884": {
+      "element_name": "884",
+      "raw_ref": "modal-read:sha256:04b88a7f9ebc7354abb6c5ba674fb390a672c53264a101f20ffcdcdc40122ebb",
+      "rows": 100
+    },
+    "886": {
+      "element_name": "886",
+      "raw_ref": "modal-read:sha256:50e56ed7eac47f75d4429de7db2c91800b4e9b462e83f58d6f91bf54aaee27bc",
+      "rows": 100
+    },
+    "888": {
+      "element_name": "888",
+      "raw_ref": "modal-read:sha256:0c8dfd1bcd2841c5d3979f8e80e01962430812c2e7a4b7524784325d5449ada3",
+      "rows": 100
+    },
+    "895": {
+      "element_name": "895",
+      "raw_ref": "modal-read:sha256:8b74acbcd2fa7fca2c6c68123c4872127ccf8889c6a28173843477002c8abaa4",
+      "rows": 100
+    },
+    "897": {
+      "element_name": "897",
+      "raw_ref": "modal-read:sha256:23c888cd40ffe46468fdc6fb0b4ccce450c7811d2def56d69c647d717bc3e7e2",
+      "rows": 100
+    },
+    "899": {
+      "element_name": "899",
+      "raw_ref": "modal-read:sha256:8e001dab94c80745e9d537bd835213bb93b6d81d2c76a08f3ab589b2a7a7f178",
+      "rows": 100
+    },
+    "901": {
+      "element_name": "901",
+      "raw_ref": "modal-read:sha256:0d52d53035142d78c39314d30e4583b199e7d206601f485c5e1f46706c97b8af",
+      "rows": 100
+    },
+    "903": {
+      "element_name": "903",
+      "raw_ref": "modal-read:sha256:f78e8d46d96c17c8400c7f808a2f69ca39bd269ed3cebf152cdd22b14dc272b9",
+      "rows": 100
+    },
+    "905": {
+      "element_name": "905",
+      "raw_ref": "modal-read:sha256:b349ebff81d612d8805c9e1e4ef9cf7bef69ebeb6b07244df355ad1c37531f16",
+      "rows": 100
+    },
+    "918": {
+      "element_name": "918",
+      "raw_ref": "modal-read:sha256:e4316595806b49f2462dfc687bcb06a96ff42527be2e248ba74adf37a851b8c1",
+      "rows": 100
+    },
+    "919": {
+      "element_name": "919",
+      "raw_ref": "modal-read:sha256:6a679dfd026246ff2d70421bafcc479f2ec47876a048ff01c5191c5d4fbfba8e",
+      "rows": 100
+    },
+    "921": {
+      "element_name": "921",
+      "raw_ref": "modal-read:sha256:66240d3c7786df679f64f74f8e81562c1df9c7405eca4492e6eff7441883ba5c",
+      "rows": 100
+    },
+    "922": {
+      "element_name": "922",
+      "raw_ref": "modal-read:sha256:d7c0e11710c4fce4386b818464f7c9a51dd7487ceb944037e963bdc3a40431bf",
+      "rows": 100
+    },
+    "923": {
+      "element_name": "923",
+      "raw_ref": "modal-read:sha256:b0cee7ca2e519799a4f0f9050d26fb5d970e75fd9fb4da617e961be50642bb17",
+      "rows": 100
+    },
+    "924": {
+      "element_name": "924",
+      "raw_ref": "modal-read:sha256:998dd90fff2027d040883c331d197fc45c4dad37874bab690d7d45b340de3f28",
+      "rows": 100
+    },
+    "925": {
+      "element_name": "925",
+      "raw_ref": "modal-read:sha256:2e3062f7357c166c7a8d6566392972cc9acfb87828a24d23084de18fa0ded966",
+      "rows": 100
+    },
+    "926": {
+      "element_name": "926",
+      "raw_ref": "modal-read:sha256:7051c25ad427112d55e459838d528574edb34debd1ccdc5208add33af7b1ef59",
+      "rows": 100
+    },
+    "927": {
+      "element_name": "927",
+      "raw_ref": "modal-read:sha256:eecc4e9b4996b48ff752ac9488dd95d144e3c0368c2de2882ba8bfd49709c9c6",
+      "rows": 100
+    },
+    "928": {
+      "element_name": "928",
+      "raw_ref": "modal-read:sha256:cd856bc802a378c82aafa56cf795d2171c0fd56978250b01f9f8f3f9a2475b05",
+      "rows": 100
+    },
+    "929": {
+      "element_name": "929",
+      "raw_ref": "modal-read:sha256:9e9e693a77e60cf28b1a7615b2265012b7303cdac4c57711cc4afa32256f8176",
+      "rows": 100
+    },
+    "930": {
+      "element_name": "930",
+      "raw_ref": "modal-read:sha256:958c8b69535faab6449320b50c3e30a7c1d3de259d4f6ce1a186f14ac428101d",
+      "rows": 100
+    },
+    "931": {
+      "element_name": "931",
+      "raw_ref": "modal-read:sha256:0bdac5c1cdee504bf4f26db8a315ddff697d1785e2975946aad5494362af71fa",
+      "rows": 100
+    },
+    "932": {
+      "element_name": "932",
+      "raw_ref": "modal-read:sha256:8e560c4806c818e7ce65a2b450e90790d6273e85caf54ef2b474f0b4343f4f35",
+      "rows": 100
+    },
+    "933": {
+      "element_name": "933",
+      "raw_ref": "modal-read:sha256:fd59d93f4c198648342d5839974ab084266643179b99576141efaf59afe58ebd",
+      "rows": 100
+    },
+    "934": {
+      "element_name": "934",
+      "raw_ref": "modal-read:sha256:e09549e052f03d9e2d709c2b0be971310e1556a18846ebf8af6ef3befe1031ac",
+      "rows": 100
+    },
+    "935": {
+      "element_name": "935",
+      "raw_ref": "modal-read:sha256:c98d18f39e9355f33d584f6097052af097b76b8c49621dd885c495c03e15e849",
+      "rows": 100
+    },
+    "936": {
+      "element_name": "936",
+      "raw_ref": "modal-read:sha256:774725cfd9b6ae45c8ed4b87407013324bbead1b34ef17baa0e2b1aa3a502d9f",
+      "rows": 100
+    },
+    "937": {
+      "element_name": "937",
+      "raw_ref": "modal-read:sha256:f39369406ced622a751e71faa7d70a0562c1bfd77a3f4d20a3ea62afa3c40a38",
+      "rows": 100
+    },
+    "942": {
+      "element_name": "942",
+      "raw_ref": "modal-read:sha256:ebfe26e61e3961e0edfcbe2af4d7523149f0776a4de617a5ee90e15a6f4b64b6",
+      "rows": 100
+    },
+    "943": {
+      "element_name": "943",
+      "raw_ref": "modal-read:sha256:791bb673163de31c47d38cf4713775e91a8b3f5709f2e373fcf6e62e8591c29f",
+      "rows": 100
+    },
+    "944": {
+      "element_name": "944",
+      "raw_ref": "modal-read:sha256:9eb1ad36c9bdc09629b5f4494f9855e04df2c44a0c1ddcfbfc38cf1642b92442",
+      "rows": 100
+    },
+    "945": {
+      "element_name": "945",
+      "raw_ref": "modal-read:sha256:bb41e825cc7cb5f12bdeb14a0643fc264030a7a5a60d35b5525d9dc48738aaba",
+      "rows": 100
+    },
+    "946": {
+      "element_name": "946",
+      "raw_ref": "modal-read:sha256:ea20d45d3a66549d7756c8d853f770008aaeb64404ef78335a001e489cd0c165",
+      "rows": 100
+    },
+    "954": {
+      "element_name": "954",
+      "raw_ref": "modal-read:sha256:f70dd587c7c3f72d5614d494a0df6bb7549d0a1c785b22959bfa7e7545c730ab",
+      "rows": 100
+    },
+    "955": {
+      "element_name": "955",
+      "raw_ref": "modal-read:sha256:90fc3c3dc535ded83a1448474786cc58f1002b8560a49fa3351788af57b85910",
+      "rows": 100
+    },
+    "956": {
+      "element_name": "956",
+      "raw_ref": "modal-read:sha256:a13524e699b9fcaf128c7a953aa1d314c10a9d8094c373408582eb23518bec59",
+      "rows": 100
+    },
+    "957": {
+      "element_name": "957",
+      "raw_ref": "modal-read:sha256:a904cdf1e59ee61c26b243a53e1e41e58670794693e4f4ab802aad04073942c2",
+      "rows": 100
+    },
+    "958": {
+      "element_name": "958",
+      "raw_ref": "modal-read:sha256:86349b3fb5d27944aab6977a3ce78ce2b782f9e2f00d5d43e39611d79b9724e3",
+      "rows": 100
+    },
+    "959": {
+      "element_name": "959",
+      "raw_ref": "modal-read:sha256:0bd2c9e64f0e73b36af3820af324cedeb46f2a9d15e8af08f6ab52e2b4ac4815",
+      "rows": 100
+    },
+    "96": {
+      "element_name": "96",
+      "raw_ref": "modal-read:sha256:8922543b5e513bfe3ac2db8905d6cc3b17d6a4f8eee1c5b0a6b4f1d13c248c80",
+      "rows": 100
+    },
+    "960": {
+      "element_name": "960",
+      "raw_ref": "modal-read:sha256:6a05569c619b36a219a38959dcb353debd9811eeaed8d41c841ca19189a99702",
+      "rows": 100
+    },
+    "961": {
+      "element_name": "961",
+      "raw_ref": "modal-read:sha256:0c51234c19bc146fc0f12b189171297bd489d021960376eaa5c19a6ee089e5bc",
+      "rows": 100
+    },
+    "962": {
+      "element_name": "962",
+      "raw_ref": "modal-read:sha256:1b5617d5ac7cc68975774abf8c924578738d24084820cce97d483650fba983f5",
+      "rows": 100
+    },
+    "963": {
+      "element_name": "963",
+      "raw_ref": "modal-read:sha256:f8ad24dad7646b57b3a572f03d9e1127d343ca33d80db8bdb5f93c1e6040b634",
+      "rows": 100
+    },
+    "965": {
+      "element_name": "965",
+      "raw_ref": "modal-read:sha256:d8ccc97ab94609c979d684a450bcdf455df4d7afd68163040a45aedde5caae8d",
+      "rows": 100
+    },
+    "966": {
+      "element_name": "966",
+      "raw_ref": "modal-read:sha256:9cc9f1f81941f523aa452fdf2871f8862d1fe29312f5c991e1253ebde7991316",
+      "rows": 100
+    },
+    "967": {
+      "element_name": "967",
+      "raw_ref": "modal-read:sha256:82e550f3e6088ca7d7ab3f3c96216d039c6316e2b598c111f9c89ae80890b6e0",
+      "rows": 100
+    },
+    "968": {
+      "element_name": "968",
+      "raw_ref": "modal-read:sha256:4f70a8c180d155db962f848cd40e30357991c171ab465af27d6f72a2795dd4e6",
+      "rows": 100
+    },
+    "969": {
+      "element_name": "969",
+      "raw_ref": "modal-read:sha256:2569d2452402c2b99ac1fa4edc45f3310cdce65d2ea7d855f7a24dd844d71452",
+      "rows": 100
+    },
+    "970": {
+      "element_name": "970",
+      "raw_ref": "modal-read:sha256:d0926ffcb4dbffe0f4ccfc28ed403b071228e436decd95760547e9db4be1d063",
+      "rows": 100
+    },
+    "971": {
+      "element_name": "971",
+      "raw_ref": "modal-read:sha256:376e8bbe94d3e2303a3ee04402ef7ba9ca9fbcf17c985b1e1a6ef3f2fbe32695",
+      "rows": 100
+    },
+    "972": {
+      "element_name": "972",
+      "raw_ref": "modal-read:sha256:22e94330a0bae3fa1fe6751f8787ed94ecf8edf629ae8c6eb6295b85a2fe7bab",
+      "rows": 100
+    },
+    "973": {
+      "element_name": "973",
+      "raw_ref": "modal-read:sha256:8306c92d852ce01dbcc2b6d750ad0f9a8b02270116faef359e78be903288be5f",
+      "rows": 100
+    },
+    "974": {
+      "element_name": "974",
+      "raw_ref": "modal-read:sha256:d243a654c98802574285f765be3f2dab3277d62378b11054737f1ec645a03cc3",
+      "rows": 100
+    },
+    "975": {
+      "element_name": "975",
+      "raw_ref": "modal-read:sha256:d3bf837848bc3ef3abd3ba7e824321ee44039e9e90096e05fc83993a78a4c2c3",
+      "rows": 100
+    },
+    "976": {
+      "element_name": "976",
+      "raw_ref": "modal-read:sha256:d83f1645bebf186f2f40a7948424cf6d7671658f33d7dc5c1875155c86de83e2",
+      "rows": 100
+    },
+    "977": {
+      "element_name": "977",
+      "raw_ref": "modal-read:sha256:32093292e5f73781786cfac172f480a269b7d03488c65ffe238a494ab89e4db5",
+      "rows": 100
+    },
+    "978": {
+      "element_name": "978",
+      "raw_ref": "modal-read:sha256:dd3009744279fe7ee9696a4c4661d9bafda4bc5faffbc83522cbcaa52484d418",
+      "rows": 100
+    },
+    "979": {
+      "element_name": "979",
+      "raw_ref": "modal-read:sha256:584831de3450cc8fabaf2434e53e2a4a8538b6f25ec0bfb08b797ec733332477",
+      "rows": 100
+    },
+    "980": {
+      "element_name": "980",
+      "raw_ref": "modal-read:sha256:ce9c889fa3457ce7f56a3456e9f0e28e86eefde90abe9d7297e6c33ac42a7146",
+      "rows": 100
+    },
+    "984": {
+      "element_name": "984",
+      "raw_ref": "modal-read:sha256:280b65e13b9ad5bfb1fc4c6b13d33f30726d4265606e11647f5926185abab9b0",
+      "rows": 100
+    },
+    "985": {
+      "element_name": "985",
+      "raw_ref": "modal-read:sha256:7029d961f0d324c721190ad69db79e074b4e1b5bf98cb292b26a6f19adb4dcd9",
+      "rows": 100
+    },
+    "986": {
+      "element_name": "986",
+      "raw_ref": "modal-read:sha256:191242a026d79bbf5802ea508786b86fa2c8f8b7aabb20e9e616e88e04d2536a",
+      "rows": 100
+    },
+    "987": {
+      "element_name": "987",
+      "raw_ref": "modal-read:sha256:f1022d9d4c707bfb750fd471514a1d4aa3c150a583ca17d08fef5dacbe2bf266",
+      "rows": 100
+    },
+    "988": {
+      "element_name": "988",
+      "raw_ref": "modal-read:sha256:2429af23c86d2ba4693769af6f72ad88df314b654503ac9319d4acedd2381283",
+      "rows": 100
+    },
+    "989": {
+      "element_name": "989",
+      "raw_ref": "modal-read:sha256:3035ee2ae11b846eef8957bfefc30977816664818fa73f7cf9aa66054bc395fa",
+      "rows": 100
+    },
+    "990": {
+      "element_name": "990",
+      "raw_ref": "modal-read:sha256:24482d051b843ab1f3ec9012cf4fcd56d7a403ec172b3debd499b5ab1001fba2",
+      "rows": 100
+    },
+    "992": {
+      "element_name": "992",
+      "raw_ref": "modal-read:sha256:9f369f8e312b77f52988212fe9ddbbc9401bf4ffe27428c1b8355e9582144cc5",
+      "rows": 100
+    },
+    "999": {
+      "element_name": "999",
+      "raw_ref": "modal-read:sha256:104843fc9cc0798203de05f89cdfbed884837787b0f53c0a4f7141790ff416a2",
+      "rows": 100
+    }
+  },
+  "csi_api_pdf_sha256": "6ee860c75d37215d6d6c44251e94788709439e155b68a7939e893a66f01dda27",
+  "native_semantics_status": "BLOCKED_EXACT_POINT_MATRIX_LAYOUT_DIRECTION_AND_RESULT_ELEMENT_APPLICABILITY",
+  "current_b5_qualified": false,
+  "joint_delta_r_v": "PROJECT_DECISION_REQUIRED",
+  "R2_RERUN_READY": false,
+  "package": "R3I_POINT_AXIS_SOURCE_GATE",
+  "date": "2026-10-10",
+  "disposition": "BLOCKED_EXACT_POINT_MATRIX_SOURCE_SEMANTICS",
+  "parent_head": "74b31465b2a8237a4653713a0bbb1bfa30085f43",
+  "parent_tree": "3c74a72094af293ffac410c4f4be09d69dc6b54a",
+  "branch": "worker/column-r1-r3i-point-global-translation",
+  "original_receipt_library_locator": "libfile_3ee6376e3be481919daf1bc5554f2682",
+  "protected_source_sha256": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+  "endpoint_transform_count": 0,
+  "point_object_element_identity_map": "172 exact Obj/Elm pairs returned by JointDispl; matching names do not establish equal axes",
+  "point_object_element_axis_applicability": "NOT_PROVEN_NO_AXIS_FACTS",
+  "transformation_direction": "NOT_PROVEN",
+  "native_abi_source": {
+    "PointObj.GetTransformationMatrix": "int (string Name, ref double[] Value, bool IsGlobal = true)",
+    "PointElm.GetTransformationMatrix": "int (string Name, ref double[] Value)",
+    "PointObj.GetElm": "int (string Name, ref string Elm)",
+    "PointElm.GetObj": "int (string Name, ref string Obj, ref int ObjType)",
+    "python_return_shape": "NOT_CAPTURED_NOT_ASSUMED"
+  },
+  "native_value_layout": "NOT_DEFINED_IN_CHECKED_POINT_GETTER_PAGES",
+  "basic_point_object_angle_authority": "GetLocalAxes: intrinsic +3 then resulting +2 then resulting +1, degrees; advanced flag factual; not a current result-element axis proof",
+  "exact_missing_source": "An applicable CSI ETABS v1 statement defining the returned PointElm.GetTransformationMatrix Value ordering and conversion equation between the exact JointDispl Elm local U1/U2/U3 and Global X/Y/Z.",
+  "common_story_translation": "BLOCKED_GLOBAL_ENDPOINT_AXES_AND_INDEPENDENT_CURRENT_B5_GATE",
+  "rsx_global_modal_delta": null,
+  "rsy_global_modal_delta": null,
+  "rsx_delta_cqc": null,
+  "rsy_delta_cqc": null,
+  "new_live_read_required": true,
+  "proposed_read_only_command": null,
+  "command_withheld_reason": "R3I source gate requires exact matrix semantics before getter/transform implementation; no approximation or automatic capture",
+  "production_patch": "NONE_SOURCE_GATE_STOP",
+  "new_transform_tests": 0,
+  "transform_test_status": "NOT_RUN_NO_SOURCE_AUTHORIZED_TRANSFORM_IMPLEMENTED",
+  "compile_import": "PASS_UNCHANGED_VALIDATED_R3H_IMPLEMENTATION",
+  "etabs_executed_by_worker": false,
+  "source_mutated": false,
+  "m6_b": "OPEN",
+  "r3h_r_v_cqc": "CLOSED_REUSE",
+  "source_pages": [
+    {
+      "source": "CSI API ETABS v1.pdf (2024)",
+      "sha256": "6ee860c75d37215d6d6c44251e94788709439e155b68a7939e893a66f01dda27",
+      "pages": [
+        147,
+        148,
+        149,
+        150,
+        2917,
+        2918,
+        2921,
+        2922,
+        2931,
+        2932,
+        2990,
+        2991,
+        3013,
+        3014,
+        3044,
+        3045
+      ],
+      "finding": "Point getter signatures present. Point matrix Value layout/direction absent from parameter/return descriptions. PointObj basic-angle definition present; PointElm angle parameter meanings not described."
+    },
+    {
+      "source": "CSI Analysis Reference Manual Rev.15, Chapter IV",
+      "url": "https://docs.csiamerica.com/manuals/etabs/Analysis%20Reference.pdf",
+      "printed_pages": [
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        47
+      ],
+      "finding": "Joint local output, right-handed axes, basic and advanced joint orientation law; not a returned OAPI Value flattening specification."
+    },
+    {
+      "source": "Official ETABS 2016 PointObj matrix method",
+      "url": "https://docs.csiamerica.com/help-files/etabs-api-2016/html/9479def8-531a-3fa7-70ce-c4315e97c292.htm",
+      "finding": "Signature and parameter types; no Value ordering or conversion equation."
+    },
+    {
+      "source": "Official ETABS 2016 PointElm matrix method",
+      "url": "https://docs.csiamerica.com/help-files/etabs-api-2016/html/ce6f071d-6809-d05e-7fe2-b2968ba6c9f2.htm",
+      "finding": "Signature and parameter types; no Value ordering or conversion equation."
+    },
+    {
+      "source": "Official ETABS 2015 PointObj matrix method",
+      "url": "https://docs.csiamerica.com/help-files/etabs-api-2015/html/42d19dd3-87cb-1c5f-ed81-5df85499a04b.htm",
+      "finding": "Corroborating historical signature only; not new v23 semantic authority."
+    }
+  ],
+  "integrated": {
+    "distinct_pass": 1489,
+    "failures": 0,
+    "lost_accepted_identities": [],
+    "junit_sha256": "6bfa5d44e4976823063849d67df6861920f1e91afa6e8eaa0fc582114df54bc0",
+    "test_files": [
+      "tests/analysis_basis/test_eq713_frame_mechanics.py",
+      "tests/analysis_basis/test_eq713_response_mechanics.py",
+      "tests/analysis_basis/test_eq713_uncracked_analysis_state.py",
+      "tests/application/test_column_a18_beam_fact_ordering.py",
+      "tests/application/test_column_public_a4_post_continuity.py",
+      "tests/application/test_column_public_a5_frame_production_join.py",
+      "tests/application/test_column_public_a5_product_path.py",
+      "tests/application/test_column_public_b6_join.py",
+      "tests/application/test_column_public_b6_project_root.py",
+      "tests/application/test_column_public_mixed_vertical.py",
+      "tests/application/test_column_public_population_project_root.py",
+      "tests/application/test_column_r1_a35_longitudinal_detailing.py",
+      "tests/application/test_column_r1_a36_transverse_runtime.py",
+      "tests/application/test_column_r1_a37_limited_shear_runtime.py",
+      "tests/application/test_column_r1_bblok_e1_binding.py",
+      "tests/application/test_column_r1_e2_whole_system_gate.py",
+      "tests/application/test_column_r1_fc09_rebind.py",
+      "tests/application/test_column_r1_m6_reference_recovery.py",
+      "tests/application/test_column_r1_r3b_combo_reconciliation.py",
+      "tests/application/test_column_stability_runtime.py",
+      "tests/architecture/test_b5_analysis_execution_guards.py",
+      "tests/coverage/test_column_r1_a39_fcr_reconciliation.py",
+      "tests/design/columns/test_column_r1_a0_fnd2_magnification_join.py",
+      "tests/design/columns/test_column_r1_a0_stability_combo_basis.py",
+      "tests/design/columns/test_fnd_col_2_design_readiness.py",
+      "tests/design/columns/test_fnd_col_4_pmm_assessment.py",
+      "tests/design/columns/test_p8a_b_column_longitudinal_production_composition.py",
+      "tests/design/columns/test_stability_output_state.py",
+      "tests/design/columns/test_story_relative_translation.py",
+      "tests/design/columns/test_vs6_p7_column_shear.py",
+      "tests/design/columns/test_vs6_rebar_selection.py",
+      "tests/design/columns/test_vs6_rebar_selection_authority.py",
+      "tests/etabs/test_column_r1_read_only_preflight.py",
+      "tests/etabs/test_database_table_field_metadata.py",
+      "tests/etabs/test_frame_section_inertia_authority_boundary.py",
+      "tests/etabs/test_native_frame_section_provenance.py",
+      "tests/etabs/test_native_material_provenance.py",
+      "tests/etabs/test_native_wall_thickness_provenance.py",
+      "tests/etabs/test_oapi_material_properties.py",
+      "tests/integration/test_b5_analysis_execution.py",
+      "tests/integration/test_b5_analysis_lineage_issuer.py",
+      "tests/integration/test_b5_response_spectrum_runtime_dependencies.py",
+      "tests/integration/test_b6_controlled_design_execution.py",
+      "tests/integration/test_b6_p0_design_preflight.py",
+      "tests/providers/test_b5_column_force_result_population_provider.py",
+      "tests/providers/test_column_b5_combo_force_projection.py",
+      "tests/providers/test_etabs_eq713_response_provider_p4b.py",
+      "tests/providers/test_etabs_frame_eq713_population_a36_beam_mechanics.py",
+      "tests/providers/test_etabs_frame_eq713_population_a37_types.py",
+      "tests/providers/test_etabs_frame_eq713_population_p4a2.py",
+      "tests/providers/test_etabs_frame_eq713_population_snapshot_batch.py",
+      "tests/providers/test_etabs_frame_flexural_base_snapshot.py",
+      "tests/providers/test_etabs_story_stability_result_provider.py",
+      "tests/providers/test_flexural_base_metadata_acquisition.py",
+      "tests/providers/test_native_wall_thickness_consumer.py",
+      "tests/providers/test_p1a_source_unit_contract.py",
+      "tests/regulatory/test_column_shear_limited_775.py",
+      "tests/regulatory/test_column_shear_vc.py",
+      "tests/regulatory/test_column_transverse_confinement.py",
+      "tests/etabs/test_column_r1_r3c_native_settings.py",
+      "tests/analysis_basis/test_column_r1_r3c_modal_aggregate.py",
+      "tests/etabs/test_column_r1_r3c_modal_read_only.py",
+      "tests/etabs/test_column_r1_r3d_modal_output_state.py",
+      "tests/etabs/test_column_r1_r3d_modal_population.py",
+      "tests/etabs/test_safety_foundation.py",
+      "tests/etabs/test_joint_displacement_results.py",
+      "tests/analysis_basis/test_column_r1_r3e_native_normalization.py",
+      "tests/analysis_basis/test_column_r1_r3f_physical_modal_aggregate.py",
+      "tests/features/test_vs6_column_shear_topology.py",
+      "tests/features/test_vs6_column_shear_topology_mixed_beams.py",
+      "tests/analysis_basis/test_column_r1_r3g_periodic_cqc.py",
+      "tests/providers/test_column_r1_r3g_physical_modal_operands.py",
+      "tests/analysis_basis/test_column_r1_r3h_reported_total_damping.py",
+      "tests/providers/test_column_r1_r3h_damping_cqc_binding.py"
+    ]
+  },
+  "architecture": {
+    "pass": 17,
+    "actual_fail": 5,
+    "new_failed_identities": [],
+    "new_violation_paths": [],
+    "new_violation_symbols": [],
+    "expanded_exceptions": "NONE",
+    "diagnostic_nonexpansion": "PASS",
+    "guard_hashes": {
+      "tests/architecture/test_b4s_scratch_lifecycle_guards.py": "e46a9fcf8737eafc47d92d206621e01c9782f000af8650bec18983d5134bee2b",
+      "tests/architecture/test_g1_arch_drift_guards.py": "596f1c40394a642b2e69d8083cdd1641bb633cb6fc9b80a9dec87e061b275151",
+      "tests/architecture/g1_legacy_exception_baseline.json": "fe4c4eb587fe7c9b922b7f1f4eab3d7753c6e5676f6bf61580bc9c01d964ab67"
+    }
+  }
+}
