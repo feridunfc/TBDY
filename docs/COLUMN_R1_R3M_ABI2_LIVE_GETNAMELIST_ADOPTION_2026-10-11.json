@@ -1,0 +1,97 @@
+{
+  "scope": "R3M_ABI2_LIVE_SINGLE_GETNAMELIST_ORIGINAL_RECEIPT_ADOPTION_ONLY",
+  "capture_HEAD": "4a26db7eac7565bfc5d70a59cb7daaf0f992ddbb",
+  "capture_TREE": "1f8e5d985b3e6c7ebde32c9ef1bdd939112945ce",
+  "capture_worktree": "CLEAN",
+  "original_receipt": {
+    "filename": "column-r1-r3m-abi2-astfix-getnamelist_20261011_201010_626_2b40455570994e4698ebd7b06b58ce47.json",
+    "whole_json_sha256": "bf720aba0fd474313cecb2cd8f9e4ae650f4fe624e5dd69f882495ceea6dca21",
+    "sidecar_sha256": "ec18331c496df6dc59b474f9d0516335f258807269cf75adfaba96124089ccd1",
+    "sidecar_exact_filename_and_hash_verified": true,
+    "raw_response_sha256": "ea580f95d089a3b7eac7593e444469d7f90324c1f491e28bd604d9ad5cf2d0da",
+    "raw_response_hash_independently_recomputed": true,
+    "original_raw_evidence_copied_into_Git": false
+  },
+  "operator_script_sha256": "1738ac0ce9cc97825035311a2c694bea7e503ce207a09e27dd78830c7a4f2753",
+  "operator_program": "ETABS 23.2.0 / API 2.014",
+  "operator_PID": 2072,
+  "native_method": "FrameObj.GetNameList",
+  "native_interface_IID": "{F87E3A66-8381-4202-897F-46683A8477D4}",
+  "raw_paramflags": [
+    [
+      3,
+      "NumberNames"
+    ],
+    [
+      3,
+      "MyName"
+    ],
+    [
+      10,
+      "pRetVal"
+    ]
+  ],
+  "raw_directions": [
+    "INOUT",
+    "INOUT",
+    "OUT_RETVAL"
+  ],
+  "effective_Python_call": {
+    "positional_arguments": [],
+    "keyword_arguments": {},
+    "output_order": [
+      "NumberNames",
+      "MyName",
+      "pRetVal"
+    ]
+  },
+  "native_ABI_and_bound_wrapper_code_closure": "LIVE_VALIDATED",
+  "factory_AST_sha256": "5c4668efa8f7b15c312153d246bebbb29c8ccbbfc671515ec18bac12aa8f9e01",
+  "installed_comtypes_version": "1.4.16",
+  "invocation_attempts": 1,
+  "native_return_code": 0,
+  "frame_name_count": 998,
+  "frame_names_unique": true,
+  "raw_response_exact_three_item_shape_verified": true,
+  "native_errors": [],
+  "bounded_phases": [
+    "ABI_CHECK_ENTERED",
+    "NATIVE_AND_PYTHON_CONTRACT_VALIDATED",
+    "FIRST_GETTER_INVOKED",
+    "FIRST_GETTER_RETURNED",
+    "FIRST_GETTER_VALIDATED"
+  ],
+  "source_path": "C:\\tmp\\B-BLOK_Revised.EDB",
+  "candidate_source_SHA_before": "61FA288FE6AA098B16062B0BAAE3FB882937AB68280C93971475AA39B2246621",
+  "candidate_source_SHA_after": "61FA288FE6AA098B16062B0BAAE3FB882937AB68280C93971475AA39B2246621",
+  "historical_FC09_SHA": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+  "source_authority_rebound": false,
+  "identity_before_after_equal": true,
+  "units_before_after_equal": true,
+  "model_locked_before_after": true,
+  "selection_before_after_equal": true,
+  "matrix_record_count": 0,
+  "global_modal_row_count": 0,
+  "engineering_relevant_source_equivalence": "NOT_PROVEN",
+  "tests": {
+    "accepted_PASS_identities": 1856,
+    "test_sources_unchanged": true,
+    "prior_integrated_receipt": "COLUMN_R1_R3M_ABI2_AST_SERIALIZATION_RECEIPT_2026-10-11.json",
+    "prior_integrated_receipt_sha256": "a27e211460f21f4c6f4a7cab115b293831ad34af882557424a442cd10abdf3bf",
+    "rerun": "NOT_REQUIRED_DOCUMENTATION_ONLY_ADOPTION; RECEIPT_VALIDATION_RAN"
+  },
+  "architecture_debt_delta": 0,
+  "protected_surface_45_hashes_unchanged": true,
+  "existing_real_FAIL": 6,
+  "new_code_or_probe_change": false,
+  "DIFF_CHECK": "PASS",
+  "ETABS_EXECUTED_BY_WORKER": "NO",
+  "NEW_LIVE_RETRY": "NOT_AUTHORIZED",
+  "FULL_FACT_CENSUS": "NOT_AUTHORIZED",
+  "172_MATRIX_SCAN": "NOT_AUTHORIZED",
+  "FC09_PRODUCTION_GATE": "UNCHANGED",
+  "GLOBAL_DELTA": "NOT_PROVEN",
+  "M6_B": "OPEN",
+  "R2_RERUN_READY": false,
+  "NEXT_EXACT_CAUSAL_EDGE": "PREPARE_GETTER_FREE_METADATA_INSPECTION_FOR_REMAINING_FACTUAL_GETTERS; OFFLINE_QUALIFY_EACH_EXACT_ABI_AND_PYTHON_CALL_BEFORE_SEPARATE_OPERATOR_AUTHORIZATION; NO_COMPLETE_CENSUS_OR_SCAN_BY_INFERENCE"
+}

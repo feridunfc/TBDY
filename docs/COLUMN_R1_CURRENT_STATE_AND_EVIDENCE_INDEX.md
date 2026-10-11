@@ -461,3 +461,31 @@ code/closure guards remain. Original GetNameList attempts = 0; integrity checks 
 - Integrated: 1856 PASS = 1842 accepted preserved +14 new; architecture delta 0.
 - New one-getter live receipt PENDING; worker ETABS NO; matrix scan NOT_EXECUTED.
 - FC09 gate UNCHANGED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
+
+
+## R3M ABI-2 — one native GetNameList receipt verified (2026-10-11)
+
+Original operator receipt:
+`column-r1-r3m-abi2-astfix-getnamelist_20261011_201010_626_2b40455570994e4698ebd7b06b58ce47.json`.
+Whole JSON SHA256: `bf720aba0fd474313cecb2cd8f9e4ae650f4fe624e5dd69f882495ceea6dca21`.
+Raw response SHA256: `ea580f95d089a3b7eac7593e444469d7f90324c1f491e28bd604d9ad5cf2d0da`.
+Both hashes and the original sidecar were independently verified.
+
+Capture HEAD `4a26db7eac7565bfc5d70a59cb7daaf0f992ddbb`,
+TREE `1f8e5d985b3e6c7ebde32c9ef1bdd939112945ce`, clean checkout; exact external script SHA matched.
+Native `[3,3,10]` directions, types/IID and generated Python wrapper code/closure
+passed; one `FrameObj.GetNameList` invocation, return 0, 998 unique names, no errors.
+Candidate source SHA, verified PID2072/session, present/database units, lock and selection
+unchanged before/after. This qualifies this one getter for this observed environment.
+It does not prove other getter ABIs, engineering equivalence of FC09/current source,
+physical endpoints, coordinate semantics, matrix direction or global displacement.
+
+Derived index: `COLUMN_R1_R3M_ABI2_LIVE_GETNAMELIST_ADOPTION_2026-10-11.json`.
+Original native JSON/sidecar remain unchanged outside Git; no original raw response copied.
+1856 accepted PASS identities and 45 protected surfaces unchanged; documentation-only
+adoption, receipt checks PASS, architecture debt delta0; existing 6 real FAIL retained.
+No worker ETABS, no additional operator retry, census, matrix scan or P2 authorization.
+
+NEXT EXACT CAUSAL EDGE: prepare getter-free metadata inspection of remaining factual
+getters and qualify each exact ABI/Python call offline before separate execution authority.
+FC09 gate UNCHANGED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
