@@ -552,3 +552,31 @@ FULL_FACT_CENSUS/172_MATRIX_SCAN/P2 NOT_AUTHORIZED; GLOBAL_DELTA NOT_PROVEN;
 M6_B OPEN; R2_RERUN_READY NO; worker ETABS NO.
 NEXT EXACT CAUSAL EDGE: offline actual bound-wrapper qualification preparation;
 any later operator/getter execution needs a separately bounded authorized scope.
+
+
+## R3M ABI-3 — existing wrapper code/closure package (2026-10-11)
+
+ABI3_LIVE_METADATA remains RECEIPT_VERIFIED_CLOSED. Remaining actual wrapper
+code/closure inspection is OFFLINE_PREPARED; LIVE_PENDING_SEPARATE_AUTHORIZATION.
+No existing original artifact/receipt is modified or rerun. No target getter,
+census, scan or engineering/global qualification is authorized by this package.
+
+- Evidence: `COLUMN_R1_R3M_ABI3_WRAPPER_EVIDENCE_2026-10-11.md`.
+- Derived receipt: `COLUMN_R1_R3M_ABI3_WRAPPER_OFFLINE_RECEIPT_2026-10-11.json`.
+- External Python SHA256: `89a5a53e05f48e5dc3b04cf614ec63e09174f6841b5c924400237e6ee0db3b21`.
+- Both original ABI-2 and ABI-3 JSON/sidecar pairs required outside Git unchanged.
+- One bounded getter-free callback proposed; exact existing descriptor, dependency
+  code, closure, prototype and Python binding; first mismatch stops without retry.
+- Native backend vtable index/method IID and successful target response remain
+  NOT_OBSERVED_NOT_PROBED / NOT_OBSERVED; native getter qualification remains0.
+- Focused39 PASS; integrated1988 PASS, all1949 accepted identities preserved +39.
+  Existing accepted test files and45 protected surfaces unchanged.
+- Fresh exact baseline:31 PASS/6 real architecture FAIL unchanged, full violation
+  sets equal, delta0; compile/import/diff PASS; PowerShell NOT_EXECUTED.
+- Selection NOT_READ; source/session/units/lock and process integrity mandatory.
+
+FULL_FACT_CENSUS/172_MATRIX_SCAN/P2 NOT_AUTHORIZED; worker ETABS NO;
+FC09_PRODUCTION_GATE UNCHANGED; CURRENT_SOURCE CANDIDATE_ONLY;
+GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
+NEXT EXACT CAUSAL EDGE: supervisor review and separate authorization for one
+existing-wrapper-only observation; original receipt review before native getters.
