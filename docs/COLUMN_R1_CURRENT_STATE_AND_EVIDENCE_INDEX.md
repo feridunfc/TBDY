@@ -364,3 +364,32 @@ sets and 45 protected surface hashes: 31 PASS / 6 real unchanged FAIL in both
 baselines (five canonical guards and one supplemental OAPI guard). Compile/import
 and diff check PASS. Candidate script remains external and source authority is
 not rebound by these offline tests.
+
+## R3M DIAG-1 — exact gateway failure metadata, no guessed fix
+
+The supervisor accepts one operator failure at HEAD 79297185/tree b0caca1b:
+current candidate full SHA `61FA288FE6AA098B16062B0BAAE3FB882937AB68280C93971475AA39B2246621`
+unchanged before/after; identity and selection captured; zero facts, comparisons
+and matrices. The operation is bounded to `r3m_candidate_fact_reconciliation`,
+first expected getter FrameObj.GetNameList. `ETABSCallError: Worker operation
+failed.` does not establish the underlying cause.
+
+[DIAG-1 evidence/design](COLUMN_R1_R3M_DIAG1_GATEWAY_EVIDENCE_2026-10-11.md)
+and [fresh offline receipt](COLUMN_R1_R3M_DIAG1_OFFLINE_RECEIPT_2026-10-11.json)
+record a separate external diagnostic Python artifact, SHA256
+`8a55a6d3792066f5acfd68b4c7226c3482b846586f4d4f8d832058a8bdc63df5`.
+Gateway code/operation/details and original cause/context survive every outer
+error exit. Five bounded first-getter phase markers distinguish callback entry,
+ABI check, attempted invocation, response return and complete name-list validation.
+No native signature, comparison, source gate, selection policy, matrix semantics,
+engineering calculation or gateway owner changed. Old external artifacts remain
+byte-identical. Original failure receipt bytes were not supplied locally; no raw
+receipt or whole-file hash is manufactured from the supervisor's accepted summary.
+
+Fresh validation: 1758 PASS = all 1732 accepted identities +26 new, no failure,
+error or skip. Exact canonical-base architecture full sets are equal: 31 PASS /
+6 unchanged real FAIL in both suites, with all 45 protected surfaces unchanged.
+Compile/import and diff check PASS. LIVE_RETRY NOT_EXECUTED; ROOT_CAUSE
+PENDING_DIAGNOSTIC_RECEIPT; FC09_PRODUCTION_GATE UNCHANGED; GLOBAL_DELTA NOT_PROVEN;
+M6_B OPEN; R2_RERUN_READY NO. Next edge is separately authorized original DIAG-1
+receipt metadata and last actual first-getter phase; no guessed fix precedes it.
