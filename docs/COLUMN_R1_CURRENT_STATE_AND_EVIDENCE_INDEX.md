@@ -337,3 +337,30 @@ See [R3L offline validation receipt](COLUMN_R1_R3L_OFFLINE_RECEIPT_2026-10-11.js
 for fresh accepted-identity preservation, focused regressions, exact-base negative
 architecture diagnostics and compile/import/diff-check evidence. Offline synthetic
 identity tests do not prove a global coordinate contract or acquire result rows.
+
+## R3M current source drift — separate candidate, FC09 unchanged
+
+The supervisor reports current SHA `61FA288F...246621` at the same model path and
+1044/LC_DL 6/6 MATCH at displayed precision. This does not rebind the full FC09
+source authority or prove unchanged engineering properties. Current full SHA and
+native fact receipt are not supplied. Historical EDB recovery is not required
+for a separate current-candidate investigation.
+
+[Source-drift reconciliation](COLUMN_R1_R3M_SOURCE_DRIFT_RECONCILIATION_2026-10-11.md)
+and [derived index](COLUMN_R1_R3M_SOURCE_DRIFT_DERIVED_INDEX_2026-10-11.json) retain
+old/new identities and exact original receipt hashes separately. A separate
+external getter-only candidate package compares available factual properties and
+re-verifies the 172 endpoint stories/geometry/connectivity/current associated
+elements before scanning their native matrices. Missing categories cannot issue
+whole-model equivalence. The old external FC09 probe and production gates are
+byte-identical. No native worker execution, mutation or P2 capture occurred.
+NONIDENTITY_POINT_FOUND=NOT_OBSERVED_PENDING_OPERATOR_SCAN; engineering property
+changes NOT_ESTABLISHED; M6_B OPEN; R2_RERUN_READY NO.
+
+[Fresh source-drift offline receipt](COLUMN_R1_R3M_SOURCE_DRIFT_OFFLINE_RECEIPT_2026-10-11.json)
+records 1732 PASS = all 1690 accepted identities + 42 new regressions, no failure,
+error or skip. Exact R3M-base architecture comparison preserves all full violation
+sets and 45 protected surface hashes: 31 PASS / 6 real unchanged FAIL in both
+baselines (five canonical guards and one supplemental OAPI guard). Compile/import
+and diff check PASS. Candidate script remains external and source authority is
+not rebound by these offline tests.
