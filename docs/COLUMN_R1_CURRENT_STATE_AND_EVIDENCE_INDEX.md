@@ -393,3 +393,27 @@ Compile/import and diff check PASS. LIVE_RETRY NOT_EXECUTED; ROOT_CAUSE
 PENDING_DIAGNOSTIC_RECEIPT; FC09_PRODUCTION_GATE UNCHANGED; GLOBAL_DELTA NOT_PROVEN;
 M6_B OPEN; R2_RERUN_READY NO. Next edge is separately authorized original DIAG-1
 receipt metadata and last actual first-getter phase; no guessed fix precedes it.
+
+## R3M ABI-1 — metadata discovery resolver, 2026-10-11
+
+Supervisor accepts DIAG-1 live failure before `FrameObj.GetNameList` invocation:
+ABI resolver unavailable, no native return/facts/matrices. This is a Python
+metadata-discovery failure, not an ETABS model or analysis failure. Official
+comtypes 1.4.17 published source and concrete offline ctypes pointer reproductions
+show the old `_type_` assumption misses `__com_interface__` links with scalar
+`_type_ = "P"`; own MRO method lists also need explicit inspection. Live owner
+representation is still PENDING METADATA RECEIPT.
+
+[ABI-1 source-bound audit and metadata-only operator plan](COLUMN_R1_R3M_ABI1_METADATA_EVIDENCE_2026-10-11.md)
+and [ABI-1 offline evidence receipt](COLUMN_R1_R3M_ABI1_OFFLINE_RECEIPT_2026-10-11.json).
+External metadata-only Python SHA256:
+`e2b94d5a4b557ae9bdfdcd9db83e42ba60821ebdef7f72e1743ad185048c5e0d`.
+Exactly one declaration and exact ABI remain required; dispatch-only/ambiguous
+metadata fail closed. No native getter, census, selection or matrix callback is
+included in the new external artifact. Accepted scripts and source authority remain
+unchanged. Worker ETABS execution NO; automatic retry NO; FC09 gate UNCHANGED;
+172-matrix scan/global delta NOT_PROVEN; M6-B OPEN; R2_RERUN_READY NO.
+
+ABI-1 validation: 1796 PASS (1758 accepted identities preserved +38 new); both
+architecture baselines 31 PASS / 6 real unchanged FAIL, zero expanded violations;
+45 protected hashes unchanged. Compile/import/diff check PASS.
