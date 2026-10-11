@@ -1,6 +1,6 @@
 # Column-R1 current state and evidence index
 
-Reconciled 2026-10-11 after PR #203 history-preserving R3J integration and R3K getter-only native schema-probe preparation. R3J research is CLOSED / REUSE; its source contract remains BLOCKED. R3K live schema discovery is NOT AUTHORIZED / NOT EXECUTED; no global Delta is issued. This is an evidence locator and current-state reconciliation, not a new engineering authority, a live receipt or release approval. Historical documents and receipts remain unchanged.
+Reconciled 2026-10-11 after PR #204 history-preserving R3K integration and supervisor acceptance of the original P1 native schema. R3K native schema is CLOSED. R3L adopts immutable native evidence, reconciles the precise global route and prepares a separate blocked P2 design. Global coordinate/modal-result/physical-table/panel-zone contracts remain BLOCKED; no additional ETABS execution is authorized. Historical documents and receipts remain unchanged. This index grants no engineering result, B5 epoch or release approval.
 
 ## Accepted repository checkpoint and precedence
 
@@ -29,9 +29,14 @@ Reconciled 2026-10-11 after PR #203 history-preserving R3J integration and R3K g
 | Prior independently verified main TREE | `b398e969e8256d2c6e1d01110f5e4694ca6233b4` |
 | Prior bounded R3J branch | `worker/column-r1-r3j-point-global-source-route` |
 | Preserved R3J commit | `8cdb656695b4e6f067cb4ef95f501bfc4f55c9c5` |
-| Latest independently verified main / R3K parent | `8d36568c370cce677db21b51aa2a99849f86da43` |
-| Latest independently verified main TREE | `8e6d67d33a35b4efdb1398a8345e106dafa3472e` |
-| Current bounded R3K branch | `worker/column-r1-r3k-native-global-displacement-schema` |
+| Prior independently verified main / R3K parent | `8d36568c370cce677db21b51aa2a99849f86da43` |
+| Prior independently verified main TREE | `8e6d67d33a35b4efdb1398a8345e106dafa3472e` |
+| Preserved R3K branch | `worker/column-r1-r3k-native-global-displacement-schema` |
+| Preserved R3K HEAD / native P1 anchor | `ab16c693c887ca383603ef3c372a098e05272706` |
+| Preserved R3K TREE / native P1 anchor | `a1f54bf3eb600b6929584fcf8483132b1448a51f` |
+| Latest independently verified main / R3L parent | `c26b458a1f96ff584ed77db52b61a5f6fc620510` |
+| Latest independently verified main TREE | `a1f54bf3eb600b6929584fcf8483132b1448a51f` |
+| Current R3L branch | `worker/column-r1-r3l-global-displacement-route-qualification` |
 
 The original documentation-only index commit `84cdb486` and all nine implementation commits were preserved by PR #197's history-preserving merge. The R3D repair starts from that verified merged main; it does not replace or recreate earlier work.
 
@@ -255,14 +260,63 @@ Reproduce current bounded facts/CQC with `tools/column_r1_r3h_reported_damping_o
 
 At R3J receipt creation, the next bounded source edge was **applicable CSI global Joint Displacements table field/basis/physical-grain authority**, otherwise exact PointElm matrix Value ordering/direction/applicability authority. R3I was MERGED as a blocked factual audit; R3J research retained the blocked source finding. No new capture command was available at that checkpoint. R3K's metadata-only proposal below does not qualify result acquisition. Current uncracked B5 execution lineage and the joint Delta/R/V selection law remain independent open gates. `FC09_EQ713_SHEAR_ANCHORED_CORRELATED_DESIGN_EFFECT_V1` remains NOT_APPROVED / NOT_IMPLEMENTED. Representative 86-Column facts do not qualify the full 260-Column population. **R3H representative offline CQC boundary CLOSED; global Delta NOT_PROVEN; M6-B OPEN; R2_RERUN_READY=NO; no ETABS/product run authorized.**
 
-## R3K current active edge — native schema discovery preparation
+## R3K preparation — retained historical checkpoint
 
 R3J research was integrated by [PR #203](https://github.com/feridunfc/TBDY/pull/203), preserving original commit ancestry. [Integration receipt](COLUMN_R1_PR203_INTEGRATION_RECEIPT_2026-10-11.json) records fresh 1489 accepted PASS identities, exact 17 PASS / 5 actual FAIL architecture equality and 3/3 applicable CI SUCCESS. Five architecture failures remain debt; no continuing exception is granted.
 
 [R3K schema-probe preparation and proposed operator command](COLUMN_R1_R3K_NATIVE_SCHEMA_PROBE_2026-10-11.md) reuses the verified gateway/session and DatabaseTables owners. Only optional native available-table identity and exact GetAllFieldsInTable metadata are prepared. No GetTableForDisplayArray, result rows, setter, output-selection transaction, analysis/design or protected-model save is introduced. [R3K offline receipt](COLUMN_R1_R3K_SCHEMA_PROBE_RECEIPT_2026-10-11.json) records validation and independent gates.
 
-CURRENT ACTIVE EDGE: supervisor authorization for one bounded getter-only schema discovery by an operator at an independently verified existing PID, followed by the original immutable receipt and SHA sidecar. LIVE_EXECUTION NOT_AUTHORIZED; ETABS_EXECUTED_BY_WORKER NO. Native availability/fields are NOT_OBSERVED until actual evidence is supplied. The R3J CSI support request remains DRAFT / NOT SENT.
+AT THE R3K PREPARATION CHECKPOINT: supervisor authorization for one bounded getter-only schema discovery by an operator at an independently verified existing PID, followed by the original immutable receipt and SHA sidecar. LIVE_EXECUTION NOT_AUTHORIZED; ETABS_EXECUTED_BY_WORKER NO. Native availability/fields are NOT_OBSERVED until actual evidence is supplied. The R3J CSI support request remains DRAFT / NOT SENT.
 
 Even successful raw schema extraction cannot qualify global Delta: table field semantics, coordinate basis, modal row grain, point-object/result-element binding, panel-zone applicability and exact 172 endpoints × 100 modes must all close separately. Preserve the PointElm alternative without speculative identity or transpose assumptions. GLOBAL_MODAL_DELTA NOT_PROVEN; CURRENT_B5 NOT_PROVIDED; JOINT_DELTA_R_V PROJECT_DECISION_REQUIRED; M6-B OPEN; R2_RERUN_READY NO; Column-R1 software CLOSED; B-BLOK engineering OPEN.
 
 R3K validation: 1543 integrated PASS (all 1489 accepted identities plus 54 new synthetic probe identities; zero unresolved skip/failure/error); focused getter/safety 202 PASS. Canonical architecture suites each 17 PASS / 5 actual FAIL with exact equal diagnostics. Supplemental old OAPI callsite suite each 14 PASS / 1 actual FAIL, same missing StartDesign callsite expectation in exact base and candidate. That sixth observed failure remains separate existing debt. New/expanded violations 0; guard/allowlist changes 0. Compile/import, CLI help and diff-check PASS. Native schema/availability remain NOT_OBSERVED.
+
+## PR #204 integration and R3L accepted native schema / blocked result route
+
+[R3K PR #204](https://github.com/feridunfc/TBDY/pull/204) merged original R3K history.
+[Fresh integration receipt](COLUMN_R1_PR204_INTEGRATION_RECEIPT_2026-10-11.json)
+records exact remote anchors/parents, all 1543 accepted identities freshly PASS,
+3/3 applicable CI SUCCESS and zero new/expanded architecture violations. The
+canonical five and supplemental one failures remain actual FAIL; guards,
+allowlists, baselines, safety/mutation owners and workflows are unchanged.
+
+Supervisor accepted original `column-r1-r3k-schema_20261011_130341_474.json`, SHA256
+`ff0aef659643b6d30954f5c6289efcf896666ba0fe6e6358179fad63c6707eb4`.
+[Small immutable derived P1 index](COLUMN_R1_R3L_P1_DERIVED_INDEX_2026-10-11.json)
+records whole JSON/sidecar, independently recomputed raw getter hashes, 14 unique
+fields, raw/decoded equality, recorded source/session/unit invariance and exact
+R3K HEAD/TREE. Original native responses remain outside Git and unchanged.
+Native schema CLOSED; GetAllFieldsInTable return 0/version 1; translations m,
+rotations rad. GetAvailableTables NOT_OBSERVED due to unqualified generated ABI,
+**not absent**. These historical P1 facts do not attest a current live session.
+
+[R3L source/physical reconciliation and CSI draft addendum](COLUMN_R1_R3L_GLOBAL_ROUTE_RECONCILIATION_2026-10-11.md)
+separates proven global presentation conventions from the missing exact table
+basis/result-element bridge. Modal Mode/StepNumber field semantics are proven;
+actual signed direct-modal table grain/CaseType token and row population are not.
+[Derived 86-Column physical plan](COLUMN_R1_R3L_PHYSICAL_BINDING_PLAN_2026-10-11.json)
+retains 172 objects, endpoint-specific Base/+0.00 stories, 100 modes, 17,200 local
+rows and 8,600 expected pairs. Panel assignments and exact column-connected
+analysis-joint/table binding remain unobserved. No nearest fallback, duplicate
+selection or assumed object=element/table-row mapping is permitted.
+
+[Separate P2 design](COLUMN_R1_R3L_P2_CAPTURE_DESIGN_2026-10-11.md) is PREPARED /
+BLOCKED BEFORE AUTHORIZATION. It documents source/session/units, minimal scope,
+ABI, exact modal case selection and complete restoration laws. The existing generic
+combo-first/superset selector and core restoration failure dependency require
+review within the existing safety owner; no code or selection mutation is made.
+No P2 command or execution approval is issued. CSI support remains DRAFT / NOT SENT.
+
+Current exact causal edge: archive applicable CSI authority for Joint Displacements
+API global basis, signed direct modal grain and panel-zone/result-joint bridge;
+then review minimal binding facts and exact selection/restoration before P2.
+GLOBAL_ENDPOINT_MODAL_ROWS=0; GLOBAL_STORY_DELTA=NOT_PROVEN;
+CURRENT_B5=NOT_PROVIDED; JOINT_DELTA_R_V=PROJECT_DECISION_REQUIRED;
+M6_B=OPEN; R2_RERUN_READY=NO; ETABS_EXECUTED_BY_WORKER=NO;
+SOURCE_MUTATED=NO; Column-R1 software CLOSED; B-BLOK engineering OPEN.
+
+See [R3L offline validation receipt](COLUMN_R1_R3L_OFFLINE_RECEIPT_2026-10-11.json)
+for fresh accepted-identity preservation, focused regressions, exact-base negative
+architecture diagnostics and compile/import/diff-check evidence. Offline synthetic
+identity tests do not prove a global coordinate contract or acquire result rows.

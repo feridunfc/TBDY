@@ -1,0 +1,679 @@
+{
+  "scope": "R3K_PR204_FRESH_INTEGRATION_NOT_GLOBAL_DISPLACEMENT_QUALIFICATION",
+  "date": "2026-10-11",
+  "R3K_PR": "https://github.com/feridunfc/TBDY/pull/204",
+  "main_before": {
+    "HEAD": "8d36568c370cce677db21b51aa2a99849f86da43",
+    "TREE": "8e6d67d33a35b4efdb1398a8345e106dafa3472e"
+  },
+  "candidate": {
+    "HEAD": "ab16c693c887ca383603ef3c372a098e05272706",
+    "TREE": "a1f54bf3eb600b6929584fcf8483132b1448a51f"
+  },
+  "merge": {
+    "HEAD": "c26b458a1f96ff584ed77db52b61a5f6fc620510",
+    "TREE": "a1f54bf3eb600b6929584fcf8483132b1448a51f",
+    "parents": [
+      "8d36568c370cce677db21b51aa2a99849f86da43",
+      "ab16c693c887ca383603ef3c372a098e05272706"
+    ],
+    "original_history_preserved": true,
+    "method": "merge",
+    "remote_verified": true
+  },
+  "tests": {
+    "PASS": 1543,
+    "FAIL": 0,
+    "ERROR": 0,
+    "SKIP": 0,
+    "distinct_accepted_identities_preserved": 1543,
+    "accepted_identity_source": "COLUMN_R1_R3K_SCHEMA_PROBE_RECEIPT_2026-10-11.json#tests.integrated",
+    "accepted_identity_source_sha256": "254fdd8c80b1e247d6eb874507ac7b9f230202192ab9ba144872df086694c700",
+    "pass_identity_sha256": "e1bd49bf0579407d75d8d92e8221bbd2524e0652d0b6da24cdf455fc797633ff",
+    "missing": [],
+    "additional": []
+  },
+  "architecture": {
+    "canonical_base": {
+      "PASS": 17,
+      "FAIL": 5
+    },
+    "canonical_candidate": {
+      "PASS": 17,
+      "FAIL": 5
+    },
+    "supplemental_base": {
+      "PASS": 14,
+      "FAIL": 1
+    },
+    "supplemental_candidate": {
+      "PASS": 14,
+      "FAIL": 1
+    },
+    "all_failures_remain_real_FAIL": true,
+    "new_or_expanded_violations": 0,
+    "guards_baselines_allowlists_changed": false,
+    "complete_baseline_diagnostics": {
+      "guard_sets": {
+        "test_private_b4t_transport_is_consumed_only_by_exact_typed_oapi_allowlist": {
+          "violations": [
+            "tbdy_engine/etabs/oapi/model_lock.py|_B4T_MUTATION_TRANSPORT_KEY",
+            "tbdy_engine/etabs/oapi/model_lock.py|_execute_bounded_model_mutation",
+            "tbdy_engine/etabs/oapi/model_lock.py|etabs_gateway.mutation_transport"
+          ],
+          "required_allowlist_symbols_missing": []
+        },
+        "test_supported_graph_has_zero_forbidden_legacy_tools_or_report_authority": {
+          "forbidden_legacy": [
+            "tbdy_engine.features.column_shear_demand_evidence",
+            "tbdy_engine.features.etabs_com_attach",
+            "tbdy_engine.features.live_etabs_geometry_probe",
+            "tbdy_engine.features.used_rc_material_population"
+          ],
+          "legacy_report": [],
+          "tools": []
+        },
+        "test_no_public_raw_sapmodel_escape": {
+          "raw_escapes": [
+            "tbdy_engine.features.live_etabs_geometry_probe|attach_to_running_etabs"
+          ],
+          "public_raw_capabilities": []
+        },
+        "test_provider_and_oapi_dependency_direction": {
+          "provider": [
+            "tbdy_engine.providers.etabs_column_axial_b5_provider|tbdy_engine.regulatory",
+            "tbdy_engine.providers.etabs_column_axial_b5_provider|tbdy_engine.regulatory.vs5_column_axial_program"
+          ],
+          "oapi_gateway": []
+        },
+        "test_legacy_exception_baseline_is_shrink_only": {
+          "violations": [
+            "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|acquire|sap_model"
+          ],
+          "observed_legacy_debt": [
+            "LEGACY_IMPORT|tbdy_engine/engine/project_execution.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/engine/vs5_column_axial_execution.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/features/live_etabs_concrete_material_probe.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/features/live_etabs_geometry_probe.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/features/live_etabs_table_discovery.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/features/used_rc_material_population.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/product/live_beam_geometry_f0_product.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/product/live_geometry_product.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/product/live_rc_component_f0_product.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/product/live_seismic_response_product.py|tbdy_engine.features.etabs_com_attach",
+            "MUTATION_CALL|tbdy_engine/engine/unit_context.py|SetPresentUnits",
+            "RAW_CAP_ATTR|tbdy_engine/features/column_shear_demand_evidence.py|sap_model.DatabaseTables",
+            "RAW_CAP_ATTR|tbdy_engine/features/live_etabs_concrete_material_probe.py|sap_model.DatabaseTables",
+            "RAW_CAP_ATTR|tbdy_engine/features/live_etabs_geometry_probe.py|sap_model.DatabaseTables",
+            "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.AreaObj",
+            "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.DatabaseTables",
+            "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.PropArea",
+            "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.PropMaterial",
+            "RAW_ESCAPE_COMPAT|tbdy_engine/etabs/connection.py|get_sap",
+            "RAW_PARAM|tbdy_engine/engine/unit_context.py|attach_unit_context|sap_model",
+            "RAW_PARAM|tbdy_engine/engine/unit_context.py|read_etabs_units|sap_model",
+            "RAW_PARAM|tbdy_engine/engine/unit_context.py|set_etabs_units_kn_m|sap_model",
+            "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_exact_output_case_table|database_tables",
+            "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_live_mdev_mo_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_static_table|database_tables",
+            "RAW_PARAM|tbdy_engine/features/column_shear_demand_evidence.py|capture_live_column_shear_demand_evidence|sap_model",
+            "RAW_PARAM|tbdy_engine/features/etabs_column_axial_evidence.py|capture_live_column_axial_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/features/etabs_mdev_mo_evidence.py|capture_exact_output_case_table|database_tables",
+            "RAW_PARAM|tbdy_engine/features/etabs_mdev_mo_evidence.py|capture_live_mdev_mo_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/features/live_etabs_concrete_material_probe.py|__init__|database_tables",
+            "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_etabs_length_unit_evidence|sap_model",
+            "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_etabs_table_for_geometry|database_tables",
+            "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_frame_component_type_source|database_tables",
+            "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_accepted_wall_inventory_rows|database_tables",
+            "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_material_fact|sap_model",
+            "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_wall_fact|sap_model",
+            "RAW_PARAM|tbdy_engine/integration/live_beam_geometry_f0.py|read_observed_etabs_model_path|sap_model",
+            "RAW_PARAM|tbdy_engine/integration/live_seismic_response_f0.py|_fetch_exact|database_tables",
+            "RAW_PARAM|tbdy_engine/integration/live_seismic_response_f0.py|capture_seismic_response|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_auto_seismic_direction_provider.py|capture_etabs_auto_seismic_direction_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|_read_fact|resp_combo",
+            "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|capture_etabs_combo_definitions|resp_combo",
+            "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|capture_etabs_combo_definition|resp_combo",
+            "RAW_PARAM|tbdy_engine/providers/etabs_concrete_column_design_result_provider.py|capture_concrete_column_design_results|sap_model",
+            "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py|acquire_actual_concrete_design_combo_selection|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py|probe_concrete_frame_design_combo_selection_table|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_section_provider.py|capture_concrete_column_design_sections|design_concrete",
+            "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|acquire|sap_model",
+            "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|capture_etabs_rebar_catalog_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_strict_column_topology_provider.py|_fetch_full_rows|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_strict_column_topology_provider.py|capture_etabs_strict_column_topology|database_tables"
+          ]
+        }
+      },
+      "guard_hashes": {
+        "tests/architecture/test_b4s_scratch_lifecycle_guards.py": "e46a9fcf8737eafc47d92d206621e01c9782f000af8650bec18983d5134bee2b",
+        "tests/architecture/test_g1_arch_drift_guards.py": "596f1c40394a642b2e69d8083cdd1641bb633cb6fc9b80a9dec87e061b275151",
+        "tests/architecture/g1_legacy_exception_baseline.json": "fe4c4eb587fe7c9b922b7f1f4eab3d7753c6e5676f6bf61580bc9c01d964ab67"
+      },
+      "b4t_allowlist": [
+        "tbdy_engine/etabs/oapi/analysis_execution.py",
+        "tbdy_engine/etabs/oapi/area_modifiers.py",
+        "tbdy_engine/etabs/oapi/concrete_design.py",
+        "tbdy_engine/etabs/oapi/file_lifecycle.py",
+        "tbdy_engine/etabs/oapi/frame_modifiers.py"
+      ]
+    },
+    "complete_candidate_diagnostics": {
+      "guard_sets": {
+        "test_private_b4t_transport_is_consumed_only_by_exact_typed_oapi_allowlist": {
+          "violations": [
+            "tbdy_engine/etabs/oapi/model_lock.py|_B4T_MUTATION_TRANSPORT_KEY",
+            "tbdy_engine/etabs/oapi/model_lock.py|_execute_bounded_model_mutation",
+            "tbdy_engine/etabs/oapi/model_lock.py|etabs_gateway.mutation_transport"
+          ],
+          "required_allowlist_symbols_missing": []
+        },
+        "test_supported_graph_has_zero_forbidden_legacy_tools_or_report_authority": {
+          "forbidden_legacy": [
+            "tbdy_engine.features.column_shear_demand_evidence",
+            "tbdy_engine.features.etabs_com_attach",
+            "tbdy_engine.features.live_etabs_geometry_probe",
+            "tbdy_engine.features.used_rc_material_population"
+          ],
+          "legacy_report": [],
+          "tools": []
+        },
+        "test_no_public_raw_sapmodel_escape": {
+          "raw_escapes": [
+            "tbdy_engine.features.live_etabs_geometry_probe|attach_to_running_etabs"
+          ],
+          "public_raw_capabilities": []
+        },
+        "test_provider_and_oapi_dependency_direction": {
+          "provider": [
+            "tbdy_engine.providers.etabs_column_axial_b5_provider|tbdy_engine.regulatory",
+            "tbdy_engine.providers.etabs_column_axial_b5_provider|tbdy_engine.regulatory.vs5_column_axial_program"
+          ],
+          "oapi_gateway": []
+        },
+        "test_legacy_exception_baseline_is_shrink_only": {
+          "violations": [
+            "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|acquire|sap_model"
+          ],
+          "observed_legacy_debt": [
+            "LEGACY_IMPORT|tbdy_engine/engine/project_execution.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/engine/vs5_column_axial_execution.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/features/live_etabs_concrete_material_probe.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/features/live_etabs_geometry_probe.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/features/live_etabs_table_discovery.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/features/used_rc_material_population.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/product/live_beam_geometry_f0_product.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/product/live_geometry_product.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/product/live_rc_component_f0_product.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/product/live_seismic_response_product.py|tbdy_engine.features.etabs_com_attach",
+            "MUTATION_CALL|tbdy_engine/engine/unit_context.py|SetPresentUnits",
+            "RAW_CAP_ATTR|tbdy_engine/features/column_shear_demand_evidence.py|sap_model.DatabaseTables",
+            "RAW_CAP_ATTR|tbdy_engine/features/live_etabs_concrete_material_probe.py|sap_model.DatabaseTables",
+            "RAW_CAP_ATTR|tbdy_engine/features/live_etabs_geometry_probe.py|sap_model.DatabaseTables",
+            "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.AreaObj",
+            "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.DatabaseTables",
+            "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.PropArea",
+            "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.PropMaterial",
+            "RAW_ESCAPE_COMPAT|tbdy_engine/etabs/connection.py|get_sap",
+            "RAW_PARAM|tbdy_engine/engine/unit_context.py|attach_unit_context|sap_model",
+            "RAW_PARAM|tbdy_engine/engine/unit_context.py|read_etabs_units|sap_model",
+            "RAW_PARAM|tbdy_engine/engine/unit_context.py|set_etabs_units_kn_m|sap_model",
+            "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_exact_output_case_table|database_tables",
+            "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_live_mdev_mo_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_static_table|database_tables",
+            "RAW_PARAM|tbdy_engine/features/column_shear_demand_evidence.py|capture_live_column_shear_demand_evidence|sap_model",
+            "RAW_PARAM|tbdy_engine/features/etabs_column_axial_evidence.py|capture_live_column_axial_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/features/etabs_mdev_mo_evidence.py|capture_exact_output_case_table|database_tables",
+            "RAW_PARAM|tbdy_engine/features/etabs_mdev_mo_evidence.py|capture_live_mdev_mo_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/features/live_etabs_concrete_material_probe.py|__init__|database_tables",
+            "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_etabs_length_unit_evidence|sap_model",
+            "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_etabs_table_for_geometry|database_tables",
+            "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_frame_component_type_source|database_tables",
+            "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_accepted_wall_inventory_rows|database_tables",
+            "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_material_fact|sap_model",
+            "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_wall_fact|sap_model",
+            "RAW_PARAM|tbdy_engine/integration/live_beam_geometry_f0.py|read_observed_etabs_model_path|sap_model",
+            "RAW_PARAM|tbdy_engine/integration/live_seismic_response_f0.py|_fetch_exact|database_tables",
+            "RAW_PARAM|tbdy_engine/integration/live_seismic_response_f0.py|capture_seismic_response|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_auto_seismic_direction_provider.py|capture_etabs_auto_seismic_direction_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|_read_fact|resp_combo",
+            "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|capture_etabs_combo_definitions|resp_combo",
+            "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|capture_etabs_combo_definition|resp_combo",
+            "RAW_PARAM|tbdy_engine/providers/etabs_concrete_column_design_result_provider.py|capture_concrete_column_design_results|sap_model",
+            "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py|acquire_actual_concrete_design_combo_selection|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py|probe_concrete_frame_design_combo_selection_table|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_section_provider.py|capture_concrete_column_design_sections|design_concrete",
+            "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|acquire|sap_model",
+            "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|capture_etabs_rebar_catalog_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_strict_column_topology_provider.py|_fetch_full_rows|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_strict_column_topology_provider.py|capture_etabs_strict_column_topology|database_tables"
+          ]
+        }
+      },
+      "guard_hashes": {
+        "tests/architecture/test_b4s_scratch_lifecycle_guards.py": "e46a9fcf8737eafc47d92d206621e01c9782f000af8650bec18983d5134bee2b",
+        "tests/architecture/test_g1_arch_drift_guards.py": "596f1c40394a642b2e69d8083cdd1641bb633cb6fc9b80a9dec87e061b275151",
+        "tests/architecture/g1_legacy_exception_baseline.json": "fe4c4eb587fe7c9b922b7f1f4eab3d7753c6e5676f6bf61580bc9c01d964ab67"
+      },
+      "b4t_allowlist": [
+        "tbdy_engine/etabs/oapi/analysis_execution.py",
+        "tbdy_engine/etabs/oapi/area_modifiers.py",
+        "tbdy_engine/etabs/oapi/concrete_design.py",
+        "tbdy_engine/etabs/oapi/file_lifecycle.py",
+        "tbdy_engine/etabs/oapi/frame_modifiers.py"
+      ]
+    },
+    "supplemental_native_callsites_base": {
+      "RunAnalysis": [
+        [
+          "tbdy_engine/etabs/oapi/analysis_execution.py",
+          "model_api.Analyze.RunAnalysis"
+        ]
+      ],
+      "StartDesign": []
+    },
+    "supplemental_native_callsites_candidate": {
+      "RunAnalysis": [
+        [
+          "tbdy_engine/etabs/oapi/analysis_execution.py",
+          "model_api.Analyze.RunAnalysis"
+        ]
+      ],
+      "StartDesign": []
+    },
+    "supplemental_failure": "test_analysis_and_concrete_design_have_exact_authorized_mutation_callsites: pre-existing missing StartDesign expectation",
+    "protected_surfaces_unchanged_sha256": {
+      ".github/workflows/acq_ctx_1_validation.yml": "10d7ffe95f6dfad9a7a88743790efa290d704d3bd22213a900e1d1d8bfc67cd1",
+      ".github/workflows/b1_beam_column.yml": "b69af978a76a23a14239d0362dac8f7b9d906021c75453911d699e8408df6c7e",
+      ".github/workflows/c13_4_offline_acceptance.yml": "c8d9ba0ac2cff83e8e0dc4bfad5878f5974a68888d4fedca2fc1a840a57b20b3",
+      ".github/workflows/cd_1_coverage_contract_debt.yml": "dd6e2104f6f440c61785275ec256e8b74343e1df1703875db106bc85e59bab2c",
+      ".github/workflows/col_runtime_policy_input_validation.yml": "256f22a60bb3e3ca3acf2430f5f9504ec9f0e86f8982dbc7619fd8e6aac764f9",
+      ".github/workflows/column_r1_reconciled_exact_validation.yml": "f3496ce0d19380be55535e7fa3ce9d4c30a56d5d9c8078395a0f7d31c2d7c766",
+      ".github/workflows/column_r1_recovery_validation.yml": "0314184e0099b21fee2e6007da2c61852114bbb35e3612854a10dff3f7e7ee7c",
+      ".github/workflows/column_r1_vertical_validation.yml": "aa2c2f8fef100f0aafa9b8b0544c26e96af5abed3298337ff31176227fba935f",
+      ".github/workflows/fcr_1a_validation.yml": "135e2233f88ed715c3fcd72cc0974f9bd37305976e5d43bbe45aa488fad993db",
+      ".github/workflows/fnd_col_1_validation.yml": "aea5c2f4bbfafb877f7726628246cf2d69e2d4032b9d3242bc9cc9e36c968926",
+      ".github/workflows/fnd_col_2_validation.yml": "a445a6395c8d9b51a87c1a7c93d08a6478018d555edd5dcbb556679eaa9eaa7a",
+      ".github/workflows/fnd_col_2x_validation.yml": "5a93c97295291fcc2f1c9c859fbedfbe1fc19182e93f520dfa9ec891ad7374a9",
+      ".github/workflows/p2_10_wall_pack_a.yml": "04c97a25b8683b6ff6435b9a3faba1ba5c207f2069078e8782baa89c03988485",
+      ".github/workflows/p2_10_wall_pack_b.yml": "39063e5181759fd142fe40499513c4059276dc88f35d70dc0693566a249d7f8f",
+      ".github/workflows/product_spine_col_1_validation.yml": "547a7a5f8c0cba1a36c9d97f2ba84d025a89538b09f088d2987e8ad4d2687350",
+      ".github/workflows/ur_1b_validation.yml": "e79e63ce602271b4f69bc28d30e717c849e60afbe067a0bc0b58f28a5730706f",
+      ".github/workflows/ur_1c_validation.yml": "69dd8b034b400c8bf5add8f1def995a3476ea9baa2eaa9a2eddee751dda6346f",
+      ".github/workflows/ur_1d_validation.yml": "fe261ca7beafc3d74dc7d11f1a4186c9953f0c9a07c0ab6cbeca32f3c5369216",
+      ".github/workflows/ur_1e_validation.yml": "a9254d8a7014907982e311fd897ba4f5b511154d0eec6984e519e3eabe390fd4",
+      ".github/workflows/ur_2_validation.yml": "c70eea4972dc8db06dcd764995d332dc7db9a1a3133055238df19f1675fa9e07",
+      ".github/workflows/vs6_p8a_f0_validation.yml": "b954d1a9202f6277156fa714f36f6f94749a1da241673eb23ef3bf68ae2e0abe",
+      "packages/etabs_gateway/src/etabs_gateway/__init__.py": "9bd8d9f61badedae2b123456a610a5c0365cef104c96617991f219a733a0d629",
+      "packages/etabs_gateway/src/etabs_gateway/acceptance.py": "5943ddb87aed536fc321efb21c3fbbccd81ea5968e5665bbe57495825090023a",
+      "packages/etabs_gateway/src/etabs_gateway/com_apartment.py": "8bc0b006a67b7f871cf7cc73166a07b6f581d6446a60b087aad95a12c2922301",
+      "packages/etabs_gateway/src/etabs_gateway/connection.py": "ca7fb5954fca0272786360f231dc776262da5400c19076ff442afd26200cb3fc",
+      "packages/etabs_gateway/src/etabs_gateway/context_reader.py": "e80c572cbdb5630ed1743bdcc6e50e3d6498e7ddefec9fdda7382c9c3537c382",
+      "packages/etabs_gateway/src/etabs_gateway/contracts.py": "e24d73fe21f3024991cf733b9dbaaedef7699c1fc0829d8651d15878f3f0d987",
+      "packages/etabs_gateway/src/etabs_gateway/diagnostics.py": "91e772097c7f42bf8ae986b3cf5b1823585b29cb22c7e69408e3c3a8f610d382",
+      "packages/etabs_gateway/src/etabs_gateway/errors.py": "aa348f2e567aacb6e4ef5a88356c662ee45dffe6658498e064dbdfbb507c275b",
+      "packages/etabs_gateway/src/etabs_gateway/model_context.py": "c59f65fc4a7c4674f654195b0d6b1400bb57bf8c7b759d0c8a4b7d1cdfa0f3ed",
+      "packages/etabs_gateway/src/etabs_gateway/mutation_transport.py": "9a7365c785e17f6679fd78d159e6d7e99e9e378f62841d4cb9c50f160f3c0707",
+      "packages/etabs_gateway/src/etabs_gateway/replay.py": "bfadae93d1c94ed4e6f6d48612d2edb75084122aea64779a82b1ed5c5faf52dc",
+      "packages/etabs_gateway/src/etabs_gateway/session.py": "134dfda97e1b7c64ff37ab9e301cd3e3ce6d379231f63f364cc50a58c7fa1cce",
+      "packages/etabs_gateway/src/etabs_gateway/worker.py": "1b7589462f8425c57cebccf1b99e7fb2a233df2c6609b6ba04242a627fe7c8e2",
+      "tbdy_engine/etabs/_safety_legacy.py": "002f7a63633e742e29ad21eac327460de5cfd966f21cb3678bbd7ed486d0ece7",
+      "tbdy_engine/etabs/oapi/analysis_execution.py": "9d0ea5c071c04133af54a57daae85e19569463d7c514d8171af71657f6ea8f48",
+      "tbdy_engine/etabs/oapi/concrete_design.py": "57fa4ce9d46501572b366f57153154cdef09a48a250641901e0e979e2600ae88",
+      "tbdy_engine/etabs/safety.py": "701a73826e4e63b4dc64fd51bab96b37915eec76ab3a97aa27920a43fe6dac3b",
+      "tests/architecture/g1_legacy_exception_baseline.json": "fe4c4eb587fe7c9b922b7f1f4eab3d7753c6e5676f6bf61580bc9c01d964ab67",
+      "tests/architecture/test_b4b_analysis_state_mutation_guards.py": "6c0c44a4b7d6a3901e50240bf3ca9b14c59848a03c89fb60ad651d8a96bd44f1",
+      "tests/architecture/test_b4s_scratch_lifecycle_guards.py": "e46a9fcf8737eafc47d92d206621e01c9782f000af8650bec18983d5134bee2b",
+      "tests/architecture/test_b4t_mutation_transport_guards.py": "33eba0b80df43208d5e6f41512c740e6c1f1447c0d9351fe74c52ef6ad7c8017",
+      "tests/architecture/test_b5_analysis_execution_guards.py": "0b60735ed157da30cc76861cc483bc302ad9c06a80e11b42ce175afcbee84331",
+      "tests/architecture/test_b6_p0_design_preflight_architecture.py": "e8da83bc90dd90089684db8f1767a8d7f7a60474fbcea599da6c849944f72afb",
+      "tests/architecture/test_g1_arch_drift_guards.py": "596f1c40394a642b2e69d8083cdd1641bb633cb6fc9b80a9dec87e061b275151"
+    }
+  },
+  "applicable_CI": [
+    {
+      "id": 38131225236,
+      "name": "P2.10 Wall Pack A Kernel",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 201,
+      "jobs_url": "https://api.github.com/repos/feridunfc/TBDY/actions/runs/38131225236/jobs",
+      "logs_url": "https://api.github.com/repos/feridunfc/TBDY/actions/runs/38131225236/logs",
+      "workflow_id": 335450430
+    },
+    {
+      "id": 38131225190,
+      "name": "C13.4 Offline Product Acceptance",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 289,
+      "jobs_url": "https://api.github.com/repos/feridunfc/TBDY/actions/runs/38131225190/jobs",
+      "logs_url": "https://api.github.com/repos/feridunfc/TBDY/actions/runs/38131225190/logs",
+      "workflow_id": 298734665
+    },
+    {
+      "id": 38131225191,
+      "name": "UR-1E Deterministic Report Package Validation",
+      "status": "completed",
+      "conclusion": "success",
+      "run_number": 62,
+      "jobs_url": "https://api.github.com/repos/feridunfc/TBDY/actions/runs/38131225191/jobs",
+      "logs_url": "https://api.github.com/repos/feridunfc/TBDY/actions/runs/38131225191/logs",
+      "workflow_id": 343023957
+    }
+  ],
+  "CI_jobs": [
+    [
+      {
+        "id": 114445797334,
+        "name": "wall-pack-a-kernel",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38131225236,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Checkout",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Setup Python",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Install test dependencies",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Run Wall Inventory and Pack A required regressions",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Post Setup Python",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          },
+          {
+            "name": "Post Checkout",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": 114445797240,
+        "name": "offline-acceptance",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38131225190,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Checkout",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Setup Python",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Install dependencies",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 4
+          },
+          {
+            "name": "Run offline acceptance gate",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Upload acceptance artifacts",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6
+          },
+          {
+            "name": "Post Setup Python",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          },
+          {
+            "name": "Post Checkout",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "id": 114445796964,
+        "name": "ur-1e-validation",
+        "status": "completed",
+        "conclusion": "success",
+        "run_id": 38131225191,
+        "logs_url": null,
+        "steps": [
+          {
+            "name": "Set up job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 1
+          },
+          {
+            "name": "Checkout exact candidate head",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 2
+          },
+          {
+            "name": "Resolve exact PR regression base and initial hygiene",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 3
+          },
+          {
+            "name": "Verify historical UR-1E replay base and initial hygiene",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 4
+          },
+          {
+            "name": "Setup Python",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 5
+          },
+          {
+            "name": "Install deterministic report toolchain",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 6
+          },
+          {
+            "name": "Compile candidate",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 7
+          },
+          {
+            "name": "Focused UR-1E and upstream reporting acceptance",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 8
+          },
+          {
+            "name": "Determinism SHA double-render evidence",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 9
+          },
+          {
+            "name": "Candidate broad regression",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 10
+          },
+          {
+            "name": "Checkout exact current PR regression base",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 11
+          },
+          {
+            "name": "Install exact current-base gateway package",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 12
+          },
+          {
+            "name": "Current PR base broad regression",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 13
+          },
+          {
+            "name": "Current PR zero-new regression gate",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 14
+          },
+          {
+            "name": "Checkout immutable historical UR-1E base",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 15
+          },
+          {
+            "name": "Install historical-base gateway package",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 16
+          },
+          {
+            "name": "Historical UR-1E base broad regression",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 17
+          },
+          {
+            "name": "Immutable historical UR-1E replay gate",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 18
+          },
+          {
+            "name": "Remove CI-created evidence files and baseline checkouts",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 19
+          },
+          {
+            "name": "Final current-PR repository hygiene",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 20
+          },
+          {
+            "name": "Final historical-replay repository hygiene",
+            "status": "completed",
+            "conclusion": "skipped",
+            "number": 21
+          },
+          {
+            "name": "Post Checkout exact current PR regression base",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 40
+          },
+          {
+            "name": "Post Setup Python",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 41
+          },
+          {
+            "name": "Post Checkout exact candidate head",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 42
+          },
+          {
+            "name": "Complete job",
+            "status": "completed",
+            "conclusion": "success",
+            "number": 43
+          }
+        ]
+      }
+    ]
+  ],
+  "COMPILE": "PASS",
+  "IMPORT": "PASS",
+  "DIFF_CHECK": "PASS",
+  "validation_artifact_sha256": {
+    "integrated.xml": "e3e399cdac67ce65ef7d1d3ac046585e52029a8d75f98da6717216cb99fc7fd2",
+    "r3k-diagnostics.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e",
+    "pr-merged.json": "639e969e75b8bd5ad0c6b5c5983a7f91b9122bbc0d86ea9fc230bf218f2fe141",
+    "integrated.log": "7a92f785474688788aa13ea038e8a237fadbc9587ebc681b05a2d1af8370126a",
+    "r3k-guards.xml": "537ffecf864c1780d8fc9014bbf54c7dcee9c71b2a360ce20493fa488858a532",
+    "accepted-pass-identity-comparison.json": "10bdad3e270ffa6e4bcb1f9afbc975c0fc5459db6b80270b7c48cec29b66de0e",
+    "merge.json": "390c7c5eda774704687f79023c39b8a9e57bbe5a7dfe37463fd9c4dcbfb7af9f",
+    "layer1-TBDY-r3k-base.json": "14fee0d32f708b67a04d462d4b00fba5f7cb2cfd18a01a48a3e8b349e775f9a0",
+    "main-guards.xml": "9effe6a35ec7f681a509b9aa394f5462245a360fa249935cfab6b3ead7684492",
+    "main-guards.log": "e18f3e276bd57b1c26ca16a47fc9e0499018197446f24824c6ee9db15cb88f90",
+    "main-diagnostics.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e",
+    "layer1-TBDY-r3k.json": "14fee0d32f708b67a04d462d4b00fba5f7cb2cfd18a01a48a3e8b349e775f9a0",
+    "ci-final.json": "261d7f5eb24d850100c00eca831ef8d6d8da67f2a07ed66cd36ed4b215668d6f",
+    "protected-surface-hashes.json": "f9ee063b19934779744c5bdaf873faeb479766f96b553aab9fc9f063bccc8872",
+    "r3k-guards.log": "23ae1fb47c9908a0da40fe998192be2e47c19c6dfa2dec919c67fae90a3741d7",
+    "ci-final-jobs.json": "a193497b57c05dddc801c7460fe311e6f388354b5359dc48857c106cfd09a6b3"
+  },
+  "no_continuing_failure_waiver": true,
+  "ETABS_EXECUTED_BY_WORKER": false,
+  "engineering_source_gate": "BLOCKED"
+}
