@@ -280,6 +280,146 @@ def fetch_table_field_metadata_from_session(
         operation="oapi_database_tables_get_all_fields_in_table", timeout_seconds=timeout_seconds)
 
 
+# GetAvailableTables output positions are discovered from the local generated
+# COM interface, never from the legacy permissive table-name parser.
+_AVAILABLE_TABLE_OUTPUT_NAMES = frozenset({
+    "NumberTables", "TableKey", "TableName", "ImportType", "IsEmpty", "pRetVal",
+})
+
+
+@dataclass(frozen=True, slots=True)
+class AvailableTableMetadataFetchResult:
+    status: str
+    raw_response: tuple[object, ...] = ()
+    native_output_order: tuple[str, ...] = ()
+    native_parameter_flags: tuple[tuple[int, str], ...] = ()
+    native_interface_ref: str | None = None
+    number_tables: int | None = None
+    table_keys: tuple[str, ...] = ()
+    table_names: tuple[str, ...] = ()
+    import_types: tuple[int, ...] = ()
+    is_empty: tuple[bool, ...] = ()
+    return_code: int | None = None
+    source_model_ref: str | None = None
+    session_ref: str | None = None
+    capture_ref: str | None = None
+
+
+def _available_table_native_abi(database_tables: Any) -> tuple[tuple[tuple[int, str], ...], str]:
+    """Read generated interface declarations only; no native calls or fallback."""
+    pointer_type = type(database_tables)
+    interface = getattr(pointer_type, "_type_", pointer_type)
+    declarations = getattr(interface, "_methods_", ())
+    matches = [m for m in declarations if getattr(m, "name", None) == "GetAvailableTables"]
+    if len(matches) != 1:
+        raise EtabsOAPIError("AVAILABLE_TABLES_NATIVE_ABI_UNAVAILABLE")
+    flags = getattr(matches[0], "paramflags", None)
+    if not isinstance(flags, (tuple, list)) or not flags:
+        raise EtabsOAPIError("AVAILABLE_TABLES_NATIVE_ABI_UNAVAILABLE")
+    retained = []
+    for flag in flags:
+        if (not isinstance(flag, (tuple, list)) or len(flag) < 2
+                or type(flag[0]) is not int or type(flag[1]) is not str
+                or flag[0] & 2 != 2 or flag[0] & 1 != 0
+                or not flag[1] or flag[1] != flag[1].strip()):
+            raise EtabsOAPIError("AVAILABLE_TABLES_NATIVE_ABI_UNSUPPORTED")
+        retained.append((flag[0], flag[1]))
+    names = tuple(n for _, n in retained)
+    if len(names) != len(set(names)) or set(names) != _AVAILABLE_TABLE_OUTPUT_NAMES:
+        raise EtabsOAPIError("AVAILABLE_TABLES_NATIVE_ABI_UNSUPPORTED")
+    iid = getattr(interface, "_iid_", None)
+    if iid is None or not str(iid):
+        raise EtabsOAPIError("AVAILABLE_TABLES_NATIVE_ABI_UNAVAILABLE")
+    return tuple(retained), f"{interface.__module__}.{interface.__name__}:{iid}"
+
+
+def decode_available_table_metadata(
+    raw: Any, *, native_parameter_flags: tuple[tuple[int, str], ...],
+    native_interface_ref: str,
+) -> AvailableTableMetadataFetchResult:
+    """Bind named native outputs; table presence/emptiness is not row qualification."""
+    retained = _metadata_raw_tuple(raw)
+    order = tuple(name for _, name in native_parameter_flags)
+    context = dict(raw_response=retained, native_output_order=order,
+                   native_parameter_flags=native_parameter_flags,
+                   native_interface_ref=native_interface_ref)
+    def blocked(reason: str, ret: int | None = None) -> AvailableTableMetadataFetchResult:
+        return AvailableTableMetadataFetchResult("BLOCKED:" + reason, return_code=ret, **context)
+    if (len(order) != 6 or len(set(order)) != 6
+            or set(order) != _AVAILABLE_TABLE_OUTPUT_NAMES or not native_interface_ref):
+        return blocked("AVAILABLE_TABLES_ABI_UNQUALIFIED")
+    if not isinstance(raw, (tuple, list)) or len(raw) != len(order):
+        return blocked("AVAILABLE_TABLES_ABI_SHAPE")
+    values = dict(zip(order, retained))
+    ret = values["pRetVal"]
+    if type(ret) is not int or ret != 0:
+        return blocked("AVAILABLE_TABLES_RETURN_CODE", ret if type(ret) is int else None)
+    count = values["NumberTables"]
+    if type(count) is not int or count < 0:
+        return blocked("AVAILABLE_TABLES_COUNT", ret)
+    arrays = tuple(values[n] for n in ("TableKey", "TableName", "ImportType", "IsEmpty"))
+    if any(not isinstance(a, tuple) or len(a) != count for a in arrays):
+        return blocked("AVAILABLE_TABLES_ARRAY_LENGTH", ret)
+    keys, names, import_types, empty = arrays
+    if any(type(x) is not str or not x or x != x.strip() for a in (keys, names) for x in a):
+        return blocked("AVAILABLE_TABLES_STRING_IDENTITY", ret)
+    if len(set(keys)) != count:
+        return blocked("AVAILABLE_TABLES_DUPLICATE_TABLEKEY", ret)
+    if any(type(x) is not int for x in import_types) or any(type(x) is not bool for x in empty):
+        return blocked("AVAILABLE_TABLES_FLAG_TYPE", ret)
+    return AvailableTableMetadataFetchResult("PARSED_NATIVE_AVAILABLE_TABLES", number_tables=count,
+        table_keys=keys, table_names=names, import_types=import_types, is_empty=empty,
+        return_code=ret, **context)
+
+
+def fetch_available_table_metadata(database_tables: Any) -> AvailableTableMetadataFetchResult:
+    """At most one getter call, only with verified generated output declarations."""
+    try:
+        getter = database_tables.GetAvailableTables
+    except AttributeError:
+        return AvailableTableMetadataFetchResult("UNSUPPORTED_NATIVE_MEMBER")
+    except Exception as exc:
+        return AvailableTableMetadataFetchResult(f"BLOCKED:AVAILABLE_TABLES_ACCESS_FAILED:{type(exc).__name__}:{exc}")
+    if not callable(getter):
+        return AvailableTableMetadataFetchResult("UNSUPPORTED_NATIVE_MEMBER")
+    try:
+        flags, interface_ref = _available_table_native_abi(database_tables)
+    except EtabsOAPIError as exc:
+        # Metadata-only GetAllFieldsInTable remains independently available.
+        return AvailableTableMetadataFetchResult("NOT_OBSERVED:" + str(exc))
+    try:
+        raw = getter()
+    except Exception as exc:
+        return AvailableTableMetadataFetchResult(
+            f"BLOCKED:AVAILABLE_TABLES_GETTER_FAILED:{type(exc).__name__}:{exc}",
+            native_output_order=tuple(n for _, n in flags), native_parameter_flags=flags,
+            native_interface_ref=interface_ref)
+    return decode_available_table_metadata(raw, native_parameter_flags=flags,
+                                          native_interface_ref=interface_ref)
+
+
+def fetch_available_table_metadata_from_session(
+    session: Any, *, timeout_seconds: float = 30.0, capture_ref: str | None = None,
+) -> AvailableTableMetadataFetchResult:
+    """Read native availability on the existing gateway STA, exposing no raw handle."""
+    import math
+    import uuid
+    from tbdy_engine.etabs.safety import EtabsVerifiedSession, _execute_verified_read
+    if not isinstance(session, EtabsVerifiedSession):
+        raise TypeError("session must be EtabsVerifiedSession")
+    if type(timeout_seconds) not in (int, float) or not math.isfinite(timeout_seconds) or timeout_seconds <= 0:
+        raise ValueError("timeout_seconds must be finite and positive")
+    if capture_ref is not None and (type(capture_ref) is not str or not capture_ref or capture_ref != capture_ref.strip()):
+        raise ValueError("exact nonblank capture_ref required")
+    def acquire(_application: object, model_api: Any) -> AvailableTableMetadataFetchResult:
+        result = fetch_available_table_metadata(model_api.DatabaseTables)
+        return replace(result, source_model_ref=session.identity.model_full_path,
+            session_ref=f"etabs-session:pid:{session.identity.process_id}",
+            capture_ref=capture_ref or f"available-tables-capture:{uuid.uuid4().hex}")
+    return _execute_verified_read(session, acquire,
+        operation="oapi_database_tables_get_available_tables", timeout_seconds=timeout_seconds)
+
+
 def bind_display_table_field_units(
     fetched: DisplayTableFetchResult, metadata: TableFieldMetadataFetchResult, *,
     field_dimensions: Mapping[str, str], source_model_ref: str, session_ref: str,
@@ -1330,6 +1470,10 @@ def try_get_display_table(
 
 
 __all__ = [
+    "AvailableTableMetadataFetchResult",
+    "decode_available_table_metadata",
+    "fetch_available_table_metadata",
+    "fetch_available_table_metadata_from_session",
     "DISPLAY_TABLE_SIGNATURES",
     "DisplayTableFetchResult",
     "FIELD_METADATA_ABI_REF",
