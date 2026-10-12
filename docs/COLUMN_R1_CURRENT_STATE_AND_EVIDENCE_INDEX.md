@@ -674,3 +674,35 @@ NO worker ETABS; LIVE_GETSECTION NOT_EXECUTED; FC09_PRODUCTION_GATE UNCHANGED;
 FULL_FACT_CENSUS/172_MATRIX_SCAN/P2 NOT_AUTHORIZED; GLOBAL_DELTA NOT_PROVEN;
 M6_B OPEN; R2_RERUN_READY NO. NEXT EXACT CAUSAL EDGE: guarded LF checkout
 preparation and the already scoped one-GetSection235 operator read, no extra retry.
+
+
+## R3M ABI-4 — original one-GetSection receipt independently verified (2026-10-12)
+
+ABI4_GETSECTION RECEIPT_VERIFIED_CLOSED_CANDIDATE_FACT_ONLY. One successful
+FrameObj.GetSection(Name="235") native read; no additional getter or live retry.
+
+- Original JSON SHA `be7874f5e1b58806dd547201ce0d7cb0e551b01a12b941778d654767fdbc7d33`.
+- Raw response SHA `168de3740f2556617f1e287952891785e077ef11b89ac3aaed7924f2cbb78537`.
+- Evidence: `COLUMN_R1_R3M_ABI4_LIVE_GETSECTION_EVIDENCE_2026-10-12.md`.
+- Derived adoption: `COLUMN_R1_R3M_ABI4_LIVE_GETSECTION_ADOPTION_2026-10-12.json`.
+- Capture HEAD `a2c6540fd5788dd96d2fc8749313101a6bd46fc3`, TREE
+  `6c2014c9ee7abdce633a9d67727e8231d0cf6b2b`; clean/LF preflight confirmed.
+- One bounded STA callback/target attempt, native code0, errors=[]; exact raw
+  shape/types/hashes independently revalidated. Current native metadata/wrapper
+  equal accepted originals. Nested wrapper fields describe preinvoke stage;
+  separately recorded root native response observed once. No original patched.
+- PropName Column_80x80 MATCHES exact235 FC09 historical assignment; SAuto empty
+  string observed, historical SAuto comparison NOT_COMPARABLE. No whole-model,
+  geometry/GUID/section-dimension/material/point/panel-zone equivalence conclusion.
+- Candidate SHA/session/units/lock unchanged in receipt; matches ABI-2/ABI-3.
+  Selection NOT_READ; worker has not read Windows EDB or executed ETABS.
+- Backend vtable/method IID NOT_OBSERVED_NOT_PROBED; result getter/matrix/modal rows0.
+- Documentation-only adoption;2033 PASS identities/508 accepted test files/45
+  protected surfaces/LF rule preserved. Architecture31 PASS/6 real FAIL unchanged,
+  full sets equal, delta0; compile/import/diff PASS; all original artifacts unchanged.
+
+FC09_PRODUCTION_GATE UNCHANGED; CURRENT_SOURCE CANDIDATE_ONLY;
+FULL_FACT_CENSUS/172_MATRIX_SCAN/P2 NOT_AUTHORIZED; GLOBAL_DELTA NOT_PROVEN;
+M6_B OPEN; R2_RERUN_READY NO. NEXT EXACT CAUSAL EDGE: separately reviewed
+one GetSectProps(Name="Column_80x80") proposal using this observed assignment;
+no additional live/census/matrix authorization from receipt adoption.
