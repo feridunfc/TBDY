@@ -1,0 +1,804 @@
+{
+  "scope": "R3M_ABI3_ORIGINAL_METADATA_RECEIPT_ADOPTION_DERIVED_ONLY",
+  "base_HEAD": "c66bb0e6ce574ff3f667e324660d26c8e0cb055e",
+  "base_TREE": "794dac8a5cf3a408cf9609ba7523d122254f38b5",
+  "original": {
+    "name": "column-r1-r3m-abi3-metadata_20261011_222037_269_84ded0e2a7c047c1a7d07fd6e6d61369.json",
+    "whole_json_sha256": "11355e6860ba435e1275a7251efb0a5701268e4293c98c58a9231b2194f5b5be",
+    "sidecar_bytes_sha256": "3aac65362db7c6de5a63fb8625a96185104e7091ac50ced9e1b3b49ac6cf5797",
+    "whole_and_sidecar_independently_verified": true,
+    "original_bytes_modified": false,
+    "original_raw_metadata_copied_into_git": false,
+    "started_utc": "2026-10-11T19:20:37.567562+00:00",
+    "finished_utc": "2026-10-11T19:20:38.285348+00:00",
+    "capture_HEAD": "c66bb0e6ce574ff3f667e324660d26c8e0cb055e",
+    "capture_TREE": "794dac8a5cf3a408cf9609ba7523d122254f38b5",
+    "script_sha256": "b46144d729c0f539fa629752f14a5149905746bc551370f6cc5d1eca5725acc4",
+    "capture_clean_checkout": "GUARDED_BEFORE_AND_AFTER_BY_EXACT_PINNED_PROBE; NO_ERRORS"
+  },
+  "accepted_ABI2_binding": {
+    "json_sha256": "bf720aba0fd474313cecb2cd8f9e4ae650f4fe624e5dd69f882495ceea6dca21",
+    "sidecar_sha256": "ec18331c496df6dc59b474f9d0516335f258807269cf75adfaba96124089ccd1",
+    "original_pair_independently_reverified": true,
+    "ABI2": "CLOSED_LIVE_PASS"
+  },
+  "native_metadata": [
+    {
+      "owner": "FrameObj",
+      "method": "GetSection",
+      "interface_name": "cFrameObj",
+      "interface_IID": "{F87E3A66-8381-4202-897F-46683A8477D4}",
+      "declaring_IID": "{F87E3A66-8381-4202-897F-46683A8477D4}",
+      "declaration_table": "_methods_",
+      "matching_declarations": 1,
+      "native_parameters_derived": [
+        {
+          "name": "Name",
+          "numeric_flags": 1,
+          "direction": "IN",
+          "observed_ctypes_class": "comtypes._post_coinit.bstr.BSTR",
+          "default": null
+        },
+        {
+          "name": "PropName",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_BSTR",
+          "default": null
+        },
+        {
+          "name": "SAuto",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_BSTR",
+          "default": null
+        },
+        {
+          "name": "pRetVal",
+          "numeric_flags": 10,
+          "direction": "OUT_RETVAL",
+          "observed_ctypes_class": "ctypes.LP_c_long",
+          "default": null
+        }
+      ],
+      "HRESULT_transport": "OBSERVED_LIVE",
+      "raw_metadata_sha256": "6a739762bb75046b51f15a22696cb2141bc47ccc44cf2d3120d40bab58df7e60",
+      "raw_hash_independently_verified": true,
+      "declaration_status": "OBSERVED_LIVE_METADATA_SOURCE_COMPATIBLE",
+      "effective_named_input_names": [
+        "Name"
+      ],
+      "INOUT_names": [
+        "PropName",
+        "SAuto"
+      ],
+      "returned_output_order_from_declaration": [
+        "PropName",
+        "SAuto",
+        "pRetVal"
+      ],
+      "returned_native_response": "NOT_OBSERVED",
+      "actual_bound_wrapper_code_closure": "NOT_YET_OBSERVED",
+      "live_getter_qualified": false
+    },
+    {
+      "owner": "PropFrame",
+      "method": "GetSectProps",
+      "interface_name": "cPropFrame",
+      "interface_IID": "{88AAFE1E-4F8C-43EE-B0BD-3CD28E64D7F8}",
+      "declaring_IID": "{88AAFE1E-4F8C-43EE-B0BD-3CD28E64D7F8}",
+      "declaration_table": "_methods_",
+      "matching_declarations": 1,
+      "native_parameters_derived": [
+        {
+          "name": "Name",
+          "numeric_flags": 1,
+          "direction": "IN",
+          "observed_ctypes_class": "comtypes._post_coinit.bstr.BSTR",
+          "default": null
+        },
+        {
+          "name": "Area",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "As2",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "As3",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "Torsion",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "I22",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "I33",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "S22",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "S33",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "Z22",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "Z33",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "R22",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "R33",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "pRetVal",
+          "numeric_flags": 10,
+          "direction": "OUT_RETVAL",
+          "observed_ctypes_class": "ctypes.LP_c_long",
+          "default": null
+        }
+      ],
+      "HRESULT_transport": "OBSERVED_LIVE",
+      "raw_metadata_sha256": "50b3643c7129d8f08cd8cb602d009c272935b9a52afe2098053714051317ab11",
+      "raw_hash_independently_verified": true,
+      "declaration_status": "OBSERVED_LIVE_METADATA_SOURCE_COMPATIBLE",
+      "effective_named_input_names": [
+        "Name"
+      ],
+      "INOUT_names": [
+        "Area",
+        "As2",
+        "As3",
+        "Torsion",
+        "I22",
+        "I33",
+        "S22",
+        "S33",
+        "Z22",
+        "Z33",
+        "R22",
+        "R33"
+      ],
+      "returned_output_order_from_declaration": [
+        "Area",
+        "As2",
+        "As3",
+        "Torsion",
+        "I22",
+        "I33",
+        "S22",
+        "S33",
+        "Z22",
+        "Z33",
+        "R22",
+        "R33",
+        "pRetVal"
+      ],
+      "returned_native_response": "NOT_OBSERVED",
+      "actual_bound_wrapper_code_closure": "NOT_YET_OBSERVED",
+      "live_getter_qualified": false
+    },
+    {
+      "owner": "FrameObj",
+      "method": "GetPoints",
+      "interface_name": "cFrameObj",
+      "interface_IID": "{F87E3A66-8381-4202-897F-46683A8477D4}",
+      "declaring_IID": "{F87E3A66-8381-4202-897F-46683A8477D4}",
+      "declaration_table": "_methods_",
+      "matching_declarations": 1,
+      "native_parameters_derived": [
+        {
+          "name": "Name",
+          "numeric_flags": 1,
+          "direction": "IN",
+          "observed_ctypes_class": "comtypes._post_coinit.bstr.BSTR",
+          "default": null
+        },
+        {
+          "name": "Point1",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_BSTR",
+          "default": null
+        },
+        {
+          "name": "Point2",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_BSTR",
+          "default": null
+        },
+        {
+          "name": "pRetVal",
+          "numeric_flags": 10,
+          "direction": "OUT_RETVAL",
+          "observed_ctypes_class": "ctypes.LP_c_long",
+          "default": null
+        }
+      ],
+      "HRESULT_transport": "OBSERVED_LIVE",
+      "raw_metadata_sha256": "4b84e22384f2659516b2ec4f63c84bb18aadb7d74f09876748bf369797991e2e",
+      "raw_hash_independently_verified": true,
+      "declaration_status": "OBSERVED_LIVE_METADATA_SOURCE_COMPATIBLE",
+      "effective_named_input_names": [
+        "Name"
+      ],
+      "INOUT_names": [
+        "Point1",
+        "Point2"
+      ],
+      "returned_output_order_from_declaration": [
+        "Point1",
+        "Point2",
+        "pRetVal"
+      ],
+      "returned_native_response": "NOT_OBSERVED",
+      "actual_bound_wrapper_code_closure": "NOT_YET_OBSERVED",
+      "live_getter_qualified": false
+    },
+    {
+      "owner": "PointObj",
+      "method": "GetLabelFromName",
+      "interface_name": "cPointObj",
+      "interface_IID": "{6674645D-E89A-459F-A446-8DB204577C60}",
+      "declaring_IID": "{6674645D-E89A-459F-A446-8DB204577C60}",
+      "declaration_table": "_methods_",
+      "matching_declarations": 1,
+      "native_parameters_derived": [
+        {
+          "name": "Name",
+          "numeric_flags": 1,
+          "direction": "IN",
+          "observed_ctypes_class": "comtypes._post_coinit.bstr.BSTR",
+          "default": null
+        },
+        {
+          "name": "Label",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_BSTR",
+          "default": null
+        },
+        {
+          "name": "Story",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_BSTR",
+          "default": null
+        },
+        {
+          "name": "pRetVal",
+          "numeric_flags": 10,
+          "direction": "OUT_RETVAL",
+          "observed_ctypes_class": "ctypes.LP_c_long",
+          "default": null
+        }
+      ],
+      "HRESULT_transport": "OBSERVED_LIVE",
+      "raw_metadata_sha256": "5638be32a7fe8badb4163a4d7dd6a35eb768b7a4b8bf7ea9d0a997fa23713806",
+      "raw_hash_independently_verified": true,
+      "declaration_status": "OBSERVED_LIVE_METADATA_SOURCE_COMPATIBLE",
+      "effective_named_input_names": [
+        "Name"
+      ],
+      "INOUT_names": [
+        "Label",
+        "Story"
+      ],
+      "returned_output_order_from_declaration": [
+        "Label",
+        "Story",
+        "pRetVal"
+      ],
+      "returned_native_response": "NOT_OBSERVED",
+      "actual_bound_wrapper_code_closure": "NOT_YET_OBSERVED",
+      "live_getter_qualified": false
+    },
+    {
+      "owner": "PointObj",
+      "method": "GetCoordCartesian",
+      "interface_name": "cPointObj",
+      "interface_IID": "{6674645D-E89A-459F-A446-8DB204577C60}",
+      "declaring_IID": "{6674645D-E89A-459F-A446-8DB204577C60}",
+      "declaration_table": "_methods_",
+      "matching_declarations": 1,
+      "native_parameters_derived": [
+        {
+          "name": "Name",
+          "numeric_flags": 1,
+          "direction": "IN",
+          "observed_ctypes_class": "comtypes._post_coinit.bstr.BSTR",
+          "default": null
+        },
+        {
+          "name": "X",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "Y",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "Z",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_double",
+          "default": null
+        },
+        {
+          "name": "CSys",
+          "numeric_flags": 17,
+          "direction": "IN",
+          "observed_ctypes_class": "comtypes._post_coinit.bstr.BSTR",
+          "default": "Global"
+        },
+        {
+          "name": "pRetVal",
+          "numeric_flags": 10,
+          "direction": "OUT_RETVAL",
+          "observed_ctypes_class": "ctypes.LP_c_long",
+          "default": null
+        }
+      ],
+      "HRESULT_transport": "OBSERVED_LIVE",
+      "raw_metadata_sha256": "81ca90983b67c9de85c7256c12c6a768ab7e676ae084d8b8de90e386a084730a",
+      "raw_hash_independently_verified": true,
+      "declaration_status": "OBSERVED_LIVE_METADATA_SOURCE_COMPATIBLE",
+      "effective_named_input_names": [
+        "Name",
+        "CSys"
+      ],
+      "INOUT_names": [
+        "X",
+        "Y",
+        "Z"
+      ],
+      "returned_output_order_from_declaration": [
+        "X",
+        "Y",
+        "Z",
+        "pRetVal"
+      ],
+      "returned_native_response": "NOT_OBSERVED",
+      "actual_bound_wrapper_code_closure": "NOT_YET_OBSERVED",
+      "live_getter_qualified": false
+    },
+    {
+      "owner": "PointObj",
+      "method": "GetElm",
+      "interface_name": "cPointObj",
+      "interface_IID": "{6674645D-E89A-459F-A446-8DB204577C60}",
+      "declaring_IID": "{6674645D-E89A-459F-A446-8DB204577C60}",
+      "declaration_table": "_methods_",
+      "matching_declarations": 1,
+      "native_parameters_derived": [
+        {
+          "name": "Name",
+          "numeric_flags": 1,
+          "direction": "IN",
+          "observed_ctypes_class": "comtypes._post_coinit.bstr.BSTR",
+          "default": null
+        },
+        {
+          "name": "Elm",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_BSTR",
+          "default": null
+        },
+        {
+          "name": "pRetVal",
+          "numeric_flags": 10,
+          "direction": "OUT_RETVAL",
+          "observed_ctypes_class": "ctypes.LP_c_long",
+          "default": null
+        }
+      ],
+      "HRESULT_transport": "OBSERVED_LIVE",
+      "raw_metadata_sha256": "d99b389504f1ac54f62eee3ebc0bdf2c97b8b4317ba574470ae6bf3aa0d09640",
+      "raw_hash_independently_verified": true,
+      "declaration_status": "OBSERVED_LIVE_METADATA_SOURCE_COMPATIBLE",
+      "effective_named_input_names": [
+        "Name"
+      ],
+      "INOUT_names": [
+        "Elm"
+      ],
+      "returned_output_order_from_declaration": [
+        "Elm",
+        "pRetVal"
+      ],
+      "returned_native_response": "NOT_OBSERVED",
+      "actual_bound_wrapper_code_closure": "NOT_YET_OBSERVED",
+      "live_getter_qualified": false
+    },
+    {
+      "owner": "PointElm",
+      "method": "GetTransformationMatrix",
+      "interface_name": "cPointElm",
+      "interface_IID": "{6B5B5603-D340-44D5-96A4-4B9028F673F3}",
+      "declaring_IID": "{6B5B5603-D340-44D5-96A4-4B9028F673F3}",
+      "declaration_table": "_methods_",
+      "matching_declarations": 1,
+      "native_parameters_derived": [
+        {
+          "name": "Name",
+          "numeric_flags": 1,
+          "direction": "IN",
+          "observed_ctypes_class": "comtypes._post_coinit.bstr.BSTR",
+          "default": null
+        },
+        {
+          "name": "Value",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_LP_SAFEARRAY_c_double",
+          "default": null
+        },
+        {
+          "name": "pRetVal",
+          "numeric_flags": 10,
+          "direction": "OUT_RETVAL",
+          "observed_ctypes_class": "ctypes.LP_c_long",
+          "default": null
+        }
+      ],
+      "HRESULT_transport": "OBSERVED_LIVE",
+      "raw_metadata_sha256": "adbb4a108bce207b81604909e121d99241fac38f8968776c9a93b078c47be280",
+      "raw_hash_independently_verified": true,
+      "declaration_status": "OBSERVED_LIVE_METADATA_SOURCE_COMPATIBLE",
+      "effective_named_input_names": [
+        "Name"
+      ],
+      "INOUT_names": [
+        "Value"
+      ],
+      "returned_output_order_from_declaration": [
+        "Value",
+        "pRetVal"
+      ],
+      "returned_native_response": "NOT_OBSERVED",
+      "actual_bound_wrapper_code_closure": "NOT_YET_OBSERVED",
+      "live_getter_qualified": false
+    },
+    {
+      "owner": "Results",
+      "method": "JointDispl",
+      "interface_name": "cAnalysisResults",
+      "interface_IID": "{7603BF75-2A18-421B-8660-8B4D2695C4AC}",
+      "declaring_IID": "{7603BF75-2A18-421B-8660-8B4D2695C4AC}",
+      "declaration_table": "_methods_",
+      "matching_declarations": 1,
+      "native_parameters_derived": [
+        {
+          "name": "Name",
+          "numeric_flags": 1,
+          "direction": "IN",
+          "observed_ctypes_class": "comtypes._post_coinit.bstr.BSTR",
+          "default": null
+        },
+        {
+          "name": "ItemTypeElm",
+          "numeric_flags": 1,
+          "direction": "IN",
+          "observed_ctypes_class": "ctypes.c_long",
+          "default": null
+        },
+        {
+          "name": "NumberResults",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_c_long",
+          "default": null
+        },
+        {
+          "name": "Obj",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_LP_SAFEARRAY_BSTR",
+          "default": null
+        },
+        {
+          "name": "Elm",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_LP_SAFEARRAY_BSTR",
+          "default": null
+        },
+        {
+          "name": "LoadCase",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_LP_SAFEARRAY_BSTR",
+          "default": null
+        },
+        {
+          "name": "StepType",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_LP_SAFEARRAY_BSTR",
+          "default": null
+        },
+        {
+          "name": "StepNum",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_LP_SAFEARRAY_c_double",
+          "default": null
+        },
+        {
+          "name": "U1",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_LP_SAFEARRAY_c_double",
+          "default": null
+        },
+        {
+          "name": "U2",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_LP_SAFEARRAY_c_double",
+          "default": null
+        },
+        {
+          "name": "U3",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_LP_SAFEARRAY_c_double",
+          "default": null
+        },
+        {
+          "name": "R1",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_LP_SAFEARRAY_c_double",
+          "default": null
+        },
+        {
+          "name": "R2",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_LP_SAFEARRAY_c_double",
+          "default": null
+        },
+        {
+          "name": "R3",
+          "numeric_flags": 3,
+          "direction": "INOUT",
+          "observed_ctypes_class": "ctypes.LP_LP_SAFEARRAY_c_double",
+          "default": null
+        },
+        {
+          "name": "pRetVal",
+          "numeric_flags": 10,
+          "direction": "OUT_RETVAL",
+          "observed_ctypes_class": "ctypes.LP_c_long",
+          "default": null
+        }
+      ],
+      "HRESULT_transport": "OBSERVED_LIVE",
+      "raw_metadata_sha256": "8f358959d8da90ee8074276816553e151f938d97fa8cea21f08bdf5c1e27a6dd",
+      "raw_hash_independently_verified": true,
+      "declaration_status": "OBSERVED_LIVE_METADATA_SOURCE_COMPATIBLE",
+      "effective_named_input_names": [
+        "Name",
+        "ItemTypeElm"
+      ],
+      "INOUT_names": [
+        "NumberResults",
+        "Obj",
+        "Elm",
+        "LoadCase",
+        "StepType",
+        "StepNum",
+        "U1",
+        "U2",
+        "U3",
+        "R1",
+        "R2",
+        "R3"
+      ],
+      "returned_output_order_from_declaration": [
+        "NumberResults",
+        "Obj",
+        "Elm",
+        "LoadCase",
+        "StepType",
+        "StepNum",
+        "U1",
+        "U2",
+        "U3",
+        "R1",
+        "R2",
+        "R3",
+        "pRetVal"
+      ],
+      "returned_native_response": "NOT_OBSERVED",
+      "actual_bound_wrapper_code_closure": "NOT_YET_OBSERVED",
+      "live_getter_qualified": false
+    }
+  ],
+  "native_declaration_count": 8,
+  "independently_verified_raw_hash_count": 8,
+  "metadata_gateway_invocations": 1,
+  "native_factual_getter_invocations": 0,
+  "native_result_getter_invocations": 0,
+  "source": "C:\\tmp\\B-BLOK_Revised.EDB",
+  "current_candidate_sha256": "61FA288FE6AA098B16062B0BAAE3FB882937AB68280C93971475AA39B2246621",
+  "source_SHA_before_after_equal": true,
+  "historical_FC09_sha256": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+  "source_authority_rebound": false,
+  "FC09_PRODUCTION_GATE": "UNCHANGED",
+  "identity_before_after_equal": true,
+  "identity_matches_accepted_ABI2": true,
+  "PID": 2072,
+  "ETABS": "23.2.0",
+  "API": 2.014,
+  "Python": "3.14.0",
+  "comtypes": "1.4.16",
+  "model_locked": true,
+  "accepted_present_database_units_equal": true,
+  "selection_identity": "NOT_READ_IN_METADATA_SCOPE; no independent before/after selection comparison claimed",
+  "selection_access_or_mutation": "NONE_IN_PINNED_ARTIFACT; no Results.Setup or DatabaseTables access",
+  "ABI3_OFFLINE": "CLOSED",
+  "ABI3_LIVE_METADATA": "RECEIPT_VERIFIED_CLOSED",
+  "live_getter_contract_qualified_count": 0,
+  "actual_remaining_wrapper_contracts": "BLOCKED_NOT_YET_OBSERVED",
+  "GetCoordCartesian_binding_conclusion": "Observed X/Y/Z INOUT=3 precede CSys optional IN=17 default Global; historical second positional Global is unqualified; named plan still requires actual bound-wrapper qualification",
+  "GetElm_physical_binding": "BLOCKED; scalar BSTR declaration does not prove one-to-one/panel-zone applicability",
+  "matrix_layout_direction": "BLOCKED; SAFEARRAY(Double) declaration supplies no size/order/direction observation",
+  "modal_grain_and_result_binding": "BLOCKED; only array type/order observed; no result rows acquired",
+  "native_errors": [],
+  "ETABS_EXECUTED_BY_WORKER": false,
+  "additional_operator_run": "NOT_EXECUTED_OR_AUTHORIZED",
+  "FULL_FACT_CENSUS": "NOT_AUTHORIZED",
+  "172_MATRIX_SCAN": "NOT_AUTHORIZED",
+  "P2_GLOBAL_CAPTURE": "NOT_AUTHORIZED",
+  "GLOBAL_DELTA": "NOT_PROVEN",
+  "M6_B": "OPEN",
+  "R2_RERUN_READY": false,
+  "NEXT_EXACT_CAUSAL_EDGE": "Offline prepare actual remaining bound-wrapper code/closure qualification against these observed declarations; any further operator/getter execution needs a separately bounded authorized scope",
+  "validation": {
+    "integrated_PASS": 1949,
+    "FAIL": 0,
+    "ERROR": 0,
+    "SKIP": 0,
+    "new_tests": 0,
+    "accepted_test_identities_preserved": 1949,
+    "earlier1856_preserved": true,
+    "identity_sha256": "ec6c7dca6f951090e1397f86125e6ac296079180844350eb360fbcdfc5164e4b",
+    "integrated_junit_sha256": "d0a1ff640dbce5283e8792f371766f9f6935425669155823eb575826044811ec",
+    "all_accepted_test_files_byte_unchanged": true,
+    "architecture_PASS": 31,
+    "architecture_real_FAIL": 6,
+    "architecture_fail_identities": [
+      "tests.architecture.test_b4s_scratch_lifecycle_guards::test_private_b4t_transport_is_consumed_only_by_exact_typed_oapi_allowlist",
+      "tests.architecture.test_g1_arch_drift_guards::test_legacy_exception_baseline_is_shrink_only",
+      "tests.architecture.test_g1_arch_drift_guards::test_no_public_raw_sapmodel_escape",
+      "tests.architecture.test_g1_arch_drift_guards::test_provider_and_oapi_dependency_direction",
+      "tests.architecture.test_g1_arch_drift_guards::test_supported_graph_has_zero_forbidden_legacy_tools_or_report_authority",
+      "tests.etabs.test_oapi_layer1_architecture_guards::test_analysis_and_concrete_design_have_exact_authorized_mutation_callsites"
+    ],
+    "architecture_debt_delta": 0,
+    "full_violation_sets_equal": true,
+    "protected_surface_count": 45,
+    "protected_surface_sha256": {
+      ".github/workflows/acq_ctx_1_validation.yml": "10d7ffe95f6dfad9a7a88743790efa290d704d3bd22213a900e1d1d8bfc67cd1",
+      ".github/workflows/b1_beam_column.yml": "b69af978a76a23a14239d0362dac8f7b9d906021c75453911d699e8408df6c7e",
+      ".github/workflows/c13_4_offline_acceptance.yml": "c8d9ba0ac2cff83e8e0dc4bfad5878f5974a68888d4fedca2fc1a840a57b20b3",
+      ".github/workflows/cd_1_coverage_contract_debt.yml": "dd6e2104f6f440c61785275ec256e8b74343e1df1703875db106bc85e59bab2c",
+      ".github/workflows/col_runtime_policy_input_validation.yml": "256f22a60bb3e3ca3acf2430f5f9504ec9f0e86f8982dbc7619fd8e6aac764f9",
+      ".github/workflows/column_r1_reconciled_exact_validation.yml": "f3496ce0d19380be55535e7fa3ce9d4c30a56d5d9c8078395a0f7d31c2d7c766",
+      ".github/workflows/column_r1_recovery_validation.yml": "0314184e0099b21fee2e6007da2c61852114bbb35e3612854a10dff3f7e7ee7c",
+      ".github/workflows/column_r1_vertical_validation.yml": "aa2c2f8fef100f0aafa9b8b0544c26e96af5abed3298337ff31176227fba935f",
+      ".github/workflows/fcr_1a_validation.yml": "135e2233f88ed715c3fcd72cc0974f9bd37305976e5d43bbe45aa488fad993db",
+      ".github/workflows/fnd_col_1_validation.yml": "aea5c2f4bbfafb877f7726628246cf2d69e2d4032b9d3242bc9cc9e36c968926",
+      ".github/workflows/fnd_col_2_validation.yml": "a445a6395c8d9b51a87c1a7c93d08a6478018d555edd5dcbb556679eaa9eaa7a",
+      ".github/workflows/fnd_col_2x_validation.yml": "5a93c97295291fcc2f1c9c859fbedfbe1fc19182e93f520dfa9ec891ad7374a9",
+      ".github/workflows/p2_10_wall_pack_a.yml": "04c97a25b8683b6ff6435b9a3faba1ba5c207f2069078e8782baa89c03988485",
+      ".github/workflows/p2_10_wall_pack_b.yml": "39063e5181759fd142fe40499513c4059276dc88f35d70dc0693566a249d7f8f",
+      ".github/workflows/product_spine_col_1_validation.yml": "547a7a5f8c0cba1a36c9d97f2ba84d025a89538b09f088d2987e8ad4d2687350",
+      ".github/workflows/ur_1b_validation.yml": "e79e63ce602271b4f69bc28d30e717c849e60afbe067a0bc0b58f28a5730706f",
+      ".github/workflows/ur_1c_validation.yml": "69dd8b034b400c8bf5add8f1def995a3476ea9baa2eaa9a2eddee751dda6346f",
+      ".github/workflows/ur_1d_validation.yml": "fe261ca7beafc3d74dc7d11f1a4186c9953f0c9a07c0ab6cbeca32f3c5369216",
+      ".github/workflows/ur_1e_validation.yml": "a9254d8a7014907982e311fd897ba4f5b511154d0eec6984e519e3eabe390fd4",
+      ".github/workflows/ur_2_validation.yml": "c70eea4972dc8db06dcd764995d332dc7db9a1a3133055238df19f1675fa9e07",
+      ".github/workflows/vs6_p8a_f0_validation.yml": "b954d1a9202f6277156fa714f36f6f94749a1da241673eb23ef3bf68ae2e0abe",
+      "packages/etabs_gateway/src/etabs_gateway/__init__.py": "9bd8d9f61badedae2b123456a610a5c0365cef104c96617991f219a733a0d629",
+      "packages/etabs_gateway/src/etabs_gateway/acceptance.py": "5943ddb87aed536fc321efb21c3fbbccd81ea5968e5665bbe57495825090023a",
+      "packages/etabs_gateway/src/etabs_gateway/com_apartment.py": "8bc0b006a67b7f871cf7cc73166a07b6f581d6446a60b087aad95a12c2922301",
+      "packages/etabs_gateway/src/etabs_gateway/connection.py": "ca7fb5954fca0272786360f231dc776262da5400c19076ff442afd26200cb3fc",
+      "packages/etabs_gateway/src/etabs_gateway/context_reader.py": "e80c572cbdb5630ed1743bdcc6e50e3d6498e7ddefec9fdda7382c9c3537c382",
+      "packages/etabs_gateway/src/etabs_gateway/contracts.py": "e24d73fe21f3024991cf733b9dbaaedef7699c1fc0829d8651d15878f3f0d987",
+      "packages/etabs_gateway/src/etabs_gateway/diagnostics.py": "91e772097c7f42bf8ae986b3cf5b1823585b29cb22c7e69408e3c3a8f610d382",
+      "packages/etabs_gateway/src/etabs_gateway/errors.py": "aa348f2e567aacb6e4ef5a88356c662ee45dffe6658498e064dbdfbb507c275b",
+      "packages/etabs_gateway/src/etabs_gateway/model_context.py": "c59f65fc4a7c4674f654195b0d6b1400bb57bf8c7b759d0c8a4b7d1cdfa0f3ed",
+      "packages/etabs_gateway/src/etabs_gateway/mutation_transport.py": "9a7365c785e17f6679fd78d159e6d7e99e9e378f62841d4cb9c50f160f3c0707",
+      "packages/etabs_gateway/src/etabs_gateway/replay.py": "bfadae93d1c94ed4e6f6d48612d2edb75084122aea64779a82b1ed5c5faf52dc",
+      "packages/etabs_gateway/src/etabs_gateway/session.py": "134dfda97e1b7c64ff37ab9e301cd3e3ce6d379231f63f364cc50a58c7fa1cce",
+      "packages/etabs_gateway/src/etabs_gateway/worker.py": "1b7589462f8425c57cebccf1b99e7fb2a233df2c6609b6ba04242a627fe7c8e2",
+      "tbdy_engine/etabs/_safety_legacy.py": "002f7a63633e742e29ad21eac327460de5cfd966f21cb3678bbd7ed486d0ece7",
+      "tbdy_engine/etabs/oapi/analysis_execution.py": "9d0ea5c071c04133af54a57daae85e19569463d7c514d8171af71657f6ea8f48",
+      "tbdy_engine/etabs/oapi/concrete_design.py": "57fa4ce9d46501572b366f57153154cdef09a48a250641901e0e979e2600ae88",
+      "tbdy_engine/etabs/safety.py": "701a73826e4e63b4dc64fd51bab96b37915eec76ab3a97aa27920a43fe6dac3b",
+      "tests/architecture/g1_legacy_exception_baseline.json": "fe4c4eb587fe7c9b922b7f1f4eab3d7753c6e5676f6bf61580bc9c01d964ab67",
+      "tests/architecture/test_b4b_analysis_state_mutation_guards.py": "6c0c44a4b7d6a3901e50240bf3ca9b14c59848a03c89fb60ad651d8a96bd44f1",
+      "tests/architecture/test_b4s_scratch_lifecycle_guards.py": "e46a9fcf8737eafc47d92d206621e01c9782f000af8650bec18983d5134bee2b",
+      "tests/architecture/test_b4t_mutation_transport_guards.py": "33eba0b80df43208d5e6f41512c740e6c1f1447c0d9351fe74c52ef6ad7c8017",
+      "tests/architecture/test_b5_analysis_execution_guards.py": "0b60735ed157da30cc76861cc483bc302ad9c06a80e11b42ce175afcbee84331",
+      "tests/architecture/test_b6_p0_design_preflight_architecture.py": "e8da83bc90dd90089684db8f1767a8d7f7a60474fbcea599da6c849944f72afb",
+      "tests/architecture/test_g1_arch_drift_guards.py": "596f1c40394a642b2e69d8083cdd1641bb633cb6fc9b80a9dec87e061b275151"
+    },
+    "accepted_external_artifacts_unchanged_sha256": {
+      "r3m-external/column_r1_r3m_matrix_probe.py": "3531a45013ab57dd6993ead7b1fa71117a690b3a0f22c14c296cced9e1cb391d",
+      "r3m-candidate-external/column_r1_r3m_candidate_probe.py": "27362d2fd9c5cbb1d5a9800f4b207d4e6832f057f1cff2982f06500f2089248b",
+      "r3m-diag-external/column_r1_r3m_diag1_probe.py": "8a55a6d3792066f5acfd68b4c7226c3482b846586f4d4f8d832058a8bdc63df5",
+      "r3m-abi1-external/column_r1_r3m_abi1_metadata_probe.py": "e2b94d5a4b557ae9bdfdcd9db83e42ba60821ebdef7f72e1743ad185048c5e0d",
+      "r3m-abi2-external/column_r1_r3m_abi2_getnamelist_probe.py": "3c2ec29d660e6c354ebd7ae534370b24e5c941c35a887821ea5128d8f7e826a3",
+      "r3m-abi2-runtime-diag-external/column_r1_r3m_abi2_astfix_getnamelist_probe.py": "1738ac0ce9cc97825035311a2c694bea7e503ce207a09e27dd78830c7a4f2753",
+      "r3m-abi3-external/column_r1_r3m_abi3_metadata_probe.py": "b46144d729c0f539fa629752f14a5149905746bc551370f6cc5d1eca5725acc4",
+      "r3m-abi3-external/column_r1_r3m_abi3_operator.ps1": "643fde472f48e00f2e6bb799a55034e8cdf25b29f64ccda8d47937ef0a398ee3"
+    },
+    "COMPILE": "PASS",
+    "IMPORT": "PASS_OFFLINE_NO_ATTACH",
+    "DIFF_CHECK": "PASS",
+    "change_scope": "DOCUMENTATION_AND_DERIVED_EVIDENCE_ONLY"
+  }
+}

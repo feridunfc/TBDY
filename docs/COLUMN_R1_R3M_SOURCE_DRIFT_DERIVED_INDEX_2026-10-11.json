@@ -1,0 +1,73 @@
+{
+  "scope": "R3M_SOURCE_DRIFT_RECONCILIATION_NO_SOURCE_AUTHORITY_REBIND",
+  "task_date": "2026-10-11",
+  "historical": {
+    "source_path": "C:\\tmp\\B-BLOK_Revised.EDB",
+    "source_sha256": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+    "authority": "ACCEPTED_FC09_ONLY",
+    "original_receipts": {
+      "column-r1-r0-r1-preflight_20261009_192703.json": "79a7bca0dd50f42b6d9852d2ed56dfc03d0a1cdb40a1c534ea7071f6e8c4ce00",
+      "column-r1-r3d-modal_20261010_073229.json": "83ce2ff7c3a6170e931d2869e212adde93b7c08b25bbf44e9f0c2c663f156b03",
+      "r3m-native/joint_global_crosscheck_20261011_140422.json": "ef4bbadc3fb034f59533f6279c816cba8713ab3649950fce12018a8db4f82a29"
+    }
+  },
+  "current_candidate": {
+    "source_path": "C:\\tmp\\B-BLOK_Revised.EDB",
+    "supervisor_reported_sha_abbreviation": "61FA288F...246621",
+    "full_sha256": "NOT_PROVIDED",
+    "authority": "UNREVIEWED_CANDIDATE_NO_FC09_REBIND",
+    "native_receipt": "NOT_PROVIDED"
+  },
+  "comparison": [
+    {
+      "fact": "model file SHA",
+      "status": "DIFFERENT_SUPERVISOR_REPORTED"
+    },
+    {
+      "fact": "model path",
+      "status": "SAME_SUPERVISOR_REPORTED"
+    },
+    {
+      "fact": "1044 / LC_DL six displacement components",
+      "status": "MATCH_AT_DISPLAYED_PRECISION_SUPERVISOR_REPORTED",
+      "independent_current_raw_receipt": "NOT_PROVIDED",
+      "scope": "one identity-matrix endpoint; no frame direction discrimination or model equivalence"
+    }
+  ],
+  "accepted_factual_comparison_scope": {
+    "native_frames": 998,
+    "section_assignments": 998,
+    "native_section_properties": 15,
+    "physical_columns": 86,
+    "endpoint_geometry_story_connectivity": 172,
+    "historical_point_rows": 987
+  },
+  "engineering_relevant_properties_changed": "NOT_ESTABLISHED_CURRENT_NATIVE_FACTS_NOT_OBSERVED",
+  "whole_model_equivalence": "NOT_PROVEN",
+  "unobserved_categories": [
+    "material constitutive properties",
+    "mass source and assignments",
+    "loads and combinations",
+    "frame/area stiffness modifiers",
+    "releases/restraints/constraints",
+    "area geometry and meshing",
+    "analysis settings and result freshness",
+    "panel-zone assignments and column-connected internal joints"
+  ],
+  "candidate_scan": {
+    "script": "REPO_EXTERNAL",
+    "script_sha256": "27362d2fd9c5cbb1d5a9800f4b207d4e6832f057f1cff2982f06500f2089248b",
+    "requires_full_candidate_sha": true,
+    "independent_before_after_file_hashes": true,
+    "current_native_point_elm_mapping_required": true,
+    "FC09_production_gate": "UNCHANGED",
+    "NONIDENTITY_POINT_FOUND": "NOT_OBSERVED_PENDING_OPERATOR_SCAN",
+    "artifact_library_id": "libfile_d854da651c788191b679ca32a6c5a115"
+  },
+  "GLOBAL_ENDPOINT_MODAL_ROWS": 0,
+  "GLOBAL_STORY_DELTA": "NOT_PROVEN",
+  "M6_B": "OPEN",
+  "R2_RERUN_READY": false,
+  "ETABS_EXECUTED_BY_WORKER": false,
+  "SOURCE_MUTATED_BY_WORKER": false
+}
