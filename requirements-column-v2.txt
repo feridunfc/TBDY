@@ -1,0 +1,4 @@
+# Offline local adapter and existing application package import dependencies.
+reportlab==4.4.9
+PyYAML==6.0.2
+jsonschema==4.25.1
