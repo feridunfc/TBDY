@@ -804,3 +804,38 @@ M6_B OPEN; matrix scan NOT_STARTED; R2_RERUN_READY NO.
 NEXT EXACT CAUSAL EDGE: supervisor review of the pinned offline GetPoints package,
 then separate authorization for at most one native read. No next getter or
 bottom/top/result qualification automatically follows a successful response.
+
+## Column V1 - real235 product report delivered (2026-10-12)
+
+- Base main810f931/tree54af7aa, PR207 merged independently verified. New continuing
+  branch worker/column-v1-report-235; no getter prerequisite/preparation/execution.
+- Real openable Column_235_V1.html/PDF/JSON/CSV/ZIP product outside Git, source
+  hashes and artifact hashes in `COLUMN_V1_235_OFFLINE_RECEIPT_2026-10-12.json`.
+  Delivery contract/reproduction `COLUMN_V1_235_DELIVERY_2026-10-12.md`.
+- New projection `tbdy_engine/product_reports/column_v1_report.py`; offline tool
+  `tools/build_column_v1_report.py`. Reuses accepted SliceReportContribution /
+  ReportField/ReportTable/SourceManifest/ReportArtifact; no fabricated FCR,
+  BuildingReportModel/formal CheckResult or new engine/engineering calculation.
+- Current61FA candidate: accepted235 section assignment + Column_80x80 I22/I33
+  m4 equality only. Other ten fields NOT_COMPARABLE/NOT_PROVEN, no name formulas.
+- ExistingFC09 R3D: exact235/C1/+0.00, native I/J955/758,300 FrameForce and200
+  JointDispl rows,100 modes. All raw native value/order/sign/Obj/Elm/case/mode/
+  station identities preserved. Separate archive label; no61FA result rebind.
+- HTML standalone/100-mode inspection/CSV downloads; mode1 visible without JS.
+  PDF4 pages visually verified. JSON/CSV keep all500 rows and source trace;
+  deterministic ZIP/manifests. Actual HTML JS exercised in jsdom on modes1/2/50/100
+  and both CSV events. HTML visual print reviewed via WeasyPrint69. Native browser
+  screenshot unavailable due Chromium download; no false browser-test claim.
+- Global/bottom-top/panel-zone/analysis-joint/design/result-epoch authority not
+  inferred; moment/station/offset fields preserved raw. Current controlled design
+  result/B5 NOT_PROVIDED; no capacity/demand/rebar/final quantity/compliance issued.
+  Missing fields and consequences explicit; report available before next getter.
+- 2178 PASS=2162 accepted identities preserved+16 new;512 accepted test files
+  unchanged; protected45 drift0. Architecture31 PASS/same6 real FAIL/full sets
+  equal, new expanded0; compile/import/diff PASS. All old operator artifacts/
+  pin98f15e0/LF rules unchanged. No main merge/CI success reclassification.
+
+FC09 gate UNCHANGED; worker ETABS/GetPoints NO; no new getter preparation;
+matrix scan NOT_STARTED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
+NEXT EXACT CAUSAL EDGE: open/review actual Column235 V1 delivered product.
+Engineering/gateway authority remains separate from this report delivery.
