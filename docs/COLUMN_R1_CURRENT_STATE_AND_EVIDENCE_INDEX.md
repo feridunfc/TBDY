@@ -643,3 +643,34 @@ FULL_FACT_CENSUS/172_MATRIX_SCAN/P2 NOT_AUTHORIZED; GLOBAL_DELTA NOT_PROVEN;
 M6_B OPEN; R2_RERUN_READY NO.
 NEXT EXACT CAUSAL EDGE: separate bounded authorization for one GetSection235 read;
 original receipt review before any next factual getter or census proposal.
+
+
+## R3M ABI-4 — Windows target checkout EOL repair (2026-10-12)
+
+Operator preflight was BLOCKED before Python/native getter execution. Windows
+core.autocrlf=true materialized target CRLF hash
+`f6dc3e4578ce555c21832601ed2b513fb5bf92c1fbee7609a79acd3ff88da9a6`.
+Canonical LF bytes hash remains
+`74fece6a6da2a460e6bf561c4c597ea177e7efae1bb3abb5ecb828df2aa441fb`.
+Operator confirmed HEAD/index/raw/filtered blob all
+`fe072c63cdcc0e61580033433c410c098c8e4b4d`, no actual/staged diff; stat refresh
+still reported needs update. This is checkout/preflight evidence, no native receipt.
+
+- Only this exact target path receives versioned `.gitattributes` text eol=lf.
+- Evidence: `COLUMN_R1_R3M_ABI4_WINDOWS_EOL_EVIDENCE_2026-10-12.md`.
+- Derived validation: `COLUMN_R1_R3M_ABI4_WINDOWS_EOL_RECEIPT_2026-10-12.json`.
+- Target JSON, Python probe and all accepted original artifacts remain unchanged.
+  New separate PowerShell pins the new HEAD/TREE and requires effective eol:lf.
+- Guarded preparation permits only this already verified content-identical old
+  target status; native gate still requires a fully CLEAN checkout. No unknown
+  dirty/staged/newer work is overwritten, no configuration/allowlist/guard bypass.
+- Two isolated real Git checkout regressions PASS under autocrlf true/false;
+  target hash/LF/clean checkout match, unrelated file's EOL setting unaffected.
+- Integrated2033 PASS = all2031 accepted identities preserved +2;507 accepted
+  test files and45 protected surfaces unchanged; fresh architecture31 PASS/
+  same6 real FAIL, full sets equal, delta0; compile/import/diff PASS.
+
+NO worker ETABS; LIVE_GETSECTION NOT_EXECUTED; FC09_PRODUCTION_GATE UNCHANGED;
+FULL_FACT_CENSUS/172_MATRIX_SCAN/P2 NOT_AUTHORIZED; GLOBAL_DELTA NOT_PROVEN;
+M6_B OPEN; R2_RERUN_READY NO. NEXT EXACT CAUSAL EDGE: guarded LF checkout
+preparation and the already scoped one-GetSection235 operator read, no extra retry.
