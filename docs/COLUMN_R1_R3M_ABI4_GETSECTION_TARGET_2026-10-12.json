@@ -1,0 +1,52 @@
+{
+  "scope": "R3M_ABI4_ONE_FRAME_GETSECTION_PROPOSAL_DERIVED_TARGET_ONLY",
+  "base_HEAD": "f9c330ac33fc6d0f0dfc1d9ec0ba4a28882fbe5e",
+  "base_TREE": "8e1e23764c575eca3bd1f4491c43dba0c07381c1",
+  "method": "FrameObj.GetSection",
+  "named_inputs": {
+    "Name": "235"
+  },
+  "historical_target": {
+    "source_sha256": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+    "story": "+0.00",
+    "label": "C1",
+    "UniqueName": "235",
+    "section_property_name": "Column_80x80",
+    "R3D_frame_GUID": "baea1979-8857-4470-a4e6-5109369aa14c",
+    "current_GUID_or_geometry_qualified": false,
+    "SAuto_reference": "NOT_COMPARABLE_FROM_HISTORICAL_TABLE_TOKEN"
+  },
+  "source_refs": {
+    "FC09_preflight": {
+      "name": "column-r1-r0-r1-preflight_20261009_192703.json",
+      "sha256": "79a7bca0dd50f42b6d9852d2ed56dfc03d0a1cdb40a1c534ea7071f6e8c4ce00",
+      "HEAD": "9f29d5a5f5add26fe3bb2513675430f06fe4076b",
+      "TREE": "6e174f86c0dd5f3e6badd98bc1c8cf20fab82a89",
+      "table": "Frame Assignments - Section Properties",
+      "unique_row_match_count": 1
+    },
+    "R3D_physical_population": {
+      "name": "column-r1-r3d-modal_20261010_073229.json",
+      "sha256": "83ce2ff7c3a6170e931d2869e212adde93b7c08b25bbf44e9f0c2c663f156b03",
+      "column_count": 86,
+      "target_rule": "FIRST_ORIGINAL_ACCEPTED_STORY_COLUMN_NO_SEARCH_FALLBACK"
+    },
+    "accepted_current_frame_population": {
+      "name": "column-r1-r3m-abi2-astfix-getnamelist_20261011_201010_626_2b40455570994e4698ebd7b06b58ce47.json",
+      "sha256": "bf720aba0fd474313cecb2cd8f9e4ae650f4fe624e5dd69f882495ceea6dca21",
+      "raw_response_sha256": "ea580f95d089a3b7eac7593e444469d7f90324c1f491e28bd604d9ad5cf2d0da",
+      "count": 998,
+      "exact_target_name_present": true
+    },
+    "accepted_wrapper": {
+      "name": "column-r1-r3m-abi3-wrapper_20261011_231654_300_14144d3fec1740abb6e661fe4ed42e88.json",
+      "sha256": "1072e2b647a95b58ddea79db939647fa65c44593edfd8b9e63740c4a5adc66fb",
+      "GetSection_native_raw_sha256": "6a739762bb75046b51f15a22696cb2141bc47ccc44cf2d3120d40bab58df7e60",
+      "GetSection_wrapper_raw_sha256": "586caf2361781af478087b0cc283961f9d383e92966efcd1d60b19c59cd6281b"
+    }
+  },
+  "FC09_PRODUCTION_GATE": "UNCHANGED",
+  "CURRENT_SOURCE": "CANDIDATE_ONLY",
+  "GLOBAL_DELTA": "NOT_PROVEN",
+  "live_execution_authorized": false
+}

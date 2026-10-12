@@ -611,3 +611,35 @@ NOT_AUTHORIZED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
 NEXT EXACT CAUSAL EDGE: separately reviewed minimal factual-getter validation
 proposal, preserving backend provenance and exact response/source/session gates;
 no new live execution or complete census/scan authorization from this adoption.
+
+
+## R3M ABI-4 — one GetSection235 factual-read proposal (2026-10-12)
+
+ABI4_OFFLINE CLOSED; LIVE_GETSECTION PENDING_SEPARATE_SUPERVISOR_AUTHORIZATION.
+Accepted ABI-2/declaration/wrapper metadata CLOSED/REUSE; no reopening or live retry.
+
+- Exact proposed call: `FrameObj.GetSection(Name="235")`, one bounded30-second
+  verified STA callback, max1 target attempt. No other getter/census/scan/results.
+- Evidence: `COLUMN_R1_R3M_ABI4_OFFLINE_EVIDENCE_2026-10-12.md`.
+- Derived receipt: `COLUMN_R1_R3M_ABI4_OFFLINE_RECEIPT_2026-10-12.json`.
+- Source-bound target: `COLUMN_R1_R3M_ABI4_GETSECTION_TARGET_2026-10-12.json`, SHA
+  `74fece6a6da2a460e6bf561c4c597ea177e7efae1bb3abb5ecb828df2aa441fb`.
+- 235 is in accepted historical86 physical columns and accepted current998 frame
+  names. Historical section Column_80x80; current geometry/GUID NOT_PROVEN.
+- External Python SHA `2b8ec761042d985e7812a16f46300ef317899db1752a45c4177c1f8243850b14`.
+- Observed native flags [1,3,3,10], current exact declaration/wrapper hashes required
+  before invocation; outputs PropName/SAuto/pRetVal, exact success int0 only.
+- Backend vtable/method IID NOT_OBSERVED_NOT_PROBED; only accepted existing
+  generated owner/wrapper/prototype binding used. Native response NOT_OBSERVED.
+- Single property MATCH/DIFFERENT only; no whole-model equivalence/source rebinding;
+  SAuto historical comparison NOT_COMPARABLE. All3 original JSON/sidecar pairs reused.
+- 43 focused PASS;2031 integrated PASS, all1988 accepted identities/506 test files
+  preserved;45 protected surfaces unchanged; architecture31 PASS/6 real FAIL,
+  full sets equal, delta0; compile/import/diff PASS; PowerShell NOT_EXECUTED.
+
+Selection NOT_READ/NO_ACCESS_OR_MUTATION; worker ETABS NO; SOURCE_MUTATED NO;
+FC09_PRODUCTION_GATE UNCHANGED; CURRENT_SOURCE CANDIDATE_ONLY;
+FULL_FACT_CENSUS/172_MATRIX_SCAN/P2 NOT_AUTHORIZED; GLOBAL_DELTA NOT_PROVEN;
+M6_B OPEN; R2_RERUN_READY NO.
+NEXT EXACT CAUSAL EDGE: separate bounded authorization for one GetSection235 read;
+original receipt review before any next factual getter or census proposal.
