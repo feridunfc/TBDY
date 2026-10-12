@@ -763,3 +763,44 @@ NEXT EXACT CAUSAL EDGE: prepare separately reviewed one FrameObj.GetPoints(Name=
 offline package. Preserve raw Point1/Point2 ordering without bottom/top inference.
 New live getter authorization NO. FC09 gate UNCHANGED; GLOBAL_DELTA NOT_PROVEN;
 M6_B OPEN; matrix scan NOT_STARTED; R2_RERUN_READY NO.
+
+## R3M ABI-6 — one FrameObj.GetPoints offline proposal (2026-10-12)
+
+- Prepared only after ABI5 receipt adoption commit/push6ddd8a9/treead8032d.
+  ABI5 CLOSED/REUSE; no GetSection/GetSectProps rerun or new metadata experiment.
+- Exact proposed target FrameObj.GetPoints(Name="235"), keyword Name only;
+  Point1/Point2 INOUT omitted through original qualified comtypes wrapper.
+  Flags[1,3,3,10]; cFrameObj IID unchanged; application exact int0 separate HRESULT.
+  Accepted declaration/wrapper record2 reused; current exact code/closure/types/
+  backend prototype/binding must still match before sole proposed invocation.
+  Backend vtable/method IID NOT_OBSERVED_NOT_PROBED.
+- Source-bound target `COLUMN_R1_R3M_ABI6_GETPOINTS_TARGET_2026-10-12.json`.
+  Contract `COLUMN_R1_R3M_ABI6_GETPOINTS_PREPARATION_2026-10-12.md`.
+  Permanent offline evidence `COLUMN_R1_R3M_ABI6_OFFLINE_RECEIPT_2026-10-12.json`.
+- Target235 belongs to accepted candidate998 native frame names and original
+  ABI4 assignment; accepted ABI5 only qualifies named Column_80x80 property.
+  Original ABI2/ABI3/ABI4/ABI5 receipt pairs pinned/unchanged outside Git;
+  no original response array copied into Git. FC09 authority remains separate.
+- Only native Point1 slot0/Point2 slot1 names may be recorded. No return-order,
+  lexical/numeric name, historical Story or coordinate inference to bottom/top.
+  Bottom/top/physical geometry/analysis-joint/panel-zone binding NOT_PROVEN.
+  No coordinates, point metadata, matrices, JointDispl, modal/LC_DL/P2/census/scan.
+- Max1 target callback,30s,max1 target attempt; source/session/units/lock/file/
+  Git/artifact/original guards; no nested identity queue in target callback.
+  Immutable raw/typed evidence and chained gateway errors; first failure STOP,
+  no retry/fallback. Selection NOT_READ/no access/mutation/fresh identity claim.
+- 2162 PASS=2099 accepted identities preserved+63 new;510 accepted test files
+  byte unchanged;45 protected drift0. Architecture31 PASS/same6 real FAIL,
+  full sets equal/new expanded0; compile/import/diff PASS. Existing ABI4/ABI5
+  target LF rules/hashes preserved; exact ABI6 LF path added; autocrlf true/false
+  isolated real Git checkout PASS. Actual Windows PowerShell execution pending.
+- External Python/PowerShell/prepare/handoff pins filled after commit/push;
+  checkout preparation does not invoke ETABS and STOPs for supervisor review.
+  LIVE_GETPOINTS NOT_EXECUTED, execution NOT_AUTHORIZED, worker ETABS NO.
+- ABI5 merge assessment remains separate; no PR/merge performed here.
+  FC09_PRODUCTION_GATE UNCHANGED; candidate-only; matrix scan NOT_STARTED;
+  GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
+
+NEXT EXACT CAUSAL EDGE: supervisor review of the pinned offline GetPoints package,
+then separate authorization for at most one native read. No next getter or
+bottom/top/result qualification automatically follows a successful response.
