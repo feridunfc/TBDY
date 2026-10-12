@@ -10,9 +10,14 @@ from tbdy_engine.product_reports import column_v1_report as v1
 
 @pytest.fixture(scope='module')
 def inputs():
+    receipt=os.environ.get('COLUMN_V1_MODAL_RECEIPT')
+    if not receipt:
+        pytest.skip('Supply the unchanged accepted original through COLUMN_V1_MODAL_RECEIPT; no synthetic/native fallback.')
+    if not Path(receipt).is_file():
+        pytest.fail('Configured accepted original does not exist; source acquisition must not fall back.')
     root=Path(__file__).resolve().parents[2]
     return {'assignment_path':root/'docs'/v1.PINS['assignment'][0],'property_path':root/'docs'/v1.PINS['property'][0],
-        'gates_path':root/'docs'/v1.PINS['gates'][0],'modal_path':Path(os.environ['COLUMN_V1_MODAL_RECEIPT'])}
+        'gates_path':root/'docs'/v1.PINS['gates'][0],'modal_path':Path(receipt)}
 
 @pytest.fixture(scope='module')
 def report(inputs):return v1.build_column_v1_report(**inputs)

@@ -65,6 +65,11 @@ python tools/build_column_v1_report.py \
   --output /absolute/path/new_column_v1_delivery
 ```
 
+Optional PDF profile installs from `requirements-column-v1.txt`.
+General CI without the private native receipt explicitly skips evidence-dependent
+new tests; it never synthesizes a replacement. The full accepted-evidence run
+executes all16 with no skips.
+
 The tool reads pinned adopted ABI4/ABI5/gate documents from this repository and
 pinned historical bytes. Any source hash/binding/grain failure stops. Delivery
 refuses pre-existing filenames. ReportLab4.4.9, DejaVuSans regular/bold in the
