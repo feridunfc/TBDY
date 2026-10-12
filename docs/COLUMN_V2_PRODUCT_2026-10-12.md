@@ -9,7 +9,10 @@ Bu bir REFERANS / DEMO hesabıdır; ETABS gözlemi veya B-BLOK üretim hesabı d
 
 Python 3.12 veya daha yeni sürüm. PDF için Windows Arial veya Linux DejaVu Sans
 fontları gerekir. İlk kurulum: `python -m pip install -r requirements-column-v2.txt`.
-Depoların tamamı gereklidir; üretim kodu test modülü import etmez.
+Depoların tamamı gereklidir; üretim kodu test modülü import etmez. Windows için
+verilen Git archive ZIP paketini yeni bir klasöre açın: kabul edilmiş JSON
+kanıtlarının tam LF baytları korunur. CRLF dönüşmüş kanıt dosyaları hash
+guardında reddedilir; çalışma sırasında satır sonu veya hash guardı düzeltilmez.
 
 Tek başlatma komutu (repo kökünden):
 
