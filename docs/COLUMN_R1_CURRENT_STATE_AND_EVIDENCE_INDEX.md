@@ -737,3 +737,29 @@ no additional live/census/matrix authorization from receipt adoption.
 
 NEXT EXACT CAUSAL EDGE: review the separately pinned ABI5 offline package;
 then separately authorize at most one GetSectProps read. No next getter/census/scan.
+
+## R3M ABI-5 — original one-GetSectProps receipt accepted/CLOSED (2026-10-12)
+
+- Original JSON SHA `6a41d69c323e9cf0eabb988bb99d2df74b1f229adcb579b2e9265bd2f65003e6`;
+  original sidecar SHA `d326d1137529ac22b29a5f9b08c05dc9d1d35e107ad71da9cf30464e453cd22e`.
+- Source-bound report: `COLUMN_R1_R3M_ABI5_LIVE_GETSECTPROPS_EVIDENCE_2026-10-12.md`.
+- Derived adoption: `COLUMN_R1_R3M_ABI5_LIVE_GETSECTPROPS_ADOPTION_2026-10-12.json`.
+- One target callback/attempt, exact application int0, errors[]; original raw list,
+  twelve Float64s/order/types/hex/raw+typed hashes/native metadata/wrapper/inputs
+  independently verified. Original pair unchanged outside Git; no raw array copied.
+- Capture HEAD a731782/tree770d958. Candidate61FA SHA/session/units/lock beforeafter
+  unchanged in operator evidence, FC09 identity separate; worker did not read EDB.
+- Column_80x80 I22(index4)/I33(index5) each0.03413333333333332m4; exact binary64
+  MATCH with authorized historical FC09 field evidence. Other ten NOT_COMPARABLE;
+  unit/engineering authority NOT_PROVEN. Whole-model/results equivalence NOT_PROVEN.
+- Backend vtable/method IID NOT_OBSERVED_NOT_PROBED; selection NOT_READ, no selection
+  mutation or independent fresh selection-identity claim. Matrix/result rows0.
+- Documentation adoption:2099 exact PASS identities retained,510 accepted test files
+  byte unchanged,45 protected drift0, old artifacts/target LF rules unchanged.
+  Architecture31 PASS/same6 real FAIL; full sets equal/new expanded0; compile/import/diff PASS.
+- ABI5 merge assessment follows adoption; no PR/merge action asserted or performed.
+
+NEXT EXACT CAUSAL EDGE: prepare separately reviewed one FrameObj.GetPoints(Name="235")
+offline package. Preserve raw Point1/Point2 ordering without bottom/top inference.
+New live getter authorization NO. FC09 gate UNCHANGED; GLOBAL_DELTA NOT_PROVEN;
+M6_B OPEN; matrix scan NOT_STARTED; R2_RERUN_READY NO.
