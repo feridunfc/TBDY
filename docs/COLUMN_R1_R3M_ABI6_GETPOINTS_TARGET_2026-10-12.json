@@ -1,0 +1,65 @@
+{
+  "scope": "ABI6_OFFLINE_ONE_GETPOINTS_PROPOSAL_NOT_EXECUTION_AUTHORITY",
+  "base_HEAD": "6ddd8a9aab70db852b85ff0b3ee6f6cae0e80fdd",
+  "base_TREE": "ad8032d1937d6c778258fbea4ebb00a63746ddcf",
+  "method": "FrameObj.GetPoints",
+  "named_inputs": {
+    "Name": "235"
+  },
+  "maximum_target_attempts": 1,
+  "maximum_target_callbacks": 1,
+  "candidate_source_sha256": "61FA288FE6AA098B16062B0BAAE3FB882937AB68280C93971475AA39B2246621",
+  "historical_FC09_source_sha256": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+  "frame_authority": {
+    "original_name": "column-r1-r3m-abi4-getsection_20261012_111117_773_05dcddd5588b4dc9a09936354081d044.json",
+    "json_sha256": "be7874f5e1b58806dd547201ce0d7cb0e551b01a12b941778d654767fdbc7d33",
+    "sidecar_sha256": "b67a0d382e94ceac14c371a5959a38ac56e3972190ca6bb818411aec8e46cb25",
+    "Frame_Name": "235",
+    "observed_PropName": "Column_80x80",
+    "scope": "CURRENT_CANDIDATE_FRAME_NAME_AND_SECTION_ASSIGNMENT_ONLY"
+  },
+  "closed_property_authority": {
+    "original_name": "column-r1-r3m-abi5-getsectprops_20261012_143702_982_a2da120be4ae460f974a694fdd6dfff6.json",
+    "json_sha256": "6a41d69c323e9cf0eabb988bb99d2df74b1f229adcb579b2e9265bd2f65003e6",
+    "sidecar_sha256": "d326d1137529ac22b29a5f9b08c05dc9d1d35e107ad71da9cf30464e453cd22e",
+    "scope": "ABI5_CLOSED_NAMED_SECTION_PROPERTY_ONLY_NO_ENDPOINT_AUTHORITY"
+  },
+  "accepted_declaration": {
+    "record_index": 2,
+    "declaring_IID": "{F87E3A66-8381-4202-897F-46683A8477D4}",
+    "numeric_flags": [
+      1,
+      3,
+      3,
+      10
+    ],
+    "native_raw_metadata_sha256": "4b84e22384f2659516b2ec4f63c84bb18aadb7d74f09876748bf369797991e2e",
+    "wrapper_raw_sha256": "e49a1811e13c1259bad7a08023801d2264de7148022f9d92c59ad76901856469",
+    "named_input": "Name",
+    "omitted_INOUT": [
+      "Point1",
+      "Point2"
+    ],
+    "returned_order": [
+      "Point1",
+      "Point2",
+      "pRetVal"
+    ],
+    "backend_vtable_method_IID": "NOT_OBSERVED_NOT_PROBED"
+  },
+  "endpoint_interpretation": {
+    "order_scope": "NATIVE_POINT1_POINT2_RETURN_SLOT_ORDER_ONLY",
+    "Point1_is_bottom": "NOT_PROVEN",
+    "Point2_is_top": "NOT_PROVEN",
+    "bottom_top_assignment": "NOT_PROVEN_NO_COORDINATE_OR_STORY_INFERENCE",
+    "point_object_to_analysis_joint_binding": "NOT_PROVEN",
+    "panel_zone_applicability": "NOT_PROVEN",
+    "physical_geometry_equivalence": "NOT_PROVEN",
+    "whole_model_equivalence": "NOT_PROVEN"
+  },
+  "live_execution_authorized": false,
+  "FC09_production_gate": "UNCHANGED",
+  "source_authority_rebound": false,
+  "matrix_scan": "NOT_STARTED",
+  "GLOBAL_DELTA": "NOT_PROVEN"
+}
