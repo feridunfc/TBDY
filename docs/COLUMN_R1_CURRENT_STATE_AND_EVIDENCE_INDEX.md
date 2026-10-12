@@ -706,3 +706,34 @@ FULL_FACT_CENSUS/172_MATRIX_SCAN/P2 NOT_AUTHORIZED; GLOBAL_DELTA NOT_PROVEN;
 M6_B OPEN; R2_RERUN_READY NO. NEXT EXACT CAUSAL EDGE: separately reviewed
 one GetSectProps(Name="Column_80x80") proposal using this observed assignment;
 no additional live/census/matrix authorization from receipt adoption.
+
+## R3M ABI-5 — one GetSectProps offline package (2026-10-12)
+
+- Base75868c7/treeaf9faad; ABI2/3/4 CLOSED/REUSE; no live probe or getter rerun.
+- Proposal: exactly PropFrame.GetSectProps(Name="Column_80x80"), keyword Name,
+  twelve omitted INOUT via original qualified wrapper; max1 target attempt,
+  max1 bounded target callback, no retry/fallback. Separate authorization required.
+- Name bound to original accepted ABI4 assignment JSON+sidecar, independently
+  hashed; all original pairs unchanged outside Git. No original native arrays in Git.
+- Source-bound target: `COLUMN_R1_R3M_ABI5_GETSECTPROPS_TARGET_2026-10-12.json`.
+- Contract/limits: `COLUMN_R1_R3M_ABI5_GETSECTPROPS_PREPARATION_2026-10-12.md`.
+- Permanent offline evidence: `COLUMN_R1_R3M_ABI5_OFFLINE_RECEIPT_2026-10-12.json`.
+- Exact cPropFrame IID/flags/pointer types and existing code/closure/prototype
+  must still match original ABI3 records before any proposed call; backend
+  vtable/method IID NOT_OBSERVED_NOT_PROBED. Thirteen outputs, twelve finite
+  exact Float64 scalars, final exact int0; HRESULT separate; no axis swap/coercion.
+- FC09 original raw twelve properties recovered offline; only I22(index4)/I33(index5)
+  have accepted m4/L4 field authority. Other ten fields NOT_COMPARABLE/NOT_PROVEN.
+  Current candidate values NOT_OBSERVED. No name formulas or source rebinding.
+- 2099 PASS =2033 accepted identities preserved +66 new;508 existing test files
+  byte unchanged. Architecture31 PASS/6 real FAIL, full sets equal, delta0;
+  protected45 drift0; compile/import/diff PASS. ABI4 LF rule preserved; exact
+  ABI5 LF path added; actual isolated Git autocrlf true/false tests PASS.
+- Python/PowerShell outside Git; final HEAD/TREE/artifact hashes in external
+  handoff after commit. Checkout preparation never invokes ETABS; STOP review.
+- LIVE_GETSECTPROPS NOT_EXECUTED; worker ETABS NO; FC09 gate UNCHANGED;
+  candidate-only; source/model/selection mutation NO; global/P2/matrix capture NO;
+  GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
+
+NEXT EXACT CAUSAL EDGE: review the separately pinned ABI5 offline package;
+then separately authorize at most one GetSectProps read. No next getter/census/scan.
