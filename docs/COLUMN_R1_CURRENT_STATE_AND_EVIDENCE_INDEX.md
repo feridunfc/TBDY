@@ -1,5 +1,15 @@
 # Column-R1 current state and evidence index
 
+Latest product state (2026-10-12): V1 was rejected as a product. Column V2 now
+connects editable reference inputs to the existing pure Python column engine.
+Real Chromium/backend calculation, changed-input/stale/recalculation, 235 context
+separation and report downloads are qualified offline. 2212 PASS = 2162 accepted
+supervisor identities + 16 preserved V1 identities + 34 new. The current product
+checkpoint is `248e4cc8eb5865f25726e24cee231f64c321f592`, tree
+`f04659b2b51d1c641fd1f7ca36c5aed5fa7aa0d2`. Product review is next; project
+engineering authority remains unchanged. Historical reconciliation notes follow;
+the latest V2 receipt and delivery section at the end take product precedence.
+
 Reconciled 2026-10-11 after PR #205 history-preserving R3L integration. All 1614 accepted PASS identities are preserved. R3K native schema remains CLOSED; R3D–R3L are not reopened. R3M reuses the accepted 1044 / LC_DL observation and prepares a repo-external getter-only empirical matrix experiment. The worker has not executed ETABS. Global coordinate/modal-result/physical-table/panel-zone contracts remain BLOCKED, P2 remains unauthorized, M6-B remains OPEN and R2 is not ready. This index grants no engineering result, B5 epoch or release approval.
 
 ## Accepted repository checkpoint and precedence
@@ -839,3 +849,41 @@ FC09 gate UNCHANGED; worker ETABS/GetPoints NO; no new getter preparation;
 matrix scan NOT_STARTED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
 NEXT EXACT CAUSAL EDGE: open/review actual Column235 V1 delivered product.
 Engineering/gateway authority remains separate from this report delivery.
+
+## COLUMN V2 - working calculation workspace / supervisor product review
+
+- Product instructions and scope audit: `COLUMN_V2_PRODUCT_2026-10-12.md`.
+- Immutable offline receipt: `COLUMN_V2_OFFLINE_RECEIPT_2026-10-12.json`.
+- Existing V1 worker continued, original V1 history preserved; no main merge.
+- Launch: `python tools/serve_column_v2.py`; local UI at `http://127.0.0.1:8765`.
+- Application boundary: `application/column_reference_workspace.py`; existing
+  `evaluate_column_design` is called once per accepted reference calculation.
+- Reference/demo only: linear demand, minimum eccentricity, two-axis slenderness,
+  legacy DESIGN_CANDIDATE_ONLY longitudinal layout/radial-capacity trial.
+- Exact independent regression edge: width500 ->800 mm; M3 lambda20 ->12.5,
+  minimum moment30 ->39 kN.m. Actual capacity utilization changed
+  0.0780633994462998 ->0.04547598009942329; observed engine output, not a
+  fabricated independent capacity expectation.
+- Server revision invalidates stale results and reports; concurrent input changes
+  reject returned stale results. Invalid/missing input has no default fallback.
+- Actual Chromium153 UI + clean-profile Python HTTP execution: all four requested
+  flows PASS, zero page errors. Downloaded JSON equals screen result; PDFs use
+  the same typed calculation. Three reference pages and separate 235 evidence
+  page visually reviewed. Openable HTML calculation output is a saved report;
+  the editable application remains the real Python-backed workspace.
+- Separate 235: exact pinned candidate assignment and I22/I33; no demo dimensions,
+  forces, reinforcement, end-role mapping or results. FC09 archive and candidate
+  source remain separate. Missing geometry/material/design demands/epoch/rebar/
+  physical-binding/global-coordinate coverage explicit; no 235 engineering verdict.
+- 2212 PASS, no FAIL/ERROR/SKIP in full private-evidence integration. Exact2178
+  identities preserved (2162 supervisor+16 V1),34 new.513 accepted test files
+  byte-unchanged. Architecture31PASS/same6 realFAIL; full five diagnostic sets and
+  sixth native mutation callsite sets equal; new/expanded0;45 protected drift0.
+  Compile/import/diff PASS;27 old operator artifacts and7 V1 outputs unchanged.
+
+WORKER_ETABS=NO; LIVE_GETPOINTS=NOT_EXECUTED/NOT_AUTHORIZED;
+NEW_NATIVE_GETTERS=0; MATRIX_SCAN=NOT_STARTED; RESULT_CAPTURE=NO.
+FC09_PRODUCTION_GATE=UNCHANGED; GLOBAL_DELTA=NOT_PROVEN; M6_B=OPEN;
+R2_RERUN_READY=NO. No new native or project-engineering authorization.
+NEXT EXACT CAUSAL EDGE: supervisor product review of the working calculation
+screen and real reference calculation report. V1 is not the current product.
