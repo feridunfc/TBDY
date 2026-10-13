@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-import test_column_public_population_project_root as population
+from tests.application import test_column_public_population_project_root as population
 import tbdy_engine.application.column_execution as column
 import tbdy_engine.application.column_public_a5 as a5
 import tbdy_engine.application.column_public_a5_second_order as second_order
@@ -73,7 +73,7 @@ from tbdy_engine.providers.etabs_concrete_design_combo_selection_probe import (
 from tbdy_engine.providers.etabs_story_stability_result_provider import EtabsStoryStabilityComboFact
 from tbdy_engine.providers.strict_topology_stiffness_evidence_provider import build_assigned_rc_frame_bending_modifier_evidence
 from tbdy_engine.regulatory.contracts import ApplicabilityState, AvailabilityState
-from unit_contract_fixtures import binding as synthetic_unit_binding
+from tests.providers.unit_contract_fixtures import binding as synthetic_unit_binding
 
 
 C1, C2 = population.COMPONENT_1, population.COMPONENT_2

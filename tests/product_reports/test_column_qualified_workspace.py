@@ -6,7 +6,7 @@ import os
 import sys
 import pytest
 
-import test_column_public_mixed_vertical as vertical
+from tests.application import test_column_public_mixed_vertical as vertical
 from tbdy_engine.application.column_qualified_workspace import (
     QualifiedColumnChannel, QualifiedColumnScope, exact_data, project_column_view,
 )

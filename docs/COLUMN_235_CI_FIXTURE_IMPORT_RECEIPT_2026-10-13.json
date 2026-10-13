@@ -1,0 +1,110 @@
+{
+  "scope": "BOUNDED_TEST_FIXTURE_IMPORT_CORRECTION_ONLY",
+  "BASE_HEAD": "9f426f5b6376b9c6da984270171556d2e3b2c496",
+  "BASE_TREE": "c557a517d07fa973a8ea5c2aabb3fbb8d65d34fb",
+  "PR_BASE_HEAD": "810f93159bc2207b3d0280ac85e9930b7aaf6586",
+  "supervisor_review": {
+    "name": "COLUMN_235_ABI7_SUPERVISOR_PACKAGE_REVIEW_2026-10-13(1).md",
+    "sha256": "ca4d8d9fb49a27b809a622ea725d162184c6ab897410ab9e40ec1e1232dba2a2",
+    "ABI6_adoption": "ACCEPTED / CLOSED_REUSE",
+    "ABI7_offline_proposal": "ACCEPTED",
+    "live_coordinate_authorization": "NONE",
+    "merge_authorization": "NONE"
+  },
+  "root_cause": "qualified report tests depended on bare sibling fixture imports from unselected application/provider directories; private PYTHONPATH hid the CI collection failure",
+  "changed_test_imports": {
+    "tests/product_reports/test_column_qualified_workspace.py": "tests.application.test_column_public_mixed_vertical",
+    "tests/application/test_column_public_mixed_vertical.py": [
+      "tests.application.test_column_public_population_project_root",
+      "tests.providers.unit_contract_fixtures"
+    ]
+  },
+  "function_and_assertion_AST_unchanged": true,
+  "production_gateway_formula_workflow_bytes_unchanged": true,
+  "new_tests": 0,
+  "new_skip_ignore_or_gate_allowlist": false,
+  "cold_CI_collection": {
+    "profile": [
+      "tests/regulatory",
+      "tests/coverage",
+      "tests/design/columns",
+      "tests/features",
+      "tests/product_reports"
+    ],
+    "private_PYTHONPATH": "UNSET",
+    "base_checkpoint": "1163 collected /1ERROR test_column_public_mixed_vertical",
+    "corrected": "1188 collected /0ERROR; original25qualified owner cases retained"
+  },
+  "private_collection": {
+    "identities": 2404,
+    "missing": 0,
+    "fresh_full_PASS_claim": false
+  },
+  "previous_test_source_files": {
+    "count": 524,
+    "unchanged": 522,
+    "import_only_changes": 2
+  },
+  "architecture": {
+    "PASS": 31,
+    "same_real_FAIL": 6,
+    "new_or_expanded": 0,
+    "complete_guard_sets_equal": true,
+    "protected_hash_drift": 0,
+    "protected_count": 45
+  },
+  "ABI7_original": {
+    "operator_HEAD": "9f426f5b6376b9c6da984270171556d2e3b2c496",
+    "operator_TREE": "c557a517d07fa973a8ea5c2aabb3fbb8d65d34fb",
+    "zip_sha256": "2ea3595705472647757c26fe595a9802aa493999021e8160dadb1aa2f35ea82e",
+    "silently_repinned": false,
+    "zip_bytes_unchanged": true,
+    "moving_branch_prepare_after_worker_push": "original FETCH_HEAD==9f426f5 guard will stop on newer worker branch; preserve original operator checkpoint/artifacts, no automatic update",
+    "check_attr_scope": "original operator check-attr remains ABI6; no claim of ABI7 attr check; exact ABI7 SHA guard preserved"
+  },
+  "COMPILE": "PASS",
+  "IMPORT": "PASS_COLD_FIXTURE_COMPOSITION_NO_NATIVE",
+  "DIFF_CHECK": "PASS",
+  "proof_sha256": {
+    "validation/column235-ci-import-exact-before.log": "b511dce76f350c7d359817a41c1c77302f3f52319657ae79e962e927b9cf09d9",
+    "validation/column235-ci-import-after.log": "9613721a344c59e872be05927a1c63b558d5b20135cd8734e0447813cd641322",
+    "validation/column235-ci-private-collection/integrated.log": "3a96394d682aa1aefd2e5771cc6269f5e98ab42e344b3b2103e111e0f06f7a01",
+    "validation/column235-ci-base-architecture.xml": "d708fd6bf4139d5d2fadd20eacac6cba64cf5c4dc7702c6e5814ea320ce5101f",
+    "validation/column235-ci-current-architecture.xml": "a503f35e38baae58d776dd9846fa65fc19bfa0e88dddfce433ba3d32cd3daaa3",
+    "validation/column235-ci-base-guards.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e",
+    "validation/column235-ci-current-guards.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e",
+    "validation/column235-ci-candidate-broad.xml": "fc828736ac58627b29be315fda89bc3c1981513af284d74d39ad3c97ea27e951",
+    "validation/column235-ci-candidate-broad.log": "4088c4a243df986fd8e01b328404040f9f31dee498760d798d2046b06170d89e",
+    "validation/column235-ci-current-base-broad.xml": "dcf6c52a64c7953241890b3ae0560a8f79f96a3c285206e40156b2d7947f2be3",
+    "validation/column235-ci-current-base-broad.log": "5b78004d92838d9c294b7c4a261d9779f0ca2e74abecbb32144848b065756c50",
+    "validation/column235-ci-zero-new/gate.log": "e04bd35bc3a09f01644790ec3b8601bf86fea98ebc05b0f0cfd38af680ab499d",
+    "validation/column235-ci-candidate-installed-gateway.xml": "5045f7e3e6d4d79a97672d72cc95476f0b317339271d2542b6043f11f0ab13d4",
+    "validation/column235-ci-base-installed-gateway.xml": "dd636820db09a0fba2174edd7c705e3e371866333d5a0864f4c685901cac89e0"
+  },
+  "WORKER_ETABS": "NO",
+  "NEW_NATIVE_GETTERS": 0,
+  "LIVE_COORDINATES": "NOT_EXECUTED / NOT_AUTHORIZED",
+  "FC09_PRODUCTION_GATE": "UNCHANGED",
+  "GLOBAL_DELTA": "NOT_PROVEN",
+  "M6_B": "OPEN",
+  "R2_RERUN_READY": "NO",
+  "local_broad_original_attempt": {
+    "runtime": "Linux CPython3.12 / local SDK toolchain; not identical to GitHub3.11 dependency environment",
+    "private_fixture_paths": "NONE; PYTHONPATHunset",
+    "candidate_PASS": 1147,
+    "candidate_FAIL": 3,
+    "candidate_SKIP_preexisting_profiles": 38,
+    "base_PASS": 1021,
+    "base_FAIL": 3,
+    "qualified_owner25_PASS": 25,
+    "third_common_failure": "editable gateway install omitted in initial local broad environment; no code failure; corrected focused install checks recorded separately",
+    "original_workflow_zero_new_gate": "PASS; same three signatures; gate code unchanged",
+    "single_clean_full2404": "NOT_RERUN_NOT_CLAIMED"
+  },
+  "editable_gateway_import_checks": {
+    "candidate": "PASS",
+    "base": "PASS",
+    "source_changes": "NONE; gateway installed using existing editable package"
+  },
+  "remote_new_CI": "PENDING_AFTER_PUSH; no pass claim"
+}

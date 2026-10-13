@@ -1105,3 +1105,19 @@ three affected ids passed after fixture-only correction. No single clean2404
 full-run claim. Exact-base architecture31PASS/same6realFAIL; expanded0,45protected
 hashdrift0; compile/import/diffPASS. Proof partitions/hashes are explicit in the
 adoption index; raw original native responses remain outside Git.
+
+## Supervisor ABI7 acceptance; bounded UR-1E fixture import correction
+
+ABI6 adoption CLOSED_REUSE and original ABI7 offline proposal ACCEPTED by the
+latest supervisor; native authorization NONE. Old9f426f5UR-1E failed collection,
+not native ABI/model analysis. Three bare fixture imports now use explicit
+tests.application/providers packages; owner/fixture body AST unchanged, no
+workflow/guard/production change. [Reconciliation](COLUMN_235_CI_FIXTURE_IMPORT_RECONCILIATION_2026-10-13.md)
+and [receipt](COLUMN_235_CI_FIXTURE_IMPORT_RECEIPT_2026-10-13.json) retain original
+review hash, cold collection1163+ERROR→1188clean, actual25ownerPASS, local broad
+same3FAIL/zero-newPASS and the corrected editablegateway focused checks. Local
+SDK3.12 is distinct from GitHub3.11; pending remoteCI is not PASS.2404private
+identities preserved/collected, full2404notrerun; architecture same6FAIL/delta0,
+protected45drift0. Original ABI7 ZIP/scripts/operator9f checkpoint unchanged;
+its moving-branch prepare check will STOP on this newer worker HEAD. No silent
+repin, merge or native authorization; FC09UNCHANGED/GLOBALNOTPROVEN/M6_BOPEN/R2NO.
