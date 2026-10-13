@@ -1074,3 +1074,34 @@ No merge, review or comment sent. Source, native package, runtime, tests, core
 formulas and guards unchanged. WORKER_ETABSNO; new_native_getters0; GetPoints
 NOT_EXECUTED/NOT_AUTHORIZED; matrix NOT_STARTED; FC09UNCHANGED; GLOBAL_DELTA
 NOT_PROVEN; M6_BOPEN; R2NO.
+
+## ABI6 original receipt adopted; exact two-coordinate proposal only
+
+The latest original supervisor acceptance closes the operator's single
+GetPoints(Name235) at original98f15e0. The unchanged JSON/sidecar, all six original
+pairs, native/wrapper/raw/typed hashes and source/session/units/lock are verified
+offline. Current61FA Point1=955/Point2=758 match historicalFC09 names/slot order
+only. Start-time is console/PowerShell evidence, not an original JSON field;
+fingerprintNone and selectionNOT_READ remain explicit. One-call authority is
+consumed. Earlier NOT_EXECUTED G1 text is historical and superseded here.
+
+[Adoption / proposal index](COLUMN_235_ABI6_ADOPTION_AND_ABI7_OFFLINE_RECEIPT_2026-10-13.json)
+and [bounded ABI7 review](COLUMN_235_ABI7_COORDINATES_REVIEW_2026-10-13.md) prepare
+only PointObj.GetCoordCartesian Name955/758 with explicit keyword CSysGlobal,
+accepted INOUT metadata/original wrapper and exact candidate units. Two maximum
+attempts in one30sSTAcallback; first failure STOP; no nested gateway identity,
+fallback or retry. External Python/PowerShell are absent from Git. No native
+coordinate/result call was performed or authorized by the worker. No bottom/top,
+ln/k, offsets/restraints, analysisjoint/panelzone, material/cage, B5/B6 or global
+displacement contract is inferred. Reference slice remains CLOSED_REUSE.
+
+PR208 remains draft/unmerged; next edge is separate supervisor package review.
+FC09UNCHANGED; GLOBAL_DELTANOT_PROVEN; M6_BOPEN; R2NO.
+
+Final bounded verification:78focusedPASS;141ABI6+ABI7integratedPASS. All2326prior
+identities PASS in the fresh full attempt and all523prior test files unchanged.
+That attempt retained2401PASS/3FAIL in the pre-fix new Linux fake-Windows harness;
+three affected ids passed after fixture-only correction. No single clean2404
+full-run claim. Exact-base architecture31PASS/same6realFAIL; expanded0,45protected
+hashdrift0; compile/import/diffPASS. Proof partitions/hashes are explicit in the
+adoption index; raw original native responses remain outside Git.

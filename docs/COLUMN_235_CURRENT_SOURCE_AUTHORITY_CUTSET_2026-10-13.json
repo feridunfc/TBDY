@@ -69,7 +69,13 @@
     "B5": null,
     "B6": null,
     "selection_scope": "ABI4/5/6 NOT_READ; no new selection identity assertion",
-    "endpoint_names": "NOT_OBSERVED_CURRENT_CANDIDATE",
+    "endpoint_names": {
+      "Point1": "955",
+      "Point2": "758",
+      "source": "ABI6 original pair only",
+      "original_json_sha256": "3e31d78cb74c3f65079df347391f3c97a3f05460d6cbb8c3e72eba22766f28ed",
+      "bottom_top": "NOT_PROVEN"
+    },
     "width_depth": "NOT_OBSERVED_CURRENT_CANDIDATE",
     "material_binding": "NOT_OBSERVED_CURRENT_CANDIDATE",
     "physical_final_cage": "NOT_PROVIDED",
@@ -193,14 +199,15 @@
       "R2_RERUN_READY": false
     },
     "reuse_not_reprepare": true,
-    "maximum_target_calls": 1,
-    "proposed_only": "FrameObj.GetPoints(Name=\"235\")",
+    "maximum_target_calls": 0,
+    "proposed_only": "NO_ADDITIONAL_GETPOINTS",
     "execution_authorized": false,
     "required_PID": 2072,
     "required_process_start_UTC": "2026-10-09T15:47:08.1780017Z",
     "new_PID_or_start": "STOP; separate session/profile review required; original artifact must not be edited",
     "selection": "NOT_READ / NO_ACCESS / NO_MUTATION",
-    "post_success_scope": "native Point1/Point2 names only; no coordinates, bottom/top, analysis-joint/panel-zone binding, B5/B6 or material readiness"
+    "post_success_scope": "native Point1/Point2 names only; no coordinates, bottom/top, analysis-joint/panel-zone binding, B5/B6 or material readiness",
+    "status": "CLOSED_REUSE; original ABI6 one-call authority consumed; no repeat"
   },
   "parallel_engineering_decision": "M6-B source-authorized modal stability action/combination law and actual235/current whole-story proof; cannot be closed by GetPoints",
   "production_requirements": [
@@ -213,14 +220,16 @@
   ],
   "WORKER_ETABS": "NO",
   "NEW_NATIVE_GETTERS": 0,
-  "LIVE_GETPOINTS": "NOT_EXECUTED / NOT_AUTHORIZED",
+  "LIVE_GETPOINTS": "EXECUTED_BY_AUTHORIZED_OPERATOR_ONCE; ONE_CALL_AUTHORIZATION_CONSUMED",
   "172_MATRIX_SCAN": "NOT_STARTED",
   "RESULT_CAPTURE": "NO",
   "FC09_PRODUCTION_GATE": "UNCHANGED",
   "GLOBAL_DELTA": "NOT_PROVEN",
   "M6_B": "OPEN",
   "R2_RERUN_READY": "NO",
-  "validation": {
+  "next_coordinate_proposal": "ABI7 PointObj.GetCoordCartesian only955/758, explicit CSysGlobal, separate review; NOT_AUTHORIZED",
+  "latest_adoption_index": "COLUMN_235_ABI6_ADOPTION_AND_ABI7_OFFLINE_RECEIPT_2026-10-13.json",
+  "validation_at_c129_pre_adoption_checkpoint_only": {
     "change_kind": "DOCUMENTATION_AND_DERIVED_EVIDENCE_ONLY",
     "all_tracked_non_docs_bytes_unchanged": 1332,
     "previous_2326_worker_test_identity_ledger": "PRESERVED / REUSE_NOT_FRESH_RERUN_NOT_INDEPENDENTLY_REACCEPTED",
@@ -242,5 +251,40 @@
       "validation/column235-base-guards.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e",
       "validation/column235-current-guards.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e"
     }
+  },
+  "current_step_validation_summary": {
+    "focused_PASS": 78,
+    "bounded_ABI6_ABI7_integrated_PASS": 141,
+    "previous_worker_2326_identities_preserved": 2326,
+    "missing_previous_identities": [],
+    "previous_test_files_bytes_unchanged": 523,
+    "fresh_full_private_attempt": {
+      "PASS": 2401,
+      "FAIL": 3,
+      "all_2326_previous_cases_PASS": true,
+      "failed_new_test_ids": [
+        "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[first_response]",
+        "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[none]",
+        "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[source_after]"
+      ],
+      "reason": "pre-fix new offline Linux Windows-transport test harness lacked synthetic ctypes.HRESULT; test fixture only corrected",
+      "all_failed_ids_PASS_in_final_bounded_run": true,
+      "single_clean_final_2404_full_run": "NOT_RERUN; no claim",
+      "test_harness_only_change_not_external_probe_or_production_change": true
+    },
+    "partitioned_final_identity_coverage": 2404,
+    "identity_algorithm": "sorted JUnit classname::name; full legacy-pass partition plus final bounded new-test pass partition",
+    "final_identity_sha256": "ba2325a33e3f584aebef897b57fcd3f66a45a60a85e0d5ab6e543fd94780ed56",
+    "architecture_PASS": 31,
+    "same_real_architecture_FAIL": 6,
+    "new_or_expanded": 0,
+    "complete_guard_sets_equal": true,
+    "protected_surface_count": 45,
+    "protected_hash_drift": 0,
+    "COMPILE": "PASS",
+    "IMPORT": "PASS_OFFLINE_NO_NATIVE",
+    "DIFF_CHECK": "PASS",
+    "PowerShell_native_parser": "NOT_AVAILABLE; template/command/pin static audit PASS",
+    "Windows_actual_checkout": "NOT_EXECUTED_BY_WORKER; autocrlftrue exact-byte profile PASS; operator preflight mandatory"
   }
 }
