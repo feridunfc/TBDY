@@ -1,14 +1,20 @@
 # Column-R1 current state and evidence index
 
-Latest product state (2026-10-12): V1 was rejected as a product. Column V2 now
-connects editable reference inputs to the existing pure Python column engine.
-Real Chromium/backend calculation, changed-input/stale/recalculation, 235 context
-separation and report downloads are qualified offline. 2212 PASS = 2162 accepted
-supervisor identities + 16 preserved V1 identities + 34 new. The current product
-checkpoint is `248e4cc8eb5865f25726e24cee231f64c321f592`, tree
-`f04659b2b51d1c641fd1f7ca36c5aed5fa7aa0d2`. Product review is next; project
-engineering authority remains unchanged. Historical reconciliation notes follow;
-the latest V2 receipt and delivery section at the end take product precedence.
+Latest product state (2026-10-13): supervisor R1 rejected the reviewed V2
+checkpoint `2e00b3ab43d9a34322f5702b2311f21e40e911a8` because a delayed
+235 response could overwrite an active reference screen. The bounded frontend
+repair is committed at `039118970fc80edeeb05d137d452c752b7f6d050`, tree
+`b99b7192317fc2174ba90543016fb6b1cef10eb6`. Immutable context/epoch/revision
+checks now discard obsolete state, calculation, error and export responses.
+Real Chromium with the real Python HTTP backend passes 12 delayed-response
+regressions and all four normal flows; 500→800 reference expectations remain
+unchanged. 2224 PASS preserves all 2212 reviewed identities. The same six real
+architecture FAIL remain, with zero new/expanded violations and zero drift on
+45 protected surfaces. Numerical Python, regulatory/source authority, native
+ABI and architecture policy are unchanged. Revised product review is PENDING;
+no product acceptance or merge is claimed. The user has not installed the app.
+Historical reconciliation notes follow; the latest R1 section takes product
+precedence without altering engineering gates.
 
 Reconciled 2026-10-11 after PR #205 history-preserving R3L integration. All 1614 accepted PASS identities are preserved. R3K native schema remains CLOSED; R3D–R3L are not reopened. R3M reuses the accepted 1044 / LC_DL observation and prepares a repo-external getter-only empirical matrix experiment. The worker has not executed ETABS. Global coordinate/modal-result/physical-table/panel-zone contracts remain BLOCKED, P2 remains unauthorized, M6-B remains OPEN and R2 is not ready. This index grants no engineering result, B5 epoch or release approval.
 
@@ -887,3 +893,26 @@ FC09_PRODUCTION_GATE=UNCHANGED; GLOBAL_DELTA=NOT_PROVEN; M6_B=OPEN;
 R2_RERUN_READY=NO. No new native or project-engineering authorization.
 NEXT EXACT CAUSAL EDGE: supervisor product review of the working calculation
 screen and real reference calculation report. V1 is not the current product.
+
+## Column V2 supervisor R1 — bounded async context repair (2026-10-13)
+
+[Repair scope and browser profile](COLUMN_V2_PRODUCT_REVIEW_R1_FIX_2026-10-13.md)
+and [immutable offline receipt](COLUMN_V2_R1_OFFLINE_RECEIPT_2026-10-13.json)
+record the exact rejected base, preserved original review/archive identities,
+actual rejected-race reproduction, 12 corrected real-browser scenarios,
+46 focused PASS and 2224 integrated PASS with 2212 identities preserved.
+All 514 existing test files remain byte-identical. The engine/server/report
+renderer and production Python are unchanged. Fresh exact-baseline guards show
+31 PASS and the same six actual FAIL with no expanded violations; protected
+hash drift is 0/45. New browser/backend captures bind the repaired HTML hash.
+The reference PDFs and numerical manifests match the original worker-profile
+outputs; this statement does not assert byte equality for separately uploaded
+PDF renditions. Original native receipt pairs, rejected review, original
+worker artifacts and supervisor archive/delivery are preserved separately.
+
+The corrected app ZIP and new delivery manifest will bind the closing commit
+and tree. Installation/execution on the user's machine is not claimed. STOP
+for revised supervisor product review. WORKER_ETABS=NO; NEW_NATIVE_GETTERS=0;
+LIVE_GETPOINTS=NOT_EXECUTED/NOT_AUTHORIZED; 172_MATRIX_SCAN=NOT_STARTED;
+RESULT_CAPTURE=NO; FC09_PRODUCTION_GATE=UNCHANGED; GLOBAL_DELTA=NOT_PROVEN;
+M6_B=OPEN; R2_RERUN_READY=NO. No new native preparation is started.

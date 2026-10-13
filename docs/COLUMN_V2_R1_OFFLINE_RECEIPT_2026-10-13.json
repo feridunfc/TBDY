@@ -1,0 +1,590 @@
+{
+  "scope": "COLUMN_V2_SUPERVISOR_R1_ASYNC_CONTEXT_REPAIR_OFFLINE",
+  "review_verdict": "REVISION_REQUESTED;REVISED_PRODUCT_REVIEW_PENDING",
+  "base_HEAD": "2e00b3ab43d9a34322f5702b2311f21e40e911a8",
+  "base_TREE": "fcf01d78619d46af68f373150c282ef43ad7cc65",
+  "fix_HEAD": "039118970fc80edeeb05d137d452c752b7f6d050",
+  "fix_TREE": "b99b7192317fc2174ba90543016fb6b1cef10eb6",
+  "branch": "worker/column-v1-report-235",
+  "original_supervisor_files_sha256": {
+    "evidence/column-v2-r1-supervisor-originals/Column_V2_Reports_and_Evidence(1).zip": "bc2b938208991c8bb783a36c7cc6e612574d0a2b1508e803770ef0891e61bd59",
+    "evidence/column-v2-r1-supervisor-originals/Column_V2_Delivery(1).json": "0abb9a7c464b9967349b1d797059d17b92b5baeff6a52d16d55c31ca1b81d793",
+    "column-v2-release/Column_V2_App.zip": "aa71ae03549dbeda989d3127a739d6a4cfc3d1616846aa5c657fb0635905981f",
+    "upload/COLUMN_V2_SUPERVISOR_PRODUCT_REVIEW_R1_2026-10-13(1).md": "394c5a60436290f0f482a7e3fedf00fc3216139a32ddee5fa7635abef5f2b685"
+  },
+  "rejected_original_chromium_reproduction": {
+    "path": "validation/column-v2-r1-rejected-reproduction2/race_235_reference.json",
+    "sha256": "1fd5459520ca2229c3ec3889437f917438cbed019b079ab9596aca4fa3e58e77",
+    "observed_dropdown": "reference",
+    "observed_manifest": "B-BLOK-235",
+    "observed_width_input": null
+  },
+  "original_worker_artifacts_preserved_sha256": {
+    "column-v2-release/02_Reference_Calculated.png": "76121730e8f86b02477e47031d795cfb5c6bd4e248a1e6f83b4cd562c59c13ca",
+    "column-v2-release/Column_V2_App.zip": "aa71ae03549dbeda989d3127a739d6a4cfc3d1616846aa5c657fb0635905981f",
+    "column-v2-release/Column_V2_REVIEW.md": "bdb3c7bf0d71ff309ca9ab553797486aaa5a4d050aef52ffa06d7c4d90e627b9",
+    "column-v2-release/04_Reference_Recalculated.png": "e61a7de6e8f7af851c536fead81d9368b9ea5dbb6636c4a3c19f7eb0463b8117",
+    "column-v2-release/Reference_Input_Bundle.json": "46159ff8d9273ef47d33a6da95d63d3e88132b08de700a7e007e9ad9f3099310",
+    "column-v2-release/Backend_Execution.jsonl": "4694d0168e0a49d42fecfa2335a1c897487de455e0a60fa08ba4d8aee6c78f90",
+    "column-v2-release/Input_Result_Manifest.json": "cc5f0336347fac9736a13f0b272c8bea4f3d8b2ba68d82f857e0eef24f705838",
+    "column-v2-release/Backend_Server.log": "e878d0612ed6d4e35a6dbf675548eff10e7d7749683e78f6bf9224be56ff8683",
+    "column-v2-release/Column_V2_Delivery.json": "0abb9a7c464b9967349b1d797059d17b92b5baeff6a52d16d55c31ca1b81d793",
+    "column-v2-release/03_Input_Changed_Stale.png": "e33828ebdfa316b2ad5b0a778ac68bf1c882bdf66d4cd52780c454ad69618bce",
+    "column-v2-release/05_Column_235_Evidence.png": "47fe38764fab1c559bf05ae6fdcd34c230c2818106c67721d323d9428148d5de",
+    "column-v2-release/Column_235_Evidence.pdf": "e78903f8859ec2f3cd4ce0b52a35b501030118475f8aad7b702b1a95d3e13131",
+    "column-v2-release/Column_V2_Reference_Report.html": "98f3507e71bb942f0b553f35e1d4f440a76e2ad1f4729b19acc53b9e51e3d4c2",
+    "column-v2-release/Reference_Column_Calculation.pdf": "198a5a8237fcae5c9af7232b754e5821494d3e95702777b4897782d8d447fc0d",
+    "column-v2-release/Column_V2_Reports_and_Evidence.zip": "bc2b938208991c8bb783a36c7cc6e612574d0a2b1508e803770ef0891e61bd59",
+    "column-v2-release/Column_235_Evidence_Manifest.json": "eeb98d27e69e2918d9166074f905012acb9ace06e8c25eaf088e15950c59b409",
+    "column-v2-release/Reference_Initial_Result.json": "818d4e579b82f1b4c8874078c4a9596175d82ae01d420a6d65086af9ada8ed69",
+    "column-v2-release/01_Reference_Ready.png": "efaae6f9987f665db73f1d4b9aae19dc4fc9448f3de561eb784b4b9bfd28496b",
+    "column-v2-release/UI_Interaction_Evidence.json": "70d5e52f582ec3d17797bc17bfdf35d54261e32d580a24abd81eb7b141769d09",
+    "r3m-external/column_r1_r3m_matrix_probe.py": "3531a45013ab57dd6993ead7b1fa71117a690b3a0f22c14c296cced9e1cb391d",
+    "r3m-candidate-external/column_r1_r3m_candidate_probe.py": "27362d2fd9c5cbb1d5a9800f4b207d4e6832f057f1cff2982f06500f2089248b",
+    "r3m-diag-external/column_r1_r3m_diag1_probe.py": "8a55a6d3792066f5acfd68b4c7226c3482b846586f4d4f8d832058a8bdc63df5",
+    "r3m-abi1-external/column_r1_r3m_abi1_metadata_probe.py": "e2b94d5a4b557ae9bdfdcd9db83e42ba60821ebdef7f72e1743ad185048c5e0d",
+    "r3m-abi2-external/column_r1_r3m_abi2_getnamelist_probe.py": "3c2ec29d660e6c354ebd7ae534370b24e5c941c35a887821ea5128d8f7e826a3",
+    "r3m-abi2-runtime-diag-external/column_r1_r3m_abi2_astfix_getnamelist_probe.py": "1738ac0ce9cc97825035311a2c694bea7e503ce207a09e27dd78830c7a4f2753",
+    "r3m-abi3-external/column_r1_r3m_abi3_metadata_probe.py": "b46144d729c0f539fa629752f14a5149905746bc551370f6cc5d1eca5725acc4",
+    "r3m-abi3-external/column_r1_r3m_abi3_operator.ps1": "643fde472f48e00f2e6bb799a55034e8cdf25b29f64ccda8d47937ef0a398ee3",
+    "r3m-wrapper-external/column_r1_r3m_abi3_wrapper_probe.py": "89a5a53e05f48e5dc3b04cf614ec63e09174f6841b5c924400237e6ee0db3b21",
+    "r3m-wrapper-external/column_r1_r3m_abi3_wrapper_operator.ps1": "264165797ee90b1a58c674d8d37a063c679dcf2acfce88ebfe6fb2bb77ce6654",
+    "r3m-wrapper-external/column_r1_r3m_abi3_wrapper_handoff.txt": "d91dfeec85afcaa1e395744f2847e69181a679df9b41d0ae29516e9a3461f49f",
+    "r3m-abi4-external/column_r1_r3m_abi4_getsection_probe.py": "2b8ec761042d985e7812a16f46300ef317899db1752a45c4177c1f8243850b14",
+    "r3m-abi4-external/column_r1_r3m_abi4_operator.ps1": "f4ec7c4e21a754b6608334df7cfbedb8b5b70228709b3d8209b01a661a704027",
+    "r3m-abi4-external/column_r1_r3m_abi4_handoff.txt": "447377e90c22e47832b0c7f195d31da043ce7cc6431d56a175464259440aa21e",
+    "r3m-abi4-lf-external/column_r1_r3m_abi4_lf_operator.ps1": "028bbf12c5a59373091af8c676aaae81ca768e3a5176793fe87473edf6675f07",
+    "r3m-abi4-lf-external/column_r1_r3m_abi4_lf_prepare.ps1": "f63cab56c7bbf24f3a19967bf405d168e575bf38d983177bc7f49ba6cf907d2f",
+    "r3m-abi4-lf-external/column_r1_r3m_abi4_lf_handoff.txt": "2be19156c0df3b53906d2c72dedf09c5c838209a1749a685d9bbdcbb521993dc",
+    "r3m-abi5-external/column_r1_r3m_abi5_getsectprops_probe.py": "95a15d6faf6eac88be14b3650ad22802e2821545a19a571be2d1c9eaee1b5947",
+    "r3m-abi5-external/column_r1_r3m_abi5_operator.ps1": "c1a8ebba8bfa907caf5d28f3b11c63d5d4d62b6866a4b45fb03b1304fbe75f9e",
+    "r3m-abi5-external/column_r1_r3m_abi5_prepare.ps1": "2ae00b6e1080860fe26c4ee66884fbbd5b986e53118fcb599ade966ccc886e55",
+    "r3m-abi5-external/column_r1_r3m_abi5_handoff.txt": "4658ebf0a988d97caa5cb3cac9aaab00e62cccf7e39607b7ec53c373fdc8b18d",
+    "r3m-abi5-external/column_r1_r3m_abi5_package_pins.json": "dc532dfde60a04303e1bc9d8856d781a67a093747cf602214ff047c9c29d326e",
+    "r3m-abi6-external/column_r1_r3m_abi6_getpoints_probe.py": "847c1d44c0b519ca28417618efd4939a28e25ca7e604ceccf737db7edeaabf76",
+    "r3m-abi6-external/column_r1_r3m_abi6_operator.ps1": "eeb144121ab01f8edabc09894c5146e6ef73624427473810a707c107dec7d78d",
+    "r3m-abi6-external/column_r1_r3m_abi6_prepare.ps1": "06df5c6f8f5201cce81a5cdc5c6e561f76fee53677f4173c0bde33232c2076c9",
+    "r3m-abi6-external/column_r1_r3m_abi6_handoff.txt": "5d21cb4dfe1ac411d3ff5930dcde8e645d20abc6cb9e06b89d3d0b04c57e8455",
+    "r3m-abi6-external/column_r1_r3m_abi6_package_pins.json": "8e883d4af7ba16b61c22e040da4aa25bb3cb2447fcf064b487bf64f944cd0f89"
+  },
+  "fix_changed_runtime_code_hashes": [
+    "apps/column_v2/index.html"
+  ],
+  "corrected_code_sha256": {
+    "tbdy_engine/application/column_reference_workspace.py": "eeaac8a04115a90f18f875f0dba70387b656bbd10fdfbdcecd118834ca8b906e",
+    "tbdy_engine/design/columns/column_design_engine.py": "bdb6f7bbad37b646bfe8072033452dd7496d0c01a3d07c1a48875b52c0f17a05",
+    "tbdy_engine/product_reports/column_v2_report.py": "b3017e9b7ee47df366decd3fb90cda9f7e35c6cb95b1be36e85d82e484ca1ccd",
+    "apps/column_v2/server.py": "c18bec281b6ee4804b1903f3e3aaebc3da46560b3ab34b5a3827f83e93351959",
+    "apps/column_v2/index.html": "6a380038b864e54cdc94bb3b0e64c54f02a8b7750ae05ad229786d5274e6f52f"
+  },
+  "numerical_backend_server_renderer_regulatory_source_ABI_unchanged": true,
+  "source_race_cases": [
+    {
+      "scenario": "active_state_failure",
+      "browser": "153.0.8010.0",
+      "held_real_HTTP_statuses": [
+        422
+      ],
+      "PASS": true,
+      "source_sha256": "05f7e28dad33c1f7287026a74e8295e4984bbce251673c2c34dadaf6a68b3f85"
+    },
+    {
+      "scenario": "calculation_context_change",
+      "browser": "153.0.8010.0",
+      "held_real_HTTP_statuses": [
+        200
+      ],
+      "PASS": true,
+      "source_sha256": "8c3cb50a9f88a590cfded43304d6e208c90421c2482a70db191b0aacf12fc5ae"
+    },
+    {
+      "scenario": "calculation_delayed_failure",
+      "browser": "153.0.8010.0",
+      "held_real_HTTP_statuses": [
+        422
+      ],
+      "PASS": true,
+      "source_sha256": "6c9b6f3bc3085a918e94965bde1dc61d5da3d6496720bcd9115654bd1ab66943"
+    },
+    {
+      "scenario": "calculation_repeated_contexts",
+      "browser": "153.0.8010.0",
+      "held_real_HTTP_statuses": [
+        200
+      ],
+      "PASS": true,
+      "source_sha256": "279ae33c9a721ff95255dbb9126b65f49d8ee8bf6e565ba798f164cbd6ea8f61"
+    },
+    {
+      "scenario": "calculation_state_obsolete_no_dispatch",
+      "browser": "153.0.8010.0",
+      "held_real_HTTP_statuses": [
+        200
+      ],
+      "PASS": true,
+      "source_sha256": "8af883bfffb9349a273676fff4d7b4c7ffd09690f0a8fb982d33949264a02625"
+    },
+    {
+      "scenario": "delayed_state_failure",
+      "browser": "153.0.8010.0",
+      "held_real_HTTP_statuses": [
+        422
+      ],
+      "PASS": true,
+      "source_sha256": "02dacc4b6957e488fccbee5498d92035165644b88aa0f90a01d38158f92522b8"
+    },
+    {
+      "scenario": "export_context_change",
+      "browser": "153.0.8010.0",
+      "held_real_HTTP_statuses": [
+        200
+      ],
+      "PASS": true,
+      "source_sha256": "fe75b4a122d99602d527089c4693d71a72235e689dcacdb5c8b104ab22c35264"
+    },
+    {
+      "scenario": "export_delayed_failure",
+      "browser": "153.0.8010.0",
+      "held_real_HTTP_statuses": [
+        422
+      ],
+      "PASS": true,
+      "source_sha256": "6e0b09ea2be89cad86c89d7c27314a70b254ee958f497abe54606c90356e0f6f"
+    },
+    {
+      "scenario": "input_delayed_failure",
+      "browser": "153.0.8010.0",
+      "held_real_HTTP_statuses": [
+        422
+      ],
+      "PASS": true,
+      "source_sha256": "3f494f7a1b435977777d343063e4ac7a17bec9856202480dfb4744b01921e242"
+    },
+    {
+      "scenario": "race_235_reference",
+      "browser": "153.0.8010.0",
+      "held_real_HTTP_statuses": [
+        200
+      ],
+      "PASS": true,
+      "source_sha256": "f6a4319dde0938a19da76b358c0bd488b133057aa72d0d65e171042097757926"
+    },
+    {
+      "scenario": "repeated_235_final",
+      "browser": "153.0.8010.0",
+      "held_real_HTTP_statuses": [
+        200
+      ],
+      "PASS": true,
+      "source_sha256": "6b9eeb805f5f9c5c30813db64d80aae1cd8481d1d812cf85aa5f5663efda8daa"
+    },
+    {
+      "scenario": "repeated_reference_final",
+      "browser": "153.0.8010.0",
+      "held_real_HTTP_statuses": [
+        200
+      ],
+      "PASS": true,
+      "source_sha256": "9b3d2bcf40da647c6ab389d70856048e7b63680f07a00b56c2efa1beeb92687c"
+    }
+  ],
+  "normal_product_flows": {
+    "four_required": "PASS_ACTUAL_CHROMIUM_REAL_PYTHON_HTTP",
+    "browser": "153.0.8010.0",
+    "width_mm": [
+      500,
+      800
+    ],
+    "lambda_M3": [
+      20,
+      12.5
+    ],
+    "minimum_M3_knm": [
+      30,
+      39
+    ],
+    "new_capture_identity": "NEW_WORKSPACE_TIME_CODE_PIN;NOT_USER_INSTALLATION",
+    "backend_events": 17,
+    "engine_calls": 2,
+    "manifest_ids_numerically_equal_original": true,
+    "PDF_byte_equal_only_worker_profile_original": true,
+    "all_final_PDF_pages_and_race_screen_visual": "PASS"
+  },
+  "artifacts": [
+    {
+      "name": "Backend_Execution.jsonl",
+      "sha256": "8bc87898817b13fd5eddf2ba19c1d9d12edfaf2fef7d86831a3c5a5d1620cb48",
+      "bytes": 5443
+    },
+    {
+      "name": "Column_235_Evidence.pdf",
+      "sha256": "e78903f8859ec2f3cd4ce0b52a35b501030118475f8aad7b702b1a95d3e13131",
+      "bytes": 45354
+    },
+    {
+      "name": "Column_235_Evidence_Manifest.json",
+      "sha256": "eeb98d27e69e2918d9166074f905012acb9ace06e8c25eaf088e15950c59b409",
+      "bytes": 1804
+    },
+    {
+      "name": "Input_Result_Manifest.json",
+      "sha256": "cc5f0336347fac9736a13f0b272c8bea4f3d8b2ba68d82f857e0eef24f705838",
+      "bytes": 87202
+    },
+    {
+      "name": "Reference_Column_Calculation.pdf",
+      "sha256": "198a5a8237fcae5c9af7232b754e5821494d3e95702777b4897782d8d447fc0d",
+      "bytes": 52689
+    },
+    {
+      "name": "Reference_Initial_Result.json",
+      "sha256": "818d4e579b82f1b4c8874078c4a9596175d82ae01d420a6d65086af9ada8ed69",
+      "bytes": 106634
+    },
+    {
+      "name": "Reference_Input_Bundle.json",
+      "sha256": "46159ff8d9273ef47d33a6da95d63d3e88132b08de700a7e007e9ad9f3099310",
+      "bytes": 661
+    },
+    {
+      "name": "UI_Interaction_Evidence.json",
+      "sha256": "95bcbd2ba7ce2c9779a4b610a3d4be4a01f65a98c6ef4bf327d480557488c454",
+      "bytes": 11129
+    }
+  ],
+  "validation": {
+    "accepted_identities_preserved": 2212,
+    "accepted_identity_sha256": "f01e5afebfc9024e83612e5a50de9ba161bb69a2e9da604a01e3a8dbebf0a430",
+    "supervisor2162_and_V1_16_and_V2_34_preserved": true,
+    "new_tests": 12,
+    "new_test_identities": [
+      "tests/product_reports/test_column_v2_async_frontend.py::test_real_frontend_delayed_response_keeps_latest_context[active_state_failure]",
+      "tests/product_reports/test_column_v2_async_frontend.py::test_real_frontend_delayed_response_keeps_latest_context[calculation_context_change]",
+      "tests/product_reports/test_column_v2_async_frontend.py::test_real_frontend_delayed_response_keeps_latest_context[calculation_delayed_failure]",
+      "tests/product_reports/test_column_v2_async_frontend.py::test_real_frontend_delayed_response_keeps_latest_context[calculation_repeated_contexts]",
+      "tests/product_reports/test_column_v2_async_frontend.py::test_real_frontend_delayed_response_keeps_latest_context[calculation_state_obsolete_no_dispatch]",
+      "tests/product_reports/test_column_v2_async_frontend.py::test_real_frontend_delayed_response_keeps_latest_context[delayed_state_failure]",
+      "tests/product_reports/test_column_v2_async_frontend.py::test_real_frontend_delayed_response_keeps_latest_context[export_context_change]",
+      "tests/product_reports/test_column_v2_async_frontend.py::test_real_frontend_delayed_response_keeps_latest_context[export_delayed_failure]",
+      "tests/product_reports/test_column_v2_async_frontend.py::test_real_frontend_delayed_response_keeps_latest_context[input_delayed_failure]",
+      "tests/product_reports/test_column_v2_async_frontend.py::test_real_frontend_delayed_response_keeps_latest_context[race_235_reference]",
+      "tests/product_reports/test_column_v2_async_frontend.py::test_real_frontend_delayed_response_keeps_latest_context[repeated_235_final]",
+      "tests/product_reports/test_column_v2_async_frontend.py::test_real_frontend_delayed_response_keeps_latest_context[repeated_reference_final]"
+    ],
+    "focused_PASS": 46,
+    "integrated_PASS": 2224,
+    "FAIL": 0,
+    "ERROR": 0,
+    "SKIP": 0,
+    "integrated_identity_sha256": "5c1f84fb5fd91269ccd6e5c4ded52eeb4475de5f9c7eb2536a1c298706d66158",
+    "integrated_junit_sha256": "e9a2ca2ee4ceacb7d7d0ae2b2559ae667303256fc26d464c8f47443c59166770",
+    "test_files": [
+      "tests/analysis_basis/test_eq713_frame_mechanics.py",
+      "tests/analysis_basis/test_eq713_response_mechanics.py",
+      "tests/analysis_basis/test_eq713_uncracked_analysis_state.py",
+      "tests/application/test_column_a18_beam_fact_ordering.py",
+      "tests/application/test_column_public_a4_post_continuity.py",
+      "tests/application/test_column_public_a5_frame_production_join.py",
+      "tests/application/test_column_public_a5_product_path.py",
+      "tests/application/test_column_public_b6_join.py",
+      "tests/application/test_column_public_b6_project_root.py",
+      "tests/application/test_column_public_mixed_vertical.py",
+      "tests/application/test_column_public_population_project_root.py",
+      "tests/application/test_column_r1_a35_longitudinal_detailing.py",
+      "tests/application/test_column_r1_a36_transverse_runtime.py",
+      "tests/application/test_column_r1_a37_limited_shear_runtime.py",
+      "tests/application/test_column_r1_bblok_e1_binding.py",
+      "tests/application/test_column_r1_e2_whole_system_gate.py",
+      "tests/application/test_column_r1_fc09_rebind.py",
+      "tests/application/test_column_r1_m6_reference_recovery.py",
+      "tests/application/test_column_r1_r3b_combo_reconciliation.py",
+      "tests/application/test_column_stability_runtime.py",
+      "tests/architecture/test_b5_analysis_execution_guards.py",
+      "tests/coverage/test_column_r1_a39_fcr_reconciliation.py",
+      "tests/design/columns/test_column_r1_a0_fnd2_magnification_join.py",
+      "tests/design/columns/test_column_r1_a0_stability_combo_basis.py",
+      "tests/design/columns/test_fnd_col_2_design_readiness.py",
+      "tests/design/columns/test_fnd_col_4_pmm_assessment.py",
+      "tests/design/columns/test_p8a_b_column_longitudinal_production_composition.py",
+      "tests/design/columns/test_stability_output_state.py",
+      "tests/design/columns/test_story_relative_translation.py",
+      "tests/design/columns/test_vs6_p7_column_shear.py",
+      "tests/design/columns/test_vs6_rebar_selection.py",
+      "tests/design/columns/test_vs6_rebar_selection_authority.py",
+      "tests/etabs/test_column_r1_read_only_preflight.py",
+      "tests/etabs/test_database_table_field_metadata.py",
+      "tests/etabs/test_frame_section_inertia_authority_boundary.py",
+      "tests/etabs/test_native_frame_section_provenance.py",
+      "tests/etabs/test_native_material_provenance.py",
+      "tests/etabs/test_native_wall_thickness_provenance.py",
+      "tests/etabs/test_oapi_material_properties.py",
+      "tests/integration/test_b5_analysis_execution.py",
+      "tests/integration/test_b5_analysis_lineage_issuer.py",
+      "tests/integration/test_b5_response_spectrum_runtime_dependencies.py",
+      "tests/integration/test_b6_controlled_design_execution.py",
+      "tests/integration/test_b6_p0_design_preflight.py",
+      "tests/providers/test_b5_column_force_result_population_provider.py",
+      "tests/providers/test_column_b5_combo_force_projection.py",
+      "tests/providers/test_etabs_eq713_response_provider_p4b.py",
+      "tests/providers/test_etabs_frame_eq713_population_a36_beam_mechanics.py",
+      "tests/providers/test_etabs_frame_eq713_population_a37_types.py",
+      "tests/providers/test_etabs_frame_eq713_population_p4a2.py",
+      "tests/providers/test_etabs_frame_eq713_population_snapshot_batch.py",
+      "tests/providers/test_etabs_frame_flexural_base_snapshot.py",
+      "tests/providers/test_etabs_story_stability_result_provider.py",
+      "tests/providers/test_flexural_base_metadata_acquisition.py",
+      "tests/providers/test_native_wall_thickness_consumer.py",
+      "tests/providers/test_p1a_source_unit_contract.py",
+      "tests/regulatory/test_column_shear_limited_775.py",
+      "tests/regulatory/test_column_shear_vc.py",
+      "tests/regulatory/test_column_transverse_confinement.py",
+      "tests/etabs/test_column_r1_r3c_native_settings.py",
+      "tests/analysis_basis/test_column_r1_r3c_modal_aggregate.py",
+      "tests/etabs/test_column_r1_r3c_modal_read_only.py",
+      "tests/etabs/test_column_r1_r3d_modal_output_state.py",
+      "tests/etabs/test_column_r1_r3d_modal_population.py",
+      "tests/etabs/test_safety_foundation.py",
+      "tests/etabs/test_joint_displacement_results.py",
+      "tests/analysis_basis/test_column_r1_r3e_native_normalization.py",
+      "tests/analysis_basis/test_column_r1_r3f_physical_modal_aggregate.py",
+      "tests/features/test_vs6_column_shear_topology.py",
+      "tests/features/test_vs6_column_shear_topology_mixed_beams.py",
+      "tests/analysis_basis/test_column_r1_r3g_periodic_cqc.py",
+      "tests/providers/test_column_r1_r3g_physical_modal_operands.py",
+      "tests/analysis_basis/test_column_r1_r3h_reported_total_damping.py",
+      "tests/providers/test_column_r1_r3h_damping_cqc_binding.py",
+      "tests/etabs/test_column_r1_r3k_schema_probe.py",
+      "tests/etabs/test_column_r1_r3l_route_offline.py",
+      "tests/etabs/r3m_external_probe_regression.py",
+      "tests/etabs/r3m_candidate_source_regression.py",
+      "tests/etabs/r3m_diag1_external_regression.py",
+      "tests/etabs/r3m_abi1_metadata_regression.py",
+      "tests/etabs/r3m_abi2_inout_regression.py",
+      "tests/etabs/r3m_abi2_ast_serialization_regression.py",
+      "tests/etabs/r3m_abi3_metadata_regression.py",
+      "tests/etabs/r3m_abi3_wrapper_regression.py",
+      "tests/etabs/r3m_abi4_getsection_regression.py",
+      "tests/etabs/r3m_abi4_checkout_regression.py",
+      "tests/etabs/r3m_abi5_getsectprops_regression.py",
+      "tests/etabs/r3m_abi5_checkout_regression.py",
+      "tests/etabs/r3m_abi6_getpoints_regression.py",
+      "tests/etabs/r3m_abi6_checkout_regression.py",
+      "tests/product_reports/test_column_v1_report.py",
+      "tests/product_reports/test_column_v2_workspace.py",
+      "tests/product_reports/test_column_v2_async_frontend.py"
+    ],
+    "accepted_test_files_byte_unchanged": 514,
+    "COMPILE": "PASS",
+    "IMPORT": "PASS_OFFLINE_NO_COMTYPES",
+    "DIFF_CHECK": "PASS"
+  },
+  "architecture": {
+    "fresh_exact_baseline": "2e00b3ab43d9a34322f5702b2311f21e40e911a8",
+    "PASS": 31,
+    "same_real_FAIL": 6,
+    "fail_identities": [
+      "tests.architecture.test_b4s_scratch_lifecycle_guards::test_private_b4t_transport_is_consumed_only_by_exact_typed_oapi_allowlist",
+      "tests.architecture.test_g1_arch_drift_guards::test_legacy_exception_baseline_is_shrink_only",
+      "tests.architecture.test_g1_arch_drift_guards::test_no_public_raw_sapmodel_escape",
+      "tests.architecture.test_g1_arch_drift_guards::test_provider_and_oapi_dependency_direction",
+      "tests.architecture.test_g1_arch_drift_guards::test_supported_graph_has_zero_forbidden_legacy_tools_or_report_authority",
+      "tests.etabs.test_oapi_layer1_architecture_guards::test_analysis_and_concrete_design_have_exact_authorized_mutation_callsites"
+    ],
+    "new_or_expanded": 0,
+    "full_diagnostics": {
+      "guard_sets": {
+        "test_private_b4t_transport_is_consumed_only_by_exact_typed_oapi_allowlist": {
+          "violations": [
+            "tbdy_engine/etabs/oapi/model_lock.py|_B4T_MUTATION_TRANSPORT_KEY",
+            "tbdy_engine/etabs/oapi/model_lock.py|_execute_bounded_model_mutation",
+            "tbdy_engine/etabs/oapi/model_lock.py|etabs_gateway.mutation_transport"
+          ],
+          "required_allowlist_symbols_missing": []
+        },
+        "test_supported_graph_has_zero_forbidden_legacy_tools_or_report_authority": {
+          "forbidden_legacy": [
+            "tbdy_engine.features.column_shear_demand_evidence",
+            "tbdy_engine.features.etabs_com_attach",
+            "tbdy_engine.features.live_etabs_geometry_probe",
+            "tbdy_engine.features.used_rc_material_population"
+          ],
+          "legacy_report": [],
+          "tools": []
+        },
+        "test_no_public_raw_sapmodel_escape": {
+          "raw_escapes": [
+            "tbdy_engine.features.live_etabs_geometry_probe|attach_to_running_etabs"
+          ],
+          "public_raw_capabilities": []
+        },
+        "test_provider_and_oapi_dependency_direction": {
+          "provider": [
+            "tbdy_engine.providers.etabs_column_axial_b5_provider|tbdy_engine.regulatory",
+            "tbdy_engine.providers.etabs_column_axial_b5_provider|tbdy_engine.regulatory.vs5_column_axial_program"
+          ],
+          "oapi_gateway": []
+        },
+        "test_legacy_exception_baseline_is_shrink_only": {
+          "violations": [
+            "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|acquire|sap_model"
+          ],
+          "observed_legacy_debt": [
+            "LEGACY_IMPORT|tbdy_engine/engine/project_execution.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/engine/vs5_column_axial_execution.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/features/live_etabs_concrete_material_probe.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/features/live_etabs_geometry_probe.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/features/live_etabs_table_discovery.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/features/used_rc_material_population.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/product/live_beam_geometry_f0_product.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/product/live_geometry_product.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/product/live_rc_component_f0_product.py|tbdy_engine.features.etabs_com_attach",
+            "LEGACY_IMPORT|tbdy_engine/product/live_seismic_response_product.py|tbdy_engine.features.etabs_com_attach",
+            "MUTATION_CALL|tbdy_engine/engine/unit_context.py|SetPresentUnits",
+            "RAW_CAP_ATTR|tbdy_engine/features/column_shear_demand_evidence.py|sap_model.DatabaseTables",
+            "RAW_CAP_ATTR|tbdy_engine/features/live_etabs_concrete_material_probe.py|sap_model.DatabaseTables",
+            "RAW_CAP_ATTR|tbdy_engine/features/live_etabs_geometry_probe.py|sap_model.DatabaseTables",
+            "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.AreaObj",
+            "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.DatabaseTables",
+            "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.PropArea",
+            "RAW_CAP_ATTR|tbdy_engine/features/used_rc_material_population.py|sap_model.PropMaterial",
+            "RAW_ESCAPE_COMPAT|tbdy_engine/etabs/connection.py|get_sap",
+            "RAW_PARAM|tbdy_engine/engine/unit_context.py|attach_unit_context|sap_model",
+            "RAW_PARAM|tbdy_engine/engine/unit_context.py|read_etabs_units|sap_model",
+            "RAW_PARAM|tbdy_engine/engine/unit_context.py|set_etabs_units_kn_m|sap_model",
+            "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_exact_output_case_table|database_tables",
+            "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_live_mdev_mo_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/features/_etabs_mdev_mo_evidence_core.py|capture_static_table|database_tables",
+            "RAW_PARAM|tbdy_engine/features/column_shear_demand_evidence.py|capture_live_column_shear_demand_evidence|sap_model",
+            "RAW_PARAM|tbdy_engine/features/etabs_column_axial_evidence.py|capture_live_column_axial_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/features/etabs_mdev_mo_evidence.py|capture_exact_output_case_table|database_tables",
+            "RAW_PARAM|tbdy_engine/features/etabs_mdev_mo_evidence.py|capture_live_mdev_mo_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/features/live_etabs_concrete_material_probe.py|__init__|database_tables",
+            "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_etabs_length_unit_evidence|sap_model",
+            "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_etabs_table_for_geometry|database_tables",
+            "RAW_PARAM|tbdy_engine/features/live_etabs_geometry_probe.py|read_live_frame_component_type_source|database_tables",
+            "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_accepted_wall_inventory_rows|database_tables",
+            "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_material_fact|sap_model",
+            "RAW_PARAM|tbdy_engine/features/used_rc_material_population.py|_read_wall_fact|sap_model",
+            "RAW_PARAM|tbdy_engine/integration/live_beam_geometry_f0.py|read_observed_etabs_model_path|sap_model",
+            "RAW_PARAM|tbdy_engine/integration/live_seismic_response_f0.py|_fetch_exact|database_tables",
+            "RAW_PARAM|tbdy_engine/integration/live_seismic_response_f0.py|capture_seismic_response|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_auto_seismic_direction_provider.py|capture_etabs_auto_seismic_direction_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|_read_fact|resp_combo",
+            "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|capture_etabs_combo_definitions|resp_combo",
+            "RAW_PARAM|tbdy_engine/providers/etabs_combo_definition_provider.py|capture_etabs_combo_definition|resp_combo",
+            "RAW_PARAM|tbdy_engine/providers/etabs_concrete_column_design_result_provider.py|capture_concrete_column_design_results|sap_model",
+            "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py|acquire_actual_concrete_design_combo_selection|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_combo_selection_probe.py|probe_concrete_frame_design_combo_selection_table|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_concrete_design_section_provider.py|capture_concrete_column_design_sections|design_concrete",
+            "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|acquire|sap_model",
+            "RAW_PARAM|tbdy_engine/providers/etabs_rebar_catalog_provider.py|capture_etabs_rebar_catalog_evidence|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_strict_column_topology_provider.py|_fetch_full_rows|database_tables",
+            "RAW_PARAM|tbdy_engine/providers/etabs_strict_column_topology_provider.py|capture_etabs_strict_column_topology|database_tables"
+          ]
+        }
+      },
+      "guard_hashes": {
+        "tests/architecture/test_b4s_scratch_lifecycle_guards.py": "e46a9fcf8737eafc47d92d206621e01c9782f000af8650bec18983d5134bee2b",
+        "tests/architecture/test_g1_arch_drift_guards.py": "596f1c40394a642b2e69d8083cdd1641bb633cb6fc9b80a9dec87e061b275151",
+        "tests/architecture/g1_legacy_exception_baseline.json": "fe4c4eb587fe7c9b922b7f1f4eab3d7753c6e5676f6bf61580bc9c01d964ab67"
+      },
+      "b4t_allowlist": [
+        "tbdy_engine/etabs/oapi/analysis_execution.py",
+        "tbdy_engine/etabs/oapi/area_modifiers.py",
+        "tbdy_engine/etabs/oapi/concrete_design.py",
+        "tbdy_engine/etabs/oapi/file_lifecycle.py",
+        "tbdy_engine/etabs/oapi/frame_modifiers.py"
+      ]
+    },
+    "sixth_guard_full_mutation_callsite_comparison": {
+      "base": {
+        "RunAnalysis": [
+          [
+            "tbdy_engine/etabs/oapi/analysis_execution.py",
+            "model_api.Analyze.RunAnalysis"
+          ]
+        ],
+        "StartDesign": [],
+        "guard_sha256": "374464bb2325fb909aa4a3741acda5fcc79780cfb876d4bb36fd0a76e93acd03"
+      },
+      "candidate": {
+        "RunAnalysis": [
+          [
+            "tbdy_engine/etabs/oapi/analysis_execution.py",
+            "model_api.Analyze.RunAnalysis"
+          ]
+        ],
+        "StartDesign": [],
+        "guard_sha256": "374464bb2325fb909aa4a3741acda5fcc79780cfb876d4bb36fd0a76e93acd03"
+      }
+    },
+    "all_previous_production_Python_byte_unchanged": true,
+    "protected_count": 45,
+    "protected_hash_drift": 0,
+    "protected_surface_sha256": {
+      ".github/workflows/acq_ctx_1_validation.yml": "10d7ffe95f6dfad9a7a88743790efa290d704d3bd22213a900e1d1d8bfc67cd1",
+      ".github/workflows/b1_beam_column.yml": "b69af978a76a23a14239d0362dac8f7b9d906021c75453911d699e8408df6c7e",
+      ".github/workflows/c13_4_offline_acceptance.yml": "c8d9ba0ac2cff83e8e0dc4bfad5878f5974a68888d4fedca2fc1a840a57b20b3",
+      ".github/workflows/cd_1_coverage_contract_debt.yml": "dd6e2104f6f440c61785275ec256e8b74343e1df1703875db106bc85e59bab2c",
+      ".github/workflows/col_runtime_policy_input_validation.yml": "256f22a60bb3e3ca3acf2430f5f9504ec9f0e86f8982dbc7619fd8e6aac764f9",
+      ".github/workflows/column_r1_reconciled_exact_validation.yml": "f3496ce0d19380be55535e7fa3ce9d4c30a56d5d9c8078395a0f7d31c2d7c766",
+      ".github/workflows/column_r1_recovery_validation.yml": "0314184e0099b21fee2e6007da2c61852114bbb35e3612854a10dff3f7e7ee7c",
+      ".github/workflows/column_r1_vertical_validation.yml": "aa2c2f8fef100f0aafa9b8b0544c26e96af5abed3298337ff31176227fba935f",
+      ".github/workflows/fcr_1a_validation.yml": "135e2233f88ed715c3fcd72cc0974f9bd37305976e5d43bbe45aa488fad993db",
+      ".github/workflows/fnd_col_1_validation.yml": "aea5c2f4bbfafb877f7726628246cf2d69e2d4032b9d3242bc9cc9e36c968926",
+      ".github/workflows/fnd_col_2_validation.yml": "a445a6395c8d9b51a87c1a7c93d08a6478018d555edd5dcbb556679eaa9eaa7a",
+      ".github/workflows/fnd_col_2x_validation.yml": "5a93c97295291fcc2f1c9c859fbedfbe1fc19182e93f520dfa9ec891ad7374a9",
+      ".github/workflows/p2_10_wall_pack_a.yml": "04c97a25b8683b6ff6435b9a3faba1ba5c207f2069078e8782baa89c03988485",
+      ".github/workflows/p2_10_wall_pack_b.yml": "39063e5181759fd142fe40499513c4059276dc88f35d70dc0693566a249d7f8f",
+      ".github/workflows/product_spine_col_1_validation.yml": "547a7a5f8c0cba1a36c9d97f2ba84d025a89538b09f088d2987e8ad4d2687350",
+      ".github/workflows/ur_1b_validation.yml": "e79e63ce602271b4f69bc28d30e717c849e60afbe067a0bc0b58f28a5730706f",
+      ".github/workflows/ur_1c_validation.yml": "69dd8b034b400c8bf5add8f1def995a3476ea9baa2eaa9a2eddee751dda6346f",
+      ".github/workflows/ur_1d_validation.yml": "fe261ca7beafc3d74dc7d11f1a4186c9953f0c9a07c0ab6cbeca32f3c5369216",
+      ".github/workflows/ur_1e_validation.yml": "a9254d8a7014907982e311fd897ba4f5b511154d0eec6984e519e3eabe390fd4",
+      ".github/workflows/ur_2_validation.yml": "c70eea4972dc8db06dcd764995d332dc7db9a1a3133055238df19f1675fa9e07",
+      ".github/workflows/vs6_p8a_f0_validation.yml": "b954d1a9202f6277156fa714f36f6f94749a1da241673eb23ef3bf68ae2e0abe",
+      "packages/etabs_gateway/src/etabs_gateway/__init__.py": "9bd8d9f61badedae2b123456a610a5c0365cef104c96617991f219a733a0d629",
+      "packages/etabs_gateway/src/etabs_gateway/acceptance.py": "5943ddb87aed536fc321efb21c3fbbccd81ea5968e5665bbe57495825090023a",
+      "packages/etabs_gateway/src/etabs_gateway/com_apartment.py": "8bc0b006a67b7f871cf7cc73166a07b6f581d6446a60b087aad95a12c2922301",
+      "packages/etabs_gateway/src/etabs_gateway/connection.py": "ca7fb5954fca0272786360f231dc776262da5400c19076ff442afd26200cb3fc",
+      "packages/etabs_gateway/src/etabs_gateway/context_reader.py": "e80c572cbdb5630ed1743bdcc6e50e3d6498e7ddefec9fdda7382c9c3537c382",
+      "packages/etabs_gateway/src/etabs_gateway/contracts.py": "e24d73fe21f3024991cf733b9dbaaedef7699c1fc0829d8651d15878f3f0d987",
+      "packages/etabs_gateway/src/etabs_gateway/diagnostics.py": "91e772097c7f42bf8ae986b3cf5b1823585b29cb22c7e69408e3c3a8f610d382",
+      "packages/etabs_gateway/src/etabs_gateway/errors.py": "aa348f2e567aacb6e4ef5a88356c662ee45dffe6658498e064dbdfbb507c275b",
+      "packages/etabs_gateway/src/etabs_gateway/model_context.py": "c59f65fc4a7c4674f654195b0d6b1400bb57bf8c7b759d0c8a4b7d1cdfa0f3ed",
+      "packages/etabs_gateway/src/etabs_gateway/mutation_transport.py": "9a7365c785e17f6679fd78d159e6d7e99e9e378f62841d4cb9c50f160f3c0707",
+      "packages/etabs_gateway/src/etabs_gateway/replay.py": "bfadae93d1c94ed4e6f6d48612d2edb75084122aea64779a82b1ed5c5faf52dc",
+      "packages/etabs_gateway/src/etabs_gateway/session.py": "134dfda97e1b7c64ff37ab9e301cd3e3ce6d379231f63f364cc50a58c7fa1cce",
+      "packages/etabs_gateway/src/etabs_gateway/worker.py": "1b7589462f8425c57cebccf1b99e7fb2a233df2c6609b6ba04242a627fe7c8e2",
+      "tbdy_engine/etabs/_safety_legacy.py": "002f7a63633e742e29ad21eac327460de5cfd966f21cb3678bbd7ed486d0ece7",
+      "tbdy_engine/etabs/oapi/analysis_execution.py": "9d0ea5c071c04133af54a57daae85e19569463d7c514d8171af71657f6ea8f48",
+      "tbdy_engine/etabs/oapi/concrete_design.py": "57fa4ce9d46501572b366f57153154cdef09a48a250641901e0e979e2600ae88",
+      "tbdy_engine/etabs/safety.py": "701a73826e4e63b4dc64fd51bab96b37915eec76ab3a97aa27920a43fe6dac3b",
+      "tests/architecture/g1_legacy_exception_baseline.json": "fe4c4eb587fe7c9b922b7f1f4eab3d7753c6e5676f6bf61580bc9c01d964ab67",
+      "tests/architecture/test_b4b_analysis_state_mutation_guards.py": "6c0c44a4b7d6a3901e50240bf3ca9b14c59848a03c89fb60ad651d8a96bd44f1",
+      "tests/architecture/test_b4s_scratch_lifecycle_guards.py": "e46a9fcf8737eafc47d92d206621e01c9782f000af8650bec18983d5134bee2b",
+      "tests/architecture/test_b4t_mutation_transport_guards.py": "33eba0b80df43208d5e6f41512c740e6c1f1447c0d9351fe74c52ef6ad7c8017",
+      "tests/architecture/test_b5_analysis_execution_guards.py": "0b60735ed157da30cc76861cc483bc302ad9c06a80e11b42ce175afcbee84331",
+      "tests/architecture/test_b6_p0_design_preflight_architecture.py": "e8da83bc90dd90089684db8f1767a8d7f7a60474fbcea599da6c849944f72afb",
+      "tests/architecture/test_g1_arch_drift_guards.py": "596f1c40394a642b2e69d8083cdd1641bb633cb6fc9b80a9dec87e061b275151"
+    }
+  },
+  "user_installation": "NOT_PERFORMED_NOT_REQUIRED_FOR_REVIEW",
+  "engineering_boundaries": {
+    "WORKER_ETABS": "NO",
+    "LIVE_GETPOINTS": "NOT_EXECUTED_NOT_AUTHORIZED",
+    "NEW_NATIVE_GETTERS": 0,
+    "172_MATRIX_SCAN": "NOT_STARTED",
+    "RESULT_CAPTURE": "NO",
+    "model_analysis_design_save_units_selection_database_mutation": false,
+    "ABI_guard_weakened": false,
+    "architecture_policy_weakened": false,
+    "FC09_PRODUCTION_GATE": "UNCHANGED",
+    "GLOBAL_DELTA": "NOT_PROVEN",
+    "M6_B": "OPEN",
+    "R2_RERUN_READY": false,
+    "reference_result_promoted_to_235": false
+  },
+  "launch_command": "python tools/serve_column_v2.py",
+  "NEXT_EXACT_CAUSAL_EDGE": "REVISED_SUPERVISOR_PRODUCT_REVIEW;NO_AUTOMATIC_NATIVE_WORK"
+}
