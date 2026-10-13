@@ -174,7 +174,8 @@ class ColumnWorkspace:
         try:
             evaluation=evaluate_column_product(packet,self.product_authority)
             if w.revision!=revision or w.context!='235-product': raise ValueError('Eski 235 hesap sonucu.')
-            w.product_calculation=evaluation;manifest=product_manifest(evaluation,self.product_authority)
+            manifest=product_manifest(evaluation,self.product_authority)
+            w.product_calculation=evaluation
             self.record('PRODUCT_ENGINE_RETURNED',workspace_id=body['workspace_id'],revision=revision,result_id=manifest['result_id'],invoked_owners=evaluation.invoked_owners,design_ready=False)
             return manifest
         except Exception as exc:

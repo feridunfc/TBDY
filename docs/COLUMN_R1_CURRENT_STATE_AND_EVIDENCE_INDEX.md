@@ -1,20 +1,22 @@
 # Column-R1 current state and evidence index
 
-Latest product state (2026-10-13): supervisor R1 rejected the reviewed V2
-checkpoint `2e00b3ab43d9a34322f5702b2311f21e40e911a8` because a delayed
-235 response could overwrite an active reference screen. The bounded frontend
-repair is committed at `039118970fc80edeeb05d137d452c752b7f6d050`, tree
-`b99b7192317fc2174ba90543016fb6b1cef10eb6`. Immutable context/epoch/revision
-checks now discard obsolete state, calculation, error and export responses.
-Real Chromium with the real Python HTTP backend passes 12 delayed-response
-regressions and all four normal flows; 500→800 reference expectations remain
-unchanged. 2224 PASS preserves all 2212 reviewed identities. The same six real
-architecture FAIL remain, with zero new/expanded violations and zero drift on
-45 protected surfaces. Numerical Python, regulatory/source authority, native
-ABI and architecture policy are unchanged. Revised product review is PENDING;
-no product acceptance or merge is claimed. The user has not installed the app.
-Historical reconciliation notes follow; the latest R1 section takes product
-precedence without altering engineering gates.
+Latest product state (2026-10-13): supervisor accepted R1 source/evidence and
+the original distribution package at `242c55a22c28776c16f853517cb1bd08f0bbcfcb`
+/ `e63e9b648ee2002669e656bd8365355809140f30`. R1 async race and package review
+are CLOSED. The user reports Windows startup and 235 evidence export; this
+limited observation is not full Windows workflow/installation qualification.
+Column Product V3 now implements source-bound 235 package import, explicit
+project review fields, independent existing leaf evaluation, 19 per-control
+owner/dependency cards and one typed HTML/PDF/JSON export flow. All38 actual
+235 project input values remain unfilled until explicit review; no native
+geometry/current force/topology is inferred. Current canonical production
+readiness and rebar selection remain blocked. Synthetic wiring is prominently
+labelled and never used as actual 235 readiness evidence. New full validation
+is 2275 PASS: all2224 accepted identities preserved plus51 new; focused97 PASS.
+Same6 actual architecture FAIL, zero new/expanded violations, protected drift0/45.
+No worker native execution occurred. Revised V3 product review is PENDING;
+merge NOT_EXECUTED. Latest V3 section/receipt takes product precedence only.
+Historical engineering source/authority gates remain unchanged.
 
 Reconciled 2026-10-11 after PR #205 history-preserving R3L integration. All 1614 accepted PASS identities are preserved. R3K native schema remains CLOSED; R3D–R3L are not reopened. R3M reuses the accepted 1044 / LC_DL observation and prepares a repo-external getter-only empirical matrix experiment. The worker has not executed ETABS. Global coordinate/modal-result/physical-table/panel-zone contracts remain BLOCKED, P2 remains unauthorized, M6-B remains OPEN and R2 is not ready. This index grants no engineering result, B5 epoch or release approval.
 
@@ -916,3 +918,43 @@ for revised supervisor product review. WORKER_ETABS=NO; NEW_NATIVE_GETTERS=0;
 LIVE_GETPOINTS=NOT_EXECUTED/NOT_AUTHORIZED; 172_MATRIX_SCAN=NOT_STARTED;
 RESULT_CAPTURE=NO; FC09_PRODUCTION_GATE=UNCHANGED; GLOBAL_DELTA=NOT_PROVEN;
 M6_B=OPEN; R2_RERUN_READY=NO. No new native preparation is started.
+
+## Column Product 235 V3 — offline implementation / real engineering distinction
+
+[Input-to-owner and side-effect audit](COLUMN_PRODUCT_235_V3_INPUT_OWNERS_2026-10-13.md)
+and [immutable V3 offline receipt](COLUMN_PRODUCT_235_V3_OFFLINE_RECEIPT_2026-10-13.json)
+record the exact accepted base/current main, schema/import/review law, actual
+empty235 control/field states, synthetic independent owner calculations,
+launcher pure-PyYAML profile, real browser/backend tests and preserved identities.
+
+The product accepts only the SHA-qualified ABI4/5 adoptions and independently
+pinned original pairs; a caller hash does not issue native or B5/B6 authority.
+Project declarations bind exact source/factual epoch/group-input digest and
+remain user/project declarations. Material review uses existing basis contracts;
+minimum eccentricity and slenderness use existing pure owners. Native 235
+geometry/topology and current result epoch are absent, so no production force,
+PMM, selected rebar, cage/confinement/shear or final readiness is produced. Each
+control exposes its canonical owner and exact missing prerequisite. Old live
+orchestration paths are not called: they require trusted live/context/lineage
+and side effects prohibited by this task. No stand-in trusted issuer is created.
+
+Actual full validation2275 PASS preserves2224 identities and all516 prior test
+file bytes; focused97 PASS includes all12 accepted async and9 new browser cases.
+Additional offline negatives cover pins/units/source/epoch/review, stale exports,
+first failure/nonfinite owner output and installer env restoration/stop rules.
+All old production Python, gateway/regulatory/source/policy and scoped LF bytes
+are unchanged. Same6 real architecture FAIL, drift0/45. New clean Linux3.12
+pure-PyYAML install → actual launcher → Chromium → PDF/HTML/JSON export passed;
+Windows3.14 native qualification is not claimed. All6 actual and7 synthetic PDF
+pages and actual UI were visually inspected; outputs use the same typed result.
+Reference/demo four normal flows were rerun, with unchanged numerical manifests.
+
+STOP for V3 supervisor product review. Existing ABI6 GetPoints package and
+operator HEAD98f15e0 remain unchanged, external and NOT_AUTHORIZED; no native
+package was re-prepared. GetPoints alone will not prove geometry, panel zone,
+analysis results or readiness. M6-B/modal action semantics, current-source
+continuity, qualified B5/B6, full story/system facts and project review remain
+real engineering dependencies. FC09 gate UNCHANGED; GLOBAL_DELTA NOT_PROVEN;
+M6_B OPEN; R2_RERUN_READY NO; WORKER_ETABS NO; new_native_getters0; result_captureNO.
+“Column bitti” is not claimed. Product wiring and full engineering closure are
+reported separately. Concrete integration can be reviewed without merging.

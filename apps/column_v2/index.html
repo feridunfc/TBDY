@@ -157,7 +157,7 @@ function downloadPacket(){
  const url=URL.createObjectURL(new Blob([JSON.stringify(packet,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='B_BLOK_235_Girdi.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function renderProductResult(m){
- render(m);$('status').textContent=m.status==='OFFLINE_PARTIAL'?'Bağımsız kontroller hesaplandı · tam tasarım hazır değil':'Her kontrolün girdisi/review eksik';
+ render(m);$('sourceName').textContent=m.data_provenance==='SYNTHETIC_TEST'?'SENTETİK TEST · gerçek 235 hesabı değil':'61FA native kanıt + ayrı proje review';$('status').textContent=m.status==='OFFLINE_PARTIAL'?'Bağımsız kontroller hesaplandı · tam tasarım hazır değil':'Her kontrolün girdisi/review eksik';
  if(!m.section_svg)$('section').innerHTML='<div class="empty">Geometry review yok; ölçülü çizim üretilmedi.</div>';
  $('result').innerHTML='<p class="note">ETABS bağlı değil · Current B5/B6 yok · Tam tasarım hazır değil</p><div class="checks">'+m.checks.map(c=>'<div class="check" data-check="'+c.id+'"><div class="check-head"><b>'+esc(c.title)+'</b><span class="badge '+(c.status==='BLOCKED'?'amber':'')+'">'+esc(c.display_status)+'</span></div><div class="number">'+num(c.value)+' <small>'+esc(c.unit)+(c.limit==null?'':' · sınır '+num(c.limit))+'</small></div><p class="reason">'+esc(c.reason)+'</p><details><summary>Owner / kesin kapanış bağımlılığı</summary><p class="caption">'+esc(c.owner)+'</p><p>'+esc(c.closure_owner)+'</p><p>Yöneten case/end/station: '+esc(c.governing_case??'NOT_PROVIDED')+'</p></details></div>').join('')+'</div>';
  $('reportNote').textContent='PDF/HTML/JSON aynı aktif typed 235 değerlendirmesinden gelir. Proje review hesabı tam tasarım onayı değildir.';

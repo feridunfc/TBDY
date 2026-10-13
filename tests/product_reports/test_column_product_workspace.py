@@ -143,3 +143,13 @@ def test_launcher_used_port_is_preserved(tmp_path):
         occupied.bind(('127.0.0.1',0));occupied.listen()
         with pytest.raises(ValueError,match='kullanımda'):launch(tmp_path,port=occupied.getsockname()[1])
         assert occupied.getsockname()[1]>0 and not (tmp_path/'.column-product-venv').exists()
+
+
+def test_nonfinite_owner_output_stops_without_publishing_a_result():
+    app=ColumnWorkspace(REPO);w=app.create();p=synthetic_packet(app.product_authority)
+    p['values']['free_length_mm']=1e308;p['values']['k_m2']=1e308;p['values']['k_m3']=1e308;del p['reviews']['slenderness']
+    p=apply_review(p,'slenderness',dict(reviewer='TEST',reference='Synthetic numeric overflow',reviewed_at=datetime.now(timezone.utc).isoformat(),origin='SYNTHETIC_TEST'),app.product_authority)
+    s=app.state(dict(workspace_id=w['id'],context='235-product',bundle=p))
+    with pytest.raises(ValueError,match='finite'):app.calculate(dict(workspace_id=w['id'],revision=s['revision']))
+    assert app.get(w['id']).product_calculation is None and not app.get(w['id']).running
+    with pytest.raises(ValueError,match='Aktif 235'):app.report(dict(workspace_id=w['id'],revision=s['revision'],result_id='bad',format='json'))

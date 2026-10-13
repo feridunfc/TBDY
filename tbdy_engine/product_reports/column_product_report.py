@@ -35,6 +35,7 @@ def product_drawing(packet):
 
 def product_manifest(evaluation: ColumnProductEvaluation, authority):
     p=evaluation.input_packet;checks=[];contributions=[]
+    synthetic=any(r['origin']=='SYNTHETIC_TEST' for r in p['reviews'].values())
     for c in evaluation.controls:
         f=(ReportField('value','Sonuç',c.value,c.unit),ReportField('limit','Sınır',c.limit,c.unit,role='LIMIT'),ReportField('status','Motor / gate durumu',c.status,role='STATUS'))
         calc=() if c.value is None else (ReportCalculation(c.id,c.title,c.formula or None,
@@ -46,7 +47,8 @@ def product_manifest(evaluation: ColumnProductEvaluation, authority):
         checks.append({**asdict(c),'display_status': 'ENGELLİ / HESAPLANMADI' if c.status=='BLOCKED' else 'PROJE REVIEW KOŞULLU',
             'reason':' · '.join(c.dependencies) if c.dependencies else 'Bağımsız mevcut owner değerlendirildi; tüm kolon readiness kanıtı değildir.',
             'governing_case':c.governing,'governing_end':None,'station_m':None})
-    return {'schema_version':'column.product.235.result.v1','context':'B-BLOK-235','title':'B-BLOK / Kolon 235 çalışma raporu',
+    return {'schema_version':'column.product.235.result.v1','context':'B-BLOK-235','title':'SENTETİK TEST / gerçek 235 hesabı değildir' if synthetic else 'B-BLOK / Kolon 235 çalışma raporu',
+        'data_provenance':'SYNTHETIC_TEST' if synthetic else 'ACCEPTED_NATIVE_FACTS_WITH_PROJECT_DECLARATIONS',
         'component_id':'235','section':authority.evidence['section'],'status':'OFFLINE_PARTIAL' if evaluation.invoked_owners else 'BLOCKED_MISSING_REVIEWED_INPUTS',
         'result_id':evaluation.result_id,'input_sha256':evaluation.input_sha256,'input_packet':p,
         'native_evidence':authority.evidence,'candidate_sha256':authority.source_sha256,'historical_sha256':authority.historical_sha256,
@@ -81,7 +83,7 @@ def render_product_html(manifest):
 def render_product_pdf(manifest):
     from reportlab.lib import colors
     from reportlab.lib.styles import ParagraphStyle
-    from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,Table,TableStyle
+    from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,Table,TableStyle,KeepTogether
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
     from reportlab.graphics.shapes import Drawing,Rect,Line,String
@@ -96,15 +98,16 @@ def render_product_pdf(manifest):
     def table(rows,widths):
         t=Table([[para(v) for v in row] for row in rows],colWidths=widths,repeatRows=1)
         t.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#edf3f7')),('VALIGN',(0,0),(-1,-1),'TOP'),('LINEBELOW',(0,0),(-1,-1),.3,colors.HexColor('#dbe4eb')),('BOTTOMPADDING',(0,0),(-1,-1),6)]));return t
+    display=lambda value:'Verilmedi' if value is None else format(value,'.7g') if type(value) in {int,float} else str(value)
     story=[para(manifest['title'],heading),para('Durum: '+manifest['status']+' | Tam tasarım hazır: HAYIR | ETABS bağlantısı gözlenmedi.'),para('Kesit: '+manifest['section']+'; kabul edilmiş I22/I33 = '+repr(manifest['native_evidence']['I22']['value'])+' m4; ölçü native olarak doğrulanmadı.'),para('Bağımsız proje review kontrolleri; güncel üretim readiness veya final donatı hükmü değildir.')]
     if manifest['section_svg']:
         v=manifest['input_packet']['values'];scale=140/max(v['width_mm'],v['depth_mm']);w=v['width_mm']*scale;h=v['depth_mm']*scale
         d=Drawing(490,195);d.add(Rect(100-w/2,95-h/2,w,h,fillColor=colors.HexColor('#edf3f7')));d.add(Line(100,95,205,95));d.add(Line(100,95,100,180))
         for x,y,s in [(210,95,'2'),(107,180,'3'),(230,135,f"b={v['width_mm']:g} mm"),(230,115,f"h={v['depth_mm']:g} mm"),(230,90,'Proje review kesiti; native ölçü değil'),(230,70,'Donatı seçimi/yerleşimi nitelikli değil')]:d.add(String(x,y,s,fontName='ColumnV3',fontSize=8))
         story.append(d)
-    story+=[para('Kontrol özeti',heading),table([['Kontrol','Sonuç / sınır','Durum']]+[[c['title'],str(c['value'])+' / '+str(c['limit'])+' '+c['unit'],c['status']] for c in manifest['checks']],[185,150,160]),para('Girdi / birim / köken',heading),table([['Girdi','Değer / birim','Provenance']]+[[f['label'],str(f['value'])+' '+f['unit'],f['provenance']] for f in manifest['input_completeness']],[185,130,180])]
+    story+=[para('Kontrol özeti',heading),table([['Kontrol','Sonuç / sınır','Durum']]+[[c['title'],display(c['value'])+' / '+display(c['limit'])+' '+c['unit'],c['status']] for c in manifest['checks']],[185,150,160]),para('Girdi / birim / köken',heading),table([['Girdi','Değer / birim','Provenance']]+[[f['label'],display(f['value'])+' '+f['unit'],f['provenance']] for f in manifest['input_completeness']],[185,130,180])]
     for c in manifest['checks']:
-        story += [para(c['title'],heading),para(c['status']),para(c['source']),para(c['formula']),para(c['trace']),para(c['reason']),para('Owner: '+c['owner']),para('Çözüm sahibi: '+c['closure_owner'])]
+        story.append(KeepTogether([para(c['title'],heading),para(c['status']),*[para(c[k]) for k in ('source','formula','trace','reason') if c[k]],para('Owner: '+c['owner']),para('Çözüm sahibi: '+c['closure_owner'])]))
     story+=[para('Kapsam ve kesin kaynak kimliği',heading),*[para(s) for s in manifest['scope']],para('Aday SHA256: '+manifest['candidate_sha256']),para('Tarihsel SHA256: '+manifest['historical_sha256']),para('Girdi SHA256: '+manifest['input_sha256']),para('Sonuç kimliği: '+manifest['result_id'])]
     for group,review in manifest['input_packet']['reviews'].items():story.append(para(group+' review: '+json.dumps(review,ensure_ascii=False,sort_keys=True)))
     buffer=BytesIO()
