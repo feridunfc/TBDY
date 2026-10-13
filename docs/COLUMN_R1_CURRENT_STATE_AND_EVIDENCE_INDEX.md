@@ -997,3 +997,43 @@ ABI6 HEAD98f15e0/pins/archive remain unchanged and NOT_AUTHORIZED.
 PR208 stays draft/unmerged. STOP for supervisor product review. WORKER_ETABS=NO;
 new_native_getters0; GetPoints NOT_EXECUTED; matrix scan NOT_STARTED; result
 captureNO; FC09 gate UNCHANGED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2 NO.
+
+## Editable reference producer - qualified-viewer supervisor correction
+
+The supervisor review of HEAD65828b9 did **not** accept a complete real235
+product. Its three source/flow findings are retained: normal launch had no
+qualified producer, qualified Calculate consumed an existing artifact, and the
+100/200mm browser flow selected two prepublished fixture variants. Previous
+worker PASS/visual claims were not independently requalified by that review.
+
+The [editable reference producer handoff](COLUMN_EDITABLE_REFERENCE_PRODUCER_HANDOFF_2026-10-13.md)
+and [derived source-bound offline receipt](COLUMN_EDITABLE_REFERENCE_PRODUCER_OFFLINE_RECEIPT_2026-10-13.json)
+record the bounded follow-up. Normal launch now offers a reference-owners
+application producer with editable N/M/material and explicit transverse numeric
+premises. Every Calculate dispatches the unchanged Python longitudinal and
+transverse owners; no fake/native issuer or copied ENGINE_SELECTED_REBAR exists.
+The old qualified channel stays a validated viewer, labeled accordingly.
+
+Actual Chromium/HTTP edits one shear-spacing field in one workspace/context
+100->200mm, invalidates the old result, invokes both owners again and obtains
+Vr428.5->264.25kN. Screen/PDF/JSON share the same manifest; no prepublished
+variants. A third Ve edit produces a real FAIL; blank input stops before calls.
+A separate subprocess exercises the delivered standard launcher and strong
+pure/pinned dependency guards with no channel injection. All14 PDF pages and
+the actual screen were inspected. Full private evidence:2326PASS, previous2300
+worker PASS identities retained (including2224 supervisor-accepted and51 prior
+V3 identities);26 new tests. Old test-file bytes unchanged. Same6 real
+architecture FAIL, expanded/new0, protected45 drift0, compile/import/diffPASS.
+The first integrated launch-test environment failure is preserved separately;
+its private testdeps PYTHONPATH contamination was isolated in the test. The
+production dependency guard was not weakened; the fresh full rerun passed.
+
+**Partial software progress only. Full real235 acceptance remains BLOCKED.**
+Reference Vc/Ve/HIGH/direction assumptions are numerical example premises;
+no actual235 P7/Vc/B5/B6/source/engineering authority is produced. Canonical
+longitudinal diameter and special hook dependencies remain owner BLOCKED.
+Current-source geometry/material/topology/force/analysis-design lineage and
+M6-B still require their exact distinct source/project gates. No new getter,
+operator retry, native execution, analysis/design, save, unit, model or selection
+mutation occurred. ABI2-5REUSE; ABI6original/pins remain unchanged/notauthorized.
+PR208 draft/unmerged; FC09UNCHANGED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2NO.
