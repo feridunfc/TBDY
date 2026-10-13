@@ -21,9 +21,11 @@ def check_dependencies(python: Path):
     return subprocess.run([str(python),'-c',code],capture_output=True).returncode==0
 
 
-def launch(repo: Path, *, port=8765, install_only=False):
+def launch(repo: Path, *, port=8765, install_only=False, audit_file: Path | None = None):
     if sys.version_info < (3,12):raise ValueError('Python 3.12+ gerekli. Linux 3.12 test edildi; Windows 3.14 native qualification henüz yok.')
     if not 1<=port<=65535:raise ValueError('Geçerli port gerekli.')
+    if audit_file is not None and (audit_file.resolve().is_relative_to(repo.resolve()) or audit_file.exists()):
+        raise ValueError('Audit için repo dışında yeni bir dosya gerekli; mevcut dosya korunuyor.')
     if not install_only:
         with socket.socket() as check:
             try:check.bind(('127.0.0.1',port))
@@ -39,14 +41,17 @@ def launch(repo: Path, *, port=8765, install_only=False):
     if not check_dependencies(python):raise ValueError('Pinli bağımlılık/saf PyYAML kontrolü başarısız; sunucu başlatılmadı.')
     print('Pinler PASS: reportlab4.4.9 / PyYAML6.0.2 pure / jsonschema4.25.1. YAML/.env gerekli değil.',flush=True)
     if install_only:return 0
-    return subprocess.run([str(python),str(repo/'tools/serve_column_v2.py'),'--port',str(port)],cwd=repo).returncode
+    command=[str(python),str(repo/'tools/serve_column_v2.py'),'--port',str(port)]
+    if audit_file is not None:command.extend(['--audit-file',str(audit_file.resolve())])
+    return subprocess.run(command,cwd=repo).returncode
 
 
 def main():
     parser=argparse.ArgumentParser(description='Column ürün kurulumu ve yerel başlatma; ETABS çalıştırmaz.')
     parser.add_argument('--port',type=int,default=8765);parser.add_argument('--install-only',action='store_true')
+    parser.add_argument('--audit-file',type=Path,help='Repo dışında yeni, özgün backend kayıt dosyası.')
     args=parser.parse_args()
-    try:return launch(Path(__file__).resolve().parents[1],port=args.port,install_only=args.install_only)
+    try:return launch(Path(__file__).resolve().parents[1],port=args.port,install_only=args.install_only,audit_file=args.audit_file)
     except (ValueError,OSError,subprocess.CalledProcessError) as exc:
         print('Kurulum/başlangıç durduruldu: '+str(exc)+'\nSunucu başlamadı; otomatik tekrar yok.',file=sys.stderr);return 1
 

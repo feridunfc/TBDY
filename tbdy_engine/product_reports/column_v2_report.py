@@ -142,7 +142,7 @@ def render_reference_pdf(calculation: ReferenceCalculation) -> bytes:
     return render_manifest_pdf(reference_manifest(calculation))
 
 
-def render_manifest_pdf(manifest: dict) -> bytes:
+def render_manifest_pdf(manifest: dict, *, input_fields=FIELDS) -> bytes:
     """Both reference and evidence reports project their own immutable manifest."""
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
@@ -185,7 +185,7 @@ def render_manifest_pdf(manifest: dict) -> bytes:
             d.add(String(x,y,t,fontName="ColumnV2",fontSize=9))
         story += [d, Paragraph("Girdi özeti", styles["V2H"])]
         rows = [[p("Girdi"),p("Değer"),p("Birim / kaynak")]]
-        for key,label,unit,_ in FIELDS:
+        for key,label,unit,_ in input_fields:
             value = v[key]; display = ", ".join(fmt(x) for x in value) if isinstance(value,list) else fmt(value)
             rows.append([p(label),p(display),p(unit+" / "+("kullanıcı referansı" if key in manifest["changed_fields"] else "referans"))])
         t=Table(rows,colWidths=[245,95,150],repeatRows=1)

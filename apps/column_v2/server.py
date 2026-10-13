@@ -15,6 +15,8 @@ from html import escape
 from hashlib import sha256
 
 from tbdy_engine.application.column_reference_workspace import ReferenceColumnInput, ReferenceCalculation, calculate_reference, canonical_bytes
+from tbdy_engine.application.column_reference_producer import ReferenceOwnerInput, calculate_reference_owners
+from tbdy_engine.product_reports.column_reference_producer_report import OWNER_FIELDS, owner_reference_manifest, render_owner_reference_pdf, render_owner_reference_html
 from tbdy_engine.product_reports.column_v2_report import FIELDS, reference_manifest, column_235_manifest, section_svg, render_reference_pdf, render_manifest_pdf
 from tbdy_engine.application.column_product_workspace import validate_packet, apply_review, evaluate_column_product, FIELDS as PRODUCT_FIELDS
 from tbdy_engine.application.column_qualified_workspace import QualifiedColumnChannel
@@ -48,7 +50,9 @@ class ColumnWorkspace:
             repo/'tbdy_engine/design/columns/column_design_engine.py',
             repo/'tbdy_engine/product_reports/column_v2_report.py',
             repo/'apps/column_v2/server.py',repo/'apps/column_v2/index.html',
-            repo/'tbdy_engine/application/column_product_workspace.py',repo/'tbdy_engine/product_reports/column_product_report.py')}
+            repo/'tbdy_engine/application/column_product_workspace.py',repo/'tbdy_engine/product_reports/column_product_report.py',
+            repo/'tbdy_engine/application/column_reference_producer.py',repo/'tbdy_engine/product_reports/column_reference_producer_report.py',
+            repo/'tbdy_engine/regulatory/column_transverse_confinement.py')}
 
     def record(self, event: str, **facts):
         with self.lock:
@@ -62,14 +66,16 @@ class ColumnWorkspace:
             if len(self.workspaces) >= 32: raise ValueError('Yerel çalışma alanı sınırı doldu; sunucuyu yeniden başlatın.')
             key = uuid4().hex; self.workspaces[key] = Workspace()
             self.record('WORKSPACE_CREATED', workspace_id=key)
-            return {'id':key,'revision':0,'default_bundle':ReferenceColumnInput().bundle(),'fields':FIELDS,'product_packet':self.product_authority.packet(),'product_fields':PRODUCT_FIELDS,'qualified_catalog':self.qualified_channel.catalog()}
+            return {'id':key,'revision':0,'default_bundle':ReferenceColumnInput().bundle(),'fields':FIELDS,
+                    'owner_reference_bundle':ReferenceOwnerInput.example().bundle(),'owner_reference_fields':OWNER_FIELDS,
+                    'product_packet':self.product_authority.packet(),'product_fields':PRODUCT_FIELDS,'qualified_catalog':self.qualified_channel.catalog()}
 
     def get(self, key: str) -> Workspace:
         if key not in self.workspaces: raise ValueError('Bilinmeyen çalışma alanı.')
         return self.workspaces[key]
 
     def state(self, body: dict) -> dict:
-        if set(body) != {'workspace_id','context','bundle'} or body['context'] not in {'reference','235','235-product','qualified'}:
+        if set(body) != {'workspace_id','context','bundle'} or body['context'] not in {'reference','reference-owners','235','235-product','qualified'}:
             raise ValueError('Bilinmeyen bağlam/girdi paketi.')
         if body['context'] == '235' and body['bundle'] is not None:
             raise ValueError('235 bağlamına referans girdi aktarılamaz.')
@@ -77,6 +83,12 @@ class ColumnWorkspace:
             w = self.get(body['workspace_id']); w.revision += 1; w.calculation = None; w.product_calculation = None
             w.context = body['context']; w.bundle = body['bundle']
             self.record('RESULT_INVALIDATED', workspace_id=body['workspace_id'], revision=w.revision, context=w.context)
+            if w.context == 'reference-owners':
+                try: inputs = ReferenceOwnerInput.from_bundle(w.bundle)
+                except Exception:
+                    w.bundle = None
+                    raise
+                return {'revision':w.revision,'section_svg':section_svg(inputs.longitudinal)}
             if w.context == 'qualified':
                 try: view = present_qualified_result(self.qualified_channel.consume(w.bundle))
                 except Exception:
@@ -96,6 +108,9 @@ class ColumnWorkspace:
 
     def calculate(self, body: dict) -> dict:
         if set(body) != {'workspace_id','revision'}: raise ValueError('Hesap isteği kimliği farklı.')
+        with self.lock:
+            owner_reference = self.get(body['workspace_id']).context == 'reference-owners'
+        if owner_reference: return self.calculate_reference_producer(body)
         with self.lock:
             w = self.get(body['workspace_id'])
             if w.context == 'qualified':
@@ -142,7 +157,7 @@ class ColumnWorkspace:
             w = self.get(body['workspace_id'])
             if type(body['revision']) is not int or body['revision'] != w.revision: raise ValueError('Eski rapor revizyonu.')
             if w.context == 'qualified':
-                if w.product_calculation is None: raise ValueError('Aktif nitelikli hesap yok; önce Hesapla.')
+                if w.product_calculation is None: raise ValueError('Aktif nitelikli sonuç yok; önce sonucu doğrulayın.')
                 manifest = present_qualified_result(self.qualified_channel.consume(w.bundle))
                 if body['result_id'] != manifest['result_id']: raise ValueError('Nitelikli sonuç kimliği farklı.')
                 content = render_qualified_pdf(manifest) if body['format']=='pdf' else render_qualified_html(manifest).encode() if body['format']=='html' else canonical_bytes(manifest)
@@ -153,6 +168,12 @@ class ColumnWorkspace:
                 if body['result_id'] != manifest['result_id']: raise ValueError('Aktif 235 sonuç kimliği farklı.')
                 content = render_product_pdf(manifest) if body['format']=='pdf' else render_product_html(manifest).encode() if body['format']=='html' else canonical_bytes(manifest)
                 name = 'B_BLOK_235_Calisma'
+            elif w.context == 'reference-owners':
+                if w.product_calculation is None: raise ValueError('Aktif owner hesabı yok; önce Hesapla.')
+                manifest = owner_reference_manifest(w.product_calculation)
+                if body['result_id'] != manifest['result_id']: raise ValueError('Aktif owner sonuç kimliği farklı.')
+                content = render_owner_reference_pdf(w.product_calculation) if body['format']=='pdf' else render_owner_reference_html(manifest).encode() if body['format']=='html' else canonical_bytes(manifest)
+                name = 'Editable_Reference_Owner_Calculation'
             elif w.context == 'reference':
                 if body['format']=='html': raise ValueError('Referans HTML export bu endpoint kapsamında değil.')
                 if w.calculation is None: raise ValueError('Aktif hesap yok; önce Hesapla.')
@@ -169,6 +190,42 @@ class ColumnWorkspace:
             self.record('REPORT_EXPORTED',workspace_id=body['workspace_id'],revision=w.revision,context=w.context,
                 result_id=manifest.get('result_id'),content_sha256=sha256(content).hexdigest(),format=body['format'])
             return content,('application/pdf' if body['format'] == 'pdf' else 'text/html; charset=utf-8' if body['format']=='html' else 'application/json'),name+'.'+body['format']
+
+    def calculate_reference_producer(self, body):
+        with self.lock:
+            w = self.get(body['workspace_id'])
+            if w.context != 'reference-owners' or type(body['revision']) is not int or w.revision != body['revision']:
+                raise ValueError('Eski/farklı owner referans revizyonu.')
+            if w.running: raise ValueError('Owner hesabı zaten çalışıyor; otomatik tekrar yok.')
+            inputs = ReferenceOwnerInput.from_bundle(w.bundle)
+            revision = w.revision
+            w.running = True; w.product_calculation = None
+        def observe(phase, name, digest, value):
+            facts = {}
+            if phase == 'RETURNED':
+                if hasattr(value, 'engine_result'): facts['engine_status'] = value.engine_result.status
+                else:
+                    facts['owner_checks'] = [c.as_dict() for c in value.checks]
+                    facts['shear_vr_by_direction_kn'] = value.shear_vr_by_direction_kn
+            self.record('REFERENCE_OWNER_'+phase, workspace_id=body['workspace_id'],revision=revision,
+                        function=name,input_sha256=digest,native_calls=0,**facts)
+        try:
+            calculation = calculate_reference_owners(inputs.bundle(), observe=observe)
+            manifest = owner_reference_manifest(calculation)
+            with self.lock:
+                if w.revision != revision or w.context != 'reference-owners':
+                    self.record('STALE_OWNER_RESULT_REJECTED',workspace_id=body['workspace_id'],revision=revision)
+                    raise ValueError('Owner hesabı sırasında girdi/bağlam değişti; sonuç geçersiz.')
+                w.product_calculation = calculation
+                self.record('REFERENCE_PRODUCER_RETURNED',workspace_id=body['workspace_id'],revision=revision,
+                    input_sha256=calculation.input_sha256,result_id=manifest['result_id'],
+                    invoked_owners=calculation.invoked_owners,engineering_complete=False,native_calls=0)
+                return manifest
+        except Exception as exc:
+            self.record('REFERENCE_PRODUCER_REJECTED',workspace_id=body['workspace_id'],revision=revision,
+                        exception_type=type(exc).__name__,message=str(exc)); raise
+        finally:
+            with self.lock: w.running = False
 
 
     def product_view(self, w):
