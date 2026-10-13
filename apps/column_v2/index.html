@@ -11,19 +11,20 @@
 <section class="panel trace-area"><h2>Hesap ayrıntısı</h2><div id="traces" class="traces"><p class="muted">Formül, sayısal yerine koyma ve motor durumu hesap sonrası burada görünür.</p></div><div id="scope" class="scope"></div></section>
 <details class="panel technical"><summary>Kanıt / Teknik ayrıntılar</summary><p class="caption">Kesin değerler, girdi kimliği, motor çıktısı ve kaynak sınırları. Tarihsel kanıtlar güncel tasarım hesabı değildir.</p><div id="evidenceLinks"></div><pre id="technical"></pre></details>
 <footer>REFERANS / DEMO sonuçları B-BLOK/235 için kullanılamaz. FC09 üretim gate değişmedi · Global Δ kanıtlanmadı · M6-B açık · R2 hazır değil.</footer></main>
-<script>
+<style>.check p,.check b{overflow-wrap:anywhere}.trace table{width:100%;table-layout:fixed}.trace td{overflow-wrap:anywhere;vertical-align:top;padding:3px 5px}</style><script>
 'use strict';
-let packet=null;
+let packet=null,qualifiedRequest=null;
+const isQualified=()=>context.startsWith('qualified:');
 let workspace=null,bundle=null,result=null,evidence=null,context='reference',epoch=0,readyEpoch=-1,pending=Promise.resolve(),busy=false;
 const $=id=>document.getElementById(id),esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),num=n=>n==null?'—':Number(n).toLocaleString('tr-TR',{maximumSignificantDigits:7});
 // A transition is immutable. Returning to the same context is a new epoch.
 function capture(){return Object.freeze({context,epoch,revision:workspace?.revision??0})}
 function active(t,revision=null){return t.context===context&&t.context===$('context').value&&t.epoch===epoch&&(revision===null||workspace?.revision===revision)}
 function controls(){
- $('calculate').disabled=!workspace||!['reference','235-product'].includes(context)||busy||readyEpoch!==epoch;
+ $('calculate').disabled=!workspace||!(['reference','235-product'].includes(context)||isQualified())||busy||readyEpoch!==epoch;
  $('reset').disabled=!workspace;
  const exportReady=readyEpoch===epoch&&(context==='235'?evidence!==null:result!==null);
- $('pdf').disabled=!exportReady;$('json').disabled=!exportReady;$('html').disabled=!exportReady||context!=='235-product';$('html').classList.toggle('hidden',context!=='235-product');
+ $('pdf').disabled=!exportReady;$('json').disabled=!exportReady;$('html').disabled=!exportReady||!(context==='235-product'||isQualified());$('html').classList.toggle('hidden',!(context==='235-product'||isQualified()));
 }
 async function api(path,body){const r=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!r.ok)throw new Error(j.error||'İşlem başarısız');return j}
 function error(e,t,revision=null){if(t&&!active(t,revision))return;$('error').textContent=e.message;$('error').classList.remove('hidden')}
@@ -35,9 +36,9 @@ function clear(stale=false){
  $('section').innerHTML='<div class="empty">Seçili bağlamın bilgileri hazırlanıyor.</div>';
  $('traces').innerHTML='<p class="muted">Aktif hesap sonucu yok.</p>';$('technical').textContent='';$('scope').innerHTML='';$('evidenceLinks').innerHTML='';controls();
 }
-function readInputs(){if(context==='235-product'){readProductInputs();return}for(const f of workspace.fields){const el=$('field_'+f[0]);bundle.values[f[0]]=f[0]==='bar_diameters_mm'?el.value.split(',').map(s=>s.trim()===''?null:Number(s.trim())):(el.value.trim()===''?null:Number(el.value));}}
+function readInputs(){if(isQualified())return;if(context==='235-product'){readProductInputs();return}for(const f of workspace.fields){const el=$('field_'+f[0]);bundle.values[f[0]]=f[0]==='bar_diameters_mm'?el.value.split(',').map(s=>s.trim()===''?null:Number(s.trim())):(el.value.trim()===''?null:Number(el.value));}}
 function state(t=capture()){
- const body={workspace_id:workspace.id,context:t.context,bundle:t.context==='reference'?structuredClone(bundle):t.context==='235-product'?structuredClone(packet):null};
+ const body={workspace_id:workspace.id,context:t.context.startsWith('qualified:')?'qualified':t.context,bundle:t.context.startsWith('qualified:')?structuredClone(qualifiedRequest):t.context==='reference'?structuredClone(bundle):t.context==='235-product'?structuredClone(packet):null};
  // Keep server transactions ordered, but never let an obsolete acknowledgement
  // change current UI data, revision, readiness or error state.
  pending=pending.catch(()=>{}).then(()=>api('state',body)).then(s=>{
@@ -45,6 +46,7 @@ function state(t=capture()){
   if(!Number.isSafeInteger(s.revision)||s.revision<=t.revision)throw new Error('Bağlam revizyonu doğrulanamadı.');
   workspace.revision=s.revision;readyEpoch=t.epoch;
   if(t.context==='235-product'&&s.product){packet=structuredClone(s.product.packet);productView(s.product,!$('product_width_mm'));}
+  if(t.context.startsWith('qualified:')&&s.qualified)qualifiedInputs(s.qualified);
   if(t.context==='reference'&&s.section_svg)$('section').innerHTML=s.section_svg;
   controls();return s;
  }).catch(e=>{if(!active(t))return null;throw e});
@@ -54,14 +56,14 @@ function inputChanged(event){clear(true);readInputs();if(context==='235-product'
 function fields(){let groups={};for(const f of workspace.fields)(groups[f[3]]??=[]).push(f);$('inputs').innerHTML=Object.entries(groups).map(([g,fs])=>'<details class="input-group" open><summary>'+esc(g)+'</summary><div class="field-grid">'+fs.map(f=>'<div class="field"><label for="field_'+f[0]+'">'+esc(f[1])+'</label><div class="entry"><input id="field_'+f[0]+'" '+(f[0]==='bar_diameters_mm'?'type="text"':'type="number" step="any"')+' value="'+esc(Array.isArray(bundle.values[f[0]])?bundle.values[f[0]].join(', '):bundle.values[f[0]])+'"><span>'+esc(f[2])+'</span></div></div>').join('')+'</div></details>').join('');for(const f of workspace.fields)$('field_'+f[0]).addEventListener('input',inputChanged)}
 function render(m){result=m;$('status').textContent=m.engine_status==='SELECTED_DESIGN_CANDIDATE_ONLY'?'Hesaplandı · tasarım adayı':'Hesaplandı · kapsam tamamlanmadı';$('result').innerHTML='<div class="checks">'+m.checks.map(c=>'<div class="check" data-check="'+c.id+'"><div class="check-head"><b>'+esc(c.title)+'</b><span class="badge '+(c.value==null||c.display_status==='EK HESAP GEREKLİ'?'amber':'')+'">'+esc(c.display_status)+'</span></div><div class="number">'+num(c.value)+' <small>'+esc(c.unit)+(c.limit==null?'':' · sınır '+num(c.limit))+'</small></div><div class="reason">'+esc(c.reason)+'</div></div>').join('')+'</div>';$('traces').innerHTML=m.checks.map(c=>'<article class="trace"><h3>'+esc(c.title)+'</h3><div class="caption">'+esc(c.source)+'</div><div class="formula">'+esc(c.formula)+'</div><p>'+esc(c.trace)+'</p><p class="caption">Motor: '+esc(c.status)+'</p></article>').join('');$('scope').innerHTML=m.scope.map(s=>'<div>• '+esc(s)+'</div>').join('');$('section').innerHTML=m.section_svg;const c=m.selected_candidate;if(c){$('candidate').textContent=c.bars.length+' adet Ø'+num(c.bar_diameter_mm)+' · As '+num(c.as_total_mm2)+' mm² · Yalnız donatı adayı';$('candidate').classList.remove('hidden')}$('technical').textContent=JSON.stringify(m,null,2);controls()}
 async function calculate(){
- if(busy||!['reference','235-product'].includes(context)||readyEpoch!==epoch)return;
+ if(busy||!(['reference','235-product'].includes(context)||isQualified())||readyEpoch!==epoch)return;
  clear();const t=capture();let revision=null;busy=true;controls();$('working').textContent='Python motoru çalışıyor…';
  try{
   readInputs();const acknowledged=await state(t);
   if(!acknowledged||!active(t))return;
   revision=acknowledged.revision;
   const r=await api('calculate',{workspace_id:workspace.id,revision});
-  if(active(t,revision)){if(t.context==='235-product')renderProductResult(r);else render(r);}
+  if(active(t,revision)){if(t.context.startsWith('qualified:'))renderQualifiedResult(r);else if(t.context==='235-product')renderProductResult(r);else render(r);}
  }catch(e){error(e,t,revision)}finally{
   busy=false;controls();if(active(t))$('working').textContent='';
  }
@@ -73,6 +75,14 @@ async function switchContext(){
  $('reset').classList.toggle('hidden',t.context!=='reference');
  if(t.context==='reference'){
   bundle=structuredClone(workspace.default_bundle);fields();$('inputHeading').textContent='Girdiler';$('sourceName').textContent='Referans / kullanıcı girdisi';$('sectionName').textContent='Açık dikdörtgen kesit';$('inputNote').textContent='Ötelenmesi önlenmiş referans sistem; iki uçta aynı açık N/M. ETABS verisi değildir.';$('sectionCaption').textContent='Ölçüler açık girdilerden gelir. Donatı yalnız motor adayı bulunduğunda çizilir.';$('pdf').textContent='Hesap PDF indir';
+ }else if(t.context.startsWith('qualified:')){
+  const entry=workspace.qualified_catalog.find(x=>'qualified:'+x.handle===t.context);
+  if(!entry){error(new Error('Nitelikli iç uygulama nesnesi yok.'),t);return;}
+  qualifiedRequest={handle:entry.handle,scope_identity:structuredClone(entry.scope_identity)};
+  $('contextName').textContent=entry.component_id;$('sourceName').textContent=entry.label;
+  $('inputHeading').textContent='Mevcut owner girdileri / nitelikli sonuç';$('inputs').innerHTML='Yükleniyor';
+  $('inputNote').textContent='İç uygulamanın kaynak ve dönem bağlı typed sonucu. JSON/review yeni B5/B6 authority üretemez. Yeni girdi için mevcut owner yeni nitelikli çıktı üretmelidir.';
+  $('sectionCaption').textContent='Owner topology/selected cage kesin verileri hesap ayrıntısında; yeni geometri çıkarılmaz.';
  }else if(t.context==='235-product'){
   packet=structuredClone(workspace.product_packet);productShell();
  }else{
@@ -81,7 +91,7 @@ async function switchContext(){
  }
  try{
   const s=await state(t);if(!s||!active(t,s.revision))return;
-  if(t.context==='reference'||t.context==='235-product')return;
+  if(t.context==='reference'||t.context==='235-product'||t.context.startsWith('qualified:'))return;
   const m=s.evidence;
   if(!m||m.context!=='B-BLOK-235')throw new Error('235 kanıt bağlamı doğrulanamadı.');
   evidence=m;$('status').textContent=m.status;$('sourceName').textContent='Kabul edilmiş aday / ayrı FC09';$('sectionName').textContent=m.section;
@@ -101,7 +111,7 @@ async function download(format){
   const r=await fetch('/api/report',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({workspace_id:workspace.id,revision,result_id:resultId,format})});
   if(!r.ok)throw new Error((await r.json()).error);
   const blob=await r.blob();if(!active(t,revision))return;
-  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(t.context==='reference'?'Referans_Kolon_Hesap':t.context==='235-product'?'B_BLOK_235_Calisma':'B_BLOK_235_Kanit')+'.'+format;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=(t.context.startsWith('qualified:')?'Qualified_Column_Owner_Result':t.context==='reference'?'Referans_Kolon_Hesap':t.context==='235-product'?'B_BLOK_235_Calisma':'B_BLOK_235_Kanit')+'.'+format;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
  }catch(e){error(e,t,revision)}
 }
 
@@ -163,7 +173,34 @@ function renderProductResult(m){
  $('reportNote').textContent='PDF/HTML/JSON aynı aktif typed 235 değerlendirmesinden gelir. Proje review hesabı tam tasarım onayı değildir.';
 }
 
+
+function qualifiedInputs(m){
+ $('sectionName').textContent=m.owner_outputs.longitudinal_runtime?.data.target_topology.section||'Kesit authority eksik';$('status').textContent='Nitelikli owner çıktısı hazır · Hesapla';
+ const selected=m.selected_rebar;
+ $('inputs').innerHTML='<p>'+esc(m.scope_identity.origin)+'</p><p>Kaynak: '+esc(m.scope_identity.source_model_ref)+'</p><p>Birim bağlamı: '+esc(m.scope_identity.force_unit)+' / '+esc(m.scope_identity.length_unit)+'</p><p>Tasarım talebi: '+m.demand_states.length+' exact state</p><p>Yeni N/M, malzeme veya cage: mevcut application owner tarafından yeniden değerlendirilmiş ayrı nitelikli girdiyi bağlam listesinden seçin. Taslak form sonucu yeniden yetkilendirmez.</p>';
+ if(selected)$('inputs').innerHTML+='<p>As = '+num(selected.as_total_mm2)+' mm² · '+esc(selected.authority)+'</p>';
+}
+function renderQualifiedResult(m){
+ result=m;qualifiedInputs(m);$('status').textContent='FND2 '+m.fnd2_status+' · uygulama '+m.application_status;
+ const rows=m.canonical_contributions.map(c=>{const f=Object.fromEntries(c.summary_fields.map(x=>[x.key,x.value]));return '<div class="check"><b>'+esc(f.column_leaf_key||c.slice_id)+' '+esc(f.direction||'')+'</b><p>'+esc(c.status)+' · '+esc(f.column_leaf_runtime_outcome||'')+'</p></div>';});
+ const numerical=[];
+ function existingChecks(value){
+  if(Array.isArray(value)){value.forEach(existingChecks);return;}
+  if(!value||typeof value!=='object')return;
+  if(value.check_id&&value.status){numerical.push(value);return;}
+  for(const [key,child] of Object.entries(value))if(!['regulatory_snapshot','structural_assessment','store','assessment'].includes(key))existingChecks(child);
+ }
+ for(const [key,out] of Object.entries(m.owner_outputs))if(key!=='fnd_col_2_execution')existingChecks(out.data);
+ const pmms=m.owner_outputs.longitudinal_selection?.data.selected_pmm_rows||[];
+ const pmmCards=pmms.map(row=>{const state=m.demand_states.find(x=>x.state_id===row.state_id);return '<div class="check"><b>PMM · '+esc(state?state.output_case+' / '+state.end_tag+' / '+state.station_m+' m':row.state_id)+'</b><p class="number">'+num(row.utilization)+'</p><p>'+esc(row.status)+' · '+esc(row.numerical_status)+'</p><p class="caption">Mevcut sayısal kapasite owner kullanım oranı</p></div>';});
+ const checkCards=numerical.map(c=>'<div class="check"><b>'+esc(c.check_id)+'</b><p class="number">'+num(c.value)+' <small>'+esc(c.unit||'')+(c.limit==null?'':' · sınır '+num(c.limit))+'</small></p><p>'+esc(c.status)+'</p><p class="caption">'+esc(c.pass_rule||c.messages?.join(' ')||'')+'</p></div>');
+ $('result').innerHTML='<p>'+m.application_blockers.map(esc).join('<br>')+'</p><div class="checks">'+pmmCards.join('')+checkCards.join('')+'</div><details><summary>Tüm kanonik kontrol ve coverage kararları</summary><div class="checks">'+rows.join('')+'</div></details>';
+
+ $('traces').innerHTML=Object.entries(m.numerical_traces).map(([k,rows])=>'<article class="trace"><h3>'+esc(k)+'</h3><p>'+esc(m.owner_outputs[k].owner)+'</p><table>'+rows.map(([path,value])=>'<tr><td style="overflow-wrap:anywhere">'+esc(path)+'</td><td>'+esc(value)+'</td></tr>').join('')+'</table></article>').join('');
+ $('section').innerHTML=m.section_svg||'<p>Owner geometri/kanonik kafes üretilmedi.</p>';
+ $('scope').innerHTML=m.scope.map(s=>'<p>'+esc(s)+'</p>').join('');$('technical').textContent=JSON.stringify(m,null,2);controls();
+}
 $('calculate').addEventListener('click',calculate);$('context').addEventListener('change',switchContext);$('reset').addEventListener('click',()=>{$('context').value='reference';switchContext()});$('html').addEventListener('click',()=>download('html'));$('pdf').addEventListener('click',()=>download('pdf'));$('json').addEventListener('click',()=>download('json'));
 $('context').disabled=true;controls();
-api('workspace',{}).then(w=>{workspace=w;$('context').disabled=false;return switchContext()}).catch(e=>error(e));
+api('workspace',{}).then(w=>{workspace=w;for(const c of w.qualified_catalog||[]){const option=document.createElement('option');option.value='qualified:'+c.handle;option.textContent=c.label+' / '+c.component_id;$('context').appendChild(option);}$('context').disabled=false;return switchContext()}).catch(e=>error(e));
 </script></body></html>

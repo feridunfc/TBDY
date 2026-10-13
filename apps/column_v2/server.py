@@ -17,6 +17,8 @@ from hashlib import sha256
 from tbdy_engine.application.column_reference_workspace import ReferenceColumnInput, ReferenceCalculation, calculate_reference, canonical_bytes
 from tbdy_engine.product_reports.column_v2_report import FIELDS, reference_manifest, column_235_manifest, section_svg, render_reference_pdf, render_manifest_pdf
 from tbdy_engine.application.column_product_workspace import validate_packet, apply_review, evaluate_column_product, FIELDS as PRODUCT_FIELDS
+from tbdy_engine.application.column_qualified_workspace import QualifiedColumnChannel
+from tbdy_engine.product_reports.column_qualified_report import render_qualified_html, render_qualified_pdf, present_qualified_result
 from tbdy_engine.product_reports.column_product_report import product_authority, product_manifest, product_drawing, render_product_html, render_product_pdf
 
 
@@ -31,7 +33,9 @@ class Workspace:
 
 
 class ColumnWorkspace:
-    def __init__(self, repo: Path, audit_path: Path | None = None):
+    def __init__(self, repo: Path, audit_path: Path | None = None, qualified_channel: QualifiedColumnChannel | None = None):
+        self.qualified_channel = qualified_channel if qualified_channel is not None else QualifiedColumnChannel()
+        if type(self.qualified_channel) is not QualifiedColumnChannel: raise TypeError("Original in-process result channel required.")
         self.repo = repo
         self.evidence = column_235_manifest(repo)
         self.product_authority = product_authority(repo)
@@ -58,14 +62,14 @@ class ColumnWorkspace:
             if len(self.workspaces) >= 32: raise ValueError('Yerel çalışma alanı sınırı doldu; sunucuyu yeniden başlatın.')
             key = uuid4().hex; self.workspaces[key] = Workspace()
             self.record('WORKSPACE_CREATED', workspace_id=key)
-            return {'id':key,'revision':0,'default_bundle':ReferenceColumnInput().bundle(),'fields':FIELDS,'product_packet':self.product_authority.packet(),'product_fields':PRODUCT_FIELDS}
+            return {'id':key,'revision':0,'default_bundle':ReferenceColumnInput().bundle(),'fields':FIELDS,'product_packet':self.product_authority.packet(),'product_fields':PRODUCT_FIELDS,'qualified_catalog':self.qualified_channel.catalog()}
 
     def get(self, key: str) -> Workspace:
         if key not in self.workspaces: raise ValueError('Bilinmeyen çalışma alanı.')
         return self.workspaces[key]
 
     def state(self, body: dict) -> dict:
-        if set(body) != {'workspace_id','context','bundle'} or body['context'] not in {'reference','235','235-product'}:
+        if set(body) != {'workspace_id','context','bundle'} or body['context'] not in {'reference','235','235-product','qualified'}:
             raise ValueError('Bilinmeyen bağlam/girdi paketi.')
         if body['context'] == '235' and body['bundle'] is not None:
             raise ValueError('235 bağlamına referans girdi aktarılamaz.')
@@ -73,6 +77,12 @@ class ColumnWorkspace:
             w = self.get(body['workspace_id']); w.revision += 1; w.calculation = None; w.product_calculation = None
             w.context = body['context']; w.bundle = body['bundle']
             self.record('RESULT_INVALIDATED', workspace_id=body['workspace_id'], revision=w.revision, context=w.context)
+            if w.context == 'qualified':
+                try: view = present_qualified_result(self.qualified_channel.consume(w.bundle))
+                except Exception:
+                    w.bundle = None
+                    raise
+                return {'revision':w.revision,'qualified':view}
             if w.context == '235-product':
                 try: w.bundle = validate_packet(body['bundle'],self.product_authority)
                 except Exception:
@@ -88,6 +98,16 @@ class ColumnWorkspace:
         if set(body) != {'workspace_id','revision'}: raise ValueError('Hesap isteği kimliği farklı.')
         with self.lock:
             w = self.get(body['workspace_id'])
+            if w.context == 'qualified':
+                if type(body['revision']) is not int or w.revision != body['revision']: raise ValueError('Eski nitelikli sonuç revizyonu.')
+                w.product_calculation = None
+                view = present_qualified_result(self.qualified_channel.consume(w.bundle))
+                w.product_calculation = view
+                self.record('QUALIFIED_OWNER_RESULT_CONSUMED', workspace_id=body['workspace_id'],revision=w.revision,
+                    result_id=view['result_id'],scope_identity=view['scope_identity'],
+                    owner_artifact_sha256={k:v['artifact_sha256'] for k,v in view['owner_outputs'].items()},
+                    fnd2_status=view['fnd2_status'],application_status=view['application_status'],native_calls=0)
+                return view
             if w.context == '235-product': return self.calculate_product(body)
             if w.context != 'reference': raise ValueError('235 için hesap girdileri eksik; referans hesabı kullanılamaz.')
             if type(body['revision']) is not int or w.revision != body['revision']: raise ValueError('Eski girdi revizyonu.')
@@ -121,7 +141,13 @@ class ColumnWorkspace:
         with self.lock:
             w = self.get(body['workspace_id'])
             if type(body['revision']) is not int or body['revision'] != w.revision: raise ValueError('Eski rapor revizyonu.')
-            if w.context == '235-product':
+            if w.context == 'qualified':
+                if w.product_calculation is None: raise ValueError('Aktif nitelikli hesap yok; önce Hesapla.')
+                manifest = present_qualified_result(self.qualified_channel.consume(w.bundle))
+                if body['result_id'] != manifest['result_id']: raise ValueError('Nitelikli sonuç kimliği farklı.')
+                content = render_qualified_pdf(manifest) if body['format']=='pdf' else render_qualified_html(manifest).encode() if body['format']=='html' else canonical_bytes(manifest)
+                name = 'Qualified_Column_Owner_Result'
+            elif w.context == '235-product':
                 if w.product_calculation is None: raise ValueError('Aktif 235 değerlendirmesi yok; önce Hesapla.')
                 manifest = product_manifest(w.product_calculation,self.product_authority)
                 if body['result_id'] != manifest['result_id']: raise ValueError('Aktif 235 sonuç kimliği farklı.')
@@ -183,8 +209,8 @@ class ColumnWorkspace:
         finally:w.running=False
 
 
-def make_server(repo: Path, port: int = 8765, audit_path: Path | None = None, evidence_dir: Path | None = None):
-    application = ColumnWorkspace(repo,audit_path)
+def make_server(repo: Path, port: int = 8765, audit_path: Path | None = None, evidence_dir: Path | None = None, qualified_channel: QualifiedColumnChannel | None = None):
+    application = ColumnWorkspace(repo,audit_path,qualified_channel)
     class Handler(BaseHTTPRequestHandler):
         def log_message(self,*args): pass
         def reply(self, code, content, media='application/json', filename=None):
