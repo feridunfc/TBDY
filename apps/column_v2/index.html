@@ -175,7 +175,7 @@ function renderProductResult(m){
 
 
 function qualifiedInputs(m){
- $('sectionName').textContent=m.owner_outputs.longitudinal_runtime?.data.target_topology.section||'Kesit authority eksik';$('status').textContent='Nitelikli owner çıktısı hazır · Hesapla';
+ $('sectionName').textContent=m.owner_outputs.longitudinal_runtime?.data.target_topology.Section||'Kesit authority eksik';$('status').textContent='Nitelikli owner çıktısı hazır · Hesapla';
  const selected=m.selected_rebar;
  $('inputs').innerHTML='<p>'+esc(m.scope_identity.origin)+'</p><p>Kaynak: '+esc(m.scope_identity.source_model_ref)+'</p><p>Birim bağlamı: '+esc(m.scope_identity.force_unit)+' / '+esc(m.scope_identity.length_unit)+'</p><p>Tasarım talebi: '+m.demand_states.length+' exact state</p><p>Yeni N/M, malzeme veya cage: mevcut application owner tarafından yeniden değerlendirilmiş ayrı nitelikli girdiyi bağlam listesinden seçin. Taslak form sonucu yeniden yetkilendirmez.</p>';
  if(selected)$('inputs').innerHTML+='<p>As = '+num(selected.as_total_mm2)+' mm² · '+esc(selected.authority)+'</p>';

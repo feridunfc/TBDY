@@ -16,7 +16,7 @@ for(const [name,index] of [['Baseline',0],['Changed_Cage',2],['Owner_Blocked',1]
  const invalid=await snapshot(p);assert(invalid.pdfDisabled);assert(!invalid.text.includes('ENGINE_SELECTED_REBAR'));
  await settle(p);await p.locator('#calculate').click();await settle(p);
  const s=await snapshot(p);events.push({name,...s});assert(s.manifest.schema==='column.qualified.owner-result.v1');
- if(name==='Baseline'){baseline=s.manifest;assert(s.manifest.selected_rebar.authority==='ENGINE_SELECTED_REBAR');assert(s.manifest.fnd2_status==='READY');}
+ if(name==='Baseline'){baseline=s.manifest;assert(s.manifest.selected_rebar.authority==='ENGINE_SELECTED_REBAR');assert.strictEqual(await p.locator('#sectionName').textContent(),'C50x80');assert(s.manifest.fnd2_status==='READY');}
  if(name==='Changed_Cage'){assert(s.manifest.result_id!==baseline.result_id);assert.notDeepStrictEqual(s.manifest.owner_outputs.transverse_confinement.data.shear_vr_by_direction_kn,baseline.owner_outputs.transverse_confinement.data.shear_vr_by_direction_kn);}
  if(name==='Owner_Blocked'){assert(s.manifest.selected_rebar===null);assert(s.manifest.application_blockers.some(x=>x.startsWith('A18:')));}
  for(const ext of ['json','pdf','html']){

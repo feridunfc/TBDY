@@ -958,3 +958,42 @@ real engineering dependencies. FC09 gate UNCHANGED; GLOBAL_DELTA NOT_PROVEN;
 M6_B OPEN; R2_RERUN_READY NO; WORKER_ETABS NO; new_native_getters0; result_captureNO.
 “Column bitti” is not claimed. Product wiring and full engineering closure are
 reported separately. Concrete integration can be reviewed without merging.
+
+
+## Qualified Column owner-result handoff — supervisor V3 correction
+
+The supervisor source/product review rejected the previous V3 full-integration
+claim. Its immutable worker receipts remain preserved, not independently
+accepted by that review. The [new narrow handoff](COLUMN_PRODUCT_QUALIFIED_HANDOFF_2026-10-13.md)
+and [derived offline receipt](COLUMN_PRODUCT_QUALIFIED_OFFLINE_RECEIPT_2026-10-13.json)
+record actual existing owner invocation in the accepted test lifecycle and
+validated original typed-result consumption through the same local application.
+
+2300 PASS preserves2224 accepted identities, all51 previous V3 identities and
+all519 previous test-file bytes. The final UI Section-key display correction
+and browser assertion were separately exercised in122 focused PASS. The same6
+real architecture FAIL remain; complete guard sets/mutation callsites are equal,
+protected45 drift0. Compile/import/diff pass. No issuer, core formula, gateway,
+source/ABI policy or scoped LF rule was modified.
+
+A supported synthetic component reaches canonical ENGINE_SELECTED_REBAR,
+PMM/required-area decisions, real VS5/P7/Vc/final-cage/confinement evaluations
+and the existing readiness/coverage owners. Doubling reviewed shear spacing
+changes Vr in both directions according to an independent numeric regression.
+Its real missing Ash/special-tie/final-detailing dependencies and calculated
+FAIL checks remain visible. Its sibling is actually A18/A19-blocked; no
+primary readiness or cage is copied to it. Actual UI and9 PDF/HTML/JSON
+downloads preserve exact source/epoch/units and typed output identities.
+
+The channel accepts original in-process owner artifacts only. No HTTP/JSON
+publication or new B5/B6 issuer exists. Raw edits cannot authorize force or
+result epochs; new owner outputs require the existing qualified application
+producer. The default real235 context remains separately blocked. Full
+current235 engineering/production integration is NOT COMPLETE: source-bound
+topology/material/design-demand/B5/B6, project review and M6-B still require
+the exact distinct dependencies in the handoff table. ABI2-5 REUSE; original
+ABI6 HEAD98f15e0/pins/archive remain unchanged and NOT_AUTHORIZED.
+
+PR208 stays draft/unmerged. STOP for supervisor product review. WORKER_ETABS=NO;
+new_native_getters0; GetPoints NOT_EXECUTED; matrix scan NOT_STARTED; result
+captureNO; FC09 gate UNCHANGED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2 NO.
