@@ -1037,3 +1037,40 @@ M6-B still require their exact distinct source/project gates. No new getter,
 operator retry, native execution, analysis/design, save, unit, model or selection
 mutation occurred. ABI2-5REUSE; ABI6original/pins remain unchanged/notauthorized.
 PR208 draft/unmerged; FC09UNCHANGED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2NO.
+
+
+## Supervisor acceptance of editable reference; next actual235 source edge
+
+The latest original supervisor continuation review accepts the43e8afa reference
+source slice and independently verifies24 focused tests plus same-workspace HTTP
+recalculation/JSON equality. Its two profile tests were not selected. The worker's
+2326 integrated ledger, ZIP hashes and all14-page visual QA are not promoted to
+independent supervisor acceptance. Reference implementation CLOSED/REUSE; no new
+reference screens/reports are this task's output. Full real235 NOT_ACCEPTED.
+
+The [current-source authority cutset](COLUMN_235_CURRENT_SOURCE_AUTHORITY_CUTSET_2026-10-13.json)
+revalidates original ABI2/4/5 pairs and FC09 preflight/R3D hashes without live
+execution. Current998 frame-name set equals historical998, Name235 exists and
+Column_80x80 assignment/I22/I33 accepted scope persists. Current width/depth,
+material/topology, physical cage and B5/B6 remain unproven. Historical target235
+C1/+0.00 has I955/J758, connectivity length5.15m, point coordinates and native
+section/material facts; these do not rebind to61FA. Historical Modal forces at
+ObjStation0/2.225/4.45m are not regulatory ln, inferred offsets or current design
+actions. Raw section Area and other ten unqualified units do not become inputs.
+
+The [separate acquisition/project decision gate](COLUMN_235_ACQUISITION_AND_PROJECT_DECISION_GATE_2026-10-13.md)
+reuses the unchanged original ABI6 operator package, not new product HEAD. Exact
+PID2072/startUTC2026-10-09T15:47:08.1780017Z is hard-pinned; another PID/start means
+STOP and separate profile review, never script/guard weakening. Max1 GetPoints
+Name235 proposal only; no native authorization here. Selection NOT_READ and no
+fresh selection identity assertion. Success can prove names only, not bottom/top,
+geometry, analysis-joint/panel-zone, result lineage or M6-B. Separate current
+topology/material acquisition design and original B4B/B5/B6 owner authorization
+remain necessary. No controlled analysis/design command is prepared or executed.
+M6-B's exact source/project decisions are explicit unresolved fields.
+
+PR208 scope/body is updated for editable reference plus actual235 authority gates.
+No merge, review or comment sent. Source, native package, runtime, tests, core
+formulas and guards unchanged. WORKER_ETABSNO; new_native_getters0; GetPoints
+NOT_EXECUTED/NOT_AUTHORIZED; matrix NOT_STARTED; FC09UNCHANGED; GLOBAL_DELTA
+NOT_PROVEN; M6_BOPEN; R2NO.
