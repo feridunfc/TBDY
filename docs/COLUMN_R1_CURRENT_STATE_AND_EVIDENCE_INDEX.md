@@ -1143,3 +1143,10 @@ WORKER_ETABSNO/LIVEAUTHNONE/FC09UNCHANGED/GLOBALNOTPROVEN/M6_BOPEN/R2NO.
 Supervisor explicitly authorizes only Python 3.11→3.12 and ReportLab 4.4.9 installation in `.github/workflows/ur_1e_validation.yml`. Exact before SHA256 `a9254d8a7014907982e311fd897ba4f5b511154d0eec6984e519e3eabe390fd4`; exact approved after SHA256 `12719cf429c5073f4e4d2591d3699528f8945f9ca42090076a8a367645db7b0f`. Old 45-surface ledger remains unchanged; drift is **1 authorized / 0 unauthorized**, other 44 exact hashes preserved. Zero-new comparison, exact PR baseline and all test expectations remain unchanged. Six previously introduced CI failures pass in the focused new-toolchain check. Broad comparison/fresh Actions verdict remains pending at this commit.
 
 See `COLUMN_235_APPROVED_CI_TOOLCHAIN_RECEIPT_2026-10-13.json`. Original ABI7 checkpoint/artifacts are not repinned. No merge/native authorization; FC09 unchanged, global delta not proven, M6-B open, R2 not ready.
+
+
+### COLUMN 235 — bounded CI toolchain correction CLOSED
+
+Actual UR-1E run [38450118453](https://github.com/feridunfc/TBDY/actions/runs/38450118453) SUCCESS at source HEAD `16d88ea1b0f7b4cb22921f8aa7608f591a719e1d`; original zero-new gate PASS. GitHub candidate 1147PASS/2realFAIL/39existingSKIP, exact base 1022PASS/2realFAIL/0SKIP. New failures 0. Local counts remain separately identified. 2404 accepted identities collected, missing0/extra0; no fresh full2404PASS claim. Same6real architectureFAIL, new/expanded0. Protected drift **1 authorized /0 unauthorized**, old45 ledger retained and other44 unchanged. Compile/import/diff PASS.
+
+See `COLUMN_235_APPROVED_CI_TOOLCHAIN_CLOSURE_2026-10-13.md` and the approved-toolchain receipt. Closing commit is derived-documents-only; source/workflow/test/pin bytes remain the validated source. Original ABI7 operator checkpoint is unchanged; no repin, merge or native authorization. FC09 unchanged; GLOBAL_DELTA NOT_PROVEN; M6-B OPEN; R2 NO.
