@@ -29,8 +29,8 @@ toplanıyor; bu bir fresh2404fullPASS iddiası değildir. Yeni test0.
 
 Özel PYTHONPATH olmadan aynı beş scope: regulatory, coverage, design/columns,
 features, product_reports. Exact9f426f5worktree'de1163collected/1collectionERROR;
-düzeltmede1188collected/0collectionERROR.25qualified owner testi korunmuş ve
-gerçek existing owners ile broad koşuda25PASS.
+düzeltmede1188collected/0collectionERROR.25qualified owner kimliği korunmuş;24PASS ve1mevcut browserprofileSKIP. Existing
+owner fixture gerçek hesap sahibini çalıştırdı; browser profili bu koşuda yoktu.
 
 YerelSDK CPython3.12 broad: candidate1147PASS/3FAIL/38preexisting profileSKIP;
 PRbase810f9311021PASS/3FAIL. Değişmeyen workflow zero-new script'i bu iki özgün
@@ -62,3 +62,21 @@ ABI7 attr check iddiası eklenmedi, exactABI7SHA guard'ı korunur.
 Referans source slice CLOSED_REUSE. Yeni CI gate kabulü canlı coordinate,
 GetPoints tekrar,172matrixscan, sonuç capture veya235engineering readiness
 yetkisi değildir. FC09UNCHANGED; GLOBAL_DELTANOT_PROVEN; M6_BOPEN; R2NO.
+
+## Gerçek GitHub sonucu ve worker sayım düzeltmesi
+
+[Run38440754071](https://github.com/feridunfc/TBDY/actions/runs/38440754071), job115446385850,
+exact52f466bHEAD: compile/focused/determinismPASS; candidate1141PASS/8FAIL/39SKIP,
+base1022PASS/2FAIL. Collection error kapandı; zero-new gate6newfailure ile gerçek
+FAIL verdi. Üç PDFcase reportlabMissing, üç launcherCase CI3.11 ile minimum3.12
+profile mismatch. Geçmedi veya waived sayılmaz; PR mergeBLOCKED. [İki satırlık
+uygulanmamış kurulum önerisi](COLUMN_235_UR1E_TOOLCHAIN_PROPOSAL_2026-10-13.md)
+supervisor incelemesi gerektirir. Protectedworkflow değiştirilmedi.
+
+Önceki25PASS yazımı bir browserprofileSKIP'i PASS gibi saymıştı; doğru yerel
+module kapsamı24PASS/1existingSKIP,25identitycollected. Bu sayım düzeltmesi test
+skip eklemez veya owner assertion değiştirmez.2404fullPASS iddiası yok.
+
+Yerel çalışma ortamı bağlantısı kesildi; son doğrudan kontrol52f466bCLEAN idi.
+Yeni proofZIP oluşturulamadı; sonraki docs-only remote kayıt yerelde henüz sync
+edilmedi. Yeniden yerel kontrol/sync için ortamın bağlanması gerekir.

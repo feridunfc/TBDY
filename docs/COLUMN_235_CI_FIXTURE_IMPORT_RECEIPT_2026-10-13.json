@@ -96,15 +96,59 @@
     "candidate_SKIP_preexisting_profiles": 38,
     "base_PASS": 1021,
     "base_FAIL": 3,
-    "qualified_owner25_PASS": 25,
     "third_common_failure": "editable gateway install omitted in initial local broad environment; no code failure; corrected focused install checks recorded separately",
     "original_workflow_zero_new_gate": "PASS; same three signatures; gate code unchanged",
-    "single_clean_full2404": "NOT_RERUN_NOT_CLAIMED"
+    "single_clean_full2404": "NOT_RERUN_NOT_CLAIMED",
+    "qualified_owner_module": {
+      "collected": 25,
+      "PASS": 24,
+      "SKIP_existing_browser_profile": 1,
+      "assertions_unchanged": true
+    }
   },
   "editable_gateway_import_checks": {
     "candidate": "PASS",
     "base": "PASS",
     "source_changes": "NONE; gateway installed using existing editable package"
   },
-  "remote_new_CI": "PENDING_AFTER_PUSH; no pass claim"
+  "remote_new_CI": {
+    "status": "FAIL",
+    "HEAD": "52f466b56f6bf4786fb0d0e4c7c8eebcf585e1fa",
+    "run_id": 38440754071,
+    "job_id": 115446385850,
+    "url": "https://github.com/feridunfc/TBDY/actions/runs/38440754071",
+    "candidate": {
+      "PASS": 1141,
+      "FAIL": 8,
+      "SKIP": 39
+    },
+    "base": {
+      "PASS": 1022,
+      "FAIL": 2
+    },
+    "new_failure_count": 6,
+    "collection_error_resolved": true,
+    "zero_new_gate": "FAIL_REAL_NOT_WAIVED",
+    "new_failures": [
+      "tests/product_reports/test_column_product_workspace.py::test_existing_independent_owner_recompute_and_typed_reports|ModuleNotFoundError",
+      "tests/product_reports/test_column_product_workspace.py::test_launcher_install_failure_never_runs_server|ValueError",
+      "tests/product_reports/test_column_product_workspace.py::test_launcher_refuses_foreign_venv_before_install|AssertionError",
+      "tests/product_reports/test_column_product_workspace.py::test_launcher_used_port_is_preserved|AssertionError",
+      "tests/product_reports/test_column_reference_producer.py::test_pdf_json_html_share_active_result|ModuleNotFoundError",
+      "tests/product_reports/test_column_v2_workspace.py::test_pdf_contains_same_exact_input_result_identity_and_trace|ModuleNotFoundError"
+    ],
+    "root_causes": [
+      "ReportLab absent from CI installed toolchain; existing PDF paths require reportlab==4.4.9",
+      "CI Python3.11 rejected by unchanged product launcher minimum3.12; other launcher safety assertions never reached"
+    ],
+    "merge_acceptance": "BLOCKED"
+  },
+  "worker_count_correction": "Earlier25PASS claim wrongly counted one pre-existing browser profile skip. Correct24PASS/1SKIP; no new skip rule.",
+  "next_exact_causal_edge": "Supervisor review of two-line CI environment proposal; protected workflow hash exception/requalification required; no change applied.",
+  "workspace_connection": {
+    "state": "ENVIRONMENT_OFFLINE",
+    "last_verified_clean_HEAD": "52f466b56f6bf4786fb0d0e4c7c8eebcf585e1fa",
+    "new_local_bundle": "NOT_CREATED",
+    "fresh_local_validation_or_sync": "NOT_POSSIBLE_UNTIL_CONNECTED"
+  }
 }

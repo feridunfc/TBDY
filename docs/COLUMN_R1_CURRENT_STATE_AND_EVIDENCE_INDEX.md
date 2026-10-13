@@ -1121,3 +1121,18 @@ identities preserved/collected, full2404notrerun; architecture same6FAIL/delta0,
 protected45drift0. Original ABI7 ZIP/scripts/operator9f checkpoint unchanged;
 its moving-branch prepare check will STOP on this newer worker HEAD. No silent
 repin, merge or native authorization; FC09UNCHANGED/GLOBALNOTPROVEN/M6_BOPEN/R2NO.
+
+## Actual UR-1E result: collection fixed; new toolchain blockers remain
+
+Exact52f466b GitHub run38440754071/job115446385850 completed FAILURE. Cold import
+collection is fixed; candidate1141PASS/8FAIL/39SKIP versus base1022PASS/2FAIL.
+Zero-new gate correctly rejects6newfailures:3missingReportLab and3Python3.11
+launcher/minimum3.12 profile mismatches. Product/mergeBLOCKED. [Setup-only
+proposal](COLUMN_235_UR1E_TOOLCHAIN_PROPOSAL_2026-10-13.md) is concrete but
+UNAPPLIED; protectedURworkflow hash exception/requalification is required.
+No production/runtime/native pin or guard weakened. Earlier25ownerPASS claim
+corrected to24PASS/1existingbrowserSKIP; all25identities preserved. Remote result
+and count correction are in the corrected import receipt/reconciliation.
+Local environment disconnected; last verified52f466bCLEAN, next docs-only remote
+record not locally synced. NewZIP NOT_CREATED. ABI7 original9f pins unchanged;
+WORKER_ETABSNO/LIVEAUTHNONE/FC09UNCHANGED/GLOBALNOTPROVEN/M6_BOPEN/R2NO.
