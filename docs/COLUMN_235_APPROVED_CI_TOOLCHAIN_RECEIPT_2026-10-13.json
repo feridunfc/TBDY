@@ -1,0 +1,41 @@
+{
+  "protected_ledger_source": "docs/COLUMN_EDITABLE_REFERENCE_PRODUCER_OFFLINE_RECEIPT_2026-10-13.json",
+  "old_ledger_preserved": true,
+  "protected_count": 45,
+  "authorized_drift": 1,
+  "unauthorized_drift": 0,
+  "other_surfaces_unchanged": 44,
+  "authorized_change": {
+    ".github/workflows/ur_1e_validation.yml": {
+      "before": "a9254d8a7014907982e311fd897ba4f5b511154d0eec6984e519e3eabe390fd4",
+      "after": "12719cf429c5073f4e4d2591d3699528f8945f9ca42090076a8a367645db7b0f"
+    }
+  },
+  "all_test_files_unchanged_since_accepted_import_correction": 524,
+  "new_tests": 0,
+  "scope": "SUPERVISOR_AUTHORIZED_TWO_LINE_CI_TOOLCHAIN_EXCEPTION",
+  "BASE_HEAD": "df2b78af8fda4ed233a1c0a94ef5a192db5b1651",
+  "BASE_TREE": "6659ec481eade217129609139ccc0384b7c8f82e",
+  "PR_BASE_HEAD": "810f93159bc2207b3d0280ac85e9930b7aaf6586",
+  "workflow_git_blob": "798c078cb3ec684d87826faeeba441c47d06b5a5",
+  "FOCUSED": {
+    "PASS": 6,
+    "FAIL": 0,
+    "SKIP": 0,
+    "xml_sha256": "b7fddcd720b16f51b94d92e85a211350fdc5e73015bd296eb18e486ab6818a1a"
+  },
+  "NEW_TESTS": 0,
+  "CI": "PENDING_FRESH_GITHUB_RUN",
+  "zero_new_gate": "UNCHANGED",
+  "baseline_selection": "UNCHANGED_EXACT_PR_BASE",
+  "test_expectations": "UNCHANGED",
+  "ABI7_OPERATOR_HEAD": "9f426f5b6376b9c6da984270171556d2e3b2c496",
+  "ABI7_REPIN": "NO",
+  "MERGE": "NOT_AUTHORIZED",
+  "WORKER_ETABS": "NO",
+  "LIVE_GETTER_AUTHORIZATION": "NONE",
+  "FC09_PRODUCTION_GATE": "UNCHANGED",
+  "GLOBAL_DELTA": "NOT_PROVEN",
+  "M6_B": "OPEN",
+  "R2_RERUN_READY": "NO"
+}

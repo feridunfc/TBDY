@@ -1136,3 +1136,10 @@ and count correction are in the corrected import receipt/reconciliation.
 Local environment disconnected; last verified52f466bCLEAN, next docs-only remote
 record not locally synced. NewZIP NOT_CREATED. ABI7 original9f pins unchanged;
 WORKER_ETABSNO/LIVEAUTHNONE/FC09UNCHANGED/GLOBALNOTPROVEN/M6_BOPEN/R2NO.
+
+
+### COLUMN 235 — approved bounded CI toolchain exception (2026-10-13)
+
+Supervisor explicitly authorizes only Python 3.11→3.12 and ReportLab 4.4.9 installation in `.github/workflows/ur_1e_validation.yml`. Exact before SHA256 `a9254d8a7014907982e311fd897ba4f5b511154d0eec6984e519e3eabe390fd4`; exact approved after SHA256 `12719cf429c5073f4e4d2591d3699528f8945f9ca42090076a8a367645db7b0f`. Old 45-surface ledger remains unchanged; drift is **1 authorized / 0 unauthorized**, other 44 exact hashes preserved. Zero-new comparison, exact PR baseline and all test expectations remain unchanged. Six previously introduced CI failures pass in the focused new-toolchain check. Broad comparison/fresh Actions verdict remains pending at this commit.
+
+See `COLUMN_235_APPROVED_CI_TOOLCHAIN_RECEIPT_2026-10-13.json`. Original ABI7 checkpoint/artifacts are not repinned. No merge/native authorization; FC09 unchanged, global delta not proven, M6-B open, R2 not ready.
