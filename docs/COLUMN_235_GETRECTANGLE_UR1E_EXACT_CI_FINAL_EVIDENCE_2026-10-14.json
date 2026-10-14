@@ -1,0 +1,52 @@
+{
+  "schema": "column235.getrectangle.ur1e_exact_ci_closure.v1",
+  "original_operator_source_HEAD": "349e28f5ee7efe84d1242c78494c625f9dfd570c",
+  "original_operator_source_TREE": "e598efa24b1ede7d1c47a1ed324fb2de07595fe8",
+  "ci_run_id": 38555842097,
+  "ci_job_id": 115824637565,
+  "ci_run_status": "COMPLETED",
+  "ci_run_conclusion": "SUCCESS",
+  "source_control": "EXACT_CURRENT_PR_BASE_NOT_HISTORICAL",
+  "exact_current_pr_base": "1440df1b9300f75b1e604204438f5cada9ebd247",
+  "candidate_broad": {
+    "passed": 1162,
+    "failed": 2,
+    "skipped": 39,
+    "exit": 1
+  },
+  "base_broad": {
+    "passed": 1147,
+    "failed": 2,
+    "skipped": 39,
+    "exit": 1
+  },
+  "candidate_and_base_common_failure_nodes": [
+    "tests/coverage/test_coverage_no_check_execution.py::test_coverage_builder_does_not_import_check_or_legacy_modules|AssertionError",
+    "tests/features/test_generic_resolver.py::test_generic_resolver_does_not_emit_ok_fail_or_import_forbidden_modules|AssertionError"
+  ],
+  "new_failures": [],
+  "resolved_failures": [],
+  "zero_new": "PASS",
+  "focused_reporting_PASS": 167,
+  "determinism": "SUCCESS",
+  "final_hygiene": "SUCCESS",
+  "historical_replay": "SKIPPED_SEPARATE_FROM_CURRENT_PR_GATE",
+  "validation_open_items": [
+    "2445_FRESH_LEDGER_PRESERVATION",
+    "PYTHON314_NATIVE_OFFLINE_QUALIFICATION",
+    "POWERSHELL_PARSEFILE_NATIVE_OFFLINE_QUALIFICATION",
+    "WORKER_LOCAL_HEAD_TREE_CLEAN_RECEIPT"
+  ],
+  "R1_R6_CODE": "ACCEPTED_CLOSED_REUSE",
+  "live_metadata": "NOT_AUTHORIZED",
+  "live_getter": "NOT_AUTHORIZED",
+  "ABI7_repin": false,
+  "merge_executed": false,
+  "metadata_callback_executed": false,
+  "native_getter_executed": false,
+  "engineering": {
+    "M6_B": "OPEN",
+    "R2_RERUN_READY": false,
+    "REAL235_FULL_DESIGN_ACCEPTANCE": false
+  }
+}
