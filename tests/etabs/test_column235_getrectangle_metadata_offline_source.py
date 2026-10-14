@@ -95,6 +95,6 @@ def test_source_authority_not_upgraded_to_native_qualification():
     assert d['native_declaration']=='PENDING_LIVE'
     assert d['live_metadata_authorized'] is False
     assert d['m6_b']=='OPEN'
-    assert d['regression_profiles']['external_getrectangle_synthetic']==dict(
-        total=82,pass=82,fail=0,error=0,skip=0,distinct=82,
-        junit_sha256='7946cb313160fe306ab9c0904cc7fcf38078b67527579b64a82cd94385ea31f9')
+    assert d['regression_profiles']['external_getrectangle_synthetic']=={
+        'total':82,'pass':82,'fail':0,'error':0,'skip':0,'distinct':82,
+        'junit_sha256':'7946cb313160fe306ab9c0904cc7fcf38078b67527579b64a82cd94385ea31f9'}
