@@ -100,13 +100,17 @@ async function switchContext(){
   if(!m||m.context!=='B-BLOK-235')throw new Error('235 kanıt bağlamı doğrulanamadı.');
   evidence=m;$('status').textContent=m.status;$('sourceName').textContent='Kabul edilmiş aday / ayrı FC09';$('sectionName').textContent=m.section;
   $('inputs').innerHTML='<div class="facts">Kesit ataması<strong>'+esc(m.section)+'</strong></div><div class="facts">I22<strong>'+num(m.I22.value)+' m⁴</strong></div><div class="facts">I33<strong>'+num(m.I33.value)+' m⁴</strong></div>';
-  $('inputNote').textContent='İki atalet değeri kabul edildi. Kesit adından ölçü çıkarılmadı.';$('section').innerHTML='<div class="empty">Kesit ölçüleri kaynak bağlı doğrulanmadı.<br>Ölçülü çizim üretilmedi.</div>';
+  $('inputs').innerHTML+=coordinateFacts(m);$('inputNote').textContent='İki atalet değeri kabul edildi. Kesit adından ölçü çıkarılmadı.';$('section').innerHTML='<div class="empty">Kesit ölçüleri kaynak bağlı doğrulanmadı.<br>Ölçülü çizim üretilmedi.</div>';
   $('result').innerHTML='<span class="badge amber">HESAPLANMADI</span><p>Sayısal kolon hesabı için eksik girdiler:</p><ul class="missing">'+m.unavailable.map(s=>'<li>'+esc(s)+'</li>').join('')+'</ul>';
   $('traces').innerHTML='<p class="muted">235 için tasarım hesabı yok. BLOCKED bir hesaplanmış FAIL değildir.</p>';$('scope').innerHTML=m.scope.map(s=>'<div>• '+esc(s)+'</div>').join('');$('technical').textContent=JSON.stringify(m,null,2);$('evidenceLinks').innerHTML='<p><a href="/evidence">Kabul edilmiş V1 kanıt raporunu aç / tarihsel modal arşiv</a></p>';controls();
  }catch(e){
   if(!active(t))return;
   readyEpoch=-1;evidence=null;$('status').textContent='Bağlam yüklenemedi';controls();error(e,t);
  }
+}
+function coordinateFacts(m){
+ const rows=m.current_point_coordinates.map(p=>'<tr><td>'+esc(p.native_slot)+' → '+esc(p.point_name)+'</td><td>'+num(p.X)+'</td><td>'+num(p.Y)+'</td><td>'+num(p.Z)+'</td></tr>').join('');
+ return '<div class="facts"><strong>Güncel aday native noktaları · Global / m</strong><table><thead><tr><th>Native slot / PointObj</th><th>X (m)</th><th>Y (m)</th><th>Z (m)</th></tr></thead><tbody>'+rows+'</tbody></table><span>Özgün ABI7 · Point1/Point2; fiziksel alt/üst veya ln türetilmedi.</span></div>';
 }
 async function download(format){
  const t=capture(),revision=workspace.revision,resultId=result?.result_id??null;
@@ -140,6 +144,7 @@ function productView(view,full){
    else input='<input id="product_'+f[0]+'" data-group="'+g+'" '+(f[4]==='text'?'type="text"':'type="number" step="'+(f[4]==='integer'?'1':'any')+'"')+' value="'+esc(value)+'">';
    return '<div class="field"><label for="product_'+f[0]+'">'+esc(f[1])+'</label><div class="entry">'+input+'<span>'+esc(f[2])+'</span></div></div>';
   }).join('')+'</div><button type="button" data-review="'+g+'">Bu grubu review kaydet</button><p class="caption">'+(g==='actions'?'Aday I/J N-M ayrı tutulur; current B5/B6/analysis result yetkisi verilmez.':g==='cage'?'Kullanıcı beyanı nihai/engine-selected/as-built donatı değildir.':'Proje beyanı native olgu veya üretim readiness yerine geçmez.')+'</p></details>').join('')+'<details class="input-group" open><summary>Review kaydı (kişi / belge / köken)</summary><label>Review yapan<input id="reviewer" type="text" maxlength="200"></label><label>Proje belge / review referansı<input id="reviewReference" type="text" maxlength="200"></label><label>Köken<select id="reviewOrigin" style="min-width:0"><option value="USER_DECLARATION">Kullanıcı / proje beyanı</option><option value="PROJECT_DOCUMENT">Proje belge review</option><option value="SYNTHETIC_TEST">Synthetic test (gerçek readiness değil)</option></select></label><p class="caption">Review kaydı kullanıcı beyanıdır; supervisor/native veya mühendislik imzası doğrulaması ileri sürülmez.</p></details>';
+  $('inputs').insertAdjacentHTML('afterbegin',coordinateFacts(native));
   for(const f of workspace.product_fields){const el=$('product_'+f[0]);el.addEventListener('input',inputChanged)}
   document.querySelectorAll('[data-review]').forEach(el=>el.addEventListener('click',()=>reviewProduct(el.dataset.review)));
   $('packetFile').addEventListener('change',importPacket);$('packetDownload').addEventListener('click',downloadPacket);

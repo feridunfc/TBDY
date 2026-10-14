@@ -10,6 +10,7 @@ import json
 from tbdy_engine.application.column_product_workspace import ColumnProductAuthority, ColumnProductEvaluation, FIELDS, canonical
 from tbdy_engine.product_reports.column_v1_report import PINS
 from tbdy_engine.product_reports.column_v2_report import column_235_manifest, section_svg
+from tbdy_engine.application.column_235_coordinate_evidence import ADOPTION_NAME, ADOPTION_SHA256
 from tbdy_engine.product_reports.slice_report_contribution import ReportField, ReportCalculation, SliceReportContribution
 
 
@@ -22,6 +23,10 @@ def product_authority(repo):
         original[role]={'name':o['name'],'json_sha256':o['whole_json_sha256'],'sidecar_sha256':o['sidecar_bytes_sha256'],
             'HEAD':o['capture_HEAD'],'TREE':o['capture_TREE'],'finished_utc':o['finished_utc']}
         adoptions[role]={'name':name,'sha256':pin}
+    o=evidence['coordinate_provenance']
+    original['coordinates']={'name':o['name'],'json_sha256':o['whole_json_sha256'],'sidecar_sha256':o['sidecar_bytes_sha256'],
+        'HEAD':o['capture_HEAD'],'TREE':o['capture_TREE'],'finished_utc':o['finished_utc']}
+    adoptions['coordinates']={'name':ADOPTION_NAME,'sha256':ADOPTION_SHA256}
     epoch='accepted-factual-receipt:'+original['property']['json_sha256']
     return ColumnProductAuthority(evidence['candidate_sha256'],evidence['historical_sha256'],epoch,evidence,original,adoptions)
 
@@ -77,7 +82,9 @@ def render_product_html(manifest):
     rows=''.join('<tr><td>'+e(c['title'])+'</td><td>'+e('—' if c['value'] is None else format(c['value'],'.7g'))+' '+e(c['unit'])+'</td><td>'+e(c['status'])+'</td></tr>' for c in manifest['checks'])
     inputs=''.join('<tr><td>'+e(f['label'])+'</td><td>'+e(f['value'])+'</td><td>'+e(f['unit'])+'</td><td>'+e(f['provenance'])+'</td></tr>' for f in manifest['input_completeness'])
     details=''.join('<article><h2>'+e(c['title'])+'</h2><p>'+e(c['status'])+'</p><p>'+e(c['source'])+'</p><code>'+e(c['formula'])+'</code><p>'+e(c['trace'])+'</p><p>Sınır: '+e(c['limit'])+' '+e(c['unit'])+'</p><p>'+e(c['reason'])+'</p><p>Owner: '+e(c['owner'])+'</p><p>Çözüm: '+e(c['closure_owner'])+'</p></article>' for c in manifest['checks'])
-    return '<!doctype html><html lang="tr"><meta charset="UTF-8"><title>'+e(manifest['title'])+'</title><style>body{font:14px/1.6 system-ui;color:#183c53;max-width:1000px;margin:40px auto;padding:20px}table{border-collapse:collapse;width:100%}td,th{padding:9px;border-bottom:1px solid #dbe4eb;text-align:left}h1{font-size:28px}article{border:1px solid #dbe4eb;padding:16px;margin:16px 0;break-inside:avoid}svg{max-width:420px}pre{white-space:pre-wrap;overflow-wrap:anywhere}code{background:#eef3f7}</style><h1>'+e(manifest['title'])+'</h1><p>Durum: '+e(manifest['status'])+' · Tam tasarım hazır: HAYIR · ETABS bağlantısı: gözlenmedi</p>'+manifest['section_svg']+'<h2>Kontrol özeti</h2><table>'+rows+'</table><h2>Girdi / birim / köken</h2><table>'+inputs+'</table>'+details+'<h2>Kapsam</h2>'+''.join('<p>'+e(s)+'</p>' for s in manifest['scope'])+'<details><summary>Girdi + sonuç + kanıt kimliği</summary><pre>'+e(json.dumps(manifest,ensure_ascii=False,indent=2))+'</pre></details></html>'
+    points=''.join('<p>'+e(p['native_slot'])+' → '+e(p['point_name'])+': X='+e(p['X'])+' m; Y='+e(p['Y'])+' m; Z='+e(p['Z'])+' m</p>' for p in manifest['native_evidence']['current_point_coordinates'])
+    points='<h2>Güncel aday native koordinatları / Global / m</h2>'+points+'<p>Özgün ABI7; native slot sırası, fiziksel alt/üst veya ln değildir.</p>'
+    return '<!doctype html><html lang="tr"><meta charset="UTF-8"><title>'+e(manifest['title'])+'</title><style>body{font:14px/1.6 system-ui;color:#183c53;max-width:1000px;margin:40px auto;padding:20px}table{border-collapse:collapse;width:100%}td,th{padding:9px;border-bottom:1px solid #dbe4eb;text-align:left}h1{font-size:28px}article{border:1px solid #dbe4eb;padding:16px;margin:16px 0;break-inside:avoid}svg{max-width:420px}pre{white-space:pre-wrap;overflow-wrap:anywhere}code{background:#eef3f7}</style><h1>'+e(manifest['title'])+'</h1><p>Durum: '+e(manifest['status'])+' · Tam tasarım hazır: HAYIR · ETABS bağlantısı: gözlenmedi</p>'+manifest['section_svg']+points+'<h2>Kontrol özeti</h2><table>'+rows+'</table><h2>Girdi / birim / köken</h2><table>'+inputs+'</table>'+details+'<h2>Kapsam</h2>'+''.join('<p>'+e(s)+'</p>' for s in manifest['scope'])+'<details><summary>Girdi + sonuç + kanıt kimliği</summary><pre>'+e(json.dumps(manifest,ensure_ascii=False,indent=2))+'</pre></details></html>'
 
 
 def render_product_pdf(manifest):
@@ -100,6 +107,9 @@ def render_product_pdf(manifest):
         t.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#edf3f7')),('VALIGN',(0,0),(-1,-1),'TOP'),('LINEBELOW',(0,0),(-1,-1),.3,colors.HexColor('#dbe4eb')),('BOTTOMPADDING',(0,0),(-1,-1),6)]));return t
     display=lambda value:'Verilmedi' if value is None else format(value,'.7g') if type(value) in {int,float} else str(value)
     story=[para(manifest['title'],heading),para('Durum: '+manifest['status']+' | Tam tasarım hazır: HAYIR | ETABS bağlantısı gözlenmedi.'),para('Kesit: '+manifest['section']+'; kabul edilmiş I22/I33 = '+repr(manifest['native_evidence']['I22']['value'])+' m4; ölçü native olarak doğrulanmadı.'),para('Bağımsız proje review kontrolleri; güncel üretim readiness veya final donatı hükmü değildir.')]
+    story += [para('Güncel aday / Global / m — özgün ABI7 koordinatları',heading)]
+    story += [para(p['native_slot']+' → '+p['point_name']+'; X='+repr(p['X'])+' m; Y='+repr(p['Y'])+' m; Z='+repr(p['Z'])+' m') for p in manifest['native_evidence']['current_point_coordinates']]
+    story += [para('Native slot sırası; fiziksel alt/üst veya ln türetilmedi.'),para('Özgün receipt SHA256: '+manifest['native_evidence']['coordinate_provenance']['whole_json_sha256'])]
     if manifest['section_svg']:
         v=manifest['input_packet']['values'];scale=140/max(v['width_mm'],v['depth_mm']);w=v['width_mm']*scale;h=v['depth_mm']*scale
         d=Drawing(490,195);d.add(Rect(100-w/2,95-h/2,w,h,fillColor=colors.HexColor('#edf3f7')));d.add(Line(100,95,205,95));d.add(Line(100,95,100,180))

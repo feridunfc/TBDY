@@ -1,0 +1,103 @@
+{
+  "schema": "column235.section_material.offline_plan.v1",
+  "status": "METADATA_ONLY_PROPOSAL_NOT_AUTHORIZED",
+  "software_base": {
+    "HEAD": "1440df1b9300f75b1e604204438f5cada9ebd247",
+    "TREE": "8c962be58474de12d1aab26b65d177f333e319a0"
+  },
+  "subject": {
+    "frame_name": "235",
+    "section_name": "Column_80x80",
+    "section_authority": "COLUMN_R1_R3M_ABI4_LIVE_GETSECTION_ADOPTION_2026-10-12.json",
+    "candidate_sha256": "61FA288FE6AA098B16062B0BAAE3FB882937AB68280C93971475AA39B2246621",
+    "historical_sha256": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+    "section_dimensions": null,
+    "material_name": null
+  },
+  "audit_sources_sha256": {
+    "docs/COLUMN_R1_R3M_ABI3_LIVE_METADATA_ADOPTION_2026-10-11.json": "bc947dfca94df35cf32453d48c4c412bc5b5a10df72fd38217de4dec80e5b5bc",
+    "docs/COLUMN_R1_R3M_ABI3_WRAPPER_LIVE_ADOPTION_2026-10-11.json": "859765dec3e2caa16d58bc1793b3752e849ac4c8a35214f3126e8c26bef1eadc",
+    "tbdy_engine/catalogs/etabs_feature_source_contract.yaml": "747bca1d938a7d0a75c43e4de8e2909b86998c7cf984afef56c929bdf281cbdf",
+    "tbdy_engine/etabs/oapi/material_properties.py": "7e41a087fa680cf96fec677b8cf0221cc39a4f31e2a23a7726c87b5279660aed",
+    "tbdy_engine/etabs/oapi/object_model.py": "6f2e4ace622059b43f7e89e278f3d1a1c4b32d59739e6f36d9e9284f0b1105cb",
+    "tbdy_engine/features/used_rc_material_population.py": "b712294c5e94937d6ddeb5fa69d763592cec2da78b53536b632841f60a142f7a",
+    "tbdy_engine/application/column_design_basis.py": "3f2e98839657b9722a437706d65c5e35f9e02a963a2bebe0c620cc48b670d6b7",
+    "docs/COLUMN_R1_R3M_ABI4_LIVE_GETSECTION_ADOPTION_2026-10-12.json": "b0cdb95c434c9f9ab3c8fb6cfcbfb3c529aa9b981578081ceb935a7b3a644278",
+    "docs/COLUMN_R1_R3M_ABI5_LIVE_GETSECTPROPS_ADOPTION_2026-10-12.json": "79ba4dc212c6b39283362d292152acb77003467f1b620a13e2790f6be221ea2e"
+  },
+  "accepted_metadata_methods": [
+    "FrameObj.GetSection",
+    "PropFrame.GetSectProps",
+    "FrameObj.GetPoints",
+    "PointObj.GetLabelFromName",
+    "PointObj.GetCoordCartesian",
+    "PointObj.GetElm",
+    "PointElm.GetTransformationMatrix",
+    "Results.JointDispl"
+  ],
+  "first_proposal": {
+    "owner": "existing model.PropFrame within verified PID STA gateway",
+    "method": "GetRectangle",
+    "inspection_only": true,
+    "target_getter_attempts": 0,
+    "native_abi": "NOT_OBSERVED",
+    "python_call_contract": "NOT_QUALIFIED",
+    "response_order": "NOT_QUALIFIED",
+    "observed_owner_interface_reference": "PropFrame.GetSectProps IID {88AAFE1E-4F8C-43EE-B0BD-3CD28E64D7F8}; not a GetRectangle method declaration",
+    "inspect": [
+      "Python owner class",
+      "_type_",
+      "__com_interface__",
+      "interface MRO and IID",
+      "_methods_ / _disp_methods_ availability",
+      "exact matching declaration flags/names/types/restype",
+      "existing callable wrapper code/closure/type metadata"
+    ],
+    "forbidden": [
+      "native getter invocation",
+      "QueryInterface",
+      "alternate attachment",
+      "interface casting",
+      "fallback overload",
+      "speculative positional/output arguments"
+    ]
+  },
+  "future_acquisition_gates": [
+    "Separate supervisor review and authorization for metadata-only package",
+    "Exactly one compatible generated declaration plus existing wrapper effective Python contract qualified",
+    "Source-bound rectangular section applicability and dimension/material output semantics qualified; section name is not proof",
+    "Only then separately propose one named property read; no automatic follow-on material getter",
+    "Use observed assigned material identity to bind any later material metadata proposal",
+    "Keep native material properties separate from reviewed regulatory design-strength basis"
+  ],
+  "existing_owners": {
+    "dimension_route_hint": "etabs_feature_source_contract.yaml: SapModel.PropFrame.GetRectangle; catalog evidence does not qualify current 23.2 candidate ABI",
+    "material_type": "material_properties.py: get_material_type_from_session / PropMaterial.GetTypeOAPI",
+    "elastic_material": "material_properties.py: get_isotropic_material_properties_from_session / PropMaterial.GetMPIsotropic; E/G not concrete or steel design strength",
+    "concrete_definition": "used_rc_material_population.py: read_material_population_sources_from_verified_session; GetOConcrete_1 path requires separately reviewed actual ABI and source binding",
+    "rebar_intent": "object_model.py: read_rebar_column_from_session / PropFrame.GetRebarColumn; not actual cage acceptance",
+    "regulatory_basis": "column_design_basis.py: bind_reviewed_column_design_basis; reviewed concrete/steel/aggregate/action-family authority required"
+  },
+  "current_qualification": {
+    "dimensions": "NOT_PROVEN",
+    "material_assignment": "NOT_PROVEN",
+    "material_strengths": "NOT_PROVEN",
+    "regulatory_ln": "NOT_DERIVED",
+    "endpoint_roles": "NOT_DERIVED",
+    "analysis_joint_panel_zone": "NOT_PROVEN",
+    "design_force_epoch": "NOT_PROVIDED",
+    "B5": null,
+    "B6": null,
+    "real_235_design_ready": false
+  },
+  "boundaries": {
+    "worker_ETABS": false,
+    "new_native_calls": 0,
+    "live_metadata_authorized": false,
+    "live_getter_authorized": false,
+    "FC09_production_gate": "UNCHANGED",
+    "GLOBAL_DELTA": "NOT_PROVEN",
+    "M6_B": "OPEN",
+    "R2_RERUN_READY": false
+  }
+}

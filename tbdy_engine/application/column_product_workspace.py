@@ -90,6 +90,7 @@ class ColumnProductAuthority:
             'source_sha256':self.source_sha256,'historical_sha256':self.historical_sha256,
             'evidence_epoch':self.evidence_epoch,'result_epoch':None,
             'adoption_pins':deepcopy(self.adoption_pins),'original_receipt_pins':deepcopy(self.original_pins),
+            'accepted_native_coordinates':deepcopy(self.evidence['current_point_coordinates']),
             'units':{f[0]:f[2] for f in FIELDS},'values':{f[0]:None for f in FIELDS},'reviews':{},'original_pairs':{}}
 
 
@@ -101,7 +102,7 @@ def validate_packet(packet, authority: ColumnProductAuthority):
     require(type(packet) is dict,'Kolon girdi paketi JSON nesnesi olmalı.')
     require(set(packet)==set(authority.packet()),'Bilinmeyen/eksik paket alanı; native veya lineage authority eklenemez.')
     template=authority.packet()
-    for key in ('schema','project_id','component_id','source_sha256','historical_sha256','evidence_epoch','result_epoch','adoption_pins','original_receipt_pins','units'):
+    for key in ('schema','project_id','component_id','source_sha256','historical_sha256','evidence_epoch','result_epoch','adoption_pins','original_receipt_pins','accepted_native_coordinates','units'):
         require(packet[key]==template[key], 'Kaynak/birim/kolon/dönem/pin uyuşmazlığı: '+key)
     require(type(packet['values']) is dict and set(packet['values'])==set(template['values']),'Eksiksiz alan şeması gerekli.')
     for key,_,_,_,kind in FIELDS:
@@ -217,7 +218,7 @@ def evaluate_column_product(packet, authority):
     if material:invoked.append('ReviewedColumnDesignBasis')
     controls.append(ColumnProductControl('material','Malzeme tasarım basis','tbdy_engine.application.column_design_basis.ReviewedColumnDesignBasis','REVIEWED_PROJECT_DECLARATION' if material else 'BLOCKED',trace='Reviewed strength/aggregate tipleri doğrulandı; native section-material eşlemesi ve bind_reviewed_column_design_basis henüz yok.' if material else '',dependencies=('Native section-material bağlama',) if material else ('Malzeme adları/dayanımları/agrega ve materials review',)))
     specs=(
-      ('topology','Geometri / fiziksel uçlar','tbdy_engine.features.column_shear_topology.StrictColumnTopologyBundle',('Aday 235 native GetPoints (ABI-6 ayrı yetki)','Nokta/topology/yerel eksen ve panel-zone source bağı')),
+      ('topology','Geometri / fiziksel uçlar','tbdy_engine.features.column_shear_topology.StrictColumnTopologyBundle',('ABI6 adları ve ABI7 koordinatları kabul edildi; fiziksel uç/yerel eksen/offset/restraint bağı eksik','Analysis-joint ve panel-zone source bağı')),
       ('design_actions','Tasarım kombinasyonları / N-M-V','tbdy_engine.application.column_a23_design_demands',('Current 61FA analysis-result/B5 epoch ve continuity','Case/combo/end/station ve source-qualified force semantics','Reviewed load-family kapsamı')),
       ('stability','Kat/whole-system kararlılık','tbdy_engine.application.column_stability_runtime.compose_story_stability_candidate_runtime',('M6-B source-authorized modal stability-action semantics','Global displacement contract ve physical binding','Elverişsiz GQE/GQW ve tam kat/whole-system kapsamı')),
       ('local_sway','Yerel ötelenme / etkin boy','tbdy_engine.application.column_local_sway_runtime.compose_column_local_axis_sway_runtime',('A16 global kararlılık','Strict topology / yerel eksen A17','A18 restraint/A19 yetkisi; tek kolon yerine kat toplamı kullanılamaz')),
