@@ -1,0 +1,469 @@
+{
+  "scope": "OFFLINE ORIGINAL TYPED OWNER RESULT CONSUMPTION; NO LIVE ISSUANCE",
+  "reviewed_HEAD": "d57d5e7ddaaee9d1dd87c1c5b78af36cdb2ce886",
+  "reviewed_TREE": "a342f66a7f3aed50d7d73cbefca85f0c8065dbc5",
+  "implementation_HEAD": "fa08dc3323afee48dcbb6af4d657ae267516b4b5",
+  "implementation_TREE": "574b32c8f3e3ecc550172e73fa56dfea4a067e6d",
+  "branch": "worker/column-v1-report-235",
+  "PR": "https://github.com/feridunfc/TBDY/pull/208",
+  "MERGE": "NO; DRAFT",
+  "validation": {
+    "integrated": {
+      "integrated_PASS": 2300,
+      "prior_preserved": 2275,
+      "accepted_preserved": 2224,
+      "V3_51_preserved": 51,
+      "new_tests": 25,
+      "new_test_identities": [
+        "tests/product_reports/test_column_qualified_workspace.py::test_actual_qualified_browser_and_downloads",
+        "tests/product_reports/test_column_qualified_workspace.py::test_cage_change_reaches_existing_owner",
+        "tests/product_reports/test_column_qualified_workspace.py::test_causal_owner_payload_drift_rejected[component]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_causal_owner_payload_drift_rejected[demand]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_causal_owner_payload_drift_rejected[snapshot]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_existing_qualified_full_path_is_consumed",
+        "tests/product_reports/test_column_qualified_workspace.py::test_owner_selection_continuity_drift_rejected",
+        "tests/product_reports/test_column_qualified_workspace.py::test_readiness_copy_is_not_owner_binding",
+        "tests/product_reports/test_column_qualified_workspace.py::test_source_epoch_unit_mismatch_rejected[evidence_epoch_id-wrong]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_source_epoch_unit_mismatch_rejected[force_unit-N]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_source_epoch_unit_mismatch_rejected[length_unit-mm]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_source_epoch_unit_mismatch_rejected[model_fingerprint-wrong]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_source_epoch_unit_mismatch_rejected[shear_evidence_epoch_id-wrong]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_source_epoch_unit_mismatch_rejected[source_model_ref-wrong]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_unknown_serializable_owner_type_and_nonfinite_rejected",
+        "tests/product_reports/test_column_qualified_workspace.py::test_unsigned_client_authority_cannot_publish[bad0]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_unsigned_client_authority_cannot_publish[bad1]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_unsigned_client_authority_cannot_publish[bad2]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_unsigned_client_authority_cannot_publish[bad3]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_workspace_invalidates_qualified_result_before_transition[context]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_workspace_invalidates_qualified_result_before_transition[edit]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_workspace_invalidates_qualified_result_before_transition[epoch]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_workspace_invalidates_qualified_result_before_transition[source]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_workspace_invalidates_qualified_result_before_transition[units]",
+        "tests/product_reports/test_column_qualified_workspace.py::test_workspace_invalidates_qualified_result_before_transition[unsigned]"
+      ],
+      "focused_PASS_same_execution": 122,
+      "focused_execution": "SUBSET_OF_FRESH_INTEGRATED_RUN",
+      "accepted_identity_sha256": "5c1f84fb5fd91269ccd6e5c4ded52eeb4475de5f9c7eb2536a1c298706d66158",
+      "full_identity_sha256": "470f815947482b0e83eb396ebb0e3dd9d1588e4c6e54be6280d209c6c54dc463",
+      "missing_old_identities": [],
+      "old_test_bytes_changed": [],
+      "prior_test_files_preserved": 519
+    },
+    "integrated_xml_sha256": "5fc2ee15c31c2cea536efd3f708eadffe6dc3b767049f89649ba1eac02b2aa69",
+    "focused_PASS": 122,
+    "focused_xml_sha256": "f069ac9595a06190747cabad1934660afccf08c418c9e89f630403a415804816",
+    "full_to_final_runtime_delta": "UI Section key casing + its browser assertion only; full engineering/runtime Python and previous test files identical",
+    "compile": "PASS",
+    "import": "PASS",
+    "diff_check": "PASS"
+  },
+  "architecture": {
+    "PASS": 31,
+    "same_real_FAIL": 6,
+    "new_or_expanded": 0,
+    "protected_count": 45,
+    "protected_hash_drift": 0,
+    "protected_surface_sha256": {
+      ".github/workflows/acq_ctx_1_validation.yml": "10d7ffe95f6dfad9a7a88743790efa290d704d3bd22213a900e1d1d8bfc67cd1",
+      ".github/workflows/b1_beam_column.yml": "b69af978a76a23a14239d0362dac8f7b9d906021c75453911d699e8408df6c7e",
+      ".github/workflows/c13_4_offline_acceptance.yml": "c8d9ba0ac2cff83e8e0dc4bfad5878f5974a68888d4fedca2fc1a840a57b20b3",
+      ".github/workflows/cd_1_coverage_contract_debt.yml": "dd6e2104f6f440c61785275ec256e8b74343e1df1703875db106bc85e59bab2c",
+      ".github/workflows/col_runtime_policy_input_validation.yml": "256f22a60bb3e3ca3acf2430f5f9504ec9f0e86f8982dbc7619fd8e6aac764f9",
+      ".github/workflows/column_r1_reconciled_exact_validation.yml": "f3496ce0d19380be55535e7fa3ce9d4c30a56d5d9c8078395a0f7d31c2d7c766",
+      ".github/workflows/column_r1_recovery_validation.yml": "0314184e0099b21fee2e6007da2c61852114bbb35e3612854a10dff3f7e7ee7c",
+      ".github/workflows/column_r1_vertical_validation.yml": "aa2c2f8fef100f0aafa9b8b0544c26e96af5abed3298337ff31176227fba935f",
+      ".github/workflows/fcr_1a_validation.yml": "135e2233f88ed715c3fcd72cc0974f9bd37305976e5d43bbe45aa488fad993db",
+      ".github/workflows/fnd_col_1_validation.yml": "aea5c2f4bbfafb877f7726628246cf2d69e2d4032b9d3242bc9cc9e36c968926",
+      ".github/workflows/fnd_col_2_validation.yml": "a445a6395c8d9b51a87c1a7c93d08a6478018d555edd5dcbb556679eaa9eaa7a",
+      ".github/workflows/fnd_col_2x_validation.yml": "5a93c97295291fcc2f1c9c859fbedfbe1fc19182e93f520dfa9ec891ad7374a9",
+      ".github/workflows/p2_10_wall_pack_a.yml": "04c97a25b8683b6ff6435b9a3faba1ba5c207f2069078e8782baa89c03988485",
+      ".github/workflows/p2_10_wall_pack_b.yml": "39063e5181759fd142fe40499513c4059276dc88f35d70dc0693566a249d7f8f",
+      ".github/workflows/product_spine_col_1_validation.yml": "547a7a5f8c0cba1a36c9d97f2ba84d025a89538b09f088d2987e8ad4d2687350",
+      ".github/workflows/ur_1b_validation.yml": "e79e63ce602271b4f69bc28d30e717c849e60afbe067a0bc0b58f28a5730706f",
+      ".github/workflows/ur_1c_validation.yml": "69dd8b034b400c8bf5add8f1def995a3476ea9baa2eaa9a2eddee751dda6346f",
+      ".github/workflows/ur_1d_validation.yml": "fe261ca7beafc3d74dc7d11f1a4186c9953f0c9a07c0ab6cbeca32f3c5369216",
+      ".github/workflows/ur_1e_validation.yml": "a9254d8a7014907982e311fd897ba4f5b511154d0eec6984e519e3eabe390fd4",
+      ".github/workflows/ur_2_validation.yml": "c70eea4972dc8db06dcd764995d332dc7db9a1a3133055238df19f1675fa9e07",
+      ".github/workflows/vs6_p8a_f0_validation.yml": "b954d1a9202f6277156fa714f36f6f94749a1da241673eb23ef3bf68ae2e0abe",
+      "packages/etabs_gateway/src/etabs_gateway/__init__.py": "9bd8d9f61badedae2b123456a610a5c0365cef104c96617991f219a733a0d629",
+      "packages/etabs_gateway/src/etabs_gateway/acceptance.py": "5943ddb87aed536fc321efb21c3fbbccd81ea5968e5665bbe57495825090023a",
+      "packages/etabs_gateway/src/etabs_gateway/com_apartment.py": "8bc0b006a67b7f871cf7cc73166a07b6f581d6446a60b087aad95a12c2922301",
+      "packages/etabs_gateway/src/etabs_gateway/connection.py": "ca7fb5954fca0272786360f231dc776262da5400c19076ff442afd26200cb3fc",
+      "packages/etabs_gateway/src/etabs_gateway/context_reader.py": "e80c572cbdb5630ed1743bdcc6e50e3d6498e7ddefec9fdda7382c9c3537c382",
+      "packages/etabs_gateway/src/etabs_gateway/contracts.py": "e24d73fe21f3024991cf733b9dbaaedef7699c1fc0829d8651d15878f3f0d987",
+      "packages/etabs_gateway/src/etabs_gateway/diagnostics.py": "91e772097c7f42bf8ae986b3cf5b1823585b29cb22c7e69408e3c3a8f610d382",
+      "packages/etabs_gateway/src/etabs_gateway/errors.py": "aa348f2e567aacb6e4ef5a88356c662ee45dffe6658498e064dbdfbb507c275b",
+      "packages/etabs_gateway/src/etabs_gateway/model_context.py": "c59f65fc4a7c4674f654195b0d6b1400bb57bf8c7b759d0c8a4b7d1cdfa0f3ed",
+      "packages/etabs_gateway/src/etabs_gateway/mutation_transport.py": "9a7365c785e17f6679fd78d159e6d7e99e9e378f62841d4cb9c50f160f3c0707",
+      "packages/etabs_gateway/src/etabs_gateway/replay.py": "bfadae93d1c94ed4e6f6d48612d2edb75084122aea64779a82b1ed5c5faf52dc",
+      "packages/etabs_gateway/src/etabs_gateway/session.py": "134dfda97e1b7c64ff37ab9e301cd3e3ce6d379231f63f364cc50a58c7fa1cce",
+      "packages/etabs_gateway/src/etabs_gateway/worker.py": "1b7589462f8425c57cebccf1b99e7fb2a233df2c6609b6ba04242a627fe7c8e2",
+      "tbdy_engine/etabs/_safety_legacy.py": "002f7a63633e742e29ad21eac327460de5cfd966f21cb3678bbd7ed486d0ece7",
+      "tbdy_engine/etabs/oapi/analysis_execution.py": "9d0ea5c071c04133af54a57daae85e19569463d7c514d8171af71657f6ea8f48",
+      "tbdy_engine/etabs/oapi/concrete_design.py": "57fa4ce9d46501572b366f57153154cdef09a48a250641901e0e979e2600ae88",
+      "tbdy_engine/etabs/safety.py": "701a73826e4e63b4dc64fd51bab96b37915eec76ab3a97aa27920a43fe6dac3b",
+      "tests/architecture/g1_legacy_exception_baseline.json": "fe4c4eb587fe7c9b922b7f1f4eab3d7753c6e5676f6bf61580bc9c01d964ab67",
+      "tests/architecture/test_b4b_analysis_state_mutation_guards.py": "6c0c44a4b7d6a3901e50240bf3ca9b14c59848a03c89fb60ad651d8a96bd44f1",
+      "tests/architecture/test_b4s_scratch_lifecycle_guards.py": "e46a9fcf8737eafc47d92d206621e01c9782f000af8650bec18983d5134bee2b",
+      "tests/architecture/test_b4t_mutation_transport_guards.py": "33eba0b80df43208d5e6f41512c740e6c1f1447c0d9351fe74c52ef6ad7c8017",
+      "tests/architecture/test_b5_analysis_execution_guards.py": "0b60735ed157da30cc76861cc483bc302ad9c06a80e11b42ce175afcbee84331",
+      "tests/architecture/test_b6_p0_design_preflight_architecture.py": "e8da83bc90dd90089684db8f1767a8d7f7a60474fbcea599da6c849944f72afb",
+      "tests/architecture/test_g1_arch_drift_guards.py": "596f1c40394a642b2e69d8083cdd1641bb633cb6fc9b80a9dec87e061b275151"
+    },
+    "complete_guard_sets_equal": true,
+    "mutation_callsites_equal": true,
+    "baseline_diagnostics_sha256": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e",
+    "candidate_diagnostics_sha256": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e",
+    "mutation_comparison_sha256": "1f37fdc32ac24ec174e5e8aafe018a772adb4987698e5d0dac38fdf9618f2928"
+  },
+  "observed_original_owner_calls": [
+    {
+      "variant": 0,
+      "calls": [
+        "tbdy_engine.application.column_longitudinal_runtime.compose_column_longitudinal_runtime",
+        "tbdy_engine.application.column_p7_runtime.compose_column_p7_runtime",
+        "tbdy_engine.application.column_vc_runtime.apply_reviewed_vc_to_transverse_input",
+        "tbdy_engine.design.columns.column_longitudinal_selection.select_canonical_column_longitudinal_rebar",
+        "tbdy_engine.regulatory.column_shear_vc.qualify_column_vc",
+        "tbdy_engine.regulatory.column_transverse_confinement.evaluate_column_transverse_confinement_bound",
+        "tbdy_engine.regulatory.fnd_col_2_program.execute_source_bound_fnd_col_2_with_artifact",
+        "tbdy_engine.regulatory.vs5_column_axial_program.run_vs5_column_axial"
+      ],
+      "selected_artifact_id": "column-owner-result:sha256:62a52ce6bb798b4c81ebdc49cba9b1f7db69bf661dd418656818edf71e8da8f1"
+    },
+    {
+      "variant": 1,
+      "calls": [
+        "tbdy_engine.application.column_longitudinal_runtime.compose_column_longitudinal_runtime",
+        "tbdy_engine.application.column_p7_runtime.compose_column_p7_runtime",
+        "tbdy_engine.application.column_vc_runtime.apply_reviewed_vc_to_transverse_input",
+        "tbdy_engine.design.columns.column_longitudinal_selection.select_canonical_column_longitudinal_rebar",
+        "tbdy_engine.regulatory.column_shear_vc.qualify_column_vc",
+        "tbdy_engine.regulatory.column_transverse_confinement.evaluate_column_transverse_confinement_bound",
+        "tbdy_engine.regulatory.fnd_col_2_program.execute_source_bound_fnd_col_2_with_artifact",
+        "tbdy_engine.regulatory.vs5_column_axial_program.run_vs5_column_axial"
+      ],
+      "selected_artifact_id": "column-owner-result:sha256:e04c17c0f0a93579233c29edea934de40d5208ca6b8ce40f571e591015b178a2"
+    }
+  ],
+  "scenarios": {
+    "Qualified_Supported_Column": {
+      "result_id": "column-owner-result:sha256:62a52ce6bb798b4c81ebdc49cba9b1f7db69bf661dd418656818edf71e8da8f1",
+      "component": "Story1:C1:1",
+      "scope_identity": {
+        "evidence_epoch_id": "evidence-epoch:public-a5",
+        "force_unit": "kN",
+        "length_unit": "m",
+        "model_fingerprint": "model-fingerprint:public-a5",
+        "origin": "OFFLINE_TEST_LIFECYCLE",
+        "shear_evidence_epoch_id": "epoch:vs6-p7-column-shear:sha256:3b4b20a55b49f728f0e25eda31c00b5418e79db946e75119d1c76ae83a35812a",
+        "source_model_ref": "source-model-ref:public-a5"
+      },
+      "fnd2_status": "READY",
+      "application_status": "APPLICATION_BLOCKED",
+      "application_blockers": [
+        "TRANSVERSE_CONFINEMENT:PROVIDED_ASH_NOT_AVAILABLE:DIR2",
+        "TRANSVERSE_CONFINEMENT:PROVIDED_ASH_NOT_AVAILABLE:DIR3",
+        "TRANSVERSE_CONFINEMENT:SPECIAL_TIE_DETAILING_FACTS_NOT_AVAILABLE"
+      ],
+      "selected_rebar_ref": "engine-selected-rebar:sha256:cde13c09d8702d72ae0d5f62086acaac724aadc14abd64b49ee80b110be3f810",
+      "As_mm2": "5026.548245743669",
+      "pmm_rows": [
+        {
+          "assessment_id": "pmm-assessment:sha256:114293268d088353b2b913769796ebc518bb8a5cdb2795df3bb06f24abb060f3",
+          "authority": "FND_COL_4_PMM_ADEQUACY_ROW_ASSESSMENT",
+          "candidate_geometry_fingerprint": "candidate-geometry-binding:sha256:9ef5e906a2e865af4f50de092de1dd3bcee2f815db640136c108ccd62f6f8324",
+          "candidate_id": "RECT-PERIMETER-4D40-N22-N32",
+          "decision_id": "candidate-pmm-decision:sha256:23f6047d789232e0dd9d5f690097af3ffbe6a9be1710a74cf9b0ff56b6738151",
+          "numerical_status": "PROVEN_NUMERICAL_CAPACITY",
+          "policy_fingerprint": "sha256:3dee0f4fd69034165fea8544803218bb5af2b0f242a472a540374cd703eae29f",
+          "state_id": "Story1:C1:1|GQEX|I_END|STATIC_LINEAR_EXACT|TS5006.3.10|M2=ORIGINAL|M3=ORIGINAL",
+          "status": "OK",
+          "utilization": 0.4452538561690319
+        },
+        {
+          "assessment_id": "pmm-assessment:sha256:17f377aa74b0b34df5fd2c9865860ca451b393f41885682c6f5648fa2b60d03c",
+          "authority": "FND_COL_4_PMM_ADEQUACY_ROW_ASSESSMENT",
+          "candidate_geometry_fingerprint": "candidate-geometry-binding:sha256:9ef5e906a2e865af4f50de092de1dd3bcee2f815db640136c108ccd62f6f8324",
+          "candidate_id": "RECT-PERIMETER-4D40-N22-N32",
+          "decision_id": "candidate-pmm-decision:sha256:e5f19f69c3591644ce31d39227e56875e2ad27ab389d27c747e6388472f3e57c",
+          "numerical_status": "PROVEN_NUMERICAL_CAPACITY",
+          "policy_fingerprint": "sha256:3dee0f4fd69034165fea8544803218bb5af2b0f242a472a540374cd703eae29f",
+          "state_id": "Story1:C1:1|GQEX|J_END|STATIC_LINEAR_EXACT|TS5006.3.10|M2=ORIGINAL|M3=ORIGINAL",
+          "status": "OK",
+          "utilization": 0.33203155737060014
+        },
+        {
+          "assessment_id": "pmm-assessment:sha256:b230bdb7d0028db5202bccefdced0edc9b262e4bfdd4f6ba7d7953482cbbadff",
+          "authority": "FND_COL_4_PMM_ADEQUACY_ROW_ASSESSMENT",
+          "candidate_geometry_fingerprint": "candidate-geometry-binding:sha256:9ef5e906a2e865af4f50de092de1dd3bcee2f815db640136c108ccd62f6f8324",
+          "candidate_id": "RECT-PERIMETER-4D40-N22-N32",
+          "decision_id": "candidate-pmm-decision:sha256:be141d0ca431e3c1257dba495838b3d354133687e9118affd6e8266ed0437796",
+          "numerical_status": "PROVEN_NUMERICAL_CAPACITY",
+          "policy_fingerprint": "sha256:3dee0f4fd69034165fea8544803218bb5af2b0f242a472a540374cd703eae29f",
+          "state_id": "Story1:C1:1|GQEY|I_END|STATIC_LINEAR_EXACT|TS5006.3.10|M2=ORIGINAL|M3=ORIGINAL",
+          "status": "OK",
+          "utilization": 0.4452538561690319
+        },
+        {
+          "assessment_id": "pmm-assessment:sha256:77d4677d854f11dc9b45437421164c21e4e3c4f296d6b83271528f0c20831ccf",
+          "authority": "FND_COL_4_PMM_ADEQUACY_ROW_ASSESSMENT",
+          "candidate_geometry_fingerprint": "candidate-geometry-binding:sha256:9ef5e906a2e865af4f50de092de1dd3bcee2f815db640136c108ccd62f6f8324",
+          "candidate_id": "RECT-PERIMETER-4D40-N22-N32",
+          "decision_id": "candidate-pmm-decision:sha256:10480471af808b72c06ee7fd8d3dc752aeeb21ae60feaf81d7450ffff40e657f",
+          "numerical_status": "PROVEN_NUMERICAL_CAPACITY",
+          "policy_fingerprint": "sha256:3dee0f4fd69034165fea8544803218bb5af2b0f242a472a540374cd703eae29f",
+          "state_id": "Story1:C1:1|GQEY|J_END|STATIC_LINEAR_EXACT|TS5006.3.10|M2=ORIGINAL|M3=ORIGINAL",
+          "status": "OK",
+          "utilization": 0.33203155737060014
+        }
+      ],
+      "Vr_kn": [
+        [
+          "DIR2",
+          869.9337927092395
+        ],
+        [
+          "DIR3",
+          1237.1311859678422
+        ]
+      ],
+      "owner_artifact_sha256": {
+        "a23_demand_states": "d2c8ea8e99c865978dd5a22d0f9f456d3927b88d107f858299a3df6875d2329a",
+        "column_axial_vs5": "19f48c27b7607ab7f00b2ac6ce0958e1f403ad06521cfa04cbd2a3b5da488f45",
+        "column_shear_p7": "16358cf057e75628dc6d1ca551c3948ccdd3252504316cddd92e4e1831724332",
+        "final_transverse_cage": "4e42e79350e7109c24c5af7294ef36e726632fac2ef863913621ddd4d7a43963",
+        "fnd_col_2_execution": "8e7efeb76e8747baf8abb21c8fdbd4eb2dc086d9d4ac24fea6d9e007b0b0b3d4",
+        "free_length": "a2527b90c434da36c2663bfb9107987ca85f659c3d84b03f73dd701de6a9c6d2",
+        "longitudinal_runtime": "909db3e04908643afc48e63417973bc35f6b37fde3b693d6f22f4b5e54bbb917",
+        "longitudinal_selection": "99645295ea8232b8a9450a1d88e310fc825ad5259b26d6a8cd58757cd7413709",
+        "transverse_confinement": "84fe7ff65a27547fad749e7ca2cd7fdd78abd2b6f3253d791f2a0284cb6e9cfe"
+      }
+    },
+    "Qualified_Changed_Cage": {
+      "result_id": "column-owner-result:sha256:e04c17c0f0a93579233c29edea934de40d5208ca6b8ce40f571e591015b178a2",
+      "component": "Story1:C1:1",
+      "scope_identity": {
+        "evidence_epoch_id": "evidence-epoch:public-a5",
+        "force_unit": "kN",
+        "length_unit": "m",
+        "model_fingerprint": "model-fingerprint:public-a5",
+        "origin": "OFFLINE_TEST_LIFECYCLE",
+        "shear_evidence_epoch_id": "epoch:vs6-p7-column-shear:sha256:8bfe90e8bdf8eb3e741858134ba6beb75b3fbfb8a62dee284be845b26adf4f83",
+        "source_model_ref": "source-model-ref:public-a5"
+      },
+      "fnd2_status": "READY",
+      "application_status": "APPLICATION_BLOCKED",
+      "application_blockers": [
+        "TRANSVERSE_CONFINEMENT:PROVIDED_ASH_NOT_AVAILABLE:DIR2",
+        "TRANSVERSE_CONFINEMENT:PROVIDED_ASH_NOT_AVAILABLE:DIR3",
+        "TRANSVERSE_CONFINEMENT:SPECIAL_TIE_DETAILING_FACTS_NOT_AVAILABLE"
+      ],
+      "selected_rebar_ref": "engine-selected-rebar:sha256:50ae38bac9ce314fe1e9c8fd1c5dbd706a00f5f90ef8534cce3a8626a2878e7e",
+      "As_mm2": "5026.548245743669",
+      "pmm_rows": [
+        {
+          "assessment_id": "pmm-assessment:sha256:114293268d088353b2b913769796ebc518bb8a5cdb2795df3bb06f24abb060f3",
+          "authority": "FND_COL_4_PMM_ADEQUACY_ROW_ASSESSMENT",
+          "candidate_geometry_fingerprint": "candidate-geometry-binding:sha256:9ef5e906a2e865af4f50de092de1dd3bcee2f815db640136c108ccd62f6f8324",
+          "candidate_id": "RECT-PERIMETER-4D40-N22-N32",
+          "decision_id": "candidate-pmm-decision:sha256:23f6047d789232e0dd9d5f690097af3ffbe6a9be1710a74cf9b0ff56b6738151",
+          "numerical_status": "PROVEN_NUMERICAL_CAPACITY",
+          "policy_fingerprint": "sha256:3dee0f4fd69034165fea8544803218bb5af2b0f242a472a540374cd703eae29f",
+          "state_id": "Story1:C1:1|GQEX|I_END|STATIC_LINEAR_EXACT|TS5006.3.10|M2=ORIGINAL|M3=ORIGINAL",
+          "status": "OK",
+          "utilization": 0.4452538561690319
+        },
+        {
+          "assessment_id": "pmm-assessment:sha256:17f377aa74b0b34df5fd2c9865860ca451b393f41885682c6f5648fa2b60d03c",
+          "authority": "FND_COL_4_PMM_ADEQUACY_ROW_ASSESSMENT",
+          "candidate_geometry_fingerprint": "candidate-geometry-binding:sha256:9ef5e906a2e865af4f50de092de1dd3bcee2f815db640136c108ccd62f6f8324",
+          "candidate_id": "RECT-PERIMETER-4D40-N22-N32",
+          "decision_id": "candidate-pmm-decision:sha256:e5f19f69c3591644ce31d39227e56875e2ad27ab389d27c747e6388472f3e57c",
+          "numerical_status": "PROVEN_NUMERICAL_CAPACITY",
+          "policy_fingerprint": "sha256:3dee0f4fd69034165fea8544803218bb5af2b0f242a472a540374cd703eae29f",
+          "state_id": "Story1:C1:1|GQEX|J_END|STATIC_LINEAR_EXACT|TS5006.3.10|M2=ORIGINAL|M3=ORIGINAL",
+          "status": "OK",
+          "utilization": 0.33203155737060014
+        },
+        {
+          "assessment_id": "pmm-assessment:sha256:b230bdb7d0028db5202bccefdced0edc9b262e4bfdd4f6ba7d7953482cbbadff",
+          "authority": "FND_COL_4_PMM_ADEQUACY_ROW_ASSESSMENT",
+          "candidate_geometry_fingerprint": "candidate-geometry-binding:sha256:9ef5e906a2e865af4f50de092de1dd3bcee2f815db640136c108ccd62f6f8324",
+          "candidate_id": "RECT-PERIMETER-4D40-N22-N32",
+          "decision_id": "candidate-pmm-decision:sha256:be141d0ca431e3c1257dba495838b3d354133687e9118affd6e8266ed0437796",
+          "numerical_status": "PROVEN_NUMERICAL_CAPACITY",
+          "policy_fingerprint": "sha256:3dee0f4fd69034165fea8544803218bb5af2b0f242a472a540374cd703eae29f",
+          "state_id": "Story1:C1:1|GQEY|I_END|STATIC_LINEAR_EXACT|TS5006.3.10|M2=ORIGINAL|M3=ORIGINAL",
+          "status": "OK",
+          "utilization": 0.4452538561690319
+        },
+        {
+          "assessment_id": "pmm-assessment:sha256:77d4677d854f11dc9b45437421164c21e4e3c4f296d6b83271528f0c20831ccf",
+          "authority": "FND_COL_4_PMM_ADEQUACY_ROW_ASSESSMENT",
+          "candidate_geometry_fingerprint": "candidate-geometry-binding:sha256:9ef5e906a2e865af4f50de092de1dd3bcee2f815db640136c108ccd62f6f8324",
+          "candidate_id": "RECT-PERIMETER-4D40-N22-N32",
+          "decision_id": "candidate-pmm-decision:sha256:10480471af808b72c06ee7fd8d3dc752aeeb21ae60feaf81d7450ffff40e657f",
+          "numerical_status": "PROVEN_NUMERICAL_CAPACITY",
+          "policy_fingerprint": "sha256:3dee0f4fd69034165fea8544803218bb5af2b0f242a472a540374cd703eae29f",
+          "state_id": "Story1:C1:1|GQEY|J_END|STATIC_LINEAR_EXACT|TS5006.3.10|M2=ORIGINAL|M3=ORIGINAL",
+          "status": "OK",
+          "utilization": 0.33203155737060014
+        }
+      ],
+      "Vr_kn": [
+        [
+          "DIR2",
+          623.2504739100036
+        ],
+        [
+          "DIR3",
+          818.3432261458836
+        ]
+      ],
+      "owner_artifact_sha256": {
+        "a23_demand_states": "d2c8ea8e99c865978dd5a22d0f9f456d3927b88d107f858299a3df6875d2329a",
+        "column_axial_vs5": "19f48c27b7607ab7f00b2ac6ce0958e1f403ad06521cfa04cbd2a3b5da488f45",
+        "column_shear_p7": "1fb167e3209100a9499efd376b0b1f2aabae9a1df834afb7ffa56a0c1479558f",
+        "final_transverse_cage": "0ac742a6fa61217b93ca0f29eedf5b761db7c6148d80091b21aa5c1407d78b45",
+        "fnd_col_2_execution": "29dd5a50f5c1a0ce54d49ea8e813cc6d029388d69e9e61fb75e5999c68d75e5c",
+        "free_length": "a2527b90c434da36c2663bfb9107987ca85f659c3d84b03f73dd701de6a9c6d2",
+        "longitudinal_runtime": "7862097d7bb37d3eb002e94274eea2df09477190480fed61f6231bc0321a4281",
+        "longitudinal_selection": "16716319aff5802ad29171c7a375c2fab1dd2a20c5e5890d64255ec7fa5a21ab",
+        "transverse_confinement": "0d69ed5f27a63e6e515fae98e61be62b7525b0221a22d63b1da0a6ba33e78346"
+      }
+    },
+    "Qualified_Owner_Blocked": {
+      "result_id": "column-owner-result:sha256:e6a025e25ec63b33d35eaa4b3c030cfe127d94bfba50848dfe1b30e6793f5596",
+      "component": "Story1:C2:2",
+      "scope_identity": {
+        "evidence_epoch_id": "evidence-epoch:public-a5",
+        "force_unit": "kN",
+        "length_unit": "m",
+        "model_fingerprint": "model-fingerprint:public-a5",
+        "origin": "OFFLINE_TEST_LIFECYCLE",
+        "shear_evidence_epoch_id": "epoch:vs6-p7-column-shear:sha256:3b4b20a55b49f728f0e25eda31c00b5418e79db946e75119d1c76ae83a35812a",
+        "source_model_ref": "source-model-ref:public-a5"
+      },
+      "fnd2_status": "UNRESOLVED",
+      "application_status": "UNRESOLVED",
+      "application_blockers": [
+        "A18:TOP:M2:END_RESTRAINT_RATIO_UNRESOLVED:Eq.7.16 beam-restraint denominator is unresolved/empty",
+        "A18:TOP:M3:END_RESTRAINT_RATIO_UNRESOLVED:Eq.7.16 beam-restraint denominator is unresolved/empty",
+        "A19:BLOCKED_TS500_REGULATORY_FREE_LENGTH"
+      ],
+      "selected_rebar_ref": null,
+      "As_mm2": null,
+      "pmm_rows": [],
+      "Vr_kn": [],
+      "owner_artifact_sha256": {
+        "fnd_col_2_execution": "a30fd118ec17a44a4959528eb3ac10fe4ddbd33bfc298750ab8f47eb50c7129d"
+      }
+    }
+  },
+  "ui_interaction": "ACTUAL CHROMIUM + ACTUAL LOCALHOST BACKEND; 4 context flows;9 downloads;0 page errors",
+  "screen_pdf_json": "same original typed owner result / manifest identities; original source scopes preserved per variant",
+  "visual_QA": {
+    "baseline_pages": 26,
+    "changed_cage_pages": 26,
+    "owner_blocked_pages": 3,
+    "all_pages_inspected": true,
+    "UI_inspected": true
+  },
+  "runtime_sha256": {
+    "apps/column_v2/index.html": "684176994caa8173f5bd9b96d5c8d668a63623a7c4851eda5ed986c2904a5b92",
+    "apps/column_v2/server.py": "664721cf956c1da9e97a44b0f2f3ead598492ff64553224244d70a560cd90c71",
+    "tbdy_engine/application/column_qualified_workspace.py": "5a72eb540fe37ca37c2bb6688a10993251494b9941113f96784fef523c561d11",
+    "tbdy_engine/product_reports/column_qualified_report.py": "f52b4238028f65ea2dccbbb182b11558dcbdbe94d4dce77f2b6a3e5c4366bc2a",
+    "tests/product_reports/test_column_qualified_workspace.py": "052a3d56d704321ce70ec4a7bed3270696c194d863d5369185d0d44e767e4c4f",
+    "tests/product_reports/column_qualified_browser.cjs": "b13c234397ffbcbb5c6bbaa98db1379cc2edb6ae2780088eb1a57085b29ecacd"
+  },
+  "artifacts": {
+    "Qualified_Supported_Column.pdf": {
+      "sha256": "b2501add5e219cfe087611fc8db47e2a1f1fce7d7504f512c9dabfe68bbb5972",
+      "bytes": 97581
+    },
+    "Qualified_Supported_Column.json": {
+      "sha256": "c0026f0a0d4e77fb8f2621958938965baf38e3073817dd7b1d6b235c0cd5de02",
+      "bytes": 2384404
+    },
+    "Browser_Interaction.json": {
+      "sha256": "526b4c819f644a9af47de234c04456e62c1908890164caccae3c3df7aae9be42",
+      "bytes": 8149407
+    },
+    "Qualified_Changed_Cage.json": {
+      "sha256": "4235411626952ec19363a48fed3baa176d99e688f88822e8550cd65528a6e892",
+      "bytes": 2384396
+    },
+    "Qualified_Supported_Column.html": {
+      "sha256": "6fa7be8559b7e910e73310e078e16b88916387a0b424feae14b1f430c93aaff0",
+      "bytes": 3666215
+    },
+    "Qualified_Owner_Blocked.pdf": {
+      "sha256": "c58c98e597d6704db096a188c2b1ad176894afdbf8c481ee28aebb8b97a8fd99",
+      "bytes": 48941
+    },
+    "ABI6_Original_Reuse_NOT_AUTHORIZED.zip": {
+      "sha256": "9b5f6f593160caed690ba99dd1995eb983cbf071269729b4bf5e2a4c36d89454",
+      "bytes": 27421
+    },
+    "Observed_Owner_Calls.json": {
+      "sha256": "fe02571d8b9d1db70833b0b0c892beff0e2f44078e0b201f6392e93432764ace",
+      "bytes": 1778
+    },
+    "Actual_235_Source_Gates.json": {
+      "sha256": "03b6136944f1e0b451d13a7444433e4072a02580a33c621587bee41c9c631bee",
+      "bytes": 61038
+    },
+    "Backend_Execution.jsonl": {
+      "sha256": "9521eb01e543cef1a07e7703cb2278bae5b8825152e1e561c998ff4e2852bc97",
+      "bytes": 10665
+    },
+    "Qualified_Changed_Cage.html": {
+      "sha256": "7164b2f8dcee1de8438cd8602ab68fa4ed354cf953baaea333d209d76bc8a7e1",
+      "bytes": 3666203
+    },
+    "Owner_Contracts_and_235_Dependencies.md": {
+      "sha256": "55adf195080381f5e4ec713b036b48b96b034b7c3574c633bcbae69a32de24eb",
+      "bytes": 7623
+    },
+    "Minimum_Operator_Dependency_NOT_AUTHORIZED.json": {
+      "sha256": "1c997995e8f3fc1787b332e7994ca517304a54cd1015674de24662b9307e10a8",
+      "bytes": 3267
+    },
+    "Qualified_Changed_Cage.pdf": {
+      "sha256": "064596c3e8ff12135627027c137d3d20d48d57b1f40074b0778e32acf08ee391",
+      "bytes": 97648
+    },
+    "Qualified_Owner_Blocked.html": {
+      "sha256": "3992c42e3e2543fbecb62b9a0c0d973b33c6fd3687fb41e4c398eb2016fcb992",
+      "bytes": 1474753
+    },
+    "Qualified_Owner_Blocked.json": {
+      "sha256": "effeb94efbbb6b716c69f5978c5c8a605d71860e7f5813b36ab4c83ef3940fe1",
+      "bytes": 910277
+    }
+  },
+  "actual_235": {
+    "canonical_rebar_authority": "NOT_PROVIDED",
+    "current_analysis_result_epoch": null,
+    "candidate_sha256": "61FA288FE6AA098B16062B0BAAE3FB882937AB68280C93971475AA39B2246621",
+    "historical_sha256": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+    "full_canonical_design": "NOT_EXECUTED; NOT_QUALIFIED",
+    "reference_results_used": "NO"
+  },
+  "original_ABI6_operator_HEAD": "98f15e0eb0709083785cdefbe923f22056e4d9b9",
+  "operator_reprepared": false,
+  "new_native_getters": 0,
+  "WORKER_ETABS": "NO",
+  "LIVE_GETPOINTS": "NOT_EXECUTED / NOT_AUTHORIZED",
+  "MATRIX_SCAN": "NOT_STARTED",
+  "RESULT_CAPTURE": "NO",
+  "FC09_PRODUCTION_GATE": "UNCHANGED",
+  "GLOBAL_DELTA": "NOT_PROVEN",
+  "M6_B": "OPEN",
+  "R2_RERUN_READY": "NO",
+  "software_scope": "Qualified read-only handoff implemented and offline full-owner path proven; production issuance dependency remains separate",
+  "real_235_finished_engineering": false,
+  "NEXT_EXACT_CAUSAL_EDGE": "Supervisor product review; separately authorize unchanged ABI6 one-GetPoints package only if desired. Current-source B5/B6 and M6-B require their exact distinct authority decisions."
+}

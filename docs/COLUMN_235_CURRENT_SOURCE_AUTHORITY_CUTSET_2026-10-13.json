@@ -1,0 +1,290 @@
+{
+  "scope": "REAL235 CURRENT-SOURCE AUTHORITY CUTSET / REVIEW ADOPTION ONLY / NO NATIVE EXECUTION",
+  "BASE_HEAD": "43e8afabbb91087030ac30570197cd01761afd07",
+  "BASE_TREE": "14a35d7e3af6c4f556800d867f89cc6e69dbd00d",
+  "supervisor_review": {
+    "original_file": "COLUMN_QUALIFIED_PRODUCT_SUPERVISOR_REVIEW_2026-10-13 (1).md",
+    "original_sha256": "811c582654128042e24d3a6f8fd5170ab0d6bd7dd47aecd014494fd8b5d21d6d",
+    "reviewed_HEAD": "43e8afabbb91087030ac30570197cd01761afd07",
+    "reviewed_TREE": "14a35d7e3af6c4f556800d867f89cc6e69dbd00d",
+    "EDITABLE_REFERENCE_SOURCE_SLICE": "ACCEPTED / CLOSED_REUSE",
+    "REAL_235_FULL_PRODUCT": "NOT_ACCEPTED",
+    "independent_focused_PASS": 24,
+    "excluded_browser_launcher_profile_tests": 2,
+    "independent_fresh_2326_acceptance": false,
+    "independent_HTTP_recompute": "PASS; same server/workspace; s100->200; Vr428.5->264.25; new owner calls; JSON equals active responses",
+    "supervisor_received_PDF_SHA256": {
+      "baseline": "58780d507711e949d85d149299b90a8beee1436a8a358e1e8ee5ed498496fa47",
+      "changed": "29ca82dd53ce1fa42252a4300a52ba941975f37b573e249d7370d7e69154ebd8"
+    },
+    "PDF_hash_domain": "supervisor-received file bytes; retained separately from worker original output SHA; no byte-equality assertion"
+  },
+  "source_identities": {
+    "historical": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+    "candidate": "61FA288FE6AA098B16062B0BAAE3FB882937AB68280C93971475AA39B2246621",
+    "authority_rebound": false,
+    "loaded_path_equality_is_source_equality": false
+  },
+  "original_pairs_revalidated": {
+    "names": {
+      "original_name": "column-r1-r3m-abi2-astfix-getnamelist_20261011_201010_626_2b40455570994e4698ebd7b06b58ce47.json",
+      "json_sha256": "bf720aba0fd474313cecb2cd8f9e4ae650f4fe624e5dd69f882495ceea6dca21",
+      "sidecar_sha256": "ec18331c496df6dc59b474f9d0516335f258807269cf75adfaba96124089ccd1",
+      "accepted_raw_response_sha256": "ea580f95d089a3b7eac7593e444469d7f90324c1f491e28bd604d9ad5cf2d0da"
+    },
+    "assignment": {
+      "original_name": "column-r1-r3m-abi4-getsection_20261012_111117_773_05dcddd5588b4dc9a09936354081d044.json",
+      "json_sha256": "be7874f5e1b58806dd547201ce0d7cb0e551b01a12b941778d654767fdbc7d33",
+      "sidecar_sha256": "b67a0d382e94ceac14c371a5959a38ac56e3972190ca6bb818411aec8e46cb25",
+      "accepted_raw_response_sha256": "168de3740f2556617f1e287952891785e077ef11b89ac3aaed7924f2cbb78537"
+    },
+    "property": {
+      "original_name": "column-r1-r3m-abi5-getsectprops_20261012_143702_982_a2da120be4ae460f974a694fdd6dfff6.json",
+      "json_sha256": "6a41d69c323e9cf0eabb988bb99d2df74b1f229adcb579b2e9265bd2f65003e6",
+      "sidecar_sha256": "d326d1137529ac22b29a5f9b08c05dc9d1d35e107ad71da9cf30464e453cd22e",
+      "accepted_raw_response_sha256": "99e1c201798a955fccb6cadc9a7258365c42806a4f50118e0897ee6d11035b97"
+    }
+  },
+  "historical_originals": {
+    "column-r1-r0-r1-preflight_20261009_192703.json": "79a7bca0dd50f42b6d9852d2ed56dfc03d0a1cdb40a1c534ea7071f6e8c4ce00",
+    "column-r1-r3d-modal_20261010_073229.json": "83ce2ff7c3a6170e931d2869e212adde93b7c08b25bbf44e9f0c2c663f156b03"
+  },
+  "current_235_accepted": {
+    "frame_name": "235",
+    "frame_name_population": 998,
+    "old_and_current_frame_name_sets_equal": true,
+    "section_assignment": "Column_80x80",
+    "I22": {
+      "value": 0.03413333333333332,
+      "unit": "m4",
+      "scope": "named section only"
+    },
+    "I33": {
+      "value": 0.03413333333333332,
+      "unit": "m4",
+      "scope": "named section only"
+    },
+    "other_ten_property_unit_authority": "NOT_PROVEN; raw values not production inputs",
+    "model_fingerprint": null,
+    "B5": null,
+    "B6": null,
+    "selection_scope": "ABI4/5/6 NOT_READ; no new selection identity assertion",
+    "endpoint_names": {
+      "Point1": "955",
+      "Point2": "758",
+      "source": "ABI6 original pair only",
+      "original_json_sha256": "3e31d78cb74c3f65079df347391f3c97a3f05460d6cbb8c3e72eba22766f28ed",
+      "bottom_top": "NOT_PROVEN"
+    },
+    "width_depth": "NOT_OBSERVED_CURRENT_CANDIDATE",
+    "material_binding": "NOT_OBSERVED_CURRENT_CANDIDATE",
+    "physical_final_cage": "NOT_PROVIDED",
+    "current_result_epoch": "NOT_QUALIFIED"
+  },
+  "historical_235_source_only": {
+    "source_sha256": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+    "table_field_lookup": "exact UniqueName235 only; no nearest/duplicate fallback",
+    "column": {
+      "UniqueName": "235",
+      "Story": "+0.00",
+      "ColumnBay": "C1",
+      "UniquePtI": "955",
+      "UniquePtJ": "758",
+      "Length": "5.15",
+      "GUID": "baea1979-8857-4470-a4e6-5109369aa14c"
+    },
+    "point_objects": [
+      {
+        "UniqueName": "955",
+        "Story": "Base",
+        "X": "74",
+        "Y": "22.3",
+        "Z": "-5.15",
+        "GUID": "20ed0903-8313-4566-8fb3-437575f68504"
+      },
+      {
+        "UniqueName": "758",
+        "Story": "+0.00",
+        "X": "74",
+        "Y": "22.3",
+        "Z": "0",
+        "GUID": "d199392d-98ad-407f-a690-d19632add19b"
+      }
+    ],
+    "point_coordinate_unit": "m, native R3D field metadata",
+    "rectangular_section": {
+      "Name": "Column_80x80",
+      "Material": "C35/45",
+      "t2": "0.8",
+      "t3": "0.8",
+      "DesignType": "Column",
+      "I2Mod": "0.7",
+      "I3Mod": "0.7"
+    },
+    "dimension_units": {
+      "t2": "m",
+      "t3": "m"
+    },
+    "concrete": {
+      "Material": "C35/45",
+      "Fc_raw": "35000",
+      "native_unit": "kN/m2",
+      "fcd": "NOT_DERIVED"
+    },
+    "rebar_intent": {
+      "longitudinal_material": "DefaultRebar_500",
+      "transverse_material": "DefaultRebar_500",
+      "to_be_designed": true,
+      "physical_cage_or_engine_selected": "NOT_PROVEN"
+    },
+    "modal_grain": {
+      "frame_rows": 300,
+      "case": "Modal",
+      "step_type": "Mode",
+      "modes": 100,
+      "object_stations_m": [
+        0.0,
+        2.225,
+        4.45
+      ],
+      "point955_rows": 100,
+      "point758_rows": 100,
+      "result_epoch_is_B5": false
+    },
+    "length_semantics": {
+      "native_connectivity_length_m": "5.15",
+      "FrameForce_object_station_max_m": 4.45,
+      "regulatory_ln": "NOT_DERIVED",
+      "offset_inference": "NO",
+      "historical_to_current_endpoint_roles": "NO_TRANSFER"
+    }
+  },
+  "operator_gate": {
+    "original_package": {
+      "scope": "ABI6_FINAL_PINNED_OFFLINE_OPERATOR_PACKAGE_NO_EXECUTION_AUTHORIZATION",
+      "HEAD": "98f15e0eb0709083785cdefbe923f22056e4d9b9",
+      "TREE": "54af7aa7a314dfc0a80aa6766684a49150f452b6",
+      "branch": "worker/column-r1-r3m-source-drift-reconciliation",
+      "ABI5_adoption_HEAD": "6ddd8a9aab70db852b85ff0b3ee6f6cae0e80fdd",
+      "ABI5_adoption_TREE": "ad8032d1937d6c778258fbea4ebb00a63746ddcf",
+      "ABI5": "CLOSED_REUSE",
+      "proposed_target": "FrameObj.GetPoints(Name=\"235\")",
+      "artifacts": [
+        {
+          "name": "column_r1_r3m_abi6_getpoints_probe.py",
+          "sha256": "847c1d44c0b519ca28417618efd4939a28e25ca7e604ceccf737db7edeaabf76"
+        },
+        {
+          "name": "column_r1_r3m_abi6_operator.ps1",
+          "sha256": "eeb144121ab01f8edabc09894c5146e6ef73624427473810a707c107dec7d78d"
+        },
+        {
+          "name": "column_r1_r3m_abi6_prepare.ps1",
+          "sha256": "06df5c6f8f5201cce81a5cdc5c6e561f76fee53677f4173c0bde33232c2076c9"
+        },
+        {
+          "name": "column_r1_r3m_abi6_handoff.txt",
+          "sha256": "5d21cb4dfe1ac411d3ff5930dcde8e645d20abc6cb9e06b89d3d0b04c57e8455"
+        }
+      ],
+      "source_bound_target_sha256": "bb660a45059af6d5d8d93581527092b83c6e159998225ec6ae75c32f5e220d79",
+      "offline_receipt_sha256": "3b0c77976b8c813627603585b9558d649d7b6590c26991a0d339fd339c2484e3",
+      "LIVE_GETPOINTS": "NOT_EXECUTED",
+      "authorization": false,
+      "bottom_top_assignment": "NOT_PROVEN",
+      "FC09_PRODUCTION_GATE": "UNCHANGED",
+      "MATRIX_SCAN": "NOT_STARTED",
+      "GLOBAL_DELTA": "NOT_PROVEN",
+      "M6_B": "OPEN",
+      "R2_RERUN_READY": false
+    },
+    "reuse_not_reprepare": true,
+    "maximum_target_calls": 0,
+    "proposed_only": "NO_ADDITIONAL_GETPOINTS",
+    "execution_authorized": false,
+    "required_PID": 2072,
+    "required_process_start_UTC": "2026-10-09T15:47:08.1780017Z",
+    "new_PID_or_start": "STOP; separate session/profile review required; original artifact must not be edited",
+    "selection": "NOT_READ / NO_ACCESS / NO_MUTATION",
+    "post_success_scope": "native Point1/Point2 names only; no coordinates, bottom/top, analysis-joint/panel-zone binding, B5/B6 or material readiness",
+    "status": "CLOSED_REUSE; original ABI6 one-call authority consumed; no repeat"
+  },
+  "parallel_engineering_decision": "M6-B source-authorized modal stability action/combination law and actual235/current whole-story proof; cannot be closed by GetPoints",
+  "production_requirements": [
+    "current source-bound strict topology and geometry with explicit units",
+    "current material usage plus reviewed fcd/fyd/fywd/aggregate/ductility",
+    "original current-source B4B/B5 analysis result continuity on owned scratch",
+    "original B6/selected combo/rebar/catalog continuity on same owner lifecycle",
+    "source-authorized M6-B stability-action law",
+    "exact Vs5/P7/Vc/cage/independent Ash and tie-detailing bindings"
+  ],
+  "WORKER_ETABS": "NO",
+  "NEW_NATIVE_GETTERS": 0,
+  "LIVE_GETPOINTS": "EXECUTED_BY_AUTHORIZED_OPERATOR_ONCE; ONE_CALL_AUTHORIZATION_CONSUMED",
+  "172_MATRIX_SCAN": "NOT_STARTED",
+  "RESULT_CAPTURE": "NO",
+  "FC09_PRODUCTION_GATE": "UNCHANGED",
+  "GLOBAL_DELTA": "NOT_PROVEN",
+  "M6_B": "OPEN",
+  "R2_RERUN_READY": "NO",
+  "next_coordinate_proposal": "ABI7 PointObj.GetCoordCartesian only955/758, explicit CSysGlobal, separate review; NOT_AUTHORIZED",
+  "latest_adoption_index": "COLUMN_235_ABI6_ADOPTION_AND_ABI7_OFFLINE_RECEIPT_2026-10-13.json",
+  "validation_at_c129_pre_adoption_checkpoint_only": {
+    "change_kind": "DOCUMENTATION_AND_DERIVED_EVIDENCE_ONLY",
+    "all_tracked_non_docs_bytes_unchanged": 1332,
+    "previous_2326_worker_test_identity_ledger": "PRESERVED / REUSE_NOT_FRESH_RERUN_NOT_INDEPENDENTLY_REACCEPTED",
+    "new_tests": 0,
+    "fresh_ABI6_offline_PASS": 63,
+    "target_ETABS_execution": false,
+    "protected_surface_count": 45,
+    "protected_hash_drift": 0,
+    "architecture_PASS": 31,
+    "same_real_architecture_FAIL": 6,
+    "new_or_expanded": 0,
+    "compile": "PASS_SOURCE_UNCHANGED",
+    "import": "PASS_OFFLINE",
+    "diff_check": "PASS",
+    "proof_sha256": {
+      "validation/column235-abi6-offline-reuse/integrated.xml": "b3cb576d20d93c6822aad08af24d70b14dd3aaa5492fe23524e0d6bcf584081b",
+      "validation/column235-base-architecture.xml": "2bc5e65e1ebec4a35aeb9449469b42448958c744b828d2a5e71add63d134c7a9",
+      "validation/column235-current-architecture.xml": "ad49afbb04a6434fef31276df90d645a2932bb53cdbb9379c38a77d4a8286c5e",
+      "validation/column235-base-guards.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e",
+      "validation/column235-current-guards.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e"
+    }
+  },
+  "current_step_validation_summary": {
+    "focused_PASS": 78,
+    "bounded_ABI6_ABI7_integrated_PASS": 141,
+    "previous_worker_2326_identities_preserved": 2326,
+    "missing_previous_identities": [],
+    "previous_test_files_bytes_unchanged": 523,
+    "fresh_full_private_attempt": {
+      "PASS": 2401,
+      "FAIL": 3,
+      "all_2326_previous_cases_PASS": true,
+      "failed_new_test_ids": [
+        "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[first_response]",
+        "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[none]",
+        "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[source_after]"
+      ],
+      "reason": "pre-fix new offline Linux Windows-transport test harness lacked synthetic ctypes.HRESULT; test fixture only corrected",
+      "all_failed_ids_PASS_in_final_bounded_run": true,
+      "single_clean_final_2404_full_run": "NOT_RERUN; no claim",
+      "test_harness_only_change_not_external_probe_or_production_change": true
+    },
+    "partitioned_final_identity_coverage": 2404,
+    "identity_algorithm": "sorted JUnit classname::name; full legacy-pass partition plus final bounded new-test pass partition",
+    "final_identity_sha256": "ba2325a33e3f584aebef897b57fcd3f66a45a60a85e0d5ab6e543fd94780ed56",
+    "architecture_PASS": 31,
+    "same_real_architecture_FAIL": 6,
+    "new_or_expanded": 0,
+    "complete_guard_sets_equal": true,
+    "protected_surface_count": 45,
+    "protected_hash_drift": 0,
+    "COMPILE": "PASS",
+    "IMPORT": "PASS_OFFLINE_NO_NATIVE",
+    "DIFF_CHECK": "PASS",
+    "PowerShell_native_parser": "NOT_AVAILABLE; template/command/pin static audit PASS",
+    "Windows_actual_checkout": "NOT_EXECUTED_BY_WORKER; autocrlftrue exact-byte profile PASS; operator preflight mandatory"
+  }
+}

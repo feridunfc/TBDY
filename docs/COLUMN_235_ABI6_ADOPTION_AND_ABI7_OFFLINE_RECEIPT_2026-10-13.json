@@ -1,0 +1,316 @@
+{
+  "scope": "ORIGINAL_ABI6_NAMES_ONLY_ACCEPTANCE_ADOPTION_NO_NATIVE_EXECUTION",
+  "BASE_HEAD": "c1290b65b807ead2be909e68e8f19fe2025758a6",
+  "BASE_TREE": "3ffcd2f8091374c22f7cc40294fbfc6c5b47d60a",
+  "supervisor_acceptance": {
+    "original_file": "COLUMN_235_ABI6_ORIGINAL_RECEIPT_SUPERVISOR_ACCEPTANCE_2026-10-13(2).md",
+    "original_sha256": "2f08fd408cc7eda1817ad699362776319a9e4ab91fa4c0b4df86a6dd97383d9c",
+    "decision": "ACCEPTED / CLOSED_REUSE",
+    "independent_receipt_checks": 52,
+    "checks_are_repository_test_identities": false,
+    "full_ledger_rerun_by_supervisor": false
+  },
+  "original_receipt": {
+    "name": "column-r1-r3m-abi6-getpoints_20261013_164152_695_ec25448d25e74393b87fb8243728f215.json",
+    "json_sha256": "3e31d78cb74c3f65079df347391f3c97a3f05460d6cbb8c3e72eba22766f28ed",
+    "sidecar_sha256": "4678392bf610160fc79d239b7f0e5a77506b5a70e95debdc579ed42d27ef4363",
+    "raw_response_sha256": "744a34de079396fc21f378053bba65260d8d2da1a6398b49ad811af297c91ce8",
+    "typed_raw_evidence_sha256": "a40b8cbc13aca8d7a65c45d6eec544f5307c4e82be591376d8e387c1ea935c8d",
+    "capture_repository": {
+      "HEAD": "98f15e0eb0709083785cdefbe923f22056e4d9b9",
+      "TREE": "54af7aa7a314dfc0a80aa6766684a49150f452b6"
+    },
+    "external_python_sha256": "847c1d44c0b519ca28417618efd4939a28e25ca7e604ceccf737db7edeaabf76",
+    "target_json_sha256": "bb660a45059af6d5d8d93581527092b83c6e159998225ec6ae75c32f5e220d79",
+    "original_dependency_pins": [
+      {
+        "json_sha256": "bf720aba0fd474313cecb2cd8f9e4ae650f4fe624e5dd69f882495ceea6dca21",
+        "sidecar_sha256": "ec18331c496df6dc59b474f9d0516335f258807269cf75adfaba96124089ccd1",
+        "name": "column-r1-r3m-abi2-astfix-getnamelist_20261011_201010_626_2b40455570994e4698ebd7b06b58ce47.json"
+      },
+      {
+        "json_sha256": "11355e6860ba435e1275a7251efb0a5701268e4293c98c58a9231b2194f5b5be",
+        "sidecar_sha256": "3aac65362db7c6de5a63fb8625a96185104e7091ac50ced9e1b3b49ac6cf5797",
+        "name": "column-r1-r3m-abi3-metadata_20261011_222037_269_84ded0e2a7c047c1a7d07fd6e6d61369.json"
+      },
+      {
+        "json_sha256": "1072e2b647a95b58ddea79db939647fa65c44593edfd8b9e63740c4a5adc66fb",
+        "sidecar_sha256": "a734a3c1f2bb6f45e487f1c645c2a6e8e7b74644dd4c3ae69a206d51cf0e2b4a",
+        "name": "column-r1-r3m-abi3-wrapper_20261011_231654_300_14144d3fec1740abb6e661fe4ed42e88.json"
+      },
+      {
+        "json_sha256": "be7874f5e1b58806dd547201ce0d7cb0e551b01a12b941778d654767fdbc7d33",
+        "sidecar_sha256": "b67a0d382e94ceac14c371a5959a38ac56e3972190ca6bb818411aec8e46cb25",
+        "name": "column-r1-r3m-abi4-getsection_20261012_111117_773_05dcddd5588b4dc9a09936354081d044.json"
+      },
+      {
+        "json_sha256": "6a41d69c323e9cf0eabb988bb99d2df74b1f229adcb579b2e9265bd2f65003e6",
+        "sidecar_sha256": "d326d1137529ac22b29a5f9b08c05dc9d1d35e107ad71da9cf30464e453cd22e",
+        "name": "column-r1-r3m-abi5-getsectprops_20261012_143702_982_a2da120be4ae460f974a694fdd6dfff6.json"
+      }
+    ]
+  },
+  "accepted_facts": {
+    "source_sha256": "61FA288FE6AA098B16062B0BAAE3FB882937AB68280C93971475AA39B2246621",
+    "historical_source_sha256": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+    "frame_Name": "235",
+    "Point1": "955",
+    "Point2": "758",
+    "native_slots": {
+      "Point1": 0,
+      "Point2": 1,
+      "pRetVal": 2
+    },
+    "application_status": 0,
+    "HRESULT_transport_observed": false,
+    "container": "builtins.list",
+    "scalar_types": [
+      "builtins.str",
+      "builtins.str",
+      "builtins.int"
+    ],
+    "target_attempts": 1,
+    "gateway_callbacks": 1,
+    "selection": "NOT_READ",
+    "historical_names_and_slot_order": "MATCH_ONLY_NO_GEOMETRY_TRANSFER",
+    "bottom_top": "NOT_PROVEN",
+    "coordinates": "NOT_OBSERVED_CURRENT_CANDIDATE"
+  },
+  "integrity_observation": {
+    "before_after_source_equal": true,
+    "before_after_identity_equal": true,
+    "started_utc": "2026-10-13T13:41:53.076023+00:00",
+    "finished_utc": "2026-10-13T13:41:54.083262+00:00",
+    "PID_start_in_JSON": false,
+    "PID_start_authority": "operator console and pinned original PowerShell guard only",
+    "worker_read_windows_source_or_process": false,
+    "identity_canonical_sha256": "c485068d25e900bd0d096adcb845d56ebf10399f97be648869a5731dce33f37c",
+    "identity_summary_no_raw_unit_responses": {
+      "process_id": 2072,
+      "attach_strategy": "comtypes_create_helper_get_object_process",
+      "program_api_version": 2.014,
+      "program_name": "ETABS",
+      "program_version": "23.2.0",
+      "program_level": "UltimateC",
+      "internal_program_version": 0.0,
+      "model_full_path": "C:\\tmp\\B-BLOK_Revised.EDB",
+      "model_fingerprint": null,
+      "model_fingerprint_source": "UNAVAILABLE_FROM_CONSUMED_API",
+      "model_locked": true,
+      "units": {
+        "present_units": 6,
+        "database_units": 6,
+        "present_force_unit": 4,
+        "present_length_unit": 6,
+        "present_temperature_unit": 2,
+        "database_force_unit": 4,
+        "database_length_unit": 6,
+        "database_temperature_unit": 2,
+        "present_units_api": "GetPresentUnits_2",
+        "database_units_api": "GetDatabaseUnits_2",
+        "diagnostics": [],
+        "present_observation_status": "OBSERVED_CONSISTENT",
+        "database_observation_status": "OBSERVED_CONSISTENT"
+      }
+    }
+  },
+  "ABI7_offline_proposal": {
+    "native_IID": "{6674645D-E89A-459F-A446-8DB204577C60}",
+    "numeric_flags": [
+      1,
+      3,
+      3,
+      3,
+      17,
+      10
+    ],
+    "parameter_names": [
+      "Name",
+      "X",
+      "Y",
+      "Z",
+      "CSys",
+      "pRetVal"
+    ],
+    "metadata_raw_sha256": "81ca90983b67c9de85c7256c12c6a768ab7e676ae084d8b8de90e386a084730a",
+    "wrapper_raw_sha256": "eca6cba1bbb040d61d9f286ac280ffac62dd294cb82cde299b3124ea3af85c9b",
+    "calls": [
+      {
+        "Name": "955",
+        "CSys": "Global"
+      },
+      {
+        "Name": "758",
+        "CSys": "Global"
+      }
+    ],
+    "positional": [],
+    "omitted_named_INOUT": [
+      "X",
+      "Y",
+      "Z"
+    ],
+    "output_order": [
+      "X",
+      "Y",
+      "Z",
+      "pRetVal"
+    ],
+    "coordinate_unit": "m under exact unchanged Present length6",
+    "source_authority": "CSI ETABS2016 documented method contract + actual23.2 generated declaration/wrapper; not a23.2 documentation claim or live coordinate qualification",
+    "source_urls": [
+      "https://docs.csiamerica.com/help-files/etabs-api-2016/html/694d9bce-0611-9568-a5e0-54263db349e6.htm",
+      "https://docs.csiamerica.com/help-files/etabs-api-2016/html/9ebec594-b55b-44f4-2958-2109cdcfb9ee.htm",
+      "https://docs.csiamerica.com/help-files/etabs-api-2016/html/78035b1d-0cc5-ff44-33a8-6342d825da8c.htm"
+    ],
+    "retrieved_UTC": "2026-10-13",
+    "target_sha256": "9f27f6a5779f38f94fc9104443ae7f85cb5a0d988e25873784d652129285632b",
+    "external_python_sha256": "3a135b5822fa890657bc2642f28f22137d1ef2da33605200d5d0432a8f83604c",
+    "original_helper_sha256": "847c1d44c0b519ca28417618efd4939a28e25ca7e604ceccf737db7edeaabf76",
+    "backend_vtable_method_IID": "NOT_OBSERVED_NOT_PROBED",
+    "maximum_attempts": 2,
+    "maximum_callbacks": 1,
+    "timeout_seconds": 30.0,
+    "separate_live_authorization": "NOT_GIVEN",
+    "no_automatic_retry": true,
+    "receipt_acceptance_is_execution_authority": false
+  },
+  "boundaries": {
+    "LIVE_GETPOINTS": "EXECUTED_BY_AUTHORIZED_OPERATOR_ONCE; AUTHORIZATION_CONSUMED",
+    "LIVE_GETCOORDCARTESIAN": "NOT_EXECUTED / NOT_AUTHORIZED",
+    "WORKER_ETABS": "NO",
+    "FC09_PRODUCTION_GATE": "UNCHANGED",
+    "GLOBAL_DELTA": "NOT_PROVEN",
+    "M6_B": "OPEN",
+    "R2_RERUN_READY": "NO",
+    "B5": null,
+    "B6": null,
+    "172_MATRIX_SCAN": "NOT_STARTED",
+    "RESULT_CAPTURE": "NO",
+    "MERGE": "NOT_AUTHORIZED"
+  },
+  "validation": {
+    "focused_PASS": 78,
+    "bounded_ABI6_ABI7_integrated_PASS": 141,
+    "previous_worker_2326_identities_preserved": 2326,
+    "new_test_identities": [
+      "tests.etabs.r3m_abi7_coordinates_regression::test_callback_two_exact_keyword_reads_first_failure_stops_no_retry[first_exception]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_callback_two_exact_keyword_reads_first_failure_stops_no_retry[first_response]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_callback_two_exact_keyword_reads_first_failure_stops_no_retry[none]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_callback_two_exact_keyword_reads_first_failure_stops_no_retry[second_response]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_callback_two_exact_keyword_reads_first_failure_stops_no_retry[source_after_first]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_callback_two_exact_keyword_reads_first_failure_stops_no_retry[source_before]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_callback_two_exact_keyword_reads_first_failure_stops_no_retry[timeout_after_first]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_coordinates_keep_original_container_types_slot_order_and_signed_values[list]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_coordinates_keep_original_container_types_slot_order_and_signed_values[tuple]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_exact_abi_and_existing_wrapper_guards_fail_before_any_attempt[ambiguous]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_exact_abi_and_existing_wrapper_guards_fail_before_any_attempt[axis_order]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_exact_abi_and_existing_wrapper_guards_fail_before_any_attempt[descriptor]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_exact_abi_and_existing_wrapper_guards_fail_before_any_attempt[flags]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_exact_abi_and_existing_wrapper_guards_fail_before_any_attempt[iid]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_exact_abi_and_existing_wrapper_guards_fail_before_any_attempt[missing]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_exact_abi_and_existing_wrapper_guards_fail_before_any_attempt[pointer]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_exact_abi_and_existing_wrapper_guards_fail_before_any_attempt[wrapper_hash]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_exact_observed_inout_and_optional_global_binding_without_native_backend",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_external_code_has_only_reviewed_target_and_no_production_or_native_mutation_calls",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_invalid_native_response_keeps_partial_raw_evidence_and_fails_closed[None]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_invalid_native_response_keeps_partial_raw_evidence_and_fails_closed[raw10]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_invalid_native_response_keeps_partial_raw_evidence_and_fails_closed[raw11]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_invalid_native_response_keeps_partial_raw_evidence_and_fails_closed[raw1]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_invalid_native_response_keeps_partial_raw_evidence_and_fails_closed[raw2]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_invalid_native_response_keeps_partial_raw_evidence_and_fails_closed[raw3]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_invalid_native_response_keeps_partial_raw_evidence_and_fails_closed[raw4]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_invalid_native_response_keeps_partial_raw_evidence_and_fails_closed[raw5]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_invalid_native_response_keeps_partial_raw_evidence_and_fails_closed[raw6]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_invalid_native_response_keeps_partial_raw_evidence_and_fails_closed[raw7]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_invalid_native_response_keeps_partial_raw_evidence_and_fails_closed[raw8]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_invalid_native_response_keeps_partial_raw_evidence_and_fails_closed[raw9]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[authority]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[call]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[container]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[count]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[fingerprint]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[head]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[lock]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[metadata]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[names]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[phases]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[raw_hash]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[session]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[shape]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[source]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[status]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[time]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[typed_hash]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[types]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[units]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_drift_cannot_be_rebound_as_current_geometry[wrapper]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_gateway_error_and_chained_cause_survive_immutable_outer_evidence",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_original_pair_and_dependencies_survive_adoption_without_native_execution",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[first_response]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[gateway]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[lock_after]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[none]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[original_after]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[second_response]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[session_after]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[source_after]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[source_before]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[timeout]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[unauthorized]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[units_after]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[wrapper]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_two_points_only_no_positional_global_or_fallback_target[authorization]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_two_points_only_no_positional_global_or_fallback_target[budget]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_two_points_only_no_positional_global_or_fallback_target[csys]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_two_points_only_no_positional_global_or_fallback_target[missing_csys]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_two_points_only_no_positional_global_or_fallback_target[name]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_two_points_only_no_positional_global_or_fallback_target[order]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_two_points_only_no_positional_global_or_fallback_target[receipt]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_two_points_only_no_positional_global_or_fallback_target[roles]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_two_points_only_no_positional_global_or_fallback_target[source]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_two_points_only_no_positional_global_or_fallback_target[third]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_two_points_only_no_positional_global_or_fallback_target[units]",
+      "tests.etabs.r3m_abi7_coordinates_regression::test_windows_checkout_scoped_lf_target_hash_survives_autocrlf_true"
+    ],
+    "missing_previous_identities": [],
+    "previous_test_files_bytes_unchanged": 523,
+    "fresh_full_private_attempt": {
+      "PASS": 2401,
+      "FAIL": 3,
+      "all_2326_previous_cases_PASS": true,
+      "failed_new_test_ids": [
+        "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[first_response]",
+        "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[none]",
+        "tests.etabs.r3m_abi7_coordinates_regression::test_outer_gateway_and_integrity_failures_preserve_immutable_receipt_without_retry[source_after]"
+      ],
+      "reason": "pre-fix new offline Linux Windows-transport test harness lacked synthetic ctypes.HRESULT; test fixture only corrected",
+      "all_failed_ids_PASS_in_final_bounded_run": true,
+      "single_clean_final_2404_full_run": "NOT_RERUN; no claim",
+      "test_harness_only_change_not_external_probe_or_production_change": true
+    },
+    "partitioned_final_identity_coverage": 2404,
+    "identity_algorithm": "sorted JUnit classname::name; full legacy-pass partition plus final bounded new-test pass partition",
+    "final_identity_sha256": "ba2325a33e3f584aebef897b57fcd3f66a45a60a85e0d5ab6e543fd94780ed56",
+    "architecture_PASS": 31,
+    "same_real_architecture_FAIL": 6,
+    "new_or_expanded": 0,
+    "complete_guard_sets_equal": true,
+    "protected_surface_count": 45,
+    "protected_hash_drift": 0,
+    "COMPILE": "PASS",
+    "IMPORT": "PASS_OFFLINE_NO_NATIVE",
+    "DIFF_CHECK": "PASS",
+    "PowerShell_native_parser": "NOT_AVAILABLE; template/command/pin static audit PASS",
+    "Windows_actual_checkout": "NOT_EXECUTED_BY_WORKER; autocrlftrue exact-byte profile PASS; operator preflight mandatory",
+    "proof_sha256": {
+      "validation/column235-abi7-integrated-attempt1/integrated.xml": "a1ca7667cae86e1060f820175dd7c3d2430a82e81aeabe86db3bd452d6cd05a6",
+      "validation/column235-abi7-focused-final-pinned/integrated.xml": "78e8324d325988d48866546884d8b423faec521f5eaadd2c6e2821e5ea3a9b52",
+      "validation/column235-abi7-bounded-integrated/integrated.xml": "36cf2dd87cfb03ef6711684bed586dcbf0558bd56e5888fbee3c21c3cdce9d88",
+      "validation/column235-abi7-base-architecture.xml": "abc3935a871bfc862fa25c38817251ae64823858b62c9f0313fe179dcbcc87e6",
+      "validation/column235-abi7-current-architecture.xml": "28c91f8a2c55902adfecb0b606b4742a5aa4b2a3f5c4692c56df1f69e6edc8ad",
+      "validation/column235-abi7-base-guards.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e",
+      "validation/column235-abi7-current-guards.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e"
+    }
+  }
+}

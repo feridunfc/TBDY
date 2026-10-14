@@ -1,0 +1,17 @@
+{
+  "scope": "OFFLINE_PROPOSAL_ONLY_CANDIDATE_POINT_OBJECT_GEOMETRY",
+  "prepared_from_HEAD": "c1290b65b807ead2be909e68e8f19fe2025758a6",
+  "source_sha256": "61FA288FE6AA098B16062B0BAAE3FB882937AB68280C93971475AA39B2246621",
+  "binding_receipt_sha256": "3e31d78cb74c3f65079df347391f3c97a3f05460d6cbb8c3e72eba22766f28ed",
+  "frame_name": "235",
+  "calls": [
+    {"Name": "955", "CSys": "Global"},
+    {"Name": "758", "CSys": "Global"}
+  ],
+  "maximum_target_attempts": 2,
+  "maximum_gateway_callbacks": 1,
+  "maximum_callback_seconds": 30.0,
+  "execution_authorized": false,
+  "unit_policy": "CSI_PRESENT_LENGTH_M_CODE6_NO_CONVERSION",
+  "bottom_top_assignment": "NOT_DERIVED"
+}

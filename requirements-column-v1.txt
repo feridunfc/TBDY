@@ -1,0 +1,2 @@
+# Optional offline Column V1 PDF delivery profile; no ETABS dependency.
+reportlab==4.4.9

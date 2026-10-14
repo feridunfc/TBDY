@@ -1,5 +1,23 @@
 # Column-R1 current state and evidence index
 
+Latest product state (2026-10-13): supervisor accepted R1 source/evidence and
+the original distribution package at `242c55a22c28776c16f853517cb1bd08f0bbcfcb`
+/ `e63e9b648ee2002669e656bd8365355809140f30`. R1 async race and package review
+are CLOSED. The user reports Windows startup and 235 evidence export; this
+limited observation is not full Windows workflow/installation qualification.
+Column Product V3 now implements source-bound 235 package import, explicit
+project review fields, independent existing leaf evaluation, 19 per-control
+owner/dependency cards and one typed HTML/PDF/JSON export flow. All38 actual
+235 project input values remain unfilled until explicit review; no native
+geometry/current force/topology is inferred. Current canonical production
+readiness and rebar selection remain blocked. Synthetic wiring is prominently
+labelled and never used as actual 235 readiness evidence. New full validation
+is 2275 PASS: all2224 accepted identities preserved plus51 new; focused97 PASS.
+Same6 actual architecture FAIL, zero new/expanded violations, protected drift0/45.
+No worker native execution occurred. Revised V3 product review is PENDING;
+merge NOT_EXECUTED. Latest V3 section/receipt takes product precedence only.
+Historical engineering source/authority gates remain unchanged.
+
 Reconciled 2026-10-11 after PR #205 history-preserving R3L integration. All 1614 accepted PASS identities are preserved. R3K native schema remains CLOSED; R3D–R3L are not reopened. R3M reuses the accepted 1044 / LC_DL observation and prepares a repo-external getter-only empirical matrix experiment. The worker has not executed ETABS. Global coordinate/modal-result/physical-table/panel-zone contracts remain BLOCKED, P2 remains unauthorized, M6-B remains OPEN and R2 is not ready. This index grants no engineering result, B5 epoch or release approval.
 
 ## Accepted repository checkpoint and precedence
@@ -804,3 +822,331 @@ M6_B OPEN; matrix scan NOT_STARTED; R2_RERUN_READY NO.
 NEXT EXACT CAUSAL EDGE: supervisor review of the pinned offline GetPoints package,
 then separate authorization for at most one native read. No next getter or
 bottom/top/result qualification automatically follows a successful response.
+
+## Column V1 - real235 product report delivered (2026-10-12)
+
+- Base main810f931/tree54af7aa, PR207 merged independently verified. New continuing
+  branch worker/column-v1-report-235; no getter prerequisite/preparation/execution.
+- Real openable Column_235_V1.html/PDF/JSON/CSV/ZIP product outside Git, source
+  hashes and artifact hashes in `COLUMN_V1_235_OFFLINE_RECEIPT_2026-10-12.json`.
+  Delivery contract/reproduction `COLUMN_V1_235_DELIVERY_2026-10-12.md`.
+- New projection `tbdy_engine/product_reports/column_v1_report.py`; offline tool
+  `tools/build_column_v1_report.py`. Reuses accepted SliceReportContribution /
+  ReportField/ReportTable/SourceManifest/ReportArtifact; no fabricated FCR,
+  BuildingReportModel/formal CheckResult or new engine/engineering calculation.
+- Current61FA candidate: accepted235 section assignment + Column_80x80 I22/I33
+  m4 equality only. Other ten fields NOT_COMPARABLE/NOT_PROVEN, no name formulas.
+- ExistingFC09 R3D: exact235/C1/+0.00, native I/J955/758,300 FrameForce and200
+  JointDispl rows,100 modes. All raw native value/order/sign/Obj/Elm/case/mode/
+  station identities preserved. Separate archive label; no61FA result rebind.
+- HTML standalone/100-mode inspection/CSV downloads; mode1 visible without JS.
+  PDF4 pages visually verified. JSON/CSV keep all500 rows and source trace;
+  deterministic ZIP/manifests. Actual HTML JS exercised in jsdom on modes1/2/50/100
+  and both CSV events. HTML visual print reviewed via WeasyPrint69. Native browser
+  screenshot unavailable due Chromium download; no false browser-test claim.
+- Global/bottom-top/panel-zone/analysis-joint/design/result-epoch authority not
+  inferred; moment/station/offset fields preserved raw. Current controlled design
+  result/B5 NOT_PROVIDED; no capacity/demand/rebar/final quantity/compliance issued.
+  Missing fields and consequences explicit; report available before next getter.
+- 2178 PASS=2162 accepted identities preserved+16 new;512 accepted test files
+  unchanged; protected45 drift0. Architecture31 PASS/same6 real FAIL/full sets
+  equal, new expanded0; compile/import/diff PASS. All old operator artifacts/
+  pin98f15e0/LF rules unchanged. No main merge/CI success reclassification.
+
+FC09 gate UNCHANGED; worker ETABS/GetPoints NO; no new getter preparation;
+matrix scan NOT_STARTED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2_RERUN_READY NO.
+NEXT EXACT CAUSAL EDGE: open/review actual Column235 V1 delivered product.
+Engineering/gateway authority remains separate from this report delivery.
+
+## COLUMN V2 - working calculation workspace / supervisor product review
+
+- Product instructions and scope audit: `COLUMN_V2_PRODUCT_2026-10-12.md`.
+- Immutable offline receipt: `COLUMN_V2_OFFLINE_RECEIPT_2026-10-12.json`.
+- Existing V1 worker continued, original V1 history preserved; no main merge.
+- Launch: `python tools/serve_column_v2.py`; local UI at `http://127.0.0.1:8765`.
+- Application boundary: `application/column_reference_workspace.py`; existing
+  `evaluate_column_design` is called once per accepted reference calculation.
+- Reference/demo only: linear demand, minimum eccentricity, two-axis slenderness,
+  legacy DESIGN_CANDIDATE_ONLY longitudinal layout/radial-capacity trial.
+- Exact independent regression edge: width500 ->800 mm; M3 lambda20 ->12.5,
+  minimum moment30 ->39 kN.m. Actual capacity utilization changed
+  0.0780633994462998 ->0.04547598009942329; observed engine output, not a
+  fabricated independent capacity expectation.
+- Server revision invalidates stale results and reports; concurrent input changes
+  reject returned stale results. Invalid/missing input has no default fallback.
+- Actual Chromium153 UI + clean-profile Python HTTP execution: all four requested
+  flows PASS, zero page errors. Downloaded JSON equals screen result; PDFs use
+  the same typed calculation. Three reference pages and separate 235 evidence
+  page visually reviewed. Openable HTML calculation output is a saved report;
+  the editable application remains the real Python-backed workspace.
+- Separate 235: exact pinned candidate assignment and I22/I33; no demo dimensions,
+  forces, reinforcement, end-role mapping or results. FC09 archive and candidate
+  source remain separate. Missing geometry/material/design demands/epoch/rebar/
+  physical-binding/global-coordinate coverage explicit; no 235 engineering verdict.
+- 2212 PASS, no FAIL/ERROR/SKIP in full private-evidence integration. Exact2178
+  identities preserved (2162 supervisor+16 V1),34 new.513 accepted test files
+  byte-unchanged. Architecture31PASS/same6 realFAIL; full five diagnostic sets and
+  sixth native mutation callsite sets equal; new/expanded0;45 protected drift0.
+  Compile/import/diff PASS;27 old operator artifacts and7 V1 outputs unchanged.
+
+WORKER_ETABS=NO; LIVE_GETPOINTS=NOT_EXECUTED/NOT_AUTHORIZED;
+NEW_NATIVE_GETTERS=0; MATRIX_SCAN=NOT_STARTED; RESULT_CAPTURE=NO.
+FC09_PRODUCTION_GATE=UNCHANGED; GLOBAL_DELTA=NOT_PROVEN; M6_B=OPEN;
+R2_RERUN_READY=NO. No new native or project-engineering authorization.
+NEXT EXACT CAUSAL EDGE: supervisor product review of the working calculation
+screen and real reference calculation report. V1 is not the current product.
+
+## Column V2 supervisor R1 — bounded async context repair (2026-10-13)
+
+[Repair scope and browser profile](COLUMN_V2_PRODUCT_REVIEW_R1_FIX_2026-10-13.md)
+and [immutable offline receipt](COLUMN_V2_R1_OFFLINE_RECEIPT_2026-10-13.json)
+record the exact rejected base, preserved original review/archive identities,
+actual rejected-race reproduction, 12 corrected real-browser scenarios,
+46 focused PASS and 2224 integrated PASS with 2212 identities preserved.
+All 514 existing test files remain byte-identical. The engine/server/report
+renderer and production Python are unchanged. Fresh exact-baseline guards show
+31 PASS and the same six actual FAIL with no expanded violations; protected
+hash drift is 0/45. New browser/backend captures bind the repaired HTML hash.
+The reference PDFs and numerical manifests match the original worker-profile
+outputs; this statement does not assert byte equality for separately uploaded
+PDF renditions. Original native receipt pairs, rejected review, original
+worker artifacts and supervisor archive/delivery are preserved separately.
+
+The corrected app ZIP and new delivery manifest will bind the closing commit
+and tree. Installation/execution on the user's machine is not claimed. STOP
+for revised supervisor product review. WORKER_ETABS=NO; NEW_NATIVE_GETTERS=0;
+LIVE_GETPOINTS=NOT_EXECUTED/NOT_AUTHORIZED; 172_MATRIX_SCAN=NOT_STARTED;
+RESULT_CAPTURE=NO; FC09_PRODUCTION_GATE=UNCHANGED; GLOBAL_DELTA=NOT_PROVEN;
+M6_B=OPEN; R2_RERUN_READY=NO. No new native preparation is started.
+
+## Column Product 235 V3 — offline implementation / real engineering distinction
+
+[Input-to-owner and side-effect audit](COLUMN_PRODUCT_235_V3_INPUT_OWNERS_2026-10-13.md)
+and [immutable V3 offline receipt](COLUMN_PRODUCT_235_V3_OFFLINE_RECEIPT_2026-10-13.json)
+record the exact accepted base/current main, schema/import/review law, actual
+empty235 control/field states, synthetic independent owner calculations,
+launcher pure-PyYAML profile, real browser/backend tests and preserved identities.
+
+The product accepts only the SHA-qualified ABI4/5 adoptions and independently
+pinned original pairs; a caller hash does not issue native or B5/B6 authority.
+Project declarations bind exact source/factual epoch/group-input digest and
+remain user/project declarations. Material review uses existing basis contracts;
+minimum eccentricity and slenderness use existing pure owners. Native 235
+geometry/topology and current result epoch are absent, so no production force,
+PMM, selected rebar, cage/confinement/shear or final readiness is produced. Each
+control exposes its canonical owner and exact missing prerequisite. Old live
+orchestration paths are not called: they require trusted live/context/lineage
+and side effects prohibited by this task. No stand-in trusted issuer is created.
+
+Actual full validation2275 PASS preserves2224 identities and all516 prior test
+file bytes; focused97 PASS includes all12 accepted async and9 new browser cases.
+Additional offline negatives cover pins/units/source/epoch/review, stale exports,
+first failure/nonfinite owner output and installer env restoration/stop rules.
+All old production Python, gateway/regulatory/source/policy and scoped LF bytes
+are unchanged. Same6 real architecture FAIL, drift0/45. New clean Linux3.12
+pure-PyYAML install → actual launcher → Chromium → PDF/HTML/JSON export passed;
+Windows3.14 native qualification is not claimed. All6 actual and7 synthetic PDF
+pages and actual UI were visually inspected; outputs use the same typed result.
+Reference/demo four normal flows were rerun, with unchanged numerical manifests.
+
+STOP for V3 supervisor product review. Existing ABI6 GetPoints package and
+operator HEAD98f15e0 remain unchanged, external and NOT_AUTHORIZED; no native
+package was re-prepared. GetPoints alone will not prove geometry, panel zone,
+analysis results or readiness. M6-B/modal action semantics, current-source
+continuity, qualified B5/B6, full story/system facts and project review remain
+real engineering dependencies. FC09 gate UNCHANGED; GLOBAL_DELTA NOT_PROVEN;
+M6_B OPEN; R2_RERUN_READY NO; WORKER_ETABS NO; new_native_getters0; result_captureNO.
+“Column bitti” is not claimed. Product wiring and full engineering closure are
+reported separately. Concrete integration can be reviewed without merging.
+
+
+## Qualified Column owner-result handoff — supervisor V3 correction
+
+The supervisor source/product review rejected the previous V3 full-integration
+claim. Its immutable worker receipts remain preserved, not independently
+accepted by that review. The [new narrow handoff](COLUMN_PRODUCT_QUALIFIED_HANDOFF_2026-10-13.md)
+and [derived offline receipt](COLUMN_PRODUCT_QUALIFIED_OFFLINE_RECEIPT_2026-10-13.json)
+record actual existing owner invocation in the accepted test lifecycle and
+validated original typed-result consumption through the same local application.
+
+2300 PASS preserves2224 accepted identities, all51 previous V3 identities and
+all519 previous test-file bytes. The final UI Section-key display correction
+and browser assertion were separately exercised in122 focused PASS. The same6
+real architecture FAIL remain; complete guard sets/mutation callsites are equal,
+protected45 drift0. Compile/import/diff pass. No issuer, core formula, gateway,
+source/ABI policy or scoped LF rule was modified.
+
+A supported synthetic component reaches canonical ENGINE_SELECTED_REBAR,
+PMM/required-area decisions, real VS5/P7/Vc/final-cage/confinement evaluations
+and the existing readiness/coverage owners. Doubling reviewed shear spacing
+changes Vr in both directions according to an independent numeric regression.
+Its real missing Ash/special-tie/final-detailing dependencies and calculated
+FAIL checks remain visible. Its sibling is actually A18/A19-blocked; no
+primary readiness or cage is copied to it. Actual UI and9 PDF/HTML/JSON
+downloads preserve exact source/epoch/units and typed output identities.
+
+The channel accepts original in-process owner artifacts only. No HTTP/JSON
+publication or new B5/B6 issuer exists. Raw edits cannot authorize force or
+result epochs; new owner outputs require the existing qualified application
+producer. The default real235 context remains separately blocked. Full
+current235 engineering/production integration is NOT COMPLETE: source-bound
+topology/material/design-demand/B5/B6, project review and M6-B still require
+the exact distinct dependencies in the handoff table. ABI2-5 REUSE; original
+ABI6 HEAD98f15e0/pins/archive remain unchanged and NOT_AUTHORIZED.
+
+PR208 stays draft/unmerged. STOP for supervisor product review. WORKER_ETABS=NO;
+new_native_getters0; GetPoints NOT_EXECUTED; matrix scan NOT_STARTED; result
+captureNO; FC09 gate UNCHANGED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2 NO.
+
+## Editable reference producer - qualified-viewer supervisor correction
+
+The supervisor review of HEAD65828b9 did **not** accept a complete real235
+product. Its three source/flow findings are retained: normal launch had no
+qualified producer, qualified Calculate consumed an existing artifact, and the
+100/200mm browser flow selected two prepublished fixture variants. Previous
+worker PASS/visual claims were not independently requalified by that review.
+
+The [editable reference producer handoff](COLUMN_EDITABLE_REFERENCE_PRODUCER_HANDOFF_2026-10-13.md)
+and [derived source-bound offline receipt](COLUMN_EDITABLE_REFERENCE_PRODUCER_OFFLINE_RECEIPT_2026-10-13.json)
+record the bounded follow-up. Normal launch now offers a reference-owners
+application producer with editable N/M/material and explicit transverse numeric
+premises. Every Calculate dispatches the unchanged Python longitudinal and
+transverse owners; no fake/native issuer or copied ENGINE_SELECTED_REBAR exists.
+The old qualified channel stays a validated viewer, labeled accordingly.
+
+Actual Chromium/HTTP edits one shear-spacing field in one workspace/context
+100->200mm, invalidates the old result, invokes both owners again and obtains
+Vr428.5->264.25kN. Screen/PDF/JSON share the same manifest; no prepublished
+variants. A third Ve edit produces a real FAIL; blank input stops before calls.
+A separate subprocess exercises the delivered standard launcher and strong
+pure/pinned dependency guards with no channel injection. All14 PDF pages and
+the actual screen were inspected. Full private evidence:2326PASS, previous2300
+worker PASS identities retained (including2224 supervisor-accepted and51 prior
+V3 identities);26 new tests. Old test-file bytes unchanged. Same6 real
+architecture FAIL, expanded/new0, protected45 drift0, compile/import/diffPASS.
+The first integrated launch-test environment failure is preserved separately;
+its private testdeps PYTHONPATH contamination was isolated in the test. The
+production dependency guard was not weakened; the fresh full rerun passed.
+
+**Partial software progress only. Full real235 acceptance remains BLOCKED.**
+Reference Vc/Ve/HIGH/direction assumptions are numerical example premises;
+no actual235 P7/Vc/B5/B6/source/engineering authority is produced. Canonical
+longitudinal diameter and special hook dependencies remain owner BLOCKED.
+Current-source geometry/material/topology/force/analysis-design lineage and
+M6-B still require their exact distinct source/project gates. No new getter,
+operator retry, native execution, analysis/design, save, unit, model or selection
+mutation occurred. ABI2-5REUSE; ABI6original/pins remain unchanged/notauthorized.
+PR208 draft/unmerged; FC09UNCHANGED; GLOBAL_DELTA NOT_PROVEN; M6_B OPEN; R2NO.
+
+
+## Supervisor acceptance of editable reference; next actual235 source edge
+
+The latest original supervisor continuation review accepts the43e8afa reference
+source slice and independently verifies24 focused tests plus same-workspace HTTP
+recalculation/JSON equality. Its two profile tests were not selected. The worker's
+2326 integrated ledger, ZIP hashes and all14-page visual QA are not promoted to
+independent supervisor acceptance. Reference implementation CLOSED/REUSE; no new
+reference screens/reports are this task's output. Full real235 NOT_ACCEPTED.
+
+The [current-source authority cutset](COLUMN_235_CURRENT_SOURCE_AUTHORITY_CUTSET_2026-10-13.json)
+revalidates original ABI2/4/5 pairs and FC09 preflight/R3D hashes without live
+execution. Current998 frame-name set equals historical998, Name235 exists and
+Column_80x80 assignment/I22/I33 accepted scope persists. Current width/depth,
+material/topology, physical cage and B5/B6 remain unproven. Historical target235
+C1/+0.00 has I955/J758, connectivity length5.15m, point coordinates and native
+section/material facts; these do not rebind to61FA. Historical Modal forces at
+ObjStation0/2.225/4.45m are not regulatory ln, inferred offsets or current design
+actions. Raw section Area and other ten unqualified units do not become inputs.
+
+The [separate acquisition/project decision gate](COLUMN_235_ACQUISITION_AND_PROJECT_DECISION_GATE_2026-10-13.md)
+reuses the unchanged original ABI6 operator package, not new product HEAD. Exact
+PID2072/startUTC2026-10-09T15:47:08.1780017Z is hard-pinned; another PID/start means
+STOP and separate profile review, never script/guard weakening. Max1 GetPoints
+Name235 proposal only; no native authorization here. Selection NOT_READ and no
+fresh selection identity assertion. Success can prove names only, not bottom/top,
+geometry, analysis-joint/panel-zone, result lineage or M6-B. Separate current
+topology/material acquisition design and original B4B/B5/B6 owner authorization
+remain necessary. No controlled analysis/design command is prepared or executed.
+M6-B's exact source/project decisions are explicit unresolved fields.
+
+PR208 scope/body is updated for editable reference plus actual235 authority gates.
+No merge, review or comment sent. Source, native package, runtime, tests, core
+formulas and guards unchanged. WORKER_ETABSNO; new_native_getters0; GetPoints
+NOT_EXECUTED/NOT_AUTHORIZED; matrix NOT_STARTED; FC09UNCHANGED; GLOBAL_DELTA
+NOT_PROVEN; M6_BOPEN; R2NO.
+
+## ABI6 original receipt adopted; exact two-coordinate proposal only
+
+The latest original supervisor acceptance closes the operator's single
+GetPoints(Name235) at original98f15e0. The unchanged JSON/sidecar, all six original
+pairs, native/wrapper/raw/typed hashes and source/session/units/lock are verified
+offline. Current61FA Point1=955/Point2=758 match historicalFC09 names/slot order
+only. Start-time is console/PowerShell evidence, not an original JSON field;
+fingerprintNone and selectionNOT_READ remain explicit. One-call authority is
+consumed. Earlier NOT_EXECUTED G1 text is historical and superseded here.
+
+[Adoption / proposal index](COLUMN_235_ABI6_ADOPTION_AND_ABI7_OFFLINE_RECEIPT_2026-10-13.json)
+and [bounded ABI7 review](COLUMN_235_ABI7_COORDINATES_REVIEW_2026-10-13.md) prepare
+only PointObj.GetCoordCartesian Name955/758 with explicit keyword CSysGlobal,
+accepted INOUT metadata/original wrapper and exact candidate units. Two maximum
+attempts in one30sSTAcallback; first failure STOP; no nested gateway identity,
+fallback or retry. External Python/PowerShell are absent from Git. No native
+coordinate/result call was performed or authorized by the worker. No bottom/top,
+ln/k, offsets/restraints, analysisjoint/panelzone, material/cage, B5/B6 or global
+displacement contract is inferred. Reference slice remains CLOSED_REUSE.
+
+PR208 remains draft/unmerged; next edge is separate supervisor package review.
+FC09UNCHANGED; GLOBAL_DELTANOT_PROVEN; M6_BOPEN; R2NO.
+
+Final bounded verification:78focusedPASS;141ABI6+ABI7integratedPASS. All2326prior
+identities PASS in the fresh full attempt and all523prior test files unchanged.
+That attempt retained2401PASS/3FAIL in the pre-fix new Linux fake-Windows harness;
+three affected ids passed after fixture-only correction. No single clean2404
+full-run claim. Exact-base architecture31PASS/same6realFAIL; expanded0,45protected
+hashdrift0; compile/import/diffPASS. Proof partitions/hashes are explicit in the
+adoption index; raw original native responses remain outside Git.
+
+## Supervisor ABI7 acceptance; bounded UR-1E fixture import correction
+
+ABI6 adoption CLOSED_REUSE and original ABI7 offline proposal ACCEPTED by the
+latest supervisor; native authorization NONE. Old9f426f5UR-1E failed collection,
+not native ABI/model analysis. Three bare fixture imports now use explicit
+tests.application/providers packages; owner/fixture body AST unchanged, no
+workflow/guard/production change. [Reconciliation](COLUMN_235_CI_FIXTURE_IMPORT_RECONCILIATION_2026-10-13.md)
+and [receipt](COLUMN_235_CI_FIXTURE_IMPORT_RECEIPT_2026-10-13.json) retain original
+review hash, cold collection1163+ERROR→1188clean, actual25ownerPASS, local broad
+same3FAIL/zero-newPASS and the corrected editablegateway focused checks. Local
+SDK3.12 is distinct from GitHub3.11; pending remoteCI is not PASS.2404private
+identities preserved/collected, full2404notrerun; architecture same6FAIL/delta0,
+protected45drift0. Original ABI7 ZIP/scripts/operator9f checkpoint unchanged;
+its moving-branch prepare check will STOP on this newer worker HEAD. No silent
+repin, merge or native authorization; FC09UNCHANGED/GLOBALNOTPROVEN/M6_BOPEN/R2NO.
+
+## Actual UR-1E result: collection fixed; new toolchain blockers remain
+
+Exact52f466b GitHub run38440754071/job115446385850 completed FAILURE. Cold import
+collection is fixed; candidate1141PASS/8FAIL/39SKIP versus base1022PASS/2FAIL.
+Zero-new gate correctly rejects6newfailures:3missingReportLab and3Python3.11
+launcher/minimum3.12 profile mismatches. Product/mergeBLOCKED. [Setup-only
+proposal](COLUMN_235_UR1E_TOOLCHAIN_PROPOSAL_2026-10-13.md) is concrete but
+UNAPPLIED; protectedURworkflow hash exception/requalification is required.
+No production/runtime/native pin or guard weakened. Earlier25ownerPASS claim
+corrected to24PASS/1existingbrowserSKIP; all25identities preserved. Remote result
+and count correction are in the corrected import receipt/reconciliation.
+Local environment disconnected; last verified52f466bCLEAN, next docs-only remote
+record not locally synced. NewZIP NOT_CREATED. ABI7 original9f pins unchanged;
+WORKER_ETABSNO/LIVEAUTHNONE/FC09UNCHANGED/GLOBALNOTPROVEN/M6_BOPEN/R2NO.
+
+
+### COLUMN 235 — approved bounded CI toolchain exception (2026-10-13)
+
+Supervisor explicitly authorizes only Python 3.11→3.12 and ReportLab 4.4.9 installation in `.github/workflows/ur_1e_validation.yml`. Exact before SHA256 `a9254d8a7014907982e311fd897ba4f5b511154d0eec6984e519e3eabe390fd4`; exact approved after SHA256 `12719cf429c5073f4e4d2591d3699528f8945f9ca42090076a8a367645db7b0f`. Old 45-surface ledger remains unchanged; drift is **1 authorized / 0 unauthorized**, other 44 exact hashes preserved. Zero-new comparison, exact PR baseline and all test expectations remain unchanged. Six previously introduced CI failures pass in the focused new-toolchain check. Broad comparison/fresh Actions verdict remains pending at this commit.
+
+See `COLUMN_235_APPROVED_CI_TOOLCHAIN_RECEIPT_2026-10-13.json`. Original ABI7 checkpoint/artifacts are not repinned. No merge/native authorization; FC09 unchanged, global delta not proven, M6-B open, R2 not ready.
+
+
+### COLUMN 235 — bounded CI toolchain correction CLOSED
+
+Actual UR-1E run [38450118453](https://github.com/feridunfc/TBDY/actions/runs/38450118453) SUCCESS at source HEAD `16d88ea1b0f7b4cb22921f8aa7608f591a719e1d`; original zero-new gate PASS. GitHub candidate 1147PASS/2realFAIL/39existingSKIP, exact base 1022PASS/2realFAIL/0SKIP. New failures 0. Local counts remain separately identified. 2404 accepted identities collected, missing0/extra0; no fresh full2404PASS claim. Same6real architectureFAIL, new/expanded0. Protected drift **1 authorized /0 unauthorized**, old45 ledger retained and other44 unchanged. Compile/import/diff PASS.
+
+See `COLUMN_235_APPROVED_CI_TOOLCHAIN_CLOSURE_2026-10-13.md` and the approved-toolchain receipt. Closing commit is derived-documents-only; source/workflow/test/pin bytes remain the validated source. Original ABI7 operator checkpoint is unchanged; no repin, merge or native authorization. FC09 unchanged; GLOBAL_DELTA NOT_PROVEN; M6-B OPEN; R2 NO.

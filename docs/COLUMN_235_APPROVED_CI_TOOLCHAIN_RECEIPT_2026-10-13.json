@@ -1,0 +1,224 @@
+{
+  "protected_ledger_source": "docs/COLUMN_EDITABLE_REFERENCE_PRODUCER_OFFLINE_RECEIPT_2026-10-13.json",
+  "old_ledger_preserved": true,
+  "protected_count": 45,
+  "authorized_drift": 1,
+  "unauthorized_drift": 0,
+  "other_surfaces_unchanged": 44,
+  "authorized_change": {
+    ".github/workflows/ur_1e_validation.yml": {
+      "before": "a9254d8a7014907982e311fd897ba4f5b511154d0eec6984e519e3eabe390fd4",
+      "after": "12719cf429c5073f4e4d2591d3699528f8945f9ca42090076a8a367645db7b0f"
+    }
+  },
+  "all_test_files_unchanged_since_accepted_import_correction": 524,
+  "new_tests": 0,
+  "scope": "SUPERVISOR_AUTHORIZED_TWO_LINE_CI_TOOLCHAIN_EXCEPTION",
+  "BASE_HEAD": "df2b78af8fda4ed233a1c0a94ef5a192db5b1651",
+  "BASE_TREE": "6659ec481eade217129609139ccc0384b7c8f82e",
+  "PR_BASE_HEAD": "810f93159bc2207b3d0280ac85e9930b7aaf6586",
+  "workflow_git_blob": "798c078cb3ec684d87826faeeba441c47d06b5a5",
+  "FOCUSED": {
+    "PASS": 6,
+    "FAIL": 0,
+    "SKIP": 0,
+    "xml_sha256": "b7fddcd720b16f51b94d92e85a211350fdc5e73015bd296eb18e486ab6818a1a"
+  },
+  "NEW_TESTS": 0,
+  "CI": "SUCCESS_AT_PINNED_WORKFLOW_SOURCE_HEAD",
+  "zero_new_gate": "UNCHANGED",
+  "baseline_selection": "UNCHANGED_EXACT_PR_BASE",
+  "test_expectations": "UNCHANGED",
+  "ABI7_OPERATOR_HEAD": "9f426f5b6376b9c6da984270171556d2e3b2c496",
+  "ABI7_REPIN": "NO",
+  "MERGE": "NOT_AUTHORIZED",
+  "WORKER_ETABS": "NO",
+  "LIVE_GETTER_AUTHORIZATION": "NONE",
+  "FC09_PRODUCTION_GATE": "UNCHANGED",
+  "GLOBAL_DELTA": "NOT_PROVEN",
+  "M6_B": "OPEN",
+  "R2_RERUN_READY": "NO",
+  "validated_workflow_HEAD": "16d88ea1b0f7b4cb22921f8aa7608f591a719e1d",
+  "validated_workflow_TREE": "eca477dc7fcf9553d59cfb5dc50f3388fc9c2bf0",
+  "recorded_utc": "2026-10-13T19:24:13.530082+00:00",
+  "actual_GitHub": {
+    "run_id": 38450118453,
+    "job_id": 115478544405,
+    "url": "https://github.com/feridunfc/TBDY/actions/runs/38450118453",
+    "HEAD": "16d88ea1b0f7b4cb22921f8aa7608f591a719e1d",
+    "TREE": "eca477dc7fcf9553d59cfb5dc50f3388fc9c2bf0",
+    "exact_PR_base": "810f93159bc2207b3d0280ac85e9930b7aaf6586",
+    "conclusion": "success",
+    "candidate": {
+      "PASS": 1147,
+      "FAIL": 2,
+      "SKIP": 39
+    },
+    "base": {
+      "PASS": 1022,
+      "FAIL": 2,
+      "SKIP": 0
+    },
+    "new_failures": [],
+    "focused_PASS": 167,
+    "compile": "success",
+    "determinism": "success",
+    "zero_new_gate": "success",
+    "final_hygiene": "success",
+    "workflows": [
+      {
+        "id": 38450118453,
+        "name": "UR-1E Deterministic Report Package Validation",
+        "status": "completed",
+        "conclusion": "success",
+        "run_number": 76,
+        "jobs_url": "https://api.github.com/repos/feridunfc/TBDY/actions/runs/38450118453/jobs",
+        "logs_url": "https://api.github.com/repos/feridunfc/TBDY/actions/runs/38450118453/logs",
+        "workflow_id": 343023957
+      },
+      {
+        "id": 38450117237,
+        "name": "P2.10 Wall Pack A Kernel",
+        "status": "completed",
+        "conclusion": "success",
+        "run_number": 219,
+        "jobs_url": "https://api.github.com/repos/feridunfc/TBDY/actions/runs/38450117237/jobs",
+        "logs_url": "https://api.github.com/repos/feridunfc/TBDY/actions/runs/38450117237/logs",
+        "workflow_id": 335450430
+      },
+      {
+        "id": 38450117123,
+        "name": "C13.4 Offline Product Acceptance",
+        "status": "completed",
+        "conclusion": "success",
+        "run_number": 307,
+        "jobs_url": "https://api.github.com/repos/feridunfc/TBDY/actions/runs/38450117123/jobs",
+        "logs_url": "https://api.github.com/repos/feridunfc/TBDY/actions/runs/38450117123/logs",
+        "workflow_id": 298734665
+      }
+    ],
+    "decoded_original_log_sha256": "ccd25be2a68b4ab04f464e365be3569b4cd5303e724bd8ce7374ce035d94e28e",
+    "decoded_original_log_chars": 158952,
+    "Python_observation_lines": [
+      "2026-10-13T18:51:20.4023233Z Successfully set up CPython (3.12.15)"
+    ]
+  },
+  "local_toolchain": {
+    "python": "3.12.14 (main, Aug 25 2026, 14:00:49) [Clang 22.1.3 ]",
+    "executable": "/workspace/scratch/8af29d641d5e/validation/column235-ci-approved-env/bin/python",
+    "versions": {
+      "pytest": "9.1.1",
+      "reportlab": "4.4.9",
+      "weasyprint": "69.0",
+      "pydyf": "0.12.1",
+      "pypdf": "6.16.1",
+      "pypdfium2": "5.12.1",
+      "openpyxl": "3.1.5",
+      "et_xmlfile": "2.0.0",
+      "PyYAML": "6.0.3",
+      "jsonschema": "4.26.0",
+      "tbdy-etabs-gateway": "0.1.0"
+    }
+  },
+  "local_broad": {
+    "candidate": {
+      "PASS": 1148,
+      "FAIL": 2,
+      "ERROR": 0,
+      "SKIP": 38,
+      "identities": 1188
+    },
+    "exact_PR_base": {
+      "PASS": 1022,
+      "FAIL": 2,
+      "ERROR": 0,
+      "SKIP": 0,
+      "identities": 1024
+    },
+    "zero_new_gate": "PASS_ORIGINAL_UNMODIFIED_CODE",
+    "same_environment": true,
+    "failure_status": "TWO_REAL_COMMON_FAIL_NOT_WAIVED"
+  },
+  "qualified_owner": {
+    "PASS": 24,
+    "FAIL": 0,
+    "ERROR": 0,
+    "SKIP": 1,
+    "identities": 25
+  },
+  "private_identity_preservation": {
+    "previous_accepted": 2326,
+    "ABI7_accepted": 78,
+    "collected": 2404,
+    "unique": 2404,
+    "missing": [],
+    "extra": [],
+    "test_execution": "NOT_RUN_COLLECTION_ONLY",
+    "previous_PASS_reused_not_reclaimed": true
+  },
+  "architecture": {
+    "PASS": 31,
+    "same_real_FAIL": 6,
+    "new_or_expanded": 0,
+    "exact_PR_base_guard_sets_equal": true,
+    "previous_worker_guard_sets_equal": true,
+    "mutation_callsites_equal": true
+  },
+  "COMPILE": "PASS",
+  "IMPORT": "PASS_NO_NATIVE",
+  "DIFF_CHECK": "PASS",
+  "closing_delta": "DERIVED_DOCUMENTS_ONLY; runtime, tests, workflow and pins unchanged from validated source HEAD",
+  "original_accepted_ledgers_preserved": {
+    "docs/COLUMN_EDITABLE_REFERENCE_PRODUCER_OFFLINE_RECEIPT_2026-10-13.json": "501d9c16f9f9da872d5de28954ceea9764f8ab680a207ea9f66d047e7974c9b0",
+    "docs/COLUMN_235_ABI6_ADOPTION_AND_ABI7_OFFLINE_RECEIPT_2026-10-13.json": "0dc04ad6947fb9ec131533314345b35b4bfaba9a6b5080c6d886311aac6a1b20",
+    "docs/COLUMN_235_ABI7_COORDINATES_TARGET_2026-10-13.json": "9f27f6a5779f38f94fc9104443ae7f85cb5a0d988e25873784d652129285632b",
+    "docs/COLUMN_235_CI_FIXTURE_IMPORT_RECEIPT_2026-10-13.json": "de62481937d9aef1829d15d5999fd5aec0c87b803f6b90966ded0919d83f601d",
+    ".gitattributes": "29b3088a4b6f19597d5d681bdb32dc676407aa3dd833a9f3a8a5c1e02ab25da6"
+  },
+  "proof_sha256": {
+    "validation/column235-ci-approved/architecture-base.log": "b4f5aabb8e9cc43d6fe2fe1c153628c1697ededcfc64ab4a418583afc179a4d3",
+    "validation/column235-ci-approved/architecture-base.xml": "c12c3cda8116b68a119beb776ac4bad1dae290a39c19bcb92a7c421b30cbc419",
+    "validation/column235-ci-approved/architecture-candidate.log": "0b145da96b5c87497d0ca981788a2690007af72fc22cabbba4407b4449ef0d68",
+    "validation/column235-ci-approved/architecture-candidate.xml": "4341d6ef26256a90f04cde8c7d465b295a4695a4d0851bb2ba44a00f5b98c82e",
+    "validation/column235-ci-approved/architecture-files.json": "8ff44656ed55df58e53dc871d1c8892b9d97558e9fbe66fffedbf6786491af36",
+    "validation/column235-ci-approved/architecture-pr-base.log": "5f8f3e81b2637490e9e2cda195a9b1ab1ecefa1607f1fc6876b4a5ea0cf67363",
+    "validation/column235-ci-approved/architecture-pr-base.xml": "f33b4da1c0c304c30e42712e63a1d8a8ff32f70db791f6fed0b5defc5ac3772c",
+    "validation/column235-ci-approved/base-broad.log": "a0f586df412455d53e4bfdcacb8cfb55604dfec3de6ee1955df57a15c496541c",
+    "validation/column235-ci-approved/base-broad.xml": "09d17adfd961cbbbd1755fe5a672c36343bca1aaa118df7b8c0bc99ca954b23d",
+    "validation/column235-ci-approved/base-gateway-install.log": "04098b83d93f939951e466a8b7ac3b3af45021acbffaca64186088f68a40b1b2",
+    "validation/column235-ci-approved/base-guards.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e",
+    "validation/column235-ci-approved/candidate-broad-status.json": "687f228f67bf5f41dfc3f0c69c16c9017f63bfff60701042025a16b0d848349d",
+    "validation/column235-ci-approved/candidate-broad.log": "e60d01773a3a72bccbae0871a6b74c9f2ad72ae35a44e99aef990ccfdd196120",
+    "validation/column235-ci-approved/candidate-broad.xml": "34b26651a94e9a32654919c61d00d90b4f4e91b58489fae89b8d1f38f91c3bfe",
+    "validation/column235-ci-approved/candidate-guards.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e",
+    "validation/column235-ci-approved/checkpoints.json": "790811ce3f1e7f76929862496b86e94c71351217b1478157f950f58c90e95d06",
+    "validation/column235-ci-approved/collect_private.py": "d40c019908e0418e8dcf8d06e6d2433602f5e06fa5f3b27e8a720d820d948160",
+    "validation/column235-ci-approved/github-job-115478544405.log": "ccd25be2a68b4ab04f464e365be3569b4cd5303e724bd8ce7374ce035d94e28e",
+    "validation/column235-ci-approved/github-log-chunk-0.json": "ffbcc156bb83e1b39ca0570bff51ddce7ee9ea0af27608e29bd97f477a2a5eaf",
+    "validation/column235-ci-approved/github-log-chunk-1.json": "151704e36b46dc080006f3a067f29c38f8826be28a691ad44a7da99a469b5681",
+    "validation/column235-ci-approved/github-log-chunk-2.json": "c3e68ab68b1a26358ea42d4fb52fc8bd3d8b8b9e86d879257b3e7d8d8d6b859d",
+    "validation/column235-ci-approved/github-log-chunk-3.json": "a0620e7e0bcbd29e6a39135cf198df6869dd0005f25bd6de8597f17b1b34b934",
+    "validation/column235-ci-approved/github-log-chunk-4.json": "8fbd8a5fad40250efed747d19e3567ac7088fcbb0e6d225670ceed0b5d170628",
+    "validation/column235-ci-approved/github-log-chunk-5.json": "94245d29a6af4fd920cf4de8d27d088fe52c78a7677c0b23bada8a2c5bc01d35",
+    "validation/column235-ci-approved/github-log-chunk-6.json": "53ab42bb21b1e7985790a3e5478e9e1d8296631cae7d0b0d89c8f7e45343fff8",
+    "validation/column235-ci-approved/github-summary.json": "df8e4c4ea5894d11287e602f92743f41570dfdccb15a86abd7f566c54e5bb6a4",
+    "validation/column235-ci-approved/local-zero-new.log": "936a91a8b4935f577ce10996c183ddf391db8043700ae411941ebb4cf4091e50",
+    "validation/column235-ci-approved/original-zero-new-gate.py": "172aa495c59c1827e03d7d42ab74be40353b8b3441a61fd57d172c57b3c185bb",
+    "validation/column235-ci-approved/partial-proof-hashes.json": "e75151a476219209aee3f881c8fa852c6334c141db25bbe283de6750b564c915",
+    "validation/column235-ci-approved/pr-base-guards.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e",
+    "validation/column235-ci-approved/preserved-ledgers-and-pins.json": "19a534c4251e80d3458dad4a4e969403ed66c62482f95b14cecfe7f8df204715",
+    "validation/column235-ci-approved/private-collection/identities.json": "9519a1d60572a3b6eb71884ec188e132a4beb25eebf549e3eb7638c296980fcc",
+    "validation/column235-ci-approved/private-collection/integrated.log": "06ea05f643741d442aa610c7766c0942450d3a0d7e6b3c6cb5e7fc46f108a325",
+    "validation/column235-ci-approved/private-collection/preservation.json": "7ea7ad7abd6ac4592ae069063e12c68a3bb98f1515abc3a2ec8ff6f097368c0b",
+    "validation/column235-ci-approved/private-collection/selection.json": "bbe412b5710f906597e0c809e8cd1e09d361213dbacc8414a91ad3b392ebe0f0",
+    "validation/column235-ci-approved/qualified-status.json": "2ad7078fcaae87f8459ef8ec6c6b68d1386bc60bf637b477a975d7638596c2d5",
+    "validation/column235-ci-approved/qualified.log": "674b1b801185fa8024a90e7fa9516bb4f6063ce68152293423e1b6fd0682ca24",
+    "validation/column235-ci-approved/qualified.xml": "5aada50c2e62a97f485a258c5602de2f1b50a8e43c1394e5340598243d1d3c49",
+    "validation/column235-ci-approved/resolved-six.log": "2c7fe177de20553aedf7c3be04ca5c20c447ee7ad771cd9ded5e13c7950225e4",
+    "validation/column235-ci-approved/resolved-six.xml": "b7fddcd720b16f51b94d92e85a211350fdc5e73015bd296eb18e486ab6818a1a",
+    "validation/column235-ci-approved/static-proof.json": "4d21cbdb76af6315b17fb2c32d50f043bae55155b5dd6c8401d57f4cddd962ed",
+    "validation/column235-ci-approved/toolchain.json": "004ada15a3e54a4d4c6c5424c7e6610cac830121e126d82eee585cb3e4e79d2d",
+    "validation/column235-ci-approved/workflow-gate/candidate_broad.log": "e60d01773a3a72bccbae0871a6b74c9f2ad72ae35a44e99aef990ccfdd196120",
+    "validation/column235-ci-approved/workflow-gate/current_base_broad.log": "a0f586df412455d53e4bfdcacb8cfb55604dfec3de6ee1955df57a15c496541c"
+  }
+}
