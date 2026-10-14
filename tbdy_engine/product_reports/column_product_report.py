@@ -38,8 +38,106 @@ def product_drawing(packet):
     return section_svg(SimpleNamespace(width_mm=v['width_mm'],depth_mm=v['depth_mm']))
 
 
+
+
+def product_input_authority_matrix(packet, authority):
+    """Read-only source/owner/closure map for validated Column 235 packet.
+
+    No section-name, I22/I33, coordinate, historical force or user draft is
+    promoted to current native geometry/material/design authority.
+    """
+    need=('width_mm','depth_mm','axis_basis')
+    own={
+        'geometry':'tbdy_engine.design.columns.minimum_eccentricity.ts500_minimum_eccentricity_mm',
+        'slenderness':'tbdy_engine.design.columns.slenderness.evaluate_ts500_column_slenderness',
+        'materials':'tbdy_engine.application.column_design_basis.ReviewedColumnDesignBasis',
+        'actions':'tbdy_engine.application.column_a23_design_demands / CURRENT_B5_B6_REQUIRED',
+        'cage':'tbdy_engine.application.column_final_cage / ENGINE_SELECTED_REBAR_REQUIRED',
+    }
+    closure={
+        'geometry':'Project drawing with reviewed b/h and explicit local2/local3 convention',
+        'slenderness':'Project-reviewed independent ln/k/restraint/sway/moment-ratio and geometry',
+        'materials':'Reviewed design strengths plus separate factual native section/material binding',
+        'actions':'Current 61FA signed co-occurring case/combo/station N-M2-M3-V2-V3 + epoch/B5/B6',
+        'cage':'User-provided cage is not ENGINE_SELECTED_REBAR or final detailing',
+    }
+    controls={
+        'geometry':['emin_M2','emin_M3','slenderness_M2','slenderness_M3'],
+        'slenderness':['slenderness_M2','slenderness_M3'],
+        'materials':['material'], 'actions':['design_actions','longitudinal','axial','shear','vc'],
+        'cage':['cage','confinement','detailing'],
+    }
+    values,reviews=packet['values'],packet['reviews']
+    rows=[]
+    for name,label,unit,group,kind in FIELDS:
+        review=reviews.get(group);value=values[name]
+        source=({'PROJECT_DOCUMENT':'PROJECT_REVIEWED_INPUT',
+                 'USER_DECLARATION':'USER_DECLARATION_NOT_PROJECT_VERIFIED',
+                 'SYNTHETIC_TEST':'SYNTHETIC_TEST_ONLY'}[review['origin']]
+                if review else 'UNREVIEWED_USER_DRAFT' if value is not None else 'NOT_PROVIDED')
+        rows.append({
+            'field':name,'label':label,'unit':unit,'value':value,'source_kind':source,
+            'source_ref':review['reference'] if review else None,
+            'source_sha256':review['source_sha256'] if review else None,
+            'input_sha256':review['input_sha256'] if review else None,
+            'review_group':group,'reviewed':review is not None,
+            'existing_owner':own[group],'owner_required_input':name,
+            'required_for_controls':controls[group],
+            'required_for_first_control':name in need,
+            'missing_authority':None if review else closure[group],
+            'closure':closure[group],
+            'user_request':label+' ('+unit+')' if value is None else None,
+        })
+    facts=[]
+    native=authority.evidence; pins=authority.adoption_pins
+    for field,value,unit,role in [
+        ('section_assignment',native['section'],'-','assignment'),
+        ('I22',native['I22']['value'],'m^4','property'),
+        ('I33',native['I33']['value'],'m^4','property'),
+    ]:
+        facts.append({'field':field,'value':value,'unit':unit,
+             'source_kind':'ACCEPTED_NATIVE_FACT_LIMITED_SCOPE',
+             'source_ref':pins[role]['name'],'source_sha256':pins[role]['sha256']})
+    for point in native['current_point_coordinates']:
+        facts.append({'field':point['native_slot']+'_Global_xyz',
+            'value':{'point_name':point['point_name'],'X':point['X'],'Y':point['Y'],'Z':point['Z']},
+            'unit':'m','source_kind':'ACCEPTED_NATIVE_FACT_LIMITED_SCOPE',
+            'source_ref':pins['coordinates']['name'],
+            'source_sha256':pins['coordinates']['sha256']})
+    missing=[k for k in need if values[k] is None]
+    review=reviews.get('geometry')
+    requests=[next(row['user_request'] for row in rows if row['field']==k) for k in missing]
+    if review is None:
+        requests.append('Proje çizimi referansı, reviewer, timezone içeren review tarihi, PROJECT_DOCUMENT kökeni')
+    elif review['origin']!='PROJECT_DOCUMENT':
+        requests.append('Bu beyanı gerçek proje çizimine bağlayan PROJECT_DOCUMENT review gereklidir')
+    first={'ids':['emin_M2','emin_M3'],
+       'owner':own['geometry'],'required_field_names':list(need),
+       'required_group_review':'geometry','missing_fields':missing,
+       'missing_group_review':review is None,'minimum_user_request':requests,
+       'source_qualification':('PROJECT_REVIEW_LEAF_ONLY'
+            if review is not None and review['origin']=='PROJECT_DOCUMENT'
+            else 'DECLARATION_ONLY' if review else 'BLOCKED_NOT_COMPUTED'),
+       'computed_values':None,
+       'not_authorized':['NATIVE_GETRECTANGLE','CURRENT_DESIGN_FORCES','FULL_235_DESIGN']}
+    return {'schema':'column.product.235.input-authority-matrix.v1',
+        'project_id':packet['project_id'],'component_id':packet['component_id'],
+        'candidate_source_sha256':authority.source_sha256,
+        'historical_source_sha256':authority.historical_sha256,
+        'current_analysis_result_epoch':None,'rows':rows,'accepted_native_facts':facts,
+        'first_control':first,
+        'blocked_production':[
+            {'id':'design_actions','reason':closure['actions']},
+            {'id':'stability','reason':'M6-B full-story modal stability action authority OPEN'},
+            {'id':'longitudinal','reason':'FND2/B6 and canonical ENGINE_SELECTED_REBAR missing'},
+            {'id':'confinement','reason':'Canonical selection, qualified cage and lineage missing'}],
+        'real_235_full_design_ready':False,'native_getters_executed':0,'selection':'NOT_READ'}
+
 def product_manifest(evaluation: ColumnProductEvaluation, authority):
     p=evaluation.input_packet;checks=[];contributions=[]
+    matrix=product_input_authority_matrix(p,authority)
+    numeric={c.id:c.value for c in evaluation.controls if c.id in {'emin_M2','emin_M3'} and c.value is not None}
+    matrix['first_control']['computed_values']=numeric or None
     synthetic=any(r['origin']=='SYNTHETIC_TEST' for r in p['reviews'].values())
     for c in evaluation.controls:
         f=(ReportField('value','Sonuç',c.value,c.unit),ReportField('limit','Sınır',c.limit,c.unit,role='LIMIT'),ReportField('status','Motor / gate durumu',c.status,role='STATUS'))
@@ -59,6 +157,7 @@ def product_manifest(evaluation: ColumnProductEvaluation, authority):
         'native_evidence':authority.evidence,'candidate_sha256':authority.source_sha256,'historical_sha256':authority.historical_sha256,
         'evidence_epoch':authority.evidence_epoch,'current_analysis_result_epoch':None,'session_connection':'NOT_OBSERVED',
         'checks':checks,'contributions':contributions,'section_svg':product_drawing(p),
+        'input_authority_matrix':matrix,
         'invoked_owners':evaluation.invoked_owners,'typed_owner_outputs':{'slenderness':None if evaluation.slenderness is None else asdict(evaluation.slenderness),
             'material_basis':None if evaluation.material_basis is None else asdict(evaluation.material_basis)},
         'input_completeness':[{ 'field':k,'label':label,'unit':unit,'value':p['values'][k],'group':group,
@@ -81,10 +180,12 @@ def render_product_html(manifest):
     e=lambda v:escape(str(v),quote=True)
     rows=''.join('<tr><td>'+e(c['title'])+'</td><td>'+e('—' if c['value'] is None else format(c['value'],'.7g'))+' '+e(c['unit'])+'</td><td>'+e(c['status'])+'</td></tr>' for c in manifest['checks'])
     inputs=''.join('<tr><td>'+e(f['label'])+'</td><td>'+e(f['value'])+'</td><td>'+e(f['unit'])+'</td><td>'+e(f['provenance'])+'</td></tr>' for f in manifest['input_completeness'])
+    first=manifest['input_authority_matrix']['first_control']
+    request_html='<h2>İlk hesap için gereken gerçek veri</h2><p>Owner: '+e(first['owner'])+'; durum '+e(first['source_qualification'])+'</p><ul>'+''.join('<li>'+e(r)+'</li>' for r in first['minimum_user_request'])+'</ul>'
     details=''.join('<article><h2>'+e(c['title'])+'</h2><p>'+e(c['status'])+'</p><p>'+e(c['source'])+'</p><code>'+e(c['formula'])+'</code><p>'+e(c['trace'])+'</p><p>Sınır: '+e(c['limit'])+' '+e(c['unit'])+'</p><p>'+e(c['reason'])+'</p><p>Owner: '+e(c['owner'])+'</p><p>Çözüm: '+e(c['closure_owner'])+'</p></article>' for c in manifest['checks'])
     points=''.join('<p>'+e(p['native_slot'])+' → '+e(p['point_name'])+': X='+e(p['X'])+' m; Y='+e(p['Y'])+' m; Z='+e(p['Z'])+' m</p>' for p in manifest['native_evidence']['current_point_coordinates'])
     points='<h2>Güncel aday native koordinatları / Global / m</h2>'+points+'<p>Özgün ABI7; native slot sırası, fiziksel alt/üst veya ln değildir.</p>'
-    return '<!doctype html><html lang="tr"><meta charset="UTF-8"><title>'+e(manifest['title'])+'</title><style>body{font:14px/1.6 system-ui;color:#183c53;max-width:1000px;margin:40px auto;padding:20px}table{border-collapse:collapse;width:100%}td,th{padding:9px;border-bottom:1px solid #dbe4eb;text-align:left}h1{font-size:28px}article{border:1px solid #dbe4eb;padding:16px;margin:16px 0;break-inside:avoid}svg{max-width:420px}pre{white-space:pre-wrap;overflow-wrap:anywhere}code{background:#eef3f7}</style><h1>'+e(manifest['title'])+'</h1><p>Durum: '+e(manifest['status'])+' · Tam tasarım hazır: HAYIR · ETABS bağlantısı: gözlenmedi</p>'+manifest['section_svg']+points+'<h2>Kontrol özeti</h2><table>'+rows+'</table><h2>Girdi / birim / köken</h2><table>'+inputs+'</table>'+details+'<h2>Kapsam</h2>'+''.join('<p>'+e(s)+'</p>' for s in manifest['scope'])+'<details><summary>Girdi + sonuç + kanıt kimliği</summary><pre>'+e(json.dumps(manifest,ensure_ascii=False,indent=2))+'</pre></details></html>'
+    return '<!doctype html><html lang="tr"><meta charset="UTF-8"><title>'+e(manifest['title'])+'</title><style>body{font:14px/1.6 system-ui;color:#183c53;max-width:1000px;margin:40px auto;padding:20px}table{border-collapse:collapse;width:100%}td,th{padding:9px;border-bottom:1px solid #dbe4eb;text-align:left}h1{font-size:28px}article{border:1px solid #dbe4eb;padding:16px;margin:16px 0;break-inside:avoid}svg{max-width:420px}pre{white-space:pre-wrap;overflow-wrap:anywhere}code{background:#eef3f7}</style><h1>'+e(manifest['title'])+'</h1><p>Durum: '+e(manifest['status'])+' · Tam tasarım hazır: HAYIR · ETABS bağlantısı: gözlenmedi</p>'+manifest['section_svg']+points+request_html+'<h2>Kontrol özeti</h2><table>'+rows+'</table><h2>Girdi / birim / köken</h2><table>'+inputs+'</table>'+details+'<h2>Kapsam</h2>'+''.join('<p>'+e(s)+'</p>' for s in manifest['scope'])+'<details><summary>Girdi + sonuç + kanıt kimliği</summary><pre>'+e(json.dumps(manifest,ensure_ascii=False,indent=2))+'</pre></details></html>'
 
 
 def render_product_pdf(manifest):
@@ -115,6 +216,9 @@ def render_product_pdf(manifest):
         d=Drawing(490,195);d.add(Rect(100-w/2,95-h/2,w,h,fillColor=colors.HexColor('#edf3f7')));d.add(Line(100,95,205,95));d.add(Line(100,95,100,180))
         for x,y,s in [(210,95,'2'),(107,180,'3'),(230,135,f"b={v['width_mm']:g} mm"),(230,115,f"h={v['depth_mm']:g} mm"),(230,90,'Proje review kesiti; native ölçü değil'),(230,70,'Donatı seçimi/yerleşimi nitelikli değil')]:d.add(String(x,y,s,fontName='ColumnV3',fontSize=8))
         story.append(d)
+    first=manifest['input_authority_matrix']['first_control']
+    story+=[para('İlk hesap / eksik gerçek veri',heading),para('Owner: '+first['owner']),para('Durum: '+first['source_qualification'])]
+    story += [para(request) for request in first['minimum_user_request']]
     story+=[para('Kontrol özeti',heading),table([['Kontrol','Sonuç / sınır','Durum']]+[[c['title'],display(c['value'])+' / '+display(c['limit'])+' '+c['unit'],c['status']] for c in manifest['checks']],[185,150,160]),para('Girdi / birim / köken',heading),table([['Girdi','Değer / birim','Provenance']]+[[f['label'],display(f['value'])+' '+f['unit'],f['provenance']] for f in manifest['input_completeness']],[185,130,180])]
     for c in manifest['checks']:
         story.append(KeepTogether([para(c['title'],heading),para(c['status']),*[para(c[k]) for k in ('source','formula','trace','reason') if c[k]],para('Owner: '+c['owner']),para('Çözüm sahibi: '+c['closure_owner'])]))

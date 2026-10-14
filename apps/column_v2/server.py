@@ -21,7 +21,7 @@ from tbdy_engine.product_reports.column_v2_report import FIELDS, reference_manif
 from tbdy_engine.application.column_product_workspace import validate_packet, apply_review, evaluate_column_product, FIELDS as PRODUCT_FIELDS
 from tbdy_engine.application.column_qualified_workspace import QualifiedColumnChannel
 from tbdy_engine.product_reports.column_qualified_report import render_qualified_html, render_qualified_pdf, present_qualified_result
-from tbdy_engine.product_reports.column_product_report import product_authority, product_manifest, product_drawing, render_product_html, render_product_pdf
+from tbdy_engine.product_reports.column_product_report import product_authority, product_manifest, product_drawing, render_product_html, render_product_pdf, product_input_authority_matrix
 
 
 @dataclass
@@ -231,6 +231,7 @@ class ColumnWorkspace:
     def product_view(self, w):
         return {'revision':w.revision,'product':{'packet':w.bundle,'fields':PRODUCT_FIELDS,
             'native_evidence':self.evidence,'section_svg':product_drawing(w.bundle),
+            'input_authority_matrix':product_input_authority_matrix(w.bundle,self.product_authority),
             'result':None,'session_connection':'NOT_OBSERVED'}}
 
     def review_product(self, body):
