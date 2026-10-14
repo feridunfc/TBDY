@@ -1,0 +1,73 @@
+{
+  "schema": "column235.getrectangle.validation_only_partial_receipt.v1",
+  "verification_scope": "GETTER_FREE_OFFLINE_ONLY",
+  "operator_source_checkpoint": {
+    "HEAD": "349e28f5ee7efe84d1242c78494c625f9dfd570c",
+    "TREE": "e598efa24b1ede7d1c47a1ed324fb2de07595fe8",
+    "operator_immutable_pin_remains_unchanged": true
+  },
+  "git_evidence_parent": {
+    "HEAD": "349e28f5ee7efe84d1242c78494c625f9dfd570c",
+    "TREE": "e598efa24b1ede7d1c47a1ed324fb2de07595fe8"
+  },
+  "review": "R1_R6_OFFLINE_CODE_ACCEPTED_CLOSED_REUSE",
+  "original_operator_package": {
+    "zip_sha256": "e00f9e1cea0482ba9d224238e36d05736e59c83e61254e732c345f6b94858e15",
+    "manifest_sha256": "225a277c3dcf017dc2b621afa0a79e04da91904a83172e5ea7ad7488086a6ebc",
+    "CRC": "PASS",
+    "inner_pins": "10/10 MATCH",
+    "original_modified": false
+  },
+  "fresh_independent_offline_test": {
+    "environment": "Python 3.13.5 Linux",
+    "suite": "ORIGINAL_3_EXTERNAL_FILES",
+    "PASS": 82,
+    "FAIL": 0,
+    "ERROR": 0,
+    "SKIP": 0,
+    "distinct": 82,
+    "junit_sha256": "4b9d4f206bbd8b175943a3fb8b3116311c6156825c97023620e05d3a75d15406",
+    "original82_identity_missing": 0,
+    "original82_identity_extra": 0,
+    "original82_identity_duplicates": 0
+  },
+  "preserved_accepted_collection": {
+    "count": 2445,
+    "original_identities_file": "abi7-adoption-private-collection/identities.json",
+    "original_identities_sha256": "c30e7aa4665c3672ef886748f14badd4b77ef980765d68f40852f7b7d35250bd",
+    "original_preservation_file": "abi7-adoption-private-collection/preservation.json",
+    "original_preservation_sha256": "9c37ac075637799fac269af799fa73c016e7927f13fe2aa1876bb741b8e25350",
+    "current_fresh_comparison": "BLOCKED_ORIGINAL_LEDGER_NOT_AVAILABLE",
+    "fresh2445PASS": false
+  },
+  "native_offline_qualification": {
+    "python_3_14": "BLOCKED_NOT_INSTALLED",
+    "PowerShell_Parser_ParseFile": "BLOCKED_POWERSHELL_NOT_INSTALLED",
+    "COM_attach": false,
+    "metadata_callback": 0,
+    "getter": 0
+  },
+  "local_worker_state": "NOT_VERIFIED_NO_USER_WINDOWS_WORKTREE",
+  "remote_github_head_verified": "349e28f5ee7efe84d1242c78494c625f9dfd570c",
+  "github_actions": {
+    "run_id": 38555842097,
+    "exact_candidate_head": "349e28f5ee7efe84d1242c78494c625f9dfd570c",
+    "exact_PR_base": "1440df1b9300f75b1e604204438f5cada9ebd247",
+    "status_at_evidence": "IN_PROGRESS",
+    "zero_new": "NOT_FINAL_YET",
+    "prior_C13_4": "SUCCESS",
+    "prior_P2_10": "SUCCESS"
+  },
+  "architecture": "SOURCE_IMPL_PATHS_UNCHANGED_HISTORICAL_31_PASS_SAME6_REALFAIL_FRESH_SCAN_NOT_RUN",
+  "protected45": "PRIOR_44_MATCH_1_APPROVED_EXCEPTION_0_NEW_UNAUTHORIZED; NO_PROTECTED_SOURCE_EDIT",
+  "validation_closure": "OPEN",
+  "live_metadata_authorization": "NONE",
+  "live_getter_authorization": "NONE",
+  "M6_B": "OPEN",
+  "R2_RERUN_READY": false,
+  "real235_design_accepted": false,
+  "ABI7_repin": false,
+  "merge_executed": false,
+  "new_offline_validation_only_zip_sha256": "3dc21eb5f2cb3d840500dfa77499fbd528f70760f48755dae769e5cfc9659199",
+  "stop": "SUPERVISOR_VALIDATION_REVIEW; DO_NOT_RUN_OPERATOR"
+}
