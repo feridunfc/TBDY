@@ -1,0 +1,105 @@
+{
+  "schema": "column235.product.first_real_input_bound_readiness.v1",
+  "source": {
+    "repo": "feridunfc/TBDY",
+    "branch": "worker/column-v1-report-235",
+    "product_implementation_HEAD": "26d97dad9bc745ec6c01722a1f028d4561cdbaa5",
+    "product_implementation_TREE": "82821b81c249a3fd1da079770d6c62d7c3bb68d9",
+    "operator_frozen_HEAD": "349e28f5ee7efe84d1242c78494c625f9dfd570c",
+    "operator_repin": false,
+    "baseline_parent": "c19f7ee6418626d0987525c87dc4ec7a64fd5315",
+    "candidate_EDB_sha256": "61FA288FE6AA098B16062B0BAAE3FB882937AB68280C93971475AA39B2246621",
+    "historical_FC09_sha256": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F"
+  },
+  "existing_product": {
+    "launcher": "python tools/start_column_product.py",
+    "context": "235-product",
+    "owner": "tbdy_engine.design.columns.minimum_eccentricity.ts500_minimum_eccentricity_mm",
+    "input_schema": "column.product.235.input.v1",
+    "matrix_schema": "column.product.235.input-authority-matrix.v1",
+    "snapshot_path": "docs/COLUMN_235_REAL_INPUT_AUTHORITY_SNAPSHOT_2026-10-14.json",
+    "snapshot_git_blob_sha1": "45d969bd60708161a63395fbccf87a55519293d1",
+    "field_rows": 38,
+    "adopted_native_fact_rows": 5,
+    "report_outputs": [
+      "same typed JSON",
+      "HTML",
+      "PDF"
+    ],
+    "recompute": "EXISTING_COLUMN_WORKSPACE_OWNER",
+    "input_edit_invalidation": "EXISTING_REVISION_GUARD"
+  },
+  "real_235": {
+    "first_leaf_status": "NOT_COMPUTED_MISSING_PROJECT_REVIEWED_INPUT",
+    "full_design_ready": false,
+    "actual_first_leaf_values": null,
+    "missing_fields": [
+      "width_mm",
+      "depth_mm",
+      "axis_basis"
+    ],
+    "user_request": [
+      "Actual b local2 dimension (cm), not inferred from section name",
+      "Actual h local3 dimension (cm), with local2/local3 axis evidence",
+      "Project drawing/document reference and revision",
+      "Reviewer and review time (timezone); PROJECT_DOCUMENT origin"
+    ],
+    "minimum_owner_input_mm": [
+      "width_mm",
+      "depth_mm"
+    ],
+    "source_kind_required": "PROJECT_REVIEWED_INPUT",
+    "current_forces_status": "NOT_AVAILABLE_CURRENT_B5_B6",
+    "M6_B": "OPEN",
+    "global_delta": "NOT_PROVEN",
+    "R2_RERUN_READY": false
+  },
+  "typed_source": {
+    "native_facts": [
+      "Column_80x80 assignment",
+      "I22/I33 = 0.03413333333333332 m^4",
+      "Point1 955 Global(74,22.3,-5.15) m",
+      "Point2 758 Global(74,22.3,0) m"
+    ],
+    "source_refs": [
+      "docs/COLUMN_R1_R3M_ABI4_LIVE_GETSECTION_ADOPTION_2026-10-12.json",
+      "docs/COLUMN_R1_R3M_ABI5_LIVE_GETSECTPROPS_ADOPTION_2026-10-12.json",
+      "docs/COLUMN_235_ABI7_LIVE_COORDINATES_ADOPTION_2026-10-14.json"
+    ],
+    "new_numeric_geometry_inferred": false,
+    "typed_native_coordinates_unchanged": true
+  },
+  "unit_projection": {
+    "canonical_engine_input_units": "mm and m unchanged",
+    "display_units": "cm for mm/m rows, kN, MPa, kN·m",
+    "native_original_units": "Global/m unchanged",
+    "material_or_force_conversion_invented": false
+  },
+  "validation": {
+    "external_isolated_projection_prototype": {
+      "passed": 4,
+      "failed": 0,
+      "environment": "Python3.13.5/Linux",
+      "scope": "independent shape smoke test, NOT exact repository integrated test"
+    },
+    "repository_new_product_focused_tests": "NOT_EXECUTED_IN_CURRENT_ENV_NO_LOCAL_REPO",
+    "PR_CI_P2_10": "SUCCESS_AT_LAST_CHECK",
+    "PR_CI_C13_4": "IN_PROGRESS_AT_LAST_CHECK",
+    "PR_CI_UR1E": "IN_PROGRESS_AT_LAST_CHECK",
+    "new_code_compile_import": "NOT_FRESHLY_EXECUTED_AS_COMPLETE_REPO",
+    "worker_local_clean": "NOT_VERIFIED_NO_WINDOWS_CHECKOUT",
+    "previous_R1_R6": "ACCEPTED_CLOSED_REUSE",
+    "previous_frozen_operator_zero_new": "ACCEPTED_CLOSED"
+  },
+  "allowed_actions": {
+    "native_metadata": false,
+    "native_getter": false,
+    "run_analysis": false,
+    "start_design": false,
+    "model_mutation": false,
+    "merge": false,
+    "abi7_repin": false
+  },
+  "readiness_status": "PRODUCT_INPUT_MATRIX_BOUND_FIRST_REAL_LEAF_AWAITS_USER_PROJECT_DATA_AND_FOCUSED_VALIDATION",
+  "stop": "SUPERVISOR_PRODUCT_REVIEW"
+}
