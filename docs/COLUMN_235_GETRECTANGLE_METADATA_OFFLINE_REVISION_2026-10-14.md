@@ -11,3 +11,5 @@ Future execution requires a separately sourced supervisor approval, pinned exter
 External synthetic focused tests: **58 PASS / 0 FAIL / 0 ERROR / 0 SKIP**, Python 3.13.5/Linux. Repo source-guard tests are separate; Python 3.14, Windows PowerShell, and current ETABS/COM are not freshly qualified. The earlier accepted 2445 test identities are not claimed as a fresh full pass. Previous architecture 31 PASS/same six real FAIL and protected-45 ledger (one earlier approved workflow exception, no unauthorized changes) are prior states, not current full reruns.
 
 ABI2–ABI7 CLOSED/REUSE; live metadata/getter, material, analysis, design, selection, matrix scan, P2, R2 and merge are not authorized. M6_B OPEN, R2_RERUN_READY NO, real235 full design acceptance NOT_GRANTED. STOP: independent revised-package supervisor review.
+
+Correction under the same bounded offline scope: Win32 FILETIME 100ns PID-start comparison now adds the seven-digit fractional component exactly once; external 58-test suite passed again. This note is source-provenance only and conveys no live authorization.

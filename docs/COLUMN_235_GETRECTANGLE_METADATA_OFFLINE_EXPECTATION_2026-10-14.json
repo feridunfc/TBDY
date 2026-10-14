@@ -14,7 +14,7 @@
     "docs/COLUMN_R1_R3M_ABI4_LIVE_GETSECTION_ADOPTION_2026-10-12.json": "b0cdb95c434c9f9ab3c8fb6cfcbfb3c529aa9b981578081ceb935a7b3a644278",
     "docs/COLUMN_R1_R3M_ABI5_LIVE_GETSECTPROPS_ADOPTION_2026-10-12.json": "79ba4dc212c6b39283362d292152acb77003467f1b620a13e2790f6be221ea2e"
   },
-  "external_python_sha256": "9a5e0d67df390e223292673d568d61c0e6d6ab8b342cde54e0ce7a9f692deca6",
+  "external_python_sha256": "541ebd7b601cd3ff051132d9c81bb49169d69e6b98424096c98bd57e15f3b69a",
   "external_operator_ps_sha256": "6ae9b0f17942cf32bdc83ee5f40ae51ff880bf98ffd1a2ecbd138c5fe1a4a8a4",
   "external_prepare_ps_sha256": "0023cc7ce6e32bc382f19424673ee80e22902d47c67dd3d37a6c48dd34380e36",
   "native_declaration": "PENDING_LIVE",
