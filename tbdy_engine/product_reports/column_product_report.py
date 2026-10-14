@@ -77,6 +77,8 @@ def product_input_authority_matrix(packet, authority):
                 if review else 'UNREVIEWED_USER_DRAFT' if value is not None else 'NOT_PROVIDED')
         rows.append({
             'field':name,'label':label,'unit':unit,'value':value,'source_kind':source,
+            'display_unit':'cm' if unit in {'mm','m'} else 'kN·m' if unit=='kN.m' else unit,
+            'display_value':None if value is None else value/10 if unit=='mm' else value*100 if unit=='m' else value,
             'source_ref':review['reference'] if review else None,
             'source_sha256':review['source_sha256'] if review else None,
             'input_sha256':review['input_sha256'] if review else None,
@@ -86,7 +88,7 @@ def product_input_authority_matrix(packet, authority):
             'required_for_first_control':name in need,
             'missing_authority':None if review else closure[group],
             'closure':closure[group],
-            'user_request':label+' ('+unit+')' if value is None else None,
+            'user_request':label+' (cm; mevcut kanonik giriş '+unit+')' if value is None and unit in {'mm','m'} else label+' ('+unit+')' if value is None else None,
         })
     facts=[]
     native=authority.evidence; pins=authority.adoption_pins
@@ -179,7 +181,11 @@ def product_manifest(evaluation: ColumnProductEvaluation, authority):
 def render_product_html(manifest):
     e=lambda v:escape(str(v),quote=True)
     rows=''.join('<tr><td>'+e(c['title'])+'</td><td>'+e('—' if c['value'] is None else format(c['value'],'.7g'))+' '+e(c['unit'])+'</td><td>'+e(c['status'])+'</td></tr>' for c in manifest['checks'])
-    inputs=''.join('<tr><td>'+e(f['label'])+'</td><td>'+e(f['value'])+'</td><td>'+e(f['unit'])+'</td><td>'+e(f['provenance'])+'</td></tr>' for f in manifest['input_completeness'])
+    def shown_input(f):
+        v=f['value'];u=f['unit']
+        return (None if v is None else v/10 if u=='mm' else v*100 if u=='m' else v,
+                'cm' if u in {'mm','m'} else 'kN·m' if u=='kN.m' else u)
+    inputs=''.join('<tr><td>'+e(f['label'])+'</td><td>'+e(shown_input(f)[0])+'</td><td>'+e(shown_input(f)[1])+'</td><td>'+e(f['provenance'])+'</td></tr>' for f in manifest['input_completeness'])
     first=manifest['input_authority_matrix']['first_control']
     request_html='<h2>İlk hesap için gereken gerçek veri</h2><p>Owner: '+e(first['owner'])+'; durum '+e(first['source_qualification'])+'</p><ul>'+''.join('<li>'+e(r)+'</li>' for r in first['minimum_user_request'])+'</ul>'
     details=''.join('<article><h2>'+e(c['title'])+'</h2><p>'+e(c['status'])+'</p><p>'+e(c['source'])+'</p><code>'+e(c['formula'])+'</code><p>'+e(c['trace'])+'</p><p>Sınır: '+e(c['limit'])+' '+e(c['unit'])+'</p><p>'+e(c['reason'])+'</p><p>Owner: '+e(c['owner'])+'</p><p>Çözüm: '+e(c['closure_owner'])+'</p></article>' for c in manifest['checks'])
@@ -219,7 +225,7 @@ def render_product_pdf(manifest):
     first=manifest['input_authority_matrix']['first_control']
     story+=[para('İlk hesap / eksik gerçek veri',heading),para('Owner: '+first['owner']),para('Durum: '+first['source_qualification'])]
     story += [para(request) for request in first['minimum_user_request']]
-    story+=[para('Kontrol özeti',heading),table([['Kontrol','Sonuç / sınır','Durum']]+[[c['title'],display(c['value'])+' / '+display(c['limit'])+' '+c['unit'],c['status']] for c in manifest['checks']],[185,150,160]),para('Girdi / birim / köken',heading),table([['Girdi','Değer / birim','Provenance']]+[[f['label'],display(f['value'])+' '+f['unit'],f['provenance']] for f in manifest['input_completeness']],[185,130,180])]
+    story+=[para('Kontrol özeti',heading),table([['Kontrol','Sonuç / sınır','Durum']]+[[c['title'],display(c['value'])+' / '+display(c['limit'])+' '+c['unit'],c['status']] for c in manifest['checks']],[185,150,160]),para('Girdi / birim / köken',heading),table([['Girdi','Değer / birim','Provenance']]+[[f['label'],display(None if f['value'] is None else f['value']/10 if f['unit']=='mm' else f['value']*100 if f['unit']=='m' else f['value'])+' '+('cm' if f['unit'] in {'mm','m'} else 'kN·m' if f['unit']=='kN.m' else f['unit']),f['provenance']] for f in manifest['input_completeness']],[185,130,180])]
     for c in manifest['checks']:
         story.append(KeepTogether([para(c['title'],heading),para(c['status']),*[para(c[k]) for k in ('source','formula','trace','reason') if c[k]],para('Owner: '+c['owner']),para('Çözüm sahibi: '+c['closure_owner'])]))
     story+=[para('Kapsam ve kesin kaynak kimliği',heading),*[para(s) for s in manifest['scope']],para('Aday SHA256: '+manifest['candidate_sha256']),para('Tarihsel SHA256: '+manifest['historical_sha256']),para('Girdi SHA256: '+manifest['input_sha256']),para('Sonuç kimliği: '+manifest['result_id'])]

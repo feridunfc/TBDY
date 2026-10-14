@@ -52,3 +52,17 @@ def test_project_document_review_not_native_promotion():
  assert row['source_sha256']==a.source_sha256
  assert m['accepted_native_facts'][0]['source_kind']=='ACCEPTED_NATIVE_FACT_LIMITED_SCOPE'
  assert m['real_235_full_design_ready'] is False
+
+def test_display_units_are_derived_only_and_do_not_mutate_packet():
+ a=product_authority(ROOT);p=a.packet()
+ p['values'].update(width_mm=500.,depth_mm=800.,station_i_m=1.25,nd_i_kn=250.,m2_i_knm=10.,fck_mpa=35.)
+ m=product_input_authority_matrix(p,a)
+ data={row['field']:row for row in m['rows']}
+ assert data['width_mm']['display_value']==50. and data['width_mm']['display_unit']=='cm'
+ assert data['depth_mm']['display_value']==80.
+ assert data['station_i_m']['display_value']==125. and data['station_i_m']['display_unit']=='cm'
+ assert data['nd_i_kn']['display_value']==250. and data['nd_i_kn']['display_unit']=='kN'
+ assert data['m2_i_knm']['display_unit']=='kN·m'
+ assert data['fck_mpa']['display_unit']=='MPa'
+ assert p['values']['width_mm']==500. and p['values']['station_i_m']==1.25
+ assert m['current_analysis_result_epoch'] is None

@@ -13,3 +13,7 @@ User-facing data request: project plan or section sheet confirming actual local2
 Existing `evaluate_column_product` calls owner and publishes typed values only with complete review; edits invalidate old result and require recompute. JSON/HTML/PDF rendered from same existing revision/result. Project-document review is kept distinguishable from USER_DECLARATION or SYNTHETIC_TEST; none is automatically native. Product schema and unit contracts unchanged; kN/MPa force and material fields retain existing unit authority, design moments kN·m.
 
 No ETABS/metadata/getter/RunAnalysis/StartDesign/model mutation, no ABI7 repin or merge. R1-R6 CLOSED_REUSE; M6-B OPEN; R2_RERUN_READY NO; real235 full design acceptance NOT_GRANTED.
+
+## Display / internal units
+
+The unchanged validated packet and canonical calculation owner keep the original mm and m fields. The read-only per-field matrix adds `display_value`/`display_unit`; mm→cm divides by10 and station m→cm multiplies by100. HTML/PDF input tables show cm where applicable; MPa/kN magnitudes unchanged, the kN.m label appears as kN·m. Original accepted Global/m coordinates remain unchanged. No imported value or operator input is silently converted.
