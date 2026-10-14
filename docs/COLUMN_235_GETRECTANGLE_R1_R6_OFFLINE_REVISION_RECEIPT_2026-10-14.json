@@ -1,0 +1,41 @@
+{
+  "schema": "column235.getrectangle.r1_r6.offline_revision_receipt.v1",
+  "checkpoint_parent": {
+    "HEAD": "7ddc5937b145e062f839935372c623fd711280af",
+    "TREE": "2150569860817b161fdee49af78d06a3ba5665c2"
+  },
+  "source_bound_expectation": "docs/COLUMN_235_GETRECTANGLE_METADATA_OFFLINE_EXPECTATION_2026-10-14.json",
+  "external_sha256": {
+    "python": "ce29772662a3009388f5bdf0b00bd5f62891e9a70797fc952e27c931abdc4756",
+    "operator_ps": "00474d7563f6d6e9d786a316cc4e8fa28786a7e9c4801dd2251da3737827225c",
+    "prepare_ps": "37b11907b21abab99920f807f53c8cb79d9878e11a6442bef815f4c50a03e428",
+    "expectation_json": "29d16480d3925f024c99f24bca7c0de70a3a809ea603758927bca43ab4822919"
+  },
+  "synthetic_pytest": {
+    "pass": 82,
+    "fail": 0,
+    "error": 0,
+    "skip": 0,
+    "distinct_testcase_identifiers": 82,
+    "python": "3.13.5 Linux",
+    "junit_sha256": "7946cb313160fe306ab9c0904cc7fcf38078b67527579b64a82cd94385ea31f9"
+  },
+  "external_live": {
+    "metadata": "NOT_EXECUTED",
+    "native_getters": 0,
+    "com": "NOT_EXECUTED",
+    "powershell": "STATIC_REVIEW_ONLY"
+  },
+  "source_api": "attach_verified_to_running_etabs(SOURCE, pid=args.pid, allow_pid_fallback=False)",
+  "previously_accepted_test_identifiers": 2445,
+  "preservation": "TRACKED_SOURCE_ADD_ONLY_AND_CHANGED_GUARD_DOCS; FULL_2445_COLLECTION_NOT_RUN",
+  "protected_source_authority": "PRIOR_LEDGER_44_MATCH_1_PRIOR_APPROVED_0_NEW_UNAUTHORIZED; NO_CHANGED_PROTECTED_PATHS",
+  "architecture": "PRIOR_31_PASS_SAME_6_REAL_FAIL; NO_PRODUCTION_MODULE_CHANGED; FRESH_NOT_RUN",
+  "PR209": "DRAFT_UNMERGED",
+  "approved_execution": false,
+  "abi7_repin": false,
+  "m6_b": "OPEN",
+  "global_delta": "NOT_PROVEN",
+  "r2_rerun_ready": false,
+  "real235_full_design_ready": false
+}

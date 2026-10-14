@@ -51,3 +51,50 @@ def test_pinned_external_scripts_if_explicitly_provided():
            'external_prepare_ps_sha256':'prepare_metadata_only.ps1'}
     for k,n in names.items():
         assert hashlib.sha256((Path(folder)/n).read_bytes()).hexdigest()==d[k]
+
+
+def test_actual_safety_attach_signature_requires_explicit_model_source():
+    import ast
+    tree=ast.parse((ROOT/'tbdy_engine/etabs/safety.py').read_text(encoding='utf-8'))
+    funcs=[n for n in ast.walk(tree) if isinstance(n,ast.FunctionDef)
+           and n.name=='attach_verified_to_running_etabs']
+    assert len(funcs)==1
+    f=funcs[0]
+    assert f.args.args[0].arg=='expected_model_full_path'
+    assert f.args.defaults==[]
+    assert {a.arg for a in f.args.kwonlyargs}>={'pid','allow_pid_fallback'}
+
+
+def test_external_final_r1_r6_hash_pins():
+    d=fact()
+    assert d['scope']=='R1_R6_BOUNDED_OFFLINE_OPERATOR_FIX'
+    assert d['external_python_sha256']=='ce29772662a3009388f5bdf0b00bd5f62891e9a70797fc952e27c931abdc4756'
+    assert d['external_operator_ps_sha256']=='00474d7563f6d6e9d786a316cc4e8fa28786a7e9c4801dd2251da3737827225c'
+    assert d['external_prepare_ps_sha256']=='37b11907b21abab99920f807f53c8cb79d9878e11a6442bef815f4c50a03e428'
+    assert d['target_native_getters_executed']==0
+
+
+def test_pinned_external_gateway_invocation_when_bytes_available():
+    import ast
+    folder=os.environ.get('COLUMN235_GETRECTANGLE_EXTERNAL_DIR')
+    if not folder:pytest.skip('External operator intentionally excluded from tracked Git')
+    path=Path(folder)/'column235_getrectangle_metadata_only.py'
+    assert hashlib.sha256(path.read_bytes()).hexdigest()==fact()['external_python_sha256']
+    tree=ast.parse(path.read_text(encoding='utf-8'))
+    functions=[f for f in tree.body if isinstance(f,ast.FunctionDef) and f.name=='run_operator']
+    assert len(functions)==1
+    calls=[n for n in ast.walk(functions[0]) if isinstance(n,ast.Call)
+           and isinstance(n.func,ast.Attribute) and n.func.attr=='attach_verified_to_running_etabs']
+    assert len(calls)==1 and len(calls[0].args)==1
+    assert isinstance(calls[0].args[0],ast.Name) and calls[0].args[0].id=='SOURCE'
+
+
+def test_source_authority_not_upgraded_to_native_qualification():
+    d=fact()
+    assert d['actual_native_metadata']=='NOT_EXECUTED'
+    assert d['native_declaration']=='PENDING_LIVE'
+    assert d['live_metadata_authorized'] is False
+    assert d['m6_b']=='OPEN'
+    assert d['regression_profiles']['external_getrectangle_synthetic']==dict(
+        total=82,pass=82,fail=0,error=0,skip=0,distinct=82,
+        junit_sha256='7946cb313160fe306ab9c0904cc7fcf38078b67527579b64a82cd94385ea31f9')

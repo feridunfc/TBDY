@@ -13,3 +13,13 @@ External synthetic focused tests: **58 PASS / 0 FAIL / 0 ERROR / 0 SKIP**, Pytho
 ABI2–ABI7 CLOSED/REUSE; live metadata/getter, material, analysis, design, selection, matrix scan, P2, R2 and merge are not authorized. M6_B OPEN, R2_RERUN_READY NO, real235 full design acceptance NOT_GRANTED. STOP: independent revised-package supervisor review.
 
 Correction under the same bounded offline scope: Win32 FILETIME 100ns PID-start comparison now adds the seven-digit fractional component exactly once; external 58-test suite passed again. This note is source-provenance only and conveys no live authorization.
+
+## Supervisor R1–R6 bounded offline revision (2026-10-14)
+
+Source/API: corrected the mandatory positional model-path argument in the future-only operator and qualified the real safety signatures with non-permissive mock flow. Before any gateway attach, the operator requires an immutable Git HEAD/TREE/CLEAN checkout, Python 3.14.0, exact source/Git-object audit, installed _memberspec byte pin, and checked module origins; an old App ZIP or imported shadow source is rejected.
+
+Actual dependency provenance now checks the ctypes conversion globals _PyCSimpleType and _CArgObject and source-equivalent function code/defaults/closures. Static object inspection refuses instance shadowing and preserves supported comtypes helpstring/dispid wrappers plus scalar ctypes native typecode/size/alignment. Original metadata is captured before source-compatibility qualification. No GetRectangle target member is bound or invoked.
+
+Outer flow synthetic regressions include correct attach(SOURCE,...), one callback / 30 s bound, no retry, metadata capture, source / PID / identity / external artifact drift, wrapped exception retention and close() false. Linux Python 3.13.5 **82 distinct PASS, 0 FAIL/ERROR/SKIP**; this is not native Python 3.14, Windows PowerShell, COM, or ETABS acceptance. Original JUnit SHA `7946cb313160fe306ab9c0904cc7fcf38078b67527579b64a82cd94385ea31f9`. Repo tracked guard gets four added, deliberately source-bound tests; missing external bytes are SKIP, not hypothetical PASS.
+
+No tracked production modules or protected workflow changed. Previously accepted **2445 identities remain a historical ledger, not a fresh collection**. Prior architecture 31 PASS / same six FAIL is not a fresh architecture scan; protected 45: the one previously-approved workflow exception remains unchanged. Original ABI2–ABI7 receipts and immutable external archives are untouched. No ETABS/COM getter or metadata run, analysis/design, selected results, merge or repin. M6-B OPEN. Operator is future-only, contingent on a separate supervisor approval. STOP at revised package review.
