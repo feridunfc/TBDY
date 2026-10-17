@@ -210,8 +210,9 @@ class ColumnWorkspace:
             else:
                 if body['format']=='html': raise ValueError('Kanıt HTML için teknik panel bağlantısı kullanın.')
                 if body['result_id'] is not None: raise ValueError('235 için referans sonucu kabul edilmez.')
+                # Passive accepted evidence is not a calculation run. Keep its
+                # original projection exact; active calculations carry a run envelope.
                 manifest = dict(self.evidence)
-                manifest['run_envelope']=w.run_envelope
                 content = render_manifest_pdf(manifest) if body['format'] == 'pdf' else canonical_bytes(manifest)
                 name = 'B_BLOK_235_Kanit'
             self.record('REPORT_EXPORTED',workspace_id=body['workspace_id'],revision=w.revision,context=w.context,

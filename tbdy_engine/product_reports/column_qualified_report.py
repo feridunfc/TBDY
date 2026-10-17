@@ -88,14 +88,14 @@ def qualified_control_cards(m):
         if found is None:
             cards.append({'id':key,'status':'BLOCKED','decisions':[],**present_decision('BLOCKED'),'blocker_class':'DATA',
                 'reason':'Mevcut qualified artifact bu owner çıktısını taşımıyor. Eksik typed girdi veya üst karar için application_blockers incelenmeli.',
-                'required_owner_paths':paths,'output':None,'origin':m['scope_identity']['origin']});continue
+                'required_owner_paths':[list(p) for p in paths],'output':None,'origin':m['scope_identity']['origin']});continue
         decisions=list(retained_decisions(found))
         status=found.get('status',found.get('combined_status','CALCULATED_PROJECT_REVIEW')) if isinstance(found,dict) else 'CALCULATED_PROJECT_REVIEW'
         if status=='CALCULATED_PROJECT_REVIEW' and decisions:
             raw={d['status'] for d in decisions}
             status='FAIL' if 'FAIL' in raw else 'PARTIAL' if 'BLOCKED' in raw else 'OK' if raw=={'OK'} else status
         if key=='readiness':status=m['fnd2_status']
-        cards.append({'id':key,'status':status,**present_decision(status),'owner':owner,'owner_path':path,
+        cards.append({'id':key,'status':status,**present_decision(status),'owner':owner,'owner_path':list(path),
             'blocker_class':None,'decisions':decisions,'output':found,'origin':m['scope_identity']['origin'],
             'reason':'Mevcut typed owner çıktısı; alt kararlar, sayılar ve kaynaklar aşağıdaki exact output içindedir.'})
     return cards
