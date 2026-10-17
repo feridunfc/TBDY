@@ -2,6 +2,8 @@
 from dataclasses import asdict, fields
 from hashlib import sha256
 from html import escape
+from tbdy_engine.product_reports.column_decision_presenter import present_decision
+import json
 
 from tbdy_engine.application.column_reference_producer import ReferenceCageInput, ReferenceOwnerCalculation
 from tbdy_engine.application.column_reference_workspace import canonical_bytes
@@ -90,6 +92,7 @@ def owner_reference_manifest(calculation: ReferenceOwnerCalculation):
             "source": c.code_ref, "formula": c.pass_rule or "Owner bağımlılığı / uygulanabilirlik kararı",
             "trace": trace, "reason": " ".join(c.messages), "owner": calculation.invoked_owners[-1]})
     m["checks"] = [c for c in m["checks"] if c["id"].startswith("COL_FINAL_SHEAR")] + [c for c in m["checks"] if not c["id"].startswith("COL_FINAL_SHEAR")]
+    for check in m["checks"]:check.update(present_decision(check["status"]),origins=["SYNTHETIC_TEST"])
     m["result_id"] = sha256(canonical_bytes({k:v for k,v in m.items() if k != "result_id"})).hexdigest()
     return m
 
@@ -107,4 +110,5 @@ def render_owner_reference_html(manifest):
             f"<h1>{esc(manifest['title'])}</h1><p>Girdi kaynağı: {esc(manifest['source'])}</p>{manifest['section_svg']}"
             "<h2>Açık girdiler ve birimler</h2><ul>" + "".join(f"<li>{esc(label)}: {esc(manifest['input_bundle']['values'][key])} {esc(unit)}</li>" for key,label,unit,_ in OWNER_FIELDS) + "</ul>"
             + sections + "<h2>Kalan kapsam</h2><ul>" + "".join("<li>"+esc(s)+"</li>" for s in manifest["scope"]) + "</ul>"
+            + '<p>Koşu zarfı: '+esc(json.dumps(manifest.get('run_envelope',{}),ensure_ascii=False))+'</p>'
             + f"<p>Sonuç kimliği: {esc(manifest['result_id'])}</p><p>Girdi SHA256: {esc(manifest['input_sha256'])}</p></html>")

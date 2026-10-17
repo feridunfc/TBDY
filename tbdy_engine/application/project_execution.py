@@ -870,6 +870,7 @@ def execute_project(
     verified_session: EtabsVerifiedSession,
     column_design_basis: ReviewedColumnDesignBasis | None = None,
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
+    reviewed_detailing_by_component=None,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
     reviewed_column_p7_context: ReviewedColumnP7RuntimeContext | None = None,
     reviewed_column_short_column_context: ReviewedColumnShortColumnContext | None = None,
@@ -974,6 +975,8 @@ def execute_project(
         "route_c_w_applicability": route_c_w_applicability,
         "expected_combo_policy": expected_combo_policy,
     }
+    if reviewed_detailing_by_component is not None:
+        column_kwargs["reviewed_detailing_by_component"] = reviewed_detailing_by_component
     if reviewed_vs5_column_axial_context is not None:
         column_kwargs["reviewed_vs5_column_axial_context"] = (
             reviewed_vs5_column_axial_context

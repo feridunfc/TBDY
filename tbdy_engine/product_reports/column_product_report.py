@@ -1,5 +1,6 @@
 """One typed offline product evaluation → HTML/PDF/JSON. No formulas here."""
 from dataclasses import asdict
+from tbdy_engine.product_reports.column_decision_presenter import present_decision, displayed
 from hashlib import sha256
 from html import escape
 from pathlib import Path
@@ -31,11 +32,12 @@ def product_authority(repo):
     return ColumnProductAuthority(evidence['candidate_sha256'],evidence['historical_sha256'],epoch,evidence,original,adoptions)
 
 
-def product_drawing(packet):
+def product_drawing(packet, layout=None):
     v=packet['values']
     if 'geometry' not in packet['reviews']:return ''
     # Explicit reviewed dimensions only. This is the existing presentation helper.
-    return section_svg(SimpleNamespace(width_mm=v['width_mm'],depth_mm=v['depth_mm']))
+    candidate=None if layout is None else SimpleNamespace(bars=tuple(SimpleNamespace(**b) for b in layout['bars']))
+    return section_svg(SimpleNamespace(width_mm=v['width_mm'],depth_mm=v['depth_mm']),candidate).replace(f"b = {v['width_mm']:.6g} mm",f"b = {v['width_mm']/10:.6g} cm").replace(f"h = {v['depth_mm']:.6g} mm",f"h = {v['depth_mm']/10:.6g} cm").replace('Motorun donatı adayı; nihai donatı değildir','USER_PROVIDED_REBAR; beyan edilen çevre düzeni')
 
 
 
@@ -67,6 +69,13 @@ def product_input_authority_matrix(packet, authority):
         'materials':['material'], 'actions':['design_actions','longitudinal','axial','shear','vc'],
         'cage':['cage','confinement','detailing'],
     }
+    for group in ('concrete','longitudinal_steel','transverse_steel','aggregate'):
+        own[group]=own['materials'];closure[group]=closure['materials'];controls[group]=controls['materials']
+    own['transverse']='tbdy_engine.regulatory.column_transverse_confinement.evaluate_column_transverse_confinement'
+    closure['transverse']='Independent reviewed physical transverse dimensions and applicability'
+    controls['transverse']=['confinement']
+    for group,original in [('shear_actions','actions'),('transverse_cage','cage')]:
+        own[group]=own[original];closure[group]=closure[original];controls[group]=controls[original]
     values,reviews=packet['values'],packet['reviews']
     rows=[]
     for name,label,unit,group,kind in FIELDS:
@@ -77,8 +86,8 @@ def product_input_authority_matrix(packet, authority):
                 if review else 'UNREVIEWED_USER_DRAFT' if value is not None else 'NOT_PROVIDED')
         rows.append({
             'field':name,'label':label,'unit':unit,'value':value,'source_kind':source,
-            'display_unit':'cm' if unit in {'mm','m'} else 'kN·m' if unit=='kN.m' else unit,
-            'display_value':None if value is None else value/10 if unit=='mm' else value*100 if unit=='m' else value,
+            'display_unit':displayed(value,unit)[1],
+            'display_value':displayed(value,unit)[0],
             'source_ref':review['reference'] if review else None,
             'source_sha256':review['source_sha256'] if review else None,
             'input_sha256':review['input_sha256'] if review else None,
@@ -140,6 +149,8 @@ def product_manifest(evaluation: ColumnProductEvaluation, authority):
     matrix=product_input_authority_matrix(p,authority)
     numeric={c.id:c.value for c in evaluation.controls if c.id in {'emin_M2','emin_M3'} and c.value is not None}
     matrix['first_control']['computed_values']=numeric or None
+    cage=next((c for c in evaluation.controls if c.id=='cage'),None)
+    layout=None if cage is None or cage.owner_output is None else cage.owner_output.get('layout')
     synthetic=any(r['origin']=='SYNTHETIC_TEST' for r in p['reviews'].values())
     for c in evaluation.controls:
         f=(ReportField('value','Sonuç',c.value,c.unit),ReportField('limit','Sınır',c.limit,c.unit,role='LIMIT'),ReportField('status','Motor / gate durumu',c.status,role='STATUS'))
@@ -149,30 +160,39 @@ def product_manifest(evaluation: ColumnProductEvaluation, authority):
         contrib=SliceReportContribution('COLUMN-235-'+c.id,c.title,'COMPOSITE','BLOCKED' if c.status=='BLOCKED' else 'PARTIAL','COLUMN','235',summary_fields=f,calculations=calc,
             evidence_refs=(evaluation.input_sha256,),warnings=c.dependencies)
         contributions.append(contrib.as_dict())
-        checks.append({**asdict(c),'display_status': 'ENGELLİ / HESAPLANMADI' if c.status=='BLOCKED' else 'PROJE REVIEW KOŞULLU',
-            'reason':' · '.join(c.dependencies) if c.dependencies else 'Bağımsız mevcut owner değerlendirildi; tüm kolon readiness kanıtı değildir.',
-            'governing_case':c.governing,'governing_end':None,'station_m':None})
-    return {'schema_version':'column.product.235.result.v1','context':'B-BLOK-235','title':'SENTETİK TEST / gerçek 235 hesabı değildir' if synthetic else 'B-BLOK / Kolon 235 çalışma raporu',
+        states=(c.owner_output or {}).get('states',[])
+        governing=next((x['state'] for x in states if isinstance(x,dict) and isinstance(x.get('state'),dict) and x['state'].get('state_id')==c.governing),{})
+        subchecks=[]
+        for raw in (c.owner_output or {}).get('checks',[]):
+            subchecks.append({**raw,**present_decision(raw['status']),'display_value':displayed(raw.get('value'),raw.get('unit') or '-')[0],
+                'display_limit':displayed(raw.get('limit'),raw.get('unit') or '-')[0],'display_unit':displayed(raw.get('value'),raw.get('unit') or '-')[1]})
+        checks.append({'subchecks':subchecks,**asdict(c),**present_decision(c.status),
+            'display_value':displayed(c.value,c.unit)[0],'display_limit':displayed(c.limit,c.unit)[0],'display_unit':displayed(c.value,c.unit)[1],
+            'origins':list(c.origins),
+            'reason':' · '.join(c.dependencies) if c.dependencies else c.decision_reason or c.trace or 'Mevcut owner değerlendirildi; tam kolon readiness değildir.',
+            'governing_case':governing.get('case'),'governing_end':governing.get('native_slot_label_only'),'station_m':governing.get('station_m'),
+            'governing_step_type':governing.get('step_type'),'governing_step_number':governing.get('step_number'),'governing_scope':'DECLARED_INPUT_STATES_ONLY' if governing else None})
+    return {'schema_version':'column.product.235.result.v2','context':'B-BLOK-235','title':'SENTETİK TEST / gerçek 235 hesabı değildir' if synthetic else 'B-BLOK / Kolon 235 çalışma raporu',
         'data_provenance':'SYNTHETIC_TEST' if synthetic else 'ACCEPTED_NATIVE_FACTS_WITH_PROJECT_DECLARATIONS',
         'component_id':'235','section':authority.evidence['section'],'status':'OFFLINE_PARTIAL' if evaluation.invoked_owners else 'BLOCKED_MISSING_REVIEWED_INPUTS',
         'result_id':evaluation.result_id,'input_sha256':evaluation.input_sha256,'input_packet':p,
         'native_evidence':authority.evidence,'candidate_sha256':authority.source_sha256,'historical_sha256':authority.historical_sha256,
         'evidence_epoch':authority.evidence_epoch,'current_analysis_result_epoch':None,'session_connection':'NOT_OBSERVED',
-        'checks':checks,'contributions':contributions,'section_svg':product_drawing(p),
+        'checks':checks,'contributions':contributions,'section_svg':product_drawing(p,layout),
         'input_authority_matrix':matrix,
         'invoked_owners':evaluation.invoked_owners,'typed_owner_outputs':{'slenderness':None if evaluation.slenderness is None else asdict(evaluation.slenderness),
             'material_basis':None if evaluation.material_basis is None else asdict(evaluation.material_basis)},
         'input_completeness':[{ 'field':k,'label':label,'unit':unit,'value':p['values'][k],'group':group,
-            'provenance':'PROJECT_REVIEW_DECLARATION' if group in p['reviews'] else 'UNREVIEWED_USER_DRAFT' if p['values'][k] is not None else 'NOT_PROVIDED',
+            'provenance':p['reviews'][group]['origin'] if group in p['reviews'] else 'UNREVIEWED_USER_DRAFT' if p['values'][k] is not None else 'NOT_PROVIDED',
             'review':p['reviews'].get(group)} for k,label,unit,group,_ in FIELDS],
         'canonical_rebar_authority':'NOT_PROVIDED','user_cage_role':'USER_PROVIDED_REBAR' if 'cage' in p['reviews'] else 'NOT_PROVIDED',
         'real_235_design_ready':False,'global_delta':'NOT_PROVEN','M6_B':'OPEN','R2_RERUN_READY':False,
         'scope':[
             '235 native kesit ataması ve I22/I33 kabul edilmiş acquisition kapsamındadır. Güncel ETABS bağlantısı gözlenmedi.',
-            'Geometri/narinlik/malzeme review girdileri proje beyanıdır; native olgu, current B5/B6 veya analiz doğrulaması yapılmaz.',
-            'Minimum dışmerkezlik yalnız emin değeridir; kuvvet authority olmadan Nd×emin momenti veya PMM üretilmez.',
+            'Review girdileri kendi USER_DECLARATION / PROJECT_DOCUMENT / SYNTHETIC_TEST kökeniyle taşınır; native olgu, current B5/B6 veya imza doğrulaması değildir.',
+            'Beyan edilen N-M2-M3 ve açık yerleşim yeterliyse mevcut kapasite owner PMM hesaplar. Bu hesap minimum moment/ikinci mertebe talebi veya native tasarım onayı değildir.',
             'Narinlik motor sonucu beyan edilen ln/k/ötelenme sınıfı koşulludur; A17/M6-B/whole-system kapanışı değildir.',
-            'Kuvvet adayları native I/J slotları için ayrı drafttır; bottom/top veya governing durumu üretilmedi.',
+            'I/J satırları case/step/station ve işaret sözleşmesiyle ayrı tutulur. Yöneten sonuç yalnız girilen durum kümesine aittir; fiziksel alt/üst eşlemesi yapılmaz.',
             'Donatı USER_PROVIDED_REBAR review olabilir; ENGINE_SELECTED_REBAR/final/as-built yapılmaz.',
             'FC09 historical sonuçlar 61FA current source’a taşınmaz. Global Δ NOT_PROVEN; M6-B OPEN; R2 hazır değil.',
         ]}
@@ -180,18 +200,16 @@ def product_manifest(evaluation: ColumnProductEvaluation, authority):
 
 def render_product_html(manifest):
     e=lambda v:escape(str(v),quote=True)
-    rows=''.join('<tr><td>'+e(c['title'])+'</td><td>'+e('—' if c['value'] is None else format(c['value'],'.7g'))+' '+e(c['unit'])+'</td><td>'+e(c['status'])+'</td></tr>' for c in manifest['checks'])
-    def shown_input(f):
-        v=f['value'];u=f['unit']
-        return (None if v is None else v/10 if u=='mm' else v*100 if u=='m' else v,
-                'cm' if u in {'mm','m'} else 'kN·m' if u=='kN.m' else u)
+    rows=''.join('<tr><td>'+e(c['title'])+'</td><td>'+e('—' if c['value'] is None else format(c['display_value'],'.7g'))+' '+e(c['display_unit'])+'</td><td>'+e(c['display_status']+' · '+c['status']+' · '+', '.join(c['origins']))+'</td></tr>' for c in manifest['checks'])
+    def shown_input(f):return displayed(f['value'],f['unit'])
     inputs=''.join('<tr><td>'+e(f['label'])+'</td><td>'+e(shown_input(f)[0])+'</td><td>'+e(shown_input(f)[1])+'</td><td>'+e(f['provenance'])+'</td></tr>' for f in manifest['input_completeness'])
     first=manifest['input_authority_matrix']['first_control']
     request_html='<h2>İlk hesap için gereken gerçek veri</h2><p>Owner: '+e(first['owner'])+'; durum '+e(first['source_qualification'])+'</p><ul>'+''.join('<li>'+e(r)+'</li>' for r in first['minimum_user_request'])+'</ul>'
-    details=''.join('<article><h2>'+e(c['title'])+'</h2><p>'+e(c['status'])+'</p><p>'+e(c['source'])+'</p><code>'+e(c['formula'])+'</code><p>'+e(c['trace'])+'</p><p>Sınır: '+e(c['limit'])+' '+e(c['unit'])+'</p><p>'+e(c['reason'])+'</p><p>Owner: '+e(c['owner'])+'</p><p>Çözüm: '+e(c['closure_owner'])+'</p></article>' for c in manifest['checks'])
+    details=''.join('<article><h2>'+e(c['title'])+'</h2><p>'+e(c['display_status']+' · '+c['status']+' · '+', '.join(c['origins']))+'</p><p>'+e(c['source'])+'</p><code>'+e(c['formula'])+'</code><p>'+e(c['trace'])+'</p><p>Sınır: '+e(c['display_limit'])+' '+e(c['display_unit'])+'</p><p>'+e(c['reason'])+'</p><p>'+e(c['next_action'])+'</p><p>Owner: '+e(c['owner'])+'</p><p>Çözüm: '+e(c['closure_owner'])+'</p></article>' for c in manifest['checks'])
     points=''.join('<p>'+e(p['native_slot'])+' → '+e(p['point_name'])+': X='+e(p['X'])+' m; Y='+e(p['Y'])+' m; Z='+e(p['Z'])+' m</p>' for p in manifest['native_evidence']['current_point_coordinates'])
     points='<h2>Güncel aday native koordinatları / Global / m</h2>'+points+'<p>Özgün ABI7; native slot sırası, fiziksel alt/üst veya ln değildir.</p>'
-    return '<!doctype html><html lang="tr"><meta charset="UTF-8"><title>'+e(manifest['title'])+'</title><style>body{font:14px/1.6 system-ui;color:#183c53;max-width:1000px;margin:40px auto;padding:20px}table{border-collapse:collapse;width:100%}td,th{padding:9px;border-bottom:1px solid #dbe4eb;text-align:left}h1{font-size:28px}article{border:1px solid #dbe4eb;padding:16px;margin:16px 0;break-inside:avoid}svg{max-width:420px}pre{white-space:pre-wrap;overflow-wrap:anywhere}code{background:#eef3f7}</style><h1>'+e(manifest['title'])+'</h1><p>Durum: '+e(manifest['status'])+' · Tam tasarım hazır: HAYIR · ETABS bağlantısı: gözlenmedi</p>'+manifest['section_svg']+points+request_html+'<h2>Kontrol özeti</h2><table>'+rows+'</table><h2>Girdi / birim / köken</h2><table>'+inputs+'</table>'+details+'<h2>Kapsam</h2>'+''.join('<p>'+e(s)+'</p>' for s in manifest['scope'])+'<details><summary>Girdi + sonuç + kanıt kimliği</summary><pre>'+e(json.dumps(manifest,ensure_ascii=False,indent=2))+'</pre></details></html>'
+    run='<p>Koşu zarfı: '+e(json.dumps(manifest.get('run_envelope',{}),ensure_ascii=False))+'</p>'
+    return '<!doctype html><html lang="tr"><meta charset="UTF-8"><title>'+e(manifest['title'])+'</title><style>body{font:14px/1.6 system-ui;color:#183c53;max-width:1000px;margin:40px auto;padding:20px}table{border-collapse:collapse;width:100%}td,th{padding:9px;border-bottom:1px solid #dbe4eb;text-align:left}h1{font-size:28px}article{border:1px solid #dbe4eb;padding:16px;margin:16px 0;break-inside:avoid}svg{max-width:420px}pre{white-space:pre-wrap;overflow-wrap:anywhere}code{background:#eef3f7}</style><h1>'+e(manifest['title'])+'</h1>'+run+'<p>Durum: '+e(manifest['status'])+' · Tam tasarım hazır: HAYIR · ETABS bağlantısı: gözlenmedi</p>'+manifest['section_svg']+points+request_html+'<h2>Kontrol özeti</h2><table>'+rows+'</table><h2>Girdi / birim / köken</h2><table>'+inputs+'</table>'+details+'<h2>Kapsam</h2>'+''.join('<p>'+e(s)+'</p>' for s in manifest['scope'])+'<details><summary>Girdi + sonuç + kanıt kimliği</summary><pre>'+e(json.dumps(manifest,ensure_ascii=False,indent=2))+'</pre></details></html>'
 
 
 def render_product_pdf(manifest):
@@ -200,7 +218,7 @@ def render_product_pdf(manifest):
     from reportlab.platypus import SimpleDocTemplate,Paragraph,Spacer,Table,TableStyle,KeepTogether
     from reportlab.pdfbase import pdfmetrics
     from reportlab.pdfbase.ttfonts import TTFont
-    from reportlab.graphics.shapes import Drawing,Rect,Line,String
+    from reportlab.graphics.shapes import Drawing,Rect,Circle,Line,String
     pairs=[(Path('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf'),Path('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf')),(Path('C:/Windows/Fonts/arial.ttf'),Path('C:/Windows/Fonts/arialbd.ttf'))]
     found=next(((a,b) for a,b in pairs if a.is_file() and b.is_file()),None)
     if found is None:raise ValueError('PDF için Arial veya DejaVu fontları bulunamadı.')
@@ -214,20 +232,29 @@ def render_product_pdf(manifest):
         t.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),colors.HexColor('#edf3f7')),('VALIGN',(0,0),(-1,-1),'TOP'),('LINEBELOW',(0,0),(-1,-1),.3,colors.HexColor('#dbe4eb')),('BOTTOMPADDING',(0,0),(-1,-1),6)]));return t
     display=lambda value:'Verilmedi' if value is None else format(value,'.7g') if type(value) in {int,float} else str(value)
     story=[para(manifest['title'],heading),para('Durum: '+manifest['status']+' | Tam tasarım hazır: HAYIR | ETABS bağlantısı gözlenmedi.'),para('Kesit: '+manifest['section']+'; kabul edilmiş I22/I33 = '+repr(manifest['native_evidence']['I22']['value'])+' m4; ölçü native olarak doğrulanmadı.'),para('Bağımsız proje review kontrolleri; güncel üretim readiness veya final donatı hükmü değildir.')]
+    story += [para('Koşu zarfı'),para(json.dumps(manifest.get('run_envelope',{}),ensure_ascii=False))]
     story += [para('Güncel aday / Global / m — özgün ABI7 koordinatları',heading)]
     story += [para(p['native_slot']+' → '+p['point_name']+'; X='+repr(p['X'])+' m; Y='+repr(p['Y'])+' m; Z='+repr(p['Z'])+' m') for p in manifest['native_evidence']['current_point_coordinates']]
     story += [para('Native slot sırası; fiziksel alt/üst veya ln türetilmedi.'),para('Özgün receipt SHA256: '+manifest['native_evidence']['coordinate_provenance']['whole_json_sha256'])]
     if manifest['section_svg']:
         v=manifest['input_packet']['values'];scale=140/max(v['width_mm'],v['depth_mm']);w=v['width_mm']*scale;h=v['depth_mm']*scale
         d=Drawing(490,195);d.add(Rect(100-w/2,95-h/2,w,h,fillColor=colors.HexColor('#edf3f7')));d.add(Line(100,95,205,95));d.add(Line(100,95,100,180))
-        for x,y,s in [(210,95,'2'),(107,180,'3'),(230,135,f"b={v['width_mm']:g} mm"),(230,115,f"h={v['depth_mm']:g} mm"),(230,90,'Proje review kesiti; native ölçü değil'),(230,70,'Donatı seçimi/yerleşimi nitelikli değil')]:d.add(String(x,y,s,fontName='ColumnV3',fontSize=8))
+        for x,y,s in [(210,95,'2'),(107,180,'3'),(230,135,f"b={v['width_mm']/10:g} cm"),(230,115,f"h={v['depth_mm']/10:g} cm"),(230,90,'Proje review kesiti; native ölçü değil'),(230,70,'Donatı seçimi/yerleşimi nitelikli değil')]:d.add(String(x,y,s,fontName='ColumnV3',fontSize=8))
+        cage=next((c for c in manifest['checks'] if c['id']=='cage'),None)
+        layout=None if cage is None or cage['owner_output'] is None else cage['owner_output'].get('layout')
+        if layout:
+            for bar in layout['bars']:d.add(Circle(100+bar['x2_mm']*scale,95+bar['x3_mm']*scale,bar['diameter_mm']*scale/2,fillColor=colors.HexColor('#167969')))
         story.append(d)
     first=manifest['input_authority_matrix']['first_control']
     story+=[para('İlk hesap / eksik gerçek veri',heading),para('Owner: '+first['owner']),para('Durum: '+first['source_qualification'])]
     story += [para(request) for request in first['minimum_user_request']]
-    story+=[para('Kontrol özeti',heading),table([['Kontrol','Sonuç / sınır','Durum']]+[[c['title'],display(c['value'])+' / '+display(c['limit'])+' '+c['unit'],c['status']] for c in manifest['checks']],[185,150,160]),para('Girdi / birim / köken',heading),table([['Girdi','Değer / birim','Provenance']]+[[f['label'],display(None if f['value'] is None else f['value']/10 if f['unit']=='mm' else f['value']*100 if f['unit']=='m' else f['value'])+' '+('cm' if f['unit'] in {'mm','m'} else 'kN·m' if f['unit']=='kN.m' else f['unit']),f['provenance']] for f in manifest['input_completeness']],[185,130,180])]
+    story+=[para('Kontrol özeti',heading),table([['Kontrol','Sonuç / sınır','Durum']]+[[c['title'],display(c['display_value'])+' / '+display(c['display_limit'])+' '+c['display_unit'],c['display_status']+' / '+c['status']] for c in manifest['checks']],[185,150,160]),para('Girdi / birim / köken',heading),table([['Girdi','Değer / birim','Provenance']]+[[f['label'],display(displayed(f['value'],f['unit'])[0])+' '+displayed(f['value'],f['unit'])[1],f['provenance']] for f in manifest['input_completeness']],[185,130,180])]
     for c in manifest['checks']:
-        story.append(KeepTogether([para(c['title'],heading),para(c['status']),*[para(c[k]) for k in ('source','formula','trace','reason') if c[k]],para('Owner: '+c['owner']),para('Çözüm sahibi: '+c['closure_owner'])]))
+        story.append(KeepTogether([para(c['title'],heading),para(c['display_status']+' · '+c['status']+' · '+', '.join(c['origins'])),para(c['next_action']),*[para(c[k]) for k in ('source','formula','trace','reason') if c[k]],para('Owner: '+c['owner']),para('Çözüm sahibi: '+c['closure_owner'])]))
+    for c in manifest['checks']:
+        if c.get('owner_output'):
+            story.append(para(c['title']+' / exact owner output',heading))
+            story.append(para(json.dumps(c['owner_output'],ensure_ascii=False,sort_keys=True)))
     story+=[para('Kapsam ve kesin kaynak kimliği',heading),*[para(s) for s in manifest['scope']],para('Aday SHA256: '+manifest['candidate_sha256']),para('Tarihsel SHA256: '+manifest['historical_sha256']),para('Girdi SHA256: '+manifest['input_sha256']),para('Sonuç kimliği: '+manifest['result_id'])]
     for group,review in manifest['input_packet']['reviews'].items():story.append(para(group+' review: '+json.dumps(review,ensure_ascii=False,sort_keys=True)))
     buffer=BytesIO()

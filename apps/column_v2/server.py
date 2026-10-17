@@ -11,6 +11,8 @@ from pathlib import Path
 from threading import RLock
 from uuid import uuid4
 import json
+import sys
+from importlib.metadata import version
 from html import escape
 from hashlib import sha256
 
@@ -18,7 +20,7 @@ from tbdy_engine.application.column_reference_workspace import ReferenceColumnIn
 from tbdy_engine.application.column_reference_producer import ReferenceOwnerInput, calculate_reference_owners
 from tbdy_engine.product_reports.column_reference_producer_report import OWNER_FIELDS, owner_reference_manifest, render_owner_reference_pdf, render_owner_reference_html
 from tbdy_engine.product_reports.column_v2_report import FIELDS, reference_manifest, column_235_manifest, section_svg, render_reference_pdf, render_manifest_pdf
-from tbdy_engine.application.column_product_workspace import validate_packet, apply_review, evaluate_column_product, FIELDS as PRODUCT_FIELDS
+from tbdy_engine.application.column_product_workspace import validate_packet, apply_review, evaluate_column_product, migrate_v1_packet, known_user_draft, FIELDS as PRODUCT_FIELDS
 from tbdy_engine.application.column_qualified_workspace import QualifiedColumnChannel
 from tbdy_engine.product_reports.column_qualified_report import render_qualified_html, render_qualified_pdf, present_qualified_result
 from tbdy_engine.product_reports.column_product_report import product_authority, product_manifest, product_drawing, render_product_html, render_product_pdf, product_input_authority_matrix
@@ -32,6 +34,8 @@ class Workspace:
     calculation: ReferenceCalculation | None = None
     running: bool = False
     product_calculation: object | None = None
+    product_draft: dict | None = None
+    run_envelope: dict | None = None
 
 
 class ColumnWorkspace:
@@ -45,14 +49,25 @@ class ColumnWorkspace:
         self.lock = RLock()
         self.events = []
         self.audit = None if audit_path is None else audit_path.open('x', encoding='utf-8')
-        self.code_hashes = {str(p.relative_to(repo)): sha256(p.read_bytes()).hexdigest() for p in (
-            repo/'tbdy_engine/application/column_reference_workspace.py',
-            repo/'tbdy_engine/design/columns/column_design_engine.py',
-            repo/'tbdy_engine/product_reports/column_v2_report.py',
-            repo/'apps/column_v2/server.py',repo/'apps/column_v2/index.html',
-            repo/'tbdy_engine/application/column_product_workspace.py',repo/'tbdy_engine/product_reports/column_product_report.py',
-            repo/'tbdy_engine/application/column_reference_producer.py',repo/'tbdy_engine/product_reports/column_reference_producer_report.py',
-            repo/'tbdy_engine/regulatory/column_transverse_confinement.py')}
+        paths=sorted(set(repo.glob('tbdy_engine/**/*.py')) | set(repo.glob('apps/column_v2/*')) | set(repo.glob('packages/etabs_gateway/src/**/*.py')) | {repo/'requirements-column-v2.txt',repo/'tools/start_column_product.py',repo/'tools/serve_column_v2.py'})
+        self.code_hashes={str(p.relative_to(repo)):sha256(p.read_bytes()).hexdigest() for p in paths if p.is_file() and p.suffix in {'.py','.html','.txt'}}
+        self.build_id=sha256(canonical_bytes(self.code_hashes)).hexdigest()
+        self.runtime_profile={'python':sys.version.split()[0],'dependencies':{name:version(name) for name in ('reportlab','PyYAML','jsonschema')}}
+
+    def verify_build(self):
+        observed={name:sha256((self.repo/name).read_bytes()).hexdigest() for name in self.code_hashes}
+        if observed!=self.code_hashes:raise ValueError('Çalışan build dosyaları değişti; sunucuyu yeniden başlatın.')
+
+    def attach_run(self, manifest, w, workspace_id):
+        envelope={'schema':'column.calculation-run.v1','workspace_id':workspace_id,'calculation_revision':w.revision,
+            'result_id':manifest.get('result_id'),'input_sha256':manifest.get('input_sha256'),
+            'build_sha256':self.build_id,'code_manifest_sha256':self.build_id,'runtime_profile':self.runtime_profile,
+            'input_identity_kind':'QUALIFIED_ARTIFACT_SET' if w.context=='qualified' else 'DECLARED_INPUT_PACKET',
+            'calculation_scope':w.context,'source_scope':manifest.get('scope_identity',{'component_id':manifest.get('component_id'),'candidate_sha256':manifest.get('candidate_sha256')}),
+            'native_evidence_epoch':manifest.get('evidence_epoch'),'git_head':None}
+        w.run_envelope=envelope
+        manifest['run_envelope']=envelope
+        return manifest
 
     def record(self, event: str, **facts):
         with self.lock:
@@ -64,11 +79,12 @@ class ColumnWorkspace:
     def create(self) -> dict:
         with self.lock:
             if len(self.workspaces) >= 32: raise ValueError('Yerel çalışma alanı sınırı doldu; sunucuyu yeniden başlatın.')
-            key = uuid4().hex; self.workspaces[key] = Workspace()
+            key = uuid4().hex; self.workspaces[key] = Workspace(product_draft=known_user_draft(self.product_authority))
             self.record('WORKSPACE_CREATED', workspace_id=key)
             return {'id':key,'revision':0,'default_bundle':ReferenceColumnInput().bundle(),'fields':FIELDS,
                     'owner_reference_bundle':ReferenceOwnerInput.example().bundle(),'owner_reference_fields':OWNER_FIELDS,
-                    'product_packet':self.product_authority.packet(),'product_fields':PRODUCT_FIELDS,'qualified_catalog':self.qualified_channel.catalog()}
+                    'build_manifest':{'schema':'column.build.v1','build_sha256':self.build_id,'files':self.code_hashes},
+                    'product_packet':self.workspaces[key].product_draft,'product_fields':PRODUCT_FIELDS,'qualified_catalog':self.qualified_channel.catalog()}
 
     def get(self, key: str) -> Workspace:
         if key not in self.workspaces: raise ValueError('Bilinmeyen çalışma alanı.')
@@ -80,7 +96,7 @@ class ColumnWorkspace:
         if body['context'] == '235' and body['bundle'] is not None:
             raise ValueError('235 bağlamına referans girdi aktarılamaz.')
         with self.lock:
-            w = self.get(body['workspace_id']); w.revision += 1; w.calculation = None; w.product_calculation = None
+            w = self.get(body['workspace_id']); w.revision += 1; w.calculation = None; w.product_calculation = None; w.run_envelope = None
             w.context = body['context']; w.bundle = body['bundle']
             self.record('RESULT_INVALIDATED', workspace_id=body['workspace_id'], revision=w.revision, context=w.context)
             if w.context == 'reference-owners':
@@ -96,7 +112,11 @@ class ColumnWorkspace:
                     raise
                 return {'revision':w.revision,'qualified':view}
             if w.context == '235-product':
-                try: w.bundle = validate_packet(body['bundle'],self.product_authority)
+                try:
+                    incoming=body['bundle']
+                    if isinstance(incoming,dict) and incoming.get('schema')=='column.product.235.input.v1': incoming=migrate_v1_packet(incoming,self.product_authority)
+                    w.bundle=validate_packet(incoming,self.product_authority)
+                    w.product_draft=w.bundle
                 except Exception:
                     w.bundle = None
                     raise
@@ -107,6 +127,7 @@ class ColumnWorkspace:
             return {'revision':w.revision,'section_svg':drawing}
 
     def calculate(self, body: dict) -> dict:
+        self.verify_build()
         if set(body) != {'workspace_id','revision'}: raise ValueError('Hesap isteği kimliği farklı.')
         with self.lock:
             owner_reference = self.get(body['workspace_id']).context == 'reference-owners'
@@ -122,7 +143,7 @@ class ColumnWorkspace:
                     result_id=view['result_id'],scope_identity=view['scope_identity'],
                     owner_artifact_sha256={k:v['artifact_sha256'] for k,v in view['owner_outputs'].items()},
                     fnd2_status=view['fnd2_status'],application_status=view['application_status'],native_calls=0)
-                return view
+                return self.attach_run(view,w,body['workspace_id'])
             if w.context == '235-product': return self.calculate_product(body)
             if w.context != 'reference': raise ValueError('235 için hesap girdileri eksik; referans hesabı kullanılamaz.')
             if type(body['revision']) is not int or w.revision != body['revision']: raise ValueError('Eski girdi revizyonu.')
@@ -143,7 +164,7 @@ class ColumnWorkspace:
                     self.record('STALE_ENGINE_RESULT_REJECTED',workspace_id=body['workspace_id'],revision=revision)
                     raise ValueError('Hesap sırasında girdi/bağlam değişti; sonuç geçersiz.')
                 w.calculation = calculation
-                return manifest
+                return self.attach_run(manifest,w,body['workspace_id'])
         except Exception as exc:
             self.record('CALCULATION_REJECTED',workspace_id=body['workspace_id'],revision=revision,exception_type=type(exc).__name__,message=str(exc))
             raise
@@ -151,6 +172,7 @@ class ColumnWorkspace:
             with self.lock: w.running = False
 
     def report(self, body: dict) -> tuple[bytes,str,str]:
+        self.verify_build()
         if set(body) != {'workspace_id','revision','result_id','format'} or body['format'] not in {'pdf','json','html'}:
             raise ValueError('Rapor isteği farklı.')
         with self.lock:
@@ -160,31 +182,36 @@ class ColumnWorkspace:
                 if w.product_calculation is None: raise ValueError('Aktif nitelikli sonuç yok; önce sonucu doğrulayın.')
                 manifest = present_qualified_result(self.qualified_channel.consume(w.bundle))
                 if body['result_id'] != manifest['result_id']: raise ValueError('Nitelikli sonuç kimliği farklı.')
+                manifest['run_envelope']=w.run_envelope
                 content = render_qualified_pdf(manifest) if body['format']=='pdf' else render_qualified_html(manifest).encode() if body['format']=='html' else canonical_bytes(manifest)
                 name = 'Qualified_Column_Owner_Result'
             elif w.context == '235-product':
                 if w.product_calculation is None: raise ValueError('Aktif 235 değerlendirmesi yok; önce Hesapla.')
                 manifest = product_manifest(w.product_calculation,self.product_authority)
                 if body['result_id'] != manifest['result_id']: raise ValueError('Aktif 235 sonuç kimliği farklı.')
+                manifest['run_envelope']=w.run_envelope
                 content = render_product_pdf(manifest) if body['format']=='pdf' else render_product_html(manifest).encode() if body['format']=='html' else canonical_bytes(manifest)
                 name = 'B_BLOK_235_Calisma'
             elif w.context == 'reference-owners':
                 if w.product_calculation is None: raise ValueError('Aktif owner hesabı yok; önce Hesapla.')
                 manifest = owner_reference_manifest(w.product_calculation)
                 if body['result_id'] != manifest['result_id']: raise ValueError('Aktif owner sonuç kimliği farklı.')
-                content = render_owner_reference_pdf(w.product_calculation) if body['format']=='pdf' else render_owner_reference_html(manifest).encode() if body['format']=='html' else canonical_bytes(manifest)
+                manifest['run_envelope']=w.run_envelope
+                content = render_manifest_pdf(manifest,input_fields=OWNER_FIELDS) if body['format']=='pdf' else render_owner_reference_html(manifest).encode() if body['format']=='html' else canonical_bytes(manifest)
                 name = 'Editable_Reference_Owner_Calculation'
             elif w.context == 'reference':
                 if body['format']=='html': raise ValueError('Referans HTML export bu endpoint kapsamında değil.')
                 if w.calculation is None: raise ValueError('Aktif hesap yok; önce Hesapla.')
                 manifest = reference_manifest(w.calculation)
                 if body['result_id'] != manifest['result_id']: raise ValueError('Aktif sonuç kimliği farklı.')
-                content = render_reference_pdf(w.calculation) if body['format'] == 'pdf' else canonical_bytes(manifest)
+                manifest['run_envelope']=w.run_envelope
+                content = render_manifest_pdf(manifest) if body['format'] == 'pdf' else canonical_bytes(manifest)
                 name = 'Referans_Kolon_Hesap'
             else:
                 if body['format']=='html': raise ValueError('Kanıt HTML için teknik panel bağlantısı kullanın.')
                 if body['result_id'] is not None: raise ValueError('235 için referans sonucu kabul edilmez.')
-                manifest = self.evidence
+                manifest = dict(self.evidence)
+                manifest['run_envelope']=w.run_envelope
                 content = render_manifest_pdf(manifest) if body['format'] == 'pdf' else canonical_bytes(manifest)
                 name = 'B_BLOK_235_Kanit'
             self.record('REPORT_EXPORTED',workspace_id=body['workspace_id'],revision=w.revision,context=w.context,
@@ -220,7 +247,7 @@ class ColumnWorkspace:
                 self.record('REFERENCE_PRODUCER_RETURNED',workspace_id=body['workspace_id'],revision=revision,
                     input_sha256=calculation.input_sha256,result_id=manifest['result_id'],
                     invoked_owners=calculation.invoked_owners,engineering_complete=False,native_calls=0)
-                return manifest
+                return self.attach_run(manifest,w,body['workspace_id'])
         except Exception as exc:
             self.record('REFERENCE_PRODUCER_REJECTED',workspace_id=body['workspace_id'],revision=revision,
                         exception_type=type(exc).__name__,message=str(exc)); raise
@@ -239,13 +266,14 @@ class ColumnWorkspace:
         with self.lock:
             w=self.get(body['workspace_id'])
             if w.context!='235-product' or type(body['revision']) is not int or w.revision!=body['revision']: raise ValueError('Eski/farklı review revizyonu.')
-            w.revision+=1;w.calculation=None;w.product_calculation=None
+            w.revision+=1;w.calculation=None;w.product_calculation=None;w.run_envelope=None
             self.record('PRODUCT_REVIEW_RESULT_INVALIDATED',workspace_id=body['workspace_id'],revision=w.revision)
             try: w.bundle=apply_review(w.bundle,body['group'],body['declaration'],self.product_authority)
             except Exception:
                 # Never keep an old reviewed result after a rejected submission.
                 raise
             self.record('PROJECT_DECLARATION_REVIEWED',workspace_id=body['workspace_id'],revision=w.revision,group=body['group'],origin=body['declaration']['origin'])
+            w.product_draft=w.bundle
             return self.product_view(w)
 
     def calculate_product(self, body):
@@ -261,7 +289,7 @@ class ColumnWorkspace:
             manifest=product_manifest(evaluation,self.product_authority)
             w.product_calculation=evaluation
             self.record('PRODUCT_ENGINE_RETURNED',workspace_id=body['workspace_id'],revision=revision,result_id=manifest['result_id'],invoked_owners=evaluation.invoked_owners,design_ready=False)
-            return manifest
+            return self.attach_run(manifest,w,body['workspace_id'])
         except Exception as exc:
             self.record('PRODUCT_CALCULATION_REJECTED',workspace_id=body['workspace_id'],revision=revision,exception_type=type(exc).__name__,message=str(exc));raise
         finally:w.running=False

@@ -67,7 +67,8 @@ def test_exact_typed_owner_status_and_reference_limits():
     m=owner_reference_manifest(app.calculate_reference_owners(b))
     c=next(c for c in m['checks'] if c['id']=='COL_FINAL_SHEAR_VR_DIR2')
     assert c['status']=='FAIL' and c['value']==500 and c['limit']==428.5
-    assert c['ratio']==500/428.5 and 'REFERANS' in c['display_status']
+    assert c['ratio']==500/428.5 and c['display_status']=='UYGUN DEĞİL'
+    assert c['origins']==['SYNTHETIC_TEST'] and c['severity']=='danger'
     assert 'ENGINE_SELECTED_REBAR_REQUIRED_FOR_HD_SPACING' in m['transverse_blockers']
     assert m['B5'] is m['B6'] is None and not m['engineering_complete'] and not m['real_235_design_ready']
     assert m['authority']=='DESIGN_CANDIDATE_ONLY'

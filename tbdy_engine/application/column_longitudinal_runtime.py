@@ -189,6 +189,7 @@ def compose_column_longitudinal_runtime(
     controlled_design_result,
     reviewed_design_basis: ReviewedColumnDesignBasis,
     expected_combo_policy: ExpectedConcreteDesignComboPolicy,
+    reviewed_detailing_evidence=None,
 ) -> ColumnLongitudinalRuntimeComposition:
     """Compose the existing authorities after qualified FND2 and qualified B6."""
     if not isinstance(reviewed_design_basis, ReviewedColumnDesignBasis):
@@ -342,6 +343,7 @@ def compose_column_longitudinal_runtime(
         detailing = materialize_selected_column_longitudinal_detailing(
             selection.selected_rebar,
             authority_catalog=FND_COL_1_AUTHORITY_CATALOG,
+            reviewed_evidence=reviewed_detailing_evidence,
         )
 
     return ColumnLongitudinalRuntimeComposition(

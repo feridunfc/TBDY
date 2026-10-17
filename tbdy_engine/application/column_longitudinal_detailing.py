@@ -10,7 +10,12 @@ outcome is ``FINAL_DETAILING_REQUIRED``.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
+from datetime import datetime
+from hashlib import sha256
+import json
+from tbdy_engine.design.columns.column_pmm_assessment import ColumnPmmMaterialContextBinding
+from tbdy_engine.regulatory.column_detailing_checks import DetailingFacts, SOURCE_HASHES, evaluate_detailing_facts, validate_detailing_fact_types
 from decimal import Decimal
 from typing import Sequence
 
@@ -37,6 +42,9 @@ FINAL_DETAILING_REQUIRED = "FINAL_DETAILING_REQUIRED"
 DETAILING_PROVEN = "DETAILING_PROVEN"
 OUTCOME_UNRESOLVED = "UNRESOLVED"
 OUTCOME_PROVEN = "PROVEN"
+OUTCOME_FAIL = "FAIL"
+OUTCOME_NOT_APPLICABLE = "NOT_APPLICABLE"
+DETAILING_FAILED = "DETAILING_FAILED"
 
 LAP_SPLICE_LOCATION_REGION = "LAP_SPLICE_LOCATION_REGION"
 LAP_SECTION_RHO = "LAP_SECTION_RHO"
@@ -92,11 +100,12 @@ class ColumnLongitudinalDetailingOutcome:
     status: str
     reason: str
     source_refs: tuple[str, ...]
+    values_json: str = "{}"
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "item", _text(self.item, "item"))
         status = _text(self.status, "status")
-        if status not in {OUTCOME_UNRESOLVED, OUTCOME_PROVEN}:
+        if status not in {OUTCOME_UNRESOLVED, OUTCOME_PROVEN, OUTCOME_FAIL, OUTCOME_NOT_APPLICABLE}:
             raise ColumnLongitudinalDetailingError(
                 f"unsupported detailing outcome status {status!r}"
             )
@@ -106,7 +115,7 @@ class ColumnLongitudinalDetailingOutcome:
 
     @property
     def resolved(self) -> bool:
-        return self.status == OUTCOME_PROVEN
+        return self.status != OUTCOME_UNRESOLVED
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,7 +177,7 @@ class ColumnLongitudinalDetailingResolution:
         )
 
         status = _text(self.status, "status")
-        if status not in {FINAL_DETAILING_REQUIRED, DETAILING_PROVEN}:
+        if status not in {FINAL_DETAILING_REQUIRED, DETAILING_PROVEN, DETAILING_FAILED}:
             raise ColumnLongitudinalDetailingError(
                 f"unsupported A35 detailing status {status!r}"
             )
@@ -186,10 +195,12 @@ class ColumnLongitudinalDetailingResolution:
             raise ColumnLongitudinalDetailingError(
                 "A35 detailing outcome population is incomplete or out of canonical order"
             )
-        if status == DETAILING_PROVEN and not all(item.resolved for item in outcomes):
+        if status == DETAILING_PROVEN and not all(item.status in {OUTCOME_PROVEN, OUTCOME_NOT_APPLICABLE} for item in outcomes):
             raise ColumnLongitudinalDetailingError(
                 "DETAILING_PROVEN requires every A35 outcome to be PROVEN"
             )
+        if status == DETAILING_FAILED and not any(item.status == OUTCOME_FAIL for item in outcomes):
+            raise ColumnLongitudinalDetailingError("DETAILING_FAILED requires an actual failed rule")
         if status == FINAL_DETAILING_REQUIRED and all(item.resolved for item in outcomes):
             raise ColumnLongitudinalDetailingError(
                 "FINAL_DETAILING_REQUIRED cannot contain an entirely proven outcome population"
@@ -258,20 +269,57 @@ class ColumnLongitudinalDetailingResolution:
         )
 
 
+def detailing_facts_digest(facts):
+    return sha256(json.dumps(asdict(facts),sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewedColumnDetailingEvidence:
+    component_id: str
+    selected_rebar_ref: str
+    model_fingerprint: str
+    evidence_epoch_id: str
+    material_context_ref: str
+    design_result_ref: str
+    design_lineage_ref: str
+    source_hashes: tuple[tuple[str,str],...]
+    applicability: str
+    reviewer: str
+    reviewed_at: str
+    source_refs: tuple[str,...]
+    facts: DetailingFacts
+    reviewed_facts_sha256: str
+    material_context: ColumnPmmMaterialContextBinding
+
+    def validate_for(self, selected):
+        for field in ('component_id','selected_rebar_ref','model_fingerprint','evidence_epoch_id','material_context_ref'):
+            if getattr(self,field)!=getattr(selected,field):raise ColumnLongitudinalDetailingError('A35 evidence identity mismatch: '+field)
+        if type(self.facts) is not DetailingFacts:raise TypeError('DetailingFacts required')
+        validate_detailing_fact_types(self.facts)
+        context=self.material_context
+        if type(context) is not ColumnPmmMaterialContextBinding or (context.component_id,context.model_fingerprint,context.evidence_epoch_id,context.binding_ref)!=(self.component_id,self.model_fingerprint,self.evidence_epoch_id,self.material_context_ref):raise ColumnLongitudinalDetailingError('Original selected material context required')
+        for bond in (None if self.facts.lap is None else self.facts.lap.bond,None if self.facts.anchorage is None else self.facts.anchorage.bond):
+            if bond is not None and abs(bond.fyd_mpa-context.material.fyd_mpa)>1e-9:raise ColumnLongitudinalDetailingError('Anchorage steel design strength differs from selected material context')
+        if self.design_result_ref!=_single_provenance_ref(selected.provenance_refs,prefix=DESIGN_RESULT_REF_PREFIX,label='result') or self.design_lineage_ref!=_single_provenance_ref(selected.provenance_refs,prefix=DESIGN_LINEAGE_REF_PREFIX,label='lineage'):
+            raise ColumnLongitudinalDetailingError('A35 evidence design parentage differs')
+        if self.source_hashes!=SOURCE_HASHES:raise ColumnLongitudinalDetailingError('Original regulatory source hashes differ')
+        if self.applicability!='TBDY_HIGH_DUCTILITY_RECTANGULAR_SINGLE_DEFORMED_BARS':raise ColumnLongitudinalDetailingError('Reviewed supported detailing applicability required')
+        _text(self.reviewer,'reviewer');_refs(self.source_refs)
+        if datetime.fromisoformat(self.reviewed_at).tzinfo is None:raise ColumnLongitudinalDetailingError('Zoned review date required')
+        if type(self.facts) is not DetailingFacts or self.reviewed_facts_sha256!=detailing_facts_digest(self.facts):raise ColumnLongitudinalDetailingError('Detailing review facts changed')
+
+
 def materialize_selected_column_longitudinal_detailing(
     selected_rebar: CanonicalEngineSelectedRebar,
     *,
     authority_catalog: RegulatoryAuthorityCatalog = FND_COL_1_AUTHORITY_CATALOG,
+    reviewed_evidence: ReviewedColumnDetailingEvidence | None = None,
 ) -> ColumnLongitudinalDetailingResolution:
-    """Bind selected cage to A35 and truthfully expose still-missing detailing.
+    """Evaluate source-bound detailing facts while retaining original selection.
 
-    The current canonical product has no source-bound lap-location population,
-    lap-section total reinforcement population, anchorage layout, transition
-    layout, mechanical/weld splice applicability evidence or continuity/corner
-    detailing population. Therefore this materializer must not infer any of
-    them from the selected cage. The reviewed lap-section rho claim is retained
-    as source authority for the later exact evaluation once factual lap-section
-    evidence is introduced.
+    Missing optional evidence preserves the existing unresolved contract. Only
+    reviewed factual populations for the supported scope can resolve a rule;
+    a resolved failed rule never yields DETAILING_PROVEN.
     """
     if not isinstance(selected_rebar, CanonicalEngineSelectedRebar):
         raise TypeError("selected_rebar must be CanonicalEngineSelectedRebar")
@@ -349,13 +397,25 @@ def materialize_selected_column_longitudinal_detailing(
             source_refs=selected_refs,
         ),
     )
+    if reviewed_evidence is not None:
+        if type(reviewed_evidence) is not ReviewedColumnDetailingEvidence:raise TypeError('Original typed detailing evidence required.')
+        reviewed_evidence.validate_for(selected_rebar)
+        candidate=selected_rebar.selected_candidate
+        calculated=evaluate_detailing_facts(reviewed_evidence.facts,bars=candidate.bars,
+            gross_area_mm2=float(candidate.as_total_mm2)/float(candidate.rho))
+        outcomes=tuple(ColumnLongitudinalDetailingOutcome(x['item'],x['status'],x['reason'],
+            _refs((*selected_refs,*reviewed_evidence.source_refs,x['clause'],
+                *[value for key,value in SOURCE_HASHES],reviewed_evidence.reviewed_facts_sha256)),
+            json.dumps(x['values'],ensure_ascii=False,sort_keys=True,allow_nan=False)) for x in calculated)
+    status=(DETAILING_FAILED if any(o.status==OUTCOME_FAIL for o in outcomes) else
+            DETAILING_PROVEN if all(o.status in {OUTCOME_PROVEN,OUTCOME_NOT_APPLICABLE} for o in outcomes) else FINAL_DETAILING_REQUIRED)
     return ColumnLongitudinalDetailingResolution(
         component_id=selected_rebar.component_id,
         selected_rebar_ref=selected_rebar.selected_rebar_ref,
         model_fingerprint=selected_rebar.model_fingerprint,
         evidence_epoch_id=selected_rebar.evidence_epoch_id,
         engine_selected_rebar=selected_rebar,
-        status=FINAL_DETAILING_REQUIRED,
+        status=status,
         outcomes=outcomes,
         source_refs=_refs(
             (
@@ -363,12 +423,18 @@ def materialize_selected_column_longitudinal_detailing(
                 *selected_refs,
                 LAP_RHO_CLAIM,
                 *lap_review_refs,
+                *(ref for outcome in outcomes for ref in outcome.source_refs),
             )
         ),
     )
 
 
 __all__ = [
+    "ReviewedColumnDetailingEvidence",
+    "detailing_facts_digest",
+    "DETAILING_FAILED",
+    "OUTCOME_FAIL",
+    "OUTCOME_NOT_APPLICABLE",
     "A35_AUTHORITY",
     "ANCHORAGE",
     "CONTINUITY_CORNER_REQUIREMENTS",

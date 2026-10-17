@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from tbdy_engine.product_reports.column_decision_presenter import present_decision
 from hashlib import sha256
 from html import escape
 from io import BytesIO
@@ -102,6 +103,7 @@ def reference_manifest(calculation: ReferenceCalculation) -> dict:
             "display_status": "TAMAMLANMADI", "value": None, "limit": None, "unit": "-", "source": "Mevcut VS6 motoru",
             "formula": "Kapasite/aday sonucu mevcut motorun bağımlılık kararına tabidir.", "trace": "Sayısal kapasite sonucu yayımlanmadı.",
             "reason": "Narinlik bağımlılığı veya uygun aday tamamlanmadı; otomatik PASS/FAIL üretilmedi."})
+    for check in checks:check.update(present_decision(check["status"]),origins=["SYNTHETIC_TEST"])
     contributions = [c.as_dict() for c in build_vs6_column_design_engine_reports(result, section_name="Açık referans dikdörtgen kesit")]
     data = {"schema": "column_v2.reference_calculation.v1", "context": calculation.inputs.bundle()["context"],
         "title": "REFERANS / DEMO - Kolon hesabı", "source": calculation.inputs.bundle()["source"],
@@ -168,6 +170,7 @@ def render_manifest_pdf(manifest: dict, *, input_fields=FIELDS) -> bytes:
     styles.add(ParagraphStyle("V2Title", fontName="ColumnV2Bold", fontSize=21, leading=25, spaceAfter=14))
     p = lambda text: Paragraph(escape(str(text)), styles["V2"])
     story = [Paragraph(escape(manifest["title"]), styles["V2Title"]), p("Kaynak: "+("REFERANS / kullanıcı girdisi; ETABS gözlemi değildir." if "input_bundle" in manifest else "Kabul edilmiş aday / ayrı tarihsel FC09")), p("Durum: "+("Hesaplandı - tasarım adayı" if manifest.get("engine_status") == "SELECTED_DESIGN_CANDIDATE_ONLY" else manifest.get("engine_status", manifest.get("status", ""))))]
+    if manifest.get("run_envelope"): story.append(p("Koşu zarfı: "+json.dumps(manifest["run_envelope"],ensure_ascii=False)))
     if "input_bundle" in manifest:
         v = manifest["input_bundle"]["values"]
         story += [Paragraph("Kontrol özeti", styles["V2H"])]

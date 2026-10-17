@@ -7,7 +7,7 @@ to those authorities and fails closed at an exact causal edge.
 """
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from decimal import Decimal
 import logging
 from typing import Callable, Mapping, Sequence
@@ -3162,7 +3162,8 @@ def _materialize_fnd2_inputs(
             semantic_type=SemanticType.CHECK_EVIDENCE_TRACE,
             dimension=PhysicalDimension.DIMENSIONLESS,
             unit=UNIT_DIMENSIONLESS,
-            value=canonical_second_order,
+            # Keep report-only retained artifacts outside the frozen FND2 value.
+            value=dict(canonical_second_order),
             refs=(
                 *common_refs,
                 *tuple(canonical_second_order.get("source_refs", ())),
@@ -3419,6 +3420,7 @@ def _materialize_public_a5_column(
         evidence_epoch_id=context.evidence_epoch_id,
         fnd_col_2_inputs=inputs,
     )
+    column=replace(column,canonical_second_order=canonical_second_order)
     return PublicA5ColumnMaterialization(
         request=request,
         column=column,

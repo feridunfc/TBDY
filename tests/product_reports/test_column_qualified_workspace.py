@@ -175,6 +175,9 @@ def test_actual_qualified_browser_and_downloads(qualified_runs,tmp_path):
         for name,index in [('Baseline',0),('Changed_Cage',2),('Owner_Blocked',1)]:
             downloaded=json.loads((out/(name+'.json')).read_text())
             view=channel.consume({'handle':handles[index],'scope_identity':exact_data(qualified_runs[1 if index==2 else 0][1])})
+            envelope=downloaded.pop('run_envelope')
+            assert envelope['result_id']==view['result_id'] and envelope['calculation_scope']=='qualified'
+            assert envelope['input_sha256']==view['input_sha256']
             assert downloaded==present_qualified_result(view)
         events=server.application.events
         assert len([e for e in events if e['event']=='QUALIFIED_OWNER_RESULT_CONSUMED'])==3
@@ -193,3 +196,45 @@ def test_causal_owner_payload_drift_rejected(qualified_runs, drift):
         execution=c.fnd_col_2_execution
         broken=replace(c,fnd_col_2_execution=replace(execution,snapshot=replace(execution.snapshot,plan_identity='wrong')))
     with pytest.raises(ValueError):channel.publish(replace(p,columns=(broken,*p.columns[1:])),scope=scope,label='wrong')
+
+
+def test_all_fourteen_product_cards_project_actual_retained_owners(qualified_runs):
+    from tbdy_engine.product_reports.column_qualified_report import present_qualified_result, QUALIFIED_CONTROL_PATHS
+    m=present_qualified_result(qualified_runs[0][4][0]);cards={c['id']:c for c in m['product_controls']}
+    assert set(cards)==set(QUALIFIED_CONTROL_PATHS) and len(cards)==14
+    for name in ('topology','design_actions','stability','local_sway','second_order','longitudinal','detailing','cage','confinement','axial','shear','vc','readiness'):
+        assert cards[name]['output'] is not None, name
+        assert cards[name]['owner_path']
+    assert cards['limited_shear']['status']=='BLOCKED' and cards['limited_shear']['blocker_class']=='DATA'
+    assert cards['detailing']['status']=='FINAL_DETAILING_REQUIRED'
+    assert cards['stability']['output'][0]['stability_result'] is not None
+    assert m['input_sha256'] and cards['readiness']['status']=='READY'
+    blocked=present_qualified_result(qualified_runs[0][4][1])
+    assert next(c for c in blocked['product_controls'] if c['id']=='topology')['output'] is not None
+
+
+def test_actual_canonical_selection_accepts_source_bound_a35_review_without_native_call(qualified_runs):
+    from tbdy_engine.application.column_longitudinal_detailing import ReviewedColumnDetailingEvidence, detailing_facts_digest, materialize_selected_column_longitudinal_detailing, DETAILING_FAILED
+    from tbdy_engine.regulatory.column_detailing_checks import SOURCE_HASHES
+    from tbdy_engine.integration.etabs_design_lineage import DESIGN_RESULT_REF_PREFIX, DESIGN_LINEAGE_REF_PREFIX
+    from tests.regulatory.test_column_detailing_checks import complete_facts
+    c=qualified_runs[0][0].columns[0];s=c.selected_rebar;material=c.longitudinal_runtime.bound_design_basis.material_context
+    candidate=s.selected_candidate
+    facts=complete_facts(candidate,float(candidate.as_total_mm2)/float(candidate.rho))
+    height=c.free_length.free_length_ln_mm
+    facts=replace(facts,lap=replace(facts.lap,clear_height_mm=height,min_dimension_mm=500.,rows=tuple(replace(row,start_mm=height/3,end_mm=2*height/3) for row in facts.lap.rows),bond=replace(facts.lap.bond,fyd_mpa=material.material.fyd_mpa)),
+        anchorage=replace(facts.anchorage,bond=replace(facts.anchorage.bond,fyd_mpa=material.material.fyd_mpa)),
+        continuity=replace(facts.continuity,clear_height_mm=height,covered_height_mm=height))
+    evidence=ReviewedColumnDetailingEvidence(s.component_id,s.selected_rebar_ref,s.model_fingerprint,s.evidence_epoch_id,s.material_context_ref,
+        next(x for x in s.provenance_refs if x.startswith(DESIGN_RESULT_REF_PREFIX)),next(x for x in s.provenance_refs if x.startswith(DESIGN_LINEAGE_REF_PREFIX)),SOURCE_HASHES,
+        'TBDY_HIGH_DUCTILITY_RECTANGULAR_SINGLE_DEFORMED_BARS','OFFLINE TEST REVIEW','2026-10-17T08:00:00+03:00',('SYNTHETIC_DETAIL_DRAWING_NOT_PROJECT_ACCEPTANCE',),facts,detailing_facts_digest(facts),material)
+    result=materialize_selected_column_longitudinal_detailing(s,reviewed_evidence=evidence)
+    # The actual PMM owner selected four 40-mm corner bars. Their wide
+    # perimeter gaps do not satisfy A35 continuity; selection is not detailing.
+    assert not result.complete and result.status==DETAILING_FAILED
+    assert all(x.resolved for x in result.outcomes)
+    assert result.outcomes[-1].status=='FAIL'
+    assert result.engine_selected_rebar is s
+    if os.environ.get('COLUMN_QUALIFIED_EVIDENCE_DIR'):
+        dest=Path(os.environ['COLUMN_QUALIFIED_EVIDENCE_DIR'])/'A35_Canonical_Selected_Detailing.json'
+        dest.write_text(json.dumps({'origin':'OFFLINE_TEST_LIFECYCLE','WORKER_ETABS':'NO','result':exact_data(result),'reviewed_evidence':exact_data(evidence),'real_235_design_acceptance':False},ensure_ascii=False,indent=2))

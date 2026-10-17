@@ -257,6 +257,17 @@ def _partition_end_moment_ratio_capability(
     )
 
 
+class RetainedSecondOrderPayload(dict):
+    """Existing kernel mapping plus original owner artifacts for read-only reporting.
+
+    Extra artifacts are not serialized into the FND2 dependency mapping and do
+    not grant authority. They are fingerprinted by the qualified product channel.
+    """
+    def __init__(self, payload, owner_artifacts):
+        super().__init__(payload)
+        self.owner_artifacts=owner_artifacts
+
+
 def build_public_a5_canonical_second_order_payload(
     *,
     component_id: str,
@@ -281,6 +292,9 @@ def build_public_a5_canonical_second_order_payload(
     or A22 intermediate-load evidence.  Such stops are encoded in the typed
     payload rather than converted into application-level acquisition failure.
     """
+    retained={'topology':target_column}
+    def block(**kwargs):
+        return RetainedSecondOrderPayload(_block(**kwargs),dict(retained))
     blockers: list[str] = []
     refs: list[str] = [PUBLIC_A5_SECOND_ORDER_AUTHORITY]
 
@@ -433,10 +447,10 @@ def build_public_a5_canonical_second_order_payload(
     # The currently known W-direction gap lands here.  Do not postpone FND2:
     # send the canonical typed blocker payload through the existing lifecycle.
     if blockers:
-        return _block(component_id=component_id, blockers=blockers, refs=refs)
+        return block(component_id=component_id, blockers=blockers, refs=refs)
 
     if reviewed_story_translation_tolerance is None:
-        return _block(
+        return block(
             component_id=component_id,
             blockers=("A17:REVIEWED_STORY_TRANSLATION_TOLERANCE_NOT_BOUND",),
             refs=refs,
@@ -447,7 +461,7 @@ def build_public_a5_canonical_second_order_payload(
         item.global_direction
         for item in route_c.bindings
     } != {"X", "Y"}:
-        return _block(
+        return block(
             component_id=component_id,
             blockers=(
                 "A17:"
@@ -477,7 +491,7 @@ def build_public_a5_canonical_second_order_payload(
             is ApplicabilityState.PROVEN_NOT_APPLICABLE
         ):
             if not stability_combos.gqe_candidates:
-                return _block(
+                return block(
                     component_id=component_id,
                     blockers=(
                         f"A17:{stability_combos.status}",
@@ -491,7 +505,7 @@ def build_public_a5_canonical_second_order_payload(
 
         else:
             if not stability_combos.both_bases_present:
-                return _block(
+                return block(
                     component_id=component_id,
                     blockers=(
                         f"A17:{stability_combos.status}",
@@ -516,7 +530,7 @@ def build_public_a5_canonical_second_order_payload(
         for candidate in candidates:
             direction = binding_by_case.get(candidate.horizontal_case_name)
             if direction is None:
-                return _block(
+                return block(
                     component_id=component_id,
                     blockers=(f"A17:DIRECTION_BINDING_MISSING:{candidate.horizontal_case_name}",),
                     refs=refs,
@@ -539,6 +553,7 @@ def build_public_a5_canonical_second_order_payload(
                     ),
                 )
             )
+        retained['stability']=tuple(runtimes)
         local_sway = compose_column_local_axis_sway_runtime(
             topology=topology,
             component_id=component_id,
@@ -546,9 +561,10 @@ def build_public_a5_canonical_second_order_payload(
             candidate_runtimes=tuple(runtimes),
             route_c_w_applicability=route_c_w_applicability,
         )
+        retained['local_sway']=local_sway
         refs.extend(local_sway.source_refs)
         if local_sway.status != A17_READY:
-            return _block(
+            return block(
                 component_id=component_id,
                 blockers=(f"A17:{local_sway.status}",),
                 refs=refs,
@@ -560,10 +576,11 @@ def build_public_a5_canonical_second_order_payload(
             local_sway=local_sway,
             free_length=free_length,
         )
+        retained['a19']=a19
         refs.extend(ref for row in a19 for ref in row.source_refs)
         unresolved_a19 = tuple(row for row in a19 if row.disposition != A19_READY)
         if unresolved_a19:
-            return _block(
+            return block(
                 component_id=component_id,
                 blockers=tuple(
                     f"A19:{row.local_bending_axis}:{reason}"
@@ -582,7 +599,7 @@ def build_public_a5_canonical_second_order_payload(
             depth_mm=float(target_column.depth_t3_m * 1000.0),
         )
         if not design_demands.combination_scope_resolved:
-            return _block(
+            return block(
                 component_id=component_id,
                 blockers=tuple(
                     f"A23:COMBINATION_SCOPE:{name}" for name in design_demands.blocked_combo_names
@@ -676,6 +693,7 @@ def build_public_a5_canonical_second_order_payload(
             for ref in row.source_refs
         )
 
+        retained['a21']=a21
         unresolved_a21 = tuple(
             row
             for row in a21
@@ -683,7 +701,7 @@ def build_public_a5_canonical_second_order_payload(
         )
 
         if unresolved_a21:
-            return _block(
+            return block(
                 component_id=component_id,
 
                 blockers=tuple(
@@ -716,6 +734,7 @@ def build_public_a5_canonical_second_order_payload(
             a21_rows=a21,
             horizontal_load_evidence=tuple(horizontal_load_evidence),
         )
+        retained['a22']=a22
         a23 = materialize_canonical_concurrent_design_demands(
             component_id=component_id,
             design_demands=design_demands,
@@ -726,15 +745,17 @@ def build_public_a5_canonical_second_order_payload(
             execution_proof_ref=analysis_execution.execution_proof_ref,
             source_model_ref=analysis_execution.analysis_result_identity.parent_analysis_state_ref,
         )
-        return build_canonical_second_order_fnd2_payload(
+        retained['a23']=a23
+        payload = build_canonical_second_order_fnd2_payload(
             component_id=component_id,
             upstream_source_refs=_refs((PUBLIC_A5_SECOND_ORDER_AUTHORITY, *refs)),
             a21_rows=a21,
             a22=a22,
             a23=a23,
         )
+        return RetainedSecondOrderPayload(payload, dict(retained))
     except Exception as exc:
-        return _block(
+        return block(
             component_id=component_id,
             blockers=(f"CANONICAL_SECOND_ORDER_COMPOSITION_FAILED:{exc}",),
             refs=refs,

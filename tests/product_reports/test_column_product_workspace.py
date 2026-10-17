@@ -14,7 +14,7 @@ REPO=Path(__file__).resolve().parents[2]
 
 def synthetic_packet(authority):
     p=authority.packet();p['values'].update(width_mm=500.,depth_mm=800.,axis_basis='RECTANGULAR_LOCAL2_LOCAL3',free_length_mm=3000.,k_m2=1.,k_m3=1.,sway_classification='SWAY_PREVENTED',moment_ratio_m2=0.,moment_ratio_m3=0.,concrete_name='TEST_CONCRETE',steel_name='TEST_STEEL',transverse_steel_name='TEST_TIE',fck_mpa=35.,fcd_mpa=35/1.5,fyd_mpa=500/1.15,fywk_mpa=500.,fywd_mpa=500/1.15,aggregate_max_mm=25.)
-    for group in ('geometry','slenderness','materials'):
+    for group in ('geometry','slenderness','concrete','longitudinal_steel','transverse_steel','aggregate'):
         p=apply_review(p,group,dict(reviewer='SYNTHETIC TEST',reference='Synthetic wiring / not factual 235',reviewed_at=datetime.now(timezone.utc).isoformat(),origin='SYNTHETIC_TEST'),authority)
     return p
 

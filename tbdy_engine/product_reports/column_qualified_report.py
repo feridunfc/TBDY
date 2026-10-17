@@ -3,6 +3,7 @@ from html import escape
 from io import BytesIO
 from pathlib import Path
 import json
+from tbdy_engine.product_reports.column_decision_presenter import present_decision
 
 
 def summary_rows(manifest):
@@ -39,9 +40,71 @@ def trace_rows(value, path=''):
         yield (path, str(value))
 
 
+QUALIFIED_CONTROL_PATHS = {
+    'topology':(('longitudinal_runtime','target_topology'),('canonical_second_order','retained_owners','topology')),
+    'design_actions':(('a23_demand_states',),),
+    'stability':(('canonical_second_order','retained_owners','stability'),),
+    'local_sway':(('canonical_second_order','retained_owners','local_sway'),),
+    'second_order':(('canonical_second_order','retained_owners','a22'),('canonical_second_order','payload')),
+    'longitudinal':(('longitudinal_selection',),),
+    'detailing':(('longitudinal_runtime','detailing'),),
+    'cage':(('final_transverse_cage',),),
+    'confinement':(('transverse_confinement',),),
+    'axial':(('column_axial_vs5',),),
+    'shear':(('column_shear_p7',),),
+    'limited_shear':(('column_shear_limited',),),
+    'vc':(('transverse_confinement','checks'),),
+    'readiness':(('fnd_col_2_execution',),),
+}
+
+
+def retained_decisions(value, path=''):
+    """Expose existing check/status leaves without re-evaluating an owner."""
+    if isinstance(value,dict):
+        if value.get('status') is not None and ('check_id' in value or 'pass_rule' in value or 'phi' in value):
+            yield {'owner_path':path,**value,**present_decision(value['status'])}
+            return
+        for name,child in value.items():
+            if name not in {'snapshot','store','selected_rebar','selected_candidate','bound_design_basis'}:
+                yield from retained_decisions(child,path+'.'+name)
+    elif isinstance(value,list):
+        for i,child in enumerate(value):yield from retained_decisions(child,f'{path}[{i}]')
+
+
+def qualified_control_cards(m):
+    """Projection of real retained owner outputs, never a fallback calculation."""
+    cards=[]
+    for key,paths in QUALIFIED_CONTROL_PATHS.items():
+        found=None;path=None;owner=None
+        for candidate in paths:
+            output=m['owner_outputs'].get(candidate[0])
+            value=None if output is None else output['data']
+            for segment in candidate[1:]:value=value.get(segment) if isinstance(value,dict) else None
+            if value is not None and value!=[]:
+                found=value;path=candidate;owner=output['owner'];break
+        if key=='vc' and found:
+            found=[c for c in found if any('QUALIFIED_VC:' in str(e) for e in c.get('evidence',()))]
+            if not found:found=None
+        if found is None:
+            cards.append({'id':key,'status':'BLOCKED','decisions':[],**present_decision('BLOCKED'),'blocker_class':'DATA',
+                'reason':'Mevcut qualified artifact bu owner çıktısını taşımıyor. Eksik typed girdi veya üst karar için application_blockers incelenmeli.',
+                'required_owner_paths':paths,'output':None,'origin':m['scope_identity']['origin']});continue
+        decisions=list(retained_decisions(found))
+        status=found.get('status',found.get('combined_status','CALCULATED_PROJECT_REVIEW')) if isinstance(found,dict) else 'CALCULATED_PROJECT_REVIEW'
+        if status=='CALCULATED_PROJECT_REVIEW' and decisions:
+            raw={d['status'] for d in decisions}
+            status='FAIL' if 'FAIL' in raw else 'PARTIAL' if 'BLOCKED' in raw else 'OK' if raw=={'OK'} else status
+        if key=='readiness':status=m['fnd2_status']
+        cards.append({'id':key,'status':status,**present_decision(status),'owner':owner,'owner_path':path,
+            'blocker_class':None,'decisions':decisions,'output':found,'origin':m['scope_identity']['origin'],
+            'reason':'Mevcut typed owner çıktısı; alt kararlar, sayılar ve kaynaklar aşağıdaki exact output içindedir.'})
+    return cards
+
+
 def present_qualified_result(m):
     m = json.loads(json.dumps(m,ensure_ascii=False,allow_nan=False))
     m['control_summary'] = summary_rows(m)
+    m['product_controls'] = qualified_control_cards(m)
     m['numerical_traces'] = {key:[list(row) for row in trace_rows(out['data'])] for key,out in m['owner_outputs'].items() if key != 'fnd_col_2_execution'}
     m['section_svg'] = ''
     runtime = m['owner_outputs'].get('longitudinal_runtime')
@@ -60,7 +123,8 @@ def present_qualified_result(m):
 def render_qualified_html(m):
     e = lambda v:escape(str(v))
     rows = ''.join('<tr><td>'+e(r['control'])+' '+e(r['direction'] or '')+'</td><td>'+e(r['status'])+'</td><td>'+e(r['outcome'])+'</td></tr>' for r in summary_rows(m))
-    details = ''.join('<article><h2>'+e(key)+'</h2><p>'+e(output['owner'])+'</p><table>'+''.join('<tr><td>'+e(k)+'</td><td>'+e(v)+'</td></tr>' for k,v in trace_rows(output['data']))+'</table></article>' for key,output in m['owner_outputs'].items() if key != 'fnd_col_2_execution')
+    cards=''.join('<article><h2>'+e(c['id'])+'</h2><p>'+e(c['display_status']+' / '+c['status']+' / '+c['origin'])+'</p><p>'+e(c['reason'])+'</p></article>' for c in m.get('product_controls',[]))
+    details = cards+''.join('<article><h2>'+e(key)+'</h2><p>'+e(output['owner'])+'</p><table>'+''.join('<tr><td>'+e(k)+'</td><td>'+e(v)+'</td></tr>' for k,v in trace_rows(output['data']))+'</table></article>' for key,output in m['owner_outputs'].items() if key != 'fnd_col_2_execution')
     return '<!doctype html><html lang="tr"><meta charset="UTF-8"><title>'+e(m['title'])+'</title><style>body{font:14px/1.6 system-ui;max-width:1000px;margin:32px auto;color:#183c53}table{border-collapse:collapse;width:100%}td{padding:8px;border-bottom:1px solid #dde5ec;overflow-wrap:anywhere}article{margin:32px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style><h1>'+e(m['title'])+'</h1><p>FND2: '+e(m['fnd2_status'])+' / Uygulama: '+e(m['application_status'])+'</p><p>'+e('; '.join(m['application_blockers']))+'</p>'+m.get('section_svg','')+'<h2>Kanonik kontrol özeti</h2><table>'+rows+'</table>'+details+'<h2>Kapsam</h2>'+''.join('<p>'+e(s)+'</p>' for s in m['scope'])+'<details><summary>Kesin typed çıktı / kaynak / governing kimlikleri</summary><pre>'+e(json.dumps(m,ensure_ascii=False,indent=2))+'</pre></details></html>'
 
 
@@ -90,6 +154,7 @@ def render_qualified_pdf(m):
            *[p(s) for s in m['scope']], *[p(s) for s in m['application_blockers']],
            p('Kanonik owner kontrol ve coverage kararları',head),
            table([['Kontrol / yön','Durum','Owner outcome']]+[[r['control']+' '+str(r['direction'] or ''),r['status'],r['outcome']] for r in summary_rows(m)],[235,80,196])]
+    story += [p(c['id']+' / '+c['display_status']+' / '+c['status']+' / '+c['origin']) for c in m.get('product_controls',[])]
     runtime=m['owner_outputs'].get('longitudinal_runtime')
     if runtime:
         from reportlab.graphics.shapes import Drawing,Rect,Circle,Line,String
@@ -106,6 +171,7 @@ def render_qualified_pdf(m):
         if key == 'fnd_col_2_execution': continue
         rows=list(trace_rows(output['data']))
         story += [p(key,head),p(output['owner']),table([['Owner alanı / hesap izi','Kesin değer / karar']]+rows,[315,196])]
+    story += [p("Koşu zarfı"),p(json.dumps(m.get("run_envelope",{}),ensure_ascii=False))]
     story += [p('Kaynak ve sonuç kimliği',head),p(json.dumps(m['scope_identity'],ensure_ascii=False)),p(m['result_id'])]
     buf=BytesIO()
     def footer(canvas,doc):

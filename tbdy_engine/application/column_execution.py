@@ -180,6 +180,7 @@ class ColumnDomainArtifact:
     final_transverse_cage: ReviewedColumnFinalCageContext | None = None
     free_length: ColumnFreeLengthResolution | None = None
     a23_demand_states: tuple[ColumnDemandState, ...] = ()
+    canonical_second_order: Mapping[str, object] | None = None
 
     @property
     def design_result_identity(self) -> DesignResultIdentity | None:
@@ -356,6 +357,7 @@ def execute_column_domain(
     column_design_basis: ReviewedColumnDesignBasis | None = None,
     route_c_w_applicability: BoundColumnActionFamilyApplicability | None = None,
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
+    reviewed_detailing_by_component: Mapping[str, object] | None = None,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
     reviewed_column_p7_context: ReviewedColumnP7RuntimeContext | None = None,
     reviewed_column_short_column_context: ReviewedColumnShortColumnContext | None = None,
@@ -481,6 +483,7 @@ def execute_column_domain(
             column_design_basis=column_design_basis,
             route_c_w_applicability=route_c_w_applicability,
             expected_combo_policy=expected_combo_policy,
+            reviewed_detailing_by_component=reviewed_detailing_by_component,
             reviewed_vs5_column_axial_context=reviewed_vs5_column_axial_context,
             reviewed_column_p7_context=reviewed_column_p7_context,
             reviewed_column_short_column_context=reviewed_column_short_column_context,
@@ -499,6 +502,7 @@ def execute_column_domain(
     if (
         column_design_basis is not None
         or expected_combo_policy is not None
+        or reviewed_detailing_by_component is not None
         or reviewed_vs5_column_axial_context is not None
         or reviewed_column_p7_context is not None
         or reviewed_column_short_column_context is not None
@@ -510,6 +514,7 @@ def execute_column_domain(
             _complete_public_b6_after_fnd2,
             column_design_basis=column_design_basis,
             expected_combo_policy=expected_combo_policy,
+            reviewed_detailing_by_component=reviewed_detailing_by_component,
             reviewed_vs5_column_axial_context=reviewed_vs5_column_axial_context,
             reviewed_column_p7_context=reviewed_column_p7_context,
             reviewed_column_short_column_context=reviewed_column_short_column_context,
@@ -570,6 +575,7 @@ def _execute_column_population(
     column_design_basis: ReviewedColumnDesignBasis | None = None,
     route_c_w_applicability: BoundColumnActionFamilyApplicability | None = None,
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
+    reviewed_detailing_by_component: Mapping[str, object] | None = None,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
     reviewed_column_p7_context: ReviewedColumnP7RuntimeContext | None = None,
     reviewed_column_short_column_context: ReviewedColumnShortColumnContext | None = None,
@@ -735,6 +741,7 @@ def _execute_column_population(
                 canonical_second_order=materialized.canonical_second_order,
                 column_design_basis=column_design_basis,
                 expected_combo_policy=expected_combo_policy,
+                reviewed_detailing_by_component=reviewed_detailing_by_component,
                 # ReviewedVs5ColumnAxialContext is population-wide.
                 # Existing VS5 resolves each factual target by unique_name.
                 reviewed_vs5_column_axial_context=(
@@ -1701,6 +1708,7 @@ def _complete_public_b6_after_fnd2(
     canonical_second_order: Mapping[str, object] | None = None,
     column_design_basis: ReviewedColumnDesignBasis | None = None,
     expected_combo_policy: ExpectedConcreteDesignComboPolicy | None = None,
+    reviewed_detailing_by_component: Mapping[str, object] | None = None,
     reviewed_vs5_column_axial_context: ReviewedVs5ColumnAxialContext | None = None,
     reviewed_column_p7_context: ReviewedColumnP7RuntimeContext | None = None,
     reviewed_column_short_column_context: ReviewedColumnShortColumnContext | None = None,
@@ -1732,6 +1740,8 @@ def _complete_public_b6_after_fnd2(
         raise TypeError(
             "canonical_second_order must be a mapping or None"
         )
+
+    column = replace(column, canonical_second_order=canonical_second_order)
 
     a23_demand_states: tuple[ColumnDemandState, ...] = ()
 
@@ -1860,6 +1870,7 @@ def _complete_public_b6_after_fnd2(
             controlled_design_result=controlled,
             reviewed_design_basis=column_design_basis,
             expected_combo_policy=expected_combo_policy,
+            reviewed_detailing_evidence=None if reviewed_detailing_by_component is None else reviewed_detailing_by_component.get(completed_b6.component_id),
         )
     except Exception as exc:
         return replace(
