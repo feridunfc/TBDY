@@ -8,6 +8,20 @@ python tools/start_column_product.py
 
 Komutun gösterdiği `http://127.0.0.1:8765` adresini açın. İlk kurulumda internet erişimi gerekir. Mevcut başlatıcı reportlab 4.4.9, PyYAML 6.0.2 (saf Python) ve jsonschema 4.25.1 pinlerini doğrular. YAML veya `.env` dosyası doldurmanız gerekmez. Kullanılan port doluysa mevcut süreç korunur; başka port için `--port 8766` kullanılabilir. Windows çalıştırması bu teslimde doğrulanmış sayılmaz.
 
+## Önce örneği çözün
+
+1. Sayfa açılınca **Örneği yükle ve çöz** düğmesine basın. JSON hazırlamaya veya grupları tek tek review etmeye gerek yok.
+2. Sağ tarafta **Eksenel basınç** ve **İki eksenli eğilme / PMM** sonucu görünür. Örnekte Nd=1200 kN, eksenel sınır 13440 kN ve PMM kullanım oranı yaklaşık %10,77'dir.
+3. Yük, kesit veya donatıyı değiştirip **Hesapla** deyin. Örneğin J/M2'yi 3000 kN·m yaparsanız PMM uygunsuz olur. Sonuçtan PDF/JSON/HTML indirebilirsiniz.
+
+Örnek, açıkça **sentetik** olarak işaretlenir. Kayıttaki açıklama uygulamanın örneği olduğunu belirtir; gerçek kişi incelemesi, proje belgesi veya native analiz yetkisi üretilmez.
+
+Elinizdeki sentetik JSON için: **JSON yükle → Bu JSON’u örnek olarak çöz**. İçe alma tek başına otomatik inceleme veya hesap yapmaz. Bu ikinci düğme, dosyayı sentetik kapsamda kullanmayı açıkça seçmenizdir. Kaynak/kolon/birim ve eski sonuç korumaları korunur.
+
+Kendi girdileriniz için **235 taslağımı aç** düğmesine basın. Örneğin yükleri ve donatısı bu taslağa taşınmaz. Gerekli sayıları girin; **Girdilerin beyanı** alanında adınızı ve girdi kaynağını yazıp kutuyu işaretleyin. **Hesapla**, tamamlanan grupları mevcut inceleme yolundan tek işlemde kaydeder. Eksik isteğe bağlı gruplar diğer hesabı durdurmaz. İsterseniz grupları ayrı kaydetme yolu da ayrıntıda durur.
+
+Ana ekranda iki kesit kontrolü gösterilir. Narinlik, sargı, diğer proje kontrolleri ve teknik kaynak kayıtları açılır ayrıntılardadır. **Diğer hesaplar ve kanıtlar** menüsündeki kabul edilmiş kanıt ekranı bir hesap ekranı değildir.
+
 ## Gerçek kullanıcı taslağı
 
 `B-BLOK / 235 çalışma` bağlamını seçin. Ekrandaki kaynak bağlı taslak ve `Column_235_User_Draft_v2_2026-10-17.json`, aynı bilinen beyanları içerir:

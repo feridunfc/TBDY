@@ -9,7 +9,7 @@ async function calculate(p){await p.locator('#calculate').click();await settle(p
 async function exports(p,name,m){for(const ext of ['json','pdf','html']){const wait=p.waitForEvent('download');await p.locator('#'+ext).click();const d=await wait;const path=o.output_dir+'/'+name+'.'+ext;await d.saveAs(path);const b=fs.readFileSync(path);downloads.push({path,sha256:hash(b),result_id:m.result_id});if(ext==='json')assert.deepStrictEqual(JSON.parse(b),m);if(ext==='html')assert(b.toString().includes(m.result_id));}}
 (async()=>{const b=await chromium.launch({executablePath:process.env.COLUMN_V2_BROWSER_BINARY,headless:true,args:['--no-sandbox','--disable-gpu','--disable-software-rasterizer','--single-process','--no-zygote','--disable-dev-shm-usage']});try{
 const p=await b.newPage({viewport:{width:1520,height:1100},acceptDownloads:true});p.on('pageerror',e=>errors.push(e.message));
-await p.goto(o.url);await p.waitForFunction(()=>workspace!==null&&readyEpoch===epoch);
+await p.goto(o.url);await p.waitForFunction(()=>workspace&&readyEpoch===epoch);await p.locator('.mode-picker').evaluate(e=>e.open=true);await p.waitForFunction(()=>workspace!==null&&readyEpoch===epoch);
 assert.equal(await p.evaluate(()=>workspace.qualified_catalog.length),0); // normal empty channel, not fixture publication
 await p.locator('#context').selectOption('reference-owners');await settle(p);
 assert.equal(await p.locator('#field_shear_spacing_mm').inputValue(),'100');

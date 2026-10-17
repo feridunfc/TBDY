@@ -11,11 +11,11 @@ async function clean(p){assert.equal(await p.locator('#error').textContent(),'')
 async function calculate(p){await p.locator('#calculate').click();await settle(p);await clean(p);return manifest(p);}
 async function upload(p,packet){await p.locator('#packetFile').setInputFiles({name:'EXPLICIT_OFFLINE_TEST_INPUTS.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(packet))});await p.waitForFunction(()=>readyEpoch===epoch&&document.getElementById('status').textContent.startsWith('Kaynak bağlı paket içeri alındı'));await settle(p);await clean(p);}
 async function review(p,group,origin='SYNTHETIC_TEST'){
- await p.locator('#reviewer').fill('OFFLINE TEST HARNESS / NO PROJECT SIGNATURE');
+ await p.locator('[data-review="'+group+'"]').evaluate(el=>{for(let n=el.parentElement;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true});await p.locator('#reviewer').fill('OFFLINE TEST HARNESS / NO PROJECT SIGNATURE');
  await p.locator('#reviewReference').fill('EXPLICIT TEST ONLY / NOT ACTUAL PROJECT ACCEPTANCE');
  await p.locator('#reviewOrigin').selectOption(origin);await p.locator('[data-review="'+group+'"]').click();await settle(p);await clean(p);
 }
-async function edit(p,key,value){await p.locator('#product_'+key).fill(String(value));await settle(p);await clean(p);assert(await p.locator('#pdf').isDisabled());}
+async function edit(p,key,value){await p.locator('#product_'+key).evaluate(el=>{for(let n=el.parentElement;n;n=n.parentElement)if(n.tagName==='DETAILS')n.open=true});await p.locator('#product_'+key).fill(String(value));await settle(p);await clean(p);assert(await p.locator('#pdf').isDisabled());}
 async function exports(p,name,m){
  for(const ext of ['json','html','pdf']){
   const wait=p.waitForEvent('download');await p.locator('#'+ext).click();const d=await wait;const file=path.join(out,name+'.'+ext);await d.saveAs(file);const bytes=fs.readFileSync(file);
@@ -30,7 +30,7 @@ async function exports(p,name,m){
  const browser=await chromium.launch({executablePath:process.env.COLUMN_V2_BROWSER_BINARY,headless:true,args:['--no-sandbox','--disable-gpu','--disable-software-rasterizer','--single-process','--no-zygote','--disable-dev-shm-usage']});
  try{
   const p=await browser.newPage({viewport:{width:1520,height:1100},acceptDownloads:true});p.on('pageerror',e=>proof.page_errors.push(e.message));
-  await p.goto(options.url);await p.waitForFunction(()=>workspace&&readyEpoch===epoch);
+  await p.goto(options.url);await p.waitForFunction(()=>workspace&&readyEpoch===epoch);await p.locator('.mode-picker').evaluate(e=>e.open=true);await p.waitForFunction(()=>workspace&&readyEpoch===epoch);
   const workspace=await p.evaluate(()=>workspace);assert.equal(workspace.qualified_catalog.length,0);proof.build_manifest=workspace.build_manifest;
   await p.selectOption('#context','235-product');await settle(p);
   const known=(await manifest(p)).input_packet;assert.equal(known.values.width_mm,800);assert.equal(known.values.free_length_mm,4450);assert.equal(known.values.steel_name,'S500');assert.equal(known.values.concrete_name,'C35/45');assert.equal(known.values.k_m2,null);assert.equal(known.values.sway_classification,null);assert.equal(known.values.nd_i_kn,null);assert.deepStrictEqual(known.reviews,{});

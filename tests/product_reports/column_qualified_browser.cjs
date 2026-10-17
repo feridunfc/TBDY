@@ -9,7 +9,7 @@ async function snapshot(p){return p.evaluate(()=>({context:document.getElementBy
 const browser=await chromium.launch({executablePath:process.env.COLUMN_V2_BROWSER_BINARY,headless:true,args:['--no-sandbox','--disable-gpu','--disable-software-rasterizer','--single-process','--no-zygote','--disable-dev-shm-usage']});
 try{
 const p=await browser.newPage({viewport:{width:1440,height:1000},acceptDownloads:true});p.on('pageerror',e=>errors.push(e.message));
-await p.goto(o.url);await p.waitForFunction(()=>workspace!==null&&readyEpoch===epoch);
+await p.goto(o.url);await p.waitForFunction(()=>workspace&&readyEpoch===epoch);await p.locator('.mode-picker').evaluate(e=>e.open=true);await p.waitForFunction(()=>workspace!==null&&readyEpoch===epoch);
 let baseline=null;
 for(const [name,index] of [['Baseline',0],['Changed_Cage',2],['Owner_Blocked',1]]){
  await p.selectOption('#context','qualified:'+o.handles[index]);

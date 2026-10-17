@@ -81,7 +81,10 @@ class ColumnWorkspace:
             if len(self.workspaces) >= 32: raise ValueError('Yerel çalışma alanı sınırı doldu; sunucuyu yeniden başlatın.')
             key = uuid4().hex; self.workspaces[key] = Workspace(product_draft=known_user_draft(self.product_authority))
             self.record('WORKSPACE_CREATED', workspace_id=key)
+            # Explicit example input only: no reviews, lineage or project forces.
+            example=validate_packet(json.loads((self.repo/'docs/Column_235_Synthetic_Public_Inputs_v2.json').read_text()),self.product_authority)
             return {'id':key,'revision':0,'default_bundle':ReferenceColumnInput().bundle(),'fields':FIELDS,
+                    'synthetic_example_packet':example,
                     'owner_reference_bundle':ReferenceOwnerInput.example().bundle(),'owner_reference_fields':OWNER_FIELDS,
                     'build_manifest':{'schema':'column.build.v1','build_sha256':self.build_id,'files':self.code_hashes},
                     'product_packet':self.workspaces[key].product_draft,'product_fields':PRODUCT_FIELDS,'qualified_catalog':self.qualified_channel.catalog()}
