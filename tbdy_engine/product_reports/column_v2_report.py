@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
+from tbdy_engine.product_reports.column_decision_presenter import present_decision
 from hashlib import sha256
 from html import escape
 from io import BytesIO
@@ -10,6 +11,7 @@ from pathlib import Path
 from tbdy_engine.application.column_reference_workspace import ReferenceCalculation, ReferenceColumnInput, canonical_bytes
 from tbdy_engine.product_reports.vs6_column_design_engine_report import build_vs6_column_design_engine_reports
 from tbdy_engine.product_reports.column_v1_report import PINS, CANDIDATE, HISTORICAL
+from tbdy_engine.application.column_235_coordinate_evidence import load_coordinate_adoption, ADOPTION_NAME, ADOPTION_SHA256
 import json
 
 FIELDS = (
@@ -101,6 +103,7 @@ def reference_manifest(calculation: ReferenceCalculation) -> dict:
             "display_status": "TAMAMLANMADI", "value": None, "limit": None, "unit": "-", "source": "Mevcut VS6 motoru",
             "formula": "Kapasite/aday sonucu mevcut motorun bağımlılık kararına tabidir.", "trace": "Sayısal kapasite sonucu yayımlanmadı.",
             "reason": "Narinlik bağımlılığı veya uygun aday tamamlanmadı; otomatik PASS/FAIL üretilmedi."})
+    for check in checks:check.update(present_decision(check["status"]),origins=["SYNTHETIC_TEST"])
     contributions = [c.as_dict() for c in build_vs6_column_design_engine_reports(result, section_name="Açık referans dikdörtgen kesit")]
     data = {"schema": "column_v2.reference_calculation.v1", "context": calculation.inputs.bundle()["context"],
         "title": "REFERANS / DEMO - Kolon hesabı", "source": calculation.inputs.bundle()["source"],
@@ -127,15 +130,18 @@ def column_235_manifest(repo: Path) -> dict:
     assignment, prop = accepted["assignment"], accepted["property"]
     if assignment["integrity"]["candidate_sha256"] != CANDIDATE or prop["integrity"]["candidate_before_after_sha256"] != CANDIDATE:
         raise ValueError("235 kaynak kimliği farklı.")
+    coordinates = load_coordinate_adoption(repo)
     return {"context": "B-BLOK-235", "title": "B-BLOK / Kolon 235", "status": "EKSİK GİRDİ / HESAPLANMADI",
         "section": assignment["single_assignment_derived"]["candidate_PropName"],
         "I22": prop["property_scope"]["I22"], "I33": prop["property_scope"]["I33"],
         "candidate_sha256": CANDIDATE, "historical_sha256": HISTORICAL,
+        "current_point_coordinates": coordinates["points"], "coordinate_provenance": coordinates["original"],
+        "coordinate_scope": "CURRENT_CANDIDATE_POINT_OBJECT_GLOBAL_M_ONLY", "coordinate_limits": coordinates["qualification_limits"],
         "unavailable": ["Aday modele bağlı açık kesit ölçüleri", "Düzenleyici ln/k ve sistem kararlılığı", "Malzeme tasarım dayanımları", "Yönetmelik kapsamlı tasarım N/M/V ve güncel sonuç dönemi", "Donatı ve sargı bilgileri", "Güncel uç nokta/fiziksel bağlama", "Global deplasman sözleşmesi"],
         "calculations": [], "engineering_verdict": "NOT_EVALUATED", "FC09_PRODUCTION_GATE": "UNCHANGED",
         "GLOBAL_DELTA": "NOT_PROVEN", "M6_B": "OPEN", "R2_RERUN_READY": False,
-        "evidence_refs": {k: {"name": PINS[k][0], "sha256": PINS[k][1]} for k in accepted},
-        "scope": ["Kesit adından boyut üretilmedi.", "I22/I33 yalnız kabul edilmiş m⁴ özelliğini kapsar; tüm model eşdeğerliği değildir.", "Referans sonuçları bu kolona aktarılmadı.", "FC09 tarihsel sonuçları ayrı kanıttır; güncel tasarım yükü değildir."]}
+        "evidence_refs": {**{k: {"name": PINS[k][0], "sha256": PINS[k][1]} for k in accepted}, "coordinates":{"name":ADOPTION_NAME,"sha256":ADOPTION_SHA256}},
+        "scope": ["Kesit adından boyut üretilmedi.", "I22/I33 yalnız kabul edilmiş m⁴ özelliğini kapsar; tüm model eşdeğerliği değildir.", "ABI7 koordinatları güncel aday / Global / m native PointObj olgusudur; Point1/Point2 fiziksel alt/üst rolü veya ln değildir.", "Koordinat gözlemi global deplasman, analysis-joint veya panel-zone sözleşmesini kapatmaz.", "Referans sonuçları bu kolona aktarılmadı.", "FC09 tarihsel sonuçları ayrı kanıttır; güncel tasarım yükü değildir."]}
 
 
 def render_reference_pdf(calculation: ReferenceCalculation) -> bytes:
@@ -164,6 +170,7 @@ def render_manifest_pdf(manifest: dict, *, input_fields=FIELDS) -> bytes:
     styles.add(ParagraphStyle("V2Title", fontName="ColumnV2Bold", fontSize=21, leading=25, spaceAfter=14))
     p = lambda text: Paragraph(escape(str(text)), styles["V2"])
     story = [Paragraph(escape(manifest["title"]), styles["V2Title"]), p("Kaynak: "+("REFERANS / kullanıcı girdisi; ETABS gözlemi değildir." if "input_bundle" in manifest else "Kabul edilmiş aday / ayrı tarihsel FC09")), p("Durum: "+("Hesaplandı - tasarım adayı" if manifest.get("engine_status") == "SELECTED_DESIGN_CANDIDATE_ONLY" else manifest.get("engine_status", manifest.get("status", ""))))]
+    if manifest.get("run_envelope"): story.append(p("Koşu zarfı: "+json.dumps(manifest["run_envelope"],ensure_ascii=False)))
     if "input_bundle" in manifest:
         v = manifest["input_bundle"]["values"]
         story += [Paragraph("Kontrol özeti", styles["V2H"])]
@@ -197,6 +204,11 @@ def render_manifest_pdf(manifest: dict, *, input_fields=FIELDS) -> bytes:
                 p(check["source"]),p(check["formula"]),p(check["trace"]),p(check["reason"])]))
     else:
         story += [p("Kesit: "+manifest["section"]), p("I22 = "+repr(manifest["I22"]["value"])+" m⁴; I33 = "+repr(manifest["I33"]["value"])+" m⁴"),p("Aday SHA256: "+manifest["candidate_sha256"]),p("Tarihsel SHA256: "+manifest["historical_sha256"]),Paragraph("Eksik hesap kapsamı",styles["V2H"])]
+        story += [Paragraph("Güncel aday native nokta koordinatları — Global / m",styles["V2H"])]
+        for point in manifest["current_point_coordinates"]:
+            story.append(p(point['native_slot']+' → '+point['point_name']+'; X='+repr(point['X'])+' m; Y='+repr(point['Y'])+' m; Z='+repr(point['Z'])+' m'))
+        story.append(p('Özgün ABI7 receipt SHA256: '+manifest['coordinate_provenance']['whole_json_sha256']))
+        story.append(p('Native slot sırası; fiziksel alt/üst veya düzenleyici ln türetilmedi.'))
         story.extend(p(item) for item in manifest["unavailable"])
     story.append(Paragraph("Kapsam ve kaynak sınırları", styles["V2H"]))
     story.extend(p(item) for item in manifest["scope"])

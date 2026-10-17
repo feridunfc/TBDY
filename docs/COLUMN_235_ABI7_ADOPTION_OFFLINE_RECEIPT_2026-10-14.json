@@ -1,0 +1,223 @@
+{
+  "scope": "ABI7_ACCEPTED_NATIVE_COORDINATES_OFFLINE_ADOPTION_PRODUCT_AND_METADATA_ONLY_PLAN",
+  "software_base": {
+    "HEAD": "1440df1b9300f75b1e604204438f5cada9ebd247",
+    "TREE": "8c962be58474de12d1aab26b65d177f333e319a0"
+  },
+  "continuing_branch": "worker/column-v1-report-235",
+  "operator_checkpoint": {
+    "HEAD": "9f426f5b6376b9c6da984270171556d2e3b2c496",
+    "TREE": "c557a517d07fa973a8ea5c2aabb3fbb8d65d34fb"
+  },
+  "original_receipt_verification": {
+    "name": "column-r1-r3m-abi7-coordinates_20261014_083705_600_893204f2c8c947248955ba9265ddcfbc.json",
+    "whole_json_sha256": "2e16f45f8aa7347fb49a53cd6fd0d9dfd66c93619705ba9f411e8d6bdf3e6bf1",
+    "sidecar_bytes_sha256": "8fef35063195940461627ede28d1535d6be33ab926f10b5bf53a3cde6576ba9f",
+    "whole_bytes_and_exact_sidecar": "PASS",
+    "two_raw_response_and_typed_hashes": "PASS",
+    "two_metadata_and_wrapper_hashes": "PASS",
+    "source_session_units_lock_before_after": "PASS",
+    "originals_changed": false,
+    "raw_native_responses_added_to_Git": false
+  },
+  "derived_adoption": {
+    "path": "docs/COLUMN_235_ABI7_LIVE_COORDINATES_ADOPTION_2026-10-14.json",
+    "sha256": "75370f7d0c2442d9e66422967d149a5e110e823a058ccb18b0fd698bf4495730"
+  },
+  "validation": {
+    "new_test_count": 41,
+    "new_test_identities": [
+      "tests.etabs.abi7_coordinate_adoption_regression::test_original_byte_drift_is_rejected[0]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_original_byte_drift_is_rejected[1]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_original_pair_adopts_only_two_named_global_coordinates",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[attempts]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[bool_status]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[checkpoint]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[csys]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[errors]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[finite]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[global]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[keyword]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[ln]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[lock]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[matrix]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[metadata]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[modal]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[phase]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[raw_hash]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[raw_type]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[selection]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[session]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[slot]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[source]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[typed_hash]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[units]",
+      "tests.etabs.abi7_coordinate_adoption_regression::test_semantic_mismatch_rejects_without_any_getter[wrapper]",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_actual_http_context_and_export_use_accepted_observation_without_calculation",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_adoption_file_drift_fails_closed",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_client_cannot_overwrite_accepted_point_evidence",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_current_evidence_pdf_and_product_exports_keep_same_points_and_limits",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_derived_authority_or_engineering_promotion_rejected[global]",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_derived_authority_or_engineering_promotion_rejected[ln]",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_derived_authority_or_engineering_promotion_rejected[nonfinite]",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_derived_authority_or_engineering_promotion_rejected[role]",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_derived_authority_or_engineering_promotion_rejected[slot]",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_derived_authority_or_engineering_promotion_rejected[source]",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_derived_authority_or_engineering_promotion_rejected[unit]",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_exact_source_bound_points_leave_design_inputs_empty",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_pinned_coordinate_adoption_bytes_survive_scoped_windows_checkout[false]",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_pinned_coordinate_adoption_bytes_survive_scoped_windows_checkout[true]",
+      "tests.product_reports.test_column_abi7_evidence_adoption::test_section_material_next_step_is_metadata_only_with_exact_existing_owner"
+    ],
+    "new_tests": "41 PASS / 0 FAIL / 0 SKIP",
+    "integrated_unique_PASS": 205,
+    "integrated_unique_FAIL": 0,
+    "integrated_unresolved_SKIP": 0,
+    "initial_run": {
+      "PASS": 202,
+      "SKIP": 1
+    },
+    "explicit_browser_profile_repeat": {
+      "PASS": 1
+    },
+    "new_checkout_regressions": {
+      "PASS": 2,
+      "core_autocrlf": [
+        "true",
+        "false"
+      ],
+      "other_file_EOL_policy_unchanged": true
+    },
+    "V1_passive_regressions": {
+      "PASS": 16,
+      "identities_preserved": true,
+      "source_module_unchanged": true
+    },
+    "accepted_private_test_identity_preservation": {
+      "accepted": 2404,
+      "collected_total": 2445,
+      "missing": [],
+      "unique": 2445,
+      "previous_PASS_authority_reused": true,
+      "full_2404_execution": "NOT_RERUN"
+    },
+    "broad_candidate": {
+      "FAILED": 2,
+      "PASSED": 1161,
+      "SKIPPED": 38
+    },
+    "broad_exact_base": {
+      "FAILED": 2,
+      "PASSED": 1147,
+      "SKIPPED": 39
+    },
+    "broad_after_collection_added_cases": {
+      "PASS": 2,
+      "scope": "two new checkout tests; broad above collected before addition"
+    },
+    "broad_common_real_failures": [
+      "tests/coverage/test_coverage_no_check_execution.py::test_coverage_builder_does_not_import_check_or_legacy_modules",
+      "tests/features/test_generic_resolver.py::test_generic_resolver_does_not_emit_ok_fail_or_import_forbidden_modules"
+    ],
+    "zero_new": "PASS",
+    "new_failures": [],
+    "original_zero_new_parser_sha256": "172aa495c59c1827e03d7d42ab74be40353b8b3441a61fd57d172c57b3c185bb",
+    "optional_launch_profile": {
+      "candidate_exists": true,
+      "exact_base_exists": false,
+      "candidate_selected_test": "PASS",
+      "base_selected_test": "SKIP_EXISTING_OPTIONAL_PROFILE_UNAVAILABLE"
+    },
+    "compile": "PASS",
+    "import": "PASS",
+    "JS_syntax": "PASS",
+    "diff_check": "PASS"
+  },
+  "architecture": {
+    "fresh_exact_base": "1440df1b9300f75b1e604204438f5cada9ebd247",
+    "guard_sets_exactly_equal": true,
+    "candidate": {
+      "PASS": 31,
+      "FAIL": 6
+    },
+    "baseline": {
+      "PASS": 31,
+      "FAIL": 6
+    },
+    "same_failure_identities": [
+      "tests.architecture.test_b4s_scratch_lifecycle_guards::test_private_b4t_transport_is_consumed_only_by_exact_typed_oapi_allowlist",
+      "tests.architecture.test_g1_arch_drift_guards::test_legacy_exception_baseline_is_shrink_only",
+      "tests.architecture.test_g1_arch_drift_guards::test_no_public_raw_sapmodel_escape",
+      "tests.architecture.test_g1_arch_drift_guards::test_provider_and_oapi_dependency_direction",
+      "tests.architecture.test_g1_arch_drift_guards::test_supported_graph_has_zero_forbidden_legacy_tools_or_report_authority",
+      "tests.etabs.test_oapi_layer1_architecture_guards::test_analysis_and_concrete_design_have_exact_authorized_mutation_callsites"
+    ],
+    "mutation_failure_text_equal": true,
+    "new_or_expanded_violations": 0
+  },
+  "protected_surfaces": {
+    "old_ledger_preserved": true,
+    "protected_count": 45,
+    "authorized_drift": [
+      {
+        "path": ".github/workflows/ur_1e_validation.yml",
+        "before": "a9254d8a7014907982e311fd897ba4f5b511154d0eec6984e519e3eabe390fd4",
+        "after": "12719cf429c5073f4e4d2591d3699528f8945f9ca42090076a8a367645db7b0f"
+      }
+    ],
+    "unauthorized_drift": []
+  },
+  "actual_product_interaction": {
+    "status": "PASS",
+    "browser": "153.0.8010.0",
+    "real_HTTP_contexts": [
+      "235",
+      "235-product"
+    ],
+    "downloaded_PDF_JSON_match_screen": true,
+    "visual_inspection": "both UI contexts, evidence PDF 1 page, product PDF 6 pages inspected",
+    "user_design_inputs_empty": true,
+    "checks_remain_BLOCKED": true,
+    "native_calls": 0,
+    "artifact_sha256": {
+      "235_Coordinate_Evidence.json": "0cc9d9fffad1f630179340e3695af6b8092010cbf7959164250f9554d380d685",
+      "235_Coordinate_Evidence.pdf": "12b950bc97009a1d613a8b7f269fab9bb21631f9bf4f831b2d2f29070f87f379",
+      "235_Product_Evidence.json": "83421d4db5ed0aa1402d76376ebc810d6b57f5f6db378123e093c3c2dbe2da56",
+      "235_Product_Evidence.pdf": "dc91aeb2ccd3779d80efe82e4caed6af1c2898e3927ffe106e74dad1f0d2ae47",
+      "Actual_Backend_Execution_R3.jsonl": "cbcf694d947478dcf6727211cb030e3df752eb7a0e37b0a0ddb91c6594490869",
+      "UI_Interaction.json": "2e78d15d9359c0a7ae6f3f5e21ad98001cec782b36677f79af25a21148de19a3"
+    }
+  },
+  "validation_artifact_sha256": {
+    "abi7-adoption-integrated.xml": "7a9b4a17a60f0818facbdc4e3474ef4043a904f5eb735e8be4a8d22dd49c05c9",
+    "abi7-adoption-profile-repeat.xml": "3ff824f0f73524bc0b42a10935bd69784482843b058fa69ee3882de7ca8e93cf",
+    "abi7-adoption-checkout.xml": "c1b8f5d70433bc9b39d0266053359ab70bea7f7de25a4ef3a649eaed54fa2970",
+    "abi7-integrated-statuses.json": "73ec55a6757819d1b757361308fbf51f2b46ffe89987ea078b4b004571fe3a09",
+    "abi7-adoption-private-collection/preservation.json": "9c37ac075637799fac269af799fa73c016e7927f13fe2aa1876bb741b8e25350",
+    "abi7-adoption-private-collection/identities.json": "c30e7aa4665c3672ef886748f14badd4b77ef980765d68f40852f7b7d35250bd",
+    "abi7-architecture-candidate.xml": "c928e232180e5f5266e1f561bfefbdd47e02c764d76ae25854110fe40ce11c10",
+    "abi7-architecture-base.xml": "40f70c5261471edda4e257d31fafbd68b29661a7ac213456016668b401ecf378",
+    "abi7-guards-candidate.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e",
+    "abi7-guards-base.json": "821164ee818931e22d0e621a2ea05ddfd340a8cd4c69669b440f6d3314c08a3e",
+    "abi7-broad-candidate.log": "fd0acb4d29178628b9db8613d6c19daa73357fda40abdbe9a953f02d600580c9",
+    "abi7-broad-base.log": "50e15f271984df1bccf0c46f36e5595ce38cb60c5844f45aba443a33538714d8",
+    "abi7-zero-new/zero-new.log": "0f6a950649c83e70ef02cdd7ecec150a3b284d533d375a39d8a09b1070dc12f0"
+  },
+  "next_exact_causal_edge": "Separate review of existing PropFrame.GetRectangle metadata-only proposal. Native declaration, effective Python call and output order NOT_QUALIFIED. No metadata/getter command authorized.",
+  "boundaries": {
+    "WORKER_ETABS": "NO",
+    "ADDITIONAL_NATIVE_AUTHORIZATION": "NONE",
+    "TWO_READ_AUTHORIZATION": "CONSUMED",
+    "NEW_NATIVE_GETTERS": 0,
+    "NEW_NATIVE_METADATA_CALLS": 0,
+    "172_MATRIX_SCAN": "NOT_STARTED",
+    "RESULT_CAPTURE": "NO",
+    "FC09_PRODUCTION_GATE": "UNCHANGED",
+    "GLOBAL_DELTA": "NOT_PROVEN",
+    "M6_B": "OPEN",
+    "R2_RERUN_READY": false,
+    "REAL_235_FULL_DESIGN_ACCEPTANCE": "NOT_GRANTED",
+    "NEW_MERGE": "NOT_EXECUTED"
+  },
+  "commit_binding": "This derived receipt is attached to the closing Git commit; exact final HEAD/TREE and push are verified after committing, without repinning native operator artifacts."
+}

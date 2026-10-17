@@ -78,7 +78,7 @@ def test_both_zero_moments_keep_four_sign_branches():
 def test_second_order_required_is_blocked_not_fail():
     c=calculate_reference(replace(ReferenceColumnInput(),free_length_mm=6000,moment_ratio_m3=1).bundle());m=reference_manifest(c)
     assert c.engine_result.status=='REQUIRES_MOMENT_MAGNIFICATION'
-    assert m['checks'][1]['display_status']=='EK HESAP GEREKLİ' and m['checks'][-1]['value'] is None
+    assert m['checks'][1]['display_status']=='MOMENT BÜYÜTME GEREKLİ' and m['checks'][-1]['value'] is None
     assert not any(check['status']=='FAIL' for check in m['checks'])
 
 def test_report_projection_matches_engine_and_input(calculation):

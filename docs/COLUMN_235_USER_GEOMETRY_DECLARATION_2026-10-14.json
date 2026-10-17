@@ -1,0 +1,44 @@
+{
+  "schema": "column235.user_declaration.geometry.v1",
+  "source_kind": "USER_DECLARATION_NOT_PROJECT_VERIFIED",
+  "component": "B-BLOK / 235",
+  "candidate_EDB_sha256": "61FA288FE6AA098B16062B0BAAE3FB882937AB68280C93971475AA39B2246621",
+  "declaration_date": "2026-10-14",
+  "supplied_by": "USER_CHAT_MESSAGE",
+  "declared": {
+    "width_local_2_cm": 80,
+    "depth_local_3_cm": 80,
+    "local_2_parallel_to": "GLOBAL_X",
+    "local_2_positive_sign": "NOT_PROVIDED",
+    "local_3_global_direction": "NOT_PROVIDED"
+  },
+  "interpretation": {
+    "packet_width_mm": 800,
+    "packet_depth_mm": 800,
+    "packet_axis_basis": "RECTANGULAR_LOCAL2_LOCAL3",
+    "orientation_sidecar_only": true,
+    "result_formula": "ts500_minimum_eccentricity_mm(h) = 15 mm + 0.03 h",
+    "emin_M2_cm": 3.9,
+    "emin_M3_cm": 3.9,
+    "calculation_status": "UNREVIEWED_NUMERICAL_PREVIEW_NOT_PRODUCT_RESULT",
+    "status": "USER_DRAFT_IMPORTED_REVIEW_REQUIRED"
+  },
+  "exact_product_import_packet_path": "docs/COLUMN_235_USER_GEOMETRY_DRAFT_2026-10-14.json",
+  "review": {
+    "status": "NOT_RECORDED",
+    "reviewer": null,
+    "project_document_reference": null,
+    "reviewed_at": null,
+    "origin": "NOT_ASSIGNED"
+  },
+  "separate_remaining_gates": [
+    "PROJECT_GEOMETRY_REVIEW",
+    "NATIVE_GEOMETRY_GETRECTANGLE_NOT_AUTHORIZED",
+    "CURRENT_SIGNED_NMV_CASE_B5_B6",
+    "M6_B_STABILITY",
+    "FINAL_REBAR"
+  ],
+  "native_getter_invocations": 0,
+  "live_ETABS": false,
+  "design_ready": false
+}

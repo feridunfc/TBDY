@@ -1,0 +1,66 @@
+{
+  "schema": "column235.getrectangle.metadata_offline_source_guard.v1",
+  "status": "OFFLINE_DERIVED_NO_LIVE",
+  "start_head": "a16a9865c93c5b64f91f1571247f42088b233e01",
+  "start_tree": "0cc9adef749c231bd656630e63c01bb539467b7b",
+  "audit_source_sha256": {
+    "docs/COLUMN_R1_R3M_ABI3_LIVE_METADATA_ADOPTION_2026-10-11.json": "bc947dfca94df35cf32453d48c4c412bc5b5a10df72fd38217de4dec80e5b5bc",
+    "docs/COLUMN_R1_R3M_ABI3_WRAPPER_LIVE_ADOPTION_2026-10-11.json": "859765dec3e2caa16d58bc1793b3752e849ac4c8a35214f3126e8c26bef1eadc",
+    "tbdy_engine/catalogs/etabs_feature_source_contract.yaml": "747bca1d938a7d0a75c43e4de8e2909b86998c7cf984afef56c929bdf281cbdf",
+    "tbdy_engine/etabs/oapi/material_properties.py": "7e41a087fa680cf96fec677b8cf0221cc39a4f31e2a23a7726c87b5279660aed",
+    "tbdy_engine/etabs/oapi/object_model.py": "6f2e4ace622059b43f7e89e278f3d1a1c4b32d59739e6f36d9e9284f0b1105cb",
+    "tbdy_engine/features/used_rc_material_population.py": "b712294c5e94937d6ddeb5fa69d763592cec2da78b53536b632841f60a142f7a",
+    "tbdy_engine/application/column_design_basis.py": "3f2e98839657b9722a437706d65c5e35f9e02a963a2bebe0c620cc48b670d6b7",
+    "docs/COLUMN_R1_R3M_ABI4_LIVE_GETSECTION_ADOPTION_2026-10-12.json": "b0cdb95c434c9f9ab3c8fb6cfcbfb3c529aa9b981578081ceb935a7b3a644278",
+    "docs/COLUMN_R1_R3M_ABI5_LIVE_GETSECTPROPS_ADOPTION_2026-10-12.json": "79ba4dc212c6b39283362d292152acb77003467f1b620a13e2790f6be221ea2e"
+  },
+  "external_python_sha256": "ce29772662a3009388f5bdf0b00bd5f62891e9a70797fc952e27c931abdc4756",
+  "external_operator_ps_sha256": "00474d7563f6d6e9d786a316cc4e8fa28786a7e9c4801dd2251da3737827225c",
+  "external_prepare_ps_sha256": "37b11907b21abab99920f807f53c8cb79d9878e11a6442bef815f4c50a03e428",
+  "native_declaration": "PENDING_LIVE",
+  "native_getter_attempts": 0,
+  "live_metadata_authorized": false,
+  "original_abi7": "CLOSED_REUSE_UNCHANGED",
+  "member_spec_sha256": "bc85a42d1daf6d84b2697c7ab0f56f70689db4e97122e06bee40af15e583ada2",
+  "dependency_ast_sha256": "5c4668efa8f7b15c312153d246bebbb29c8ccbbfc671515ec18bac12aa8f9e01",
+  "external_receipts": "NOT_TRACKED",
+  "current_235_design_ready": false,
+  "M6_B": "OPEN",
+  "external_expectation_sha256": "29d16480d3925f024c99f24bca7c0de70a3a809ea603758927bca43ab4822919",
+  "regression_profiles": {
+    "external_getrectangle_synthetic": {
+      "total": 82,
+      "pass": 82,
+      "fail": 0,
+      "error": 0,
+      "skip": 0,
+      "distinct": 82,
+      "junit_sha256": "7946cb313160fe306ab9c0904cc7fcf38078b67527579b64a82cd94385ea31f9"
+    },
+    "prior_package_acceptance": {
+      "pass": 58,
+      "from_previous_checkpoint": true
+    },
+    "prior_repo_guard": {
+      "pass": 5,
+      "from_supervisor_previous_checkpoint": true
+    },
+    "full_repository_2445_collection": "NOT_FRESHLY_VERIFIED_THIS_REVISION"
+  },
+  "scope": "R1_R6_BOUNDED_OFFLINE_OPERATOR_FIX",
+  "review_status": "OFFLINE_SYNTHETIC_VERIFIED_FINAL_PACKAGE_PENDING_SUPERVISOR_REVIEW",
+  "actual_native_metadata": "NOT_EXECUTED",
+  "target_native_getters_executed": 0,
+  "source_api": {
+    "attach_signature": "attach_verified_to_running_etabs(expected_model_full_path, *, pid=None, allow_pid_fallback=False, comtypes_client=None, win32com_client=None)",
+    "fixed_invocation": "attach_verified_to_running_etabs(SOURCE, pid=args.pid, allow_pid_fallback=False)",
+    "source_binding": "exact reviewed checkout import origin + tracked Git object"
+  },
+  "approved_runtime": "Python 3.14.0 / comtypes 1.4.16 / _memberspec exact pinned SHA (runtime gate; Windows import NOT_EXECUTED)",
+  "protected_ledger_reuse": {
+    "previously_approved_drift": 1,
+    "new_unauthorized_drift": 0,
+    "other_44": "NO_CHANGES_TO_SOURCE_SURFACES"
+  },
+  "m6_b": "OPEN"
+}

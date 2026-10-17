@@ -1,0 +1,80 @@
+{
+  "acceptance": {
+    "file": "COLUMN_235_ABI7_ORIGINAL_RECEIPT_SUPERVISOR_ACCEPTANCE_2026-10-14(1).md",
+    "sha256": "63bed245cf20ceb49b559c2ac11012ddb3e003e58d2cd9fba22ee3b7c9a33f79",
+    "status": "ACCEPTED / CLOSED_REUSE"
+  },
+  "observed_integrity": {
+    "PID": 2072,
+    "metadata_sha256": "81ca90983b67c9de85c7256c12c6a768ab7e676ae084d8b8de90e386a084730a",
+    "model_fingerprint": null,
+    "selection": "NOT_READ",
+    "session_units_lock_before_after_equal": true,
+    "source_before_after_equal": true,
+    "wrapper_sha256": "eca6cba1bbb040d61d9f286ac280ffac62dd294cb82cde299b3124ea3af85c9b"
+  },
+  "original": {
+    "capture_HEAD": "9f426f5b6376b9c6da984270171556d2e3b2c496",
+    "capture_TREE": "c557a517d07fa973a8ea5c2aabb3fbb8d65d34fb",
+    "finished_utc": "2026-10-14T05:37:07.042435+00:00",
+    "name": "column-r1-r3m-abi7-coordinates_20261014_083705_600_893204f2c8c947248955ba9265ddcfbc.json",
+    "sidecar_bytes_sha256": "8fef35063195940461627ede28d1535d6be33ab926f10b5bf53a3cde6576ba9f",
+    "started_utc": "2026-10-14T05:37:05.847258+00:00",
+    "whole_json_sha256": "2e16f45f8aa7347fb49a53cd6fd0d9dfd66c93619705ba9f411e8d6bdf3e6bf1"
+  },
+  "points": [
+    {
+      "CSys": "Global",
+      "X": 74.0,
+      "Y": 22.3,
+      "Z": -5.15,
+      "application_return_code": 0,
+      "frame_name": "235",
+      "native_slot": "Point1",
+      "original_response_index": 0,
+      "point_name": "955",
+      "raw_response_sha256": "22b5b9360cce37cd73d5a1265f79517510b1f8618cf9b30de38604ce5d6f6ef8",
+      "typed_raw_evidence_sha256": "ca58f09d00158babdbb82c2b7e1413bfefa0bd554853c8c923b196b27ffb4d79",
+      "unit": "m"
+    },
+    {
+      "CSys": "Global",
+      "X": 74.0,
+      "Y": 22.3,
+      "Z": 0.0,
+      "application_return_code": 0,
+      "frame_name": "235",
+      "native_slot": "Point2",
+      "original_response_index": 1,
+      "point_name": "758",
+      "raw_response_sha256": "42d7a9220bd7e7cecf3fb3ff5f5b5608735e428407240af6615f6976cc7fa143",
+      "typed_raw_evidence_sha256": "a6dbc04bec0d7f1c6701bd181d64b1d735c534e4ff37ac77cb59a395c281ac88",
+      "unit": "m"
+    }
+  ],
+  "qualification_limits": {
+    "B5": null,
+    "B6": null,
+    "GLOBAL_DELTA": "NOT_PROVEN",
+    "M6_B": "OPEN",
+    "R2_RERUN_READY": false,
+    "additional_native_authorization": "NONE",
+    "analysis_joint": "NOT_PROVEN",
+    "bottom_top": "NOT_DERIVED",
+    "panel_zone": "NOT_PROVEN",
+    "real_235_design_ready": false,
+    "regulatory_ln": "NOT_DERIVED"
+  },
+  "schema": "column235.abi7.accepted_coordinates.v1",
+  "software_base": {
+    "HEAD": "1440df1b9300f75b1e604204438f5cada9ebd247",
+    "TREE": "8c962be58474de12d1aab26b65d177f333e319a0"
+  },
+  "source": {
+    "candidate_sha256": "61FA288FE6AA098B16062B0BAAE3FB882937AB68280C93971475AA39B2246621",
+    "historical_sha256": "FC09E5EEB1E195C7141EB992EC501E0004EA733078997C58E1F84D979F70758F",
+    "model_path": "C:\\tmp\\B-BLOK_Revised.EDB"
+  },
+  "two_read_authorization": "CONSUMED",
+  "worker_native_execution": false
+}

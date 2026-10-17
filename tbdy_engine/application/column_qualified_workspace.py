@@ -39,7 +39,9 @@ def exact_data(value):
         return str(value)
     if type(value) is float:
         if not math.isfinite(value): raise ValueError('Nonfinite owner float.')
-        return value
+        # JSON clients stringify -0 as 0. Normalize the report projection
+        # before hashing; original owner objects and receipt bytes are untouched.
+        return 0.0 if value==0.0 else value
     if hasattr(value, 'as_dict'):
         return exact_data(value.as_dict())
     if is_dataclass(value):
@@ -101,6 +103,14 @@ def validate_owner_project(project, scope):
             # FND2's retained candidate states must not be promoted past it.
             _require(c.controlled_design_result is None and c.selected_rebar is None,
                      'B6/selection without retained qualified A23 states.')
+        retained_payload=c.canonical_second_order
+        if retained_payload is not None:
+            _require(retained_payload.get('component_id')==c.component_id,'Retained second-order component drift.')
+            owners=getattr(retained_payload,'owner_artifacts',{})
+            if owners.get('a23') is not None:
+                _require(exact_data(owners['a23'].demand_states)==exact_data(c.a23_demand_states),'Retained A23/Column demand continuity lost.')
+            if c.longitudinal_runtime is not None and owners.get('topology') is not None:
+                _require(owners['topology']==c.longitudinal_runtime.target_topology,'Retained topology/longitudinal geometry drift.')
         execution = c.fnd_col_2_execution
         _require(len(execution.readiness_records) == 1, 'Ambiguous readiness execution.')
         record = execution.readiness_records[0]
@@ -171,6 +181,7 @@ OWNER_OUTPUTS = (
     ('column_shear_limited', 'limited-column shear owner'),
     ('transverse_confinement', 'column_transverse_confinement.evaluate_column_transverse_confinement'),
     ('final_transverse_cage', 'column_final_cage / column_vc_runtime'),
+    ('canonical_second_order', 'column_public_a5 / canonical A17–A23 owners'),
     ('free_length', 'TS500 regulatory free-length owner'),
 )
 
@@ -202,6 +213,9 @@ def project_column_view(project, scope, component_id):
                    'selected_required_area_rows': [] if adequacy is None else [exact_data(r) for r in adequacy.required_area_rows if r.candidate_id == selected_id],
                    'selected_pmm_rows': [] if adequacy is None else [exact_data(r) for r in adequacy.pmm_rows if r.candidate_id == selected_id],
                    'selected_adequacy': [] if adequacy is None else [exact_data(r) for r in adequacy.candidate_assessments if r.candidate_id == selected_id]}
+        if attr == 'canonical_second_order':
+            _require(obj.get('component_id') == component_id,'Second-order component drift.')
+            obj={'payload':exact_data(obj),'retained_owners':exact_data(getattr(obj,'owner_artifacts',{}))}
         data = exact_data(obj)
         outputs[attr] = {'owner': owner, 'artifact_sha256': fingerprint(data), 'data': data}
     contributions = [exact_data(x) for x in project.building_report_model.contributions if x.component_id == component_id]
@@ -219,6 +233,7 @@ def project_column_view(project, scope, component_id):
         'scope': ['Mevcut owner sonuçları iç uygulama nesnelerinden doğrulanarak tüketildi; bu ekranda native lifecycle çalıştırılmadı.',
                   'FND2 readiness, uygulama engelleri ve coverage kararları ayrı tutulur; tam tasarım onayı çıkarılmaz.',
                   'Offline test lifecycle gerçek B-BLOK/235 üretim kanıtı değildir. FC09 gate değişmedi.']}
+    payload['input_sha256']=fingerprint({'scope_identity':scope_data,'demand_states':payload['demand_states'],'owner_artifacts':{key:value['artifact_sha256'] for key,value in outputs.items()}})
     payload['result_id'] = 'column-owner-result:sha256:'+fingerprint(payload)
     return payload
 
